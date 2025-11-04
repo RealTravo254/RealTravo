@@ -19,7 +19,6 @@ import EventDetail from "./pages/EventDetail";
 import HotelDetail from "./pages/HotelDetail";
 import AdventurePlaceDetail from "./pages/AdventurePlaceDetail";
 import AdminDashboard from "./pages/AdminDashboard";
-import BusinessDashboard from "./pages/BusinessDashboard";
 
 const queryClient = new QueryClient();
 
@@ -45,7 +44,6 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/business" element={<BusinessDashboard />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

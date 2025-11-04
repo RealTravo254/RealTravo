@@ -134,48 +134,6 @@ export type Database = {
         }
         Relationships: []
       }
-      business_accounts: {
-        Row: {
-          admin_notes: string | null
-          approval_status: string
-          approved_at: string | null
-          approved_by: string | null
-          business_name: string
-          business_phone_number: string
-          business_registration_number: string
-          business_type: Database["public"]["Enums"]["business_account_type"]
-          created_at: string
-          id: string
-          updated_at: string
-        }
-        Insert: {
-          admin_notes?: string | null
-          approval_status?: string
-          approved_at?: string | null
-          approved_by?: string | null
-          business_name: string
-          business_phone_number: string
-          business_registration_number: string
-          business_type: Database["public"]["Enums"]["business_account_type"]
-          created_at?: string
-          id: string
-          updated_at?: string
-        }
-        Update: {
-          admin_notes?: string | null
-          approval_status?: string
-          approved_at?: string | null
-          approved_by?: string | null
-          business_name?: string
-          business_phone_number?: string
-          business_registration_number?: string
-          business_type?: Database["public"]["Enums"]["business_account_type"]
-          created_at?: string
-          id?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       events: {
         Row: {
           admin_notes: string | null

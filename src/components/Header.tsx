@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Menu, User, Heart, Ticket, Video, Shield, Briefcase } from "lucide-react";
+import { Menu, Heart, Ticket, Video, Shield, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/AuthContext";
@@ -72,6 +72,25 @@ export const Header = () => {
         </div>
 
         <nav className="hidden md:flex items-center gap-6">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="default" className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                Create
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="center">
+              <DropdownMenuItem asChild>
+                <Link to="/create/trip-event" className="cursor-pointer">Trip & Event</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to="/create/hotel" className="cursor-pointer">Hotel & Accommodation</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to="/create/adventure" className="cursor-pointer">Place to Adventure</Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Link to="/bookings" className="flex items-center gap-2 font-bold hover:text-primary transition-colors">
             <Ticket className="h-4 w-4" />
             My Bookings
@@ -111,14 +130,6 @@ export const Header = () => {
                     <Link to="/admin" className="cursor-pointer flex items-center gap-2">
                       <Shield className="h-4 w-4" />
                       Admin Dashboard
-                    </Link>
-                  </DropdownMenuItem>
-                )}
-                {userRole === "business" && (
-                  <DropdownMenuItem asChild>
-                    <Link to="/business" className="cursor-pointer flex items-center gap-2">
-                      <Briefcase className="h-4 w-4" />
-                      Business Dashboard
                     </Link>
                   </DropdownMenuItem>
                 )}

@@ -8,7 +8,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { SignupForm } from "@/components/auth/SignupForm";
-import { BusinessSignupForm } from "@/components/auth/BusinessSignupForm";
 
 const Auth = () => {
   const [activeTab, setActiveTab] = useState("login");
@@ -29,12 +28,11 @@ const Auth = () => {
     <div className="min-h-screen bg-background pb-20 md:pb-0">
       <Header />
       
-      <main className="container px-4 py-8 max-w-5xl mx-auto">
+      <main className="container px-4 py-8 max-w-md mx-auto">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="login">Login</TabsTrigger>
             <TabsTrigger value="signup">Sign Up</TabsTrigger>
-            <TabsTrigger value="business">Business</TabsTrigger>
           </TabsList>
 
           <TabsContent value="login">
@@ -56,25 +54,11 @@ const Auth = () => {
               <CardHeader>
                 <CardTitle>Create an account</CardTitle>
                 <CardDescription>
-                  Sign up for a standard user account
+                  Sign up to start creating and booking
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <SignupForm />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="business">
-            <Card>
-              <CardHeader>
-                <CardTitle>Create a Business Account</CardTitle>
-                <CardDescription>
-                  Register your business to list your services
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <BusinessSignupForm />
               </CardContent>
             </Card>
           </TabsContent>

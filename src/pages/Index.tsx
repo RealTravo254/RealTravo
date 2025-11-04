@@ -5,7 +5,6 @@ import { MobileBottomBar } from "@/components/MobileBottomBar";
 import { CategoryCard } from "@/components/CategoryCard";
 import { SearchBar } from "@/components/SearchBar";
 import { ListingCard } from "@/components/ListingCard";
-import { VlogSection } from "@/components/VlogSection";
 import { Footer } from "@/components/Footer";
 import { Calendar, Hotel, Mountain } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -252,8 +251,6 @@ const Index = () => {
           </section>
         )}
 
-        {/* Vlog Section */}
-        <VlogSection />
       </main>
 
       <Footer />

@@ -34,6 +34,9 @@ interface AdventurePlace {
   email: string;
   facilities: Facility[];
   activities: Activity[];
+  amenities: string[];
+  registration_number: string;
+  map_link: string;
 }
 
 const AdventurePlaceDetail = () => {
@@ -90,8 +93,12 @@ const AdventurePlaceDetail = () => {
   };
 
   const openInMaps = () => {
-    const query = encodeURIComponent(`${place?.name}, ${place?.location}, ${place?.country}`);
-    window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
+    if (place?.map_link) {
+      window.open(place.map_link, '_blank');
+    } else {
+      const query = encodeURIComponent(`${place?.name}, ${place?.location}, ${place?.country}`);
+      window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
+    }
   };
 
   if (loading) {
@@ -160,6 +167,19 @@ const AdventurePlaceDetail = () => {
                 </span>
               </div>
             </div>
+
+            {place.amenities && place.amenities.length > 0 && (
+              <div>
+                <h2 className="text-xl font-semibold mb-2">Amenities</h2>
+                <div className="flex flex-wrap gap-2">
+                  {place.amenities.map((amenity, idx) => (
+                    <span key={idx} className="bg-secondary px-3 py-1 rounded-full text-sm">
+                      {amenity}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {place.facilities && place.facilities.length > 0 && (
               <div>

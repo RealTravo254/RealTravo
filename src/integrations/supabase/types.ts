@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           activities: Json | null
           admin_notes: string | null
+          amenities: Json | null
           approval_status: string
           approved_at: string | null
           approved_by: string | null
@@ -38,10 +39,12 @@ export type Database = {
           name: string
           phone_numbers: string[] | null
           place: string
+          registration_number: string | null
         }
         Insert: {
           activities?: Json | null
           admin_notes?: string | null
+          amenities?: Json | null
           approval_status?: string
           approved_at?: string | null
           approved_by?: string | null
@@ -62,10 +65,12 @@ export type Database = {
           name: string
           phone_numbers?: string[] | null
           place: string
+          registration_number?: string | null
         }
         Update: {
           activities?: Json | null
           admin_notes?: string | null
+          amenities?: Json | null
           approval_status?: string
           approved_at?: string | null
           approved_by?: string | null
@@ -86,6 +91,7 @@ export type Database = {
           name?: string
           phone_numbers?: string[] | null
           place?: string
+          registration_number?: string | null
         }
         Relationships: []
       }
@@ -255,6 +261,7 @@ export type Database = {
           name: string
           phone_numbers: string[] | null
           place: string
+          registration_number: string | null
         }
         Insert: {
           admin_notes?: string | null
@@ -277,6 +284,7 @@ export type Database = {
           name: string
           phone_numbers?: string[] | null
           place: string
+          registration_number?: string | null
         }
         Update: {
           admin_notes?: string | null
@@ -299,6 +307,7 @@ export type Database = {
           name?: string
           phone_numbers?: string[] | null
           place?: string
+          registration_number?: string | null
         }
         Relationships: []
       }

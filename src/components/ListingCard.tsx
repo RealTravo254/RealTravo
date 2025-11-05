@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ListingCardProps {
   id: string;
@@ -36,8 +37,17 @@ export const ListingCard = ({
   const [saved, setSaved] = useState(isSaved);
   const navigate = useNavigate();
 
-  const handleSave = (e: React.MouseEvent) => {
+  const handleSave = async (e: React.MouseEvent) => {
     e.stopPropagation();
+    
+    // Check if user is logged in
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      // Redirect to login
+      navigate("/auth");
+      return;
+    }
+    
     setSaved(!saved);
     onSave?.(id, type.toLowerCase().replace(" ", "_"));
   };

@@ -1,4 +1,4 @@
-import { Home, Ticket, Heart, Phone, Info, Video, Plus, Edit, Package } from "lucide-react";
+import { Home, Ticket, Heart, Phone, Info, Video, Plus, Edit, Package, LogIn } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -44,36 +44,46 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
 
       <nav className="flex-1 p-4">
         <ul className="space-y-2">
-          {user && (
-            <li className="mb-4">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="default" className="w-full flex items-center justify-center gap-2">
-                    <Plus className="h-4 w-4" />
-                    Create
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-56">
-                  <DropdownMenuItem asChild>
-                    <Link to="/create/trip-event" onClick={onClose} className="cursor-pointer">
-                      Trip & Event
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/create/hotel" onClick={onClose} className="cursor-pointer">
-                      Hotel & Accommodation
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/create/adventure" onClick={onClose} className="cursor-pointer">
-                      Place to Adventure
-                    </Link>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </li>
-          )}
-          
+          <li className="mb-4">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="default" className="w-full flex items-center justify-center gap-2">
+                  <Plus className="h-4 w-4" />
+                  Create
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                <DropdownMenuItem asChild>
+                  <Link 
+                    to={user ? "/create-trip-event" : "/auth"} 
+                    onClick={onClose} 
+                    className="cursor-pointer"
+                  >
+                    Trip & Event
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link 
+                    to={user ? "/create-hotel" : "/auth"} 
+                    onClick={onClose} 
+                    className="cursor-pointer"
+                  >
+                    Hotel & Accommodation
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link 
+                    to={user ? "/create-adventure" : "/auth"} 
+                    onClick={onClose} 
+                    className="cursor-pointer"
+                  >
+                    Place to Adventure
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </li>
+
           {user && (
             <li>
               <Link
@@ -103,6 +113,19 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
               </Link>
             </li>
           ))}
+
+          {!user && (
+            <li className="mt-4">
+              <Link
+                to="/auth"
+                onClick={onClose}
+                className="flex items-center gap-3 px-4 py-3 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200"
+              >
+                <LogIn className="h-5 w-5" />
+                <span className="font-medium">Login</span>
+              </Link>
+            </li>
+          )}
         </ul>
       </nav>
 

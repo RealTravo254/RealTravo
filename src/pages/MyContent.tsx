@@ -3,6 +3,7 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { MobileBottomBar } from "@/components/MobileBottomBar";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -12,6 +13,7 @@ const MyContent = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [bookings, setBookings] = useState<any[]>([]);
+  const [myContent, setMyContent] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -20,35 +22,40 @@ const MyContent = () => {
       return;
     }
 
-    const fetchBookings = async () => {
-      // Fetch bookings for user's trips
-      const { data: tripIds } = await supabase
+    const fetchData = async () => {
+      // Fetch user's created content with approval status
+      const { data: trips } = await supabase
         .from("trips")
-        .select("id")
+        .select("*, bookings(*)")
         .eq("created_by", user.id);
 
-      const { data: eventIds } = await supabase
+      const { data: events } = await supabase
         .from("events")
-        .select("id")
+        .select("*, bookings(*)")
         .eq("created_by", user.id);
 
-      const { data: hotelIds } = await supabase
+      const { data: hotels } = await supabase
         .from("hotels")
-        .select("id")
+        .select("*, bookings(*)")
         .eq("created_by", user.id);
 
-      const { data: adventureIds } = await supabase
+      const { data: adventures } = await supabase
         .from("adventure_places")
-        .select("id")
+        .select("*, bookings(*)")
         .eq("created_by", user.id);
 
-      const allIds = [
-        ...(tripIds?.map(t => t.id) || []),
-        ...(eventIds?.map(e => e.id) || []),
-        ...(hotelIds?.map(h => h.id) || []),
-        ...(adventureIds?.map(a => a.id) || [])
+      // Combine all content with type labels
+      const allContent = [
+        ...(trips?.map(t => ({ ...t, type: "trip" })) || []),
+        ...(events?.map(e => ({ ...e, type: "event" })) || []),
+        ...(hotels?.map(h => ({ ...h, type: "hotel" })) || []),
+        ...(adventures?.map(a => ({ ...a, type: "adventure" })) || [])
       ];
 
+      setMyContent(allContent);
+
+      // Fetch all bookings
+      const allIds = allContent.map(c => c.id);
       if (allIds.length > 0) {
         const { data } = await supabase
           .from("bookings")
@@ -62,7 +69,7 @@ const MyContent = () => {
       setLoading(false);
     };
 
-    fetchBookings();
+    fetchData();
   }, [user, navigate]);
 
   return (
@@ -72,10 +79,56 @@ const MyContent = () => {
       <main className="container px-4 py-8">
         <h1 className="text-3xl font-bold mb-8">My Content & Bookings</h1>
 
-        <Tabs defaultValue="bookings" className="w-full">
+        <Tabs defaultValue="content" className="w-full">
           <TabsList>
+            <TabsTrigger value="content">My Listings</TabsTrigger>
             <TabsTrigger value="bookings">Received Bookings</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="content" className="space-y-4">
+            {loading ? (
+              <p>Loading...</p>
+            ) : myContent.length === 0 ? (
+              <Card className="p-6 text-center text-muted-foreground">
+                No content created yet
+              </Card>
+            ) : (
+              myContent.map((item) => (
+                <Card key={item.id} className="p-6">
+                  <div className="flex gap-4">
+                    <img 
+                      src={item.image_url} 
+                      alt={item.name}
+                      className="w-32 h-32 object-cover rounded"
+                    />
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-center gap-3">
+                        <h3 className="text-xl font-semibold">{item.name}</h3>
+                        <Badge className="capitalize">{item.type}</Badge>
+                      </div>
+                      <p className="text-sm"><span className="font-medium">Location:</span> {item.location}, {item.country}</p>
+                      <p className="text-sm"><span className="font-medium">Phone:</span> {item.phone_number || item.phone_numbers?.[0] || "N/A"}</p>
+                      <p className="text-sm"><span className="font-medium">Email:</span> {item.email || "N/A"}</p>
+                      {item.registration_number && (
+                        <p className="text-sm"><span className="font-medium">Registration #:</span> {item.registration_number}</p>
+                      )}
+                      <p className="text-sm">
+                        <span className="font-medium">Status:</span>{" "}
+                        <Badge variant={
+                          item.approval_status === 'approved' ? 'default' :
+                          item.approval_status === 'pending' ? 'secondary' :
+                          'destructive'
+                        }>
+                          {item.approval_status}
+                        </Badge>
+                      </p>
+                      <p className="text-sm"><span className="font-medium">Total Bookings:</span> {item.bookings?.length || 0}</p>
+                    </div>
+                  </div>
+                </Card>
+              ))
+            )}
+          </TabsContent>
 
           <TabsContent value="bookings" className="space-y-4">
             {loading ? (

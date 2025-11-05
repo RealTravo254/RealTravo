@@ -11,7 +11,7 @@ import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { MapPin, Upload, Mail, Phone, DollarSign } from "lucide-react";
+import { MapPin, Mail, Phone, DollarSign } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const CreateAdventure = () => {
@@ -26,12 +26,13 @@ const CreateAdventure = () => {
     location: "",
     place: "",
     country: "",
-    image_url: "",
     email: "",
     phone_numbers: "",
     entry_fee_type: "free",
     entry_fee: "",
-    map_link: ""
+    map_link: "",
+    registrationNumber: "",
+    amenities: ""
   });
   
   const [facilities, setFacilities] = useState<Array<{name: string, price: string}>>([{name: "", price: ""}]);
@@ -89,7 +90,7 @@ const CreateAdventure = () => {
         const fileExt = file.name.split('.').pop();
         const fileName = `${user.id}/${Math.random()}.${fileExt}`;
         
-        const { error: uploadError, data } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
           .from('user-content-images')
           .upload(fileName, file);
 
@@ -107,6 +108,11 @@ const CreateAdventure = () => {
         .map(p => p.trim())
         .filter(p => p);
 
+      const amenitiesArray = formData.amenities
+        .split(',')
+        .map(a => a.trim())
+        .filter(a => a);
+
       const activitiesArray = activities
         .filter(a => a.name.trim())
         .map(a => ({ name: a.name.trim(), price: parseFloat(a.price) || 0 }));
@@ -123,15 +129,17 @@ const CreateAdventure = () => {
           location: formData.location,
           place: formData.place,
           country: formData.country,
-          image_url: uploadedUrls[0] || formData.image_url,
+          image_url: uploadedUrls[0] || "",
           gallery_images: uploadedUrls,
           map_link: formData.map_link || null,
+          registration_number: formData.registrationNumber || null,
           email: formData.email || null,
           phone_numbers: phoneArray.length > 0 ? phoneArray : null,
           entry_fee_type: formData.entry_fee_type,
           entry_fee: formData.entry_fee ? parseFloat(formData.entry_fee) : 0,
           activities: activitiesArray.length > 0 ? activitiesArray : null,
           facilities: facilitiesArray.length > 0 ? facilitiesArray : null,
+          amenities: amenitiesArray.length > 0 ? amenitiesArray : null,
           created_by: user.id
         }]);
 
@@ -217,6 +225,16 @@ const CreateAdventure = () => {
               </div>
 
               <div className="space-y-2">
+                <Label htmlFor="registrationNumber">Registration Number</Label>
+                <Input
+                  id="registrationNumber"
+                  value={formData.registrationNumber}
+                  onChange={(e) => setFormData({...formData, registrationNumber: e.target.value})}
+                  placeholder="Enter registration number (if applicable)"
+                />
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="entry_fee_type">Entry Fee Type *</Label>
                 <Select
                   value={formData.entry_fee_type}
@@ -280,6 +298,17 @@ const CreateAdventure = () => {
                 </div>
                 <p className="text-sm text-muted-foreground">Separate multiple numbers with commas</p>
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="map_link">Map Location Link</Label>
+                <Input
+                  id="map_link"
+                  value={formData.map_link}
+                  onChange={(e) => setFormData({...formData, map_link: e.target.value})}
+                  placeholder="https://maps.google.com/..."
+                />
+                <p className="text-sm text-muted-foreground">Add Google Maps or other map link</p>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -294,14 +323,14 @@ const CreateAdventure = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="map_link">Map Location Link</Label>
+              <Label htmlFor="amenities">Amenities</Label>
               <Input
-                id="map_link"
-                value={formData.map_link}
-                onChange={(e) => setFormData({...formData, map_link: e.target.value})}
-                placeholder="https://maps.google.com/..."
+                id="amenities"
+                value={formData.amenities}
+                onChange={(e) => setFormData({...formData, amenities: e.target.value})}
+                placeholder="WiFi, Free Breakfast, Transportation, etc."
               />
-              <p className="text-sm text-muted-foreground">Add Google Maps or other map link</p>
+              <p className="text-sm text-muted-foreground">Separate multiple amenities with commas. These will be visible to all users.</p>
             </div>
 
             <div className="space-y-4">

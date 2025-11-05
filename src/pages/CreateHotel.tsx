@@ -29,10 +29,13 @@ const CreateHotel = () => {
     email: "",
     phone_numbers: "",
     map_link: "",
+    registrationNumber: "",
     amenities: ""
   });
   
-  const [facilities, setFacilities] = useState<Array<{name: string, price: string}>>([{name: "", price: ""}]);
+  const [facilities, setFacilities] = useState<Array<{name: string, price: string, capacity: string}>>([
+    {name: "", price: "", capacity: ""}
+  ]);
   const [galleryImages, setGalleryImages] = useState<File[]>([]);
 
   const handleImageUpload = async (files: FileList | null) => {
@@ -47,11 +50,13 @@ const CreateHotel = () => {
   };
 
   const addFacility = () => {
-    setFacilities([...facilities, {name: "", price: ""}]);
+    setFacilities([...facilities, {name: "", price: "", capacity: ""}]);
   };
 
   const removeFacility = (index: number) => {
-    setFacilities(facilities.filter((_, i) => i !== index));
+    if (facilities.length > 1) {
+      setFacilities(facilities.filter((_, i) => i !== index));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -64,6 +69,17 @@ const CreateHotel = () => {
         variant: "destructive"
       });
       navigate("/auth");
+      return;
+    }
+
+    // Validate at least one facility
+    const validFacilities = facilities.filter(f => f.name && f.price && f.capacity);
+    if (validFacilities.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please add at least one facility with name, price, and capacity",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -100,9 +116,11 @@ const CreateHotel = () => {
         .map(a => a.trim())
         .filter(a => a);
 
-      const facilitiesArray = facilities
-        .filter(f => f.name.trim())
-        .map(f => ({ name: f.name.trim(), price: parseFloat(f.price) || 0 }));
+      const facilitiesArray = validFacilities.map(f => ({ 
+        name: f.name.trim(), 
+        price: parseFloat(f.price),
+        capacity: parseInt(f.capacity)
+      }));
 
       const { error } = await supabase
         .from("hotels")
@@ -115,9 +133,10 @@ const CreateHotel = () => {
           image_url: uploadedUrls[0] || "",
           gallery_images: uploadedUrls,
           map_link: formData.map_link || null,
+          registration_number: formData.registrationNumber,
           email: formData.email || null,
           phone_numbers: phoneArray.length > 0 ? phoneArray : null,
-          facilities: facilitiesArray.length > 0 ? facilitiesArray : null,
+          facilities: facilitiesArray,
           amenities: amenitiesArray.length > 0 ? amenitiesArray : null,
           created_by: user.id
         }]);
@@ -201,6 +220,17 @@ const CreateHotel = () => {
               </div>
 
               <div className="space-y-2">
+                <Label htmlFor="registrationNumber">Registration Number *</Label>
+                <Input
+                  id="registrationNumber"
+                  required
+                  value={formData.registrationNumber}
+                  onChange={(e) => setFormData({...formData, registrationNumber: e.target.value})}
+                  placeholder="Enter registration number"
+                />
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="email">Contact Email</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -229,6 +259,17 @@ const CreateHotel = () => {
                 </div>
                 <p className="text-sm text-muted-foreground">Separate multiple numbers with commas</p>
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="map_link">Map Location Link</Label>
+                <Input
+                  id="map_link"
+                  type="url"
+                  value={formData.map_link}
+                  onChange={(e) => setFormData({...formData, map_link: e.target.value})}
+                  placeholder="https://maps.google.com/..."
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -240,6 +281,73 @@ const CreateHotel = () => {
                 placeholder="Describe your hotel and accommodation..."
                 rows={5}
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="amenities">Amenities</Label>
+              <Input
+                id="amenities"
+                value={formData.amenities}
+                onChange={(e) => setFormData({...formData, amenities: e.target.value})}
+                placeholder="Free WiFi, Air Conditioning, Bathroom, etc."
+              />
+              <p className="text-sm text-muted-foreground">Separate multiple amenities with commas</p>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <Label>Facilities (Room Types) - Minimum 1 required *</Label>
+                <Button type="button" onClick={addFacility} variant="outline" size="sm">
+                  Add Facility
+                </Button>
+              </div>
+              
+              {facilities.map((facility, index) => (
+                <div key={index} className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                  <Input
+                    placeholder="Room type (e.g., Deluxe Suite)"
+                    value={facility.name}
+                    onChange={(e) => {
+                      const newFacilities = [...facilities];
+                      newFacilities[index].name = e.target.value;
+                      setFacilities(newFacilities);
+                    }}
+                    required
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Price/day"
+                    value={facility.price}
+                    onChange={(e) => {
+                      const newFacilities = [...facilities];
+                      newFacilities[index].price = e.target.value;
+                      setFacilities(newFacilities);
+                    }}
+                    required
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Capacity"
+                    value={facility.capacity}
+                    onChange={(e) => {
+                      const newFacilities = [...facilities];
+                      newFacilities[index].capacity = e.target.value;
+                      setFacilities(newFacilities);
+                    }}
+                    required
+                  />
+                  {facilities.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      onClick={() => removeFacility(index)}
+                    >
+                      ×
+                    </Button>
+                  )}
+                </div>
+              ))}
             </div>
 
             <div className="space-y-2">
@@ -278,7 +386,7 @@ const CreateHotel = () => {
 
             <div className="flex gap-4 pt-4">
               <Button type="submit" disabled={loading} className="flex-1">
-                {loading ? "Submitting..." : "Submit for Approval"}
+                {uploading ? "Uploading Images..." : loading ? "Submitting..." : "Submit for Approval"}
               </Button>
               <Button type="button" variant="outline" onClick={() => navigate(-1)}>
                 Cancel

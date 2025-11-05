@@ -28,6 +28,8 @@ interface Hotel {
   phone_numbers: string[];
   email: string;
   facilities: Facility[];
+  registration_number: string;
+  map_link: string;
 }
 
 const HotelDetail = () => {
@@ -84,8 +86,12 @@ const HotelDetail = () => {
   };
 
   const openInMaps = () => {
-    const query = encodeURIComponent(`${hotel?.name}, ${hotel?.location}, ${hotel?.country}`);
-    window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
+    if (hotel?.map_link) {
+      window.open(hotel.map_link, '_blank');
+    } else {
+      const query = encodeURIComponent(`${hotel?.name}, ${hotel?.location}, ${hotel?.country}`);
+      window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
+    }
   };
 
   if (loading) {

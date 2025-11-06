@@ -62,7 +62,9 @@ const Index = () => {
       return;
     }
 
-    const query = `%${searchQuery.toLowerCase()}%`;
+    // Sanitize search query to prevent SQL injection
+    const sanitizedQuery = searchQuery.toLowerCase().replace(/[%_]/g, '\\$&');
+    const query = `%${sanitizedQuery}%`;
     
     const [tripsData, eventsData, hotelsData, adventurePlacesData] = await Promise.all([
       supabase.from("trips").select("*").or(`name.ilike.${query},location.ilike.${query},country.ilike.${query},place.ilike.${query}`),
@@ -79,6 +81,7 @@ const Index = () => {
 
   const handleSave = async (itemId: string, itemType: string) => {
     const isSaved = savedItems.has(itemId);
+    const { data: { user } } = await supabase.auth.getUser();
     
     if (isSaved) {
       const { error } = await supabase
@@ -98,7 +101,7 @@ const Index = () => {
     } else {
       const { error } = await supabase
         .from("saved_items")
-        .insert({ item_id: itemId, item_type: itemType, session_id: sessionId });
+        .insert({ item_id: itemId, item_type: itemType, session_id: sessionId, user_id: user?.id || null });
       
       if (!error) {
         setSavedItems(prev => new Set([...prev, itemId]));

@@ -43,6 +43,8 @@ const Saved = () => {
   };
 
   const handleUnsave = async (itemId: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    
     const { error } = await supabase
       .from("saved_items")
       .delete()

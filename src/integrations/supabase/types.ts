@@ -348,6 +348,7 @@ export type Database = {
           item_id: string
           item_type: string
           session_id: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string
@@ -355,6 +356,7 @@ export type Database = {
           item_id: string
           item_type: string
           session_id: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string
@@ -362,6 +364,7 @@ export type Database = {
           item_id?: string
           item_type?: string
           session_id?: string
+          user_id?: string | null
         }
         Relationships: []
       }

@@ -53,7 +53,7 @@ const Index = () => {
       .from("saved_items")
       .select("item_id")
       .eq("session_id", sessionId);
-    
+
     if (data) {
       setSavedItems(new Set(data.map(item => item.item_id)));
     }
@@ -68,7 +68,7 @@ const Index = () => {
     // Sanitize search query to prevent SQL injection
     const sanitizedQuery = searchQuery.toLowerCase().replace(/[%_]/g, '\\$&');
     const query = `%${sanitizedQuery}%`;
-    
+
     const [tripsData, eventsData, hotelsData, adventurePlacesData] = await Promise.all([
       supabase.from("trips").select("*").or(`name.ilike.${query},location.ilike.${query},country.ilike.${query},place.ilike.${query}`),
       supabase.from("events").select("*").or(`name.ilike.${query},location.ilike.${query},country.ilike.${query},place.ilike.${query}`),
@@ -85,14 +85,14 @@ const Index = () => {
   const handleSave = async (itemId: string, itemType: string) => {
     const isSaved = savedItems.has(itemId);
     const { data: { user } } = await supabase.auth.getUser();
-    
+
     if (isSaved) {
       const { error } = await supabase
         .from("saved_items")
         .delete()
         .eq("item_id", itemId)
         .eq("session_id", sessionId);
-      
+
       if (!error) {
         setSavedItems(prev => {
           const newSet = new Set(prev);
@@ -105,7 +105,7 @@ const Index = () => {
       const { error } = await supabase
         .from("saved_items")
         .insert({ item_id: itemId, item_type: itemType, session_id: sessionId, user_id: user?.id || null });
-      
+
       if (!error) {
         setSavedItems(prev => new Set([...prev, itemId]));
         toast({ title: "Added to saved!" });
@@ -137,8 +137,8 @@ const Index = () => {
 return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
       <Header />
-      
-      <main className="container px-4 py-8 space-y-12">
+
+      <main className="container px-4 py-8 space-y-8 md:space-y-12"> {/* Reduced vertical space on mobile */}
         {/* Search */}
         <section>
           <SearchBarWithSuggestions
@@ -151,8 +151,7 @@ return (
         {/* Categories */}
         <section>
           <h2 className="text-3xl font-bold mb-6 text-center md:block hidden">What are you looking for?</h2>
-          {/* Changed gap-3 to gap-2 for a more compact look on small screens */}
-          <div className="grid grid-cols-3 md:grid-cols-3 gap-2 md:gap-6">
+          <div className="grid grid-cols-3 md:grid-cols-3 gap-3 md:gap-6"> {/* Reduced gap on mobile */}
             {categories.map((category) => (
               <CategoryCard
                 key={category.title}
@@ -160,8 +159,7 @@ return (
                 title={category.title}
                 description={category.description}
                 onClick={() => navigate(category.path)}
-                // Changed md:p-6 to p-3 md:p-6 to reduce padding on small screens
-                className="p-3 md:p-6"
+                className="p-3 md:p-6" // Reduced padding on mobile
               />
             ))}
           </div>
@@ -169,8 +167,7 @@ return (
 
         {/* COMBINED LISTINGS: Trips, Events, Hotels, and Adventure Places */}
 <section>
-  {/* Reduced gap from gap-4 to gap-2 on small screens */}
-  <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-6">
+  <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-6"> {/* Significantly reduced gap on small screens (mobile) */}
     {loading ? (
       // Display shimmer loading effect if loading
       <>
@@ -180,12 +177,12 @@ return (
             className="group relative rounded-xl overflow-hidden shadow-lg border-2 border-transparent transition-all duration-300 hover:shadow-xl"
           >
             <div className="aspect-[4/3] bg-muted animate-pulse" />
-            <div className="p-2 space-y-2"> {/* Reduced padding and space-y */}
-              <div className="h-4 bg-muted animate-pulse rounded w-3/4" /> {/* Reduced height */}
-              <div className="h-3 bg-muted animate-pulse rounded w-1/2" /> {/* Reduced height */}
-              <div className="h-3 bg-muted animate-pulse rounded w-2/3" /> {/* Reduced height */}
+            <div className="p-2 md:p-4 space-y-2 md:space-y-3"> {/* Reduced padding and space on mobile */}
+              <div className="h-4 bg-muted animate-pulse rounded w-3/4" />
+              <div className="h-3 bg-muted animate-pulse rounded w-1/2" />
+              <div className="h-3 bg-muted animate-pulse rounded w-2/3" />
               {/* Price/Date placeholder for Trips/Events */}
-              <div className="h-5 bg-muted animate-pulse rounded w-1/3 mt-1" /> {/* Reduced height and margin */}
+              <div className="h-4 bg-muted animate-pulse rounded w-1/3 mt-1" />
             </div>
           </div>
         ))}
@@ -197,8 +194,7 @@ return (
         {trips.map((trip) => (
           <div
             key={trip.id}
-            className="group relative rounded-xl overflow-hidden shadow-md cursor-pointer border border-gray-100 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]"
-            // Assuming ListingCard accepts onClick to navigate/view details
+            className="group relative rounded-xl overflow-hidden shadow-sm cursor-pointer border border-gray-100 transition-all duration-300 hover:shadow-lg hover:scale-[1.01]" // Reduced shadow and scale for tighter fit
           >
             <div className="relative aspect-[4/3] overflow-hidden">
               <ListingCard
@@ -208,46 +204,24 @@ return (
                 imageUrl={trip.image_url}
                 location={trip.location}
                 country={trip.country}
-                // Price and Date are intentionally excluded here to be handled manually in the wrapper
+                // Pass a prop to ListingCard to apply small screen styles for its internal save button
+                smallScreenStyles={true} 
                 onSave={handleSave}
-                // Pass the small-screen-specific class for the save button wrapper
-                saveButtonClass="p-2 top-2 right-2" 
                 isSaved={savedItems.has(trip.id)}
               />
-              {/* Vibrant Overlay for Price and Date */}
-              {(trip.price || trip.date) && (
-                // Reduced padding from p-3 to p-2
-                <div className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/80 to-transparent text-white flex justify-between items-center transition-opacity duration-300">
-                  {trip.price && (
-                    // Reduced font size and padding
-                    <span className="font-extrabold text-sm sm:text-lg bg-primary px-1.5 py-0.5 rounded-full shadow-lg">
-                      {/* Format Price as currency, e.g., $150 */}
-                      {`$${trip.price}`} 
-                    </span>
-                  )}
-                  {trip.date && (
-                    // Reduced font size
-                    <span className="text-xs sm:text-sm font-semibold opacity-90">
-                      {/* Format Date, e.g., Oct 25 */}
-                      {trip.date} 
-                    </span>
-                  )}
-                </div>
-              )}
+              {/* REMOVED VIBRANT OVERLAY for Price and Date */}
             </div>
-            {/* Separate section for location/name to make them stand out */}
-            {/* Reduced padding from p-4 to p-2 */}
-            <div className="p-2 bg-white">
-              {/* Reduced font size from text-lg to text-base */}
-              <h3 className="text-base font-bold text-gray-800 line-clamp-1 group-hover:text-primary transition-colors duration-200">
+            {/* Separate section for location/name and now price/date */}
+            <div className="p-2 bg-white"> {/* Reduced padding on mobile */}
+              {/* Name */}
+              <h3 className="text-sm font-bold text-gray-800 line-clamp-1 group-hover:text-primary transition-colors duration-200"> {/* Smaller font size */}
                 {trip.name}
               </h3>
-              {/* Reduced font size from text-sm to text-xs */}
-              <p className="text-xs text-muted-foreground flex items-center mt-1">
+              {/* Location */}
+              <p className="text-xs text-muted-foreground flex items-center mt-0.5"> {/* Smaller font size and margin */}
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  // Reduced size from h-4 w-4 to h-3 w-3
-                  className="h-3 w-3 mr-1 opacity-70"
+                  className="h-3 w-3 mr-0.5 opacity-70" // Smaller icon
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -260,6 +234,21 @@ return (
                 </svg>
                 {`${trip.location}, ${trip.country}`}
               </p>
+              {/* Price and Date (not bold, not button) */}
+              {(trip.price || trip.date) && (
+                <div className="mt-1 flex justify-between items-center text-xs">
+                  {trip.price && (
+                    <span className="text-primary font-semibold"> {/* Not bold, regular text */}
+                      {`$${trip.price}`}
+                    </span>
+                  )}
+                  {trip.date && (
+                    <span className="text-gray-600 font-medium"> {/* Not bold, regular text */}
+                      {trip.date}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -268,7 +257,7 @@ return (
         {events.map((event) => (
           <div
             key={event.id}
-            className="group relative rounded-xl overflow-hidden shadow-md cursor-pointer border border-gray-100 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]"
+            className="group relative rounded-xl overflow-hidden shadow-sm cursor-pointer border border-gray-100 transition-all duration-300 hover:shadow-lg hover:scale-[1.01]"
           >
             <div className="relative aspect-[4/3] overflow-hidden">
               <ListingCard
@@ -278,38 +267,22 @@ return (
                 imageUrl={event.image_url}
                 location={event.location}
                 country={event.country}
+                smallScreenStyles={true} // Apply small screen styles
                 onSave={handleSave}
-                saveButtonClass="p-2 top-2 right-2"
                 isSaved={savedItems.has(event.id)}
               />
-              {/* Vibrant Overlay for Price and Date */}
-              {(event.price || event.date) && (
-                <div className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/80 to-transparent text-white flex justify-between items-center transition-opacity duration-300">
-                  {event.price && (
-                    <span className="font-extrabold text-sm sm:text-lg bg-primary px-1.5 py-0.5 rounded-full shadow-lg">
-                      {`$${event.price}`}
-                    </span>
-                  )}
-                  {event.date && (
-                    <span className="text-xs sm:text-sm font-semibold opacity-90">
-                      {event.date}
-                    </span>
-                  )}
-                </div>
-              )}
+              {/* REMOVED VIBRANT OVERLAY for Price and Date */}
             </div>
-            {/* Reduced padding from p-4 to p-2 */}
-            <div className="p-2 bg-white">
-              {/* Reduced font size from text-lg to text-base */}
-              <h3 className="text-base font-bold text-gray-800 line-clamp-1 group-hover:text-primary transition-colors duration-200">
+            <div className="p-2 bg-white"> {/* Reduced padding on mobile */}
+              {/* Name */}
+              <h3 className="text-sm font-bold text-gray-800 line-clamp-1 group-hover:text-primary transition-colors duration-200">
                 {event.name}
               </h3>
-              {/* Reduced font size from text-sm to text-xs */}
-              <p className="text-xs text-muted-foreground flex items-center mt-1">
+              {/* Location */}
+              <p className="text-xs text-muted-foreground flex items-center mt-0.5">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  // Reduced size from h-4 w-4 to h-3 w-3
-                  className="h-3 w-3 mr-1 opacity-70"
+                  className="h-3 w-3 mr-0.5 opacity-70"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -322,6 +295,21 @@ return (
                 </svg>
                 {`${event.location}, ${event.country}`}
               </p>
+              {/* Price and Date (not bold, not button) */}
+              {(event.price || event.date) && (
+                <div className="mt-1 flex justify-between items-center text-xs">
+                  {event.price && (
+                    <span className="text-primary font-semibold">
+                      {`$${event.price}`}
+                    </span>
+                  )}
+                  {event.date && (
+                    <span className="text-gray-600 font-medium">
+                      {event.date}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -330,7 +318,7 @@ return (
         {hotels.map((hotel) => (
           <div
             key={hotel.id}
-            className="group relative rounded-xl overflow-hidden shadow-md cursor-pointer border border-gray-100 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]"
+            className="group relative rounded-xl overflow-hidden shadow-sm cursor-pointer border border-gray-100 transition-all duration-300 hover:shadow-lg hover:scale-[1.01]"
           >
             <div className="relative aspect-[4/3] overflow-hidden">
               <ListingCard
@@ -340,23 +328,19 @@ return (
                 imageUrl={hotel.image_url}
                 location={hotel.location}
                 country={hotel.country}
+                smallScreenStyles={true} // Apply small screen styles
                 onSave={handleSave}
-                saveButtonClass="p-2 top-2 right-2"
                 isSaved={savedItems.has(hotel.id)}
               />
             </div>
-            {/* Reduced padding from p-4 to p-2 */}
-            <div className="p-2 bg-white">
-              {/* Reduced font size from text-lg to text-base */}
-              <h3 className="text-base font-bold text-gray-800 line-clamp-1 group-hover:text-primary transition-colors duration-200">
+            <div className="p-2 bg-white"> {/* Reduced padding on mobile */}
+              <h3 className="text-sm font-bold text-gray-800 line-clamp-1 group-hover:text-primary transition-colors duration-200">
                 {hotel.name}
               </h3>
-              {/* Reduced font size from text-sm to text-xs */}
-              <p className="text-xs text-muted-foreground flex items-center mt-1">
+              <p className="text-xs text-muted-foreground flex items-center mt-0.5">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  // Reduced size from h-4 w-4 to h-3 w-3
-                  className="h-3 w-3 mr-1 opacity-70"
+                  className="h-3 w-3 mr-0.5 opacity-70"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -377,7 +361,7 @@ return (
         {adventurePlaces.map((place) => (
           <div
             key={place.id}
-            className="group relative rounded-xl overflow-hidden shadow-md cursor-pointer border border-gray-100 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]"
+            className="group relative rounded-xl overflow-hidden shadow-sm cursor-pointer border border-gray-100 transition-all duration-300 hover:shadow-lg hover:scale-[1.01]"
           >
             <div className="relative aspect-[4/3] overflow-hidden">
               <ListingCard
@@ -388,23 +372,19 @@ return (
                 imageUrl={place.image_url}
                 location={place.location}
                 country={place.country}
+                smallScreenStyles={true} // Apply small screen styles
                 onSave={handleSave}
-                saveButtonClass="p-2 top-2 right-2"
                 isSaved={savedItems.has(place.id)}
               />
             </div>
-            {/* Reduced padding from p-4 to p-2 */}
-            <div className="p-2 bg-white">
-              {/* Reduced font size from text-lg to text-base */}
-              <h3 className="text-base font-bold text-gray-800 line-clamp-1 group-hover:text-primary transition-colors duration-200">
+            <div className="p-2 bg-white"> {/* Reduced padding on mobile */}
+              <h3 className="text-sm font-bold text-gray-800 line-clamp-1 group-hover:text-primary transition-colors duration-200">
                 {place.name}
               </h3>
-              {/* Reduced font size from text-sm to text-xs */}
-              <p className="text-xs text-muted-foreground flex items-center mt-1">
+              <p className="text-xs text-muted-foreground flex items-center mt-0.5">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  // Reduced size from h-4 w-4 to h-3 w-3
-                  className="h-3 w-3 mr-1 opacity-70"
+                  className="h-3 w-3 mr-0.5 opacity-70"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -432,4 +412,5 @@ return (
     </div>
   );
 };
+
 export default Index;

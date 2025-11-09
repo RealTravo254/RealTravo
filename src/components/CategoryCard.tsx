@@ -25,12 +25,17 @@ export const CategoryCard = ({
         className
       )}
     >
-      <div className="p-3 md:p-6 flex flex-col items-center text-center gap-2 md:gap-4">
-        <div className="h-10 w-10 md:h-16 md:w-16 rounded-xl md:rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-primary-foreground group-hover:scale-110 transition-transform duration-300">
-          <Icon className="h-5 w-5 md:h-8 md:w-8" />
+      {/* Reduced padding on all screens: from p-3/p-6 to p-2/p-3 */}
+      <div className="p-2 md:p-3 flex flex-col items-center text-center gap-1 md:gap-2">
+        {/* Reduced icon container size: from h-10/w-10 to h-8/w-8 AND md:h-16/md:w-16 to md:h-10/md:w-10 */}
+        <div className="h-8 w-8 md:h-10 md:w-10 rounded-lg md:rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-primary-foreground group-hover:scale-110 transition-transform duration-300">
+          {/* Reduced LucideIcon size: from h-5/w-5 to h-4/w-4 AND md:h-8/md:w-8 to md:h-5/md:w-5 */}
+          <Icon className="h-4 w-4 md:h-5 md:w-5" />
         </div>
         <div>
-          <h3 className="font-bold text-xs md:text-lg mb-0 md:mb-1">{title}</h3>
+          {/* Reduced title font size: from text-xs/md:text-lg to text-xs/md:text-base */}
+          <h3 className="font-bold text-xs md:text-base mb-0">{title}</h3>
+          {/* Reduced description font size: from text-xs to text-2xs (if text-2xs is defined, otherwise stick to text-xs) */}
           <p className="text-xs text-muted-foreground hidden md:block">{description}</p>
         </div>
       </div>

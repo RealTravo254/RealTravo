@@ -10,80 +10,91 @@ import { Calendar, Hotel, Mountain } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
-// MOCK Slideshow Component (Replace with your actual implementation)
-const ImageSlideshow = () => {
-  // Mock data for the slideshow
-  const slides = [
-    {
-      name: "Bali's Sunrise Temples",
-      description: "Witness the breathtaking dawn at the most sacred sites.",
-      imageUrl: "https://images.unsplash.com/photo-1544439169-d4c399c5608d",
-    },
-    {
-      name: "European Alps Adventure",
-      description: "Hike and bike through stunning mountain landscapes this summer.",
-      imageUrl: "https://images.unsplash.com/photo-1549877452-9c3132629b3c",
-    },
-    {
-      name: "Luxury Maldives Retreat",
-      description: "Seven days of pure relaxation in an overwater bungalow.",
-      imageUrl: "https://images.unsplash.com/photo-1540306786884-2977f0cc34e2",
-    },
-  ];
+// --- START: Slideshow Data & Component Simulation ---
+// Mock data for the slideshow
+const SlideData = [
+  {
+    id: 1,
+    name: "Luxury Beach Escapes 🏝️",
+    description: "Exclusive resorts and pristine beaches await. Book your paradise now!",
+    imageUrl: "https://images.unsplash.com/photo-1543632349-4700d8324f2b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w1MDcxMzJ8MHwxfHNlYXJjaHw0fHxsb3dlciUyMHRvJTJGY2xhc3MlMjByZXNvcnRzfGVufDB8fHx8MTY5MDExMDY3NXww&ixlib=rb-4.0.3&q=80&w=1080",
+    link: "/category/hotels",
+  },
+  {
+    id: 2,
+    name: "Himalayan Trekking Adventures 🏔️",
+    description: "Challenge yourself with breathtaking mountain trails and majestic views.",
+    imageUrl: "https://images.unsplash.com/photo-1596707323114-1e05a81e3a4e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w1MDcxMzJ8MHwxfHNlYXJjaHwzMHx8aGltYWxheWFuJTIwdHJla2tpbmd8ZW58MHx8fHwxNjk1OTQ4NDgzfDA&ixlib=rb-4.0.3&q=80&w=1080",
+    link: "/category/adventure",
+  },
+  {
+    id: 3,
+    name: "Annual Music Festival 🎶",
+    description: "Don't miss the biggest event of the year! Tickets are selling fast.",
+    imageUrl: "https://images.unsplash.com/photo-1540350280456-e6924e392505?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w1MDcxMzJ8MHwxfHNlYXJjaHw2fHxtdXNpYyUyMGZlc3RpdmFsfGVufDB8fHx8MTY5NTk0ODQ4M3ww&ixlib=rb-4.0.3&q=80&w=1080",
+    link: "/category/events",
+  },
+];
 
+const AutoSlideshow = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % slides.length);
+    const interval = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % SlideData.length);
     }, 5000); // Change slide every 5 seconds
 
-    return () => clearInterval(timer);
-  }, [slides.length]);
+    return () => clearInterval(interval);
+  }, []);
 
-  const slide = slides[currentSlide];
+  const slide = SlideData[currentSlide];
 
   return (
-    // Simple mock structure using Tailwind classes
-    <div className="relative w-full aspect-video rounded-xl shadow-2xl overflow-hidden bg-gray-200">
-      {/* Background Image */}
-      <img
-        src={slide.imageUrl}
-        alt={slide.name}
-        className="w-full h-full object-cover transition-opacity duration-1000"
-      />
-      
-      {/* Overlay Content (Dark Navy theme style) */}
-      <div className="absolute inset-0 bg-blue-900/60 flex flex-col justify-end p-6 md:p-8">
-        <h3 className="text-3xl font-extrabold text-white mb-2 leading-tight">
-          {slide.name}
-        </h3>
-        <p className="text-lg text-blue-200 mb-4">
-          {slide.description}
-        </p>
-        <button 
-            onClick={() => { /* Navigate to the slide's detail page */ }}
-            className="w-fit px-5 py-2 text-sm font-semibold rounded-full bg-white text-blue-900 hover:bg-gray-100 transition-colors"
-        >
-            View Deal
-        </button>
+    <Link to={slide.link}>
+      <div className="relative w-full h-full rounded-xl overflow-hidden shadow-lg cursor-pointer">
+        {/* Background Image */}
+        <img
+          src={slide.imageUrl}
+          alt={slide.name}
+          className="w-full h-full object-cover transition-opacity duration-1000"
+          style={{ opacity: 1 }}
+        />
+        
+        {/* Overlay for Name and Description */}
+        {/* UPDATED: Using bg-blue-900/60 for a solid navy overlay and text-blue-200 for description */}
+        <div className="absolute inset-0 bg-blue-900/60 flex items-end p-6 md:p-8">
+          <div className="text-white">
+            <h3 className="text-2xl md:text-4xl font-extrabold mb-1">
+              {slide.name}
+            </h3>
+            <p className="text-sm md:text-base text-blue-200 max-w-lg">
+              {slide.description}
+            </p>
+          </div>
+        </div>
+        
+        {/* Navigation Dots */}
+        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
+          {SlideData.map((_, index) => (
+            <button
+              key={index}
+              className={`w-2.5 h-2.5 rounded-full transition-colors duration-300 ${
+                index === currentSlide ? "bg-white" : "bg-white/40 hover:bg-white/70"
+              }`}
+              onClick={(e) => {
+                e.preventDefault();
+                setCurrentSlide(index);
+              }}
+              aria-label={`Go to slide ${index + 1}`}
+            />
+          ))}
+        </div>
       </div>
-
-      {/* Navigation Dots (Optional: for a full implementation) */}
-      <div className="absolute bottom-4 right-4 flex space-x-2">
-        {slides.map((_, index) => (
-          <div
-            key={index}
-            className={`h-2 w-2 rounded-full transition-all duration-300 ${
-              index === currentSlide ? "bg-white scale-125" : "bg-white/50 hover:bg-white"
-            }`}
-            onClick={() => setCurrentSlide(index)}
-          ></div>
-        ))}
-      </div>
-    </div>
+    </Link>
   );
 };
+// --- END: Slideshow Data & Component Simulation ---
+
 
 const Index = () => {
   const navigate = useNavigate();
@@ -209,7 +220,7 @@ const Index = () => {
     },
   ];
 
-  return (
+return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
       <Header />
 
@@ -223,40 +234,39 @@ const Index = () => {
           />
         </section>
 
-        {/* Categories & Slideshow Section */}
-        {/* Use flex on medium screens and up to place categories left and slideshow right */}
-        <section className="flex flex-col md:flex-row gap-8 md:gap-12">
+        {/* Slideshow and Categories Section */}
+        <section>
+          <h2 className="text-3xl font-bold mb-6 text-center md:hidden">What are you looking for?</h2>
           
-          {/* Categories (Vertical Column on Large Screens) */}
-          <div className="w-full md:w-1/3 lg:w-1/4">
-             <h2 className="text-2xl font-bold mb-4 hidden md:block">Explore Categories</h2>
-             <div className="grid grid-cols-3 md:grid-cols-1 gap-3 md:gap-4">
-              {categories.map((category) => (
-                <CategoryCard
-                  key={category.title}
-                  icon={category.icon}
-                  title={category.title}
-                  description={category.description}
-                  onClick={() => navigate(category.path)}
-                  // Adjust padding and focus on column layout for md screens
-                  className="p-3 md:p-4 text-center md:text-left"
-                  // Ensure CategoryCard looks good in a vertical stack (may need to adjust its internal flex direction)
-                />
-              ))}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            {/* Slideshow (Takes 2/3 width on large screens) */}
+            <div className="md:col-span-2 h-64 md:h-96">
+              <AutoSlideshow />
             </div>
-          </div>
-          
-          {/* Slideshow (Takes up remaining space) */}
-          <div className="w-full md:w-2/3 lg:w-3/4">
-            <ImageSlideshow />
-          </div>
 
+            {/* Categories (Takes 1/3 width on large screens, displayed in a column) */}
+            <div className="md:col-span-1">
+              <div className="grid grid-cols-3 gap-3 md:grid-cols-1 md:gap-4 h-full">
+                {categories.map((category) => (
+                  <CategoryCard
+                    key={category.title}
+                    icon={category.icon}
+                    title={category.title}
+                    description={category.description}
+                    onClick={() => navigate(category.path)}
+                    className="p-3 md:p-6"
+                  />
+                ))}
+              </div>
+            </div>
+            
+          </div>
         </section>
 
         {/* COMBINED LISTINGS: Trips, Events, Hotels, and Adventure Places */}
         <section>
-          {/* A more suitable title for the listings section after the main hero content */}
-          <h2 className="text-3xl font-bold mb-6">Popular Picks and Recent Finds</h2>
+          <h2 className="text-3xl font-bold mb-6 text-center">Featured Destinations</h2>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 md:gap-6">
             {loading ? (
               // Display shimmer loading effect if loading
@@ -289,7 +299,7 @@ const Index = () => {
                     imageUrl={trip.image_url}
                     location={trip.location}
                     country={trip.country}
-                    price={trip.price} 
+                    price={trip.price} // Pass price and date so ListingCard can display them in the overlay
                     date={trip.date}
                     onSave={handleSave}
                     isSaved={savedItems.has(trip.id)}
@@ -306,7 +316,7 @@ const Index = () => {
                     imageUrl={event.image_url}
                     location={event.location}
                     country={event.country}
-                    price={event.price} 
+                    price={event.price} // Pass price and date
                     date={event.date}
                     onSave={handleSave}
                     isSaved={savedItems.has(event.id)}
@@ -323,7 +333,7 @@ const Index = () => {
                     imageUrl={hotel.image_url}
                     location={hotel.location}
                     country={hotel.country}
-                    price={hotel.price} 
+                    price={hotel.price} // Pass price
                     onSave={handleSave}
                     isSaved={savedItems.has(hotel.id)}
                   />
@@ -339,7 +349,7 @@ const Index = () => {
                     imageUrl={place.image_url}
                     location={place.location}
                     country={place.country}
-                    price={place.price} 
+                    price={place.price} // Pass price
                     onSave={handleSave}
                     isSaved={savedItems.has(place.id)}
                   />

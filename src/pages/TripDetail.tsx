@@ -44,7 +44,6 @@ const TripDetail = () => {
   const [trip, setTrip] = useState<Trip | null>(null);
   const [loading, setLoading] = useState(true);
   const [bookingOpen, setBookingOpen] = useState(false);
-  // State for current slide index to implement custom dots
   const [current, setCurrent] = useState(0); 
 
   useEffect(() => {
@@ -139,7 +138,6 @@ const TripDetail = () => {
             opts={{ loop: true }}
             plugins={[Autoplay({ delay: 3000 })]}
             className="w-full"
-            // Add on an index change handler for the dots
             setApi={(api) => {
                 if (api) {
                     api.on("select", () => {
@@ -154,7 +152,6 @@ const TripDetail = () => {
                   <img
                     src={img}
                     alt={`${trip.name} ${idx + 1}`}
-                    // MODIFICATION: Removed 'rounded-lg' to remove the border radius
                     className="w-full h-64 md:h-96 object-cover" 
                   />
                 </CarouselItem>
@@ -169,7 +166,7 @@ const TripDetail = () => {
               className="right-4 z-10 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 text-white border-none" 
             />
             
-            {/* White live dots - MODIFICATION: Added this section */}
+            {/* White live dots */}
             {displayImages.length > 1 && (
                 <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2 z-10">
                     {displayImages.map((_, index) => (
@@ -177,10 +174,9 @@ const TripDetail = () => {
                             key={index}
                             className={`w-2 h-2 rounded-full transition-all duration-300 ${
                                 index === current
-                                    ? 'bg-white' // Active dot
-                                    : 'bg-white/40' // Inactive dot with RGBA
+                                    ? 'bg-white' 
+                                    : 'bg-white/40' 
                             }`}
-                            // Optionally add onClick to navigate, but keeping it simple for now
                         />
                     ))}
                 </div>
@@ -190,13 +186,30 @@ const TripDetail = () => {
         {/* End of Image Gallery Carousel and Share Button Container */}
 
         <div className="grid md:grid-cols-3 gap-6">
-          <div className="md:col-span-2 space-y-6">
-            <div>
-              <h1 className="text-3xl font-bold mb-2">{trip.name}</h1>
-              <p className="text-muted-foreground">{trip.location}, {trip.country}</p>
+          {/* MODIFICATION: Combined Name, Location, Date, Phone, Map Button, and About section 
+            into a single card-like container (md:col-span-2) on large screens.
+          */}
+          <div className="md:col-span-2 space-y-6 p-4 md:p-6 border rounded-lg bg-card shadow-sm"> 
+            
+            {/* Title, Location & Map Button Group */}
+            <div className="flex flex-col md:flex-row md:justify-between md:items-start space-y-2 md:space-y-0">
+              <div>
+                <h1 className="text-3xl font-bold">{trip.name}</h1>
+                <p className="text-muted-foreground">{trip.location}, {trip.country}</p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={openInMaps}
+                // Only show View on Map next to title on large screens, or take up full width on small screens
+                className="w-full md:w-auto flex-shrink-0" 
+              >
+                <MapPin className="mr-2 h-4 w-4" />
+                View on Map
+              </Button>
             </div>
-
-            <div className="flex flex-wrap gap-4">
+            
+            {/* Date and Phone Group */}
+            <div className="flex flex-wrap gap-4 pt-2 border-t md:border-t-0">
               <div className="flex items-center gap-2">
                 <Calendar className="h-5 w-5 text-primary" />
                 <span>{new Date(trip.date).toLocaleDateString()}</span>
@@ -209,37 +222,34 @@ const TripDetail = () => {
               )}
             </div>
 
-            <div>
+            {/* About Section (Description) */}
+            <div className="pt-4 border-t">
               <h2 className="text-xl font-semibold mb-2">About This Trip</h2>
               <p className="text-muted-foreground">{trip.description}</p>
             </div>
           </div>
 
+          {/* Pricing and Booking (Sidebar) */}
           <div className="space-y-4">
-            <Button
-              variant="outline"
-              onClick={openInMaps}
-              className="w-full"
-            >
-              <MapPin className="mr-2 h-4 w-4" />
-              View on Map
-            </Button>
-
-            <div className="bg-card p-6 rounded-lg border space-y-4">
-              <div>
-                <p className="text-sm text-muted-foreground">Adult Price</p>
-                <p className="text-2xl font-bold">${trip.price}</p>
-              </div>
-              {trip.price_child > 0 && (
+            <div className="bg-card p-6 rounded-lg border space-y-4 shadow-sm">
+              <h3 className="font-semibold text-lg">Trip Details & Booking</h3>
+              <div className="pt-2 border-t space-y-2">
                 <div>
-                  <p className="text-sm text-muted-foreground">Child Price</p>
-                  <p className="text-xl font-semibold">${trip.price_child}</p>
+                  <p className="text-sm text-muted-foreground">Adult Price</p>
+                  <p className="text-2xl font-bold">${trip.price}</p>
                 </div>
-              )}
-              <div>
-                <p className="text-sm text-muted-foreground">Available Tickets</p>
-                <p className="text-lg font-semibold">{trip.available_tickets}</p>
+                {trip.price_child > 0 && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">Child Price</p>
+                    <p className="text-xl font-semibold">${trip.price_child}</p>
+                  </div>
+                )}
+                <div>
+                  <p className="text-sm text-muted-foreground">Available Tickets</p>
+                  <p className="text-lg font-semibold">{trip.available_tickets}</p>
+                </div>
               </div>
+              
               <Button 
                 className="w-full" 
                 onClick={() => setBookingOpen(true)}
@@ -263,5 +273,4 @@ const TripDetail = () => {
     </div>
   );
 };
-
 export default TripDetail;

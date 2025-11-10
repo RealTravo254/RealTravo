@@ -254,7 +254,7 @@ const Index = () => {
         <section>
           {/* A more suitable title for the listings section after the main hero content */}
            <div className="bg-blue-900 text-white w-full flex items-center py-1">
-                 <h2 className="text-xs font-bold px-4">Popular Picks and Recent Finds</h2>
+                 <h2 className="font-bold px-4">Popular Picks and Recent Finds</h2>
            </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 md:gap-6">
             {loading ? (

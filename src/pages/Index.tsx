@@ -253,7 +253,9 @@ const Index = () => {
         {/* COMBINED LISTINGS: Trips, Events, Hotels, and Adventure Places */}
         <section>
           {/* A more suitable title for the listings section after the main hero content */}
-          <h2 className="text-3xl font-bold mb-6">Popular Picks and Recent Finds</h2>
+           <div className="bg-blue-900 text-white w-full flex items-center py-1">
+                <h2 className="text-xs font-bold px-4">Popular Picks and Recent Finds</h2>
+           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 md:gap-6">
             {loading ? (
               // Display shimmer loading effect if loading

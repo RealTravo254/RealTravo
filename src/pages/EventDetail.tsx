@@ -293,4 +293,5 @@ const EventDetail = () => {
     </div>
   );
 };
+
 export default EventDetail;

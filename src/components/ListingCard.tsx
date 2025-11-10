@@ -126,7 +126,7 @@ export const ListingCard = ({
             </div>
         </div>
       </div>
-      
+    
       {/* Name and Location Detail - NEW SECTION BELOW THE IMAGE */}
       <div className="p-4 pt-3 flex flex-col space-y-1">
         <h3 className="font-bold text-lg line-clamp-1">{name}</h3> 

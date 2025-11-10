@@ -128,8 +128,7 @@ const EventDetail = () => {
           <Button
             variant="ghost"
             onClick={handleShare}
-            // MODIFICATION: Share button style changes
-            // Set background to a solid red, no hover effect, circular shape.
+            // MODIFICATION: Share button style changes: solid red, no hover, white text
             className="absolute top-4 right-4 z-20 bg-red-600 rounded-full p-2 h-auto w-auto text-white shadow-lg 
                        hover:bg-red-600 focus:bg-red-700 active:bg-red-700" 
           >
@@ -191,13 +190,30 @@ const EventDetail = () => {
         {/* End of Image Gallery Carousel and Share Button Container */}
 
         <div className="grid md:grid-cols-3 gap-6">
-          <div className="md:col-span-2 space-y-6">
-            <div>
-              <h1 className="text-3xl font-bold mb-2">{event.name}</h1>
-              <p className="text-muted-foreground">{event.location}, {event.country}</p>
+          {/* MODIFICATION: Combined Name, Location, Date, Phone, Map Button, and About section 
+            into a single card-like container (md:col-span-2) on large screens.
+          */}
+          <div className="md:col-span-2 space-y-6 p-4 md:p-6 border rounded-lg bg-card shadow-sm">
+            
+            {/* Title, Location & Map Button Group */}
+            <div className="flex flex-col md:flex-row md:justify-between md:items-start space-y-2 md:space-y-0">
+              <div>
+                <h1 className="text-3xl font-bold">{event.name}</h1>
+                <p className="text-muted-foreground">{event.location}, {event.country}</p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={openInMaps}
+                // Only show View on Map next to title on large screens, or take up full width on small screens
+                className="w-full md:w-auto flex-shrink-0" 
+              >
+                <MapPin className="mr-2 h-4 w-4" />
+                View on Map
+              </Button>
             </div>
-
-            <div className="flex flex-wrap gap-4">
+            
+            {/* Date and Phone Group */}
+            <div className="flex flex-wrap gap-4 pt-2 border-t md:border-t-0">
               <div className="flex items-center gap-2">
                 <Calendar className="h-5 w-5 text-primary" />
                 <span>{new Date(event.date).toLocaleDateString()}</span>
@@ -210,24 +226,18 @@ const EventDetail = () => {
               )}
             </div>
 
-            <div>
+            {/* About Section (Description) */}
+            <div className="pt-4 border-t">
               <h2 className="text-xl font-semibold mb-2">About This Event</h2>
               <p className="text-muted-foreground">{event.description}</p>
             </div>
           </div>
 
+          {/* Ticket Prices and Booking (Sidebar) */}
           <div className="space-y-4">
-            <Button
-              variant="outline"
-              onClick={openInMaps}
-              className="w-full"
-            >
-              <MapPin className="mr-2 h-4 w-4" />
-              View on Map
-            </Button>
-
-            <div className="bg-card p-6 rounded-lg border space-y-3">
-              <h3 className="font-semibold">Ticket Prices</h3>
+            <div className="bg-card p-6 rounded-lg border space-y-3 shadow-sm">
+              <h3 className="font-semibold text-lg">Ticket Prices</h3>
+              {/* Individual Price Tiers */}
               {event.price_vvip > 0 && (
                 <div className="flex justify-between">
                   <span className="text-sm">VVIP</span>
@@ -252,10 +262,12 @@ const EventDetail = () => {
                   <span className="font-semibold">${event.price_child}</span>
                 </div>
               )}
+              {/* Available Tickets */}
               <div className="pt-2 border-t">
                 <p className="text-sm text-muted-foreground">Available Tickets</p>
                 <p className="text-lg font-semibold">{event.available_tickets}</p>
               </div>
+              {/* Book Button */}
               <Button 
                 className="w-full" 
                 onClick={() => setBookingOpen(true)}
@@ -264,6 +276,8 @@ const EventDetail = () => {
                 {event.available_tickets === 0 ? 'Sold Out' : 'Book Now'}
               </Button>
             </div>
+
+            {/* Note: The old standalone Map Button is removed since it's now in the main info box */}
           </div>
         </div>
       </main>

@@ -134,7 +134,7 @@ export const ListingCard = ({
             </Badge>
         </div>
       </div>
-    
+      
       {/* Removed the section below the image */}
     </Card>
   );

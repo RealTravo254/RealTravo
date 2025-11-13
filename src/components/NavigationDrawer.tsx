@@ -1,8 +1,8 @@
-import { Home, Ticket, Heart, Phone, Info, Video, Plus, Edit, Package, LogIn, LogOut } from "lucide-react";
+import { Home, Ticket, Heart, Phone, Info, Video, Plus, Edit, Package, LogIn, LogOut, Plane, Building, Tent } from "lucide-react"; // Added Plane, Building, Tent
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-
+  // Removed DropdownMenu components
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 
@@ -13,10 +13,25 @@ interface NavigationDrawerProps {
 export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
   const { user, logout } = useAuth(); // Assuming useAuth provides a logout function
   
-  // Note: The paths here (/CreateHotel, /CreateAdventure, /createTripEvent) 
-  // correspond directly to the page components you listed (CreateHotel.tsx, etc.) 
-  // and should be handled by your main application router.
-  
+  // Define the new 'Partner' items with specific icons
+  const partnerItems = [
+    { 
+      icon: Plane, // Icon for Trips/Events
+      label: "Organise a Trip or Event", 
+      path: "/CreateTripEvent" 
+    },
+    { 
+      icon: Building, // Icon for Accommodation
+      label: "List Your Hotel or Accommodation", 
+      path: "/CreateHotel" 
+    },
+    { 
+      icon: Tent, // Icon for Campsite/Adventure
+      label: "List Your Campsite or Space", 
+      path: "/CreateAdventure" 
+    },
+  ];
+
   const navItems = [
     { icon: Home, label: "Home", path: "/" },
     { icon: Ticket, label: "My Bookings", path: "/bookings" },
@@ -61,53 +76,27 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
 
       <nav className="flex-1 p-4">
         <ul className="space-y-2">
-          
-          {/* VERTICAL PARTNER CREATION LINKS (User Only) */}
+          {/* VERTICAL ARRANGEMENT FOR PARTNER LINKS (User Only) */}
           {user && (
-            <li className="mb-4 pt-2 pb-2 border-b border-t border-muted">
-              <h4 className="font-semibold text-sm text-primary/80 mb-2 px-4">
-                Become a Partner
-              </h4>
-              <div className="space-y-1">
-                {/* Organise a Trip or Event */}
-                <Link 
-                  to="/CreateTripEvent" // Links to CreateTripEvent.tsx
-                  onClick={onClose} 
-                  className="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-primary/10 transition-all duration-200 group"
-                >
-                  <Package className="h-5 w-5 text-green-600 group-hover:text-primary transition-colors" />
-                  {/* TEXT COLOR CHANGED TO BLACK */}
-                  <span className="font-bold text-black group-hover:text-black transition-colors">
-                    Organise a Trip or Event
-                  </span>
-                </Link>
-
-                {/* List Your Hotel or Accommodation */}
-                <Link 
-                  to="/CreateHotel" // Links to CreateHotel.tsx
-                  onClick={onClose} 
-                  className="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-primary/10 transition-all duration-200 group"
-                >
-                  <Home className="h-5 w-5 text-blue-600 group-hover:text-primary transition-colors" />
-                  {/* TEXT COLOR CHANGED TO BLACK */}
-                  <span className="font-bold text-black group-hover:text-black transition-colors">
-                    List Your Hotel or Accommodation
-                  </span>
-                </Link>
-                
-                {/* List Your Campsite or Experience */}
-                <Link 
-                  to="/CreateAdventure" // Links to CreateAdventure.tsx
-                  onClick={onClose} 
-                  className="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-primary/10 transition-all duration-200 group"
-                >
-                  <Heart className="h-5 w-5 text-red-600 group-hover:text-primary transition-colors" />
-                  {/* TEXT COLOR CHANGED TO BLACK */}
-                  <span className="font-bold text-black group-hover:text-black transition-colors">
-                    List Your Campsite or Experience
-                  </span>
-                </Link>
-              </div>
+            <li className="mb-4 pt-2 border-t border-muted-foreground/30">
+              <ul className="space-y-1">
+                {partnerItems.map((item) => (
+                  <li key={item.path}>
+                    <Link
+                      to={item.path}
+                      onClick={onClose}
+                      // Increased padding/size for better tap target
+                      className="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-primary/10 transition-all duration-200 group"
+                    >
+                      <item.icon className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                      {/* Applied BOLDING and removed 'group-hover' transition for primary text color */}
+                      <span className="font-bold text-sm text-primary transition-colors"> 
+                        {item.label}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
             </li>
           )}
           
@@ -179,4 +168,5 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
       </div>
     </div>
    );
+
 };

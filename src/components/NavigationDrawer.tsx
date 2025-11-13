@@ -1,11 +1,8 @@
-import { Home, Ticket, Heart, Phone, Info, Video, Plus, Edit, Package, LogIn, LogOut } from "lucide-react";
+import { Home, Ticket, Heart, Phone, Info, Video, Plus, Edit, Package, LogIn, LogOut, Plane, Building, Tent } from "lucide-react"; // Added Plane, Building, Tent
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+  // Removed DropdownMenu components
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 
@@ -16,10 +13,25 @@ interface NavigationDrawerProps {
 export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
   const { user, logout } = useAuth(); // Assuming useAuth provides a logout function
   
-  // Note: The paths here (/CreateHotel, /CreateAdventure, /createTripEvent) 
-  // correspond directly to the page components you listed (CreateHotel.tsx, etc.) 
-  // and should be handled by your main application router.
-  
+  // Define the new 'Partner' items with specific icons
+  const partnerItems = [
+    { 
+      icon: Plane, // Icon for Trips/Events
+      label: "Organise a Trip or Event", 
+      path: "/CreateTripEvent" 
+    },
+    { 
+      icon: Building, // Icon for Accommodation
+      label: "List Your Hotel or Accommodation", 
+      path: "/CreateHotel" 
+    },
+    { 
+      icon: Tent, // Icon for Campsite/Adventure
+      label: "List Your Campsite or Space", 
+      path: "/CreateAdventure" 
+    },
+  ];
+
   const navItems = [
     { icon: Home, label: "Home", path: "/" },
     { icon: Ticket, label: "My Bookings", path: "/bookings" },
@@ -64,46 +76,31 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
 
       <nav className="flex-1 p-4">
         <ul className="space-y-2">
-          {/* CREATE DROP-DOWN MENU (User Only) */}
+          {/* VERTICAL ARRANGEMENT FOR PARTNER LINKS (User Only) */}
           {user && (
-            <li className="mb-4">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="default" className="w-full flex items-center justify-center gap-2">
-                    <Plus className="h-4 w-4" />
-                    Become a partner.
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-56">
-                  <DropdownMenuItem asChild>
-                    <Link 
-                      to="/CreateTripEvent" // Links to CreateTripEvent.tsx
-                      onClick={onClose} 
-                      className="cursor-pointer"
+            <li className="mb-4 pt-2 border-t border-muted-foreground/30">
+              <h4 className="flex items-center gap-2 mb-2 px-4 text-sm font-semibold text-primary">
+                 <Plus className="h-4 w-4" />
+                 BECOME A PARTNER
+              </h4>
+              <ul className="space-y-1">
+                {partnerItems.map((item) => (
+                  <li key={item.path}>
+                    <Link
+                      to={item.path}
+                      onClick={onClose}
+                      // Increased padding/size for better tap target
+                      className="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-primary/10 transition-all duration-200 group"
                     >
-                      Organise a Trip or Event.
+                      <item.icon className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                      {/* Applied BOLDING and removed 'group-hover' transition for primary text color */}
+                      <span className="font-bold text-sm text-primary transition-colors"> 
+                        {item.label}
+                      </span>
                     </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link 
-                      to="/CreateHotel" // Links to CreateHotel.tsx
-                      onClick={onClose} 
-                      className="cursor-pointer"
-                    >
-                      List Your Hotel or Accommodation.
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link 
-                      to="/CreateAdventure" // Links to CreateAdventure.tsx
-                      onClick={onClose} 
-                      className="cursor-pointer"
-                    >
-                      List Your Campsite or Space.
-                    </Link>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                  </li>
+                ))}
+              </ul>
             </li>
           )}
           
@@ -175,5 +172,5 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
       </div>
     </div>
    );
-   
+
 };

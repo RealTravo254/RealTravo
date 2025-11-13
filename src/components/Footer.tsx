@@ -21,10 +21,10 @@ export const Footer = () => {
           <div>
             <h3 className="font-bold mb-3">Quick Links</h3>
             <ul className="space-y-2 text-sm">
-              {/* Links use text-blue-200 with hover:text-white */}
               <li><Link to="/" className="text-blue-200 hover:text-white transition-colors">Home</Link></li>
-              <li><Link to="/about" className="text-blue-200 hover:text-white transition-colors">About</Link></li>
-              <li><Link to="/contact" className="text-blue-200 hover:text-white transition-colors">Contact</Link></li>
+              <li><Link to="/CreateHotel" className="text-blue-200 hover:text-white transition-colors">List Hotel</Link></li>
+              <li><Link to="/CreateAdventure" className="text-blue-200 hover:text-white transition-colors">List Your Campsite</Link></li>
+              <li><Link to="/CreateTripEvent" className="text-blue-200 hover:text-white transition-colors">Organise Trip</Link></li>
             </ul>
           </div>
           

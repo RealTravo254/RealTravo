@@ -68,14 +68,12 @@ export const Header = () => {
   }, [user]);
 
   return (
-    // 1. Changed background to blue-900 (deep navy) and text to white
     <header className="sticky top-0 z-50 w-full border-b bg-blue-900 text-white">
       <div className="container flex h-16 items-center justify-between px-4">
         <div className="flex items-center gap-3">
           <Sheet open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
             <SheetTrigger asChild>
-              {/* 2. Adjusted Menu button to be white/blue-800 on hover */}
-              <Button variant="ghost" size="icon" className="text-white hover:bg-blue-800">
+              <Button variant="ghost" size="icon" className="text-white hover:bg-blue-800 lg:hidden">
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
@@ -84,12 +82,10 @@ export const Header = () => {
             </SheetContent>
           </Sheet>
           
-          <Link to="/" className="flex items-center gap-2">
-            {/* 3. Changed logo background to white and text to blue-900 (navy) */}
+          <Link to="/" className="flex items-center gap-2 lg:hidden">
             <div className="h-8 w-8 rounded-lg bg-white flex items-center justify-center text-blue-900 font-bold text-lg">
               T
             </div>
-            {/* 4. Set TripTrac name to white */}
             <span className="font-bold text-base md:text-lg text-white">
               TripTrac
             </span>

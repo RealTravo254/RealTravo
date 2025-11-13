@@ -11,40 +11,51 @@ interface NavigationDrawerProps {
 }
 
 export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
-  const { user, logout } = useAuth(); // Assuming useAuth provides a logout function
+  const { user, signOut } = useAuth();
   
+  const handleProtectedNavigation = (path: string) => {
+    if (!user) {
+      window.location.href = "/auth";
+    } else {
+      window.location.href = path;
+    }
+    onClose();
+  };
+
   // Define the new 'Partner' items with specific icons
   const partnerItems = [
     { 
-      icon: Plane, // Icon for Trips/Events
-      label: "Organise a Trip or Event", 
+      icon: Plane,
+      label: "Create Trip", 
       path: "/CreateTripEvent" 
     },
     { 
-      icon: Building, // Icon for Accommodation
-      label: "List Your Hotel or Accommodation", 
+      icon: Building,
+      label: "List Hotel", 
       path: "/CreateHotel" 
     },
     { 
-      icon: Tent, // Icon for Campsite/Adventure
-      label: "List Your Campsite or Space", 
+      icon: Tent,
+      label: "List Your Campsite", 
       path: "/CreateAdventure" 
     },
   ];
 
   const navItems = [
-    { icon: Home, label: "Home", path: "/" },
-    { icon: Ticket, label: "My Bookings", path: "/bookings" },
-    { icon: Video, label: "Vlog", path: "/vlog" },
-    ...(user ? [{ icon: Heart, label: "Saved", path: "/saved" }] : []),
-    // 'My Content' links to 'MyContent.tsx' page
-    ...(user ? [{ icon: Package, label: "My Content", path: "/mycontent" }] : []), 
-    { icon: Phone, label: "Contact", path: "/contact" },
-    { icon: Info, label: "About", path: "/about" },
+    { icon: Home, label: "Home", path: "/", protected: false },
+    { icon: Video, label: "Vlog", path: "/vlog", protected: false },
+    { icon: Phone, label: "Contact", path: "/contact", protected: false },
+    { icon: Info, label: "About", path: "/about", protected: false },
+  ];
+
+  const myContentItems = [
+    { icon: Ticket, label: "My Bookings", path: "/bookings", protected: true },
+    { icon: Heart, label: "Saved", path: "/saved", protected: true },
+    { icon: Package, label: "My Content", path: "/mycontent", protected: true },
   ];
 
   const handleLogout = () => {
-    logout();
+    signOut();
     onClose();
   };
 
@@ -78,43 +89,54 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
       {/* Navigation links section */}
       <nav className="flex-1 p-4">
         <ul className="space-y-2">
-          {/* VERTICAL ARRANGEMENT FOR PARTNER LINKS (User Only) */}
-          {user && (
-            <li className="mb-4 pt-2 border-t border-blue-800"> {/* Changed border color for contrast */}
-              <ul className="space-y-1">
-                {partnerItems.map((item) => (
-                  <li key={item.path}>
-                    <Link
-                      to={item.path}
-                      onClick={onClose}
-                      // Hover background is white with low opacity (white/10), text/icons are white
-                      className="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-white/10 transition-all duration-200 group"
-                    >
-                      {/* PRIMARY CHANGE: Icon is now white (text-white) by default */}
-                      <item.icon className="h-5 w-5 text-white group-hover:text-white transition-colors" />
-                      {/* PRIMARY CHANGE: Font is font-medium and white (text-white) */}
-                      <span className="font-medium text-white group-hover:text-white transition-colors"> 
-                        {item.label}
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </li>
-          )}
-          
+          {/* PARTNER LINKS - Visible to all users */}
+          <li className="mb-4 pt-2 border-t border-blue-800">
+            <ul className="space-y-1">
+              {partnerItems.map((item) => (
+                <li key={item.path}>
+                  <button
+                    onClick={() => handleProtectedNavigation(item.path)}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-white/10 transition-all duration-200 group"
+                  >
+                    <item.icon className="h-5 w-5 text-white group-hover:text-white transition-colors" />
+                    <span className="font-medium text-white group-hover:text-white transition-colors"> 
+                      {item.label}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </li>
+
+          {/* MY CONTENT LINKS - Visible to all, protected */}
+          <li className="mb-4 border-t border-blue-800 pt-2">
+            <p className="px-4 py-2 text-xs font-semibold text-blue-200 uppercase">My Content</p>
+            <ul className="space-y-1">
+              {myContentItems.map((item) => (
+                <li key={item.path}>
+                  <button
+                    onClick={() => handleProtectedNavigation(item.path)}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-white/10 transition-all duration-200 group"
+                  >
+                    <item.icon className="h-5 w-5 text-white group-hover:text-white transition-colors" />
+                    <span className="font-medium text-white group-hover:text-white transition-colors">
+                      {item.label}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </li>
+
           {/* EDIT PROFILE LINK (User Only) */}
           {user && (
             <li>
               <Link
-                to="/profile/edit" // Links to ProfileEdit.tsx
+                to="/profile/edit"
                 onClick={onClose}
-                // Hover background is white with low opacity (white/10), text/icons are white
                 className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-all duration-200 group"
               >
-                {/* PRIMARY CHANGE: Icon is now white (text-white) */}
                 <Edit className="h-5 w-5 text-white group-hover:text-white transition-colors" />
-                {/* PRIMARY CHANGE: Font is now white (text-white) */}
                 <span className="font-medium text-white group-hover:text-white transition-colors">
                   Edit Profile
                 </span>
@@ -128,12 +150,9 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
               <Link
                 to={item.path}
                 onClick={onClose}
-                // Hover background is white with low opacity (white/10), text/icons are white
                 className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-all duration-200 group"
               >
-                {/* PRIMARY CHANGE: Icon is now white (text-white) */}
                 <item.icon className="h-5 w-5 text-white group-hover:text-white transition-colors" />
-                {/* PRIMARY CHANGE: Font is now white (text-white) */}
                 <span className="font-medium text-white group-hover:text-white transition-colors">
                   {item.label}
                 </span>

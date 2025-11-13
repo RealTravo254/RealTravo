@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { DesktopSidebar } from "@/components/DesktopSidebar";
 import Index from "./pages/Index";
 import Saved from "./pages/Saved";
 import Bookings from "./pages/Bookings";
@@ -36,29 +37,34 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/saved" element={<Saved />} />
-            <Route path="/bookings" element={<Bookings />} />
-            <Route path="/contact" element={<Contact />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/vlog" element={<Vlog />} />
-            <Route path="/category/:category" element={<CategoryDetail />} />
-            <Route path="/trip/:id" element={<TripDetail />} />
-            <Route path="/event/:id" element={<EventDetail />} />
-            <Route path="/hotel/:id" element={<HotelDetail />} />
-            <Route path="/adventure/:id" element={<AdventurePlaceDetail />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/admin" element={<AdminDashboard />} />
-        <Route path="/create/trip-event" element={<CreateTripEvent />} />
-        <Route path="/create/hotel" element={<CreateHotel />} />
-        <Route path="/create/adventure" element={<CreateAdventure />} />
-        <Route path="/profile/edit" element={<ProfileEdit />} />
-        <Route path="/my-content" element={<MyContent />} />
-        <Route path="/edit-listing/:type/:id" element={<EditListing />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <div className="flex">
+            <DesktopSidebar />
+            <div className="lg:ml-72 w-full">
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/saved" element={<Saved />} />
+                <Route path="/bookings" element={<Bookings />} />
+                <Route path="/contact" element={<Contact />} />
+                <Route path="/about" element={<About />} />
+                <Route path="/vlog" element={<Vlog />} />
+                <Route path="/category/:category" element={<CategoryDetail />} />
+                <Route path="/trip/:id" element={<TripDetail />} />
+                <Route path="/event/:id" element={<EventDetail />} />
+                <Route path="/hotel/:id" element={<HotelDetail />} />
+                <Route path="/adventure/:id" element={<AdventurePlaceDetail />} />
+                <Route path="/auth" element={<Auth />} />
+                <Route path="/profile" element={<Profile />} />
+                <Route path="/admin" element={<AdminDashboard />} />
+                <Route path="/CreateTripEvent" element={<CreateTripEvent />} />
+                <Route path="/CreateHotel" element={<CreateHotel />} />
+                <Route path="/CreateAdventure" element={<CreateAdventure />} />
+                <Route path="/profile/edit" element={<ProfileEdit />} />
+                <Route path="/mycontent" element={<MyContent />} />
+                <Route path="/edit-listing/:type/:id" element={<EditListing />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </div>
+          </div>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

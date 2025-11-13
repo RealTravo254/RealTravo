@@ -79,10 +79,7 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
           {/* VERTICAL ARRANGEMENT FOR PARTNER LINKS (User Only) */}
           {user && (
             <li className="mb-4 pt-2 border-t border-muted-foreground/30">
-              <h4 className="flex items-center gap-2 mb-2 px-4 text-sm font-semibold text-primary">
-                 <Plus className="h-4 w-4" />
-                 BECOME A PARTNER
-              </h4>
+
               <ul className="space-y-1">
                 {partnerItems.map((item) => (
                   <li key={item.path}>

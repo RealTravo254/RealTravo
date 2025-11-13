@@ -71,7 +71,7 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
                 <DropdownMenuTrigger asChild>
                   <Button variant="default" className="w-full flex items-center justify-center gap-2">
                     <Plus className="h-4 w-4" />
-                    Create
+                    Become a partner.
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-56">
@@ -81,7 +81,7 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
                       onClick={onClose} 
                       className="cursor-pointer"
                     >
-                      Trip & Event
+                      Organise a Trip or Event.
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
@@ -90,7 +90,7 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
                       onClick={onClose} 
                       className="cursor-pointer"
                     >
-                      Hotel & Accommodation
+                      List Your Hotel or Accommodation.
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
@@ -99,7 +99,7 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
                       onClick={onClose} 
                       className="cursor-pointer"
                     >
-                      Place to Adventure
+                      List Your Campsite or Space.
                     </Link>
                   </DropdownMenuItem>
                 </DropdownMenuContent>

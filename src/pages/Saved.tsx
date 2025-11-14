@@ -5,22 +5,38 @@ import { Footer } from "@/components/Footer";
 import { ListingCard } from "@/components/ListingCard";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { getUserId } from "@/lib/sessionManager";
+import { useNavigate } from "react-router-dom";
 
 const Saved = () => {
   const [savedListings, setSavedListings] = useState<any[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
   const { toast } = useToast();
-
-  const sessionId = localStorage.getItem("sessionId") || "";
+  const navigate = useNavigate();
 
   useEffect(() => {
-    fetchSavedItems();
+    const initializeData = async () => {
+      const uid = await getUserId();
+      if (!uid) {
+        toast({
+          title: "Login required",
+          description: "Please log in to view saved items",
+          variant: "destructive",
+        });
+        navigate("/auth");
+        return;
+      }
+      setUserId(uid);
+      fetchSavedItems(uid);
+    };
+    initializeData();
   }, []);
 
-  const fetchSavedItems = async () => {
+  const fetchSavedItems = async (uid: string) => {
     const { data: savedData } = await supabase
       .from("saved_items")
       .select("*")
-      .eq("session_id", sessionId);
+      .eq("user_id", uid);
 
     if (!savedData) return;
 
@@ -43,13 +59,13 @@ const Saved = () => {
   };
 
   const handleUnsave = async (itemId: string) => {
-    const { data: { user } } = await supabase.auth.getUser();
+    if (!userId) return;
     
     const { error } = await supabase
       .from("saved_items")
       .delete()
       .eq("item_id", itemId)
-      .eq("session_id", sessionId);
+      .eq("user_id", userId);
 
     if (!error) {
       setSavedListings(prev => prev.filter(item => item.id !== itemId));

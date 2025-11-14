@@ -9,6 +9,7 @@ import { Footer } from "@/components/Footer";
 import { Calendar, Hotel, Mountain } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { getUserId } from "@/lib/sessionManager";
 
 // MOCK Slideshow Component (Replace with your actual implementation)
 const ImageSlideshow = () => {
@@ -88,17 +89,19 @@ const Index = () => {
   const [adventurePlaces, setAdventurePlaces] = useState<any[]>([]);
   const [savedItems, setSavedItems] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const sessionId = localStorage.getItem("sessionId") || (() => {
-    const newId = Math.random().toString(36).substring(7);
-    localStorage.setItem("sessionId", newId);
-    return newId;
-  })();
-
   useEffect(() => {
-    fetchAllData();
-    fetchSavedItems();
+    const initializeData = async () => {
+      const uid = await getUserId();
+      setUserId(uid);
+      fetchAllData();
+      if (uid) {
+        fetchSavedItems(uid);
+      }
+    };
+    initializeData();
   }, []);
 
   const fetchAllData = async () => {
@@ -117,11 +120,11 @@ const Index = () => {
     setLoading(false);
   };
 
-  const fetchSavedItems = async () => {
+  const fetchSavedItems = async (uid: string) => {
     const { data } = await supabase
       .from("saved_items")
       .select("item_id")
-      .eq("session_id", sessionId);
+      .eq("user_id", uid);
 
     if (data) {
       setSavedItems(new Set(data.map(item => item.item_id)));
@@ -152,15 +155,23 @@ const Index = () => {
   };
 
   const handleSave = async (itemId: string, itemType: string) => {
+    if (!userId) {
+      toast({
+        title: "Login required",
+        description: "Please log in to save items",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const isSaved = savedItems.has(itemId);
-    const { data: { user } } = await supabase.auth.getUser();
 
     if (isSaved) {
       const { error } = await supabase
         .from("saved_items")
         .delete()
         .eq("item_id", itemId)
-        .eq("session_id", sessionId);
+        .eq("user_id", userId);
 
       if (!error) {
         setSavedItems(prev => {
@@ -171,14 +182,14 @@ const Index = () => {
         toast({ title: "Removed from saved" });
       }
     } else {
-      const { error } = await supabase
-        .from("saved_items")
-        .insert({ item_id: itemId, item_type: itemType, session_id: sessionId, user_id: user?.id || null });
+      await supabase.from("saved_items").insert([{
+        user_id: userId,
+        item_id: itemId,
+        item_type: itemType
+      }]);
 
-      if (!error) {
-        setSavedItems(prev => new Set([...prev, itemId]));
-        toast({ title: "Added to saved!" });
-      }
+      setSavedItems(prev => new Set([...prev, itemId]));
+      toast({ title: "Added to saved!" });
     }
   };
 

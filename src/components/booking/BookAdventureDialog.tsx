@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import { guestBookingSchema, paymentPhoneSchema } from "@/lib/validation";
 
 interface Facility {
   name: string;
@@ -125,10 +126,16 @@ export const BookAdventureDialog = ({ open, onOpenChange, place }: Props) => {
   const handleBooking = async () => {
     // Validate guest fields if not logged in
     if (!user) {
-      if (!guestName || !guestEmail || !guestPhone) {
+      const validation = guestBookingSchema.safeParse({
+        name: guestName,
+        email: guestEmail,
+        phone: guestPhone,
+      });
+
+      if (!validation.success) {
         toast({
-          title: "Guest information required",
-          description: "Please provide your name, email, and phone number",
+          title: "Invalid input",
+          description: validation.error.issues[0].message,
           variant: "destructive",
         });
         return;

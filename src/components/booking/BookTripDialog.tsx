@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import { guestBookingSchema, paymentPhoneSchema } from "@/lib/validation";
 
 interface Trip {
   id: string;
@@ -67,13 +68,21 @@ export const BookTripDialog = ({ open, onOpenChange, trip }: Props) => {
       return;
     }
 
-    if (!user && (!guestName || !guestPhone || !guestEmail)) {
-      toast({
-        title: "Missing information",
-        description: "Please fill in all guest details",
-        variant: "destructive",
+    if (!user) {
+      const validation = guestBookingSchema.safeParse({
+        name: guestName,
+        email: guestEmail,
+        phone: guestPhone,
       });
-      return;
+
+      if (!validation.success) {
+        toast({
+          title: "Invalid input",
+          description: validation.error.issues[0].message,
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     setStep(2);
@@ -89,13 +98,16 @@ export const BookTripDialog = ({ open, onOpenChange, trip }: Props) => {
       return;
     }
 
-    if ((paymentMethod === "mpesa" || paymentMethod === "airtel") && !paymentPhone) {
-      toast({
-        title: "Phone number required",
-        description: "Please enter your phone number for mobile payment",
-        variant: "destructive",
-      });
-      return;
+    if (paymentMethod === "mpesa" || paymentMethod === "airtel") {
+      const phoneValidation = paymentPhoneSchema.safeParse(paymentPhone);
+      if (!phoneValidation.success) {
+        toast({
+          title: "Invalid phone number",
+          description: phoneValidation.error.issues[0].message,
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     setLoading(true);

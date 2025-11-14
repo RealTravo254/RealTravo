@@ -8,6 +8,7 @@ import { ListingCard } from "@/components/ListingCard";
 import { FilterBar } from "@/components/FilterBar";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { getUserId } from "@/lib/sessionManager";
 
 const CategoryDetail = () => {
   const { category } = useParams<{ category: string }>();
@@ -16,13 +17,8 @@ const CategoryDetail = () => {
   const [filteredItems, setFilteredItems] = useState<any[]>([]);
   const [savedItems, setSavedItems] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
   const { toast } = useToast();
-
-  const sessionId = localStorage.getItem("sessionId") || (() => {
-    const newId = Math.random().toString(36).substring(7);
-    localStorage.setItem("sessionId", newId);
-    return newId;
-  })();
 
   const categoryConfig: {
     [key: string]: {
@@ -56,8 +52,15 @@ const CategoryDetail = () => {
   const config = category ? categoryConfig[category] : null;
 
   useEffect(() => {
-    fetchData();
-    fetchSavedItems();
+    const initializeData = async () => {
+      const uid = await getUserId();
+      setUserId(uid);
+      fetchData();
+      if (uid) {
+        fetchSavedItems(uid);
+      }
+    };
+    initializeData();
   }, [category]);
 
   useEffect(() => {
@@ -85,11 +88,11 @@ const CategoryDetail = () => {
     setLoading(false);
   };
 
-  const fetchSavedItems = async () => {
+  const fetchSavedItems = async (uid: string) => {
     const { data } = await supabase
       .from("saved_items")
       .select("item_id")
-      .eq("session_id", sessionId);
+      .eq("user_id", uid);
     
     if (data) {
       setSavedItems(new Set(data.map(item => item.item_id)));
@@ -122,33 +125,41 @@ const CategoryDetail = () => {
   };
 
   const handleSave = async (itemId: string, itemType: string) => {
+    if (!userId) {
+      toast({
+        title: "Login required",
+        description: "Please log in to save items",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const isSaved = savedItems.has(itemId);
-    const { data: { user } } = await supabase.auth.getUser();
     
     if (isSaved) {
-      const { error } = await supabase
+      await supabase
         .from("saved_items")
         .delete()
         .eq("item_id", itemId)
-        .eq("session_id", sessionId);
+        .eq("user_id", userId);
       
-      if (!error) {
-        setSavedItems(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(itemId);
-          return newSet;
-        });
-        toast({ title: "Removed from saved" });
-      }
+      setSavedItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(itemId);
+        return newSet;
+      });
+      toast({ title: "Removed from saved" });
     } else {
-      const { error } = await supabase
+      await supabase
         .from("saved_items")
-        .insert({ item_id: itemId, item_type: itemType, session_id: sessionId, user_id: user?.id || null });
+        .insert([{
+          user_id: userId,
+          item_id: itemId,
+          item_type: itemType
+        }]);
       
-      if (!error) {
-        setSavedItems(prev => new Set([...prev, itemId]));
-        toast({ title: "Added to saved!" });
-      }
+      setSavedItems(prev => new Set([...prev, itemId]));
+      toast({ title: "Added to saved!" });
     }
   };
 

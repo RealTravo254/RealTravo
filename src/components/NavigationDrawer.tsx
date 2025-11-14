@@ -60,34 +60,9 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
   };
 
   return (
-    // PRIMARY CHANGE: Entire body background is dark navyblue (bg-blue-950)
     <div className="flex flex-col h-full bg-blue-950">
-      {/* Header section - kept blue-900 for a slight color difference, but white text is maintained */}
-      <div className="p-6 border-b border-blue-800 bg-blue-900"> 
-
-        <div className="flex items-center gap-3">
-
-          {/* Logo background remains white, text is blue-900 (Navy) */}
-          <div className="h-10 w-10 rounded-lg bg-white flex items-center justify-center text-blue-900 font-bold text-xl">
-            T
-          </div>
-
-          <div>
-            {/* Site name remains white */}
-            <h2 className="font-bold text-lg text-white">
-              TripTrac
-            </h2>
-            {/* Tagline text remains lighter blue for contrast */}
-            <p className="text-xs text-blue-200">Explore the world</p>
-
-          </div>
-
-        </div>
-
-      </div>
-
-      {/* Navigation links section */}
-      <nav className="flex-1 p-4">
+      {/* Navigation links section - no header */}
+      <nav className="flex-1 p-4 pt-6">
         <ul className="space-y-2">
           {/* PARTNER LINKS - Visible to all users */}
           <li className="mb-4 pt-2 border-t border-blue-800">

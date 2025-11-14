@@ -186,4 +186,5 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
       {/* The Footer section has been removed */}
     </div>
    ); 
+   
 };

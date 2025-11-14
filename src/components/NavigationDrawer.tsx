@@ -150,28 +150,35 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
             </li>
           ))}
 
-          {/* AUTHENTICATION BUTTONS */}
+          {/* AUTHENTICATION BUTTONS - below About */}
           {user ? (
-            // LOGOUT BUTTON (User Only)
-            <li className="mt-4">
+            <li>
               <Button
                 onClick={handleLogout}
-                // Kept red for logout, ensuring text is white (text-white)
                 className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-all duration-200"
               >
-                {/* Icon is white (inherited from button text-white) */}
                 <LogOut className="h-5 w-5" />
                 <span className="font-medium">Logout</span>
               </Button>
             </li>
           ) : (
-            // LOGIN BUTTON (Guest Only)
-            <li className="mt-4">
+            <li>
+              <Link to="/auth" onClick={onClose}>
+                <Button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg">
+                  <span className="font-medium">Login</span>
+                </Button>
+              </Link>
             </li>
           )}
         </ul>
       </nav>
-      {/* Removed the extra background/border classes at the bottom as bg-blue-950 covers the full height */}
+
+      {/* Footer */}
+      <div className="p-4 border-t border-blue-800">
+        <p className="text-xs text-blue-200 text-center">
+          © 2025 TRIP TRAC ALL RIGHTS RESERVED
+        </p>
+      </div>
     </div>
    ); 
 };

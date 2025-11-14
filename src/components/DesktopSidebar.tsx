@@ -34,23 +34,8 @@ export const DesktopSidebar = () => {
   ];
 
   return (
-    <aside className="hidden lg:flex lg:flex-col fixed left-0 top-0 w-72 bg-blue-950 border-r border-blue-800 z-40 h-screen">
-      {/* Header section with logo, name, and paragraph */}
-      <div className="p-4 border-b border-blue-800">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="h-8 w-8 rounded-lg bg-white flex items-center justify-center text-blue-900 font-bold text-lg">
-            T
-          </div>
-          <div>
-            <span className="font-bold text-base text-white block">
-              TripTrac
-            </span>
-            <p className="text-xs text-blue-200">Explore the world</p>
-          </div>
-        </div>
-      </div>
-      
-      {/* Navigation content */}
+    <aside className="hidden lg:flex lg:flex-col fixed left-0 top-16 w-72 bg-blue-950 border-r border-blue-800 z-40" style={{ height: 'calc(100vh - 4rem)' }}>
+      {/* Navigation content - starts below main header */}
       <nav className="flex-1 p-4 pt-6 overflow-y-auto">
         <ul className="space-y-2">
           {/* Partner Links */}
@@ -114,9 +99,9 @@ export const DesktopSidebar = () => {
             </li>
           ))}
 
-          {/* Logout Button */}
+          {/* Login/Logout Button - below About */}
           {user ? (
-            <li className="mt-4">
+            <li>
               <Button
                 onClick={signOut}
                 className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-all duration-200"
@@ -125,9 +110,24 @@ export const DesktopSidebar = () => {
                 <span className="font-medium">Logout</span>
               </Button>
             </li>
-          ) : null}
+          ) : (
+            <li>
+              <Link to="/auth">
+                <Button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg">
+                  <span className="font-medium">Login</span>
+                </Button>
+              </Link>
+            </li>
+          )}
         </ul>
       </nav>
+
+      {/* Footer */}
+      <div className="p-4 border-t border-blue-800">
+        <p className="text-xs text-blue-200 text-center">
+          © 2025 TRIP TRAC ALL RIGHTS RESERVED
+        </p>
+      </div>
     </aside>
   );
 };

@@ -298,12 +298,7 @@ const AdventurePlaceDetail = () => {
               </Button>
             </div>
 
-            {/* Optional: Registration Number or other minor detail can go here */}
-            {place.registration_number && (
-                <div className="text-sm text-muted-foreground p-4 bg-card rounded-lg border">
-                    <p>Registration No: {place.registration_number}</p>
-                </div>
-            )}
+            {/* Registration number hidden from public for security */}
           </div>
         </div>
       </main>

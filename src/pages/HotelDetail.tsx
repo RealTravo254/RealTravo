@@ -287,12 +287,7 @@ const HotelDetail = () => {
               </Button>
             </div>
 
-            {/* Optional: Registration Number or other minor detail can go here */}
-            {hotel.registration_number && (
-                <div className="text-sm text-muted-foreground p-4 bg-card rounded-lg border">
-                    <p>Registration No: {hotel.registration_number}</p>
-                </div>
-            )}
+            {/* Registration number hidden from public for security */}
           </div>
         </div>
       </main>

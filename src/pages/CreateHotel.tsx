@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { MapPin, Mail, Phone, Navigation } from "lucide-react";
+import { accessPinSchema, registrationNumberSchema, adminEmailsSchema } from "@/lib/validation";
 
 const CreateHotel = () => {
   const navigate = useNavigate();
@@ -102,6 +103,41 @@ const CreateHotel = () => {
       });
       navigate("/auth");
       return;
+    }
+
+    // Validate access PIN
+    const pinValidation = accessPinSchema.safeParse(formData.accessPin);
+    if (!pinValidation.success) {
+      toast({
+        title: "Invalid Access PIN",
+        description: pinValidation.error.issues[0].message,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate registration number
+    const regValidation = registrationNumberSchema.safeParse(formData.registrationNumber);
+    if (!regValidation.success) {
+      toast({
+        title: "Invalid Registration Number",
+        description: regValidation.error.issues[0].message,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate admin emails if provided
+    if (formData.allowedAdminEmails.trim()) {
+      const emailsValidation = adminEmailsSchema.safeParse(formData.allowedAdminEmails);
+      if (!emailsValidation.success) {
+        toast({
+          title: "Invalid Administrator Emails",
+          description: emailsValidation.error.issues[0].message,
+          variant: "destructive"
+        });
+        return;
+      }
     }
 
     // Validate at least one facility

@@ -15,8 +15,9 @@ export const SearchBar = ({ value, onChange, onSubmit }: SearchBarProps) => {
   };
 
   return (
-    // Removed max-w-3xl mx-auto to allow 100% width, and added rounded-none.
-    <div className="relative w-full rounded-none">
+    // CHANGE: Removed max-w-3xl so the search bar takes 100% of its parent container's width on big screens.
+    // The w-full is already present, but removing max-w-... ensures full width.
+    <div className="relative w-full mx-auto">
       <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
       <Input
         type="text"
@@ -24,9 +25,8 @@ export const SearchBar = ({ value, onChange, onSubmit }: SearchBarProps) => {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyPress={handleKeyPress}
-        // Ensuring rounded-none is set here as well
+        // CONFIRMATION: The 'rounded-none' class ensures sharp, square corners (border radius zero).
         className="pl-10 md:pl-12 pr-3 md:pr-4 h-10 md:h-14 text-sm md:text-lg rounded-none border-2 focus-visible:border-primary shadow-md"
-        
       />
     </div>
   );

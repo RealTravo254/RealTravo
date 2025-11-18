@@ -212,6 +212,9 @@ const AdminDashboard = () => {
                       className="mt-2"
                     />
                     <div className="flex gap-2 mt-3">
+                      <Button onClick={() => navigate(`/admin/review/${item.type}/${item.id}`)} size="sm" variant="outline">
+                        View Details
+                      </Button>
                       <Button onClick={() => handleApprove(item.id, item.type)} size="sm">
                         Approve
                       </Button>
@@ -223,14 +226,22 @@ const AdminDashboard = () => {
                 )}
 
                 {status === 'approved' && (
-                  <Button 
-                    onClick={() => handleToggleVisibility(item.id, item.type, item.is_hidden)}
-                    size="sm"
-                    variant={item.is_hidden ? "default" : "outline"}
-                    className="mt-3"
-                  >
-                    {item.is_hidden ? "Publish" : "Hide"}
-                  </Button>
+                  <div className="flex gap-2 mt-3">
+                    <Button 
+                      onClick={() => navigate(`/admin/review/${item.type}/${item.id}`)}
+                      size="sm"
+                      variant="outline"
+                    >
+                      View Details
+                    </Button>
+                    <Button 
+                      onClick={() => handleToggleVisibility(item.id, item.type, item.is_hidden)}
+                      size="sm"
+                      variant={item.is_hidden ? "default" : "outline"}
+                    >
+                      {item.is_hidden ? "Publish" : "Hide"}
+                    </Button>
+                  </div>
                 )}
               </div>
             </div>

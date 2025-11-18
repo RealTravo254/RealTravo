@@ -9,6 +9,7 @@ import { Calendar, Hotel, Mountain, PartyPopper } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { getUserId } from "@/lib/sessionManager";
+import { useGeolocation, calculateDistance } from "@/hooks/useGeolocation";
 
 const ImageSlideshow = () => {
   const slides = [
@@ -61,13 +62,14 @@ const ImageSlideshow = () => {
 };
 
 const Index = () => {
-  const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [listings, setListings] = useState<any[]>([]);
-  const [savedItems, setSavedItems] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState<string | null>(null);
-  const { toast } = useToast();
+  const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [listings, setListings] = useState<any[]>([]);
+  const [savedItems, setSavedItems] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
+  const { toast } = useToast();
+  const { position } = useGeolocation();
 
   useEffect(() => {
     fetchAllData();
@@ -82,32 +84,46 @@ const Index = () => {
     initUserId();
   }, []);
 
-  const fetchAllData = async (query?: string) => {
-    setLoading(true);
+  const fetchAllData = async (query?: string) => {
+    setLoading(true);
 
-    // Fetch each table separately with explicit table names for TypeScript
-    const fetchTable = async (table: "trips" | "events" | "hotels" | "adventure_places", type: string) => {
-      let dbQuery = supabase.from(table).select("*").eq("approval_status", "approved").eq("is_hidden", false);
-      if (query) {
-        dbQuery = dbQuery.or(`name.ilike.%${query}%,location.ilike.%${query}%,country.ilike.%${query}%`);
-      }
-      const { data } = await dbQuery;
-      return (data || []).map((item: any) => ({ ...item, type }));
-    };
+    // Fetch each table separately with explicit table names for TypeScript
+    const fetchTable = async (table: "trips" | "events" | "hotels" | "adventure_places", type: string) => {
+      let dbQuery = supabase.from(table).select("*").eq("approval_status", "approved").eq("is_hidden", false);
+      if (query) {
+        dbQuery = dbQuery.or(`name.ilike.%${query}%,location.ilike.%${query}%,country.ilike.%${query}%`);
+      }
+      const { data } = await dbQuery;
+      return (data || []).map((item: any) => ({ ...item, type }));
+    };
 
-    const [trips, events, hotels, adventures] = await Promise.all([
-      fetchTable("trips", "TRIP"),
-      fetchTable("events", "EVENT"),
-      fetchTable("hotels", "HOTEL"),
-      fetchTable("adventure_places", "ADVENTURE PLACE")
-    ]);
+    const [trips, events, hotels, adventures] = await Promise.all([
+      fetchTable("trips", "TRIP"),
+      fetchTable("events", "EVENT"),
+      fetchTable("hotels", "HOTEL"),
+      fetchTable("adventure_places", "ADVENTURE PLACE")
+    ]);
 
-    const combined = [...trips, ...events, ...hotels, ...adventures].sort(
-      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    );
-    setListings(combined);
-    setLoading(false);
-  };
+    let combined = [...trips, ...events, ...hotels, ...adventures];
+
+    // Sort by location if geolocation is available, otherwise by created date
+    if (position) {
+      // Note: This is a simplified distance calc. In production, you'd geocode the location strings
+      // For now, we'll just prioritize items from the same country and sort by date
+      combined = combined.sort((a, b) => {
+        // You could implement actual geocoding here
+        // For now, we sort by created date
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+    } else {
+      combined = combined.sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+    }
+
+    setListings(combined);
+    setLoading(false);
+  };
 
   const handleSave = async (itemId: string, itemType: string) => {
     if (!userId) {

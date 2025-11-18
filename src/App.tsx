@@ -27,6 +27,8 @@ import CreateAdventure from "./pages/CreateAdventure";
 import ProfileEdit from "./pages/ProfileEdit";
 import BecomeHost from "./pages/BecomeHost";
 import HostItemDetail from "./pages/HostItemDetail";
+import AdminReviewDetail from "./pages/AdminReviewDetail";
+import AdminBookings from "./pages/AdminBookings";
 import EditListing from "./pages/EditListing";
 
 const queryClient = new QueryClient();
@@ -60,6 +62,8 @@ const App = () => (
               <Route path="/profile/edit" element={<ProfileEdit />} />
               <Route path="/become-host" element={<BecomeHost />} />
               <Route path="/host-item/:type/:id" element={<HostItemDetail />} />
+              <Route path="/admin/review/:type/:id" element={<AdminReviewDetail />} />
+              <Route path="/admin/bookings/:type/:id" element={<AdminBookings />} />
               <Route path="/edit-listing/:type/:id" element={<EditListing />} />
               <Route path="*" element={<NotFound />} />
             </Routes>

@@ -76,12 +76,17 @@ export const ListingCard = ({
   return (
     <Card 
       onClick={handleCardClick}
-      className="group overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1 rounded-lg cursor-pointer border-0"
+      // Removed rounded-lg class for square corners
+      className="group overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer border-0 rounded-none" 
     >
-      <div className="relative aspect-[4/3] overflow-hidden rounded-t-lg">
+      <div 
+        // Removed rounded-t-lg class for square corners on the image container
+        className="relative aspect-[4/3] overflow-hidden" 
+      >
         <img
           src={imageUrl}
           alt={name}
+          // The image now spans the full width of the card due to the parent container changes.
           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
         />
         
@@ -90,46 +95,47 @@ export const ListingCard = ({
           {type}
         </Badge>
 
-        {/* Save Button */}
+        {/* Save Button (Red, no background, hover blue) */}
         <Button
           variant="ghost"
           size="icon"
           onClick={handleSave}
           className={cn(
-            "absolute top-3 right-3 h-8 w-8 rounded-full transition-all z-10",
+            "absolute top-3 right-3 h-8 w-8 rounded-full transition-all z-10 text-red-500 hover:bg-blue-500 hover:text-white"
           )}
         >
           <Heart
             className={cn(
               "h-4 w-4 transition-all",
-              saved ? "fill-red-500 text-red-500" : "text-white"
+              saved ? "fill-red-500 text-red-500" : "text-red-500"
             )}
           />
         </Button>
 
-        {/* Price and Date Overlay - Bottom */}
-        <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/80 to-transparent flex justify-start items-end">
-            
-            {/* Price and Date */}
-            <div className="flex flex-col items-start space-y-1">
-                {price !== undefined && (
-                <p className="font-bold text-lg text-white"> 
-                    ${price}
-                </p>
-                )}
-                {date && (
-                <p className="font-bold text-xs text-white/90"> 
-                    {formatDate(date)}
-                </p>
-                )}
-            </div>
+        {/* Price (Left) and Date (Right) Overlay - Bottom of Image */}
+        <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/80 to-transparent flex justify-between items-end">
+          {/* Price - Left Side */}
+          {price !== undefined && (
+            <p className="font-bold text-lg text-white"> 
+              ${price}
+            </p>
+          )}
+          {/* Date - Right Side */}
+          {date && (
+            <p className="font-bold text-xs text-white/90"> 
+              {formatDate(date)}
+            </p>
+          )}
         </div>
       </div>
       
-      {/* Name and Location Detail - Below the image */}
+      {/* Name and Location Detail - Below the image, location at bottom right */}
       <div className="p-4 pt-3 flex flex-col space-y-1">
         <h3 className="font-bold text-lg line-clamp-1">{name}</h3> 
-        <p className="text-sm text-gray-500 line-clamp-1">{location}, {country}</p> 
+        {/* Location detail moved to the bottom right of this section */}
+        <div className="flex justify-end">
+             <p className="text-sm text-gray-500 line-clamp-1">{location}, {country}</p> 
+        </div>
       </div>
     </Card>
   );

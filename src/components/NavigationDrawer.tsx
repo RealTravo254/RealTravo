@@ -149,17 +149,17 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header section with logo, name, and paragraph - Always black */}
-      <div className="p-4 border-b bg-black text-white border-gray-800">
+      {/* Header section with logo, name, and paragraph - Always blue */}
+      <div className="p-4 border-b bg-blue-900 text-white border-blue-800">
         <div className="flex items-center gap-3 mb-2">
-          <div className="h-8 w-8 rounded-lg bg-gray-800 flex items-center justify-center font-bold text-lg text-white">
+          <div className="h-8 w-8 rounded-lg bg-blue-700 flex items-center justify-center font-bold text-lg text-white">
             T
           </div>
           <div>
             <span className="font-bold text-base block text-white">
               TripTrac
             </span>
-            <p className="text-xs text-gray-300">Explore the world</p>
+            <p className="text-xs text-blue-200">Explore the world</p>
           </div>
         </div>
       </div>

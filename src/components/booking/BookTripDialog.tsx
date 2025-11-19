@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
@@ -50,6 +51,15 @@ export const BookTripDialog = ({ open, onOpenChange, trip }: Props) => {
       toast({
         title: "Trip date has passed",
         description: "Cannot book trips with past dates",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (totalPeople === 0) {
+      toast({
+        title: "Select tickets",
+        description: "Please select at least one ticket",
         variant: "destructive",
       });
       return;
@@ -151,11 +161,12 @@ export const BookTripDialog = ({ open, onOpenChange, trip }: Props) => {
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Book {trip.name}</DialogTitle>
-        </DialogHeader>
+    <Drawer open={open} onOpenChange={onOpenChange}>
+      <DrawerContent className="max-h-[85vh]">
+        <DrawerHeader>
+          <DrawerTitle>Book {trip.name}</DrawerTitle>
+        </DrawerHeader>
+        <ScrollArea className="flex-1 px-4">
 
         {step === 1 ? (
           <div className="space-y-4">
@@ -292,7 +303,8 @@ export const BookTripDialog = ({ open, onOpenChange, trip }: Props) => {
             </div>
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+        </ScrollArea>
+      </DrawerContent>
+    </Drawer>
   );
 };

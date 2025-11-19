@@ -8,6 +8,13 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Eye, EyeOff } from "lucide-react";
 
+type FormErrors = {
+  email?: string;
+  password?: string;
+  confirmPassword?: string;
+  name?: string;
+};
+
 export const SignupForm = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -17,6 +24,7 @@ export const SignupForm = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<FormErrors>({});
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -41,23 +49,16 @@ export const SignupForm = () => {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrors({});
 
     if (password !== confirmPassword) {
-      toast({
-        title: "Passwords don't match",
-        description: "Please make sure your passwords match.",
-        variant: "destructive",
-      });
+      setErrors({ confirmPassword: "Passwords don't match" });
       return;
     }
 
     const passwordValidation = validatePassword(password);
     if (!passwordValidation.valid) {
-      toast({
-        title: "Weak password",
-        description: passwordValidation.message,
-        variant: "destructive",
-      });
+      setErrors({ password: passwordValidation.message });
       return;
     }
 
@@ -129,8 +130,12 @@ export const SignupForm = () => {
           id="name"
           value={name}
           onChange={(e) => setName(e.target.value)}
+          className={errors.name ? "border-destructive" : ""}
           required
         />
+        {errors.name && (
+          <p className="text-sm text-destructive">{errors.name}</p>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -155,8 +160,12 @@ export const SignupForm = () => {
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          className={errors.email ? "border-destructive" : ""}
           required
         />
+        {errors.email && (
+          <p className="text-sm text-destructive">{errors.email}</p>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -167,6 +176,7 @@ export const SignupForm = () => {
             type={showPassword ? "text" : "password"}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            className={errors.password ? "border-destructive" : ""}
             required
           />
           <button
@@ -177,6 +187,9 @@ export const SignupForm = () => {
             {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
         </div>
+        {errors.password && (
+          <p className="text-sm text-destructive">{errors.password}</p>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -187,6 +200,7 @@ export const SignupForm = () => {
             type={showConfirmPassword ? "text" : "password"}
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
+            className={errors.confirmPassword ? "border-destructive" : ""}
             required
           />
           <button
@@ -197,6 +211,9 @@ export const SignupForm = () => {
             {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
         </div>
+        {errors.confirmPassword && (
+          <p className="text-sm text-destructive">{errors.confirmPassword}</p>
+        )}
       </div>
 
       <Button type="submit" className="w-full" disabled={loading}>

@@ -127,10 +127,13 @@ export const Header = ({ onSearchClick, showSearchIcon = true }: HeaderProps) =>
             <Heart className="h-4 w-4" />
             <span>Wishlist</span>
           </Link>
-          <Link to="/my-listing" className="flex items-center gap-2 font-bold hover:text-muted-foreground transition-colors">
+          <button 
+            onClick={() => user ? navigate('/become-host') : navigate('/auth')} 
+            className="flex items-center gap-2 font-bold hover:text-muted-foreground transition-colors"
+          >
             <FolderOpen className="h-4 w-4" />
             <span>Become a Host</span>
-          </Link>
+          </button>
         </nav>
 
         {/* Account Controls (Right Side) */}

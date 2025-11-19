@@ -84,7 +84,6 @@ export const ListingCard = ({
         <img
           src={imageUrl}
           alt={name}
-          // The image now spans the full width of the card due to the parent container changes.
           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
         />
         
@@ -110,29 +109,36 @@ export const ListingCard = ({
           />
         </Button>
 
-        {/* Price (Left) and Date (Right) Overlay - Bottom of Image */}
-        <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/80 to-transparent flex justify-between items-end">
-          {/* Price - Left Side */}
+        {/* Price Overlay - Bottom-Right of Image (Original location was bottom of image, adjusted Price to be on the right side of the bottom image overlay) */}
+        <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/80 to-transparent flex justify-end items-end">
+          {/* Price - Right Side of Image Overlay */}
           {price !== undefined && (
             <p className="font-bold text-lg text-white"> 
               ${price}
             </p>
           )}
-          {/* Date - Right Side */}
-          {date && (
-            <p className="font-bold text-xs text-white/90"> 
-              {formatDate(date)}
-            </p>
-          )}
         </div>
       </div>
       
-      {/* Name and Location Detail - Below the image, location at bottom right */}
+      {/* Name, Location, and Date Details - Below the image */}
       <div className="p-4 pt-3 flex flex-col space-y-1">
         <h3 className="font-bold text-lg line-clamp-1">{name}</h3> 
-        {/* Location detail moved to the bottom right of this section */}
-        <div className="flex justify-end">
-             <p className="text-sm text-gray-500 line-clamp-1">{location}, {country}</p> 
+
+        {/* LOCATION - Left below title name with icon */}
+        <div className="flex items-center space-x-1 text-sm text-gray-600 dark:text-gray-400">
+          <MapPin className="h-4 w-4 shrink-0" />
+          <p className="line-clamp-1">
+            {location}, {country}
+          </p>
+        </div>
+        
+        {/* DATE - Aligned to the bottom right of the list/card body */}
+        <div className="flex justify-end pt-2">
+            {date && (
+                <p className="text-sm font-semibold text-red-600 dark:text-red-400"> 
+                    {formatDate(date)}
+                </p>
+            )}
         </div>
       </div>
     </Card>

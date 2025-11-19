@@ -269,7 +269,6 @@ const Index = () => {
         <div className="px-4">
           {/* Main Listings - First */}
           <section className="mb-8">
-            <h2 className="text-2xl font-bold mb-6">Explore All</h2>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
               {loading ? (
                 [...Array(10)].map((_, i) => (

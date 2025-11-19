@@ -105,12 +105,12 @@ export const Header = () => {
         
         {/* Logo and Drawer Trigger (Left Side) */}
         <div className="flex items-center gap-3">
-          <Sheet open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="text-header-foreground hover:bg-header-hover">
-                <Menu className="h-5 w-5" />
-              </Button>
-            </SheetTrigger>
+          <Sheet open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
+            <SheetTrigger asChild>
+              <button className="inline-flex items-center justify-center h-10 w-10 rounded-md text-header-foreground hover:bg-header-hover transition-colors">
+                <Menu className="h-5 w-5" />
+              </button>
+            </SheetTrigger>
             <SheetContent side="left" className="w-72 p-0 h-screen">
               <NavigationDrawer onClose={() => setIsDrawerOpen(false)} />
             </SheetContent>

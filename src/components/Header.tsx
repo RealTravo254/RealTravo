@@ -15,7 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { NavigationDrawer } from "./NavigationDrawer";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ThemeToggle } from "./ThemeToggle";
 
 interface HeaderProps {
@@ -23,7 +23,8 @@ interface HeaderProps {
   showSearchIcon?: boolean;
 }
 
-export const Header = ({ onSearchClick, showSearchIcon = false }: HeaderProps) => {
+export const Header = ({ onSearchClick, showSearchIcon = true }: HeaderProps) => {
+  const navigate = useNavigate();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const { user, signOut } = useAuth();
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -88,7 +89,7 @@ export const Header = ({ onSearchClick, showSearchIcon = false }: HeaderProps) =
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border bg-blue-900 text-white h-16">
+    <header className="md:sticky top-0 z-50 w-full border-b border-border bg-blue-900 text-white h-16">
       <div className="container flex h-full items-center justify-between px-4">
         
         {/* Logo and Drawer Trigger (Left Side) */}
@@ -140,10 +141,17 @@ export const Header = ({ onSearchClick, showSearchIcon = false }: HeaderProps) =
         {/* Account Controls (Right Side) */}
         <div className="flex items-center gap-2">
           
-          {/* Search Icon Button (appears when scrolled) */}
+          {/* Search Icon Button */}
           {showSearchIcon && (
             <button 
-              onClick={onSearchClick}
+              onClick={() => {
+                if (onSearchClick) {
+                  onSearchClick();
+                } else {
+                  navigate('/');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+              }}
               className="rounded-full h-10 w-10 flex items-center justify-center bg-white/10 hover:bg-white/20 transition-colors"
               aria-label="Search"
             >

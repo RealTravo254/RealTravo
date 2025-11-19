@@ -7,16 +7,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff } from "lucide-react";
 
+type FormErrors = {
+  email?: string;
+  password?: string;
+};
+
 export const LoginForm = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<FormErrors>({});
   const navigate = useNavigate();
   const { toast } = useToast();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrors({});
     setLoading(true);
 
     const { error } = await supabase.auth.signInWithPassword({
@@ -25,11 +32,17 @@ export const LoginForm = () => {
     });
 
     if (error) {
-      toast({
-        title: "Login failed",
-        description: error.message,
-        variant: "destructive",
-      });
+      if (error.message.toLowerCase().includes("email")) {
+        setErrors({ email: error.message });
+      } else if (error.message.toLowerCase().includes("password")) {
+        setErrors({ password: error.message });
+      } else {
+        toast({
+          title: "Login failed",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
     } else {
       toast({ title: "Login successful!" });
       navigate("/");
@@ -65,8 +78,12 @@ export const LoginForm = () => {
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          className={errors.email ? "border-destructive" : ""}
           required
         />
+        {errors.email && (
+          <p className="text-sm text-destructive">{errors.email}</p>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -77,6 +94,7 @@ export const LoginForm = () => {
             type={showPassword ? "text" : "password"}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            className={errors.password ? "border-destructive" : ""}
             required
           />
           <button
@@ -87,6 +105,9 @@ export const LoginForm = () => {
             {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
         </div>
+        {errors.password && (
+          <p className="text-sm text-destructive">{errors.password}</p>
+        )}
       </div>
 
       <div className="text-right">

@@ -77,6 +77,72 @@ const Index = () => {
   const [scrollableRows, setScrollableRows] = useState<{ trips: any[], events: any[], hotels: any[] }>({ trips: [], events: [], hotels: [] });
   const [nearbyPlacesHotels, setNearbyPlacesHotels] = useState<any[]>([]);
 
+  const fetchScrollableRows = async () => {
+    const [tripsData, eventsData, hotelsData] = await Promise.all([
+      supabase.from("trips").select("*").eq("approval_status", "approved").eq("is_hidden", false).limit(10),
+      supabase.from("events").select("*").eq("approval_status", "approved").eq("is_hidden", false).limit(10),
+      supabase.from("hotels").select("*").eq("approval_status", "approved").eq("is_hidden", false).limit(10)
+    ]);
+
+    setScrollableRows({
+      trips: tripsData.data || [],
+      events: eventsData.data || [],
+      hotels: hotelsData.data || []
+    });
+  };
+
+  const fetchNearbyPlacesAndHotels = async () => {
+    if (!position) return;
+
+    const [placesData, hotelsData] = await Promise.all([
+      supabase.from("adventure_places").select("*").eq("approval_status", "approved").eq("is_hidden", false).limit(20),
+      supabase.from("hotels").select("*").eq("approval_status", "approved").eq("is_hidden", false).limit(20)
+    ]);
+
+    const combined = [
+      ...(placesData.data || []).map(item => ({ ...item, table: "adventure_places", category: "Adventure Place" })),
+      ...(hotelsData.data || []).map(item => ({ ...item, table: "hotels", category: "Hotel" }))
+    ];
+
+    const nearby = combined.slice(0, 10);
+    setNearbyPlacesHotels(nearby);
+  };
+
+  const fetchAllData = async (query?: string) => {
+    setLoading(true);
+
+    const fetchTable = async (table: "trips" | "events" | "hotels" | "adventure_places", type: string) => {
+      let dbQuery = supabase.from(table).select("*").eq("approval_status", "approved").eq("is_hidden", false);
+      if (query) {
+        dbQuery = dbQuery.or(`name.ilike.%${query}%,location.ilike.%${query}%,country.ilike.%${query}%`);
+      }
+      const { data } = await dbQuery;
+      return (data || []).map((item: any) => ({ ...item, type }));
+    };
+
+    const [trips, events, hotels, adventures] = await Promise.all([
+      fetchTable("trips", "TRIP"),
+      fetchTable("events", "EVENT"),
+      fetchTable("hotels", "HOTEL"),
+      fetchTable("adventure_places", "ADVENTURE PLACE")
+    ]);
+
+    let combined = [...trips, ...events, ...hotels, ...adventures];
+
+    if (position) {
+      combined = combined.sort((a, b) => {
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+    } else {
+      combined = combined.sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+    }
+
+    setListings(combined);
+    setLoading(false);
+  };
+
   useEffect(() => {
     fetchAllData();
     fetchScrollableRows();
@@ -102,7 +168,6 @@ const Index = () => {
       const currentScrollY = window.scrollY;
       
       if (window.innerWidth >= 768) {
-        // Desktop: show search icon when scrolled down
         if (currentScrollY > 200) {
           setIsSearchVisible(false);
           setShowSearchIcon(true);
@@ -128,46 +193,6 @@ const Index = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const fetchAllData = async (query?: string) => {
-    setLoading(true);
-
-    // Fetch each table separately with explicit table names for TypeScript
-    const fetchTable = async (table: "trips" | "events" | "hotels" | "adventure_places", type: string) => {
-      let dbQuery = supabase.from(table).select("*").eq("approval_status", "approved").eq("is_hidden", false);
-      if (query) {
-        dbQuery = dbQuery.or(`name.ilike.%${query}%,location.ilike.%${query}%,country.ilike.%${query}%`);
-      }
-      const { data } = await dbQuery;
-      return (data || []).map((item: any) => ({ ...item, type }));
-    };
-
-    const [trips, events, hotels, adventures] = await Promise.all([
-      fetchTable("trips", "TRIP"),
-      fetchTable("events", "EVENT"),
-      fetchTable("hotels", "HOTEL"),
-      fetchTable("adventure_places", "ADVENTURE PLACE")
-    ]);
-
-    let combined = [...trips, ...events, ...hotels, ...adventures];
-
-    // Sort by location if geolocation is available, otherwise by created date
-    if (position) {
-      // Note: This is a simplified distance calc. In production, you'd geocode the location strings
-      // For now, we'll just prioritize items from the same country and sort by date
-      combined = combined.sort((a, b) => {
-        // You could implement actual geocoding here
-        // For now, we sort by created date
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      });
-    } else {
-      combined = combined.sort(
-        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
-    }
-
-    setListings(combined);
-    setLoading(false);
-  };
 
   const handleSave = async (itemId: string, itemType: string) => {
     if (!userId) {

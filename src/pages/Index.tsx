@@ -74,9 +74,12 @@ const Index = () => {
   const [lastScrollY, setLastScrollY] = useState(0);
   const [showSearchIcon, setShowSearchIcon] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+  const [scrollableRows, setScrollableRows] = useState<{ trips: any[], events: any[], hotels: any[] }>({ trips: [], events: [], hotels: [] });
+  const [nearbyPlacesHotels, setNearbyPlacesHotels] = useState<any[]>([]);
 
   useEffect(() => {
     fetchAllData();
+    fetchScrollableRows();
     const initUserId = async () => {
       const id = await getUserId();
       setUserId(id);
@@ -87,6 +90,12 @@ const Index = () => {
     };
     initUserId();
   }, []);
+
+  useEffect(() => {
+    if (position) {
+      fetchNearbyPlacesAndHotels();
+    }
+  }, [position]);
 
   useEffect(() => {
     const controlSearchBar = () => {

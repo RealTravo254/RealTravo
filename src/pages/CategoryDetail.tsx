@@ -22,6 +22,9 @@ const CategoryDetail = () => {
   const [isSticky, setIsSticky] = useState(false);
   const [lastScrollY, setLastScrollY] = useState(0);
   const filterRef = useRef<HTMLDivElement>(null);
+  const [isSearchVisible, setIsSearchVisible] = useState(true);
+  const [showSearchIcon, setShowSearchIcon] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
 
   const categoryConfig: {
     [key: string]: {
@@ -75,8 +78,12 @@ const CategoryDetail = () => {
       const currentScrollY = window.scrollY;
       if (currentScrollY > 100) {
         setIsSticky(true);
+        setIsSearchVisible(false);
+        setShowSearchIcon(true);
       } else {
         setIsSticky(false);
+        setIsSearchVisible(true);
+        setShowSearchIcon(false);
       }
       setLastScrollY(currentScrollY);
     };
@@ -84,6 +91,14 @@ const CategoryDetail = () => {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, [lastScrollY]);
+
+  const handleSearchIconClick = () => {
+    setIsSearchVisible(true);
+    setShowSearchIcon(false);
+    if (searchRef.current) {
+      searchRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
 
   const fetchData = async () => {
     if (!config) return;
@@ -203,29 +218,39 @@ const CategoryDetail = () => {
     let filtered = [...items];
 
     if (filters.location) {
-      const locationQuery = filters.location.toLowerCase();
       filtered = filtered.filter(
         (item) =>
-          item.location?.toLowerCase().includes(locationQuery) ||
-          item.country?.toLowerCase().includes(locationQuery) ||
-          item.place?.toLowerCase().includes(locationQuery)
+          item.location?.toLowerCase().includes(filters.location.toLowerCase()) ||
+          item.place?.toLowerCase().includes(filters.location.toLowerCase()) ||
+          item.country?.toLowerCase().includes(filters.location.toLowerCase())
       );
     }
 
+    // Date filtering for trips/events
     if (filters.dateFrom && filters.dateTo) {
       filtered = filtered.filter((item) => {
-        if (!item.date) return false;
-        const itemDate = new Date(item.date);
-        return itemDate >= filters.dateFrom && itemDate <= filters.dateTo;
+        if (item.date) {
+          const itemDate = new Date(item.date);
+          return itemDate >= new Date(filters.dateFrom) && itemDate <= new Date(filters.dateTo);
+        }
+        return false; // Exclude items without dates
       });
-    }
-
-    if (filters.minPrice !== undefined) {
-      filtered = filtered.filter((item) => item.price >= filters.minPrice);
-    }
-
-    if (filters.maxPrice !== undefined) {
-      filtered = filtered.filter((item) => item.price <= filters.maxPrice);
+    } else if (filters.dateFrom) {
+      filtered = filtered.filter((item) => {
+        if (item.date) {
+          const itemDate = new Date(item.date);
+          return itemDate >= new Date(filters.dateFrom);
+        }
+        return false;
+      });
+    } else if (filters.dateTo) {
+      filtered = filtered.filter((item) => {
+        if (item.date) {
+          const itemDate = new Date(item.date);
+          return itemDate <= new Date(filters.dateTo);
+        }
+        return false;
+      });
     }
 
     setFilteredItems(filtered);
@@ -237,40 +262,43 @@ const CategoryDetail = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
-      <Header />
+      <Header onSearchClick={handleSearchIconClick} showSearchIcon={showSearchIcon} />
       
-      <main className="container px-4 py-8 space-y-4">
-        <h1 className="text-3xl font-bold">{config.title}</h1>
-
-        <div 
-          ref={filterRef}
-          className={`sticky top-0 mt-0 z-40 bg-background shadow-md transition-all duration-300 ${
-            isSticky ? 'py-3 px-2' : 'py-0'
-          }`}
-        >
-          <div className={`space-y-3 transition-all duration-300 ${
-            isSticky ? '' : ''
-          }`}>
+      {/* Search & Filter Bar */}
+      <div 
+        ref={filterRef}
+        className={`sticky top-16 z-40 bg-background border-b transition-all duration-300 ${
+          isSticky ? "shadow-md" : ""
+        }`}
+      >
+        <div className="container px-4 py-4 space-y-4">
+          <div
+            ref={searchRef}
+            className={`transition-all duration-300 ${isSearchVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none h-0'}`}
+          >
             <SearchBarWithSuggestions
               value={searchQuery}
               onChange={setSearchQuery}
               onSubmit={handleSearch}
             />
-
-            <FilterBar
-              type={
-                category === "trips" || category === "events"
-                  ? "trips-events"
-                  : category === "hotels"
-                  ? "hotels"
-                  : "adventure"
-              }
-              onApplyFilters={handleApplyFilters}
-            />
           </div>
+          <FilterBar
+            type={
+              category === "hotels"
+                ? "hotels"
+                : category === "adventure"
+                ? "adventure"
+                : "trips-events"
+            }
+            onApplyFilters={handleApplyFilters}
+          />
         </div>
+      </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+      <main className="container px-4 py-8 space-y-4">
+        <h1 className="text-3xl font-bold">{config.title}</h1>
+
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
           {loading || filteredItems.length === 0 ? (
             <>
               {[...Array(12)].map((_, i) => (

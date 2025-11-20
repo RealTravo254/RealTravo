@@ -29,14 +29,12 @@ const BecomeHost = () => {
       const { data: events } = await supabase.from("events").select("*").eq("created_by", user.id);
       const { data: hotels } = await supabase.from("hotels").select("id, name, location, place, country, image_url, description, email, phone_numbers, amenities, establishment_type, map_link, gallery_images, images, approval_status, admin_notes, created_at, created_by, approved_by, approved_at, is_hidden, registration_number, facilities").eq("created_by", user.id);
       const { data: adventures } = await supabase.from("adventure_places").select("id, name, location, place, country, image_url, description, email, phone_numbers, amenities, activities, facilities, entry_fee, entry_fee_type, map_link, gallery_images, images, approval_status, admin_notes, created_at, created_by, approved_by, approved_at, is_hidden, registration_number").eq("created_by", user.id);
-      const { data: accommodations } = await supabase.from("accommodations").select("*").eq("created_by", user.id);
 
       const allContent = [
         ...(trips?.map(t => ({ ...t, type: "trip" })) || []),
         ...(events?.map(e => ({ ...e, type: "event" })) || []),
         ...(hotels?.map(h => ({ ...h, type: "hotel" })) || []),
-        ...(adventures?.map(a => ({ ...a, type: "adventure" })) || []),
-        ...(accommodations?.map(a => ({ ...a, type: "accommodation" })) || [])
+        ...(adventures?.map(a => ({ ...a, type: "adventure" })) || [])
       ];
 
       setMyContent(allContent);
@@ -97,15 +95,6 @@ const BecomeHost = () => {
               <Building className="h-12 w-12 text-green-600" />
               <h3 className="font-semibold text-lg">Create Hotel</h3>
               <p className="text-sm text-muted-foreground">List your hotel property</p>
-              <Button className="w-full">Create Now</Button>
-            </div>
-          </Card>
-
-          <Card className="p-6 hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate("/CreateAccommodation")}>
-            <div className="flex flex-col items-center text-center space-y-3">
-              <Package className="h-12 w-12 text-purple-600" />
-              <h3 className="font-semibold text-lg">Create Accommodation</h3>
-              <p className="text-sm text-muted-foreground">List unique stays like tents, cabins, etc.</p>
               <Button className="w-full">Create Now</Button>
             </div>
           </Card>

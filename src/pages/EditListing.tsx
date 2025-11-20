@@ -52,12 +52,11 @@ const EditListing = () => {
 
   const fetchListing = async () => {
     try {
-      let table: "hotels" | "adventure_places" | "trips" | "events" | "accommodations" = "hotels";
+      let table: "hotels" | "adventure_places" | "trips" | "events" = "hotels";
       if (type === "hotel") table = "hotels";
       else if (type === "adventure") table = "adventure_places";
       else if (type === "trip") table = "trips";
       else if (type === "event") table = "events";
-      else if (type === "accommodation") table = "accommodations";
 
       const { data, error } = await supabase
         .from(table)
@@ -81,13 +80,6 @@ const EditListing = () => {
         setDate((data as any).date || '');
         setAvailableSlots((data as any).available_tickets || 0);
         setPriceChild((data as any).price_child || 0);
-      }
-      
-      // Load accommodation specific fields
-      if (type === 'accommodation') {
-        setPrice((data as any).price || 0);
-        setNumberOfRooms((data as any).number_of_rooms || 1);
-        setCapacity((data as any).capacity || 2);
       }
     } catch (error) {
       console.error("Error fetching listing:", error);
@@ -158,12 +150,11 @@ const EditListing = () => {
 
       const allImages = [...existingImages, ...uploadedImageUrls];
 
-      let table: "hotels" | "adventure_places" | "trips" | "events" | "accommodations" = "hotels";
+      let table: "hotels" | "adventure_places" | "trips" | "events" = "hotels";
       if (type === "hotel") table = "hotels";
       else if (type === "adventure") table = "adventure_places";
       else if (type === "trip") table = "trips";
       else if (type === "event") table = "events";
-      else if (type === "accommodation") table = "accommodations";
 
       const updateData: any = {
         name,
@@ -180,12 +171,6 @@ const EditListing = () => {
         updateData.date = date;
         updateData.available_tickets = availableSlots;
         updateData.price_child = priceChild;
-      }
-      
-      if (type === 'accommodation') {
-        updateData.price = price;
-        updateData.number_of_rooms = numberOfRooms;
-        updateData.capacity = capacity;
       }
 
       const { error } = await supabase

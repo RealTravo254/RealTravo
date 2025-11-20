@@ -74,10 +74,6 @@ const AdminReviewDetail = () => {
         const { data, error } = await supabase.from("adventure_places").select("*").eq("id", id).single();
         if (error) throw error;
         itemData = data;
-      } else if (type === "accommodation") {
-        const { data, error } = await supabase.from("accommodations").select("*").eq("id", id).single();
-        if (error) throw error;
-        itemData = data;
       }
 
       if (!itemData) throw new Error("Item not found");
@@ -137,9 +133,6 @@ const AdminReviewDetail = () => {
         if (error) throw error;
       } else if (type === "adventure") {
         const { error } = await supabase.from("adventure_places").update(updateData).eq("id", id);
-        if (error) throw error;
-      } else if (type === "accommodation") {
-        const { error } = await supabase.from("accommodations").update(updateData).eq("id", id);
         if (error) throw error;
       }
 

@@ -24,8 +24,6 @@ import AdminDashboard from "./pages/AdminDashboard";
 import CreateTripEvent from "./pages/CreateTripEvent";
 import CreateHotel from "./pages/CreateHotel";
 import CreateAdventure from "./pages/CreateAdventure";
-import CreateAccommodation from "./pages/CreateAccommodation";
-import AccommodationDetail from "./pages/AccommodationDetail";
 import ProfileEdit from "./pages/ProfileEdit";
 import BecomeHost from "./pages/BecomeHost";
 import HostItemDetail from "./pages/HostItemDetail";
@@ -58,15 +56,12 @@ const App = () => (
               <Route path="/event/:id" element={<EventDetail />} />
               <Route path="/hotel/:id" element={<HotelDetail />} />
               <Route path="/adventure/:id" element={<AdventurePlaceDetail />} />
-              <Route path="/accommodation/:id" element={<AccommodationDetail />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/CreateTripEvent" element={<CreateTripEvent />} />
               <Route path="/CreateHotel" element={<CreateHotel />} />
               <Route path="/CreateAdventure" element={<CreateAdventure />} />
-              <Route path="/CreateAccommodation" element={<CreateAccommodation />} />
-              <Route path="/accommodation/:id" element={<AccommodationDetail />} />
               <Route path="/profile/edit" element={<ProfileEdit />} />
               <Route path="/become-host" element={<BecomeHost />} />
               <Route path="/host-item/:type/:id" element={<HostItemDetail />} />

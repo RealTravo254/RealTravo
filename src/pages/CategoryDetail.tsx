@@ -48,11 +48,6 @@ const CategoryDetail = () => {
       tables: ["hotels"],
       type: "HOTEL"
     },
-    accommodations: {
-      title: "Accommodations",
-      tables: ["accommodations"],
-      type: "ACCOMMODATION"
-    },
     adventure: {
       title: "Adventure Places",
       tables: ["adventure_places"],

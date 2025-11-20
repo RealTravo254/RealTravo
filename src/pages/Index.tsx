@@ -177,14 +177,10 @@ const Index = () => {
     useEffect(() => {
         const controlSearchBar = () => {
             const currentScrollY = window.scrollY;
-            if (window.innerWidth < 768) {
-                if (currentScrollY > 200) {
-                    setIsSearchVisible(false);
-                    setShowSearchIcon(true);
-                } else {
-                    setIsSearchVisible(true);
-                    setShowSearchIcon(false);
-                }
+            // Apply to all screen sizes
+            if (currentScrollY > 200) {
+                setIsSearchVisible(false);
+                setShowSearchIcon(true);
             } else {
                 setIsSearchVisible(true);
                 setShowSearchIcon(false);

@@ -275,7 +275,7 @@ const Index = () => {
                             </Link>
                         </div>
                         <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
-                            {loading ? (
+                            {loading || listings.length === 0 ? (
                                 [...Array(10)].map((_, i) => (
                                     <div key={i} className="flex-shrink-0 w-64 rounded-lg overflow-hidden shadow-md">
                                         <div className="aspect-[4/3] bg-muted animate-pulse" />
@@ -310,20 +310,20 @@ const Index = () => {
 
                     <hr className="border-t border-gray-200 my-4 md:my-8" />
 
-                    {/* Featured Places */}
+                    {/* Featured Campsite & Experience */}
                     <section className="mb-4 md:mb-8">
                         <div className="flex justify-between items-center mb-4">
                             <h2 className="text-sm md:text-2xl font-bold whitespace-nowrap overflow-hidden text-ellipsis">
-                                Featured Places
+                                Featured Campsite & Experience
                             </h2>
-                            <Link to="/category/trips">
+                            <Link to="/category/campsite">
                                 <Button variant="outline" size="sm" className="text-xs md:text-sm">
                                     View All
                                 </Button>
                             </Link>
                         </div>
                         <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
-                            {loadingScrollable ? (
+                            {loadingScrollable || nearbyPlacesHotels.filter((item) => item.table === "adventure_places").length === 0 ? (
                                 [...Array(10)].map((_, i) => (
                                     <div key={i} className="flex-shrink-0 w-64 rounded-lg overflow-hidden shadow-md">
                                         <div className="aspect-[4/3] bg-muted animate-pulse" />
@@ -368,7 +368,7 @@ const Index = () => {
                             </Link>
                         </div>
                         <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
-                            {loadingScrollable ? (
+                            {loadingScrollable || scrollableRows.hotels.length === 0 ? (
                                 [...Array(10)].map((_, i) => (
                                     <div key={i} className="flex-shrink-0 w-64 rounded-lg overflow-hidden shadow-md">
                                         <div className="aspect-[4/3] bg-muted animate-pulse" />
@@ -413,7 +413,7 @@ const Index = () => {
                             </Link>
                         </div>
                         <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
-                            {loadingScrollable ? (
+                            {loadingScrollable || scrollableRows.attractions.length === 0 ? (
                                 [...Array(10)].map((_, i) => (
                                     <div key={i} className="flex-shrink-0 w-64 rounded-lg overflow-hidden shadow-md">
                                         <div className="aspect-[4/3] bg-muted animate-pulse" />

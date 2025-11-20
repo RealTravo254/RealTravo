@@ -44,9 +44,14 @@ const CategoryDetail = () => {
       type: "EVENT"
     },
     hotels: {
-      title: "Hotels & Accommodation",
+      title: "Hotels",
       tables: ["hotels"],
       type: "HOTEL"
+    },
+    accommodations: {
+      title: "Accommodations",
+      tables: ["accommodations"],
+      type: "ACCOMMODATION"
     },
     adventure: {
       title: "Adventure Places",

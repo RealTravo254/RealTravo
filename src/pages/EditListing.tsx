@@ -10,17 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Trash2, Upload, X } from "lucide-react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { Loader2, Upload, X } from "lucide-react";
 
 interface Facility {
   name: string;
@@ -35,7 +25,6 @@ const EditListing = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -46,6 +35,7 @@ const EditListing = () => {
   // Fields for trips/events
   const [date, setDate] = useState("");
   const [availableSlots, setAvailableSlots] = useState(0);
+  const [priceChild, setPriceChild] = useState(0);
   
   // Fields for accommodations
   const [price, setPrice] = useState(0);
@@ -90,6 +80,7 @@ const EditListing = () => {
       if (type === 'trip' || type === 'event') {
         setDate((data as any).date || '');
         setAvailableSlots((data as any).available_tickets || 0);
+        setPriceChild((data as any).price_child || 0);
       }
       
       // Load accommodation specific fields
@@ -188,6 +179,7 @@ const EditListing = () => {
       if (type === 'trip' || type === 'event') {
         updateData.date = date;
         updateData.available_tickets = availableSlots;
+        updateData.price_child = priceChild;
       }
       
       if (type === 'accommodation') {
@@ -222,47 +214,6 @@ const EditListing = () => {
     }
   };
 
-  const handleDelete = async () => {
-    // Prevent deletion of trips and events
-    if (type === 'trip' || type === 'event') {
-      toast({
-        title: "Cannot delete",
-        description: "Trips and events cannot be deleted. You can only edit them.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    try {
-      let table: "hotels" | "adventure_places" | "accommodations" = "hotels";
-      if (type === "hotel") table = "hotels";
-      else if (type === "adventure") table = "adventure_places";
-      else if (type === "accommodation") table = "accommodations";
-
-      const { error } = await supabase
-        .from(table)
-        .delete()
-        .eq("id", id!)
-        .eq("created_by", user?.id!);
-
-      if (error) throw error;
-
-      toast({
-        title: "Deleted",
-        description: "Listing deleted successfully",
-      });
-
-      navigate("/my-content");
-    } catch (error) {
-      console.error("Error deleting listing:", error);
-      toast({
-        title: "Error",
-        description: "Failed to delete listing",
-        variant: "destructive",
-      });
-    }
-  };
-
   const addFacility = () => {
     setFacilities([...facilities, { name: "", price: 0, capacity: 1 }]);
   };
@@ -290,17 +241,8 @@ const EditListing = () => {
       <Header />
       
       <main className="container px-4 py-8 max-w-2xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
+        <div className="mb-6">
           <h1 className="text-3xl font-bold">Edit Listing</h1>
-          {type !== 'trip' && type !== 'event' && (
-            <Button
-              variant="destructive"
-              onClick={() => setShowDeleteDialog(true)}
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete
-            </Button>
-          )}
         </div>
 
         <div className="space-y-6">
@@ -394,6 +336,17 @@ const EditListing = () => {
                   min={0}
                 />
               </div>
+
+              <div>
+                <Label htmlFor="priceChild">Price for Child Ticket (KSh)</Label>
+                <Input
+                  id="priceChild"
+                  type="number"
+                  value={priceChild}
+                  onChange={(e) => setPriceChild(parseFloat(e.target.value) || 0)}
+                  min={0}
+                />
+              </div>
             </>
           )}
 
@@ -483,21 +436,6 @@ const EditListing = () => {
           </div>
         </div>
       </main>
-
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete your listing.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       <Footer />
       <MobileBottomBar />

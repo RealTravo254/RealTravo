@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Header } from "@/components/Header";
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Mail } from "lucide-react";
+import { Mail, Clock } from "lucide-react";
 
 const VerifyEmail = () => {
   const [searchParams] = useSearchParams();
@@ -16,8 +16,19 @@ const VerifyEmail = () => {
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
+  const [countdown, setCountdown] = useState(60);
+  const [canResend, setCanResend] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (countdown > 0) {
+      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+      return () => clearTimeout(timer);
+    } else {
+      setCanResend(true);
+    }
+  }, [countdown]);
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,6 +74,9 @@ const VerifyEmail = () => {
         title: "Code resent!",
         description: "A new verification code has been sent to your email.",
       });
+      
+      setCountdown(60);
+      setCanResend(false);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -109,12 +123,18 @@ const VerifyEmail = () => {
               {loading ? "Verifying..." : "Verify Email"}
             </Button>
 
-            <div className="text-center">
+            <div className="text-center space-y-2">
+              {!canResend && countdown > 0 && (
+                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                  <Clock className="h-4 w-4" />
+                  <span>Resend code in {countdown}s</span>
+                </div>
+              )}
               <button
                 type="button"
                 onClick={handleResendCode}
-                disabled={resending}
-                className="text-sm text-primary hover:underline"
+                disabled={resending || !canResend}
+                className={`text-sm ${canResend ? 'text-primary hover:underline' : 'text-muted-foreground cursor-not-allowed'}`}
               >
                 {resending ? "Sending..." : "Didn't receive the code? Resend"}
               </button>

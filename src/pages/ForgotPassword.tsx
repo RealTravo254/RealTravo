@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Header } from "@/components/Header";
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff, Mail, Lock } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, Clock } from "lucide-react";
 
 const ForgotPassword = () => {
   const [step, setStep] = useState<'email' | 'verify'>('email');
@@ -20,8 +20,19 @@ const ForgotPassword = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [countdown, setCountdown] = useState(0);
+  const [canResend, setCanResend] = useState(true);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (countdown > 0) {
+      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+      return () => clearTimeout(timer);
+    } else if (countdown === 0 && step === 'verify') {
+      setCanResend(true);
+    }
+  }, [countdown, step]);
 
   const validatePassword = (pwd: string): { valid: boolean; message?: string } => {
     if (pwd.length < 8) {
@@ -60,6 +71,8 @@ const ForgotPassword = () => {
       });
 
       setStep('verify');
+      setCountdown(60);
+      setCanResend(false);
     } catch (error: any) {
       setError(error.message);
       toast({
@@ -112,6 +125,33 @@ const ForgotPassword = () => {
       navigate("/auth");
     } catch (error: any) {
       setError(error.message);
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Code resent!",
+        description: "A new verification code has been sent to your email.",
+      });
+
+      setCountdown(60);
+      setCanResend(false);
+    } catch (error: any) {
       toast({
         title: "Error",
         description: error.message,
@@ -242,14 +282,20 @@ const ForgotPassword = () => {
                   {loading ? "Resetting..." : "Reset Password"}
                 </Button>
 
-                <div className="text-center">
+                <div className="text-center space-y-2">
+                  {!canResend && countdown > 0 && (
+                    <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                      <Clock className="h-4 w-4" />
+                      <span>Resend code in {countdown}s</span>
+                    </div>
+                  )}
                   <button
                     type="button"
-                    onClick={handleSendCode}
-                    disabled={loading}
-                    className="text-sm text-primary hover:underline"
+                    onClick={handleResendCode}
+                    disabled={loading || !canResend}
+                    className={`text-sm ${canResend ? 'text-primary hover:underline' : 'text-muted-foreground cursor-not-allowed'}`}
                   >
-                    Resend code
+                    {loading ? "Sending..." : "Resend code"}
                   </button>
                 </div>
               </form>

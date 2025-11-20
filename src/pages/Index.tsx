@@ -74,21 +74,29 @@ const Index = () => {
     const [showSearchIcon, setShowSearchIcon] = useState(false);
     const searchRef = useRef<HTMLDivElement>(null);
     const [scrollableRows, setScrollableRows] = useState<{ trips: any[], events: any[], hotels: any[] }>({ trips: [], events: [], hotels: [] });
+    const [accommodations, setAccommodations] = useState<any[]>([]);
     const [nearbyPlacesHotels, setNearbyPlacesHotels] = useState<any[]>([]);
     const [loadingScrollable, setLoadingScrollable] = useState(true);
     const [loadingNearby, setLoadingNearby] = useState(true);
 
     const fetchScrollableRows = async () => {
         setLoadingScrollable(true);
-        const hotelsData = await supabase.from("hotels").select("*").eq("approval_status", "approved").eq("is_hidden", false).limit(10);
+        const [hotelsData, accommodationsData] = await Promise.all([
+            supabase.from("hotels").select("*").eq("approval_status", "approved").eq("is_hidden", false).limit(10),
+            supabase.from("accommodations").select("*").eq("approval_status", "approved").eq("is_hidden", false).limit(10)
+        ]);
 
         setScrollableRows({
             trips: [],
             events: [],
             hotels: hotelsData.data || []
         });
+
+        // Store accommodations separately
+        setAccommodations(accommodationsData.data || []);
+        
         // Only set loading to false if we have data
-        if (hotelsData.data && hotelsData.data.length > 0) {
+        if ((hotelsData.data && hotelsData.data.length > 0) || (accommodationsData.data && accommodationsData.data.length > 0)) {
             setLoadingScrollable(false);
         }
     };
@@ -366,6 +374,41 @@ const Index = () => {
                                             date=""
                                             onSave={handleSave}
                                             isSaved={savedItems.has(hotel.id)}
+                                        />
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </section>
+
+                    {/* Featured Accommodations */}
+                    <section className="mb-4 md:mb-8">
+                        <h2 className="text-sm md:text-2xl font-bold mb-4 whitespace-nowrap overflow-hidden text-ellipsis">
+                            Featured Accommodations
+                        </h2>
+                        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
+                            {loadingScrollable ? (
+                                [...Array(5)].map((_, i) => (
+                                    <div key={i} className="flex-shrink-0 w-64">
+                                        <div className="aspect-[4/3] bg-muted animate-pulse rounded-lg" />
+                                        <div className="h-4 bg-muted animate-pulse rounded mt-2 w-3/4" />
+                                        <div className="h-3 bg-muted animate-pulse rounded mt-1 w-1/2" />
+                                    </div>
+                                ))
+                            ) : (
+                                accommodations.map((accommodation) => (
+                                    <div key={accommodation.id} className="flex-shrink-0 w-64">
+                                        <ListingCard
+                                            id={accommodation.id}
+                                            type="ACCOMMODATION"
+                                            name={accommodation.name}
+                                            imageUrl={accommodation.image_url}
+                                            location={accommodation.location}
+                                            country={accommodation.country}
+                                            price={accommodation.price || 0}
+                                            date=""
+                                            onSave={handleSave}
+                                            isSaved={savedItems.has(accommodation.id)}
                                         />
                                     </div>
                                 ))

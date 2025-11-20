@@ -61,23 +61,26 @@ const AdminDashboard = () => {
 
   const fetchPendingListings = async () => {
     try {
-      const [trips, events, hotels, adventures] = await Promise.all([
+      const [trips, events, hotels, adventures, accommodations] = await Promise.all([
         supabase.from("trips").select("*").eq("approval_status", "pending"),
         supabase.from("events").select("*").eq("approval_status", "pending"),
         supabase.from("hotels").select("*").eq("approval_status", "pending"),
-        supabase.from("adventure_places").select("*").eq("approval_status", "pending")
+        supabase.from("adventure_places").select("*").eq("approval_status", "pending"),
+        supabase.from("accommodations").select("*").eq("approval_status", "pending")
       ]);
 
       if (trips.error) console.error("Error fetching trips:", trips.error);
       if (events.error) console.error("Error fetching events:", events.error);
       if (hotels.error) console.error("Error fetching hotels:", hotels.error);
       if (adventures.error) console.error("Error fetching adventures:", adventures.error);
+      if (accommodations.error) console.error("Error fetching accommodations:", accommodations.error);
 
       const all = [
         ...(trips.data?.map(t => ({ ...t, type: "trip" })) || []),
         ...(events.data?.map(e => ({ ...e, type: "event" })) || []),
         ...(hotels.data?.map(h => ({ ...h, type: "hotel" })) || []),
-        ...(adventures.data?.map(a => ({ ...a, type: "adventure" })) || [])
+        ...(adventures.data?.map(a => ({ ...a, type: "adventure" })) || []),
+        ...(accommodations.data?.map(a => ({ ...a, type: "accommodation" })) || [])
       ];
 
       console.log("Pending listings:", { trips: trips.data?.length, events: events.data?.length, hotels: hotels.data?.length, adventures: adventures.data?.length });
@@ -90,23 +93,26 @@ const AdminDashboard = () => {
 
   const fetchApprovedListings = async () => {
     try {
-      const [trips, events, hotels, adventures] = await Promise.all([
+      const [trips, events, hotels, adventures, accommodations] = await Promise.all([
         supabase.from("trips").select("*").eq("approval_status", "approved"),
         supabase.from("events").select("*").eq("approval_status", "approved"),
         supabase.from("hotels").select("*").eq("approval_status", "approved"),
-        supabase.from("adventure_places").select("*").eq("approval_status", "approved")
+        supabase.from("adventure_places").select("*").eq("approval_status", "approved"),
+        supabase.from("accommodations").select("*").eq("approval_status", "approved")
       ]);
 
       if (trips.error) console.error("Error fetching approved trips:", trips.error);
       if (events.error) console.error("Error fetching approved events:", events.error);
       if (hotels.error) console.error("Error fetching approved hotels:", hotels.error);
       if (adventures.error) console.error("Error fetching approved adventures:", adventures.error);
+      if (accommodations.error) console.error("Error fetching approved accommodations:", accommodations.error);
 
       const all = [
         ...(trips.data?.map(t => ({ ...t, type: "trip" })) || []),
         ...(events.data?.map(e => ({ ...e, type: "event" })) || []),
         ...(hotels.data?.map(h => ({ ...h, type: "hotel" })) || []),
-        ...(adventures.data?.map(a => ({ ...a, type: "adventure" })) || [])
+        ...(adventures.data?.map(a => ({ ...a, type: "adventure" })) || []),
+        ...(accommodations.data?.map(a => ({ ...a, type: "accommodation" })) || [])
       ];
 
       console.log("Approved listings:", { trips: trips.data?.length, events: events.data?.length, hotels: hotels.data?.length, adventures: adventures.data?.length });

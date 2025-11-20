@@ -14,6 +14,87 @@ export type Database = {
   }
   public: {
     Tables: {
+      accommodations: {
+        Row: {
+          accommodation_type: string
+          amenities: Json | null
+          approval_status: string
+          approved_at: string | null
+          approved_by: string | null
+          capacity: number
+          country: string
+          created_at: string
+          created_by: string | null
+          custom_type: string | null
+          description: string | null
+          email: string | null
+          gallery_images: string[] | null
+          id: string
+          image_url: string
+          images: string[] | null
+          is_hidden: boolean | null
+          location: string
+          map_link: string | null
+          name: string
+          number_of_rooms: number
+          phone_numbers: string[] | null
+          place: string
+          price: number
+        }
+        Insert: {
+          accommodation_type: string
+          amenities?: Json | null
+          approval_status?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          capacity?: number
+          country: string
+          created_at?: string
+          created_by?: string | null
+          custom_type?: string | null
+          description?: string | null
+          email?: string | null
+          gallery_images?: string[] | null
+          id?: string
+          image_url: string
+          images?: string[] | null
+          is_hidden?: boolean | null
+          location: string
+          map_link?: string | null
+          name: string
+          number_of_rooms?: number
+          phone_numbers?: string[] | null
+          place: string
+          price: number
+        }
+        Update: {
+          accommodation_type?: string
+          amenities?: Json | null
+          approval_status?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          capacity?: number
+          country?: string
+          created_at?: string
+          created_by?: string | null
+          custom_type?: string | null
+          description?: string | null
+          email?: string | null
+          gallery_images?: string[] | null
+          id?: string
+          image_url?: string
+          images?: string[] | null
+          is_hidden?: boolean | null
+          location?: string
+          map_link?: string | null
+          name?: string
+          number_of_rooms?: number
+          phone_numbers?: string[] | null
+          place?: string
+          price?: number
+        }
+        Relationships: []
+      }
       adventure_places: {
         Row: {
           activities: Json | null

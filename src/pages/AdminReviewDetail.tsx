@@ -74,12 +74,15 @@ const AdminReviewDetail = () => {
         const { data, error } = await supabase.from("adventure_places").select("*").eq("id", id).single();
         if (error) throw error;
         itemData = data;
+      } else if (type === "accommodation") {
+        const { data, error } = await supabase.from("accommodations").select("*").eq("id", id).single();
+        if (error) throw error;
+        itemData = data;
       }
 
       if (!itemData) throw new Error("Item not found");
       
       setItem({ ...itemData, type });
-      setAdminNotes(itemData.admin_notes || "");
 
       // Fetch creator profile
       if (itemData.created_by) {
@@ -120,8 +123,7 @@ const AdminReviewDetail = () => {
       const updateData = {
         approval_status: status,
         approved_by: status === "approved" ? user?.id : null,
-        approved_at: status === "approved" ? new Date().toISOString() : null,
-        admin_notes: adminNotes
+        approved_at: status === "approved" ? new Date().toISOString() : null
       };
 
       if (type === "trip") {
@@ -135,6 +137,9 @@ const AdminReviewDetail = () => {
         if (error) throw error;
       } else if (type === "adventure") {
         const { error } = await supabase.from("adventure_places").update(updateData).eq("id", id);
+        if (error) throw error;
+      } else if (type === "accommodation") {
+        const { error } = await supabase.from("accommodations").update(updateData).eq("id", id);
         if (error) throw error;
       }
 
@@ -307,19 +312,26 @@ const AdminReviewDetail = () => {
               </div>
             </Card>
 
-            {/* Admin Notes */}
+            {/* Action Buttons */}
             <Card className="p-6">
-              <h3 className="font-semibold mb-4">Admin Notes</h3>
-              <Textarea
-                value={adminNotes}
-                onChange={(e) => setAdminNotes(e.target.value)}
-                placeholder="Add notes about this listing..."
-                rows={5}
-                className="mb-3"
-              />
-              <Button onClick={saveAdminNotes} variant="outline">
-                Save Notes
-              </Button>
+              <h3 className="font-semibold mb-4">Actions</h3>
+              <div className="space-y-3">
+                <Button
+                  onClick={() => updateApprovalStatus("approved")}
+                  className="w-full"
+                  disabled={item.approval_status === "approved"}
+                >
+                  Approve Listing
+                </Button>
+                <Button
+                  onClick={() => updateApprovalStatus("rejected")}
+                  variant="destructive"
+                  className="w-full"
+                  disabled={item.approval_status === "rejected"}
+                >
+                  Reject Listing
+                </Button>
+              </div>
             </Card>
           </div>
 

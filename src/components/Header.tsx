@@ -51,10 +51,37 @@ export const Header = ({ onSearchClick, showSearchIcon = true }: HeaderProps) =>
     checkRole();
   }, [user]);
 
-  // Function to get initials from the user's email
+  const [userName, setUserName] = useState<string>("");
+
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('name')
+          .eq('id', session.user.id)
+          .single();
+        
+        if (profile?.name) {
+          setUserName(profile.name);
+        }
+      }
+    };
+
+    fetchUserProfile();
+  }, [user]);
+
+  // Function to get initials from the user's name
   const getUserInitials = () => {
-    if (!user?.email) return "U";
-    return user.email.substring(0, 2).toUpperCase();
+    if (userName) {
+      const names = userName.trim().split(' ');
+      if (names.length >= 2) {
+        return (names[0][0] + names[names.length - 1][0]).toUpperCase();
+      }
+      return userName.substring(0, 2).toUpperCase();
+    }
+    return "U";
   };
 
   // Mobile account icon tap handler

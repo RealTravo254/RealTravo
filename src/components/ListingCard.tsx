@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 interface ListingCardProps {
   id: string;
-  type: "TRIP" | "EVENT" | "HOTEL" | "ADVENTURE PLACE";
+  type: "TRIP" | "EVENT" | "HOTEL" | "ADVENTURE PLACE" | "ACCOMMODATION";
   name: string;
   imageUrl: string;
   location: string;
@@ -57,7 +57,8 @@ export const ListingCard = ({
       "TRIP": "trip",
       "EVENT": "event",
       "HOTEL": "hotel",
-      "ADVENTURE PLACE": "adventure"
+      "ADVENTURE PLACE": "adventure",
+      "ACCOMMODATION": "accommodation"
     };
     navigate(`/${typeMap[type]}/${id}`);
   };

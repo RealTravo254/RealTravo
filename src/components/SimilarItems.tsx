@@ -6,7 +6,7 @@ import { MapPin } from "lucide-react";
 
 interface SimilarItemsProps {
   currentItemId: string;
-  itemType: "trip" | "hotel" | "adventure";
+  itemType: "trip" | "hotel" | "adventure" | "attraction";
   location?: string;
   country?: string;
 }
@@ -60,6 +60,25 @@ export const SimilarItems = ({ currentItemId, itemType, location, country }: Sim
           .limit(6);
         if (error) throw error;
         setItems((data || []).map(item => ({ ...item, route, price: item.entry_fee })));
+      } else if (itemType === "attraction") {
+        route = "/attraction";
+        const { data, error } = await supabase
+          .from("attractions")
+          .select("id, location_name, country, photo_urls, gallery_images, description, price_adult")
+          .eq("approval_status", "approved")
+          .eq("is_hidden", false)
+          .neq("id", currentItemId)
+          .eq("country", country || "")
+          .limit(6);
+        if (error) throw error;
+        setItems((data || []).map(item => ({ 
+          ...item, 
+          route, 
+          name: item.location_name,
+          location: item.country,
+          image_url: item.gallery_images?.[0] || item.photo_urls?.[0] || "",
+          price: item.price_adult 
+        })));
       }
     } catch (error) {
       console.error("Error fetching similar items:", error);
@@ -72,7 +91,9 @@ export const SimilarItems = ({ currentItemId, itemType, location, country }: Sim
 
   return (
     <div className="mt-12">
-      <h2 className="text-2xl font-bold mb-6">Similar {itemType === "adventure" ? "Places" : itemType === "hotel" ? "Accommodations" : itemType.charAt(0).toUpperCase() + itemType.slice(1) + "s"}</h2>
+      <h2 className="text-2xl font-bold mb-6">
+        Similar {itemType === "adventure" ? "Places" : itemType === "hotel" ? "Accommodations" : itemType === "attraction" ? "Attractions" : itemType.charAt(0).toUpperCase() + itemType.slice(1) + "s"}
+      </h2>
       <div className="overflow-x-auto pb-4">
         <div className="flex gap-4" style={{ width: `${items.length * 280}px` }}>
           {items.map((item) => (

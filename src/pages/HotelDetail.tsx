@@ -246,47 +246,50 @@ const HotelDetail = () => {
               </div>
             )}
 
-            {/* Facilities Section */}
-            {hotel.facilities && hotel.facilities.length > 0 && (
-              <div className="pt-4 border-t">
-                <h2 className="text-lg md:text-xl font-semibold mb-3">Available Rooms</h2>
-                <div className="grid gap-3">
-                  {hotel.facilities.map((facility, idx) => (
-                    <div key={idx} className="border rounded-lg p-4 bg-background">
-                      <div className="flex justify-between items-start mb-2">
-                        <h3 className="font-semibold text-xs md:text-base">{facility.name}</h3>
-                        <span className="text-base md:text-lg font-bold">
+            {/* Facilities and Activities Section - Side by Side on Large Screens */}
+            <div className="pt-4 border-t grid md:grid-cols-2 gap-6">
+              {/* Facilities Section */}
+              {hotel.facilities && hotel.facilities.length > 0 && (
+                <div>
+                  <h2 className="text-lg md:text-xl font-semibold mb-3">Available Rooms</h2>
+                  <div className="grid gap-3">
+                    {hotel.facilities.map((facility, idx) => (
+                      <div key={idx} className="border rounded-lg p-4 bg-background">
+                        <div className="flex justify-between items-start mb-2">
+                          <h3 className="font-semibold text-xs md:text-base">{facility.name}</h3>
+                          <span className="text-base md:text-lg font-bold">
+                            <DollarSign className="inline h-4 w-4" />
+                            {facility.price}/day
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1 text-xs md:text-sm text-muted-foreground">
+                          <Users className="h-4 w-4" />
+                          <span>Capacity: {facility.capacity} guests</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Activities Section */}
+              {hotel.activities && hotel.activities.length > 0 && (
+                <div>
+                  <h2 className="text-lg md:text-xl font-semibold mb-3">Available Activities</h2>
+                  <div className="grid gap-3">
+                    {hotel.activities.map((activity, idx) => (
+                      <div key={idx} className="border rounded-lg p-4 flex justify-between items-center bg-background">
+                        <span className="font-medium text-xs md:text-base">{activity.name}</span>
+                        <span className="font-bold text-xs md:text-base">
                           <DollarSign className="inline h-4 w-4" />
-                          {facility.price}/day
+                          {activity.price}
                         </span>
                       </div>
-                      <div className="flex items-center gap-1 text-xs md:text-sm text-muted-foreground">
-                        <Users className="h-4 w-4" />
-                        <span>Capacity: {facility.capacity} guests</span>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
-
-            {/* Activities Section */}
-            {hotel.activities && hotel.activities.length > 0 && (
-              <div className="pt-4 border-t">
-                <h2 className="text-lg md:text-xl font-semibold mb-3">Available Activities</h2>
-                <div className="grid gap-3">
-                  {hotel.activities.map((activity, idx) => (
-                    <div key={idx} className="border rounded-lg p-4 flex justify-between items-center bg-background">
-                      <span className="font-medium text-xs md:text-base">{activity.name}</span>
-                      <span className="font-bold text-xs md:text-base">
-                        <DollarSign className="inline h-4 w-4" />
-                        {activity.price}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           {/* Sidebar - Contact and Booking */}

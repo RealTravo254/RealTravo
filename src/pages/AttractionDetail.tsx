@@ -13,6 +13,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
+import { SimilarItems } from "@/components/SimilarItems";
+import Autoplay from "embla-carousel-autoplay";
 
 interface Attraction {
   id: string;
@@ -42,6 +44,7 @@ export default function AttractionDetail() {
   const [loading, setLoading] = useState(true);
   const [bookingOpen, setBookingOpen] = useState(false);
   const [bookingLoading, setBookingLoading] = useState(false);
+  const [current, setCurrent] = useState(0);
   
   const [bookingData, setBookingData] = useState({
     visit_date: "",
@@ -220,36 +223,80 @@ export default function AttractionDetail() {
           Back
         </Button>
       {/* Image Gallery */}
-      <Carousel className="w-full max-w-4xl mx-auto mb-8">
-        <CarouselContent>
-          {images?.map((url, index) => (
-            <CarouselItem key={index}>
-              <img src={url} alt={`${attraction.location_name} ${index + 1}`} className="w-full h-96 object-cover rounded-lg" />
-            </CarouselItem>
-          ))}
-        </CarouselContent>
-        <CarouselPrevious />
-        <CarouselNext />
-      </Carousel>
+      <div className="w-full mb-6">
+        <Carousel
+          opts={{ loop: true }}
+          plugins={[Autoplay({ delay: 3000 })]}
+          className="w-full"
+          setApi={(api) => {
+            if (api) {
+              api.on("select", () => {
+                setCurrent(api.selectedScrollSnap());
+              });
+            }
+          }}
+        >
+          <CarouselContent>
+            {images?.map((url, index) => (
+              <CarouselItem key={index}>
+                <img src={url} alt={`${attraction.location_name} ${index + 1}`} className="w-full h-64 md:h-96 object-cover" />
+              </CarouselItem>
+            ))}
+          </CarouselContent>
+
+          <CarouselPrevious 
+            className="left-4 z-10 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 text-white border-none" 
+          />
+          <CarouselNext 
+            className="right-4 z-10 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 text-white border-none" 
+          />
+          
+          {images && images.length > 1 && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2 z-10">
+              {images.map((_, index) => (
+                <div
+                  key={index}
+                  className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                    index === current ? 'bg-white' : 'bg-white/40'
+                  }`}
+                />
+              ))}
+            </div>
+          )}
+        </Carousel>
+      </div>
 
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-4xl font-bold">{attraction.location_name}</h1>
+        <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4 mb-6">
+          <div className="flex flex-col">
+            <h1 className="text-2xl md:text-3xl font-bold">{attraction.location_name}</h1>
             {attraction.local_name && (
               <p className="text-xl text-muted-foreground mt-1">{attraction.local_name}</p>
             )}
-            <p className="text-muted-foreground mt-2 flex items-center gap-2">
-              <MapPin className="h-4 w-4" />
+            <p className="text-sm md:text-base text-muted-foreground">
               {attraction.country}
             </p>
           </div>
-          
-          <Button variant="outline" onClick={handleShare}>
-            <Share2 className="h-4 w-4 mr-2" />
-            Share
-          </Button>
+          <div className="flex gap-2">
+            {(attraction.location_link) && (
+              <Button
+                variant="outline"
+                onClick={() => window.open(attraction.location_link!, '_blank')}
+                className="bg-blue-600 text-white hover:bg-blue-700 border-blue-600 text-xs md:text-sm"
+              >
+                <MapPin className="mr-2 h-3 w-3 md:h-4 md:w-4" />
+                View on Map
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              onClick={handleShare}
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              <Share2 className="h-4 w-4 md:h-5 md:w-5" />
+            </Button>
+          </div>
         </div>
 
         {/* Description */}
@@ -333,6 +380,8 @@ export default function AttractionDetail() {
           Book Now
         </Button>
       </div>
+
+      {attraction && <SimilarItems currentItemId={attraction.id} itemType="attraction" country={attraction.country} />}
 
       {/* Booking Dialog */}
       <Dialog open={bookingOpen} onOpenChange={setBookingOpen}>

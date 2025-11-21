@@ -244,35 +244,38 @@ const AdventurePlaceDetail = () => {
               </div>
             )}
 
-            {/* Activities Section */}
-            {place.activities && place.activities.length > 0 && (
-              <div className="pt-4 border-t">
-                <h2 className="text-lg md:text-xl font-semibold mb-3">Available Activities</h2>
-                <div className="grid gap-3">
-                  {place.activities.map((activity, idx) => (
-                    <div key={idx} className="border rounded-lg p-4 flex justify-between items-center bg-background">
-                      <span className="font-medium text-xs md:text-base">{activity.name}</span>
-                      <span className="font-bold text-xs md:text-base">${activity.price}/person</span>
-                    </div>
-                  ))}
+            {/* Facilities and Activities Section - Side by Side on Large Screens */}
+            <div className="pt-4 border-t grid md:grid-cols-2 gap-6">
+              {/* Facilities Section */}
+              {place.facilities && place.facilities.length > 0 && (
+                <div>
+                  <h2 className="text-lg md:text-xl font-semibold mb-3">Available Facilities</h2>
+                  <div className="grid gap-3">
+                    {place.facilities.map((facility, idx) => (
+                      <div key={idx} className="border rounded-lg p-4 flex justify-between items-center bg-background">
+                        <span className="font-medium text-xs md:text-base">{facility.name}</span>
+                        <span className="font-bold text-xs md:text-base">${facility.price}/day</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Facilities Section */}
-            {place.facilities && place.facilities.length > 0 && (
-              <div className="pt-4 border-t">
-                <h2 className="text-lg md:text-xl font-semibold mb-3">Available Facilities</h2>
-                <div className="grid gap-3">
-                  {place.facilities.map((facility, idx) => (
-                    <div key={idx} className="border rounded-lg p-4 flex justify-between items-center bg-background">
-                      <span className="font-medium text-xs md:text-base">{facility.name}</span>
-                      <span className="font-bold text-xs md:text-base">${facility.price}/day</span>
-                    </div>
-                  ))}
+              {/* Activities Section */}
+              {place.activities && place.activities.length > 0 && (
+                <div>
+                  <h2 className="text-lg md:text-xl font-semibold mb-3">Available Activities</h2>
+                  <div className="grid gap-3">
+                    {place.activities.map((activity, idx) => (
+                      <div key={idx} className="border rounded-lg p-4 flex justify-between items-center bg-background">
+                        <span className="font-medium text-xs md:text-base">{activity.name}</span>
+                        <span className="font-bold text-xs md:text-base">${activity.price}/person</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           {/* Contact and Booking (Sidebar) */}

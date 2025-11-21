@@ -128,8 +128,17 @@ const BecomeHost = () => {
           <Card className="p-6 hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate("/CreateAdventure")}>
             <div className="flex flex-col items-center text-center space-y-3">
               <Tent className="h-12 w-12 text-orange-600" />
-              <h3 className="font-semibold text-lg">Create Adventure Place</h3>
-              <p className="text-sm text-muted-foreground">List adventure places and experiences</p>
+              <h3 className="font-semibold text-lg">Create Attraction</h3>
+              <p className="text-sm text-muted-foreground">List attractions and tourist sites</p>
+              <Button className="w-full">Create Now</Button>
+            </div>
+          </Card>
+
+          <Card className="p-6 hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate("/CreateAdventure")}>
+            <div className="flex flex-col items-center text-center space-y-3">
+              <Tent className="h-12 w-12 text-purple-600" />
+              <h3 className="font-semibold text-lg">Create Camp Site or Experience</h3>
+              <p className="text-sm text-muted-foreground">List camp sites and unique experiences</p>
               <Button className="w-full">Create Now</Button>
             </div>
           </Card>

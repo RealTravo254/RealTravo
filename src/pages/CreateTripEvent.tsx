@@ -261,6 +261,7 @@ const CreateTripEvent = () => {
                     id="date"
                     type="date"
                     required
+                    min={new Date().toISOString().split('T')[0]}
                     className="pl-10"
                     value={formData.date}
                     onChange={(e) => setFormData({...formData, date: e.target.value})}

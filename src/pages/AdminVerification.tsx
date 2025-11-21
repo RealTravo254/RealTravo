@@ -327,7 +327,7 @@ const AdminVerification = () => {
                   <img
                     src={selectedVerification.document_front_url}
                     alt="Document front"
-                    className="w-full rounded-lg border mt-2 cursor-pointer hover:opacity-90"
+                    className="w-full h-64 object-contain rounded-lg border mt-2 cursor-pointer hover:opacity-90"
                     onClick={() => window.open(selectedVerification.document_front_url, "_blank")}
                   />
                 </div>
@@ -337,7 +337,7 @@ const AdminVerification = () => {
                     <img
                       src={selectedVerification.document_back_url}
                       alt="Document back"
-                      className="w-full rounded-lg border mt-2 cursor-pointer hover:opacity-90"
+                      className="w-full h-64 object-contain rounded-lg border mt-2 cursor-pointer hover:opacity-90"
                       onClick={() => window.open(selectedVerification.document_back_url, "_blank")}
                     />
                   </div>
@@ -349,7 +349,7 @@ const AdminVerification = () => {
                 <img
                   src={selectedVerification.selfie_url}
                   alt="Selfie"
-                  className="max-w-md rounded-lg border mt-2 cursor-pointer hover:opacity-90"
+                  className="w-full max-w-md h-64 object-contain rounded-lg border mt-2 cursor-pointer hover:opacity-90"
                   onClick={() => window.open(selectedVerification.selfie_url, "_blank")}
                 />
               </div>

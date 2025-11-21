@@ -12,55 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { getUserId } from "@/lib/sessionManager";
 import { useGeolocation, calculateDistance } from "@/hooks/useGeolocation";
 
-const ImageSlideshow = () => {
-    const slides = [
-        {
-            name: "Bali's Sunrise Temples",
-            description: "Witness the breathtaking dawn at the most sacred sites.",
-            imageUrl: "https://images.unsplash.com/photo-1544439169-d4c399c5608d",
-        },
-        {
-            name: "European Alps Adventure",
-            description: "Hike and bike through stunning mountain landscapes this summer.",
-            imageUrl: "https://images.unsplash.com/photo-1549877452-9c3132629b3c",
-        },
-        {
-            name: "Luxury Maldives Retreat",
-            description: "Seven days of pure relaxation in an overwater bungalow.",
-            imageUrl: "https://images.unsplash.com/photo-1540306786884-2977f0cc34e2",
-        },
-    ];
 
-    const [currentSlide, setCurrentSlide] = useState(0);
-
-    useEffect(() => {
-        const timer = setInterval(() => {
-            setCurrentSlide((prev) => (prev + 1) % slides.length);
-        }, 5000);
-        return () => clearInterval(timer);
-    }, []);
-
-    const slide = slides[currentSlide];
-
-    return (
-        <div className="relative w-full aspect-[16/9] md:aspect-video lg:aspect-[2/1] overflow-hidden bg-gray-200">
-            <img src={slide.imageUrl} alt={slide.name} className="w-full h-full object-cover" />
-            <div className="absolute inset-0 bg-blue-900/60 flex flex-col justify-end p-4 md:p-6 lg:p-8">
-                <h3 className="text-xl md:text-2xl lg:text-3xl font-extrabold text-white mb-1 md:mb-2">{slide.name}</h3>
-                <p className="text-sm md:text-base lg:text-lg text-blue-200 mb-2 md:mb-4">{slide.description}</p>
-            </div>
-            <div className="absolute bottom-2 md:bottom-4 right-2 md:right-4 flex space-x-2">
-                {slides.map((_, index) => (
-                    <div
-                        key={index}
-                        className={`h-2 w-2 rounded-full transition-all ${index === currentSlide ? "bg-white scale-125" : "bg-white/50"}`}
-                        onClick={() => setCurrentSlide(index)}
-                    />
-                ))}
-            </div>
-        </div>
-    );
-};
 
 const Index = () => {
     const navigate = useNavigate();
@@ -284,7 +236,14 @@ const Index = () => {
                         </div>
                     </div>
                     <div className="w-full lg:w-2/3 order-1 lg:order-2">
-                        <ImageSlideshow />
+                        <div className="relative w-full aspect-[16/9] md:aspect-video lg:aspect-[2/1] overflow-hidden bg-gradient-to-br from-background via-primary/5 to-background flex flex-col items-center justify-center p-8 md:p-12">
+                            <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold text-primary mb-4 text-center">
+                                Discover Your Next Adventure
+                            </h1>
+                            <p className="text-base md:text-lg lg:text-xl text-muted-foreground text-center max-w-2xl">
+                                Travel beyond boundaries and explore extraordinary destinations that inspire wonder and create unforgettable memories
+                            </p>
+                        </div>
                     </div>
                 </section>
                 <div className="px-4">

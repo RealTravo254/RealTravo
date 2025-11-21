@@ -20,6 +20,7 @@ interface ListingCardProps {
   onSave?: (id: string, type: string) => void;
   isSaved?: boolean;
   amenities?: string[];
+  hidePrice?: boolean;
 }
 
 export const ListingCard = ({
@@ -35,6 +36,7 @@ export const ListingCard = ({
   onSave,
   isSaved = false,
   amenities,
+  hidePrice = false,
 }: ListingCardProps) => {
   const [saved, setSaved] = useState(isSaved);
   const navigate = useNavigate();
@@ -113,15 +115,16 @@ export const ListingCard = ({
           />
         </Button>
 
-        {/* Price Overlay - Bottom-Right of Image (Original location was bottom of image, adjusted Price to be on the right side of the bottom image overlay) */}
-        <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/80 to-transparent flex justify-end items-end">
-          {/* Price - Right Side of Image Overlay */}
-          {price !== undefined && (
-            <p className="font-bold text-sm md:text-lg text-white"> 
-              KSh {price}
-            </p>
-          )}
-        </div>
+        {/* Price Overlay - Bottom-Right of Image */}
+        {!hidePrice && (
+          <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/80 to-transparent flex justify-end items-end">
+            {price !== undefined && (
+              <p className="font-bold text-sm md:text-lg text-white"> 
+                KSh {price}
+              </p>
+            )}
+          </div>
+        )}
       </div>
       
       {/* Name, Location, and Date Details - Below the image */}

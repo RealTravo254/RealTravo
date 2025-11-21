@@ -198,17 +198,19 @@ const AdventurePlaceDetail = () => {
           </div>
           <div className="flex gap-2">
             <Button
-              variant="outline"
+              variant="default"
+              size="lg"
               onClick={openInMaps}
-              className="bg-blue-600 text-white hover:bg-blue-700 border-blue-600 text-xs md:text-sm"
+              className="bg-blue-600 text-white hover:bg-blue-700 text-xs md:text-base"
             >
-              <MapPin className="mr-2 h-3 w-3 md:h-4 md:w-4" />
-              View on Map
+              <MapPin className="mr-2 h-4 w-4 md:h-5 md:w-5" />
+              Location
             </Button>
             <Button
               variant="outline"
+              size="icon"
               onClick={handleShare}
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
+              className="hover:bg-accent"
             >
               <Share2 className="h-4 w-4 md:h-5 md:w-5" />
             </Button>

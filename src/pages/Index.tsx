@@ -82,13 +82,19 @@ const Index = () => {
     const fetchScrollableRows = async () => {
         setLoadingScrollable(true);
         try {
-            const [hotelsData, attractionsData, campsitesData] = await Promise.all([
+            const [tripsData, hotelsData, attractionsData, campsitesData] = await Promise.all([
+                supabase.from("trips").select("*").eq("approval_status", "approved").eq("is_hidden", false).limit(10),
                 supabase.from("hotels").select("*").eq("approval_status", "approved").eq("is_hidden", false).limit(10),
                 supabase.from("attractions").select("*").eq("approval_status", "approved").eq("is_hidden", false).limit(10),
                 supabase.from("adventure_places").select("*").eq("approval_status", "approved").eq("is_hidden", false).limit(10)
             ]);
 
             console.log("Fetched scrollable data:", {
+                trips: {
+                    count: tripsData.data?.length || 0,
+                    error: tripsData.error,
+                    data: tripsData.data
+                },
                 hotels: {
                     count: hotelsData.data?.length || 0,
                     error: hotelsData.error,
@@ -107,7 +113,7 @@ const Index = () => {
             });
 
             setScrollableRows({
-                trips: [],
+                trips: tripsData.data || [],
                 hotels: hotelsData.data || [],
                 attractions: attractionsData.data || [],
                 campsites: campsitesData.data || []
@@ -307,7 +313,7 @@ const Index = () => {
                                     </div>
                                 ))
                             ) : (
-                                listings.map((item) => (
+                listings.map((item) => (
                                     <div key={item.id} className="flex-shrink-0 w-64">
                                         <ListingCard
                                             id={item.id}
@@ -316,11 +322,12 @@ const Index = () => {
                                             imageUrl={item.image_url}
                                             location={item.location}
                                             country={item.country}
-                                             price={item.price || item.entry_fee || 0}
+                                            price={item.price || item.entry_fee || 0}
                                             date={item.date}
                                             isCustomDate={item.is_custom_date}
                                             onSave={handleSave}
                                             isSaved={savedItems.has(item.id)}
+                                            hidePrice={true}
                                         />
                                     </div>
                                 ))
@@ -356,7 +363,7 @@ const Index = () => {
                                     </div>
                                 ))
                             ) : (
-                                scrollableRows.campsites.map((place) => (
+                scrollableRows.campsites.map((place) => (
                                     <div key={place.id} className="flex-shrink-0 w-64">
                                         <ListingCard
                                             id={place.id}
@@ -369,6 +376,7 @@ const Index = () => {
                                             date=""
                                             onSave={handleSave}
                                             isSaved={savedItems.has(place.id)}
+                                            hidePrice={true}
                                         />
                                     </div>
                                 ))
@@ -401,7 +409,7 @@ const Index = () => {
                                     </div>
                                 ))
                             ) : (
-                                scrollableRows.hotels.map((hotel) => (
+                scrollableRows.hotels.map((hotel) => (
                                     <div key={hotel.id} className="flex-shrink-0 w-64">
                                         <ListingCard
                                             id={hotel.id}
@@ -414,6 +422,7 @@ const Index = () => {
                                             date=""
                                             onSave={handleSave}
                                             isSaved={savedItems.has(hotel.id)}
+                                            hidePrice={true}
                                         />
                                     </div>
                                 ))
@@ -446,7 +455,7 @@ const Index = () => {
                                     </div>
                                 ))
                             ) : (
-                                scrollableRows.attractions.map((attraction) => (
+                scrollableRows.attractions.map((attraction) => (
                                     <div key={attraction.id} className="flex-shrink-0 w-64">
                                         <ListingCard
                                             id={attraction.id}
@@ -459,6 +468,7 @@ const Index = () => {
                                             date=""
                                             onSave={handleSave}
                                             isSaved={savedItems.has(attraction.id)}
+                                            hidePrice={true}
                                         />
                                     </div>
                                 ))
@@ -466,9 +476,59 @@ const Index = () => {
                         </div>
                     </section>
 
+                    <hr className="border-t border-gray-200 my-4 md:my-8" />
+
+                    {/* Featured Trips Only Section */}
+                    <section className="mb-4 md:mb-8">
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-sm md:text-2xl font-bold whitespace-nowrap overflow-hidden text-ellipsis">
+                                Featured Trips
+                            </h2>
+                            <Link to="/category/trips">
+                                <Button variant="outline" size="sm" className="text-xs md:text-sm">
+                                    View All
+                                </Button>
+                            </Link>
+                        </div>
+                        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
+                            {loadingScrollable || scrollableRows.trips.length === 0 ? (
+                                [...Array(10)].map((_, i) => (
+                                    <div key={i} className="flex-shrink-0 w-64 rounded-lg overflow-hidden shadow-md">
+                                        <div className="aspect-[4/3] bg-muted animate-pulse" />
+                                        <div className="p-4 space-y-3">
+                                            <div className="h-5 bg-muted animate-pulse rounded w-4/5" />
+                                            <div className="h-4 bg-muted animate-pulse rounded w-2/3" />
+                                            <div className="h-4 bg-muted animate-pulse rounded w-1/2" />
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                scrollableRows.trips.map((trip) => (
+                                    <div key={trip.id} className="flex-shrink-0 w-64">
+                                        <ListingCard
+                                            id={trip.id}
+                                            type="TRIP"
+                                            name={trip.name}
+                                            imageUrl={trip.image_url}
+                                            location={trip.location}
+                                            country={trip.country}
+                                            price={trip.price}
+                                            date={trip.date}
+                                            isCustomDate={trip.is_custom_date}
+                                            onSave={handleSave}
+                                            isSaved={savedItems.has(trip.id)}
+                                            hidePrice={true}
+                                        />
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </section>
+
+                    <hr className="border-t border-gray-200 my-4 md:my-8" />
+
                     {/* Nearby Places/Hotels */}
                     <section className="mb-8">
-                        {/* Modified h2 for smaller font on small screens */}
                         <h2 className="text-sm md:text-2xl font-bold mb-4 whitespace-nowrap overflow-hidden text-ellipsis">
                             Near You
                         </h2>
@@ -482,19 +542,18 @@ const Index = () => {
                                 ))
                             ) : nearbyPlacesHotels.length > 0 ? (
                                 nearbyPlacesHotels.map((item) => (
-                                    <div
+                                    <ListingCard
                                         key={item.id}
-                                        className="cursor-pointer"
-                                        onClick={() => navigate(item.table === "hotels" ? `/hotel/${item.id}` : `/adventure/${item.id}`)}
-                                    >
-                                        <div className="relative aspect-square overflow-hidden rounded-lg">
-                                            <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
-                                            <div className="absolute top-2 left-2 bg-black/60 text-white px-2 py-1 rounded-full text-xs">
-                                                {item.category}
-                                            </div>
-                                        </div>
-                                        <h3 className="font-semibold mt-2 text-sm">{item.name}</h3>
-                                    </div>
+                                        id={item.id}
+                                        type={item.table === "hotels" ? "HOTEL" : "ADVENTURE PLACE"}
+                                        name={item.name}
+                                        imageUrl={item.image_url}
+                                        location={item.location}
+                                        country={item.country}
+                                        price={item.table === "hotels" ? 0 : item.entry_fee || 0}
+                                        onSave={handleSave}
+                                        isSaved={savedItems.has(item.id)}
+                                    />
                                 ))
                             ) : (
                                 <p className="col-span-full text-muted-foreground text-center">No nearby places found</p>

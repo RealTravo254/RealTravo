@@ -33,6 +33,31 @@ export function AvailabilityCalendar({
     loadAvailability();
   }, [itemId, itemType, currentMonth]);
 
+  // Real-time subscription for booking changes
+  useEffect(() => {
+    const channel = supabase
+      .channel('booking-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'bookings',
+          filter: `item_id=eq.${itemId}`
+        },
+        (payload) => {
+          console.log('Booking changed:', payload);
+          // Reload availability when bookings change
+          loadAvailability();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [itemId, itemType, currentMonth]);
+
   const loadAvailability = async () => {
     setIsLoading(true);
     const start = startOfMonth(currentMonth);

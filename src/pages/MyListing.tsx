@@ -32,6 +32,7 @@ const MyListing = () => {
       const { data: trips } = await supabase.from("trips").select("*").eq("created_by", user.id);
       const { data: hotels } = await supabase.from("hotels").select("*").eq("created_by", user.id);
       const { data: adventures } = await supabase.from("adventure_places").select("*").eq("created_by", user.id);
+      const { data: attractions } = await supabase.from("attractions").select("*").eq("created_by", user.id);
       
       const { data: hotelsAsAdmin } = await supabase.from("hotels").select("*").contains("allowed_admin_emails", userEmail ? [userEmail] : []);
       const { data: adventuresAsAdmin } = await supabase.from("adventure_places").select("*").contains("allowed_admin_emails", userEmail ? [userEmail] : []);
@@ -40,6 +41,7 @@ const MyListing = () => {
         trips: trips?.length, 
         hotels: hotels?.length, 
         adventures: adventures?.length,
+        attractions: attractions?.length,
         hotelsAsAdmin: hotelsAsAdmin?.length,
         adventuresAsAdmin: adventuresAsAdmin?.length
       });
@@ -48,6 +50,7 @@ const MyListing = () => {
         ...(trips?.map(t => ({ ...t, type: "trip", isCreator: true })) || []),
         ...(hotels?.map(h => ({ ...h, type: "hotel", isCreator: true })) || []),
         ...(adventures?.map(a => ({ ...a, type: "adventure", isCreator: true })) || []),
+        ...(attractions?.map(a => ({ ...a, type: "attraction", isCreator: true })) || []),
         ...(hotelsAsAdmin?.filter(h => h.created_by !== user.id).map(h => ({ ...h, type: "hotel", isCreator: false })) || []),
         ...(adventuresAsAdmin?.filter(a => a.created_by !== user.id).map(a => ({ ...a, type: "adventure", isCreator: false })) || [])
       ];
@@ -195,7 +198,7 @@ const MyListing = () => {
 
             <div>
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-2xl font-bold">Adventure Places</h2>
+                <h2 className="text-2xl font-bold">Campsites & Experiences</h2>
                 <Badge variant="outline" className="text-lg px-4 py-1">{getCategoryCount('adventure')}</Badge>
               </div>
               {renderListings('adventure')}
@@ -229,10 +232,10 @@ const MyListing = () => {
 
             <div>
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-2xl font-bold">Adventure Place Bookings</h2>
-                <Badge variant="outline" className="text-lg px-4 py-1">{getBookingCount('adventure')}</Badge>
+                <h2 className="text-2xl font-bold">Campsite Bookings</h2>
+                <Badge variant="outline" className="text-lg px-4 py-1">{getBookingCount('adventure_place')}</Badge>
               </div>
-              {renderBookings('adventure')}
+              {renderBookings('adventure_place')}
             </div>
           </TabsContent>
         </Tabs>

@@ -60,21 +60,40 @@ const AdminVerification = () => {
 
   const fetchVerifications = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("host_verifications")
-      .select(`
-        *,
-        profiles:user_id (
-          name,
-          email
-        )
-      `)
-      .order("submitted_at", { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from("host_verifications")
+        .select(`
+          *,
+          profiles:user_id (
+            name,
+            email
+          )
+        `)
+        .order("submitted_at", { ascending: false });
 
-    if (data) {
-      setVerifications(data);
+      if (error) {
+        console.error("Error fetching verifications:", error);
+        toast({
+          title: "Error",
+          description: error.message || "Failed to fetch verifications.",
+          variant: "destructive",
+        });
+        setVerifications([]);
+      } else {
+        setVerifications(data || []);
+      }
+    } catch (err: any) {
+      console.error("Unexpected error:", err);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred.",
+        variant: "destructive",
+      });
+      setVerifications([]);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleApprove = async (verificationId: string) => {

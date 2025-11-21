@@ -179,10 +179,10 @@ const CreateTripEvent = () => {
 
       toast({
         title: "Success!",
-        description: `Your trip has been submitted for approval.`,
+        description: `Your trip has been submitted for approval. You can view it in 'My Listings'.`,
       });
 
-      navigate("/profile");
+      navigate("/my-listing");
     } catch (error: any) {
       toast({
         title: "Error",

@@ -256,10 +256,10 @@ const CreateAdventure = () => {
 
       toast({
         title: "Success!",
-        description: "Your campsite/experience has been submitted for verification.",
+        description: "Your campsite/experience has been submitted for verification. You can view it in 'My Listings'.",
       });
 
-      navigate("/become-host");
+      navigate("/my-listing");
     } catch (error: any) {
       toast({
         title: "Error",

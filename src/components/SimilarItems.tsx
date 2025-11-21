@@ -89,10 +89,26 @@ export const SimilarItems = ({ currentItemId, itemType, location, country }: Sim
 
   if (loading || items.length === 0) return null;
 
+  const getTitleByType = () => {
+    const type = itemType as "adventure" | "hotel" | "attraction" | "trip";
+    switch(type) {
+      case "adventure":
+        return "Similar Campsites & Experiences";
+      case "hotel":
+        return "Similar Hotels";
+      case "attraction":
+        return "Similar Attractions";
+      case "trip":
+        return "Similar Trips";
+      default:
+        return "Similar Items";
+    }
+  };
+
   return (
     <div className="mt-12">
       <h2 className="text-2xl font-bold mb-6">
-        Similar {itemType === "adventure" ? "Places" : itemType === "hotel" ? "Accommodations" : itemType === "attraction" ? "Attractions" : itemType.charAt(0).toUpperCase() + itemType.slice(1) + "s"}
+        {getTitleByType()}
       </h2>
       <div className="overflow-x-auto pb-4">
         <div className="flex gap-4" style={{ width: `${items.length * 280}px` }}>

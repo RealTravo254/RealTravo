@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Calendar, MapPin, DollarSign, Users, Upload, Navigation } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { getCountryPhoneCode } from "@/lib/countryHelpers";
 import { CountrySelector } from "@/components/creation/CountrySelector";
 import { PageHeader } from "@/components/creation/PageHeader";
@@ -35,7 +36,8 @@ const CreateTripEvent = () => {
     available_tickets: "",
     email: "",
     phone_number: "",
-    map_link: ""
+    map_link: "",
+    is_custom_date: false
   });
   
   const [galleryImages, setGalleryImages] = useState<File[]>([]);
@@ -159,7 +161,8 @@ const CreateTripEvent = () => {
         location: formData.location,
         place: formData.place,
         country: formData.country,
-        date: formData.date,
+        date: formData.is_custom_date ? new Date().toISOString().split('T')[0] : formData.date,
+        is_custom_date: formData.is_custom_date,
         image_url: uploadedUrls[0] || "",
         gallery_images: uploadedUrls,
         price: parseFloat(formData.price),
@@ -256,18 +259,35 @@ const CreateTripEvent = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="date">Date *</Label>
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="date"
-                    type="date"
-                    required
-                    min={new Date().toISOString().split('T')[0]}
-                    className="pl-10"
-                    value={formData.date}
-                    onChange={(e) => setFormData({...formData, date: e.target.value})}
-                  />
+                <Label htmlFor="date">Date {!formData.is_custom_date && "*"}</Label>
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="custom_date"
+                      checked={formData.is_custom_date}
+                      onCheckedChange={(checked) => setFormData({...formData, is_custom_date: checked as boolean, date: checked ? "" : formData.date})}
+                    />
+                    <label
+                      htmlFor="custom_date"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      Allow users to choose their own visit date
+                    </label>
+                  </div>
+                  {!formData.is_custom_date && (
+                    <div className="relative">
+                      <Calendar className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="date"
+                        type="date"
+                        required
+                        min={new Date().toISOString().split('T')[0]}
+                        className="pl-10"
+                        value={formData.date}
+                        onChange={(e) => setFormData({...formData, date: e.target.value})}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
 

@@ -30,6 +30,7 @@ interface Trip {
   price: number;
   price_child: number;
   date: string;
+  is_custom_date: boolean;
   available_tickets: number;
   phone_number: string;
   email: string;
@@ -217,7 +218,9 @@ const TripDetail = () => {
             <div className="flex flex-wrap gap-4 pb-4 border-b">
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 md:h-5 md:w-5 text-primary" />
-                <span className="text-xs md:text-base">{new Date(trip.date).toLocaleDateString()}</span>
+                <span className="text-xs md:text-base">
+                  {trip.is_custom_date ? "Custom" : new Date(trip.date).toLocaleDateString()}
+                </span>
               </div>
               {trip.phone_number && (
                 <div className="flex items-center gap-2">

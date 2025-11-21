@@ -316,8 +316,9 @@ const Index = () => {
                                             imageUrl={item.image_url}
                                             location={item.location}
                                             country={item.country}
-                                            price={item.price || item.entry_fee || 0}
+                                             price={item.price || item.entry_fee || 0}
                                             date={item.date}
+                                            isCustomDate={item.is_custom_date}
                                             onSave={handleSave}
                                             isSaved={savedItems.has(item.id)}
                                         />

@@ -16,6 +16,7 @@ interface ListingCardProps {
   country: string;
   price?: number;
   date?: string;
+  isCustomDate?: boolean;
   onSave?: (id: string, type: string) => void;
   isSaved?: boolean;
   amenities?: string[];
@@ -30,6 +31,7 @@ export const ListingCard = ({
   country,
   price,
   date,
+  isCustomDate = false,
   onSave,
   isSaved = false,
   amenities,
@@ -136,9 +138,9 @@ export const ListingCard = ({
         
         {/* DATE - Aligned to the bottom right of the list/card body */}
         <div className="flex justify-end pt-2">
-            {date && (
+            {(date || isCustomDate) && (
                 <p className="text-sm font-semibold text-red-600 dark:text-red-400"> 
-                    {formatDate(date)}
+                    {isCustomDate ? "Custom" : formatDate(date)}
                 </p>
             )}
         </div>

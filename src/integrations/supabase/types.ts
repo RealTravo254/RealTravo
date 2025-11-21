@@ -523,6 +523,7 @@ export type Database = {
           id: string
           image_url: string
           images: string[] | null
+          is_custom_date: boolean | null
           is_hidden: boolean | null
           location: string
           map_link: string | null
@@ -550,6 +551,7 @@ export type Database = {
           id?: string
           image_url: string
           images?: string[] | null
+          is_custom_date?: boolean | null
           is_hidden?: boolean | null
           location: string
           map_link?: string | null
@@ -577,6 +579,7 @@ export type Database = {
           id?: string
           image_url?: string
           images?: string[] | null
+          is_custom_date?: boolean | null
           is_hidden?: boolean | null
           location?: string
           map_link?: string | null

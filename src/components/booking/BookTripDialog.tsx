@@ -26,6 +26,7 @@ interface Trip {
   price: number;
   price_child: number;
   date: string;
+  is_custom_date: boolean;
   available_tickets: number;
   activities?: Activity[];
 }
@@ -44,6 +45,7 @@ export const BookTripDialog = ({ open, onOpenChange, trip }: Props) => {
   const [adults, setAdults] = useState(1);
   const [children, setChildren] = useState(0);
   const [selectedActivities, setSelectedActivities] = useState<SelectedActivity[]>([]);
+  const [visitDate, setVisitDate] = useState("");
   const [guestName, setGuestName] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
@@ -70,17 +72,40 @@ export const BookTripDialog = ({ open, onOpenChange, trip }: Props) => {
   const totalAmount = (adults * trip.price) + (children * (trip.price_child || 0)) + selectedActivities.reduce((sum, a) => sum + (a.price * a.numberOfPeople), 0);
 
   const handleStepOne = () => {
-    const tripDate = new Date(trip.date);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    if (tripDate < today) {
-      toast({
-        title: "Trip date has passed",
-        description: "Cannot book trips with past dates",
-        variant: "destructive",
-      });
-      return;
+    if (trip.is_custom_date) {
+      if (!visitDate) {
+        toast({
+          title: "Date required",
+          description: "Please select a visit date",
+          variant: "destructive",
+        });
+        return;
+      }
+      const selectedDate = new Date(visitDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      if (selectedDate < today) {
+        toast({
+          title: "Invalid date",
+          description: "Please select a future date",
+          variant: "destructive",
+        });
+        return;
+      }
+    } else {
+      const tripDate = new Date(trip.date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      if (tripDate < today) {
+        toast({
+          title: "Trip date has passed",
+          description: "Cannot book trips with past dates",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     if (totalPeople === 0) {
@@ -156,9 +181,11 @@ export const BookTripDialog = ({ open, onOpenChange, trip }: Props) => {
         guest_name: !user ? guestName : null,
         guest_email: !user ? guestEmail : null,
         guest_phone: !user ? guestPhone : null,
+        slots_booked: totalPeople,
+        visit_date: trip.is_custom_date ? visitDate : trip.date,
         booking_details: {
           trip_name: trip.name,
-          date: trip.date,
+          date: trip.is_custom_date ? visitDate : trip.date,
           adults,
           children,
           activities: selectedActivities,
@@ -199,10 +226,24 @@ export const BookTripDialog = ({ open, onOpenChange, trip }: Props) => {
 
         {step === 1 ? (
           <div className="space-y-4">
-            <div>
-              <Label>Trip Date</Label>
-              <Input value={new Date(trip.date).toLocaleDateString()} disabled />
-            </div>
+            {trip.is_custom_date ? (
+              <div>
+                <Label htmlFor="visit_date">Select Visit Date</Label>
+                <Input
+                  id="visit_date"
+                  type="date"
+                  min={new Date().toISOString().split('T')[0]}
+                  value={visitDate}
+                  onChange={(e) => setVisitDate(e.target.value)}
+                  required
+                />
+              </div>
+            ) : (
+              <div>
+                <Label>Trip Date</Label>
+                <Input value={new Date(trip.date).toLocaleDateString()} disabled />
+              </div>
+            )}
 
             <div>
               <Label htmlFor="adults">Number of Adults</Label>

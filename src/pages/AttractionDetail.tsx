@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { MapPin, Clock, DollarSign, Phone, Mail, Share2, Calendar, Users, ArrowLeft, Loader2 } from "lucide-react";
+import { MapPin, Clock, DollarSign, Phone, Mail, Share2, Calendar, Users, ArrowLeft, Loader2, Navigation } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { MobileBottomBar } from "@/components/MobileBottomBar";

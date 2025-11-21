@@ -65,7 +65,7 @@ const AdminVerification = () => {
         .from("host_verifications")
         .select(`
           *,
-          profiles:user_id (
+          profiles!host_verifications_user_id_fkey (
             name,
             email
           )

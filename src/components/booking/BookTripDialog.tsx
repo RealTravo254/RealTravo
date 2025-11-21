@@ -4,11 +4,17 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { guestBookingSchema, paymentPhoneSchema } from "@/lib/validation";
+
+interface Activity {
+  name: string;
+  price: number;
+}
 
 interface Trip {
   id: string;
@@ -17,6 +23,7 @@ interface Trip {
   price_child: number;
   date: string;
   available_tickets: number;
+  activities?: Activity[];
 }
 
 interface Props {
@@ -32,15 +39,25 @@ export const BookTripDialog = ({ open, onOpenChange, trip }: Props) => {
   const [step, setStep] = useState(1);
   const [adults, setAdults] = useState(1);
   const [children, setChildren] = useState(0);
+  const [selectedActivities, setSelectedActivities] = useState<Activity[]>([]);
   const [guestName, setGuestName] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
   const [paymentPhone, setPaymentPhone] = useState("");
+  const [tripNote, setTripNote] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const toggleActivity = (activity: Activity, checked: boolean) => {
+    if (checked) {
+      setSelectedActivities([...selectedActivities, activity]);
+    } else {
+      setSelectedActivities(selectedActivities.filter(a => a.name !== activity.name));
+    }
+  };
+
   const totalPeople = adults + children;
-  const totalAmount = (adults * trip.price) + (children * (trip.price_child || 0));
+  const totalAmount = (adults * trip.price) + (children * (trip.price_child || 0)) + selectedActivities.reduce((sum, a) => sum + a.price, 0);
 
   const handleStepOne = () => {
     const tripDate = new Date(trip.date);
@@ -134,6 +151,8 @@ export const BookTripDialog = ({ open, onOpenChange, trip }: Props) => {
           date: trip.date,
           adults,
           children,
+          activities: selectedActivities,
+          trip_note: tripNote,
         },
       } as any);
 
@@ -201,6 +220,29 @@ export const BookTripDialog = ({ open, onOpenChange, trip }: Props) => {
               </p>
             </div>
 
+            {trip.activities && trip.activities.length > 0 && (
+              <div>
+                <Label>Select Activities</Label>
+                <div className="space-y-2 mt-2">
+                  {trip.activities.map((activity) => (
+                    <div key={activity.name} className="flex items-center justify-between border rounded-lg p-3">
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id={`activity-${activity.name}`}
+                          checked={selectedActivities.some(a => a.name === activity.name)}
+                          onCheckedChange={(checked) => toggleActivity(activity, checked as boolean)}
+                        />
+                        <label htmlFor={`activity-${activity.name}`} className="cursor-pointer">
+                          {activity.name}
+                        </label>
+                      </div>
+                      <span className="text-sm font-semibold">${activity.price}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {!user && (
               <>
                 <div>
@@ -255,6 +297,16 @@ export const BookTripDialog = ({ open, onOpenChange, trip }: Props) => {
                 <span>Total to Pay:</span>
                 <span>${totalAmount.toFixed(2)}</span>
               </div>
+            </div>
+
+            <div>
+              <Label htmlFor="tripNote">Trip Note (Optional)</Label>
+              <Input
+                id="tripNote"
+                value={tripNote}
+                onChange={(e) => setTripNote(e.target.value)}
+                placeholder="Any special requests or notes"
+              />
             </div>
 
             <div>

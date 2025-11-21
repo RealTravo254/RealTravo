@@ -26,6 +26,8 @@ interface AdventurePlace {
   name: string;
   facilities: Facility[];
   activities: Activity[];
+  entry_fee?: number;
+  entry_fee_type?: string;
 }
 
 interface SelectedFacility extends Facility {
@@ -33,8 +35,9 @@ interface SelectedFacility extends Facility {
   endDate: string;
 }
 
-interface SelectedActivity extends Activity {
-  people: number;
+interface SelectedActivity {
+  name: string;
+  price: number;
 }
 
 interface Props {
@@ -48,10 +51,14 @@ export const BookAdventureDialog = ({ open, onOpenChange, place }: Props) => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
+  const [visitDate, setVisitDate] = useState("");
+  const [adults, setAdults] = useState(1);
+  const [children, setChildren] = useState(0);
   const [selectedFacilities, setSelectedFacilities] = useState<SelectedFacility[]>([]);
   const [selectedActivities, setSelectedActivities] = useState<SelectedActivity[]>([]);
   const [paymentMethod, setPaymentMethod] = useState("");
   const [paymentPhone, setPaymentPhone] = useState("");
+  const [tripNote, setTripNote] = useState("");
   const [loading, setLoading] = useState(false);
   
   // Guest booking fields
@@ -69,7 +76,7 @@ export const BookAdventureDialog = ({ open, onOpenChange, place }: Props) => {
 
   const toggleActivity = (activity: Activity, checked: boolean) => {
     if (checked) {
-      setSelectedActivities([...selectedActivities, { ...activity, people: 1 }]);
+      setSelectedActivities([...selectedActivities, activity]);
     } else {
       setSelectedActivities(selectedActivities.filter(a => a.name !== activity.name));
     }
@@ -81,31 +88,41 @@ export const BookAdventureDialog = ({ open, onOpenChange, place }: Props) => {
     ));
   };
 
-  const updateActivityPeople = (name: string, people: number) => {
-    setSelectedActivities(selectedActivities.map(a => 
-      a.name === name ? { ...a, people } : a
-    ));
-  };
-
   const calculateTotal = () => {
-    const facilitiesTotal = selectedFacilities.reduce((total, facility) => {
-      if (!facility.startDate || !facility.endDate) return total;
+    let total = 0;
+    
+    // Entry fees
+    if (place.entry_fee_type !== 'free' && place.entry_fee) {
+      total += (adults * place.entry_fee) + (children * (place.entry_fee || 0));
+    }
+    
+    // Facilities
+    total += selectedFacilities.reduce((sum, facility) => {
+      if (!facility.startDate || !facility.endDate) return sum;
       const days = Math.ceil((new Date(facility.endDate).getTime() - new Date(facility.startDate).getTime()) / (1000 * 60 * 60 * 24));
-      return total + (facility.price * Math.max(days, 1));
+      return sum + (facility.price * Math.max(days, 1));
     }, 0);
-
-    const activitiesTotal = selectedActivities.reduce((total, activity) => {
-      return total + (activity.price * activity.people);
-    }, 0);
-
-    return facilitiesTotal + activitiesTotal;
+    
+    // Activities
+    total += selectedActivities.reduce((sum, activity) => sum + activity.price, 0);
+    
+    return total;
   };
 
   const handleStepOne = () => {
-    if (selectedFacilities.length === 0 && selectedActivities.length === 0) {
+    if (!visitDate) {
       toast({
-        title: "Make a selection",
-        description: "Please select at least one facility or activity",
+        title: "Select date",
+        description: "Please select a visit date",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (adults === 0 && children === 0) {
+      toast({
+        title: "Add guests",
+        description: "Please add at least one guest",
         variant: "destructive",
       });
       return;
@@ -158,6 +175,7 @@ export const BookAdventureDialog = ({ open, onOpenChange, place }: Props) => {
         user_id: user?.id || null,
         booking_type: "adventure_place",
         item_id: place.id,
+        visit_date: visitDate,
         total_amount: calculateTotal(),
         payment_method: paymentMethod,
         payment_phone: paymentPhone || null,
@@ -167,8 +185,11 @@ export const BookAdventureDialog = ({ open, onOpenChange, place }: Props) => {
         guest_phone: !user ? guestPhone : null,
         booking_details: {
           place_name: place.name,
+          adults,
+          children,
           facilities: selectedFacilities,
           activities: selectedActivities,
+          trip_note: tripNote,
         },
       } as any);
 
@@ -203,9 +224,66 @@ export const BookAdventureDialog = ({ open, onOpenChange, place }: Props) => {
 
         {step === 1 ? (
           <div className="space-y-4">
+            <div>
+              <Label htmlFor="visitDate">Visit Date</Label>
+              <Input
+                id="visitDate"
+                type="date"
+                value={visitDate}
+                onChange={(e) => setVisitDate(e.target.value)}
+                min={new Date().toISOString().split('T')[0]}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="adults">Adults</Label>
+                <Input
+                  id="adults"
+                  type="number"
+                  min="0"
+                  value={adults}
+                  onChange={(e) => setAdults(parseInt(e.target.value) || 0)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="children">Children</Label>
+                <Input
+                  id="children"
+                  type="number"
+                  min="0"
+                  value={children}
+                  onChange={(e) => setChildren(parseInt(e.target.value) || 0)}
+                />
+              </div>
+            </div>
+
+            {place.activities && place.activities.length > 0 && (
+              <div>
+                <Label>Select Activities</Label>
+                <div className="space-y-2 mt-2">
+                  {place.activities.map((activity) => (
+                    <div key={activity.name} className="flex items-center justify-between border rounded-lg p-3">
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id={`activity-${activity.name}`}
+                          checked={selectedActivities.some(a => a.name === activity.name)}
+                          onCheckedChange={(checked) => toggleActivity(activity, checked as boolean)}
+                        />
+                        <label htmlFor={`activity-${activity.name}`} className="cursor-pointer">
+                          {activity.name}
+                        </label>
+                      </div>
+                      <span className="text-sm font-semibold">${activity.price}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {place.facilities && place.facilities.length > 0 && (
               <div>
-                <Label>Select Facilities</Label>
+                <Label>Select Facilities (Optional)</Label>
                 <div className="space-y-3 mt-2">
                   {place.facilities.map((facility) => (
                     <div key={facility.name} className="border rounded-lg p-3">
@@ -241,41 +319,6 @@ export const BookAdventureDialog = ({ open, onOpenChange, place }: Props) => {
                               min={selectedFacilities.find(f => f.name === facility.name)?.startDate || new Date().toISOString().split('T')[0]}
                             />
                           </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {place.activities && place.activities.length > 0 && (
-              <div>
-                <Label>Select Activities</Label>
-                <div className="space-y-3 mt-2">
-                  {place.activities.map((activity) => (
-                    <div key={activity.name} className="border rounded-lg p-3">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Checkbox
-                          id={`activity-${activity.name}`}
-                          checked={selectedActivities.some(a => a.name === activity.name)}
-                          onCheckedChange={(checked) => toggleActivity(activity, checked as boolean)}
-                        />
-                        <label htmlFor={`activity-${activity.name}`} className="flex-1 cursor-pointer">
-                          <div className="font-medium">{activity.name}</div>
-                          <div className="text-sm text-muted-foreground">${activity.price}/person</div>
-                        </label>
-                      </div>
-                      
-                      {selectedActivities.some(a => a.name === activity.name) && (
-                        <div className="pl-6 mt-2">
-                          <Label className="text-xs">Number of People</Label>
-                          <Input
-                            type="number"
-                            min="1"
-                            value={selectedActivities.find(a => a.name === activity.name)?.people || 1}
-                            onChange={(e) => updateActivityPeople(activity.name, parseInt(e.target.value) || 1)}
-                          />
                         </div>
                       )}
                     </div>
@@ -376,6 +419,16 @@ export const BookAdventureDialog = ({ open, onOpenChange, place }: Props) => {
                 />
               </div>
             )}
+
+            <div>
+              <Label htmlFor="tripNote">Trip Note (Optional)</Label>
+              <Input
+                id="tripNote"
+                value={tripNote}
+                onChange={(e) => setTripNote(e.target.value)}
+                placeholder="Any special requests or notes"
+              />
+            </div>
 
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setStep(1)} className="flex-1">

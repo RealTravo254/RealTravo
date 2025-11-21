@@ -23,6 +23,7 @@ export type Database = {
           approval_status: string
           approved_at: string | null
           approved_by: string | null
+          available_slots: number | null
           closing_hours: string | null
           country: string
           created_at: string
@@ -55,6 +56,7 @@ export type Database = {
           approval_status?: string
           approved_at?: string | null
           approved_by?: string | null
+          available_slots?: number | null
           closing_hours?: string | null
           country: string
           created_at?: string
@@ -87,6 +89,7 @@ export type Database = {
           approval_status?: string
           approved_at?: string | null
           approved_by?: string | null
+          available_slots?: number | null
           closing_hours?: string | null
           country?: string
           created_at?: string
@@ -355,6 +358,7 @@ export type Database = {
           approval_status: string
           approved_at: string | null
           approved_by: string | null
+          available_rooms: number | null
           closing_hours: string | null
           country: string
           created_at: string
@@ -386,6 +390,7 @@ export type Database = {
           approval_status?: string
           approved_at?: string | null
           approved_by?: string | null
+          available_rooms?: number | null
           closing_hours?: string | null
           country: string
           created_at?: string
@@ -417,6 +422,7 @@ export type Database = {
           approval_status?: string
           approved_at?: string | null
           approved_by?: string | null
+          available_rooms?: number | null
           closing_hours?: string | null
           country?: string
           created_at?: string
@@ -701,6 +707,10 @@ export type Database = {
       }
     }
     Functions: {
+      get_date_availability: {
+        Args: { p_date: string; p_item_id: string; p_item_type: string }
+        Returns: Json
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

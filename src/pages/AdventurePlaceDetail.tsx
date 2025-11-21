@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { MapPin, Phone, Share2, Mail, DollarSign, Wifi, ArrowLeft } from "lucide-react"; // Added Wifi for amenity icon
 import { BookAdventureDialog } from "@/components/booking/BookAdventureDialog";
 import { SimilarItems } from "@/components/SimilarItems";
+import { AvailabilityCalendar } from "@/components/booking/AvailabilityCalendar";
 import { useToast } from "@/hooks/use-toast";
 import { Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
@@ -307,6 +308,14 @@ const AdventurePlaceDetail = () => {
             </div>
 
             {/* Registration number hidden from public for security */}
+          </div>
+
+          {/* Availability Calendar */}
+          <div className="mt-8">
+            <AvailabilityCalendar 
+              itemId={place.id} 
+              itemType="adventure"
+            />
           </div>
         </div>
 

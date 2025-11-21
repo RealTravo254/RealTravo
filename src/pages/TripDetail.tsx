@@ -38,6 +38,7 @@ interface Trip {
 }
 
 import { SimilarItems } from "@/components/SimilarItems";
+import { AvailabilityCalendar } from "@/components/booking/AvailabilityCalendar";
 
 const TripDetail = () => {
   const { id } = useParams();
@@ -273,6 +274,14 @@ const TripDetail = () => {
                   : 'Book Now'}
               </Button>
             </div>
+          </div>
+
+          {/* Availability Calendar */}
+          <div className="mt-8">
+            <AvailabilityCalendar 
+              itemId={trip.id} 
+              itemType="trip"
+            />
           </div>
         </div>
 

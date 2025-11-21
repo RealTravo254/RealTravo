@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { MapPin, Phone, Share2, Mail, Wifi, Users, Clock, DollarSign, ArrowLeft } from "lucide-react";
 import { BookHotelDialog } from "@/components/booking/BookHotelDialog";
 import { SimilarItems } from "@/components/SimilarItems";
+import { AvailabilityCalendar } from "@/components/booking/AvailabilityCalendar";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Carousel, 
@@ -320,6 +321,14 @@ const HotelDetail = () => {
                 Book Now
               </Button>
             </div>
+          </div>
+
+          {/* Availability Calendar */}
+          <div className="mt-8">
+            <AvailabilityCalendar 
+              itemId={hotel.id} 
+              itemType="hotel"
+            />
           </div>
         </div>
 

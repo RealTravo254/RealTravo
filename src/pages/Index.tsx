@@ -226,6 +226,7 @@ const Index = () => {
     return (
         <div className="min-h-screen bg-background pb-20 md:pb-0">
             <Header onSearchClick={handleSearchIconClick} showSearchIcon={showSearchIcon} />
+            {/* Sticky Search Bar - hidden initially as search is now in hero */}
             <div
                 ref={searchRef}
                 className={`sticky top-0 md:top-16 z-40 bg-background border-b shadow-sm transition-all duration-300 ${
@@ -238,15 +239,37 @@ const Index = () => {
             </div>
             <main className="container px-0 md:px-4 py-0 md:py-8">
                 <section className="flex flex-col gap-1 md:gap-3">
-                    {/* Hero Slogan Section */}
+                {/* Hero Section with Background Image */}
                     <div className="w-full">
-                        <div className="relative w-full overflow-hidden bg-gradient-to-br from-background via-primary/5 to-background flex flex-col items-center justify-center p-3 md:p-8 py-4 md:py-12">
-                            <h1 className="text-lg md:text-3xl lg:text-4xl font-bold text-primary mb-1 md:mb-3 text-center">
-                                Discover Your Next Adventure
-                            </h1>
-                            <p className="text-2xs md:text-base lg:text-lg text-muted-foreground text-center max-w-2xl">
-                                Travel beyond boundaries and explore extraordinary destinations that inspire wonder and create unforgettable memories
-                            </p>
+                        <div 
+                            className="relative w-full overflow-hidden flex flex-col items-center justify-center p-4 md:p-12 py-12 md:py-24 rounded-lg"
+                            style={{
+                                backgroundImage: 'url(https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=1920)',
+                                backgroundSize: 'cover',
+                                backgroundPosition: 'center'
+                            }}
+                        >
+                            {/* Overlay for better text readability */}
+                            <div className="absolute inset-0 bg-black/40" />
+                            
+                            {/* Content */}
+                            <div className="relative z-10 flex flex-col items-center gap-4 md:gap-6 max-w-3xl mx-auto">
+                                <h1 className="text-2xl md:text-4xl lg:text-5xl font-bold text-white mb-2 md:mb-4 text-center drop-shadow-lg">
+                                    Discover Your Next Adventure
+                                </h1>
+                                <p className="text-sm md:text-lg lg:text-xl text-white text-center max-w-2xl drop-shadow-md">
+                                    Travel beyond boundaries and explore extraordinary destinations that inspire wonder and create unforgettable memories
+                                </p>
+                                
+                                {/* Search Bar Below Paragraph */}
+                                <div className="w-full mt-2 md:mt-4">
+                                    <SearchBarWithSuggestions 
+                                        value={searchQuery} 
+                                        onChange={setSearchQuery} 
+                                        onSubmit={() => fetchAllData(searchQuery)} 
+                                    />
+                                </div>
+                            </div>
                         </div>
                     </div>
                     

@@ -230,53 +230,59 @@ export default function AttractionDetail() {
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back
         </Button>
-      {/* Image Gallery */}
-      <div className="w-full mb-6">
-        <Carousel
-          opts={{ loop: true }}
-          plugins={[Autoplay({ delay: 3000 })]}
-          className="w-full"
-          setApi={(api) => {
-            if (api) {
-              api.on("select", () => {
-                setCurrent(api.selectedScrollSnap());
-              });
-            }
-          }}
-        >
-          <CarouselContent>
-            {images?.map((url, index) => (
-              <CarouselItem key={index}>
-                <img src={url} alt={`${attraction.location_name} ${index + 1}`} className="w-full h-64 md:h-96 object-cover" />
-              </CarouselItem>
-            ))}
-          </CarouselContent>
-
-          <CarouselPrevious 
-            className="left-4 z-10 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 text-white border-none" 
-          />
-          <CarouselNext 
-            className="right-4 z-10 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 text-white border-none" 
-          />
-          
-          {images && images.length > 1 && (
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2 z-10">
-              {images.map((_, index) => (
-                <div
-                  key={index}
-                  className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                    index === current ? 'bg-white' : 'bg-white/40'
-                  }`}
-                />
+      {/* Two Column Layout on Large Screens */}
+      <div className="grid lg:grid-cols-2 gap-6">
+        {/* Left Column: Image Gallery with border-radius */}
+        <div className="w-full">
+          <Carousel
+            opts={{ loop: true }}
+            plugins={[Autoplay({ delay: 3000 })]}
+            className="w-full rounded-2xl overflow-hidden"
+            setApi={(api) => {
+              if (api) {
+                api.on("select", () => {
+                  setCurrent(api.selectedScrollSnap());
+                });
+              }
+            }}
+          >
+            <CarouselContent>
+              {images?.map((url, index) => (
+                <CarouselItem key={index}>
+                  <img src={url} alt={`${attraction.location_name} ${index + 1}`} className="w-full h-64 md:h-96 object-cover" />
+                </CarouselItem>
               ))}
-            </div>
-          )}
-        </Carousel>
-      </div>
+            </CarouselContent>
 
-      <div className="max-w-4xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4 mb-6">
+            {images && images.length > 1 && (
+              <>
+                <CarouselPrevious 
+                  className="left-4 z-10 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 text-white border-none" 
+                />
+                <CarouselNext 
+                  className="right-4 z-10 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 text-white border-none" 
+                />
+              </>
+            )}
+            
+            {images && images.length > 1 && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2 z-10">
+                {images.map((_, index) => (
+                  <div
+                    key={index}
+                    className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                      index === current ? 'bg-white' : 'bg-white/40'
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
+          </Carousel>
+        </div>
+
+        {/* Right Column: Item Details */}
+        <div className="flex flex-col gap-4">
+          {/* Header */}
           <div className="flex flex-col gap-2">
             <h1 className="text-2xl md:text-3xl font-bold">{attraction.location_name}</h1>
             {attraction.local_name && (
@@ -287,6 +293,7 @@ export default function AttractionDetail() {
             </p>
             <LiveViewerCount itemId={attraction.id} itemType="attraction" />
           </div>
+          
           <div className="flex gap-2">
             <Button
               onClick={() => {
@@ -309,8 +316,58 @@ export default function AttractionDetail() {
               <Share2 className="h-4 w-4" />
             </Button>
           </div>
-        </div>
 
+          {/* Entrance Fee Card */}
+          <Card className="p-6">
+            <h2 className="text-2xl font-semibold mb-3 flex items-center gap-2">
+              <DollarSign className="h-5 w-5" />
+              Entrance Fee
+            </h2>
+            {attraction.entrance_type === 'free' ? (
+              <p className="text-lg font-semibold text-green-600">Free Entry</p>
+            ) : (
+              <div className="space-y-2">
+                <p>Adults: ${attraction.price_adult}</p>
+                <p>Children: ${attraction.price_child}</p>
+              </div>
+            )}
+          </Card>
+
+          {/* Contact Info Card */}
+          {(attraction.email || attraction.phone_number || attraction.location_link) && (
+            <Card className="p-6">
+              <h2 className="text-2xl font-semibold mb-3">Contact</h2>
+              <div className="space-y-2">
+                {attraction.email && (
+                  <p className="flex items-center gap-2">
+                    <Mail className="h-4 w-4" />
+                    <a href={`mailto:${attraction.email}`} className="text-primary hover:underline">
+                      {attraction.email}
+                    </a>
+                  </p>
+                )}
+                {attraction.phone_number && (
+                  <p className="flex items-center gap-2">
+                    <Phone className="h-4 w-4" />
+                    <a href={`tel:${attraction.phone_number}`} className="text-primary hover:underline">
+                      {attraction.phone_number}
+                    </a>
+                  </p>
+                )}
+              </div>
+            </Card>
+          )}
+
+          {/* Book Now Button */}
+          <Button size="lg" className="w-full" onClick={() => setBookingOpen(true)}>
+            <Calendar className="mr-2 h-5 w-5" />
+            Book Now
+          </Button>
+        </div>
+      </div>
+
+      {/* Description and Operating Hours Below */}
+      <div className="space-y-6 mt-6">
         {/* Description */}
         {attraction.description && (
           <Card className="p-6">
@@ -336,61 +393,6 @@ export default function AttractionDetail() {
             </div>
           </Card>
         )}
-
-        {/* Entrance Fee */}
-        <Card className="p-6">
-          <h2 className="text-2xl font-semibold mb-3 flex items-center gap-2">
-            <DollarSign className="h-5 w-5" />
-            Entrance Fee
-          </h2>
-          {attraction.entrance_type === 'free' ? (
-            <p className="text-lg font-semibold text-green-600">Free Entry</p>
-          ) : (
-            <div className="space-y-2">
-              <p>Adults: ${attraction.price_adult}</p>
-              <p>Children: ${attraction.price_child}</p>
-            </div>
-          )}
-        </Card>
-
-        {/* Contact Info */}
-        {(attraction.email || attraction.phone_number || attraction.location_link) && (
-          <Card className="p-6">
-            <h2 className="text-2xl font-semibold mb-3">Contact Information</h2>
-            <div className="space-y-2">
-              {attraction.email && (
-                <p className="flex items-center gap-2">
-                  <Mail className="h-4 w-4" />
-                  <a href={`mailto:${attraction.email}`} className="text-primary hover:underline">
-                    {attraction.email}
-                  </a>
-                </p>
-              )}
-              {attraction.phone_number && (
-                <p className="flex items-center gap-2">
-                  <Phone className="h-4 w-4" />
-                  <a href={`tel:${attraction.phone_number}`} className="text-primary hover:underline">
-                    {attraction.phone_number}
-                  </a>
-                </p>
-              )}
-              {attraction.location_link && (
-                <p className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4" />
-                  <a href={attraction.location_link} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                    View on Map
-                  </a>
-                </p>
-              )}
-            </div>
-          </Card>
-        )}
-
-        {/* Book Now Button */}
-        <Button size="lg" className="w-full" onClick={() => setBookingOpen(true)}>
-          <Calendar className="mr-2 h-5 w-5" />
-          Book Now
-        </Button>
       </div>
 
       {attraction && <SimilarItems currentItemId={attraction.id} itemType="attraction" country={attraction.country} />}
@@ -519,7 +521,6 @@ export default function AttractionDetail() {
       </Dialog>
       </main>
       
-      <Footer />
       <MobileBottomBar />
     </div>
   );

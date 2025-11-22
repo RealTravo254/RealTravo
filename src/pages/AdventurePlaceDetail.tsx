@@ -158,90 +158,93 @@ const AdventurePlaceDetail = () => {
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back
         </Button>
-        {/* Image Gallery Carousel */}
-        <div className="w-full mb-6">
-          <Carousel
-            opts={{ loop: true }}
-            plugins={[Autoplay({ delay: 3000 })]}
-            className="w-full"
-            setApi={(api) => {
-                if (api) {
-                  api.on("select", () => {
-                      setCurrent(api.selectedScrollSnap());
-                  });
-                }
-            }}
-          >
-            <CarouselContent>
-              {displayImages.map((img, idx) => (
-                <CarouselItem key={idx}>
-                  <img
-                    src={img}
-                    alt={`${place.name} ${idx + 1}`}
-                    className="w-full h-64 md:h-96 object-cover"
+        {/* Two Column Layout on Large Screens */}
+        <div className="grid lg:grid-cols-2 gap-6">
+          {/* Left Column: Image Gallery with border-radius */}
+          <div className="w-full">
+            <Carousel
+              opts={{ loop: true }}
+              plugins={[Autoplay({ delay: 3000 })]}
+              className="w-full rounded-2xl overflow-hidden"
+              setApi={(api) => {
+                  if (api) {
+                    api.on("select", () => {
+                        setCurrent(api.selectedScrollSnap());
+                    });
+                  }
+              }}
+            >
+              <CarouselContent>
+                {displayImages.map((img, idx) => (
+                  <CarouselItem key={idx}>
+                    <img
+                      src={img}
+                      alt={`${place.name} ${idx + 1}`}
+                      className="w-full h-64 md:h-96 object-cover"
+                    />
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+
+              {displayImages.length > 1 && (
+                <>
+                  <CarouselPrevious 
+                    className="left-4 z-10 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 text-white border-none" 
                   />
-                </CarouselItem>
-              ))}
-            </CarouselContent>
-
-            <CarouselPrevious 
-              className="left-4 z-10 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 text-white border-none" 
-            />
-            <CarouselNext 
-              className="right-4 z-10 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 text-white border-none" 
-            />
-            
-            {displayImages.length > 1 && (
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2 z-10">
-                    {displayImages.map((_, index) => (
-                        <div
-                            key={index}
-                            className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                                index === current
-                                    ? 'bg-white'
-                                    : 'bg-white/40'
-                            }`}
-                        />
-                    ))}
-                </div>
-            )}
-          </Carousel>
-        </div>
-
-        {/* Title, Location on left, Map & Share buttons on right */}
-        <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4 mb-6">
-          <div className="flex flex-col gap-2">
-            <h1 className="text-2xl md:text-3xl font-bold">{place.name}</h1>
-            <p className="text-sm md:text-base text-muted-foreground">{place.location}, {place.country}</p>
-            <LiveViewerCount itemId={place.id} itemType="adventure" />
+                  <CarouselNext 
+                    className="right-4 z-10 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 text-white border-none" 
+                  />
+                </>
+              )}
+              
+              {displayImages.length > 1 && (
+                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2 z-10">
+                      {displayImages.map((_, index) => (
+                          <div
+                              key={index}
+                              className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                                  index === current
+                                      ? 'bg-white'
+                                      : 'bg-white/40'
+                              }`}
+                          />
+                      ))}
+                  </div>
+              )}
+            </Carousel>
           </div>
-          <div className="flex gap-2">
-            <Button
-              variant="default"
-              size="lg"
-              onClick={openInMaps}
-              className="bg-blue-600 text-white hover:bg-blue-700 text-xs md:text-base"
-            >
-              <MapPin className="mr-2 h-4 w-4 md:h-5 md:w-5" />
-              Location
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={handleShare}
-              className="hover:bg-accent"
-            >
-              <Share2 className="h-4 w-4 md:h-5 md:w-5" />
-            </Button>
-          </div>
-        </div>
 
-        <div className="grid md:grid-cols-3 gap-6">
-          <div className="md:col-span-2 space-y-6 p-4 md:p-6 border rounded-lg bg-card shadow-sm">
+          {/* Right Column: Item Details */}
+          <div className="flex flex-col gap-4">
+            {/* Title and Actions */}
+            <div className="flex flex-col gap-2">
+              <h1 className="text-2xl md:text-3xl font-bold">{place.name}</h1>
+              <p className="text-sm md:text-base text-muted-foreground">{place.location}, {place.country}</p>
+              <LiveViewerCount itemId={place.id} itemType="adventure" />
+            </div>
             
-            {/* Entry Fee and About Section */}
-            <div>
-              <h2 className="text-lg md:text-xl font-semibold mb-2">About This Place</h2>
+            <div className="flex gap-2">
+              <Button
+                variant="default"
+                size="lg"
+                onClick={openInMaps}
+                className="bg-blue-600 text-white hover:bg-blue-700 text-xs md:text-base"
+              >
+                <MapPin className="mr-2 h-4 w-4 md:h-5 md:w-5" />
+                Location
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleShare}
+                className="hover:bg-accent"
+              >
+                <Share2 className="h-4 w-4 md:h-5 md:w-5" />
+              </Button>
+            </div>
+
+            {/* Entry Fee */}
+            <div className="bg-card p-6 rounded-lg border shadow-sm">
               <div className="flex items-center gap-4 mb-3 text-base md:text-lg font-semibold">
                 <div className="flex items-center gap-1">
                     <DollarSign className="h-4 w-4 md:h-5 md:w-5 text-primary" />
@@ -250,6 +253,42 @@ const AdventurePlaceDetail = () => {
                     </span>
                 </div>
               </div>
+            </div>
+
+            {/* Contact and Booking */}
+            <div className="bg-card p-6 rounded-lg border space-y-3 shadow-sm">
+              <h3 className="font-semibold text-base md:text-lg">Contact & Booking</h3>
+              <div className="pt-2 border-t space-y-3">
+                {place.phone_numbers && place.phone_numbers.map((phone, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <Phone className="h-3 w-3 md:h-4 md:w-4 text-primary" />
+                    <a href={`tel:${phone}`} className="text-xs md:text-sm">{phone}</a>
+                  </div>
+                ))}
+                {place.email && (
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-3 w-3 md:h-4 md:w-4 text-primary" />
+                    <a href={`mailto:${place.email}`} className="text-xs md:text-sm">{place.email}</a>
+                  </div>
+                )}
+              </div>
+              
+              <Button 
+                className="w-full mt-4 text-xs md:text-sm" 
+                onClick={() => setBookingOpen(true)}
+              >
+                Book Now
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Description and Details Below */}
+        <div className="space-y-6 mt-6">
+          <div className="space-y-6 p-4 md:p-6 border rounded-lg bg-card shadow-sm">
+            {/* About Section */}
+            <div>
+              <h2 className="text-lg md:text-xl font-semibold mb-2">About This Place</h2>
               <p className="text-xs md:text-base text-muted-foreground">{place.description}</p>
             </div>
 
@@ -320,44 +359,11 @@ const AdventurePlaceDetail = () => {
             </div>
           </div>
 
-          {/* Contact and Booking (Sidebar) */}
-          <div className="space-y-4">
-            <div className="bg-card p-6 rounded-lg border space-y-3 shadow-sm">
-              <h3 className="font-semibold text-base md:text-lg">Contact & Booking</h3>
-              {/* Contact Information */}
-              <div className="pt-2 border-t space-y-3">
-                {place.phone_numbers && place.phone_numbers.map((phone, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <Phone className="h-3 w-3 md:h-4 md:w-4 text-primary" />
-                    <a href={`tel:${phone}`} className="text-xs md:text-sm">{phone}</a>
-                  </div>
-                ))}
-                {place.email && (
-                  <div className="flex items-center gap-2">
-                    <Mail className="h-3 w-3 md:h-4 md:w-4 text-primary" />
-                    <a href={`mailto:${place.email}`} className="text-xs md:text-sm">{place.email}</a>
-                  </div>
-                )}
-              </div>
-              
-              <Button 
-                className="w-full mt-4 text-xs md:text-sm" 
-                onClick={() => setBookingOpen(true)}
-              >
-                Book Now
-              </Button>
-            </div>
-
-            {/* Registration number hidden from public for security */}
-          </div>
-
           {/* Availability Calendar */}
-          <div className="mt-8">
-            <AvailabilityCalendar 
-              itemId={place.id} 
-              itemType="adventure"
-            />
-          </div>
+          <AvailabilityCalendar 
+            itemId={place.id} 
+            itemType="adventure"
+          />
         </div>
 
         {place && <SimilarItems currentItemId={place.id} itemType="adventure" country={place.country} />}
@@ -369,7 +375,6 @@ const AdventurePlaceDetail = () => {
         place={place}
       />
 
-      <Footer />
       <MobileBottomBar />
     </div>
   );

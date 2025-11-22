@@ -161,124 +161,107 @@ const TripDetail = () => {
           Back
         </Button>
         
-        {/* Image Gallery Carousel */}
-        <div className="w-full mb-6">
-          <Carousel
-            opts={{ loop: true }}
-            plugins={[Autoplay({ delay: 3000 })]}
-            className="w-full"
-            setApi={(api) => {
-                if (api) {
-                  api.on("select", () => {
-                      setCurrent(api.selectedScrollSnap());
-                  });
-                }
-            }}
-          >
-            <CarouselContent>
-              {displayImages.map((img, idx) => (
-                <CarouselItem key={idx}>
-                  <img
-                    src={img}
-                    alt={`${trip.name} ${idx + 1}`}
-                    className="w-full h-64 md:h-96 object-cover"
+        {/* Two Column Layout on Large Screens */}
+        <div className="grid lg:grid-cols-2 gap-6">
+          {/* Left Column: Image Gallery with border-radius */}
+          <div className="w-full">
+            <Carousel
+              opts={{ loop: true }}
+              plugins={[Autoplay({ delay: 3000 })]}
+              className="w-full rounded-2xl overflow-hidden"
+              setApi={(api) => {
+                  if (api) {
+                    api.on("select", () => {
+                        setCurrent(api.selectedScrollSnap());
+                    });
+                  }
+              }}
+            >
+              <CarouselContent>
+                {displayImages.map((img, idx) => (
+                  <CarouselItem key={idx}>
+                    <img
+                      src={img}
+                      alt={`${trip.name} ${idx + 1}`}
+                      className="w-full h-64 md:h-96 object-cover"
+                    />
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+
+              {/* Hide prev/next if only 1 image */}
+              {displayImages.length > 1 && (
+                <>
+                  <CarouselPrevious 
+                    className="left-4 z-10 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 text-white border-none" 
                   />
-                </CarouselItem>
-              ))}
-            </CarouselContent>
-
-            <CarouselPrevious 
-              className="left-4 z-10 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 text-white border-none" 
-            />
-            <CarouselNext 
-              className="right-4 z-10 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 text-white border-none" 
-            />
-            
-            {displayImages.length > 1 && (
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2 z-10">
-                    {displayImages.map((_, index) => (
-                        <div
-                            key={index}
-                            className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                                index === current
-                                    ? 'bg-white'
-                                    : 'bg-white/40'
-                            }`}
-                        />
-                    ))}
-                </div>
-            )}
-          </Carousel>
-        </div>
-
-        {/* Title, Location on left, Map & Share buttons on right */}
-        <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4 mb-6">
-          <div className="flex flex-col gap-2">
-            <h1 className="text-2xl md:text-3xl font-bold">{trip.name}</h1>
-            <p className="text-sm md:text-base text-muted-foreground">{trip.location}, {trip.country}</p>
-            <LiveViewerCount itemId={trip.id} itemType="trip" />
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={openInMaps}
-              className="bg-blue-600 text-white hover:bg-blue-700 border-blue-600 text-xs md:text-sm"
-            >
-              <MapPin className="mr-2 h-3 w-3 md:h-4 md:w-4" />
-              View on Map
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleShare}
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
-            >
-              <Share2 className="h-4 w-4 md:h-5 md:w-5" />
-            </Button>
-          </div>
-        </div>
-
-        {/* BELOW CAROUSEL: Description and Booking sidebar */}
-        <div className="grid md:grid-cols-3 gap-6">
-          <div className="md:col-span-2 space-y-4 p-4 md:p-6 border rounded-lg bg-card shadow-sm">
-            {/* Date and Price Row */}
-            <div className="flex justify-between items-center pb-4 border-b">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 md:h-5 md:w-5 text-primary" />
-                <span className="text-xs md:text-base font-semibold">Date</span>
-              </div>
-              <div className="text-lg md:text-xl font-bold">${trip.price}</div>
-            </div>
-            <div className="text-xs md:text-base text-muted-foreground">
-              {trip.is_custom_date ? "Available for 30 days - Choose your visit date" : new Date(trip.date).toLocaleDateString()}
-            </div>
-            
-            {/* Contact Info */}
-            <div className="flex flex-wrap gap-4 pt-4 border-t">
-              {trip.phone_number && (
-                <div className="flex items-center gap-2">
-                  <Phone className="h-4 w-4 md:h-5 md:w-5 text-primary" />
-                  <a href={`tel:${trip.phone_number}`} className="text-xs md:text-base">{trip.phone_number}</a>
-                </div>
+                  <CarouselNext 
+                    className="right-4 z-10 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 text-white border-none" 
+                  />
+                </>
               )}
-              {trip.email && (
-                <div className="flex items-center gap-2">
-                  <Mail className="h-4 w-4 md:h-5 md:w-5 text-primary" />
-                  <a href={`mailto:${trip.email}`} className="text-xs md:text-base">{trip.email}</a>
-                </div>
+              
+              {displayImages.length > 1 && (
+                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2 z-10">
+                      {displayImages.map((_, index) => (
+                          <div
+                              key={index}
+                              className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                                  index === current
+                                      ? 'bg-white'
+                                      : 'bg-white/40'
+                              }`}
+                          />
+                      ))}
+                  </div>
               )}
-            </div>
-            
-            <h2 className="text-lg md:text-xl font-semibold">About This Tour</h2>
-            <p className="text-xs md:text-base text-muted-foreground">{trip.description}</p>
+            </Carousel>
           </div>
 
-          {/* Pricing and Booking (Sidebar) */}
-          <div className="space-y-4">
+          {/* Right Column: Item Details */}
+          <div className="flex flex-col gap-4">
+            {/* Title and Actions */}
+            <div className="flex flex-col gap-2">
+              <h1 className="text-2xl md:text-3xl font-bold">{trip.name}</h1>
+              <p className="text-sm md:text-base text-muted-foreground">{trip.location}, {trip.country}</p>
+              <LiveViewerCount itemId={trip.id} itemType="trip" />
+            </div>
+            
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={openInMaps}
+                className="bg-blue-600 text-white hover:bg-blue-700 border-blue-600 text-xs md:text-sm"
+              >
+                <MapPin className="mr-2 h-3 w-3 md:h-4 md:w-4" />
+                View on Map
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleShare}
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                <Share2 className="h-4 w-4 md:h-5 md:w-5" />
+              </Button>
+            </div>
+
+            {/* Pricing and Booking */}
             <div className="bg-card p-6 rounded-lg border space-y-4 shadow-sm">
               <h3 className="font-semibold text-base md:text-lg">Tour Details & Booking</h3>
               <div className="pt-2 border-t space-y-2">
+                <div className="flex justify-between items-center pb-2">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4 md:h-5 md:w-5 text-primary" />
+                    <span className="text-xs md:text-base font-semibold">Date</span>
+                  </div>
+                  <div className="text-lg md:text-xl font-bold">${trip.price}</div>
+                </div>
+                <div className="text-xs md:text-base text-muted-foreground">
+                  {trip.is_custom_date ? "Available for 30 days - Choose your visit date" : new Date(trip.date).toLocaleDateString()}
+                </div>
+                
                 {trip.price_child > 0 && (
-                  <div>
+                  <div className="pt-2">
                     <p className="text-xs md:text-sm text-muted-foreground">Child Price</p>
                     <p className="text-base md:text-xl font-semibold">${trip.price_child}</p>
                   </div>
@@ -301,15 +284,37 @@ const TripDetail = () => {
                   : 'Book Now'}
               </Button>
             </div>
+
+            {/* Contact Info */}
+            <div className="flex flex-wrap gap-4 pt-4 border-t">
+              {trip.phone_number && (
+                <div className="flex items-center gap-2">
+                  <Phone className="h-4 w-4 md:h-5 md:w-5 text-primary" />
+                  <a href={`tel:${trip.phone_number}`} className="text-xs md:text-base">{trip.phone_number}</a>
+                </div>
+              )}
+              {trip.email && (
+                <div className="flex items-center gap-2">
+                  <Mail className="h-4 w-4 md:h-5 md:w-5 text-primary" />
+                  <a href={`mailto:${trip.email}`} className="text-xs md:text-base">{trip.email}</a>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Description and Availability Calendar */}
+        <div className="space-y-6 mt-6">
+          <div className="p-4 md:p-6 border rounded-lg bg-card shadow-sm">
+            <h2 className="text-lg md:text-xl font-semibold mb-4">About This Tour</h2>
+            <p className="text-xs md:text-base text-muted-foreground">{trip.description}</p>
           </div>
 
           {/* Availability Calendar */}
-          <div className="mt-8">
-            <AvailabilityCalendar 
-              itemId={trip.id} 
-              itemType="trip"
-            />
-          </div>
+          <AvailabilityCalendar 
+            itemId={trip.id} 
+            itemType="trip"
+          />
         </div>
 
         {trip && <SimilarItems currentItemId={trip.id} itemType="trip" country={trip.country} />}
@@ -321,7 +326,6 @@ const TripDetail = () => {
         trip={trip}
       />
 
-      <Footer />
       <MobileBottomBar />
     </div>
   );

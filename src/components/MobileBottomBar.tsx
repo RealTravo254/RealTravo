@@ -11,7 +11,7 @@ export const MobileBottomBar = () => {
     { icon: Home, label: "Home", path: "/" },
     { icon: Ticket, label: "Bookings", path: "/bookings" },
     { icon: Heart, label: "Wishlist", path: "/saved" },
-    { icon: User, label: "Account", path: user ? "/profile/edit" : "/auth" },
+    { icon: User, label: "Account", path: user ? "/account" : "/auth" },
   ];
 
   return (

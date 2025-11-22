@@ -38,6 +38,8 @@ import CreateAttraction from "./pages/CreateAttraction";
 import AttractionDetail from "./pages/AttractionDetail";
 import VerificationStatus from "./pages/VerificationStatus";
 import AdminVerification from "./pages/AdminVerification";
+import Account from "./pages/Account";
+import Payment from "./pages/Payment";
 
 const queryClient = new QueryClient();
 
@@ -81,6 +83,8 @@ const App = () => (
               <Route path="/admin/verification" element={<AdminVerification />} />
               <Route path="/create-attraction" element={<CreateAttraction />} />
               <Route path="/attraction/:id" element={<AttractionDetail />} />
+              <Route path="/account" element={<Account />} />
+              <Route path="/payment" element={<Payment />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </div>

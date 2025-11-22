@@ -170,100 +170,34 @@ export const Header = ({ onSearchClick, showSearchIcon = true }: HeaderProps) =>
             </button>
           )}
             
-          {/* Mobile: Account Icon with Name (Right Side) */}
-          <div className="md:hidden flex items-center gap-2 relative">
+          {/* Mobile: Account Icon (Right Side) */}
+          <div className="md:hidden flex items-center gap-2">
             <button 
-              onClick={handleMobileAccountTap}
+              onClick={() => user ? navigate('/account') : navigate('/auth')}
               className="flex items-center gap-2 text-white hover:text-white/80 transition-colors"
             >
               <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center text-white font-semibold text-sm">
                 {user ? getUserInitials() : <User className="h-4 w-4" />}
               </div>
             </button>
-            
-            {/* Mobile account dropdown */}
-            {showMobileAccountDialog && user && (
-              <div className="absolute top-full right-0 mt-2 w-48 bg-background border rounded-lg shadow-lg z-50">
-                <Link 
-                  to="/profile/edit" 
-                  className="block px-4 py-3 hover:bg-accent text-foreground"
-                  onClick={() => setShowMobileAccountDialog(false)}
-                >
-                  Profile
-                </Link>
-                {userRole === "admin" && (
-                  <>
-                    <Link 
-                      to="/admin" 
-                      className="block px-4 py-3 hover:bg-accent text-foreground border-t"
-                      onClick={() => setShowMobileAccountDialog(false)}
-                    >
-                      Admin Dashboard
-                    </Link>
-                    <Link 
-                      to="/admin/verification" 
-                      className="block px-4 py-3 hover:bg-accent text-foreground border-t"
-                      onClick={() => setShowMobileAccountDialog(false)}
-                    >
-                      Host Verification
-                    </Link>
-                  </>
-                )}
-                <button 
-                  onClick={() => {
-                    setShowMobileAccountDialog(false);
-                    signOut();
-                  }}
-                  className="block w-full text-left px-4 py-3 hover:bg-accent text-foreground border-t"
-                >
-                  Log out
-                </button>
-              </div>
-            )}
           </div>
 
           {/* Desktop Auth Actions (Right Side) - MODIFIED SECTION */}
           <div className="hidden md:flex items-center gap-2">
             <ThemeToggle />
-            {user ? (
-              // Logged In: Dropdown Menu with Account Icon
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className="flex items-center gap-2 px-3 py-2 rounded-md bg-white/10 hover:bg-white/20 transition-colors text-white">
-                    <div className="h-7 w-7 rounded-full bg-white/20 flex items-center justify-center text-white font-semibold text-sm">
-                      {getUserInitials()}
-                    </div>
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-background border-border">
-                  <DropdownMenuItem asChild>
-                    <Link to="/profile/edit" className="text-foreground hover:bg-accent cursor-pointer">Profile</Link>
-                  </DropdownMenuItem>
-                  {userRole === "admin" && (
-                    <>
-                      <DropdownMenuItem asChild>
-                        <Link to="/admin" className="text-foreground hover:bg-accent cursor-pointer">Admin Dashboard</Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link to="/admin/verification" className="text-foreground hover:bg-accent cursor-pointer">Host Verification</Link>
-                      </DropdownMenuItem>
-                    </>
-                  )}
-                  <DropdownMenuItem onClick={signOut} className="text-foreground hover:bg-accent cursor-pointer">
-                    Log out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              // Logged Out: Account Icon (replaces the Login / Sign Up Button)
-              <button 
-                onClick={() => navigate('/auth')}
-                className="rounded-full h-10 w-10 flex items-center justify-center bg-white/10 hover:bg-white/20 transition-colors"
-                aria-label="Login or Sign Up"
-              >
+            <button 
+              onClick={() => user ? navigate('/account') : navigate('/auth')}
+              className="rounded-full h-10 w-10 flex items-center justify-center bg-white/10 hover:bg-white/20 transition-colors"
+              aria-label="Account"
+            >
+              {user ? (
+                <div className="h-7 w-7 rounded-full bg-white/20 flex items-center justify-center text-white font-semibold text-sm">
+                  {getUserInitials()}
+                </div>
+              ) : (
                 <User className="h-5 w-5 text-white" />
-              </button>
-            )}
+              )}
+            </button>
           </div>
         </div>
       </div>

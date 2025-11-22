@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 interface ListingCardProps {
   id: string;
-  type: "TRIP" | "EVENT" | "HOTEL" | "ADVENTURE PLACE" | "ACCOMMODATION" | "ATTRACTION";
+  type: "TRIP" | "EVENT" | "HOTEL" | "E" | "ACCOMMODATION" | "ATTRACTION";
   name: string;
   imageUrl: string;
   location: string;

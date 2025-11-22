@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 interface ListingCardProps {
   id: string;
-  type: "TRIP" | "EVENT" | "HOTEL" | "E" | "ACCOMMODATION" | "ATTRACTION";
+  type: "TRIP" | "EVENT" | "HOTEL" | "ADVENTURE PLACE" | "ACCOMMODATION" | "ATTRACTION";
   name: string;
   imageUrl: string;
   location: string;
@@ -47,6 +47,7 @@ export const ListingCard = ({
   const [saved, setSaved] = useState(isSaved);
   const navigate = useNavigate();
 
+  // 💾 DATABASE INTERACTION LOGIC (UNCHANGED)
   const handleSave = async (e: React.MouseEvent) => {
     e.stopPropagation();
 
@@ -62,6 +63,7 @@ export const ListingCard = ({
     onSave?.(id, type.toLowerCase().replace(" ", "_"));
   };
 
+  // 🗺️ NAVIGATION LOGIC (UNCHANGED)
   const handleCardClick = () => {
     const typeMap: Record<string, string> = {
       "TRIP": "trip",
@@ -74,7 +76,7 @@ export const ListingCard = ({
     navigate(`/${typeMap[type]}/${id}`);
   };
 
-  // Function to format the date as 'Month Day, Year'
+  // Function to format the date as 'Month Day, Year' (UNCHANGED)
   const formatDate = (dateString: string | undefined) => {
     if (!dateString) return "";
     const options: Intl.DateTimeFormatOptions = { 
@@ -109,7 +111,7 @@ export const ListingCard = ({
           </Badge>
         )}
 
-        {/* Save Button (Red, no background, hover blue) */}
+        {/* Save Button */}
         <Button
           variant="ghost"
           size="icon"
@@ -140,7 +142,10 @@ export const ListingCard = ({
       
       {/* Name, Location, and Date Details - Below the image */}
       <div className="p-1.5 flex flex-col space-y-0.5"> {/* Smaller padding and spacing */}
-        <h3 className="font-bold text-xs line-clamp-1">{name}</h3> {/* Smaller font */}
+        {/* MODIFIED CODE FOR NAME DISPLAY */}
+        <h3 className="font-bold text-xs line-clamp-1">
+          {type === "ADVENTURE PLACE" ? "experience" : name}
+        </h3>
 
         {/* LOCATION - Left below title name with icon */}
         <div className="flex items-center space-x-0.5 text-[0.6rem] text-gray-600 dark:text-gray-400"> {/* Smaller font and spacing */}

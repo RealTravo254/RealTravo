@@ -26,6 +26,7 @@ interface BankDetail {
   created_at: string;
   last_updated: string;
   user_email?: string;
+  user_name?: string;
 }
 
 export default function AdminPaymentVerification() {
@@ -80,18 +81,25 @@ export default function AdminPaymentVerification() {
 
       if (error) throw error;
 
-      // Fetch user emails for each bank detail
-      const detailsWithEmails = await Promise.all(
+      // Fetch user emails and names for each bank detail
+      const detailsWithUserInfo = await Promise.all(
         (data || []).map(async (detail) => {
           const { data: userData } = await supabase.auth.admin.getUserById(detail.user_id);
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("name")
+            .eq("id", detail.user_id)
+            .maybeSingle();
+          
           return {
             ...detail,
             user_email: userData?.user?.email || "Unknown",
+            user_name: profile?.name || "Unknown",
           };
         })
       );
 
-      setBankDetails(detailsWithEmails);
+      setBankDetails(detailsWithUserInfo);
       setLoading(false);
     } catch (error) {
       console.error("Error fetching bank details:", error);
@@ -218,7 +226,14 @@ export default function AdminPaymentVerification() {
           <CardTitle className="text-lg">{detail.account_holder_name}</CardTitle>
           {getStatusBadge(detail.verification_status)}
         </div>
-        <p className="text-sm text-muted-foreground">{detail.user_email}</p>
+        <div className="space-y-1 mt-2">
+          <p className="text-sm text-muted-foreground">
+            <span className="font-medium">Name:</span> {detail.user_name}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            <span className="font-medium">Email:</span> {detail.user_email}
+          </p>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-2 gap-4">

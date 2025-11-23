@@ -177,7 +177,7 @@ export const Header = ({ onSearchClick, showSearchIcon = true }: HeaderProps) =>
               className="flex items-center gap-2 text-white hover:text-white/80 transition-colors"
             >
               <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center text-white font-semibold text-sm">
-                {user ? getUserInitials() : <User className="h-4 w-4" />}
+                <User className="h-4 w-4" />
               </div>
             </button>
           </div>

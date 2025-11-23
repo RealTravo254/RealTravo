@@ -129,6 +129,11 @@ const AdminDashboard = () => {
   };
 
   const handleApprove = async (itemId: string, itemType: string) => {
+    if (!user?.id) {
+      toast.error("You must be logged in to approve items");
+      return;
+    }
+
     try {
       console.log("Approving item:", { itemId, itemType, userId: user?.id });
       
@@ -137,10 +142,9 @@ const AdminDashboard = () => {
         : itemType === "attraction" ? "attractions"
         : "adventure_places";
       
-      // Attractions table doesn't have admin_notes column
       const updateData: any = {
         approval_status: "approved",
-        approved_by: user?.id,
+        approved_by: user.id,
         approved_at: new Date().toISOString(),
         is_hidden: false
       };
@@ -150,7 +154,7 @@ const AdminDashboard = () => {
         updateData.admin_notes = adminNotes[itemId] || null;
       }
       
-      console.log("Update data:", updateData);
+      console.log("Attempting update on table:", table, "with data:", updateData);
       
       const { data, error } = await supabase
         .from(table as any)
@@ -159,21 +163,26 @@ const AdminDashboard = () => {
         .select();
 
       if (error) {
-        console.error("Approval error details:", error);
-        toast.error(`Failed to approve: ${error.message}`);
+        console.error("Approval error:", error);
+        toast.error(`Failed to approve: ${error.message || "Access denied"}`);
       } else {
         console.log("Approval successful:", data);
-        toast.success("Listing approved successfully");
-        fetchPendingListings();
-        fetchApprovedListings();
+        toast.success("Item approved successfully");
+        await fetchPendingListings();
+        await fetchApprovedListings();
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Unexpected error during approval:", err);
-      toast.error("An unexpected error occurred");
+      toast.error(err?.message || "An unexpected error occurred");
     }
   };
 
   const handleReject = async (itemId: string, itemType: string) => {
+    if (!user?.id) {
+      toast.error("You must be logged in to reject items");
+      return;
+    }
+
     try {
       console.log("Rejecting item:", { itemId, itemType, userId: user?.id });
       
@@ -182,25 +191,28 @@ const AdminDashboard = () => {
         : itemType === "attraction" ? "attractions"
         : "adventure_places";
       
+      console.log("Attempting rejection on table:", table);
+      
       const { data, error } = await supabase
         .from(table as any)
         .update({ 
-          approval_status: "rejected"
+          approval_status: "rejected",
+          rejection_note: adminNotes[itemId] || null
         })
         .eq("id", itemId)
         .select();
 
       if (error) {
-        console.error("Rejection error details:", error);
-        toast.error(`Failed to reject: ${error.message}`);
+        console.error("Rejection error:", error);
+        toast.error(`Failed to reject: ${error.message || "Access denied"}`);
       } else {
         console.log("Rejection successful:", data);
-        toast.success("Listing rejected");
-        fetchPendingListings();
+        toast.success("Item rejected successfully");
+        await fetchPendingListings();
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Unexpected error during rejection:", err);
-      toast.error("An unexpected error occurred");
+      toast.error(err?.message || "An unexpected error occurred");
     }
   };
 

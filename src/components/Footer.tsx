@@ -16,7 +16,7 @@ export const Footer = () => {
   }
 
   return (
-    <footer className="bg-white border-t mt-12 text-gray-900">
+    <footer className="hidden md:block bg-white border-t mt-12 text-gray-900">
       <div className="container px-4 py-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="space-y-3">

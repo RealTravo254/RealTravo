@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { ChevronRight, User, Calendar, Globe } from "lucide-react";
+import { ChevronRight, User, Calendar, Globe, Phone } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -32,12 +32,19 @@ const ProfileEdit = () => {
     gender: "male" | "female" | "other" | "prefer_not_to_say" | "";
     date_of_birth: string;
     country: string;
+    phone_number: string;
   }>({
     name: "",
     gender: "",
     date_of_birth: "",
-    country: ""
+    country: "",
+    phone_number: ""
   });
+  const [verificationCode, setVerificationCode] = useState("");
+  const [showVerification, setShowVerification] = useState(false);
+  const [sendingCode, setSendingCode] = useState(false);
+  const [verifyingCode, setVerifyingCode] = useState(false);
+  const [originalPhone, setOriginalPhone] = useState("");
   useEffect(() => {
     if (!user) {
       navigate("/auth");
@@ -57,8 +64,10 @@ const ProfileEdit = () => {
           name: data.name || "",
           gender: data.gender || "",
           date_of_birth: data.date_of_birth || "",
-          country: data.country || ""
+          country: data.country || "",
+          phone_number: data.phone_number || ""
         });
+        setOriginalPhone(data.phone_number || "");
       }
       setFetchingProfile(false);
     };
@@ -66,8 +75,100 @@ const ProfileEdit = () => {
     fetchProfile();
   }, [user, navigate]);
 
+  const handleSendVerificationCode = async () => {
+    if (!profileData.phone_number || profileData.phone_number === originalPhone) {
+      toast({
+        title: "Error",
+        description: "Please enter a new phone number.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setSendingCode(true);
+    try {
+      // Generate a random 6-digit code
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      
+      // In a real app, you would send this via SMS API
+      // For now, we'll just show it in a toast (demo purposes)
+      toast({
+        title: "Verification Code Sent",
+        description: `Your code is: ${code} (Demo: In production, this would be sent via SMS)`,
+      });
+
+      // Store the code temporarily (in production, store it server-side)
+      sessionStorage.setItem("phone_verification_code", code);
+      sessionStorage.setItem("phone_to_verify", profileData.phone_number);
+      
+      setShowVerification(true);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to send verification code.",
+        variant: "destructive"
+      });
+    } finally {
+      setSendingCode(false);
+    }
+  };
+
+  const handleVerifyCode = async () => {
+    setVerifyingCode(true);
+    try {
+      const storedCode = sessionStorage.getItem("phone_verification_code");
+      const storedPhone = sessionStorage.getItem("phone_to_verify");
+
+      if (verificationCode !== storedCode || profileData.phone_number !== storedPhone) {
+        throw new Error("Invalid verification code.");
+      }
+
+      // Update phone number and set it as verified
+      const { error } = await supabase
+        .from("profiles")
+        .update({ 
+          phone_number: profileData.phone_number,
+          phone_verified: true 
+        })
+        .eq("id", user!.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success!",
+        description: "Phone number verified and updated.",
+      });
+
+      // Clean up
+      sessionStorage.removeItem("phone_verification_code");
+      sessionStorage.removeItem("phone_to_verify");
+      setShowVerification(false);
+      setVerificationCode("");
+      setOriginalPhone(profileData.phone_number);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setVerifyingCode(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Check if phone number changed but not verified
+    if (profileData.phone_number !== originalPhone && !showVerification) {
+      toast({
+        title: "Phone Verification Required",
+        description: "Please verify your new phone number before saving.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -225,6 +326,66 @@ const ProfileEdit = () => {
                     </div>
                   </div>
                   <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                </div>
+
+                {/* Phone Number Field */}
+                <div className="p-4 hover:bg-accent/50 transition-colors">
+                  <div className="flex items-center gap-4 flex-1">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Phone className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="flex-1 space-y-2">
+                      <Label htmlFor="phone" className="text-sm text-muted-foreground">
+                        Phone Number
+                      </Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="phone"
+                          type="tel"
+                          value={profileData.phone_number}
+                          onChange={(e) => setProfileData({ ...profileData, phone_number: e.target.value })}
+                          className="border-0 shadow-none p-0 h-8 focus-visible:ring-0 font-medium"
+                          placeholder="Enter phone number"
+                        />
+                        {profileData.phone_number !== originalPhone && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={handleSendVerificationCode}
+                            disabled={sendingCode}
+                          >
+                            {sendingCode ? "Sending..." : "Verify"}
+                          </Button>
+                        )}
+                      </div>
+                      
+                      {showVerification && (
+                        <div className="space-y-2 pt-2">
+                          <Label htmlFor="code" className="text-sm text-muted-foreground">
+                            Verification Code
+                          </Label>
+                          <div className="flex gap-2">
+                            <Input
+                              id="code"
+                              type="text"
+                              value={verificationCode}
+                              onChange={(e) => setVerificationCode(e.target.value)}
+                              placeholder="Enter 6-digit code"
+                              maxLength={6}
+                            />
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={handleVerifyCode}
+                              disabled={verifyingCode || verificationCode.length !== 6}
+                            >
+                              {verifyingCode ? "Verifying..." : "Confirm"}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
 

@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import { Plane, Building, Tent, Eye, Edit, Package } from "lucide-react";
+import { Plane, Building, Tent, ChevronRight, Package } from "lucide-react";
 
 const BecomeHost = () => {
   const { user } = useAuth();
@@ -184,54 +184,34 @@ const BecomeHost = () => {
           </div>
 
           {myContent.length === 0 ? (
-            <Card className="p-8 text-center">
-              <p className="text-muted-foreground">You haven't created any items yet. Start by creating your first listing above!</p>
+            <Card>
+              <div className="p-8 text-center">
+                <p className="text-muted-foreground">You haven't created any items yet. Start by creating your first listing above!</p>
+              </div>
             </Card>
           ) : (
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 md:gap-4">
-              {myContent.map((item) => (
-                <Card key={item.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                  <div className="aspect-video relative">
-                    <img
-                      src={item.image_url}
-                      alt={item.name}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute top-2 left-2">
-                      <Badge variant="outline" className="bg-background/80 backdrop-blur-sm capitalize text-xs">
-                        {item.type === 'adventure' ? 'experience' : item.type}
-                      </Badge>
+            <Card>
+              <div className="divide-y divide-border">
+                {myContent.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => navigate(`/edit-listing/${item.type}/${item.id}`)}
+                    className="w-full flex items-center justify-between p-6 hover:bg-accent transition-colors"
+                  >
+                    <div className="flex items-center gap-4">
+                      {item.type === 'trip' && <Plane className="h-5 w-5 text-muted-foreground" />}
+                      {item.type === 'hotel' && <Building className="h-5 w-5 text-muted-foreground" />}
+                      {item.type === 'adventure' && <Tent className="h-5 w-5 text-muted-foreground" />}
+                      <span className="font-medium text-foreground">{item.name}</span>
                     </div>
-                    <div className="absolute top-2 right-2">
+                    <div className="flex items-center gap-2">
                       {getStatusBadge(item.approval_status)}
+                      <ChevronRight className="h-5 w-5 text-muted-foreground" />
                     </div>
-                  </div>
-                  <div className="p-2 md:p-4">
-                    <h3 className="font-semibold text-xs md:text-lg mb-1 md:mb-2 line-clamp-1">{item.name}</h3>
-                    <p className="text-xs md:text-sm text-muted-foreground mb-2 md:mb-3 line-clamp-2 hidden md:block">{item.description || "No description"}</p>
-                    <div className="flex flex-col md:flex-row gap-1 md:gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => viewItemDetails(item)}
-                        className="flex-1 text-xs md:text-sm h-7 md:h-9"
-                      >
-                        <Eye className="h-3 w-3 md:h-4 md:w-4 md:mr-1" />
-                        <span className="hidden md:inline">View</span>
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={() => navigate(`/edit-listing/${item.type}/${item.id}`)}
-                        className="flex-1 text-xs md:text-sm h-7 md:h-9"
-                      >
-                        <Edit className="h-3 w-3 md:h-4 md:w-4 md:mr-1" />
-                        <span className="hidden md:inline">Edit</span>
-                      </Button>
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
+                  </button>
+                ))}
+              </div>
+            </Card>
           )}
         </div>
       </main>

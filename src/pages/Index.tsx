@@ -130,24 +130,39 @@ const Index = () => {
     const fetchAllData = async (query?: string) => {
         setLoading(true);
 
-        const fetchTable = async (table: "trips" | "hotels" | "adventure_places", type: string) => {
+        const fetchTable = async (table: "trips" | "hotels" | "adventure_places" | "attractions", type: string) => {
             let dbQuery = supabase.from(table).select("*").eq("approval_status", "approved").eq("is_hidden", false);
             if (query) {
                 // Search in name, location, country, and activities
                 const searchPattern = `%${query}%`;
-                dbQuery = dbQuery.or(`name.ilike.${searchPattern},location.ilike.${searchPattern},country.ilike.${searchPattern}`);
+                if (table === "attractions") {
+                    dbQuery = dbQuery.or(`location_name.ilike.${searchPattern},country.ilike.${searchPattern}`);
+                } else {
+                    dbQuery = dbQuery.or(`name.ilike.${searchPattern},location.ilike.${searchPattern},country.ilike.${searchPattern}`);
+                }
             }
             const { data } = await dbQuery;
+            
+            if (table === "attractions") {
+                return (data || []).map((item: any) => ({ 
+                    ...item, 
+                    type,
+                    name: item.local_name || item.location_name,
+                    location: item.location_name,
+                    image_url: item.photo_urls?.[0] || ""
+                }));
+            }
             return (data || []).map((item: any) => ({ ...item, type }));
         };
 
-        const [trips, hotels, adventures] = await Promise.all([
+        const [trips, hotels, adventures, attractions] = await Promise.all([
             fetchTable("trips", "TRIP"),
             fetchTable("hotels", "HOTEL"),
-            fetchTable("adventure_places", "ADVENTURE PLACE")
+            fetchTable("adventure_places", "ADVENTURE PLACE"),
+            fetchTable("attractions", "ATTRACTION")
         ]);
 
-        let combined = [...trips, ...hotels, ...adventures];
+        let combined = [...trips, ...hotels, ...adventures, ...attractions];
 
         if (position) {
             combined = combined.sort((a, b) => {
@@ -346,7 +361,42 @@ const Index = () => {
                         
                         {searchQuery && viewMode === 'map' ? (
                             <MapView listings={listings} />
+                        ) : searchQuery ? (
+                            // Column grid view for search results
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                {loading ? (
+                                    [...Array(12)].map((_, i) => (
+                                        <ListingSkeleton key={i} />
+                                    ))
+                                ) : listings.length === 0 ? (
+                                    <div className="col-span-full text-center py-12">
+                                        <p className="text-muted-foreground text-lg">No results found for "{searchQuery}"</p>
+                                        <p className="text-muted-foreground text-sm mt-2">Try searching with different keywords</p>
+                                    </div>
+                                ) : (
+                                    listings.map((item, index) => (
+                                        <ListingCard
+                                            key={item.id}
+                                            id={item.id}
+                                            type={item.type}
+                                            name={item.name}
+                                            imageUrl={item.image_url}
+                                            location={item.location}
+                                            country={item.country}
+                                            price={item.price || item.entry_fee || item.price_adult || 0}
+                                            date={item.date}
+                                            isCustomDate={item.is_custom_date}
+                                            onSave={handleSave}
+                                            isSaved={savedItems.has(item.id)}
+                                            hidePrice={item.type === "HOTEL" || item.type === "ADVENTURE PLACE"}
+                                            showBadge={true}
+                                            priority={index < 4}
+                                        />
+                                    ))
+                                )}
+                            </div>
                         ) : (
+                            // Horizontal scroll view for latest items (when not searching)
                             <div className="flex gap-2 md:gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none">
                                 {loading || listings.length === 0 ? (
                                     [...Array(10)].map((_, i) => (

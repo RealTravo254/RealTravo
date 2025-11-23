@@ -172,9 +172,14 @@ export const SearchBarWithSuggestions = ({ value, onChange, onSubmit, onSuggesti
               onClick={() => handleSuggestionClick(result)}
               className="w-full px-4 py-3 flex flex-col gap-1 hover:bg-accent transition-colors text-left border-b last:border-b-0"
             >
-              <p className="font-medium text-sm">{result.name}</p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="font-medium text-sm flex-1">{result.name}</p>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium whitespace-nowrap">
+                  {getTypeLabel(result.type)}
+                </span>
+              </div>
               <p className="text-xs text-muted-foreground">
-                {result.location && `${result.location}, `}{result.country} • {getTypeLabel(result.type)}
+                {result.location && `${result.location}, `}{result.country}
               </p>
               {getActivitiesText(result.activities) && (
                 <p className="text-xs text-primary font-medium">

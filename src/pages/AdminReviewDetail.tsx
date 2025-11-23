@@ -211,18 +211,6 @@ const AdminReviewDetail = () => {
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
             <Card className="overflow-hidden">
-              {/* Image Gallery */}
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 p-4">
-                {displayImages.slice(0, 6).map((img: string, idx: number) => (
-                  <img
-                    key={idx}
-                    src={img}
-                    alt={`${item.name} ${idx + 1}`}
-                    className="w-full h-32 md:h-48 object-cover rounded-lg"
-                  />
-                ))}
-              </div>
-
               <div className="p-6 space-y-4">
                 <div className="flex justify-between items-start">
                   <div>
@@ -442,14 +430,16 @@ const AdminReviewDetail = () => {
                   >
                     {item.approval_status === "approved" ? "Approved" : "Approve"}
                   </Button>
-                  <Button 
-                    variant="destructive"
-                    onClick={() => updateApprovalStatus("rejected")}
-                    disabled={item.approval_status === "rejected" || item.approval_status === "approved"}
-                    className="flex-1"
-                  >
-                    {item.approval_status === "rejected" ? "Rejected" : "Reject"}
-                  </Button>
+                  {item.approval_status !== "approved" && (
+                    <Button 
+                      variant="destructive"
+                      onClick={() => updateApprovalStatus("rejected")}
+                      disabled={item.approval_status === "rejected"}
+                      className="flex-1"
+                    >
+                      {item.approval_status === "rejected" ? "Rejected" : "Reject"}
+                    </Button>
+                  )}
                   <Button 
                     variant="outline"
                     onClick={() => {
@@ -551,8 +541,6 @@ const AdminReviewDetail = () => {
                 )}
               </div>
             </Card>
-
-            {/* Bookings Section */}
             <Card className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold">Bookings</h3>

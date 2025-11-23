@@ -174,11 +174,10 @@ export const Header = ({ onSearchClick, showSearchIcon = true }: HeaderProps) =>
           <div className="md:hidden flex items-center gap-2">
             <button 
               onClick={() => user ? navigate('/account') : navigate('/auth')}
-              className="flex items-center gap-2 text-white hover:text-white/80 transition-colors"
+              className="rounded-full h-8 w-8 flex items-center justify-center bg-white/10 hover:bg-white/20 transition-colors"
+              aria-label="Account"
             >
-              <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center text-white font-semibold text-sm">
-                {user ? getUserInitials() : <User className="h-4 w-4" />}
-              </div>
+              <User className="h-4 w-4 text-white" />
             </button>
           </div>
 

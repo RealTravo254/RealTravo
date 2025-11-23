@@ -111,6 +111,14 @@ const MyListing = () => {
                     {item.approval_status}
                   </Badge>
                 </div>
+                
+                {item.approval_status === 'rejected' && item.rejection_note && (
+                  <div className="mt-3 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+                    <p className="text-sm font-semibold text-destructive mb-1">Rejection Reason:</p>
+                    <p className="text-sm text-muted-foreground">{item.rejection_note}</p>
+                  </div>
+                )}
+                
                 <Button
                   onClick={() => navigate(`/edit-listing/${item.type}/${item.id}`)}
                   className="mt-3"

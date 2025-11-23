@@ -95,6 +95,15 @@ export const ListingCard = ({
             </p>
           </div>
         )}
+
+        {/* Date Tag - Bottom-Right Corner - For trips/events */}
+        {(date || isCustomDate) && (
+          <div className="absolute bottom-2 right-2 bg-background/90 backdrop-blur text-foreground px-2 py-1 rounded-md shadow-md z-10">
+            <p className="text-xs font-semibold">
+              {isCustomDate ? "Custom Date" : formatDate(date)}
+            </p>
+          </div>
+        )}
       </div>
       
       {/* Content below the image */}
@@ -104,21 +113,12 @@ export const ListingCard = ({
           {type === "ADVENTURE PLACE" ? "experience" : name}
         </h3>
         
-        {/* Location with icon and date on same row */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1 flex-1 min-w-0">
-            <MapPin className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground flex-shrink-0" />
-            <p className="text-xs md:text-sm text-muted-foreground line-clamp-1">
-              {location}, {country}
-            </p>
-          </div>
-          
-          {/* DATE - Right side of location */}
-          {(date || isCustomDate) && (
-            <p className="text-xs md:text-sm font-semibold text-red-600 dark:text-red-400 whitespace-nowrap">
-              {isCustomDate ? "Custom" : formatDate(date)}
-            </p>
-          )}
+        {/* Location with icon */}
+        <div className="flex items-center gap-1">
+          <MapPin className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground flex-shrink-0" />
+          <p className="text-xs md:text-sm text-muted-foreground line-clamp-1">
+            {location}, {country}
+          </p>
         </div>
         
         {/* EVENT CAPACITY - Only for events */}

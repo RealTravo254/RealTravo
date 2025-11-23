@@ -52,19 +52,25 @@ export const SearchBarWithSuggestions = ({ value, onChange, onSubmit, onSuggesti
 
   const fetchSuggestions = async () => {
     const queryValue = value.trim();
-    
-    // If no search value, fetch recent/popular items
-    const searchPattern = queryValue ? `%${queryValue}%` : `%%`;
 
     try {
+      // Fetch all items when empty, or filter when typing
       const [tripsData, hotelsData, adventuresData, attractionsData] = await Promise.all([
-        supabase.from("trips").select("id, name, location, country, activities").or(`name.ilike.${searchPattern},location.ilike.${searchPattern},country.ilike.${searchPattern},activities::text.ilike.${searchPattern}`).limit(5),
-        supabase.from("hotels").select("id, name, location, country, activities, facilities").or(`name.ilike.${searchPattern},location.ilike.${searchPattern},country.ilike.${searchPattern},activities::text.ilike.${searchPattern},facilities::text.ilike.${searchPattern}`).limit(5),
-        supabase.from("adventure_places").select("id, name, location, country, activities, facilities").or(`name.ilike.${searchPattern},location.ilike.${searchPattern},country.ilike.${searchPattern},activities::text.ilike.${searchPattern},facilities::text.ilike.${searchPattern}`).limit(5),
-        supabase.from("attractions").select("id, location_name, country").or(`location_name.ilike.${searchPattern},country.ilike.${searchPattern}`).limit(5)
+        queryValue 
+          ? supabase.from("trips").select("id, name, location, country, activities").eq("approval_status", "approved").or(`name.ilike.%${queryValue}%,location.ilike.%${queryValue}%,country.ilike.%${queryValue}%,activities::text.ilike.%${queryValue}%`).limit(20)
+          : supabase.from("trips").select("id, name, location, country, activities").eq("approval_status", "approved").limit(20),
+        queryValue
+          ? supabase.from("hotels").select("id, name, location, country, activities, facilities").eq("approval_status", "approved").or(`name.ilike.%${queryValue}%,location.ilike.%${queryValue}%,country.ilike.%${queryValue}%,activities::text.ilike.%${queryValue}%,facilities::text.ilike.%${queryValue}%`).limit(20)
+          : supabase.from("hotels").select("id, name, location, country, activities, facilities").eq("approval_status", "approved").limit(20),
+        queryValue
+          ? supabase.from("adventure_places").select("id, name, location, country, activities, facilities").eq("approval_status", "approved").or(`name.ilike.%${queryValue}%,location.ilike.%${queryValue}%,country.ilike.%${queryValue}%,activities::text.ilike.%${queryValue}%,facilities::text.ilike.%${queryValue}%`).limit(20)
+          : supabase.from("adventure_places").select("id, name, location, country, activities, facilities").eq("approval_status", "approved").limit(20),
+        queryValue
+          ? supabase.from("attractions").select("id, location_name, country").eq("approval_status", "approved").or(`location_name.ilike.%${queryValue}%,country.ilike.%${queryValue}%`).limit(20)
+          : supabase.from("attractions").select("id, location_name, country").eq("approval_status", "approved").limit(20)
       ]);
 
-      const combined = [
+      let combined = [
         ...(tripsData.data || []).map((item) => ({ ...item, type: "trip" as const })),
         ...(hotelsData.data || []).map((item) => ({ ...item, type: "hotel" as const })),
         ...(adventuresData.data || []).map((item) => ({ ...item, type: "adventure" as const })),
@@ -76,7 +82,10 @@ export const SearchBarWithSuggestions = ({ value, onChange, onSubmit, onSuggesti
         }))
       ];
 
-      setSuggestions(combined.slice(0, 8));
+      // Sort alphabetically by name
+      combined.sort((a, b) => a.name.localeCompare(b.name));
+
+      setSuggestions(combined.slice(0, 20));
     } catch (error) {
       console.error("Error fetching suggestions:", error);
     }

@@ -79,7 +79,7 @@ export const SearchBarWithSuggestions = ({ value, onChange, onSubmit, onSuggesti
 
   // Effect to fetch suggestions when the value changes or the search bar is focused
   useEffect(() => {
-    if (showSuggestions && value.trim()) {
+    if (showSuggestions) {
       fetchSuggestions();
     }
   }, [value, showSuggestions]);

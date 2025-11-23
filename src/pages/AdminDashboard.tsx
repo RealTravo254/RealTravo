@@ -137,10 +137,22 @@ const AdminDashboard = () => {
     try {
       console.log("Approving item:", { itemId, itemType, userId: user?.id });
       
-      const table = itemType === "trip" ? "trips" 
-        : itemType === "hotel" ? "hotels" 
-        : itemType === "attraction" ? "attractions"
-        : "adventure_places";
+      // Map item types to table names
+      let table: string;
+      if (itemType === "trip") {
+        table = "trips";
+      } else if (itemType === "hotel") {
+        table = "hotels";
+      } else if (itemType === "attraction") {
+        table = "attractions";
+      } else if (itemType === "adventure") {
+        table = "adventure_places";
+      } else {
+        toast.error(`Unknown item type: ${itemType}`);
+        return;
+      }
+      
+      console.log("Using table:", table);
       
       const updateData: any = {
         approval_status: "approved",
@@ -186,10 +198,22 @@ const AdminDashboard = () => {
     try {
       console.log("Rejecting item:", { itemId, itemType, userId: user?.id });
       
-      const table = itemType === "trip" ? "trips" 
-        : itemType === "hotel" ? "hotels" 
-        : itemType === "attraction" ? "attractions"
-        : "adventure_places";
+      // Map item types to table names
+      let table: string;
+      if (itemType === "trip") {
+        table = "trips";
+      } else if (itemType === "hotel") {
+        table = "hotels";
+      } else if (itemType === "attraction") {
+        table = "attractions";
+      } else if (itemType === "adventure") {
+        table = "adventure_places";
+      } else {
+        toast.error(`Unknown item type: ${itemType}`);
+        return;
+      }
+      
+      console.log("Using table:", table);
       
       console.log("Attempting rejection on table:", table);
       
@@ -217,10 +241,22 @@ const AdminDashboard = () => {
   };
 
   const handleToggleVisibility = async (itemId: string, itemType: string, currentlyHidden: boolean) => {
-    const table = itemType === "trip" ? "trips" 
-      : itemType === "hotel" ? "hotels" 
-      : itemType === "attraction" ? "attractions"
-      : "adventure_places";
+    // Map item types to table names
+    let table: string;
+    if (itemType === "trip") {
+      table = "trips";
+    } else if (itemType === "hotel") {
+      table = "hotels";
+    } else if (itemType === "attraction") {
+      table = "attractions";
+    } else if (itemType === "adventure") {
+      table = "adventure_places";
+    } else {
+      toast.error(`Unknown item type: ${itemType}`);
+      return;
+    }
+    
+    console.log("Toggling visibility for:", { itemId, itemType, table, currentlyHidden });
     
     const { error } = await supabase
       .from(table as any)

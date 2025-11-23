@@ -362,18 +362,20 @@ export const SearchBarWithSuggestions = ({ value, onChange, onSubmit, onSuggesti
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 flex-1">
-                        <TypeIcon className="h-4 w-4 text-primary flex-shrink-0" />
-                        <p className="font-medium text-sm">{result.name}</p>
+                        <TypeIcon className="h-5 w-5 text-primary flex-shrink-0" />
+                        <div className="flex flex-col">
+                          <p className="font-semibold text-base">{result.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {result.location && `${result.location}, `}{result.country}
+                          </p>
+                        </div>
                       </div>
                       <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium whitespace-nowrap">
                         {getTypeLabel(result.type)}
                       </span>
                     </div>
-                    <p className="text-xs text-muted-foreground pl-6">
-                      {result.location && `${result.location}, `}{result.country}
-                    </p>
                     {getActivitiesText(result.activities) && (
-                      <p className="text-xs text-primary font-medium pl-6">
+                      <p className="text-xs text-primary font-medium pl-7">
                         {getActivitiesText(result.activities)}
                       </p>
                     )}

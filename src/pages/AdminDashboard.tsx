@@ -142,6 +142,7 @@ const AdminDashboard = () => {
         approval_status: "approved",
         approved_by: user?.id,
         approved_at: new Date().toISOString(),
+        is_hidden: false
       };
       
       // Only add admin_notes for tables that support it
@@ -152,7 +153,7 @@ const AdminDashboard = () => {
       console.log("Update data:", updateData);
       
       const { data, error } = await supabase
-        .from(table)
+        .from(table as any)
         .update(updateData)
         .eq("id", itemId)
         .select();

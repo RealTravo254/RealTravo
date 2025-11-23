@@ -20,7 +20,7 @@ const Index = () => {
     const navigate = useNavigate();
     const [searchQuery, setSearchQuery] = useState("");
     const [listings, setListings] = useState<any[]>([]);
-    const [savedItems, setSavedItems] = useState<Set<string>>(new Set<string>());
+    const [savedItems, setSavedItems] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(true);
     const [userId, setUserId] = useState<string | null>(null);
     const { toast } = useToast();
@@ -32,7 +32,7 @@ const Index = () => {
     const [nearbyPlacesHotels, setNearbyPlacesHotels] = useState<any[]>([]);
     const [loadingScrollable, setLoadingScrollable] = useState(true);
     const [loadingNearby, setLoadingNearby] = useState(true);
-    const [bookingStats, setBookingStats] = useState<Map<string, number>>(new Map<string, number>());
+    const [bookingStats, setBookingStats] = useState<Record<string, number>>({});
     const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
 
     const fetchScrollableRows = async () => {
@@ -85,10 +85,10 @@ const Index = () => {
                     .in('status', ['confirmed', 'pending']);
                 
                 if (bookingsData) {
-                    const stats = new Map<string, number>();
+                    const stats: Record<string, number> = {};
                     bookingsData.forEach(booking => {
-                        const current = stats.get(booking.item_id) || 0;
-                        stats.set(booking.item_id, current + (booking.slots_booked || 0));
+                        const current = stats[booking.item_id] || 0;
+                        stats[booking.item_id] = current + (booking.slots_booked || 0);
                     });
                     setBookingStats(stats);
                 }
@@ -528,7 +528,7 @@ const Index = () => {
                                             onSave={handleSave}
                                             isSaved={savedItems.has(trip.id)}
                                             availableTickets={isEvent ? trip.available_tickets : undefined}
-                                            bookedTickets={isEvent ? (bookingStats.get(trip.id) || 0) : undefined}
+                                            bookedTickets={isEvent ? (bookingStats[trip.id] || 0) : undefined}
                                         />
                                     </div>
                                 )})

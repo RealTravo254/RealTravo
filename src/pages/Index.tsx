@@ -246,9 +246,6 @@ const Index = () => {
                                 <h1 className="text-2xl md:text-4xl lg:text-5xl font-bold text-white mb-2 md:mb-4 text-center drop-shadow-lg">
                                     Discover Your Next Adventure
                                 </h1>
-                                <p className="text-sm md:text-lg lg:text-xl text-white text-center max-w-2xl drop-shadow-md">
-                                    Travel beyond boundaries and explore extraordinary destinations that inspire wonder and create unforgettable memories
-                                </p>
                                 
                                 {/* Search Bar Below Paragraph */}
                                 <div className="w-full mt-2 md:mt-4">
@@ -290,10 +287,10 @@ const Index = () => {
                                 Latest
                             </h2>
                         </div>
-                        <div className="flex gap-2 md:gap-4 overflow-x-auto pb-4 scrollbar-hide">
+                        <div className="flex gap-2 md:gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none">
                             {loading || listings.length === 0 ? (
                                 [...Array(10)].map((_, i) => (
-                                    <div key={i} className="flex-shrink-0 w-40 md:w-64 rounded-lg overflow-hidden shadow-md">
+                                    <div key={i} className="flex-shrink-0 w-[85vw] md:w-64 rounded-lg overflow-hidden shadow-md snap-center md:snap-align-none">
                                         <div className="aspect-[4/3] bg-muted animate-pulse" />
                                         <div className="p-2 md:p-4 space-y-2 md:space-y-3">
                                             <div className="h-4 md:h-5 bg-muted animate-pulse rounded w-4/5" />
@@ -304,7 +301,7 @@ const Index = () => {
                                 ))
                             ) : (
                 listings.map((item) => (
-                                    <div key={item.id} className="flex-shrink-0 w-48 md:w-64">
+                                    <div key={item.id} className="flex-shrink-0 w-[85vw] md:w-64 snap-center md:snap-align-none">
                                         <ListingCard
                                             id={item.id}
                                             type={item.type}
@@ -339,11 +336,11 @@ const Index = () => {
                                 View All
                             </Link>
                         </div>
-                        <div className="flex gap-2 md:gap-4 overflow-x-auto pb-4 scrollbar-hide">
+                        <div className="flex gap-2 md:gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none">
                             {loadingScrollable ? (
                                 <div className="flex gap-2 md:gap-4">
                                     {[...Array(5)].map((_, i) => (
-                                        <div key={i} className="flex-shrink-0 w-48 md:w-64">
+                                        <div key={i} className="flex-shrink-0 w-[85vw] md:w-64 snap-center md:snap-align-none">
                                             <ListingSkeleton />
                                         </div>
                                     ))}
@@ -352,7 +349,7 @@ const Index = () => {
                                 <p className="text-center text-muted-foreground py-8 w-full">No campsites available</p>
                             ) : (
                 scrollableRows.campsites.map((place) => (
-                                    <div key={place.id} className="flex-shrink-0 w-48 md:w-64">
+                                    <div key={place.id} className="flex-shrink-0 w-[85vw] md:w-64 snap-center md:snap-align-none">
                                         <ListingCard
                                             id={place.id}
                                             type="ADVENTURE PLACE"
@@ -382,11 +379,11 @@ const Index = () => {
                                 View All
                             </Link>
                         </div>
-                        <div className="flex gap-2 md:gap-4 overflow-x-auto pb-4 scrollbar-hide">
+                        <div className="flex gap-2 md:gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none">
                             {loadingScrollable ? (
                                 <div className="flex gap-2 md:gap-4">
                                     {[...Array(5)].map((_, i) => (
-                                        <div key={i} className="flex-shrink-0 w-48 md:w-64">
+                                        <div key={i} className="flex-shrink-0 w-[85vw] md:w-64 snap-center md:snap-align-none">
                                             <ListingSkeleton />
                                         </div>
                                     ))}
@@ -395,7 +392,7 @@ const Index = () => {
                                 <p className="text-center text-muted-foreground py-8 w-full">No hotels available</p>
                             ) : (
                 scrollableRows.hotels.map((hotel) => (
-                                    <div key={hotel.id} className="flex-shrink-0 w-48 md:w-64">
+                                    <div key={hotel.id} className="flex-shrink-0 w-[85vw] md:w-64 snap-center md:snap-align-none">
                                         <ListingCard
                                             id={hotel.id}
                                             type="HOTEL"
@@ -425,11 +422,11 @@ const Index = () => {
                                 View All
                             </Link>
                         </div>
-                        <div className="flex gap-2 md:gap-4 overflow-x-auto pb-4 scrollbar-hide">
+                        <div className="flex gap-2 md:gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none">
                             {loadingScrollable ? (
                                 <div className="flex gap-2 md:gap-4">
                                     {[...Array(5)].map((_, i) => (
-                                        <div key={i} className="flex-shrink-0 w-48 md:w-64">
+                                        <div key={i} className="flex-shrink-0 w-[85vw] md:w-64 snap-center md:snap-align-none">
                                             <ListingSkeleton />
                                         </div>
                                     ))}
@@ -438,7 +435,7 @@ const Index = () => {
                                 <p className="text-center text-muted-foreground py-8 w-full">No attractions available</p>
                             ) : (
                 scrollableRows.attractions.map((attraction) => (
-                                    <div key={attraction.id} className="flex-shrink-0 w-48 md:w-64">
+                                    <div key={attraction.id} className="flex-shrink-0 w-[85vw] md:w-64 snap-center md:snap-align-none">
                                         <ListingCard
                                             id={attraction.id}
                                             type="ATTRACTION"
@@ -470,11 +467,11 @@ const Index = () => {
                                 View All
                             </Link>
                         </div>
-                        <div className="flex gap-2 md:gap-4 overflow-x-auto pb-4 scrollbar-hide">
+                        <div className="flex gap-2 md:gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none">
                             {loadingScrollable ? (
                                 <div className="flex gap-2 md:gap-4">
                                     {[...Array(5)].map((_, i) => (
-                                        <div key={i} className="flex-shrink-0 w-48 md:w-64">
+                                        <div key={i} className="flex-shrink-0 w-[85vw] md:w-64 snap-center md:snap-align-none">
                                             <ListingSkeleton />
                                         </div>
                                     ))}
@@ -485,7 +482,7 @@ const Index = () => {
                                 scrollableRows.trips.map((trip) => {
                                     const isEvent = trip.type === "event";
                                     return (
-                                    <div key={trip.id} className="flex-shrink-0 w-48 md:w-64">
+                                    <div key={trip.id} className="flex-shrink-0 w-[85vw] md:w-64 snap-center md:snap-align-none">
                                         <ListingCard
                                             id={trip.id}
                                             type={isEvent ? "EVENT" : "TRIP"}

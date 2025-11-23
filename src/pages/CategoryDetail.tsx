@@ -80,17 +80,14 @@ const CategoryDetail = () => {
       const currentScrollY = window.scrollY;
       const searchBarHeight = searchRef.current?.offsetHeight || 0;
       
-      // On mobile, hide search when scrolled past search bar
-      if (window.innerWidth < 768) {
-        if (currentScrollY > searchBarHeight + 100) {
-          setIsSearchVisible(false);
-          setShowSearchIcon(true);
-          setIsSticky(true);
-        } else {
-          setIsSearchVisible(true);
-          setShowSearchIcon(false);
-          setIsSticky(false);
-        }
+      if (currentScrollY > searchBarHeight + 100) {
+        setIsSearchVisible(false);
+        setShowSearchIcon(true);
+        setIsSticky(true);
+      } else {
+        setIsSearchVisible(true);
+        setShowSearchIcon(false);
+        setIsSticky(false);
       }
     };
 

@@ -70,8 +70,7 @@ const Auth = () => {
         </Tabs>
       </main>
 
-      <Footer />
-      <MobileBottomBar />
+      <MobileBottomBar />
     </div>
   );
 };

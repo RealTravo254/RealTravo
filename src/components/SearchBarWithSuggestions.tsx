@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 
@@ -13,9 +14,10 @@ interface SearchBarProps {
 interface SearchResult {
   id: string;
   name: string;
-  image_url: string;
   type: "trip" | "hotel" | "adventure" | "attraction";
-  location_name?: string;
+  location?: string;
+  country?: string;
+  activities?: any;
 }
 
 export const SearchBarWithSuggestions = ({ value, onChange, onSubmit }: SearchBarProps) => {
@@ -36,65 +38,34 @@ export const SearchBarWithSuggestions = ({ value, onChange, onSubmit }: SearchBa
 
   const fetchSuggestions = async () => {
     const queryValue = value.trim();
-    // Use '%%' to fetch a broad popular list when the search input is empty but focused
-    const query = queryValue.length >= 2 ? `%${queryValue.toLowerCase()}%` : `%%`;
-    const isFullQuery = queryValue.length >= 2;
-    const results: SearchResult[] = [];
+    if (!queryValue) {
+      setSuggestions([]);
+      return;
+    }
 
-    // Prioritize name search for a popular/focused view to reduce database load
-    const orCondition = isFullQuery ?
-      `name.ilike.${query},location.ilike.${query},country.ilike.${query}` :
-      `name.ilike.${query}`;
-
+    const searchPattern = `%${queryValue}%`;
+    
     try {
-      // Fetch concurrently from four tables
-      const [trips, hotels, places, attractions] = await Promise.all([
-        supabase
-          .from("trips")
-          .select("id, name, image_url")
-          .eq("approval_status", "approved")
-          .or(orCondition)
-          .limit(isFullQuery ? 3 : 2), // Limit results
-        supabase
-          .from("hotels")
-          .select("id, name, image_url")
-          .eq("approval_status", "approved")
-          .or(orCondition)
-          .limit(isFullQuery ? 3 : 2),
-        supabase
-          .from("adventure_places")
-          .select("id, name, image_url")
-          .eq("approval_status", "approved")
-          .or(orCondition)
-          .limit(isFullQuery ? 3 : 2),
-        supabase
-          .from("attractions")
-          .select("id, location_name, photo_urls")
-          .eq("approval_status", "approved")
-          .or(orCondition.replace(/name\./g, "location_name."))
-          .limit(isFullQuery ? 3 : 2),
+      const [tripsData, hotelsData, adventuresData, attractionsData] = await Promise.all([
+        supabase.from("trips").select("id, name, location, country, activities").or(`name.ilike.${searchPattern},location.ilike.${searchPattern},country.ilike.${searchPattern}`).limit(5),
+        supabase.from("hotels").select("id, name, location, country, activities").or(`name.ilike.${searchPattern},location.ilike.${searchPattern},country.ilike.${searchPattern}`).limit(5),
+        supabase.from("adventure_places").select("id, name, location, country, activities").or(`name.ilike.${searchPattern},location.ilike.${searchPattern},country.ilike.${searchPattern}`).limit(5),
+        supabase.from("attractions").select("id, location_name, country").or(`location_name.ilike.${searchPattern},country.ilike.${searchPattern}`).limit(5)
       ]);
 
-      // Consolidate results and assign type
-      if (trips.data) {
-        results.push(...trips.data.map((item) => ({ ...item, type: "trip" as const })));
-      }
-      if (hotels.data) {
-        results.push(...hotels.data.map((item) => ({ ...item, type: "hotel" as const })));
-      }
-      if (places.data) {
-        results.push(...places.data.map((item) => ({ ...item, type: "adventure" as const })));
-      }
-      if (attractions.data) {
-        results.push(...attractions.data.map((item) => ({ 
+      const combined = [
+        ...(tripsData.data || []).map((item) => ({ ...item, type: "trip" as const })),
+        ...(hotelsData.data || []).map((item) => ({ ...item, type: "hotel" as const })),
+        ...(adventuresData.data || []).map((item) => ({ ...item, type: "adventure" as const })),
+        ...(attractionsData.data || []).map((item) => ({ 
           ...item, 
+          type: "attraction" as const, 
           name: item.location_name,
-          image_url: item.photo_urls?.[0] || '',
-          type: "attraction" as const 
-        })));
-      }
+          location: item.location_name
+        }))
+      ];
 
-      setSuggestions(results.slice(0, 10)); // Max 10 combined suggestions
+      setSuggestions(combined.slice(0, 8));
     } catch (error) {
       console.error("Error fetching suggestions:", error);
     }
@@ -130,41 +101,40 @@ export const SearchBarWithSuggestions = ({ value, onChange, onSubmit }: SearchBa
 
   return (
     <div className="relative w-full mx-auto">
-      <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
+      <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-muted-foreground z-10" />
       <Input
         type="text"
         placeholder="Search for trips, events, hotels, places, or countries..."
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setShowSuggestions(true);
+        }}
         onKeyPress={handleKeyPress}
         onFocus={() => setShowSuggestions(true)}
-        onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-        // MODIFICATION: Changed rounded-none to rounded-full for 50% radius.
-        className="pl-10 md:pl-12 pr-3 md:pr-4 h-10 md:h-14 text-sm md:text-lg rounded-full border-2 focus-visible:border-primary shadow-md"
+        className="pl-10 md:pl-12 pr-20 md:pr-24 h-10 md:h-14 text-sm md:text-lg rounded-full border-2 focus-visible:border-primary shadow-md"
       />
-      
-      {/* Suggestions Dropdown */}
+      <Button
+        onClick={onSubmit}
+        size="sm"
+        className="absolute right-1 top-1/2 -translate-y-1/2 rounded-full h-8 md:h-12 px-4 md:px-6"
+      >
+        Search
+      </Button>
+
       {showSuggestions && suggestions.length > 0 && (
-        <div 
-          className="absolute z-[60] w-full mt-2 bg-background border shadow-lg max-h-96 overflow-y-auto rounded-xl"
-        >
+        <div className="absolute top-full left-0 right-0 mt-2 bg-background border rounded-lg shadow-lg max-h-96 overflow-y-auto z-[100]">
           {suggestions.map((result) => (
             <button
-              key={`${result.type}-${result.id}`}
-              type="button"
-              className="w-full flex items-center gap-2 p-2 hover:bg-accent transition-colors border-b last:border-b-0"
+              key={result.id}
               onClick={() => handleSuggestionClick(result)}
+              className="w-full px-4 py-3 flex items-center gap-3 hover:bg-accent transition-colors text-left border-b last:border-b-0"
             >
-              {result.image_url && (
-                <img
-                  src={result.image_url}
-                  alt={result.name}
-                  className="w-12 h-12 object-cover rounded flex-shrink-0"
-                />
-              )}
-              <div className="flex-1 text-left min-w-0">
-                <p className="font-semibold text-xs md:text-sm line-clamp-1">{result.name}</p>
-                <p className="text-2xs md:text-xs text-muted-foreground">{getTypeLabel(result.type)}</p>
+              <div className="flex-1">
+                <p className="font-medium text-sm">{result.name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {result.location && `${result.location}, `}{result.country} • {getTypeLabel(result.type)}
+                </p>
               </div>
             </button>
           ))}

@@ -257,7 +257,6 @@ const Profile = () => {
         </Card>
       </main>
 
-      <Footer />
       <MobileBottomBar />
     </div>
   );

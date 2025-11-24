@@ -124,35 +124,7 @@ export const NotificationBell = () => {
 
   const handleNotificationClick = async (notification: Notification) => {
     await markAsRead(notification.id);
-
-    // Navigate based on notification type
-    switch (notification.type) {
-      case 'new_booking':
-        navigate('/host-bookings');
-        break;
-      case 'payment_verification':
-        navigate('/account');
-        break;
-      case 'host_verification':
-        navigate('/account');
-        break;
-      case 'item_status':
-        navigate('/my-listing');
-        break;
-      case 'item_hidden':
-        navigate('/my-listing');
-        break;
-      case 'item_unhidden':
-        navigate('/my-listing');
-        break;
-      case 'new_referral':
-        navigate('/my-referrals');
-        break;
-      default:
-        break;
-    }
-
-    setIsOpen(false);
+    // Navigation removed as per requirements - notifications no longer navigate to pages
   };
 
   return (

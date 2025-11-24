@@ -164,6 +164,25 @@ const Index = () => {
 
         let combined = [...trips, ...hotels, ...adventures, ...attractions];
 
+        // Fetch booking statistics for trips/events
+        const tripIds = trips.map((trip: any) => trip.id);
+        if (tripIds.length > 0) {
+            const { data: bookingsData } = await supabase
+                .from('bookings')
+                .select('item_id, slots_booked')
+                .in('item_id', tripIds)
+                .in('status', ['confirmed', 'pending']);
+            
+            if (bookingsData) {
+                const stats: Record<string, number> = {};
+                bookingsData.forEach(booking => {
+                    const current = stats[booking.item_id] || 0;
+                    stats[booking.item_id] = current + (booking.slots_booked || 0);
+                });
+                setBookingStats(stats);
+            }
+        }
+
         if (position) {
             combined = combined.sort((a, b) => {
                 return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
@@ -357,19 +376,22 @@ const Index = () => {
                         ) : listings.length > 0 ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {listings.map((listing) => (
-                                    <ListingCard
-                                        key={listing.id}
-                                        id={listing.id}
-                                        type={listing.type}
-                                        name={listing.name}
-                                        location={listing.location}
-                                        country={listing.country}
-                                        imageUrl={listing.image_url}
-                                        price={listing.price || listing.entry_fee || 0}
-                                        isSaved={savedItems.has(listing.id)}
-                                        onSave={() => handleSave(listing.id, listing.type)}
-                                    />
-                                ))}
+                                     <ListingCard
+                                         key={listing.id}
+                                         id={listing.id}
+                                         type={listing.type}
+                                         name={listing.name}
+                                         location={listing.location}
+                                         country={listing.country}
+                                         imageUrl={listing.image_url}
+                                         price={listing.price || listing.entry_fee || 0}
+                                         isSaved={savedItems.has(listing.id)}
+                                         onSave={() => handleSave(listing.id, listing.type)}
+                                         availableTickets={(listing.type === "TRIP" || listing.type === "EVENT") ? listing.available_tickets : undefined}
+                                         bookedTickets={(listing.type === "TRIP" || listing.type === "EVENT") ? (bookingStats[listing.id] || 0) : undefined}
+                                         showBadge={true}
+                                     />
+                                 ))}
                             </div>
                         ) : (
                             <p className="text-center text-muted-foreground py-8">No results found</p>
@@ -423,25 +445,27 @@ const Index = () => {
                                         <p className="text-muted-foreground text-sm mt-2">Try searching with different keywords</p>
                                     </div>
                                 ) : (
-                                    listings.map((item, index) => (
-                                        <ListingCard
-                                            key={item.id}
-                                            id={item.id}
-                                            type={item.type}
-                                            name={item.name}
-                                            imageUrl={item.image_url}
-                                            location={item.location}
-                                            country={item.country}
-                                            price={item.price || item.entry_fee || item.price_adult || 0}
-                                            date={item.date}
-                                            isCustomDate={item.is_custom_date}
-                                            onSave={handleSave}
-                                            isSaved={savedItems.has(item.id)}
-                                            hidePrice={item.type === "HOTEL" || item.type === "ADVENTURE PLACE"}
-                                            showBadge={true}
-                                            priority={index < 4}
-                                        />
-                                    ))
+                                     listings.map((item, index) => (
+                                         <ListingCard
+                                             key={item.id}
+                                             id={item.id}
+                                             type={item.type}
+                                             name={item.name}
+                                             imageUrl={item.image_url}
+                                             location={item.location}
+                                             country={item.country}
+                                             price={item.price || item.entry_fee || item.price_adult || 0}
+                                             date={item.date}
+                                             isCustomDate={item.is_custom_date}
+                                             onSave={handleSave}
+                                             isSaved={savedItems.has(item.id)}
+                                             hidePrice={item.type === "HOTEL" || item.type === "ADVENTURE PLACE"}
+                                             showBadge={true}
+                                             priority={index < 4}
+                                             availableTickets={(item.type === "TRIP" || item.type === "EVENT") ? item.available_tickets : undefined}
+                                             bookedTickets={(item.type === "TRIP" || item.type === "EVENT") ? (bookingStats[item.id] || 0) : undefined}
+                                         />
+                                     ))
                                 )}
                             </div>
                         ) : (
@@ -459,26 +483,28 @@ const Index = () => {
                                         </div>
                                     ))
                                 ) : (
-                                    listings.map((item, index) => (
-                                        <div key={item.id} className="flex-shrink-0 w-[85vw] md:w-64 snap-center md:snap-align-none">
-                                            <ListingCard
-                                                id={item.id}
-                                                type={item.type}
-                                                name={item.name}
-                                                imageUrl={item.image_url}
-                                                location={item.location}
-                                                country={item.country}
-                                                price={item.price || item.entry_fee || 0}
-                                                date={item.date}
-                                                isCustomDate={item.is_custom_date}
-                                                onSave={handleSave}
-                                                isSaved={savedItems.has(item.id)}
-                                                hidePrice={true}
-                                                showBadge={true}
-                                                priority={index === 0}
-                                            />
-                                        </div>
-                                    ))
+                                     listings.map((item, index) => (
+                                         <div key={item.id} className="flex-shrink-0 w-[85vw] md:w-64 snap-center md:snap-align-none">
+                                             <ListingCard
+                                                 id={item.id}
+                                                 type={item.type}
+                                                 name={item.name}
+                                                 imageUrl={item.image_url}
+                                                 location={item.location}
+                                                 country={item.country}
+                                                 price={item.price || item.entry_fee || 0}
+                                                 date={item.date}
+                                                 isCustomDate={item.is_custom_date}
+                                                 onSave={handleSave}
+                                                 isSaved={savedItems.has(item.id)}
+                                                 hidePrice={true}
+                                                 showBadge={true}
+                                                 priority={index === 0}
+                                                 availableTickets={(item.type === "TRIP" || item.type === "EVENT") ? item.available_tickets : undefined}
+                                                 bookedTickets={(item.type === "TRIP" || item.type === "EVENT") ? (bookingStats[item.id] || 0) : undefined}
+                                             />
+                                         </div>
+                                     ))
                                 )}
                             </div>
                         )}
@@ -657,8 +683,9 @@ const Index = () => {
                                             isCustomDate={trip.is_custom_date}
                                             onSave={handleSave}
                                             isSaved={savedItems.has(trip.id)}
-                                            availableTickets={isEvent ? trip.available_tickets : undefined}
-                                            bookedTickets={isEvent ? (bookingStats[trip.id] || 0) : undefined}
+                                            showBadge={isEvent}
+                                            availableTickets={trip.available_tickets}
+                                            bookedTickets={bookingStats[trip.id] || 0}
                                         />
                                     </div>
                                 )})

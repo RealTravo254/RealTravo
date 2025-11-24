@@ -148,7 +148,7 @@ export const ListingCard = ({
           </p>
         </div>
         
-        {type === "EVENT" && availableTickets !== undefined && (
+        {(type === "EVENT" || type === "TRIP") && availableTickets !== undefined && (
           <div className="flex items-center justify-between pt-1 border-t border-border/50">
             <p className="text-xs md:text-sm font-medium text-muted-foreground">
               Tickets Remaining:

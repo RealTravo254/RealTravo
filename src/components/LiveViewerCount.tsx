@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 
 interface LiveViewerCountProps {
   itemId: string;
-  itemType: 'trip' | 'hotel' | 'adventure' | 'attraction';
+  itemType: 'trip' | 'hotel' | 'adventure' | 'attraction' | 'event';
   className?: string;
 }
 

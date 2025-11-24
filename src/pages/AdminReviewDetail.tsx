@@ -142,9 +142,6 @@ const AdminReviewDetail = () => {
         approved_at: status === "approved" ? new Date().toISOString() : null
       };
 
-      if (status === "rejected") {
-        updateData.rejection_note = rejectionReason;
-      }
 
       const tableName = item.tableName;
       const { error } = await supabase.from(tableName).update(updateData).eq("id", id);
@@ -375,13 +372,6 @@ const AdminReviewDetail = () => {
                   </div>
                 )}
 
-                {/* Show rejection note if rejected */}
-                {item.approval_status === "rejected" && item.rejection_note && (
-                  <div className="pt-4 border-t">
-                    <h3 className="font-semibold mb-2 text-destructive">Rejection Reason</h3>
-                    <p className="text-sm bg-destructive/10 p-3 rounded">{item.rejection_note}</p>
-                  </div>
-                )}
 
                 {/* Visibility control for approved items */}
                 {item.approval_status === "approved" && (

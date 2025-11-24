@@ -240,8 +240,7 @@ const AdminDashboard = () => {
       const { data, error } = await supabase
         .from(table as any)
         .update({ 
-          approval_status: "rejected",
-          rejection_note: adminNotes[itemId] || null
+          approval_status: "rejected"
         })
         .eq("id", itemId)
         .select();
@@ -348,13 +347,6 @@ const AdminDashboard = () => {
                   {item.phone_number && <p className="text-sm">Phone: {item.phone_number}</p>}
                   {item.phone_numbers && item.phone_numbers.length > 0 && (
                     <p className="text-sm">Phone: {item.phone_numbers.join(", ")}</p>
-                  )}
-                  
-                  {item.rejection_note && (
-                    <div className="mt-2 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
-                      <p className="text-sm font-semibold text-destructive mb-1">Rejection Reason:</p>
-                      <p className="text-sm text-muted-foreground">{item.rejection_note}</p>
-                    </div>
                   )}
                   
                   {status === 'pending' && (

@@ -6,8 +6,9 @@ import { MobileBottomBar } from "@/components/MobileBottomBar";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
-import { ChevronRight, User, Briefcase, CreditCard, Shield, LogOut, UserCog, Users } from "lucide-react";
+import { ChevronRight, User, Briefcase, CreditCard, Shield, LogOut, UserCog, Users, ArrowLeft } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 
 export default function Account() {
   const navigate = useNavigate();
@@ -146,6 +147,14 @@ export default function Account() {
       <Header />
       <main className="flex-1 container mx-auto px-4 py-8">
         <div className="max-w-2xl mx-auto">
+          <Button
+            variant="ghost"
+            onClick={() => navigate(-1)}
+            className="mb-4"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back
+          </Button>
           <h1 className="text-3xl font-bold mb-2 text-foreground">Account</h1>
           <p className="text-lg text-muted-foreground mb-8">{userName}</p>
 

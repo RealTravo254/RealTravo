@@ -6,7 +6,8 @@ import { MobileBottomBar } from "@/components/MobileBottomBar";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { ChevronRight, Plane, Building, Tent, MapPin, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ChevronRight, Plane, Building, Tent, MapPin, Search, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -107,6 +108,14 @@ const PendingApprovalItems = () => {
     <div className="min-h-screen flex flex-col">
       <Header />
       <main className="flex-1 container px-4 py-8 max-w-4xl mx-auto mb-20 md:mb-0">
+        <Button
+          variant="ghost"
+          onClick={() => navigate(-1)}
+          className="mb-4"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back
+        </Button>
         <h1 className="text-3xl font-bold mb-6">Pending Approval Items</h1>
 
         <div className="relative mb-6">

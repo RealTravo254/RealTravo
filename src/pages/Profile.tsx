@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronRight, User, Calendar, Globe } from "lucide-react";
+import { ChevronRight, User, Calendar, Globe, ArrowLeft } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -114,6 +114,14 @@ const Profile = () => {
       <Header />
       
       <main className="container px-4 py-8 max-w-2xl mx-auto">
+        <Button
+          variant="ghost"
+          onClick={() => navigate(-1)}
+          className="mb-4"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back
+        </Button>
         <h1 className="text-3xl font-bold mb-8">My Profile</h1>
 
         <Card className="overflow-hidden">

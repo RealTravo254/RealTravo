@@ -5,7 +5,8 @@ import { Footer } from "@/components/Footer";
 import { MobileBottomBar } from "@/components/MobileBottomBar";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ChevronRight, ClipboardList, CheckCircle, XCircle, ShieldCheck } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ChevronRight, ClipboardList, CheckCircle, XCircle, ShieldCheck, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -119,6 +120,14 @@ const AdminDashboard = () => {
     <div className="min-h-screen flex flex-col">
       <Header />
       <main className="flex-1 container px-4 py-8 max-w-4xl mx-auto mb-20 md:mb-0">
+        <Button
+          variant="ghost"
+          onClick={() => navigate(-1)}
+          className="mb-4"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back
+        </Button>
         <h1 className="text-3xl font-bold mb-8">Admin Dashboard</h1>
 
         <Card>

@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Upload, X, Edit2, Save, Calendar, MapPin, Phone, Mail, DollarSign, Users, Clock, CheckCircle, XCircle, Pencil, Plus, Trash2 } from "lucide-react";
+import { Loader2, Upload, X, Edit2, Save, Calendar, MapPin, Phone, Mail, DollarSign, Users, Clock, CheckCircle, XCircle, Pencil, Plus, Trash2, ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -558,6 +558,14 @@ const EditListing = () => {
       <Header />
       
       <main className="container px-4 py-8 max-w-7xl mx-auto">
+        <Button
+          variant="ghost"
+          onClick={() => navigate(-1)}
+          className="mb-4"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back
+        </Button>
         <div className="mb-6">
           <div className="flex items-center justify-between">
             <div>

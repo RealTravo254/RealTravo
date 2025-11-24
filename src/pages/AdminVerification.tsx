@@ -8,8 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { ChevronRight, Clock, CheckCircle, XCircle } from "lucide-react";
+import { ChevronRight, Clock, CheckCircle, XCircle, ArrowLeft } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 
 const AdminVerification = () => {
   const { user } = useAuth();
@@ -105,6 +106,14 @@ const AdminVerification = () => {
       <Header />
       <main className="flex-1 container mx-auto px-4 py-8">
         <div className="max-w-2xl mx-auto">
+          <Button
+            variant="ghost"
+            onClick={() => navigate(-1)}
+            className="mb-4"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back
+          </Button>
           <h1 className="text-3xl font-bold mb-2 text-foreground">Host Verification</h1>
           <p className="text-lg text-muted-foreground mb-8">Manage host verification requests</p>
 

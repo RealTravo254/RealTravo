@@ -5,7 +5,8 @@ import { Footer } from "@/components/Footer";
 import { MobileBottomBar } from "@/components/MobileBottomBar";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ChevronRight, MapPin } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ChevronRight, MapPin, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -79,7 +80,15 @@ const CategoryAttractions = () => {
     <div className="min-h-screen flex flex-col">
       <Header />
       <main className="flex-1 container px-4 py-8 max-w-4xl mx-auto mb-20 md:mb-0">
-        <h1 className="text-3xl font-bold mb-8">My Attractions</h1>
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-3xl font-bold">My Attractions</h1>
+          {attractions.length > 0 && (
+            <Button onClick={() => navigate("/create-attraction")} size="sm">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Attraction
+            </Button>
+          )}
+        </div>
 
         {attractions.length === 0 ? (
           <Card className="p-8 text-center">

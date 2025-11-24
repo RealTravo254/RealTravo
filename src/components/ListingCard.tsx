@@ -93,13 +93,13 @@ export const ListingCard = ({
           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 m-0 p-0"
         />
         
-        {type === "EVENT" && (
+        {(type === "EVENT" || (showBadge && type === "TRIP")) && (
           <Badge className="absolute top-2 left-2 bg-primary text-primary-foreground backdrop-blur text-xs font-bold z-10 px-2 py-1">
-            EVENT
+            {type === "EVENT" ? "EVENT" : type}
           </Badge>
         )}
         
-        {showBadge && type !== "EVENT" && (
+        {showBadge && type !== "EVENT" && type !== "TRIP" && (
           <Badge className="absolute top-2 left-2 bg-red-600 text-white backdrop-blur text-[0.6rem] z-10 p-1">
             {type}
           </Badge>
@@ -150,7 +150,7 @@ export const ListingCard = ({
           </p>
         </div>
         
-        {(type === "EVENT" || type === "TRIP") && availableTickets !== undefined && (
+        {(type === "EVENT" || type === "TRIP") && availableTickets !== undefined && (availableTickets - (bookedTickets || 0)) < 20 && (
           <div className="flex items-center justify-between pt-1 border-t border-border/50">
             <p className="text-xs md:text-sm font-medium text-muted-foreground">
               Tickets Remaining:
@@ -159,7 +159,7 @@ export const ListingCard = ({
               "text-xs md:text-sm font-bold",
               (availableTickets - (bookedTickets || 0)) <= 5 ? "text-destructive" : "text-green-600 dark:text-green-400"
             )}>
-              {Math.max(0, availableTickets - (bookedTickets || 0))} / {availableTickets}
+              {Math.max(0, availableTickets - (bookedTickets || 0))}
             </p>
           </div>
         )}

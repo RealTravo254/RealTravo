@@ -1124,27 +1124,37 @@ const EditListing = () => {
                 {bookings.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-4">No bookings yet</p>
                 ) : (
-                  <div className="space-y-3 max-h-[600px] overflow-y-auto">
-                    {bookings.map((booking) => (
-                      <div key={booking.id} className="border rounded-lg p-3 space-y-2">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <p className="text-sm font-medium">{booking.guest_name_masked}</p>
-                            <p className="text-xs text-muted-foreground">{booking.guest_email_limited}</p>
+                  <>
+                    <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                      {bookings.slice(0, 3).map((booking) => (
+                        <div key={booking.id} className="border rounded-lg p-3 space-y-2">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <p className="text-sm font-medium">{booking.guest_name_masked}</p>
+                              <p className="text-xs text-muted-foreground">{booking.guest_email_limited}</p>
+                            </div>
+                            <Badge variant={booking.payment_status === "completed" ? "default" : "secondary"}>
+                              {booking.payment_status}
+                            </Badge>
                           </div>
-                          <Badge variant={booking.payment_status === "completed" ? "default" : "secondary"}>
-                            {booking.payment_status}
-                          </Badge>
+                          <Separator />
+                          <div className="text-xs space-y-1">
+                            <p>Amount: KSh {booking.total_amount}</p>
+                            <p>Slots: {booking.slots_booked}</p>
+                            <p>Date: {new Date(booking.created_at).toLocaleDateString()}</p>
+                          </div>
                         </div>
-                        <Separator />
-                        <div className="text-xs space-y-1">
-                          <p>Amount: KSh {booking.total_amount}</p>
-                          <p>Slots: {booking.slots_booked}</p>
-                          <p>Date: {new Date(booking.created_at).toLocaleDateString()}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full"
+                      onClick={() => navigate(`/host/bookings/${type}/${id}`)}
+                    >
+                      See All Bookings
+                    </Button>
+                  </>
                 )}
               </CardContent>
             </Card>

@@ -21,17 +21,8 @@ const AdminReviewDetail = () => {
   const [item, setItem] = useState<any>(null);
   const [creator, setCreator] = useState<any>(null);
   const [bookings, setBookings] = useState<any[]>([]);
-  const [rejectionReason, setRejectionReason] = useState("");
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
-
-  const rejectionReasons = [
-    "No visible items",
-    "Details don't match",
-    "Inappropriate details",
-    "Document not visible",
-    "False information",
-  ];
 
   useEffect(() => {
     checkAdminStatus();
@@ -127,21 +118,11 @@ const AdminReviewDetail = () => {
 
   const updateApprovalStatus = async (status: string) => {
     try {
-      if (status === "rejected" && !rejectionReason) {
-        toast({
-          title: "Rejection Reason Required",
-          description: "Please select a reason for rejection",
-          variant: "destructive",
-        });
-        return;
-      }
-
       const updateData: any = {
         approval_status: status,
         approved_by: status === "approved" ? user?.id : null,
         approved_at: status === "approved" ? new Date().toISOString() : null
       };
-
 
       const tableName = item.tableName;
       const { error } = await supabase.from(tableName).update(updateData).eq("id", id);
@@ -351,26 +332,6 @@ const AdminReviewDetail = () => {
                   </div>
                 )}
 
-                {/* Rejection Section - Only show for pending items */}
-                {item.approval_status === "pending" && (
-                  <div className="pt-4 border-t space-y-3">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Rejection Reason (if rejecting)</label>
-                      <Select value={rejectionReason} onValueChange={setRejectionReason}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select reason for rejection" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {rejectionReasons.map((reason) => (
-                            <SelectItem key={reason} value={reason}>
-                              {reason}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                )}
 
 
                 {/* Visibility control for approved items */}
@@ -542,32 +503,37 @@ const AdminReviewDetail = () => {
                   No bookings yet
                 </p>
               ) : (
-                <div className="space-y-3">
-                  {bookings.slice(0, 5).map((booking) => (
-                    <div key={booking.id} className="p-3 border rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <Badge variant={booking.status === "confirmed" ? "default" : "secondary"}>
-                          {booking.status}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(booking.created_at).toLocaleDateString()}
-                        </span>
+                <>
+                  <div className="space-y-3">
+                    {bookings.slice(0, 3).map((booking) => (
+                      <div key={booking.id} className="p-3 border rounded-lg">
+                        <div className="flex items-center justify-between mb-2">
+                          <Badge variant={booking.status === "confirmed" ? "default" : "secondary"}>
+                            {booking.status}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(booking.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <p className="text-sm font-medium">${booking.total_amount}</p>
+                        {booking.guest_name && (
+                          <p className="text-xs text-muted-foreground">{booking.guest_name}</p>
+                        )}
+                        {booking.guest_email && (
+                          <p className="text-xs text-muted-foreground">{booking.guest_email}</p>
+                        )}
                       </div>
-                      <p className="text-sm font-medium">${booking.total_amount}</p>
-                      {booking.guest_name && (
-                        <p className="text-xs text-muted-foreground">{booking.guest_name}</p>
-                      )}
-                      {booking.guest_email && (
-                        <p className="text-xs text-muted-foreground">{booking.guest_email}</p>
-                      )}
-                    </div>
-                  ))}
-                  {bookings.length > 5 && (
-                    <p className="text-xs text-center text-muted-foreground">
-                      +{bookings.length - 5} more bookings
-                    </p>
-                  )}
-                </div>
+                    ))}
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full mt-4"
+                    onClick={() => navigate(`/admin/bookings/${type}/${id}`)}
+                  >
+                    See All Bookings ({bookings.length})
+                  </Button>
+                </>
               )}
             </Card>
           </div>

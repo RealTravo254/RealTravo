@@ -17,7 +17,6 @@ export type Database = {
       adventure_places: {
         Row: {
           activities: Json | null
-          admin_notes: string | null
           allowed_admin_emails: string[] | null
           amenities: Json | null
           approval_status: string
@@ -49,7 +48,6 @@ export type Database = {
         }
         Insert: {
           activities?: Json | null
-          admin_notes?: string | null
           allowed_admin_emails?: string[] | null
           amenities?: Json | null
           approval_status?: string
@@ -81,7 +79,6 @@ export type Database = {
         }
         Update: {
           activities?: Json | null
-          admin_notes?: string | null
           allowed_admin_emails?: string[] | null
           amenities?: Json | null
           approval_status?: string
@@ -411,7 +408,6 @@ export type Database = {
       hotels: {
         Row: {
           activities: Json | null
-          admin_notes: string | null
           allowed_admin_emails: string[] | null
           amenities: string[] | null
           approval_status: string
@@ -442,7 +438,6 @@ export type Database = {
         }
         Insert: {
           activities?: Json | null
-          admin_notes?: string | null
           allowed_admin_emails?: string[] | null
           amenities?: string[] | null
           approval_status?: string
@@ -473,7 +468,6 @@ export type Database = {
         }
         Update: {
           activities?: Json | null
-          admin_notes?: string | null
           allowed_admin_emails?: string[] | null
           amenities?: string[] | null
           approval_status?: string
@@ -796,7 +790,6 @@ export type Database = {
       trips: {
         Row: {
           activities: Json | null
-          admin_notes: string | null
           approval_status: string
           approved_at: string | null
           approved_by: string | null
@@ -824,7 +817,6 @@ export type Database = {
         }
         Insert: {
           activities?: Json | null
-          admin_notes?: string | null
           approval_status?: string
           approved_at?: string | null
           approved_by?: string | null
@@ -852,7 +844,6 @@ export type Database = {
         }
         Update: {
           activities?: Json | null
-          admin_notes?: string | null
           approval_status?: string
           approved_at?: string | null
           approved_by?: string | null

@@ -15,6 +15,7 @@ import { SimilarItems } from "@/components/SimilarItems";
 import { LiveViewerCount } from "@/components/LiveViewerCount";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import { AvailabilityCalendar } from "@/components/booking/AvailabilityCalendar";
+import { ReviewSection } from "@/components/ReviewSection";
 
 interface Event {
   id: string;
@@ -372,6 +373,8 @@ const EventDetail = () => {
             <AvailabilityCalendar itemId={event.id} itemType="trip" />
           </div>
         </div>
+
+        <ReviewSection itemId={event.id} itemType="event" />
 
         {/* Similar Events */}
         <SimilarItems currentItemId={event.id} itemType="trip" location={event.location} country={event.country} />

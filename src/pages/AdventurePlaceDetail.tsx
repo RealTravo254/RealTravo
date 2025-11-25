@@ -14,6 +14,7 @@ import { LiveViewerCount } from "@/components/LiveViewerCount";
 import { useToast } from "@/hooks/use-toast";
 import { Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
+import { ReviewSection } from "@/components/ReviewSection";
 
 interface Facility {
   name: string;
@@ -430,6 +431,8 @@ const AdventurePlaceDetail = () => {
             itemType="adventure"
           />
         </div>
+
+        <ReviewSection itemId={place.id} itemType="adventure_place" />
 
         {place && <SimilarItems currentItemId={place.id} itemType="adventure" country={place.country} />}
       </main>

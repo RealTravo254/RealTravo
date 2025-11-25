@@ -147,10 +147,19 @@ const Index = () => {
     const fetchAllData = async (query?: string) => {
         setLoading(true);
 
-        const fetchTable = async (table: "trips" | "hotels" | "adventure_places" | "attractions", type: string) => {
+        const fetchEvents = async () => {
+            let dbQuery = supabase.from("trips").select("*").eq("approval_status", "approved").eq("is_hidden", false).eq("type", "event");
+            if (query) {
+                const searchPattern = `%${query}%`;
+                dbQuery = dbQuery.or(`name.ilike.${searchPattern},location.ilike.${searchPattern},country.ilike.${searchPattern}`);
+            }
+            const { data } = await dbQuery;
+            return (data || []).map((item: any) => ({ ...item, type: "EVENT" }));
+        };
+
+        const fetchTable = async (table: "hotels" | "adventure_places" | "attractions", type: string) => {
             let dbQuery = supabase.from(table).select("*").eq("approval_status", "approved").eq("is_hidden", false);
             if (query) {
-                // Search in name, location, country, and activities
                 const searchPattern = `%${query}%`;
                 if (table === "attractions") {
                     dbQuery = dbQuery.or(`location_name.ilike.${searchPattern},country.ilike.${searchPattern}`);
@@ -172,22 +181,22 @@ const Index = () => {
             return (data || []).map((item: any) => ({ ...item, type }));
         };
 
-        const [trips, hotels, adventures, attractions] = await Promise.all([
-            fetchTable("trips", "TRIP"),
+        const [events, hotels, adventures, attractions] = await Promise.all([
+            fetchEvents(),
             fetchTable("hotels", "HOTEL"),
             fetchTable("adventure_places", "ADVENTURE PLACE"),
             fetchTable("attractions", "ATTRACTION")
         ]);
 
-        let combined = [...trips, ...hotels, ...adventures, ...attractions];
+        let combined = [...events, ...hotels, ...adventures, ...attractions];
 
-        // Fetch booking statistics for trips/events
-        const tripIds = trips.map((trip: any) => trip.id);
-        if (tripIds.length > 0) {
+        // Fetch booking statistics for events
+        const eventIds = events.map((event: any) => event.id);
+        if (eventIds.length > 0) {
             const { data: bookingsData } = await supabase
                 .from('bookings')
                 .select('item_id, slots_booked')
-                .in('item_id', tripIds)
+                .in('item_id', eventIds)
                 .in('status', ['confirmed', 'pending']);
             
             if (bookingsData) {

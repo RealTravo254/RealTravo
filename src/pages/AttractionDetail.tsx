@@ -16,6 +16,8 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
 import { SimilarItems } from "@/components/SimilarItems";
 import { LiveViewerCount } from "@/components/LiveViewerCount";
+import { AvailabilityCalendar } from "@/components/booking/AvailabilityCalendar";
+import { ReviewSection } from "@/components/ReviewSection";
 import Autoplay from "embla-carousel-autoplay";
 
 interface Attraction {
@@ -449,6 +451,8 @@ export default function AttractionDetail() {
             </Card>
           )}
         </div>
+
+        <ReviewSection itemId={attraction.id} itemType="attraction" />
 
         {/* Similar Items */}
         {attraction && <SimilarItems currentItemId={attraction.id} itemType="attraction" country={attraction.country} />}

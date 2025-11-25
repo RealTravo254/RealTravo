@@ -18,6 +18,10 @@ import {
   CarouselPrevious, 
   CarouselNext 
 } from "@/components/ui/carousel";
+import { SimilarItems } from "@/components/SimilarItems";
+import { AvailabilityCalendar } from "@/components/booking/AvailabilityCalendar";
+import { ReviewSection } from "@/components/ReviewSection";
+import { LiveViewerCount } from "@/components/LiveViewerCount";
 import Autoplay from "embla-carousel-autoplay";
 
 interface Trip {
@@ -39,10 +43,6 @@ interface Trip {
   email: string;
   map_link: string;
 }
-
-import { SimilarItems } from "@/components/SimilarItems";
-import { AvailabilityCalendar } from "@/components/booking/AvailabilityCalendar";
-import { LiveViewerCount } from "@/components/LiveViewerCount";
 
 const TripDetail = () => {
   const { id } = useParams();
@@ -373,6 +373,8 @@ const TripDetail = () => {
             />
           </div>
         </div>
+
+        <ReviewSection itemId={trip.id} itemType="trip" />
 
         {trip && <SimilarItems currentItemId={trip.id} itemType="trip" country={trip.country} />}
       </main>

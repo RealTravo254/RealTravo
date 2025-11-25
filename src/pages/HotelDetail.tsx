@@ -19,6 +19,7 @@ import {
   CarouselPrevious, 
   CarouselNext 
 } from "@/components/ui/carousel";
+import { ReviewSection } from "@/components/ReviewSection";
 import Autoplay from "embla-carousel-autoplay";
 
 interface Facility {
@@ -403,6 +404,8 @@ const HotelDetail = () => {
             itemType="hotel"
           />
         </div>
+
+        <ReviewSection itemId={hotel.id} itemType="hotel" />
 
         {hotel && <SimilarItems currentItemId={hotel.id} itemType="hotel" country={hotel.country} />}
       </main>

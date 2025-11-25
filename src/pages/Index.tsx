@@ -116,12 +116,11 @@ const Index = () => {
             return;
         }
 
-        const [placesData, hotelsData, attractionsData, tripsData, eventsData] = await Promise.all([
+        const [placesData, hotelsData, attractionsData, tripsData] = await Promise.all([
             supabase.from("adventure_places").select("*").eq("approval_status", "approved").eq("is_hidden", false).limit(20),
             supabase.from("hotels").select("*").eq("approval_status", "approved").eq("is_hidden", false).limit(20),
             supabase.from("attractions").select("*").eq("approval_status", "approved").eq("is_hidden", false).limit(20),
-            supabase.from("trips").select("*").eq("approval_status", "approved").eq("is_hidden", false).eq("type", "trip").limit(20),
-            supabase.from("trips").select("*").eq("approval_status", "approved").eq("is_hidden", false).eq("type", "event").limit(20)
+            supabase.from("trips").select("*").eq("approval_status", "approved").eq("is_hidden", false).eq("type", "trip").limit(20)
         ]);
 
         const combined = [
@@ -136,8 +135,7 @@ const Index = () => {
                 location: item.location_name,
                 image_url: item.photo_urls?.[0] || ""
             })),
-            ...(tripsData.data || []).map(item => ({ ...item, type: "TRIP", table: "trips", category: "Trip" })),
-            ...(eventsData.data || []).map(item => ({ ...item, type: "EVENT", table: "trips", category: "Event" }))
+            ...(tripsData.data || []).map(item => ({ ...item, type: "TRIP", table: "trips", category: "Trip" }))
         ];
 
         const nearby = combined.slice(0, 12);

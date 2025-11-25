@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { Clock, X, TrendingUp, Plane, Hotel, Tent, Landmark, ArrowLeft } from "lucide-react";
+import { Clock, X, TrendingUp, Plane, Hotel, Tent, Landmark, ArrowLeft, Calendar } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { getSessionId } from "@/lib/sessionManager";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -27,6 +28,8 @@ interface SearchResult {
   place?: string;
   country?: string;
   activities?: any;
+  date?: string;
+  image_url?: string;
 }
 
 const SEARCH_HISTORY_KEY = "search_history";
@@ -94,20 +97,20 @@ export const SearchBarWithSuggestions = ({ value, onChange, onSubmit, onSuggesti
       // Fetch all items when empty, or filter when typing
       const [tripsData, eventsData, hotelsData, adventuresData, attractionsData] = await Promise.all([
         queryValue 
-          ? supabase.from("trips").select("id, name, location, place, country, activities").eq("approval_status", "approved").eq("type", "trip").or(`name.ilike.%${queryValue}%,location.ilike.%${queryValue}%,place.ilike.%${queryValue}%,country.ilike.%${queryValue}%`).limit(20)
-          : supabase.from("trips").select("id, name, location, place, country, activities").eq("approval_status", "approved").eq("type", "trip").limit(20),
+          ? supabase.from("trips").select("id, name, location, place, country, activities, date, image_url").eq("approval_status", "approved").eq("type", "trip").or(`name.ilike.%${queryValue}%,location.ilike.%${queryValue}%,place.ilike.%${queryValue}%,country.ilike.%${queryValue}%`).limit(20)
+          : supabase.from("trips").select("id, name, location, place, country, activities, date, image_url").eq("approval_status", "approved").eq("type", "trip").limit(20),
         queryValue 
-          ? supabase.from("trips").select("id, name, location, place, country, activities").eq("approval_status", "approved").eq("type", "event").or(`name.ilike.%${queryValue}%,location.ilike.%${queryValue}%,place.ilike.%${queryValue}%,country.ilike.%${queryValue}%`).limit(20)
-          : supabase.from("trips").select("id, name, location, place, country, activities").eq("approval_status", "approved").eq("type", "event").limit(20),
+          ? supabase.from("trips").select("id, name, location, place, country, activities, date, image_url").eq("approval_status", "approved").eq("type", "event").or(`name.ilike.%${queryValue}%,location.ilike.%${queryValue}%,place.ilike.%${queryValue}%,country.ilike.%${queryValue}%`).limit(20)
+          : supabase.from("trips").select("id, name, location, place, country, activities, date, image_url").eq("approval_status", "approved").eq("type", "event").limit(20),
         queryValue
-          ? supabase.from("hotels").select("id, name, location, place, country, activities, facilities").eq("approval_status", "approved").or(`name.ilike.%${queryValue}%,location.ilike.%${queryValue}%,place.ilike.%${queryValue}%,country.ilike.%${queryValue}%`).limit(20)
-          : supabase.from("hotels").select("id, name, location, place, country, activities, facilities").eq("approval_status", "approved").limit(20),
+          ? supabase.from("hotels").select("id, name, location, place, country, activities, facilities, image_url").eq("approval_status", "approved").or(`name.ilike.%${queryValue}%,location.ilike.%${queryValue}%,place.ilike.%${queryValue}%,country.ilike.%${queryValue}%`).limit(20)
+          : supabase.from("hotels").select("id, name, location, place, country, activities, facilities, image_url").eq("approval_status", "approved").limit(20),
         queryValue
-          ? supabase.from("adventure_places").select("id, name, location, place, country, activities, facilities").eq("approval_status", "approved").or(`name.ilike.%${queryValue}%,location.ilike.%${queryValue}%,place.ilike.%${queryValue}%,country.ilike.%${queryValue}%`).limit(20)
-          : supabase.from("adventure_places").select("id, name, location, place, country, activities, facilities").eq("approval_status", "approved").limit(20),
+          ? supabase.from("adventure_places").select("id, name, location, place, country, activities, facilities, image_url").eq("approval_status", "approved").or(`name.ilike.%${queryValue}%,location.ilike.%${queryValue}%,place.ilike.%${queryValue}%,country.ilike.%${queryValue}%`).limit(20)
+          : supabase.from("adventure_places").select("id, name, location, place, country, activities, facilities, image_url").eq("approval_status", "approved").limit(20),
         queryValue
-          ? supabase.from("attractions").select("id, location_name, local_name, country").eq("approval_status", "approved").or(`location_name.ilike.%${queryValue}%,local_name.ilike.%${queryValue}%,country.ilike.%${queryValue}%`).limit(20)
-          : supabase.from("attractions").select("id, location_name, local_name, country").eq("approval_status", "approved").limit(20)
+          ? supabase.from("attractions").select("id, location_name, local_name, country, photo_urls").eq("approval_status", "approved").or(`location_name.ilike.%${queryValue}%,local_name.ilike.%${queryValue}%,country.ilike.%${queryValue}%`).limit(20)
+          : supabase.from("attractions").select("id, location_name, local_name, country, photo_urls").eq("approval_status", "approved").limit(20)
       ]);
 
       let combined = [
@@ -119,7 +122,8 @@ export const SearchBarWithSuggestions = ({ value, onChange, onSubmit, onSuggesti
           ...item, 
           type: "attraction" as const, 
           name: item.location_name,
-          location: item.local_name || item.location_name
+          location: item.local_name || item.location_name,
+          image_url: item.photo_urls?.[0] || undefined
         }))
       ];
 
@@ -369,31 +373,54 @@ export const SearchBarWithSuggestions = ({ value, onChange, onSubmit, onSuggesti
             <>
               {suggestions.map((result) => {
                 const TypeIcon = getTypeIcon(result.type);
+                const formattedDate = result.date ? new Date(result.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : null;
                 return (
                   <button
                     key={result.id}
                     onClick={() => handleSuggestionClick(result)}
-                    className="w-full px-4 py-3 flex flex-col gap-1 hover:bg-accent transition-colors text-left border-b last:border-b-0"
+                    className="w-full px-4 py-3 flex gap-3 hover:bg-accent transition-colors text-left border-b last:border-b-0"
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 flex-1">
-                        <TypeIcon className="h-5 w-5 text-primary flex-shrink-0" />
-                        <div className="flex flex-col">
+                    {/* Image with category badge */}
+                    <div className="relative w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden">
+                      {result.image_url ? (
+                        <img 
+                          src={result.image_url} 
+                          alt={result.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-muted flex items-center justify-center">
+                          <TypeIcon className="h-8 w-8 text-muted-foreground" />
+                        </div>
+                      )}
+                      <Badge className="absolute top-1 left-1 bg-primary text-primary-foreground text-[0.65rem] px-1.5 py-0.5 font-bold">
+                        {getTypeLabel(result.type).toUpperCase()}
+                      </Badge>
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 flex flex-col gap-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-1">
+                          <TypeIcon className="h-5 w-5 text-primary flex-shrink-0" />
                           <p className="font-semibold text-base">{result.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {result.location && `${result.location}, `}{result.place && `${result.place}, `}{result.country}
-                          </p>
                         </div>
                       </div>
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium whitespace-nowrap">
-                        {getTypeLabel(result.type)}
-                      </span>
-                    </div>
-                    {getActivitiesText(result.activities) && (
-                      <p className="text-xs text-primary font-medium pl-7">
-                        {getActivitiesText(result.activities)}
+                      <p className="text-xs text-muted-foreground">
+                        {result.location && `${result.location}, `}{result.place && `${result.place}, `}{result.country}
                       </p>
-                    )}
+                      {formattedDate && (result.type === "trip" || result.type === "event") && (
+                        <div className="flex items-center gap-1 text-xs text-primary font-medium">
+                          <Calendar className="h-3 w-3" />
+                          <span>{formattedDate}</span>
+                        </div>
+                      )}
+                      {getActivitiesText(result.activities) && (
+                        <p className="text-xs text-muted-foreground">
+                          {getActivitiesText(result.activities)}
+                        </p>
+                      )}
+                    </div>
                   </button>
                 );
               })}

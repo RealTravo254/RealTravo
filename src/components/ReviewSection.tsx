@@ -37,7 +37,6 @@ export function ReviewSection({ itemId, itemType }: ReviewSectionProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [rating, setRating] = useState(0);
-  const [comment, setComment] = useState("");
   const [hoveredStar, setHoveredStar] = useState(0);
   const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
   const [deleteReviewId, setDeleteReviewId] = useState<string | null>(null);
@@ -86,7 +85,7 @@ export function ReviewSection({ itemId, itemType }: ReviewSectionProps) {
           .from("reviews")
           .update({
             rating,
-            comment: comment.trim(),
+            comment: null,
           })
           .eq("id", editingReviewId)
           .eq("user_id", user.id);
@@ -98,7 +97,7 @@ export function ReviewSection({ itemId, itemType }: ReviewSectionProps) {
           item_id: itemId,
           item_type: itemType,
           rating,
-          comment: comment.trim(),
+          comment: null,
         });
 
         if (error) throw error;
@@ -107,7 +106,6 @@ export function ReviewSection({ itemId, itemType }: ReviewSectionProps) {
     onSuccess: () => {
       toast({ title: editingReviewId ? "Review updated successfully" : "Review submitted successfully" });
       setRating(0);
-      setComment("");
       setEditingReviewId(null);
       queryClient.invalidateQueries({ queryKey: ["reviews", itemId, itemType] });
     },
@@ -141,14 +139,12 @@ export function ReviewSection({ itemId, itemType }: ReviewSectionProps) {
   const handleEdit = (review: Review) => {
     setEditingReviewId(review.id);
     setRating(review.rating);
-    setComment(review.comment || "");
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleCancelEdit = () => {
     setEditingReviewId(null);
     setRating(0);
-    setComment("");
   };
 
   const averageRating = reviews.length > 0
@@ -176,7 +172,7 @@ export function ReviewSection({ itemId, itemType }: ReviewSectionProps) {
 
         {user && !editingReviewId && (
           <div className="mb-6 space-y-4">
-            <h3 className="text-lg font-semibold">Add Your Review</h3>
+            <h3 className="text-lg font-semibold">Add Your Rating</h3>
             <div>
               <p className="text-sm font-medium mb-2">Your Rating</p>
               <div className="flex gap-1">
@@ -194,21 +190,11 @@ export function ReviewSection({ itemId, itemType }: ReviewSectionProps) {
               </div>
             </div>
 
-            <div>
-              <p className="text-sm font-medium mb-2">Your Review (Optional)</p>
-              <Textarea
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                placeholder="Share your experience..."
-                className="min-h-[100px]"
-              />
-            </div>
-
             <Button
               onClick={() => submitReviewMutation.mutate()}
               disabled={rating === 0 || submitReviewMutation.isPending}
             >
-              {submitReviewMutation.isPending ? "Submitting..." : "Submit Review"}
+              {submitReviewMutation.isPending ? "Submitting..." : "Submit Rating"}
             </Button>
           </div>
         )}
@@ -216,7 +202,7 @@ export function ReviewSection({ itemId, itemType }: ReviewSectionProps) {
         {user && editingReviewId && (
           <div className="mb-6 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Edit Your Review</h3>
+              <h3 className="text-lg font-semibold">Edit Your Rating</h3>
               <Button variant="ghost" size="sm" onClick={handleCancelEdit}>
                 Cancel
               </Button>
@@ -238,21 +224,11 @@ export function ReviewSection({ itemId, itemType }: ReviewSectionProps) {
               </div>
             </div>
 
-            <div>
-              <p className="text-sm font-medium mb-2">Your Review (Optional)</p>
-              <Textarea
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                placeholder="Share your experience..."
-                className="min-h-[100px]"
-              />
-            </div>
-
             <Button
               onClick={() => submitReviewMutation.mutate()}
               disabled={rating === 0 || submitReviewMutation.isPending}
             >
-              {submitReviewMutation.isPending ? "Updating..." : "Update Review"}
+              {submitReviewMutation.isPending ? "Updating..." : "Update Rating"}
             </Button>
           </div>
         )}
@@ -298,7 +274,7 @@ export function ReviewSection({ itemId, itemType }: ReviewSectionProps) {
                   )}
                 </div>
               </div>
-              {review.comment && <p className="text-sm text-muted-foreground">{review.comment}</p>}
+              
             </Card>
           ))}
 

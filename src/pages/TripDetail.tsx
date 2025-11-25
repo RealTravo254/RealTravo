@@ -19,7 +19,7 @@ import {
   CarouselNext 
 } from "@/components/ui/carousel";
 import { SimilarItems } from "@/components/SimilarItems";
-import { AvailabilityCalendar } from "@/components/booking/AvailabilityCalendar";
+
 import { ReviewSection } from "@/components/ReviewSection";
 
 import Autoplay from "embla-carousel-autoplay";
@@ -359,18 +359,10 @@ const TripDetail = () => {
         </div>
 
         {/* Description Section - Below Image Gallery on Left Side */}
-        <div className="grid lg:grid-cols-2 gap-6 mt-6">
+        <div className="mt-6">
           <div className="p-4 md:p-6 border rounded-lg bg-card shadow-sm">
             <h2 className="text-lg md:text-xl font-semibold mb-4">About This Tour</h2>
             <p className="text-xs md:text-base text-muted-foreground">{trip.description}</p>
-          </div>
-
-          {/* Availability Calendar - Right Column */}
-          <div>
-            <AvailabilityCalendar 
-              itemId={trip.id} 
-              itemType="trip"
-            />
           </div>
         </div>
 

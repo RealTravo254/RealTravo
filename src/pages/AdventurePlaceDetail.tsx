@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { MapPin, Phone, Share2, Mail, DollarSign, Wifi, ArrowLeft, Clock, Heart } from "lucide-react";
 import { BookAdventureDialog } from "@/components/booking/BookAdventureDialog";
 import { SimilarItems } from "@/components/SimilarItems";
-import { AvailabilityCalendar } from "@/components/booking/AvailabilityCalendar";
+
 
 import { useToast } from "@/hooks/use-toast";
 import { Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext } from "@/components/ui/carousel";
@@ -424,12 +424,6 @@ const AdventurePlaceDetail = () => {
               )}
             </div>
           </div>
-
-          {/* Availability Calendar */}
-          <AvailabilityCalendar 
-            itemId={place.id} 
-            itemType="adventure"
-          />
         </div>
 
         <ReviewSection itemId={place.id} itemType="adventure_place" />

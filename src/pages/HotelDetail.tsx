@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { MapPin, Phone, Share2, Mail, Wifi, Users, Clock, DollarSign, ArrowLeft, Heart } from "lucide-react";
 import { BookHotelDialog } from "@/components/booking/BookHotelDialog";
 import { SimilarItems } from "@/components/SimilarItems";
-import { AvailabilityCalendar } from "@/components/booking/AvailabilityCalendar";
+
 
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -397,12 +397,6 @@ const HotelDetail = () => {
               )}
             </div>
           </div>
-
-          {/* Availability Calendar */}
-          <AvailabilityCalendar 
-            itemId={hotel.id} 
-            itemType="hotel"
-          />
         </div>
 
         <ReviewSection itemId={hotel.id} itemType="hotel" />

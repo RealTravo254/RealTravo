@@ -14,7 +14,7 @@ import { BookTripDialog } from "@/components/booking/BookTripDialog";
 import { SimilarItems } from "@/components/SimilarItems";
 
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
-import { AvailabilityCalendar } from "@/components/booking/AvailabilityCalendar";
+
 import { ReviewSection } from "@/components/ReviewSection";
 
 interface Event {
@@ -358,20 +358,14 @@ const EventDetail = () => {
           </div>
         </div>
 
-        {/* Description and Availability Calendar */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          {/* Description - Left Column */}
+        {/* Description */}
+        <div className="mb-8">
           {event.description && (
             <Card className="p-6">
               <h2 className="text-2xl font-bold mb-4">About This Event</h2>
               <p className="text-muted-foreground whitespace-pre-wrap">{event.description}</p>
             </Card>
           )}
-
-          {/* Availability Calendar - Right Column */}
-          <div>
-            <AvailabilityCalendar itemId={event.id} itemType="trip" />
-          </div>
         </div>
 
         <ReviewSection itemId={event.id} itemType="event" />

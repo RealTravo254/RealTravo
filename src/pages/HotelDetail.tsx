@@ -292,8 +292,8 @@ const HotelDetail = () => {
               </Button>
             </div>
 
-            {/* Contact and Booking */}
-            <div className="bg-card p-6 rounded-lg border space-y-3 shadow-sm">
+            {/* Contact Info - Hidden on small, shown on large */}
+            <div className="hidden md:block bg-card p-6 rounded-lg border space-y-3 shadow-sm">
               <h3 className="font-semibold text-base md:text-lg">Contact & Booking</h3>
               
               <div className="pt-2 border-t space-y-3">
@@ -331,6 +331,33 @@ const HotelDetail = () => {
 
           {/* Right Column - Placeholder or Additional Content */}
           <div></div>
+        </div>
+
+        {/* Contact Info for Small Screens - Below Description */}
+        <div className="md:hidden mt-6 bg-card p-6 rounded-lg border space-y-3 shadow-sm">
+          <h3 className="font-semibold text-base md:text-lg">Contact Information</h3>
+          
+          <div className="pt-2 border-t space-y-3">
+            {hotel.phone_numbers && hotel.phone_numbers.map((phone, idx) => (
+              <div key={idx} className="flex items-center gap-2">
+                <Phone className="h-3 w-3 md:h-4 md:w-4 text-primary" />
+                <a href={`tel:${phone}`} className="text-xs md:text-sm">{phone}</a>
+              </div>
+            ))}
+            {hotel.email && (
+              <div className="flex items-center gap-2">
+                <Mail className="h-3 w-3 md:h-4 md:w-4 text-primary" />
+                <a href={`mailto:${hotel.email}`} className="text-xs md:text-sm">{hotel.email}</a>
+              </div>
+            )}
+          </div>
+          
+          <Button 
+            className="w-full mt-4 text-xs md:text-sm" 
+            onClick={() => setBookingOpen(true)}
+          >
+            Book Now
+          </Button>
         </div>
 
         {/* Amenities and Facilities Below */}

@@ -145,7 +145,7 @@ export default function Account() {
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      <main className="flex-1 container mx-auto px-4 py-8">
+      <main className="flex-1 container mx-auto px-4 py-8 pb-24 md:pb-8">
         <div className="max-w-2xl mx-auto">
           <Button
             variant="ghost"

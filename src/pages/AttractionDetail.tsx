@@ -415,8 +415,8 @@ export default function AttractionDetail() {
             </Card>
           )}
 
-          {/* Book Now Button */}
-          <Button size="lg" className="w-full" onClick={() => setBookingOpen(true)}>
+          {/* Book Now Button - Hidden on small, shown on large */}
+          <Button size="lg" className="w-full hidden md:flex" onClick={() => setBookingOpen(true)}>
             <Calendar className="mr-2 h-5 w-5" />
             Book Now
           </Button>
@@ -453,6 +453,14 @@ export default function AttractionDetail() {
         </div>
 
         <ReviewSection itemId={attraction.id} itemType="attraction" />
+
+        {/* Book Now Button for Small Screens - Below Operating Hours */}
+        <div className="md:hidden mt-6">
+          <Button size="lg" className="w-full" onClick={() => setBookingOpen(true)}>
+            <Calendar className="mr-2 h-5 w-5" />
+            Book Now
+          </Button>
+        </div>
 
         {/* Similar Items */}
         {attraction && <SimilarItems currentItemId={attraction.id} itemType="attraction" country={attraction.country} />}

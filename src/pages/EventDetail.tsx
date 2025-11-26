@@ -290,8 +290,8 @@ const EventDetail = () => {
               </Button>
             </div>
 
-            {/* Event Info Card */}
-            <Card className="p-6">
+            {/* Event Info Card - Hidden on small screens, shown on large */}
+            <Card className="p-6 hidden md:block">
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
                   <Calendar className="h-5 w-5 text-muted-foreground" />
@@ -366,6 +366,49 @@ const EventDetail = () => {
               <p className="text-muted-foreground whitespace-pre-wrap">{event.description}</p>
             </Card>
           )}
+        </div>
+
+        {/* Booking Button for Small Screens - Below Description */}
+        <div className="md:hidden mb-8">
+          <Card className="p-6">
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <p className="text-sm text-muted-foreground">Event Date</p>
+                  <p className="font-semibold">{new Date(event.date).toLocaleDateString()}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <p className="text-sm text-muted-foreground">Tickets Remaining</p>
+                  <p className="font-semibold">{remainingTickets} / {event.available_tickets}</p>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t">
+                <div className="flex justify-between items-center mb-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Price per ticket</p>
+                    <p className="text-2xl font-bold">${event.price}</p>
+                    {event.price_child && event.price_child > 0 && (
+                      <p className="text-sm text-muted-foreground">Child: ${event.price_child}</p>
+                    )}
+                  </div>
+                </div>
+                <Button
+                  className="w-full"
+                  size="lg"
+                  onClick={() => setShowBooking(true)}
+                  disabled={remainingTickets <= 0}
+                >
+                  {remainingTickets <= 0 ? "Sold Out" : "Book Tickets"}
+                </Button>
+              </div>
+            </div>
+          </Card>
         </div>
 
         <ReviewSection itemId={event.id} itemType="event" />

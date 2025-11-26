@@ -175,13 +175,13 @@ const AdminReviewDetail = () => {
 
   if (!item) return null;
 
-  const displayImages = item.gallery_images?.length > 0 
-    ? item.gallery_images 
-    : item.images?.length > 0 
-    ? item.images 
-    : item.photo_urls?.length > 0
-    ? item.photo_urls
-    : [item.image_url];
+  // Collect all available images
+  const displayImages = [
+    ...(item.gallery_images || []),
+    ...(item.images || []),
+    ...(item.photo_urls || []),
+    ...(item.image_url ? [item.image_url] : [])
+  ].filter(Boolean);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -193,29 +193,39 @@ const AdminReviewDetail = () => {
 
         {/* Image Gallery */}
         {displayImages.length > 0 && (
-          <Card className="overflow-hidden mb-6">
-            <Carousel className="w-full">
-              <CarouselContent>
-                {displayImages.map((image: string, index: number) => (
-                  <CarouselItem key={index}>
-                    <div className="relative aspect-video md:aspect-[21/9] w-full overflow-hidden">
-                      <img
-                        src={image}
-                        alt={`${item.name} - Image ${index + 1}`}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  </CarouselItem>
-                ))}
-              </CarouselContent>
-              {displayImages.length > 1 && (
-                <>
-                  <CarouselPrevious className="left-4" />
-                  <CarouselNext className="right-4" />
-                </>
-              )}
-            </Carousel>
-          </Card>
+          <div className="mb-6">
+            <h2 className="text-xl font-semibold mb-3">Item Images ({displayImages.length})</h2>
+            <Card className="overflow-hidden">
+              <Carousel className="w-full">
+                <CarouselContent>
+                  {displayImages.map((image: string, index: number) => (
+                    <CarouselItem key={index}>
+                      <div className="relative aspect-video w-full overflow-hidden bg-muted">
+                        <img
+                          src={image}
+                          alt={`${item.name || item.location_name} - Image ${index + 1}`}
+                          className="w-full h-full object-contain"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src = '/placeholder.svg';
+                          }}
+                        />
+                        <div className="absolute bottom-2 right-2 bg-black/60 text-white px-3 py-1 rounded-full text-sm">
+                          {index + 1} / {displayImages.length}
+                        </div>
+                      </div>
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+                {displayImages.length > 1 && (
+                  <>
+                    <CarouselPrevious className="left-4 bg-background/80 backdrop-blur-sm" />
+                    <CarouselNext className="right-4 bg-background/80 backdrop-blur-sm" />
+                  </>
+                )}
+              </Carousel>
+            </Card>
+          </div>
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

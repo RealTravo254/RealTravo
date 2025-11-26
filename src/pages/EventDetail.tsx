@@ -239,7 +239,7 @@ const EventDetail = () => {
                 variant="outline"
                 size="sm"
                 onClick={handleSave}
-                className={isSaved ? "bg-primary text-primary-foreground" : ""}
+                className={isSaved ? "bg-red-500 text-white hover:bg-red-600" : ""}
               >
                 <Heart className={`h-4 w-4 mr-2 ${isSaved ? "fill-current" : ""}`} />
                 Save

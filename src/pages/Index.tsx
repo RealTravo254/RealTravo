@@ -58,6 +58,13 @@ const Index = () => {
         vlogs: 0
     });
 
+    // Touch swipe tracking
+    const [touchStart, setTouchStart] = useState<number | null>(null);
+    const [touchEnd, setTouchEnd] = useState<number | null>(null);
+
+    // Minimum swipe distance (in px) to trigger navigation
+    const minSwipeDistance = 50;
+
     const scrollSection = (ref: React.RefObject<HTMLDivElement>, direction: 'left' | 'right') => {
         if (ref.current) {
             const scrollAmount = 300;
@@ -74,6 +81,30 @@ const Index = () => {
             ...prev,
             [sectionName]: target.scrollLeft
         }));
+    };
+
+    const onTouchStart = (e: React.TouchEvent) => {
+        setTouchEnd(null);
+        setTouchStart(e.targetTouches[0].clientX);
+    };
+
+    const onTouchMove = (e: React.TouchEvent) => {
+        setTouchEnd(e.targetTouches[0].clientX);
+    };
+
+    const onTouchEnd = (ref: React.RefObject<HTMLDivElement>) => {
+        if (!touchStart || !touchEnd) return;
+        
+        const distance = touchStart - touchEnd;
+        const isLeftSwipe = distance > minSwipeDistance;
+        const isRightSwipe = distance < -minSwipeDistance;
+
+        if (isLeftSwipe) {
+            scrollSection(ref, 'right');
+        }
+        if (isRightSwipe) {
+            scrollSection(ref, 'left');
+        }
     };
 
   const getScrollIndicators = (ref: React.RefObject<HTMLDivElement>, itemCount: number) => {
@@ -543,6 +574,9 @@ const Index = () => {
                                 <div 
                                     ref={featuredForYouRef} 
                                     onScroll={handleScroll('featuredForYou')}
+                                    onTouchStart={onTouchStart}
+                                    onTouchMove={onTouchMove}
+                                    onTouchEnd={() => onTouchEnd(featuredForYouRef)}
                                     className="flex gap-2 md:gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none"
                                 >
                                 {loading || listings.length === 0 ? (
@@ -639,6 +673,9 @@ const Index = () => {
                             <div 
                                 ref={featuredEventsRef} 
                                 onScroll={handleScroll('featuredEvents')}
+                                onTouchStart={onTouchStart}
+                                onTouchMove={onTouchMove}
+                                onTouchEnd={() => onTouchEnd(featuredEventsRef)}
                                 className="flex gap-2 md:gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none"
                             >
                             {loadingScrollable ? (
@@ -729,6 +766,9 @@ const Index = () => {
                             <div 
                                 ref={featuredCampsitesRef} 
                                 onScroll={handleScroll('featuredCampsites')}
+                                onTouchStart={onTouchStart}
+                                onTouchMove={onTouchMove}
+                                onTouchEnd={() => onTouchEnd(featuredCampsitesRef)}
                                 className="flex gap-2 md:gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none"
                             >
                             {loadingScrollable ? (
@@ -817,6 +857,9 @@ const Index = () => {
                             <div 
                                 ref={featuredHotelsRef} 
                                 onScroll={handleScroll('featuredHotels')}
+                                onTouchStart={onTouchStart}
+                                onTouchMove={onTouchMove}
+                                onTouchEnd={() => onTouchEnd(featuredHotelsRef)}
                                 className="flex gap-2 md:gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none"
                             >
                             {loadingScrollable ? (
@@ -905,6 +948,9 @@ const Index = () => {
                             <div 
                                 ref={featuredAttractionsRef} 
                                 onScroll={handleScroll('featuredAttractions')}
+                                onTouchStart={onTouchStart}
+                                onTouchMove={onTouchMove}
+                                onTouchEnd={() => onTouchEnd(featuredAttractionsRef)}
                                 className="flex gap-2 md:gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none"
                             >
                             {loadingScrollable ? (
@@ -995,6 +1041,9 @@ const Index = () => {
                             <div 
                                 ref={featuredTripsRef} 
                                 onScroll={handleScroll('featuredTrips')}
+                                onTouchStart={onTouchStart}
+                                onTouchMove={onTouchMove}
+                                onTouchEnd={() => onTouchEnd(featuredTripsRef)}
                                 className="flex gap-2 md:gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none"
                             >
                             {loadingScrollable ? (
@@ -1117,6 +1166,9 @@ const Index = () => {
                             <div 
                                 ref={vlogsRef} 
                                 onScroll={handleScroll('vlogs')}
+                                onTouchStart={onTouchStart}
+                                onTouchMove={onTouchMove}
+                                onTouchEnd={() => onTouchEnd(vlogsRef)}
                                 className="flex gap-2 md:gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none"
                             >
                             {[

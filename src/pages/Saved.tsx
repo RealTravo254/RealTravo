@@ -20,9 +20,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useSavedItems } from "@/hooks/useSavedItems";
 
 const Saved = () => {
   const [savedListings, setSavedListings] = useState<any[]>([]);
+  const { savedItems } = useSavedItems();
   const [userId, setUserId] = useState<string | null>(null);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -48,6 +50,13 @@ const Saved = () => {
     };
     initializeData();
   }, []);
+
+  // Refetch when savedItems changes (realtime updates)
+  useEffect(() => {
+    if (userId) {
+      fetchSavedItems(userId);
+    }
+  }, [savedItems, userId]);
 
   const fetchSavedItems = async (uid: string) => {
     setIsLoading(true);

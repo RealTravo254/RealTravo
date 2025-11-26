@@ -11,13 +11,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { getUserId } from "@/lib/sessionManager";
 import { cn } from "@/lib/utils";
+import { useSavedItems } from "@/hooks/useSavedItems";
 
 const CategoryDetail = () => {
   const { category } = useParams<{ category: string }>();
   const [searchQuery, setSearchQuery] = useState("");
   const [items, setItems] = useState<any[]>([]);
   const [filteredItems, setFilteredItems] = useState<any[]>([]);
-  const [savedItems, setSavedItems] = useState<Set<string>>(new Set());
+  const { savedItems } = useSavedItems();
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [bookingStats, setBookingStats] = useState<Map<string, number>>(new Map());
@@ -71,9 +72,6 @@ const CategoryDetail = () => {
       const uid = await getUserId();
       setUserId(uid);
       fetchData();
-      if (uid) {
-        fetchSavedItems(uid);
-      }
     };
     initializeData();
   }, [category]);
@@ -185,17 +183,6 @@ const CategoryDetail = () => {
     setLoading(false);
   };
 
-  const fetchSavedItems = async (uid: string) => {
-    const { data } = await supabase
-      .from("saved_items")
-      .select("item_id")
-      .eq("user_id", uid);
-    
-    if (data) {
-      setSavedItems(new Set(data.map(item => item.item_id)));
-    }
-  };
-
   const handleSearch = () => {
     if (!searchQuery.trim()) {
       setFilteredItems(items);
@@ -229,11 +216,6 @@ const CategoryDetail = () => {
         .eq("item_id", itemId)
         .eq("user_id", userId);
       
-      setSavedItems(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(itemId);
-        return newSet;
-      });
       toast({ title: "Removed from saved" });
     } else {
       // Check if item already exists to prevent duplicates
@@ -255,7 +237,6 @@ const CategoryDetail = () => {
           }]);
       }
       
-      setSavedItems(prev => new Set([...prev, itemId]));
       toast({ title: "Added to saved!" });
     }
   };

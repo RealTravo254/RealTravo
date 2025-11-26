@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { getUserId } from "@/lib/sessionManager";
 import { useGeolocation, calculateDistance } from "@/hooks/useGeolocation";
 import { ListingSkeleton } from "@/components/ui/listing-skeleton";
+import { useSavedItems } from "@/hooks/useSavedItems";
 
 
 
@@ -21,7 +22,7 @@ const Index = () => {
     const navigate = useNavigate();
     const [searchQuery, setSearchQuery] = useState("");
     const [listings, setListings] = useState<any[]>([]);
-    const [savedItems, setSavedItems] = useState<Set<string>>(new Set());
+    const { savedItems } = useSavedItems();
     const [loading, setLoading] = useState(true);
     const [userId, setUserId] = useState<string | null>(null);
     const { toast } = useToast();
@@ -229,10 +230,6 @@ const Index = () => {
         const initUserId = async () => {
             const id = await getUserId();
             setUserId(id);
-            if (id) {
-                const { data } = await supabase.from("saved_items").select("item_id").eq("user_id", id);
-                if (data) setSavedItems(new Set(data.map(item => item.item_id)));
-            }
         };
         initUserId();
     }, []);
@@ -275,7 +272,6 @@ const Index = () => {
         const isSaved = savedItems.has(itemId);
         if (isSaved) {
             await supabase.from("saved_items").delete().eq("item_id", itemId).eq("user_id", userId);
-            setSavedItems(prev => { const newSet = new Set(prev); newSet.delete(itemId); return newSet; });
         } else {
             // Check if item already exists in database
             const { data: existing } = await supabase
@@ -288,7 +284,6 @@ const Index = () => {
             if (!existing) {
                 await supabase.from("saved_items").insert([{ user_id: userId, item_id: itemId, item_type: itemType }]);
             }
-            setSavedItems(prev => new Set([...prev, itemId]));
         }
     };
 

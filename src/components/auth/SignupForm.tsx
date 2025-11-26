@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Sparkles } from "lucide-react";
 import { PasswordStrength } from "@/components/ui/password-strength";
+import { generateStrongPassword } from "@/lib/passwordUtils";
 
 type FormErrors = {
   email?: string;
@@ -127,6 +128,18 @@ export const SignupForm = () => {
     }
   };
 
+  const handleGeneratePassword = () => {
+    const newPassword = generateStrongPassword();
+    setPassword(newPassword);
+    setConfirmPassword(newPassword);
+    setShowPassword(true);
+    setShowConfirmPassword(true);
+    toast({
+      title: "Password generated!",
+      description: "A strong password has been created for you.",
+    });
+  };
+
   const handleGoogleSignup = async () => {
     const redirectUrl = `${window.location.origin}/`;
     const { error } = await supabase.auth.signInWithOAuth({
@@ -192,7 +205,19 @@ export const SignupForm = () => {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="password">Password</Label>
+        <div className="flex justify-between items-center">
+          <Label htmlFor="password">Password</Label>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={handleGeneratePassword}
+            className="h-auto py-1 px-2 text-xs"
+          >
+            <Sparkles className="h-3 w-3 mr-1" />
+            Generate
+          </Button>
+        </div>
         <div className="relative">
           <Input
             id="password"

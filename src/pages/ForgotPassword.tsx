@@ -8,8 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff, Mail, Lock, Clock } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, Clock, Sparkles } from "lucide-react";
 import { PasswordStrength } from "@/components/ui/password-strength";
+import { generateStrongPassword } from "@/lib/passwordUtils";
 
 const ForgotPassword = () => {
   const [step, setStep] = useState<'email' | 'verify'>('email');
@@ -136,6 +137,18 @@ const ForgotPassword = () => {
     }
   };
 
+  const handleGeneratePassword = () => {
+    const newPassword = generateStrongPassword();
+    setNewPassword(newPassword);
+    setConfirmPassword(newPassword);
+    setShowPassword(true);
+    setShowConfirmPassword(true);
+    toast({
+      title: "Password generated!",
+      description: "A strong password has been created for you.",
+    });
+  };
+
   const handleResendCode = async () => {
     setLoading(true);
     try {
@@ -237,7 +250,19 @@ const ForgotPassword = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="newPassword">New Password</Label>
+                  <div className="flex justify-between items-center">
+                    <Label htmlFor="newPassword">New Password</Label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleGeneratePassword}
+                      className="h-auto py-1 px-2 text-xs"
+                    >
+                      <Sparkles className="h-3 w-3 mr-1" />
+                      Generate
+                    </Button>
+                  </div>
                   <div className="relative">
                     <Input
                       id="newPassword"

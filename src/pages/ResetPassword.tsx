@@ -8,8 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Sparkles } from "lucide-react";
 import { PasswordStrength } from "@/components/ui/password-strength";
+import { generateStrongPassword } from "@/lib/passwordUtils";
 
 const ResetPassword = () => {
   const [searchParams] = useSearchParams();
@@ -39,6 +40,18 @@ const ResetPassword = () => {
       return { valid: false, message: "Password must contain at least one special character" };
     }
     return { valid: true };
+  };
+
+  const handleGeneratePassword = () => {
+    const newPassword = generateStrongPassword();
+    setPassword(newPassword);
+    setConfirmPassword(newPassword);
+    setShowPassword(true);
+    setShowConfirmPassword(true);
+    toast({
+      title: "Password generated!",
+      description: "A strong password has been created for you.",
+    });
   };
 
   const handleResetPassword = async (e: React.FormEvent) => {
@@ -93,7 +106,19 @@ const ResetPassword = () => {
           
           <form onSubmit={handleResetPassword} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="password">New Password</Label>
+              <div className="flex justify-between items-center">
+                <Label htmlFor="password">New Password</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleGeneratePassword}
+                  className="h-auto py-1 px-2 text-xs"
+                >
+                  <Sparkles className="h-3 w-3 mr-1" />
+                  Generate
+                </Button>
+              </div>
               <div className="relative">
                 <Input
                   id="password"

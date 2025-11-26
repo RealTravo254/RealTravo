@@ -47,6 +47,17 @@ const Index = () => {
     const featuredTripsRef = useRef<HTMLDivElement>(null);
     const vlogsRef = useRef<HTMLDivElement>(null);
 
+    // Scroll position tracking
+    const [scrollPositions, setScrollPositions] = useState<Record<string, number>>({
+        featuredForYou: 0,
+        featuredEvents: 0,
+        featuredCampsites: 0,
+        featuredHotels: 0,
+        featuredAttractions: 0,
+        featuredTrips: 0,
+        vlogs: 0
+    });
+
     const scrollSection = (ref: React.RefObject<HTMLDivElement>, direction: 'left' | 'right') => {
         if (ref.current) {
             const scrollAmount = 300;
@@ -55,6 +66,26 @@ const Index = () => {
                 : ref.current.scrollLeft + scrollAmount;
             ref.current.scrollTo({ left: newScrollLeft, behavior: 'smooth' });
         }
+    };
+
+    const handleScroll = (sectionName: string) => (e: React.UIEvent<HTMLDivElement>) => {
+        const target = e.target as HTMLDivElement;
+        setScrollPositions(prev => ({
+            ...prev,
+            [sectionName]: target.scrollLeft
+        }));
+    };
+
+    const getScrollIndicators = (ref: React.RefObject<HTMLDivElement>, itemCount: number) => {
+        if (!ref.current || itemCount === 0) return { total: 0, current: 0 };
+        
+        const container = ref.current;
+        const itemWidth = container.scrollWidth / itemCount;
+        const visibleItems = Math.floor(container.clientWidth / itemWidth);
+        const totalDots = Math.ceil(itemCount / visibleItems);
+        const currentDot = Math.floor(container.scrollLeft / (itemWidth * visibleItems));
+        
+        return { total: totalDots, current: currentDot };
     };
 
     const fetchScrollableRows = async () => {
@@ -426,26 +457,6 @@ const Index = () => {
                             <h2 className="text-xs md:text-2xl font-bold whitespace-nowrap overflow-hidden text-ellipsis">
                                 {searchQuery ? 'Search Results' : (position ? 'Featured For You' : 'Latest')}
                             </h2>
-                            {!searchQuery && (
-                                <div className="flex gap-2">
-                                    <Button
-                                        variant="outline"
-                                        size="icon"
-                                        onClick={() => scrollSection(featuredForYouRef, 'left')}
-                                        className="h-8 w-8"
-                                    >
-                                        <ChevronLeft className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                        variant="outline"
-                                        size="icon"
-                                        onClick={() => scrollSection(featuredForYouRef, 'right')}
-                                        className="h-8 w-8"
-                                    >
-                                        <ChevronRight className="h-4 w-4" />
-                                    </Button>
-                                </div>
-                            )}
                             {searchQuery && listings.length > 0 && (
                                 <div className="flex gap-2">
                                     <Button
@@ -510,7 +521,32 @@ const Index = () => {
                             </div>
                         ) : (
                             // Horizontal scroll view for latest items (when not searching)
-                            <div ref={featuredForYouRef} className="flex gap-2 md:gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none">
+                            <div className="relative">
+                                {!searchQuery && listings.length > 0 && (
+                                    <>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() => scrollSection(featuredForYouRef, 'left')}
+                                            className="absolute left-2 top-1/2 -translate-y-1/2 z-10 h-10 w-10 rounded-full bg-black/50 hover:bg-black/70 text-white"
+                                        >
+                                            <ChevronLeft className="h-6 w-6" />
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() => scrollSection(featuredForYouRef, 'right')}
+                                            className="absolute right-2 top-1/2 -translate-y-1/2 z-10 h-10 w-10 rounded-full bg-black/50 hover:bg-black/70 text-white"
+                                        >
+                                            <ChevronRight className="h-6 w-6" />
+                                        </Button>
+                                    </>
+                                )}
+                                <div 
+                                    ref={featuredForYouRef} 
+                                    onScroll={handleScroll('featuredForYou')}
+                                    className="flex gap-2 md:gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none"
+                                >
                                 {loading || listings.length === 0 ? (
                                     [...Array(10)].map((_, i) => (
                                         <div key={i} className="flex-shrink-0 w-[85vw] md:w-64 rounded-lg overflow-hidden shadow-md snap-center md:snap-align-none">
@@ -545,7 +581,25 @@ const Index = () => {
                                              />
                                          </div>
                                      ))
-                                )}
+                                 )}
+                                </div>
+                                {!searchQuery && listings.length > 0 && (() => {
+                                    const indicators = getScrollIndicators(featuredForYouRef, listings.length);
+                                    return indicators.total > 1 && (
+                                        <div className="flex justify-center gap-2 mt-2">
+                                            {Array.from({ length: indicators.total }).map((_, idx) => (
+                                                <div
+                                                    key={idx}
+                                                    className={`h-2 rounded-full transition-all ${
+                                                        idx === indicators.current 
+                                                            ? 'w-8 bg-primary' 
+                                                            : 'w-2 bg-muted-foreground/30'
+                                                    }`}
+                                                />
+                                            ))}
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         )}
                     </section>
@@ -559,29 +613,36 @@ const Index = () => {
                             <h2 className="text-xs md:text-2xl font-bold whitespace-nowrap overflow-hidden text-ellipsis">
                                 Featured Events
                             </h2>
-                            <div className="flex gap-2 items-center">
-                                <Button
-                                    variant="outline"
-                                    size="icon"
-                                    onClick={() => scrollSection(featuredEventsRef, 'left')}
-                                    className="h-8 w-8"
-                                >
-                                    <ChevronLeft className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    size="icon"
-                                    onClick={() => scrollSection(featuredEventsRef, 'right')}
-                                    className="h-8 w-8"
-                                >
-                                    <ChevronRight className="h-4 w-4" />
-                                </Button>
-                                <Link to="/category/events" className="text-primary text-3xs md:text-sm hover:underline">
-                                    View All
-                                </Link>
-                            </div>
+                            <Link to="/category/events" className="text-primary text-3xs md:text-sm hover:underline">
+                                View All
+                            </Link>
                         </div>
-                        <div ref={featuredEventsRef} className="flex gap-2 md:gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none">
+                        <div className="relative">
+                            {scrollableRows.events.length > 0 && (
+                                <>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => scrollSection(featuredEventsRef, 'left')}
+                                        className="absolute left-2 top-1/2 -translate-y-1/2 z-10 h-10 w-10 rounded-full bg-black/50 hover:bg-black/70 text-white"
+                                    >
+                                        <ChevronLeft className="h-6 w-6" />
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => scrollSection(featuredEventsRef, 'right')}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 z-10 h-10 w-10 rounded-full bg-black/50 hover:bg-black/70 text-white"
+                                    >
+                                        <ChevronRight className="h-6 w-6" />
+                                    </Button>
+                                </>
+                            )}
+                            <div 
+                                ref={featuredEventsRef} 
+                                onScroll={handleScroll('featuredEvents')}
+                                className="flex gap-2 md:gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none"
+                            >
                             {loadingScrollable ? (
                                 <div className="flex gap-2 md:gap-4">
                                     {[...Array(5)].map((_, i) => (
@@ -613,6 +674,24 @@ const Index = () => {
                                     </div>
                                 ))
                             )}
+                            </div>
+                            {scrollableRows.events.length > 0 && (() => {
+                                const indicators = getScrollIndicators(featuredEventsRef, scrollableRows.events.length);
+                                return indicators.total > 1 && (
+                                    <div className="flex justify-center gap-2 mt-2">
+                                        {Array.from({ length: indicators.total }).map((_, idx) => (
+                                            <div
+                                                key={idx}
+                                                className={`h-2 rounded-full transition-all ${
+                                                    idx === indicators.current 
+                                                        ? 'w-8 bg-primary' 
+                                                        : 'w-2 bg-muted-foreground/30'
+                                                }`}
+                                            />
+                                        ))}
+                                    </div>
+                                );
+                            })()}
                         </div>
                     </section>
 
@@ -624,29 +703,36 @@ const Index = () => {
                             <h2 className="text-xs md:text-2xl font-bold whitespace-nowrap overflow-hidden text-ellipsis">
                                 Featured Campsite & Experience
                             </h2>
-                            <div className="flex gap-2 items-center">
-                                <Button
-                                    variant="outline"
-                                    size="icon"
-                                    onClick={() => scrollSection(featuredCampsitesRef, 'left')}
-                                    className="h-8 w-8"
-                                >
-                                    <ChevronLeft className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    size="icon"
-                                    onClick={() => scrollSection(featuredCampsitesRef, 'right')}
-                                    className="h-8 w-8"
-                                >
-                                    <ChevronRight className="h-4 w-4" />
-                                </Button>
-                                <Link to="/category/campsite" className="text-primary text-3xs md:text-sm hover:underline">
-                                    View All
-                                </Link>
-                            </div>
+                            <Link to="/category/campsite" className="text-primary text-3xs md:text-sm hover:underline">
+                                View All
+                            </Link>
                         </div>
-                        <div ref={featuredCampsitesRef} className="flex gap-2 md:gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none">
+                        <div className="relative">
+                            {scrollableRows.campsites.length > 0 && (
+                                <>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => scrollSection(featuredCampsitesRef, 'left')}
+                                        className="absolute left-2 top-1/2 -translate-y-1/2 z-10 h-10 w-10 rounded-full bg-black/50 hover:bg-black/70 text-white"
+                                    >
+                                        <ChevronLeft className="h-6 w-6" />
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => scrollSection(featuredCampsitesRef, 'right')}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 z-10 h-10 w-10 rounded-full bg-black/50 hover:bg-black/70 text-white"
+                                    >
+                                        <ChevronRight className="h-6 w-6" />
+                                    </Button>
+                                </>
+                            )}
+                            <div 
+                                ref={featuredCampsitesRef} 
+                                onScroll={handleScroll('featuredCampsites')}
+                                className="flex gap-2 md:gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none"
+                            >
                             {loadingScrollable ? (
                                 <div className="flex gap-2 md:gap-4">
                                     {[...Array(5)].map((_, i) => (
@@ -676,8 +762,26 @@ const Index = () => {
                                             priority={index === 0}
                                         />
                                     </div>
-                ))
+                 ))
             )}
+                            </div>
+                            {scrollableRows.campsites.length > 0 && (() => {
+                                const indicators = getScrollIndicators(featuredCampsitesRef, scrollableRows.campsites.length);
+                                return indicators.total > 1 && (
+                                    <div className="flex justify-center gap-2 mt-2">
+                                        {Array.from({ length: indicators.total }).map((_, idx) => (
+                                            <div
+                                                key={idx}
+                                                className={`h-2 rounded-full transition-all ${
+                                                    idx === indicators.current 
+                                                        ? 'w-8 bg-primary' 
+                                                        : 'w-2 bg-muted-foreground/30'
+                                                }`}
+                                            />
+                                        ))}
+                                    </div>
+                                );
+                            })()}
                         </div>
                     </section>
 
@@ -687,29 +791,36 @@ const Index = () => {
                             <h2 className="text-xs md:text-2xl font-bold whitespace-nowrap overflow-hidden text-ellipsis">
                                 Featured Hotels
                             </h2>
-                            <div className="flex gap-2 items-center">
-                                <Button
-                                    variant="outline"
-                                    size="icon"
-                                    onClick={() => scrollSection(featuredHotelsRef, 'left')}
-                                    className="h-8 w-8"
-                                >
-                                    <ChevronLeft className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    size="icon"
-                                    onClick={() => scrollSection(featuredHotelsRef, 'right')}
-                                    className="h-8 w-8"
-                                >
-                                    <ChevronRight className="h-4 w-4" />
-                                </Button>
-                                <Link to="/category/hotels" className="text-primary text-3xs md:text-sm hover:underline">
-                                    View All
-                                </Link>
-                            </div>
+                            <Link to="/category/hotels" className="text-primary text-3xs md:text-sm hover:underline">
+                                View All
+                            </Link>
                         </div>
-                        <div ref={featuredHotelsRef} className="flex gap-2 md:gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none">
+                        <div className="relative">
+                            {scrollableRows.hotels.length > 0 && (
+                                <>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => scrollSection(featuredHotelsRef, 'left')}
+                                        className="absolute left-2 top-1/2 -translate-y-1/2 z-10 h-10 w-10 rounded-full bg-black/50 hover:bg-black/70 text-white"
+                                    >
+                                        <ChevronLeft className="h-6 w-6" />
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => scrollSection(featuredHotelsRef, 'right')}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 z-10 h-10 w-10 rounded-full bg-black/50 hover:bg-black/70 text-white"
+                                    >
+                                        <ChevronRight className="h-6 w-6" />
+                                    </Button>
+                                </>
+                            )}
+                            <div 
+                                ref={featuredHotelsRef} 
+                                onScroll={handleScroll('featuredHotels')}
+                                className="flex gap-2 md:gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none"
+                            >
                             {loadingScrollable ? (
                                 <div className="flex gap-2 md:gap-4">
                                     {[...Array(5)].map((_, i) => (
@@ -739,8 +850,26 @@ const Index = () => {
                                             priority={index === 0}
                                         />
                                     </div>
-                ))
+                 ))
                             )}
+                            </div>
+                            {scrollableRows.hotels.length > 0 && (() => {
+                                const indicators = getScrollIndicators(featuredHotelsRef, scrollableRows.hotels.length);
+                                return indicators.total > 1 && (
+                                    <div className="flex justify-center gap-2 mt-2">
+                                        {Array.from({ length: indicators.total }).map((_, idx) => (
+                                            <div
+                                                key={idx}
+                                                className={`h-2 rounded-full transition-all ${
+                                                    idx === indicators.current 
+                                                        ? 'w-8 bg-primary' 
+                                                        : 'w-2 bg-muted-foreground/30'
+                                                }`}
+                                            />
+                                        ))}
+                                    </div>
+                                );
+                            })()}
                         </div>
                     </section>
 
@@ -750,29 +879,36 @@ const Index = () => {
                             <h2 className="text-xs md:text-2xl font-bold whitespace-nowrap overflow-hidden text-ellipsis">
                                 Featured Attractions
                             </h2>
-                            <div className="flex gap-2 items-center">
-                                <Button
-                                    variant="outline"
-                                    size="icon"
-                                    onClick={() => scrollSection(featuredAttractionsRef, 'left')}
-                                    className="h-8 w-8"
-                                >
-                                    <ChevronLeft className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    size="icon"
-                                    onClick={() => scrollSection(featuredAttractionsRef, 'right')}
-                                    className="h-8 w-8"
-                                >
-                                    <ChevronRight className="h-4 w-4" />
-                                </Button>
-                                <Link to="/category/adventure" className="text-primary text-3xs md:text-sm hover:underline">
-                                    View All
-                                </Link>
-                            </div>
+                            <Link to="/category/adventure" className="text-primary text-3xs md:text-sm hover:underline">
+                                View All
+                            </Link>
                         </div>
-                        <div ref={featuredAttractionsRef} className="flex gap-2 md:gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none">
+                        <div className="relative">
+                            {scrollableRows.attractions.length > 0 && (
+                                <>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => scrollSection(featuredAttractionsRef, 'left')}
+                                        className="absolute left-2 top-1/2 -translate-y-1/2 z-10 h-10 w-10 rounded-full bg-black/50 hover:bg-black/70 text-white"
+                                    >
+                                        <ChevronLeft className="h-6 w-6" />
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => scrollSection(featuredAttractionsRef, 'right')}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 z-10 h-10 w-10 rounded-full bg-black/50 hover:bg-black/70 text-white"
+                                    >
+                                        <ChevronRight className="h-6 w-6" />
+                                    </Button>
+                                </>
+                            )}
+                            <div 
+                                ref={featuredAttractionsRef} 
+                                onScroll={handleScroll('featuredAttractions')}
+                                className="flex gap-2 md:gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none"
+                            >
                             {loadingScrollable ? (
                                 <div className="flex gap-2 md:gap-4">
                                     {[...Array(5)].map((_, i) => (
@@ -802,8 +938,26 @@ const Index = () => {
                                             priority={index === 0}
                                         />
                                     </div>
-                ))
+                 ))
                             )}
+                            </div>
+                            {scrollableRows.attractions.length > 0 && (() => {
+                                const indicators = getScrollIndicators(featuredAttractionsRef, scrollableRows.attractions.length);
+                                return indicators.total > 1 && (
+                                    <div className="flex justify-center gap-2 mt-2">
+                                        {Array.from({ length: indicators.total }).map((_, idx) => (
+                                            <div
+                                                key={idx}
+                                                className={`h-2 rounded-full transition-all ${
+                                                    idx === indicators.current 
+                                                        ? 'w-8 bg-primary' 
+                                                        : 'w-2 bg-muted-foreground/30'
+                                                }`}
+                                            />
+                                        ))}
+                                    </div>
+                                );
+                            })()}
                         </div>
                     </section>
 
@@ -815,29 +969,36 @@ const Index = () => {
                             <h2 className="text-xs md:text-2xl font-bold whitespace-nowrap overflow-hidden text-ellipsis">
                                 Featured Trips
                             </h2>
-                            <div className="flex gap-2 items-center">
-                                <Button
-                                    variant="outline"
-                                    size="icon"
-                                    onClick={() => scrollSection(featuredTripsRef, 'left')}
-                                    className="h-8 w-8"
-                                >
-                                    <ChevronLeft className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    size="icon"
-                                    onClick={() => scrollSection(featuredTripsRef, 'right')}
-                                    className="h-8 w-8"
-                                >
-                                    <ChevronRight className="h-4 w-4" />
-                                </Button>
-                                <Link to="/category/trips" className="text-primary text-3xs md:text-sm hover:underline">
-                                    View All
-                                </Link>
-                            </div>
+                            <Link to="/category/trips" className="text-primary text-3xs md:text-sm hover:underline">
+                                View All
+                            </Link>
                         </div>
-                        <div ref={featuredTripsRef} className="flex gap-2 md:gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none">
+                        <div className="relative">
+                            {scrollableRows.trips.length > 0 && (
+                                <>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => scrollSection(featuredTripsRef, 'left')}
+                                        className="absolute left-2 top-1/2 -translate-y-1/2 z-10 h-10 w-10 rounded-full bg-black/50 hover:bg-black/70 text-white"
+                                    >
+                                        <ChevronLeft className="h-6 w-6" />
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => scrollSection(featuredTripsRef, 'right')}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 z-10 h-10 w-10 rounded-full bg-black/50 hover:bg-black/70 text-white"
+                                    >
+                                        <ChevronRight className="h-6 w-6" />
+                                    </Button>
+                                </>
+                            )}
+                            <div 
+                                ref={featuredTripsRef} 
+                                onScroll={handleScroll('featuredTrips')}
+                                className="flex gap-2 md:gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none"
+                            >
                             {loadingScrollable ? (
                                 <div className="flex gap-2 md:gap-4">
                                     {[...Array(5)].map((_, i) => (
@@ -872,6 +1033,24 @@ const Index = () => {
                                     </div>
                                 )})
                             )}
+                            </div>
+                            {scrollableRows.trips.length > 0 && (() => {
+                                const indicators = getScrollIndicators(featuredTripsRef, scrollableRows.trips.length);
+                                return indicators.total > 1 && (
+                                    <div className="flex justify-center gap-2 mt-2">
+                                        {Array.from({ length: indicators.total }).map((_, idx) => (
+                                            <div
+                                                key={idx}
+                                                className={`h-2 rounded-full transition-all ${
+                                                    idx === indicators.current 
+                                                        ? 'w-8 bg-primary' 
+                                                        : 'w-2 bg-muted-foreground/30'
+                                                }`}
+                                            />
+                                        ))}
+                                    </div>
+                                );
+                            })()}
                         </div>
                     </section>
 
@@ -916,29 +1095,32 @@ const Index = () => {
                             <h2 className="text-sm md:text-2xl font-bold whitespace-nowrap overflow-hidden text-ellipsis">
                                 Travel Vlogs
                             </h2>
-                            <div className="flex gap-2 items-center">
-                                <Button
-                                    variant="outline"
-                                    size="icon"
-                                    onClick={() => scrollSection(vlogsRef, 'left')}
-                                    className="h-8 w-8"
-                                >
-                                    <ChevronLeft className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    size="icon"
-                                    onClick={() => scrollSection(vlogsRef, 'right')}
-                                    className="h-8 w-8"
-                                >
-                                    <ChevronRight className="h-4 w-4" />
-                                </Button>
-                                <Link to="/vlog" className="text-primary text-3xs md:text-sm hover:underline">
-                                    View All
-                                </Link>
-                            </div>
+                            <Link to="/vlog" className="text-primary text-3xs md:text-sm hover:underline">
+                                View All
+                            </Link>
                         </div>
-                        <div ref={vlogsRef} className="flex gap-2 md:gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none">
+                        <div className="relative">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => scrollSection(vlogsRef, 'left')}
+                                className="absolute left-2 top-1/2 -translate-y-1/2 z-10 h-10 w-10 rounded-full bg-black/50 hover:bg-black/70 text-white"
+                            >
+                                <ChevronLeft className="h-6 w-6" />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => scrollSection(vlogsRef, 'right')}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 z-10 h-10 w-10 rounded-full bg-black/50 hover:bg-black/70 text-white"
+                            >
+                                <ChevronRight className="h-6 w-6" />
+                            </Button>
+                            <div 
+                                ref={vlogsRef} 
+                                onScroll={handleScroll('vlogs')}
+                                className="flex gap-2 md:gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none"
+                            >
                             {[
                                 {
                                     id: "1",
@@ -985,6 +1167,17 @@ const Index = () => {
                                     </Card>
                                 </div>
                             ))}
+                            </div>
+                            <div className="flex justify-center gap-2 mt-2">
+                                {Array.from({ length: 2 }).map((_, idx) => (
+                                    <div
+                                        key={idx}
+                                        className={`h-2 rounded-full transition-all ${
+                                            idx === 0 ? 'w-8 bg-primary' : 'w-2 bg-muted-foreground/30'
+                                        }`}
+                                    />
+                                ))}
+                            </div>
                         </div>
                     </section>
                 </div>

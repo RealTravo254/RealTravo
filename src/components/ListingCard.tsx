@@ -117,7 +117,7 @@ export const ListingCard = ({
             size="icon"
             onClick={handleSaveClick}
             className={cn(
-              "absolute top-2 right-2 z-10 h-8 w-8 rounded-full backdrop-blur",
+              "absolute top-2 right-2 z-20 h-10 w-10 md:h-8 md:w-8 rounded-full backdrop-blur touch-manipulation active:scale-95 transition-transform",
               isSaved 
                 ? "bg-red-500 text-white hover:bg-red-600" 
                 : "bg-background/80 hover:bg-background/90"
@@ -125,7 +125,7 @@ export const ListingCard = ({
           >
             <Heart
               className={cn(
-                "h-4 w-4",
+                "h-5 w-5 md:h-4 md:w-4",
                 isSaved ? "fill-current" : ""
               )}
             />

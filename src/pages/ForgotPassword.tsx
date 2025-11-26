@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff, Mail, Lock, Clock } from "lucide-react";
+import { PasswordStrength } from "@/components/ui/password-strength";
 
 const ForgotPassword = () => {
   const [step, setStep] = useState<'email' | 'verify'>('email');
@@ -253,6 +254,7 @@ const ForgotPassword = () => {
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
+                  <PasswordStrength password={newPassword} />
                 </div>
 
                 <div className="space-y-2">

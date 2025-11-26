@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Eye, EyeOff } from "lucide-react";
+import { PasswordStrength } from "@/components/ui/password-strength";
 
 type FormErrors = {
   email?: string;
@@ -209,6 +210,7 @@ export const SignupForm = () => {
             {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
         </div>
+        <PasswordStrength password={password} />
         {errors.password && (
           <p className="text-sm text-destructive">{errors.password}</p>
         )}

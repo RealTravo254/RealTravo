@@ -175,6 +175,27 @@ export default function AttractionDetail() {
     setBookingLoading(true);
 
     try {
+      // Initiate M-Pesa STK Push if M-Pesa is selected
+      if (bookingData.payment_method === "mpesa" && bookingData.payment_phone) {
+        const { data: mpesaResponse, error: mpesaError } = await supabase.functions.invoke("mpesa-stk-push", {
+          body: {
+            phoneNumber: bookingData.payment_phone,
+            amount: calculateTotal(),
+            accountReference: `ATTRACTION-${id}`,
+            transactionDesc: `Booking for ${attraction?.local_name || 'attraction'}`,
+          },
+        });
+
+        if (mpesaError || !mpesaResponse?.success) {
+          throw new Error(mpesaResponse?.error || "M-Pesa payment failed");
+        }
+
+        toast({
+          title: "Payment initiated",
+          description: "Please check your phone to complete the payment",
+        });
+      }
+
       const { error } = await supabase.from('bookings').insert([{
         user_id: user?.id || null,
         item_id: id,

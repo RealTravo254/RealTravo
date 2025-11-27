@@ -11,8 +11,10 @@ Deno.serve(async (req) => {
   }
 
   try {
+    console.log('M-Pesa Callback endpoint hit - raw body incoming');
     const callbackData = await req.json();
     console.log('M-Pesa Callback received:', JSON.stringify(callbackData, null, 2));
+    console.log('Request headers:', JSON.stringify(Object.fromEntries(req.headers.entries())));
 
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',

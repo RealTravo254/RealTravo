@@ -277,12 +277,38 @@ export default function AttractionDetail() {
 
           if (attempts >= maxAttempts) {
             clearInterval(pollInterval);
-            setIsProcessingPayment(false);
             
-            toast({
-              title: "Payment timeout",
-              description: "Check payment history for status",
-            });
+            // Query M-Pesa directly for payment status
+            console.log('Polling timeout - querying M-Pesa directly');
+            
+            try {
+              const { data: queryResponse } = await supabase.functions.invoke('mpesa-stk-query', {
+                body: { checkoutRequestId },
+              });
+              
+              if (queryResponse?.resultCode === '0') {
+                setIsProcessingPayment(false);
+                setIsPaymentCompleted(true);
+                toast({
+                  title: "Payment successful!",
+                  description: "Your booking has been confirmed",
+                });
+              } else {
+                setIsProcessingPayment(false);
+                toast({
+                  title: "Payment verification failed",
+                  description: queryResponse?.resultDesc || "Please check payment history",
+                  variant: "destructive",
+                });
+              }
+            } catch (queryError) {
+              console.error('Error querying payment status:', queryError);
+              setIsProcessingPayment(false);
+              toast({
+                title: "Unable to verify payment",
+                description: "Please check payment history",
+              });
+            }
           }
         }, 3000); // Check every 3 seconds
 

@@ -343,7 +343,41 @@ const TripDetail = () => {
         }
 
         if (!paymentConfirmed) {
-          throw new Error('Payment confirmation timeout');
+          // Query M-Pesa directly for payment status
+          console.log('Polling timeout - querying M-Pesa directly');
+          try {
+            const { data: queryResponse } = await supabase.functions.invoke('mpesa-stk-query', {
+              body: { checkoutRequestId },
+            });
+            
+            if (queryResponse?.resultCode === '0') {
+              const { data: bookings } = await supabase
+                .from('bookings')
+                .select('id')
+                .eq('payment_phone', paymentPhone)
+                .eq('item_id', id)
+                .eq('payment_status', 'paid')
+                .order('created_at', { ascending: false })
+                .limit(1);
+
+              if (bookings && bookings.length > 0) {
+                setCompletedBookingId(bookings[0].id);
+              }
+
+              setIsProcessingPayment(false);
+              setIsPaymentCompleted(true);
+              toast({
+                title: "Payment successful!",
+                description: "Your booking has been confirmed",
+              });
+              return;
+            } else {
+              throw new Error(queryResponse?.resultDesc || 'Payment confirmation timeout');
+            }
+          } catch (queryError) {
+            console.error('Error querying payment status:', queryError);
+            throw new Error('Payment confirmation timeout - please check payment history');
+          }
         }
         return;
       }

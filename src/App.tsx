@@ -54,6 +54,7 @@ import CategoryAttractions from "./pages/host/CategoryAttractions";
 import CategoryExperiences from "./pages/host/CategoryExperiences";
 import VerificationList from "./pages/admin/VerificationList";
 import VerificationDetail from "./pages/admin/VerificationDetail";
+import PaymentHistory from "./pages/PaymentHistory";
 
 const queryClient = new QueryClient();
 
@@ -113,6 +114,7 @@ const App = () => (
               <Route path="/host/category/experiences" element={<CategoryExperiences />} />
               <Route path="/admin/verification/:status" element={<VerificationList />} />
               <Route path="/admin/verification-detail/:id" element={<VerificationDetail />} />
+              <Route path="/payment-history" element={<PaymentHistory />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </div>

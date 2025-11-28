@@ -4,6 +4,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { MobileBottomBar } from "@/components/MobileBottomBar";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
 // Import components. The `rounded-none` class is applied below where possible.
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,11 +27,20 @@ const Auth = () => {
     return <div>Loading...</div>;
   }
 
-  return (
-    <div className="min-h-screen bg-background pb-20 md:pb-0">
-      <Header />
-      
-      <main className="container px-4 py-8 max-w-md mx-auto">
+  return (
+    <div className="min-h-screen bg-background pb-20 md:pb-0">
+      <Header />
+      
+      <main className="container px-4 py-8 max-w-md mx-auto">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate(-1)}
+          className="mb-4"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back
+        </Button>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           {/* Applied 'rounded-none' to TabsList and its children */}
           <TabsList className="grid w-full grid-cols-2 rounded-none">

@@ -129,7 +129,7 @@ serve(async (req) => {
         if (!bookingError && booking) {
           console.log('Booking created:', booking.id);
 
-          // Send confirmation email
+          // Send confirmation email to guest
           try {
             const emailData = {
               bookingId: booking.id,
@@ -145,9 +145,74 @@ serve(async (req) => {
             await supabaseClient.functions.invoke('send-booking-confirmation', {
               body: emailData,
             });
-            console.log('Confirmation email sent');
+            console.log('Confirmation email sent to guest');
           } catch (emailError) {
             console.error('Error sending confirmation email:', emailError);
+          }
+
+          // Create notification for guest (if logged in)
+          if (bookingData.user_id) {
+            try {
+              await supabaseClient.from('notifications').insert({
+                user_id: bookingData.user_id,
+                type: 'booking_confirmed',
+                title: 'Booking Confirmed',
+                message: `Your booking for ${bookingData.emailData?.itemName || 'item'} has been confirmed. Payment received successfully.`,
+                data: {
+                  booking_id: booking.id,
+                  booking_type: bookingData.booking_type,
+                  item_id: bookingData.item_id,
+                },
+              });
+              console.log('Guest notification created');
+            } catch (notifError) {
+              console.error('Error creating guest notification:', notifError);
+            }
+          }
+
+          // Get host/creator ID from the item
+          let creatorId = null;
+          try {
+            const tableMap: Record<string, string> = {
+              'trip': 'trips',
+              'event': 'trips',
+              'hotel': 'hotels',
+              'adventure_place': 'adventure_places',
+              'attraction': 'attractions',
+            };
+            const tableName = tableMap[bookingData.booking_type as string];
+            
+            if (tableName) {
+              const { data: itemData } = await supabaseClient
+                .from(tableName)
+                .select('created_by, email, name')
+                .eq('id', bookingData.item_id)
+                .single();
+              
+              if (itemData) {
+                creatorId = itemData.created_by;
+                
+                // Create notification for host
+                if (creatorId) {
+                  await supabaseClient.from('notifications').insert({
+                    user_id: creatorId,
+                    type: 'new_booking',
+                    title: 'New Booking Received',
+                    message: `You have a new booking for ${itemData.name}. ${bookingData.guest_name || 'A guest'} has booked for ${bookingData.visit_date || 'upcoming date'}.`,
+                    data: {
+                      booking_id: booking.id,
+                      booking_type: bookingData.booking_type,
+                      item_id: bookingData.item_id,
+                      guest_name: bookingData.guest_name,
+                      total_amount: bookingData.total_amount,
+                    },
+                  });
+                  console.log('Host notification created');
+                }
+              }
+            }
+          } catch (hostNotifError) {
+            console.error('Error creating host notification:', hostNotifError);
           }
         }
       }

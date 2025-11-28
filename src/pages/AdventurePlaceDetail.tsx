@@ -246,6 +246,107 @@ const AdventurePlaceDetail = () => {
       return;
     }
 
+    const totalAmount = calculateTotal();
+
+    // Handle free bookings (amount = 0)
+    if (totalAmount === 0) {
+      setBookingLoading(true);
+      setIsProcessingPayment(true);
+
+      try {
+        const { data: bookingResult, error } = await supabase.from('bookings').insert([{
+          user_id: user?.id || null,
+          item_id: id,
+          booking_type: 'adventure_place',
+          visit_date: visitDate,
+          total_amount: 0,
+          booking_details: {
+            place_name: place.name,
+            adults,
+            children,
+            facilities: selectedFacilities,
+            activities: selectedActivities,
+          } as any,
+          payment_method: 'free',
+          is_guest_booking: !user,
+          guest_name: !user ? guestName : null,
+          guest_email: !user ? guestEmail : null,
+          guest_phone: !user ? guestPhone : null,
+          payment_status: 'paid',
+        }]).select();
+
+        if (error) throw error;
+
+        // Get adventure place creator for notification
+        const { data: placeData } = await supabase
+          .from('adventure_places')
+          .select('created_by')
+          .eq('id', id)
+          .single();
+
+        // Send notifications to host
+        if (placeData?.created_by) {
+          await supabase.from('notifications').insert({
+            user_id: placeData.created_by,
+            type: 'booking',
+            title: 'New Booking Received',
+            message: `You have a new free booking for ${place.name}`,
+            data: { booking_id: bookingResult[0].id, item_type: 'adventure_place' },
+          });
+        }
+
+        // Send notification to guest if logged in
+        if (user) {
+          await supabase.from('notifications').insert({
+            user_id: user.id,
+            type: 'booking',
+            title: 'Booking Confirmed',
+            message: `Your free booking for ${place.name} has been confirmed`,
+            data: { booking_id: bookingResult[0].id, item_type: 'adventure_place' },
+          });
+        }
+
+        // Send confirmation email
+        await supabase.functions.invoke('send-booking-confirmation', {
+          body: {
+            bookingId: bookingResult[0].id,
+            email: user ? user.email : guestEmail,
+            guestName: user ? user.user_metadata?.name || guestName : guestName,
+            bookingType: 'adventure_place',
+            itemName: place.name,
+            totalAmount: 0,
+            bookingDetails: {
+              adults,
+              children,
+              selectedFacilities,
+              selectedActivities,
+              phone: user ? "" : guestPhone,
+            },
+            visitDate,
+          },
+        });
+
+        setCompletedBookingId(bookingResult[0].id);
+        setIsProcessingPayment(false);
+        setIsPaymentCompleted(true);
+        toast({
+          title: "Booking confirmed!",
+          description: "Your free booking has been confirmed",
+        });
+        return;
+      } catch (error: any) {
+        console.error('Free booking error:', error);
+        toast({
+          title: "Booking failed",
+          description: error.message || "Failed to create booking",
+          variant: "destructive",
+        });
+        setIsProcessingPayment(false);
+        setBookingLoading(false);
+        return;
+      }
+    }
+
     if (!paymentMethod) {
       toast({
         title: "Payment required",
@@ -265,6 +366,7 @@ const AdventurePlaceDetail = () => {
     }
 
     setBookingLoading(true);
+    setIsProcessingPayment(true);
 
     try {
       const emailData = {
@@ -634,7 +736,18 @@ const AdventurePlaceDetail = () => {
               
               <Button 
                 className="w-full mt-4 text-xs md:text-sm" 
-                onClick={() => setBookingOpen(true)}
+                onClick={() => {
+                  if (!user) {
+                    toast({
+                      title: "Login Required",
+                      description: "Please login to book this adventure place",
+                      variant: "destructive",
+                    });
+                    navigate('/auth');
+                    return;
+                  }
+                  setBookingOpen(true);
+                }}
               >
                 Book Now
               </Button>
@@ -674,7 +787,18 @@ const AdventurePlaceDetail = () => {
           
           <Button 
             className="w-full mt-4 text-xs md:text-sm" 
-            onClick={() => setBookingOpen(true)}
+            onClick={() => {
+              if (!user) {
+                toast({
+                  title: "Login Required",
+                  description: "Please login to book this adventure place",
+                  variant: "destructive",
+                });
+                navigate('/auth');
+                return;
+              }
+              setBookingOpen(true);
+            }}
           >
             Book Now
           </Button>

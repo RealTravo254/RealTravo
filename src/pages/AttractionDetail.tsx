@@ -165,6 +165,104 @@ export default function AttractionDetail() {
       return;
     }
 
+    const totalAmount = calculateTotal();
+
+    // Handle free bookings (amount = 0)
+    if (totalAmount === 0) {
+      setBookingLoading(true);
+      setIsProcessingPayment(true);
+
+      try {
+        const { data: bookingResult, error } = await supabase.from('bookings').insert([{
+          user_id: user?.id || null,
+          item_id: id,
+          booking_type: 'attraction',
+          visit_date: bookingData.visit_date,
+          total_amount: 0,
+          booking_details: {
+            num_adults: bookingData.num_adults,
+            num_children: bookingData.num_children,
+            facilities: selectedFacilities.length > 0 ? selectedFacilities : null,
+          },
+          is_guest_booking: !user,
+          guest_name: user ? null : bookingData.guest_name,
+          guest_email: user ? null : bookingData.guest_email,
+          guest_phone: user ? null : bookingData.guest_phone,
+          payment_method: 'free',
+          status: 'pending',
+          payment_status: 'paid',
+        }]).select();
+
+        if (error) throw error;
+
+        // Get attraction creator for notification
+        const { data: attractionData } = await supabase
+          .from('attractions')
+          .select('created_by')
+          .eq('id', id)
+          .single();
+
+        // Send notifications to host
+        if (attractionData?.created_by) {
+          await supabase.from('notifications').insert({
+            user_id: attractionData.created_by,
+            type: 'booking',
+            title: 'New Booking Received',
+            message: `You have a new free booking for ${attraction?.local_name || 'attraction'}`,
+            data: { booking_id: bookingResult[0].id, item_type: 'attraction' },
+          });
+        }
+
+        // Send notification to guest if logged in
+        if (user) {
+          await supabase.from('notifications').insert({
+            user_id: user.id,
+            type: 'booking',
+            title: 'Booking Confirmed',
+            message: `Your free booking for ${attraction?.local_name || 'attraction'} has been confirmed`,
+            data: { booking_id: bookingResult[0].id, item_type: 'attraction' },
+          });
+        }
+
+        // Send confirmation email
+        await supabase.functions.invoke('send-booking-confirmation', {
+          body: {
+            bookingId: bookingResult[0].id,
+            email: user ? user.email : bookingData.guest_email,
+            guestName: user ? user.user_metadata?.name || bookingData.guest_name : bookingData.guest_name,
+            bookingType: 'attraction',
+            itemName: attraction?.local_name || 'attraction',
+            totalAmount: 0,
+            bookingDetails: {
+              num_adults: bookingData.num_adults,
+              num_children: bookingData.num_children,
+              facilities: selectedFacilities,
+              phone: user ? "" : bookingData.guest_phone,
+            },
+            visitDate: bookingData.visit_date,
+          },
+        });
+
+        setIsProcessingPayment(false);
+        setIsPaymentCompleted(true);
+        toast({
+          title: "Booking confirmed!",
+          description: "Your free booking has been confirmed",
+        });
+        return;
+      } catch (error: any) {
+        console.error('Free booking error:', error);
+        toast({
+          title: "Booking failed",
+          description: error.message || "Failed to create booking",
+          variant: "destructive",
+        });
+        setIsProcessingPayment(false);
+        setBookingLoading(false);
+        return;
+      }
+    }
+
     if (!bookingData.payment_method || (bookingData.payment_method === 'mpesa' && !bookingData.payment_phone)) {
       toast({
         title: "Payment required",
@@ -175,6 +273,7 @@ export default function AttractionDetail() {
     }
 
     setBookingLoading(true);
+    setIsProcessingPayment(true);
 
     try {
       const emailData = {
@@ -559,7 +658,18 @@ export default function AttractionDetail() {
           )}
 
           {/* Book Now Button - Hidden on small, shown on large */}
-          <Button size="lg" className="w-full hidden md:flex" onClick={() => setBookingOpen(true)}>
+          <Button size="lg" className="w-full hidden md:flex" onClick={() => {
+            if (!user) {
+              toast({
+                title: "Login Required",
+                description: "Please login to book this attraction",
+                variant: "destructive",
+              });
+              navigate('/auth');
+              return;
+            }
+            setBookingOpen(true);
+          }}>
             <Calendar className="mr-2 h-5 w-5" />
             Book Now
           </Button>
@@ -617,7 +727,18 @@ export default function AttractionDetail() {
 
         {/* Book Now Button for Small Screens - Below Operating Hours */}
         <div className="md:hidden mt-6">
-          <Button size="lg" className="w-full" onClick={() => setBookingOpen(true)}>
+          <Button size="lg" className="w-full" onClick={() => {
+            if (!user) {
+              toast({
+                title: "Login Required",
+                description: "Please login to book this attraction",
+                variant: "destructive",
+              });
+              navigate('/auth');
+              return;
+            }
+            setBookingOpen(true);
+          }}>
             <Calendar className="mr-2 h-5 w-5" />
             Book Now
           </Button>

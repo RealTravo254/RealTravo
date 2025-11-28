@@ -224,6 +224,108 @@ const EventDetail = () => {
       return;
     }
 
+    const totalAmount = calculateTotal();
+
+    // Handle free bookings (amount = 0)
+    if (totalAmount === 0) {
+      setBookingLoading(true);
+      setIsProcessingPayment(true);
+
+      try {
+        const totalPeople = adults + children;
+        const { data: bookingData, error } = await supabase.from('bookings').insert([{
+          user_id: user?.id || null,
+          item_id: id,
+          booking_type: 'trip',
+          visit_date: event.date,
+          total_amount: 0,
+          slots_booked: totalPeople,
+          booking_details: {
+            trip_name: event.name,
+            date: event.date,
+            adults,
+            children,
+            activities: selectedActivities,
+          } as any,
+          payment_status: 'paid',
+          payment_method: 'free',
+          is_guest_booking: !user,
+          guest_name: !user ? guestName : null,
+          guest_email: !user ? guestEmail : null,
+          guest_phone: !user ? guestPhone : null,
+        }]).select();
+
+        if (error) throw error;
+
+        // Get event creator for notification
+        const { data: eventData } = await supabase
+          .from('trips')
+          .select('created_by')
+          .eq('id', id)
+          .single();
+
+        // Send notifications to host
+        if (eventData?.created_by) {
+          await supabase.from('notifications').insert({
+            user_id: eventData.created_by,
+            type: 'booking',
+            title: 'New Booking Received',
+            message: `You have a new free booking for ${event.name}`,
+            data: { booking_id: bookingData[0].id, item_type: 'trip' },
+          });
+        }
+
+        // Send notification to guest if logged in
+        if (user) {
+          await supabase.from('notifications').insert({
+            user_id: user.id,
+            type: 'booking',
+            title: 'Booking Confirmed',
+            message: `Your free booking for ${event.name} has been confirmed`,
+            data: { booking_id: bookingData[0].id, item_type: 'trip' },
+          });
+        }
+
+        // Send confirmation email
+        await supabase.functions.invoke('send-booking-confirmation', {
+          body: {
+            bookingId: bookingData[0].id,
+            email: user ? user.email : guestEmail,
+            guestName: user ? user.user_metadata?.name || guestName : guestName,
+            bookingType: 'trip',
+            itemName: event.name,
+            totalAmount: 0,
+            bookingDetails: {
+              adults,
+              children,
+              selectedActivities,
+              phone: user ? "" : guestPhone,
+            },
+            visitDate: event.date,
+          },
+        });
+
+        setCompletedBookingId(bookingData[0].id);
+        setIsProcessingPayment(false);
+        setIsPaymentCompleted(true);
+        toast({
+          title: "Booking confirmed!",
+          description: "Your free booking has been confirmed",
+        });
+        return;
+      } catch (error: any) {
+        console.error('Free booking error:', error);
+        toast({
+          title: "Booking failed",
+          description: error.message || "Failed to create booking",
+          variant: "destructive",
+        });
+        setIsProcessingPayment(false);
+        setBookingLoading(false);
+        return;
+      }
+    }
+
     if (!paymentMethod) {
       toast({
         title: "Payment required",
@@ -243,6 +345,7 @@ const EventDetail = () => {
     }
 
     setBookingLoading(true);
+    setIsProcessingPayment(true);
 
     try {
       const totalPeople = adults + children;
@@ -569,7 +672,18 @@ const EventDetail = () => {
                   <Button
                     className="w-full"
                     size="lg"
-                    onClick={() => setShowBooking(true)}
+                    onClick={() => {
+                      if (!user) {
+                        toast({
+                          title: "Login Required",
+                          description: "Please login to book this event",
+                          variant: "destructive",
+                        });
+                        navigate('/auth');
+                        return;
+                      }
+                      setShowBooking(true);
+                    }}
                     disabled={remainingTickets <= 0}
                   >
                     {remainingTickets <= 0 ? "Sold Out" : "Book Tickets"}
@@ -648,7 +762,18 @@ const EventDetail = () => {
                 <Button
                   className="w-full"
                   size="lg"
-                  onClick={() => setShowBooking(true)}
+                  onClick={() => {
+                    if (!user) {
+                      toast({
+                        title: "Login Required",
+                        description: "Please login to book this event",
+                        variant: "destructive",
+                      });
+                      navigate('/auth');
+                      return;
+                    }
+                    setShowBooking(true);
+                  }}
                   disabled={remainingTickets <= 0}
                 >
                   {remainingTickets <= 0 ? "Sold Out" : "Book Tickets"}

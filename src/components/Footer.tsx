@@ -1,7 +1,18 @@
 import { Link } from "react-router-dom";
-import { Compass } from "lucide-react";
+import { Compass, Download } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
 
 export const Footer = ({ className = "" }: { className?: string }) => {
+  const [isInstalled, setIsInstalled] = useState(false);
+
+  useEffect(() => {
+    // Check if already installed
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setIsInstalled(true);
+    }
+  }, []);
+
   // Detect if running in webview/in-app context
   const isInApp = () => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -57,6 +68,14 @@ export const Footer = ({ className = "" }: { className?: string }) => {
               <li><Link to="/saved" className="text-gray-600 hover:text-blue-600 transition-colors">Wishlist</Link></li>
               <li><Link to="/profile" className="text-gray-600 hover:text-blue-600 transition-colors">Profile</Link></li>
             </ul>
+            {!isInstalled && (
+              <Link to="/install">
+                <Button variant="outline" size="sm" className="mt-4 w-full">
+                  <Download className="h-4 w-4 mr-2" />
+                  Install App
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
         

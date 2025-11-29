@@ -429,7 +429,7 @@ const Index = () => {
                 <div className={`px-4 ${isSearchFocused ? 'hidden' : ''}`}>
                     {/* Latest - MODIFIED FOR HORIZONTAL SCROLLING OR MAP VIEW */}
                     <section className="mb-4 md:mb-8">
-                        <div className="flex justify-between items-center mb-2 md:mb-4 mt-2 md:mt-0">
+                        <div className="mb-2 md:mb-4 mt-2 md:mt-0 flex items-start justify-between">
                             <h2 className="text-xs md:text-2xl font-bold whitespace-nowrap overflow-hidden text-ellipsis">
                                 {searchQuery ? 'Search Results' : position ? 'Featured For You' : 'Latest'}
                             </h2>
@@ -483,7 +483,7 @@ const Index = () => {
 
                     {/* Featured Events */}
                     <section className="mb-3 md:mb-8">
-                        <div className="flex justify-between items-center mb-2 md:mb-4">
+                        <div className="mb-2 md:mb-4 flex items-start justify-between">
                             <h2 className="text-xs md:text-2xl font-bold whitespace-nowrap overflow-hidden text-ellipsis">
                                 Featured Events
                             </h2>
@@ -516,7 +516,7 @@ const Index = () => {
 
                     {/* Featured Campsite & Experience */}
                     <section className="mb-3 md:mb-8">
-                        <div className="flex justify-between items-center mb-2 md:mb-4">
+                        <div className="mb-2 md:mb-4 flex items-start justify-between">
                             <h2 className="text-xs md:text-2xl font-bold whitespace-nowrap overflow-hidden text-ellipsis">
                                 Featured Campsite & Experience
                             </h2>
@@ -547,7 +547,7 @@ const Index = () => {
 
                     {/* Featured Hotels */}
                     <section className="mb-3 md:mb-8">
-                        <div className="flex justify-between items-center mb-2 md:mb-4">
+                        <div className="mb-2 md:mb-4 flex items-start justify-between">
                             <h2 className="text-xs md:text-2xl font-bold whitespace-nowrap overflow-hidden text-ellipsis">
                                 Featured Hotels
                             </h2>
@@ -578,7 +578,7 @@ const Index = () => {
 
                     {/* Featured Attractions */}
                     <section className="mb-3 md:mb-8">
-                        <div className="flex justify-between items-center mb-2 md:mb-4">
+                        <div className="mb-2 md:mb-4 flex items-start justify-between">
                             <h2 className="text-xs md:text-2xl font-bold whitespace-nowrap overflow-hidden text-ellipsis">
                                 Featured Attractions
                             </h2>
@@ -611,7 +611,7 @@ const Index = () => {
 
                     {/* Featured Trips Only Section */}
                     <section className="mb-3 md:mb-8">
-                        <div className="flex justify-between items-center mb-2 md:mb-4">
+                        <div className="mb-2 md:mb-4 flex items-start justify-between">
                             <h2 className="text-xs md:text-2xl font-bold whitespace-nowrap overflow-hidden text-ellipsis">
                                 Featured Trips
                             </h2>

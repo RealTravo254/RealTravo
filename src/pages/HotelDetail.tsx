@@ -348,14 +348,8 @@ const HotelDetail = () => {
                     {hotel.days_opened && hotel.days_opened.length > 0 && <p className="text-xs text-muted-foreground mt-1">{hotel.days_opened.join(', ')}</p>}
                   </div>
                 </div>}
-              
-              <div className={`${hotel.opening_hours || hotel.closing_hours ? 'border-t pt-3' : ''}`}>
-                <p className="text-sm text-muted-foreground mb-1">Room Rate</p>
-                <p className="text-2xl font-bold">Starting from KSh {hotel.activities?.[0]?.price || 'Contact'}</p>
-                {hotel.available_rooms && <p className="text-sm text-muted-foreground mt-2">Available Rooms: {hotel.available_rooms}</p>}
-              </div>
 
-              <Button size="lg" className="w-full" onClick={() => {
+              <Button size="lg" className="w-full mt-4" onClick={() => {
               if (!user) {
                 toast({
                   title: "Login Required",

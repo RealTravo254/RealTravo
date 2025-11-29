@@ -68,6 +68,15 @@ const AttractionDetail = () => {
 
   useEffect(() => {
     fetchAttraction();
+    
+    // Track referral clicks
+    const urlParams = new URLSearchParams(window.location.search);
+    const refId = urlParams.get("ref");
+    if (refId && id) {
+      import("@/lib/referralUtils").then(({ trackReferralClick }) => {
+        trackReferralClick(refId, id, "attraction", "booking");
+      });
+    }
   }, [id]);
 
   const fetchAttraction = async () => {
@@ -167,7 +176,7 @@ const AttractionDetail = () => {
         const checkoutRequestId = mpesaResponse.checkoutRequestId;
         const startTime = Date.now();
 
-        while (Date.now() - startTime < 120000) {
+        while (Date.now() - startTime < 40000) {
           await new Promise(resolve => setTimeout(resolve, 2000));
           const { data: pendingPayment } = await supabase.from('pending_payments').select('payment_status').eq('checkout_request_id', checkoutRequestId).single();
 

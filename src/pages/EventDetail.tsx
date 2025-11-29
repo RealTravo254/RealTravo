@@ -66,6 +66,15 @@ const EventDetail = () => {
     if (id) {
       fetchEvent();
     }
+    
+    // Track referral clicks
+    const urlParams = new URLSearchParams(window.location.search);
+    const refId = urlParams.get("ref");
+    if (refId && id) {
+      import("@/lib/referralUtils").then(({ trackReferralClick }) => {
+        trackReferralClick(refId, id, "event", "booking");
+      });
+    }
   }, [id, user]);
   const fetchEvent = async () => {
     try {
@@ -233,6 +242,7 @@ const EventDetail = () => {
           guest_phone: !user ? data.guest_phone : null,
           slots_booked: totalPeople,
           visit_date: event.date,
+          referral_tracking_id: getReferralTrackingId(),
           booking_details: {
             trip_name: event.name,
             date: event.date,
@@ -275,7 +285,7 @@ const EventDetail = () => {
 
         // Poll for payment
         const startTime = Date.now();
-        const timeout = 120000;
+        const timeout = 40000;
         while (Date.now() - startTime < timeout) {
           await new Promise(resolve => setTimeout(resolve, 2000));
           const {

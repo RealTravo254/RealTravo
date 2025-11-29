@@ -73,6 +73,15 @@ const HotelDetail = () => {
   const isSaved = savedItems.has(id || "");
   useEffect(() => {
     fetchHotel();
+    
+    // Track referral clicks
+    const urlParams = new URLSearchParams(window.location.search);
+    const refId = urlParams.get("ref");
+    if (refId && id) {
+      import("@/lib/referralUtils").then(({ trackReferralClick }) => {
+        trackReferralClick(refId, id, "hotel", "booking");
+      });
+    }
   }, [id]);
   const fetchHotel = async () => {
     try {
@@ -249,7 +258,7 @@ const HotelDetail = () => {
         if (mpesaError || !mpesaResponse?.success) throw new Error("M-Pesa payment failed");
         const checkoutRequestId = mpesaResponse.checkoutRequestId;
         const startTime = Date.now();
-        while (Date.now() - startTime < 120000) {
+        while (Date.now() - startTime < 40000) {
           await new Promise(resolve => setTimeout(resolve, 2000));
           const {
             data: pendingPayment

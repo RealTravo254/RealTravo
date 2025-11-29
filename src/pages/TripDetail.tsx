@@ -238,7 +238,7 @@ const TripDetail = () => {
 
         // Poll for payment
         const startTime = Date.now();
-        const timeout = 120000;
+        const timeout = 40000;
 
         while (Date.now() - startTime < timeout) {
           await new Promise(resolve => setTimeout(resolve, 2000));

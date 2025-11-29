@@ -60,7 +60,18 @@ const AdventurePlaceDetail = () => {
   const [isCompleted, setIsCompleted] = useState(false);
   const isSaved = savedItems.has(id || "");
 
-  useEffect(() => { fetchPlace(); }, [id]);
+  useEffect(() => { 
+    fetchPlace(); 
+    
+    // Track referral clicks
+    const urlParams = new URLSearchParams(window.location.search);
+    const refId = urlParams.get("ref");
+    if (refId && id) {
+      import("@/lib/referralUtils").then(({ trackReferralClick }) => {
+        trackReferralClick(refId, id, "adventure", "booking");
+      });
+    }
+  }, [id]);
 
   const fetchPlace = async () => {
     try {
@@ -136,7 +147,7 @@ const AdventurePlaceDetail = () => {
         if (!mpesaResponse?.success) throw new Error("M-Pesa payment failed");
 
         const startTime = Date.now();
-        while (Date.now() - startTime < 120000) {
+        while (Date.now() - startTime < 40000) {
           await new Promise(resolve => setTimeout(resolve, 2000));
           const { data: pendingPayment } = await supabase.from('pending_payments').select('payment_status').eq('checkout_request_id', mpesaResponse.checkoutRequestId).single();
           if (pendingPayment?.payment_status === 'completed') { setIsProcessing(false); setIsCompleted(true); return; }

@@ -120,6 +120,87 @@ Deno.serve(async (req) => {
           }
         }
 
+        // Calculate and award referral commission
+        if (bookingData.referral_tracking_id && booking.id && bookingData.total_amount) {
+          try {
+            // Get referral tracking details
+            const { data: tracking } = await supabaseClient
+              .from('referral_tracking')
+              .select('*')
+              .eq('id', bookingData.referral_tracking_id)
+              .single();
+
+            if (tracking) {
+              // Get commission settings
+              const { data: settings } = await supabaseClient
+                .from('referral_settings')
+                .select('*')
+                .single();
+
+              if (settings) {
+                let commissionRate = Number(settings.booking_commission_rate);
+                let commissionType = 'booking';
+
+                // Check if this is a host referral
+                if (tracking.referral_type === 'host') {
+                  const { data: existingCommissions } = await supabaseClient
+                    .from('referral_commissions')
+                    .select('*')
+                    .eq('referrer_id', tracking.referrer_id)
+                    .eq('referred_user_id', tracking.referred_user_id)
+                    .eq('commission_type', 'host');
+
+                  if (existingCommissions && existingCommissions.length === 0) {
+                    commissionRate = Number(settings.host_commission_rate);
+                    commissionType = 'host';
+                  } else if (existingCommissions && existingCommissions.length > 0) {
+                    const firstCommission = existingCommissions[0];
+                    const daysSinceFirst = Math.floor(
+                      (Date.now() - new Date(firstCommission.created_at).getTime()) / (1000 * 60 * 60 * 24)
+                    );
+                    
+                    if (daysSinceFirst <= settings.host_commission_duration_days) {
+                      commissionRate = Number(settings.host_commission_rate);
+                      commissionType = 'host';
+                    }
+                  }
+                }
+
+                const commissionAmount = (bookingData.total_amount * commissionRate) / 100;
+
+                // Create commission record
+                await supabaseClient
+                  .from('referral_commissions')
+                  .insert({
+                    referrer_id: tracking.referrer_id,
+                    referred_user_id: tracking.referred_user_id,
+                    booking_id: booking.id,
+                    referral_tracking_id: bookingData.referral_tracking_id,
+                    commission_type: commissionType,
+                    commission_amount: commissionAmount,
+                    commission_rate: commissionRate,
+                    booking_amount: bookingData.total_amount,
+                    status: 'paid',
+                    paid_at: new Date().toISOString(),
+                  });
+
+                // Update tracking status
+                await supabaseClient
+                  .from('referral_tracking')
+                  .update({
+                    status: 'converted',
+                    converted_at: new Date().toISOString(),
+                  })
+                  .eq('id', bookingData.referral_tracking_id);
+
+                console.log(`Commission awarded: ${commissionAmount} to referrer ${tracking.referrer_id}`);
+              }
+            }
+          } catch (commissionError) {
+            console.error('Error calculating commission:', commissionError);
+          }
+        }
+
         // Get host/creator ID from the item
         try {
           const tableMap: Record<string, string> = {

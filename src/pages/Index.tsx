@@ -369,7 +369,7 @@ const Index = () => {
                     </div>
                 </div>}
 
-            <main className="container md:px-4 md:py-8 px-px py-[12px]">
+            <main className="container px-0 md:px-4 py-0 md:py-8">
                 {/* Hero and Categories - Hide when search is focused */}
                 <section className={`flex flex-col gap-1 md:gap-3 ${isSearchFocused ? 'hidden' : ''}`}>
                 {/* Hero Section with Background Image */}
@@ -426,25 +426,9 @@ const Index = () => {
                             </div> : <p className="text-center text-muted-foreground py-8">No results found</p>}
                     </div>}
                 
-                <div className={`px-4 ${isSearchFocused ? 'hidden' : ''}`}>
+                <div className="px-[8px] my-[16px]">
                     {/* Latest - MODIFIED FOR HORIZONTAL SCROLLING OR MAP VIEW */}
-                    <section className="mb-4 md:mb-8">
-                        <div className="mb-2 md:mb-4 mt-2 md:mt-0 flex items-start justify-between">
-                            <h2 className="text-xs md:text-2xl font-bold whitespace-nowrap overflow-hidden text-ellipsis">
-                                {searchQuery ? 'Search Results' : position ? 'Featured For You' : 'Latest'}
-                            </h2>
-                            {searchQuery && listings.length > 0 && <div className="flex gap-2">
-                                    <Button variant={viewMode === 'list' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('list')} className="gap-1">
-                                        <Grid className="h-4 w-4" />
-                                        <span className="hidden md:inline">List</span>
-                                    </Button>
-                                    <Button variant={viewMode === 'map' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('map')} className="gap-1">
-                                        <Map className="h-4 w-4" />
-                                        <span className="hidden md:inline">Map</span>
-                                    </Button>
-                                </div>}
-                        </div>
-                        
+                    <section className="mb-4 md:mb-8"> 
                         {searchQuery && viewMode === 'map' ? <MapView listings={listings} /> : searchQuery ?
           // Column grid view for search results
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -454,7 +438,7 @@ const Index = () => {
                                     </div> : listings.map((item, index) => <ListingCard key={item.id} id={item.id} type={item.type} name={item.name} imageUrl={item.image_url} location={item.location} country={item.country} price={item.price || item.entry_fee || item.price_adult || 0} date={item.date} isCustomDate={item.is_custom_date} onSave={handleSave} isSaved={savedItems.has(item.id)} hidePrice={item.type === "HOTEL" || item.type === "ADVENTURE PLACE"} showBadge={true} priority={index < 4} availableTickets={item.type === "TRIP" || item.type === "EVENT" ? item.available_tickets : undefined} bookedTickets={item.type === "TRIP" || item.type === "EVENT" ? bookingStats[item.id] || 0 : undefined} />)}
                             </div> :
           // Horizontal scroll view for latest items (when not searching)
-          <div className="relative px-0 py-px">
+          <div className="relative">
                                 {!searchQuery && listings.length > 0 && <>
                                         <Button variant="ghost" size="icon" onClick={() => scrollSection(featuredForYouRef, 'left')} className="absolute left-2 top-1/2 -translate-y-1/2 z-10 h-10 w-10 rounded-full bg-black/50 hover:bg-black/70 text-white">
                                             <ChevronLeft className="h-6 w-6" />
@@ -463,7 +447,7 @@ const Index = () => {
                                             <ChevronRight className="h-6 w-6" />
                                         </Button>
                                     </>}
-                                <div ref={featuredForYouRef} onScroll={handleScroll('featuredForYou')} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={() => onTouchEnd(featuredForYouRef)} className="gap-2 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none flex items-start justify-start md:gap-[10px]">
+                                <div ref={featuredForYouRef} onScroll={handleScroll('featuredForYou')} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={() => onTouchEnd(featuredForYouRef)} className="gap-2 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none items-start justify-start md:gap-[12px] flex flex-row">
                                 {loading || listings.length === 0 ? [...Array(10)].map((_, i) => <div key={i} className="flex-shrink-0 w-[85vw] md:w-64 rounded-lg overflow-hidden shadow-md snap-center md:snap-align-none">
                                             <div className="aspect-[4/3] bg-muted animate-pulse" />
                                             <div className="p-2 md:p-4 space-y-2 md:space-y-3">

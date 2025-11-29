@@ -191,11 +191,23 @@ const EditListing = () => {
       if (type === 'adventure') {
         setEntranceFeeType((data as any).entry_fee_type || "free");
         setEntranceFee((data as any).entry_fee || 0);
+        // Handle amenities - could be string[] or object array in jsonb
+        const adventureAmenities = (data as any).amenities || [];
+        setAmenities(Array.isArray(adventureAmenities) 
+          ? adventureAmenities.map((a: any) => typeof a === 'string' ? a : a.name || '')
+          : []);
       }
       
       if (type === 'attraction') {
         setEntranceFeeType((data as any).entrance_type || "free");
         setEntranceFee((data as any).price_adult || 0);
+        setFacilities((data as any).facilities || []);
+        setActivities((data as any).activities || []);
+        // Handle amenities - could be string[] or object array in jsonb
+        const attractionAmenities = (data as any).amenities || [];
+        setAmenities(Array.isArray(attractionAmenities) 
+          ? attractionAmenities.map((a: any) => typeof a === 'string' ? a : a.name || '')
+          : []);
       }
       
       // Set approval status and hidden state
@@ -393,7 +405,7 @@ const EditListing = () => {
           updateData.email = email;
           break;
         case "phone":
-          if (type === "trip") {
+          if (type === "trip" || type === "attraction") {
             updateData.phone_number = phoneNumbers[0] || "";
           } else {
             updateData.phone_numbers = phoneNumbers.filter(Boolean);
@@ -956,8 +968,8 @@ const EditListing = () => {
               </>
             )}
 
-            {/* Hotel amenities */}
-            {type === "hotel" && (
+            {/* Amenities */}
+            {(type === "hotel" || type === "adventure" || type === "attraction") && (
               <Card>
                 <CardHeader>
                   <div className="flex items-center justify-between">
@@ -991,9 +1003,9 @@ const EditListing = () => {
                     </>
                   ) : (
                     <div className="flex flex-wrap gap-2">
-                      {amenities.map((amenity, idx) => (
+                      {amenities.length > 0 ? amenities.map((amenity, idx) => (
                         <Badge key={idx} variant="secondary">{amenity}</Badge>
-                      ))}
+                      )) : <p className="text-sm text-muted-foreground">No amenities added</p>}
                     </div>
                   )}
                 </CardContent>
@@ -1001,7 +1013,7 @@ const EditListing = () => {
             )}
 
             {/* Facilities */}
-            {(type === "hotel" || type === "adventure") && (
+            {(type === "hotel" || type === "adventure" || type === "attraction") && (
               <Card>
                 <CardHeader>
                   <div className="flex items-center justify-between">
@@ -1025,7 +1037,7 @@ const EditListing = () => {
                             value={facility.price}
                             onChange={(e) => updateFacility(idx, "price", parseFloat(e.target.value) || 0)}
                           />
-                          {type === "hotel" && (
+                          {(type === "hotel" || type === "attraction") && (
                             <Input
                               type="number"
                               placeholder="Capacity"
@@ -1049,15 +1061,15 @@ const EditListing = () => {
                     </>
                   ) : (
                     <div className="space-y-2">
-                      {facilities.map((facility, idx) => (
+                      {facilities.length > 0 ? facilities.map((facility, idx) => (
                         <div key={idx} className="flex justify-between items-center p-2 border rounded">
                           <span className="text-sm">{facility.name}</span>
                           <div className="flex gap-2 text-sm text-muted-foreground">
                             <span>KSh {facility.price}</span>
-                            {type === "hotel" && <span>• {facility.capacity} guests</span>}
+                            {(type === "hotel" || type === "attraction") && <span>• {facility.capacity} guests</span>}
                           </div>
                         </div>
-                      ))}
+                      )) : <p className="text-sm text-muted-foreground">No facilities added</p>}
                     </div>
                   )}
                 </CardContent>
@@ -1065,7 +1077,7 @@ const EditListing = () => {
             )}
 
             {/* Activities */}
-            {(type === "hotel" || type === "adventure") && (
+            {(type === "hotel" || type === "adventure" || type === "attraction") && (
               <Card>
                 <CardHeader>
                   <div className="flex items-center justify-between">
@@ -1105,12 +1117,12 @@ const EditListing = () => {
                     </>
                   ) : (
                     <div className="space-y-2">
-                      {activities.map((activity, idx) => (
+                      {activities.length > 0 ? activities.map((activity, idx) => (
                         <div key={idx} className="flex justify-between items-center p-2 border rounded">
                           <span className="text-sm">{activity.name}</span>
                           <span className="text-sm text-muted-foreground">KSh {activity.price}</span>
                         </div>
-                      ))}
+                      )) : <p className="text-sm text-muted-foreground">No activities added</p>}
                     </div>
                   )}
                 </CardContent>

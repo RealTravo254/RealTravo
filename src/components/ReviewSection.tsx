@@ -99,14 +99,14 @@ export function ReviewSection({
       });
     }
   };
-  return <Card className="p-6 mt-6 py-[15px] px-px mx-0 my-[2px] rounded-none shadow opacity-100 border-2">
+  return <Card className="p-6 mt-6 rounded-none shadow opacity-100 border-2 mx-px px-[12px] my-[2px] py-px">
       <h2 className="text-2xl font-semibold mb-4">Reviews</h2>
       
       <div className="space-y-4">
         {/* Average Rating Display */}
         <div className="flex items-center gap-4">
           <div className="text-center border-solid rounded-sm shadow-sm">
-            <div className="text-4xl font-bold border-0 border-none">{averageRating.toFixed(1)}</div>
+            <div className="text-4xl font-bold border-0 border-solid">{averageRating.toFixed(1)}</div>
             <div className="flex items-center justify-center gap-1 my-2">
               {[1, 2, 3, 4, 5].map(star => <Star key={star} className={`h-5 w-5 ${star <= Math.round(averageRating) ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground"}`} />)}
             </div>

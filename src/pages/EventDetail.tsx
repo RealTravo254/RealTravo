@@ -487,7 +487,7 @@ const EventDetail = () => {
 
       <Dialog open={showBooking} onOpenChange={setShowBooking}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <MultiStepBooking onSubmit={handleBookingSubmit} activities={event.activities || []} priceAdult={event.price} priceChild={event.price_child} isProcessing={isProcessing} isCompleted={isCompleted} itemName={event.name} />
+          <MultiStepBooking onSubmit={handleBookingSubmit} activities={event.activities || []} priceAdult={event.price} priceChild={event.price_child} isProcessing={isProcessing} isCompleted={isCompleted} itemName={event.name} skipDateSelection={true} fixedDate={event.date} />
         </DialogContent>
       </Dialog>
 

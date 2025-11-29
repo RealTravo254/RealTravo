@@ -30,6 +30,8 @@ interface MultiStepBookingProps {
   isProcessing?: boolean;
   isCompleted?: boolean;
   itemName: string;
+  skipDateSelection?: boolean; // Skip date selection for fixed-date items
+  fixedDate?: string; // Pre-set date for fixed-date items
 }
 
 export interface BookingFormData {
@@ -58,14 +60,16 @@ export const MultiStepBooking = ({
   isProcessing = false,
   isCompleted = false,
   itemName,
+  skipDateSelection = false,
+  fixedDate = "",
 }: MultiStepBookingProps) => {
   // Use the custom Auth hook
   const { user } = useAuth();
   
-  // State for step management and form data
-  const [currentStep, setCurrentStep] = useState(1);
+  // State for step management and form data (start at step 2 if skipping date selection)
+  const [currentStep, setCurrentStep] = useState(skipDateSelection ? 2 : 1);
   const [formData, setFormData] = useState<BookingFormData>({
-    visit_date: "",
+    visit_date: skipDateSelection ? fixedDate : "",
     num_adults: 1,
     num_children: 0,
     selectedFacilities: [],
@@ -111,7 +115,7 @@ export const MultiStepBooking = ({
   
   const handleNext = () => {
     // Basic validation checks for moving forward
-    if (currentStep === 1 && !formData.visit_date) return;
+    if (currentStep === 1 && !formData.visit_date && !skipDateSelection) return;
     if (currentStep === 2 && formData.num_adults === 0 && formData.num_children === 0) return;
     
     // Skip guest info step (Step 4) if user is logged in
@@ -127,7 +131,8 @@ export const MultiStepBooking = ({
     if (currentStep === 5 && user) {
       setCurrentStep(3);
     } else {
-      setCurrentStep(Math.max(currentStep - 1, 1));
+      const minStep = skipDateSelection ? 2 : 1;
+      setCurrentStep(Math.max(currentStep - 1, minStep));
     }
   };
 
@@ -269,7 +274,7 @@ export const MultiStepBooking = ({
       </div>
 
       {/* --- Step 1: Visit Date --- */}
-      {currentStep === 1 && (
+      {currentStep === 1 && !skipDateSelection && (
         <div className="space-y-4">
           <div className="flex items-center gap-2 mb-4">
             <Calendar className="h-5 w-5 text-primary" />
@@ -600,7 +605,7 @@ export const MultiStepBooking = ({
 
       {/* --- Navigation Buttons --- */}
       <div className="flex justify-between gap-4 mt-6 pt-6 border-t">
-        {currentStep > 1 && (
+        {currentStep > (skipDateSelection ? 2 : 1) && (
           <Button type="button" variant="outline" onClick={handlePrevious} className="w-24">
             Previous
           </Button>
@@ -612,7 +617,7 @@ export const MultiStepBooking = ({
             onClick={handleNext}
             className={`w-24 ${currentStep === 1 || currentStep === 2 ? 'ml-auto' : ''}`}
             disabled={
-              (currentStep === 1 && !formData.visit_date) ||
+              (currentStep === 1 && !formData.visit_date && !skipDateSelection) ||
               (currentStep === 2 && formData.num_adults === 0 && formData.num_children === 0) ||
               (currentStep === 4 && (!formData.guest_name || !formData.guest_email || !formData.guest_phone)) // Guest info validation
             }

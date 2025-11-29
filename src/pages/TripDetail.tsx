@@ -475,6 +475,8 @@ const TripDetail = () => {
             isProcessing={isProcessing}
             isCompleted={isCompleted}
             itemName={trip.name}
+            skipDateSelection={!trip.is_custom_date}
+            fixedDate={trip.date}
           />
         </DialogContent>
       </Dialog>

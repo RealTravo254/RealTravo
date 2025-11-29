@@ -339,17 +339,19 @@ const HotelDetail = () => {
               </div>
             </div>
 
-            <div className="space-y-3 p-4 border bg-card px-px py-[5px]">
-              {(hotel.opening_hours || hotel.closing_hours) && <div className="flex items-center gap-2">
+            {(hotel.opening_hours || hotel.closing_hours) && <div className="p-4 border bg-card mb-4">
+                <div className="flex items-center gap-2">
                   <Clock className="h-5 w-5 text-primary" />
                   <div>
                     <p className="text-sm text-muted-foreground">Operating Hours</p>
                     <p className="font-semibold">{hotel.opening_hours} - {hotel.closing_hours}</p>
                     {hotel.days_opened && hotel.days_opened.length > 0 && <p className="text-xs text-muted-foreground mt-1">{hotel.days_opened.join(', ')}</p>}
                   </div>
-                </div>}
+                </div>
+              </div>}
 
-              <Button size="lg" className="w-full mt-4" onClick={() => {
+            <div className="space-y-3">
+              <Button size="lg" className="w-full" onClick={() => {
               if (!user) {
                 toast({
                   title: "Login Required",

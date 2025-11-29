@@ -396,14 +396,7 @@ const TripDetail = () => {
                 <p className="text-sm text-muted-foreground mt-2">Available Tickets: {trip.available_tickets}</p>
               </div>
 
-              <Button size="lg" className="w-full" onClick={() => {
-                if (!user) {
-                  toast({ title: "Login Required", description: "Please login to book this trip", variant: "destructive" });
-                  navigate('/auth');
-                  return;
-                }
-                setBookingOpen(true);
-              }} disabled={trip.available_tickets <= 0}>
+              <Button size="lg" className="w-full" onClick={() => setBookingOpen(true)} disabled={trip.available_tickets <= 0}>
                 {trip.available_tickets <= 0 ? "Sold Out" : "Book Now"}
               </Button>
             </div>

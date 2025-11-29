@@ -123,6 +123,10 @@ const Bookings = () => {
                        'Booking'}
                     </h3>
 
+                    <p className="text-xs text-muted-foreground font-mono">
+                      Booking ID: {booking.id}
+                    </p>
+
                     <div className="flex flex-col gap-3 text-sm">
                       {/* Contact Information */}
                       {(booking.guest_name || booking.guest_email || booking.guest_phone) && (

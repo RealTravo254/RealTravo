@@ -292,14 +292,7 @@ const AttractionDetail = () => {
                 {attraction.price_child > 0 && <p className="text-sm text-muted-foreground">Child: KSh {attraction.price_child}</p>}
               </div>
 
-              <Button size="lg" className="w-full" onClick={() => {
-                if (!user) {
-                  toast({ title: "Login Required", description: "Please login to book this attraction", variant: "destructive" });
-                  navigate('/auth');
-                  return;
-                }
-                setBookingOpen(true);
-              }}>
+              <Button size="lg" className="w-full" onClick={() => setBookingOpen(true)}>
                 Book Now
               </Button>
             </div>

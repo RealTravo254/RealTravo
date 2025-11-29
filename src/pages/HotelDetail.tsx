@@ -351,18 +351,7 @@ const HotelDetail = () => {
               </div>}
 
             <div className="space-y-3">
-              <Button size="lg" className="w-full" onClick={() => {
-              if (!user) {
-                toast({
-                  title: "Login Required",
-                  description: "Please login to book this hotel",
-                  variant: "destructive"
-                });
-                navigate('/auth');
-                return;
-              }
-              setBookingOpen(true);
-            }}>
+              <Button size="lg" className="w-full" onClick={() => setBookingOpen(true)}>
                 Book Now
               </Button>
             </div>

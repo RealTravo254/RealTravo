@@ -72,6 +72,9 @@ serve(async (req) => {
     }
 
     // Step 4: Initiate STK Push
+    const callbackURL = `${Deno.env.get('SUPABASE_URL')}/functions/v1/mpesa-callback`;
+    console.log('🔗 Callback URL being used:', callbackURL);
+    
     const stkPushPayload = {
       BusinessShortCode: shortcode,
       Password: password,
@@ -81,12 +84,12 @@ serve(async (req) => {
       PartyA: formattedPhone,
       PartyB: shortcode,
       PhoneNumber: formattedPhone,
-      CallBackURL: `${Deno.env.get('SUPABASE_URL')}/functions/v1/mpesa-callback`,
+      CallBackURL: callbackURL,
       AccountReference: accountReference,
       TransactionDesc: transactionDesc,
     };
 
-    console.log('Initiating STK Push:', { ...stkPushPayload, Password: '[REDACTED]' });
+    console.log('Initiating STK Push:', { ...stkPushPayload, Password: '[REDACTED]', CallBackURL: callbackURL });
 
     const stkResponse = await fetch(
       'https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest',

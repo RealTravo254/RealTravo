@@ -6,14 +6,23 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req) => {
+  // Log ALL incoming requests for debugging
+  console.log('=== MPESA CALLBACK ENDPOINT HIT ===');
+  console.log('Request Method:', req.method);
+  console.log('Request Headers:', JSON.stringify(Object.fromEntries(req.headers.entries()), null, 2));
+  console.log('Request URL:', req.url);
+  
   if (req.method === 'OPTIONS') {
+    console.log('OPTIONS request - returning CORS headers');
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    console.log('M-Pesa Callback endpoint hit - raw body incoming');
-    const callbackData = await req.json();
-    console.log('M-Pesa Callback received:', JSON.stringify(callbackData, null, 2));
+    const rawBody = await req.text();
+    console.log('Raw Request Body:', rawBody);
+    
+    const callbackData = JSON.parse(rawBody);
+    console.log('M-Pesa Callback Parsed Data:', JSON.stringify(callbackData, null, 2));
 
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -47,15 +56,28 @@ Deno.serve(async (req) => {
       });
     }
 
-    console.log('Callback logged successfully - trigger will process reconciliation');
+    console.log('✅ Callback logged successfully - trigger will process reconciliation');
+    console.log('CheckoutRequestID:', checkoutRequestId, 'ResultCode:', resultCode);
 
-    return new Response(JSON.stringify({ success: true }), {
+    return new Response(JSON.stringify({ 
+      ResultCode: 0,
+      ResultDesc: 'Accepted'
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200
     });
   } catch (error) {
-    console.error('M-Pesa callback error:', error);
-    return new Response(JSON.stringify({ success: false }), {
-      status: 500,
+    console.error('❌ M-Pesa callback error:', error);
+    if (error instanceof Error) {
+      console.error('Error stack:', error.stack);
+    }
+    
+    // Still return success to M-Pesa to prevent retries
+    return new Response(JSON.stringify({ 
+      ResultCode: 0,
+      ResultDesc: 'Accepted'
+    }), {
+      status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }

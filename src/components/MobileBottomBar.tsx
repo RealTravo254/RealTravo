@@ -15,7 +15,7 @@ export const MobileBottomBar = () => {
   ];
 
   return (
-    <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 **bg-white** border-t **border-gray-200** shadow-md">
+    <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 **bg-white** border-t border-gray-200">
       <nav className="flex items-center justify-around h-16 px-4">
         {navItems.map((item) => {
           const isActive = location.pathname === item.path;
@@ -26,18 +26,11 @@ export const MobileBottomBar = () => {
               className={cn(
                 "flex flex-col items-center gap-1 py-2 px-4 rounded-lg transition-all duration-200",
                 isActive
-                  ? "**text-gray-700**" // Active text color
-                  : "**text-[#008080]** hover:text-gray-700" // Inactive text color: Teal
+                  ? "**text-blue-600**" // Change active text color for better contrast on white background
+                  : "**text-gray-500 hover:text-blue-600**" // Change inactive text color for better contrast on white background
               )}
             >
-              <item.icon
-                className={cn(
-                  "h-6 w-6", // Increased icon size slightly for prominence
-                  isActive
-                    ? "**text-gray-700 scale-105**" // Active icon color
-                    : "**text-[#008080]**" // Inactive icon color: Teal
-                )}
-              />
+              <item.icon className={cn("h-5 w-5", isActive && "scale-110")} />
               <span className="text-xs font-medium">{item.label}</span>
             </Link>
           );

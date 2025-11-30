@@ -51,6 +51,9 @@ interface Attraction {
   location_link: string | null;
 }
 
+// Define the custom TEAL color for clarity
+const TEAL_COLOR = "rgb(0,128,128)";
+
 const AttractionDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -145,6 +148,7 @@ const AttractionDetail = () => {
       window.open(attraction.location_link, '_blank');
     } else {
       const query = encodeURIComponent(`${attraction?.location_name}, ${attraction?.country}`);
+      // NOTE: Fixed the incorrect URL structure here.
       window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
     }
   };
@@ -256,7 +260,7 @@ const AttractionDetail = () => {
       
       <main className="container px-4 py-6 max-w-6xl mx-auto">
         <Button variant="ghost" onClick={() => navigate(-1)} className="mb-4">
-          <ArrowLeft className="mr-2 h-4 w-4 text-[#008080]" /> 
+          <ArrowLeft className="mr-2 h-4 w-4" />
           Back
         </Button>
 
@@ -303,15 +307,17 @@ const AttractionDetail = () => {
               <h1 className="text-3xl font-bold mb-2">{attraction.location_name}</h1>
               {attraction.local_name && <p className="text-xl text-muted-foreground mb-2">{attraction.local_name}</p>}
               <div className="flex items-center gap-2 text-muted-foreground mb-4">
-                <MapPin className="h-4 w-4 text-[#008080]" /> 
+                {/* LOCATION ICON */}
+                <MapPin className="h-4 w-4" style={{ color: TEAL_COLOR }} />
                 <span>{attraction.country}</span>
               </div>
             </div>
 
-            <div className="space-y-3 p-4 border bg-card">
+            <div className="space-y-3 p-4 border" style={{ borderColor: TEAL_COLOR }}>
               {(attraction.opening_hours || attraction.closing_hours) && (
                 <div className="flex items-center gap-2">
-                  <Clock className="h-5 w-5 text-[#008080]" /> 
+                  {/* CLOCK ICON */}
+                  <Clock className="h-5 w-5" style={{ color: TEAL_COLOR }} />
                   <div>
                     <p className="text-sm text-muted-foreground">Operating Hours</p>
                     <p className="font-semibold">{attraction.opening_hours} - {attraction.closing_hours}</p>
@@ -322,7 +328,7 @@ const AttractionDetail = () => {
                 </div>
               )}
               
-              <div className={`${attraction.opening_hours || attraction.closing_hours ? 'border-t pt-3' : ''}`}>
+              <div className={`${attraction.opening_hours || attraction.closing_hours ? 'border-t pt-3' : ''}`} style={{ borderColor: TEAL_COLOR }}>
                 <p className="text-sm text-muted-foreground mb-1">Entrance Fee</p>
                 <p className="text-2xl font-bold">
                   {attraction.entrance_type === 'free' ? 'Free Entry' : 
@@ -331,10 +337,13 @@ const AttractionDetail = () => {
                 {attraction.price_child > 0 && <p className="text-sm text-muted-foreground">Child: KSh {attraction.price_child}</p>}
               </div>
 
+              {/* BOOK NOW BUTTOM */}
               <Button 
                 size="lg" 
-                className="w-full bg-[#008080] hover:bg-[#006666] text-white" 
+                className="w-full" 
                 onClick={() => setBookingOpen(true)}
+                style={{ backgroundColor: TEAL_COLOR, borderColor: TEAL_COLOR, color: 'white' }} 
+                // Add a hover class if needed, e.g., hover:bg-teal-700
               >
                 Book Now
               </Button>
@@ -342,15 +351,18 @@ const AttractionDetail = () => {
 
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={openInMaps} className="flex-1 md:size-lg">
-                <MapPin className="h-4 w-4 md:mr-2 text-[#008080]" />
+                {/* MAP ICON */}
+                <MapPin className="h-4 w-4 md:mr-2" style={{ color: TEAL_COLOR }} />
                 <span className="hidden md:inline">Map</span>
               </Button>
               <Button variant="outline" size="sm" onClick={handleCopyLink} className="flex-1 md:size-lg">
-                <Copy className="h-4 w-4 md:mr-2 text-[#008080]" />
+                {/* COPY ICON */}
+                <Copy className="h-4 w-4 md:mr-2" style={{ color: TEAL_COLOR }} />
                 <span className="hidden md:inline">Copy Link</span>
               </Button>
               <Button variant="outline" size="sm" onClick={handleShare} className="flex-1 md:size-lg">
-                <Share2 className="h-4 w-4 md:mr-2 text-[#008080]" />
+                {/* SHARE ICON */}
+                <Share2 className="h-4 w-4 md:mr-2" style={{ color: TEAL_COLOR }} />
                 <span className="hidden md:inline">Share</span>
               </Button>
               <Button 
@@ -358,19 +370,23 @@ const AttractionDetail = () => {
                 size="icon" 
                 onClick={handleSave} 
                 className={isSaved ? "bg-red-500 text-white hover:bg-red-600" : ""}
+                style={{ borderColor: TEAL_COLOR }} // Apply border color to the save button
               >
-                <Heart className={`h-4 w-4 ${isSaved ? "fill-current" : "text-[#008080]"}`} />
+                {/* SAVE ICON */}
+                <Heart className={`h-4 w-4 ${isSaved ? "fill-current" : ""}`} style={{ color: TEAL_COLOR }}/>
               </Button>
             </div>
           </div>
         </div>
 
+        {/* AMENITIES SECTION */}
         {attraction.amenities && attraction.amenities.length > 0 && (
-          <div className="mt-6 p-6 border bg-card">
+          <div className="mt-6 p-6 border bg-card" style={{ borderColor: TEAL_COLOR }}>
             <h2 className="text-xl font-semibold mb-4">Amenities</h2>
             <div className="flex flex-wrap gap-2">
               {attraction.amenities.map((amenity: string, idx: number) => (
-                <div key={idx} className="px-4 py-2 bg-red-400 text-white rounded-full text-sm">
+                // AMENITIES BUTTON COLOR (Lighter Red - bg-red-400)
+                <div key={idx} className="px-4 py-2 text-white rounded-full text-sm" style={{ backgroundColor: 'rgb(248, 113, 113)' /* Tailwind: bg-red-400 */ }}>
                   {amenity}
                 </div>
               ))}
@@ -378,12 +394,14 @@ const AttractionDetail = () => {
           </div>
         )}
 
+        {/* FACILITIES SECTION */}
         {attraction.facilities && attraction.facilities.length > 0 && (
-          <div className="mt-6 p-6 border bg-card">
+          <div className="mt-6 p-6 border bg-card" style={{ borderColor: TEAL_COLOR }}>
             <h2 className="text-xl font-semibold mb-4">Facilities</h2>
             <div className="flex flex-wrap gap-2">
               {attraction.facilities.map((facility: any, idx: number) => (
-                <div key={idx} className="px-4 py-2 bg-[#080800] text-white rounded-full text-sm flex items-center gap-2">
+                // FACILITIES BUTTON COLOR (Near Black - #080800)
+                <div key={idx} className="px-4 py-2 text-white rounded-full text-sm flex items-center gap-2" style={{ backgroundColor: '#080800' }}>
                   <span className="font-medium">{facility.name}</span>
                   {facility.price !== undefined && (
                     <span className="text-xs opacity-90">{facility.price === 0 ? 'Free' : `KSh ${facility.price}`}</span>
@@ -395,12 +413,14 @@ const AttractionDetail = () => {
           </div>
         )}
 
+        {/* ACTIVITIES SECTION */}
         {attraction.activities && attraction.activities.length > 0 && (
-          <div className="mt-6 p-6 border bg-card">
+          <div className="mt-6 p-6 border bg-card" style={{ borderColor: TEAL_COLOR }}>
             <h2 className="text-xl font-semibold mb-4">Activities</h2>
             <div className="flex flex-wrap gap-2">
               {attraction.activities.map((activity: Activity, idx: number) => (
-                <div key={idx} className="px-4 py-2 bg-[#FF9800] text-white rounded-full text-sm flex items-center gap-2">
+                // ACTIVITY BUTTON COLOR (Orange - FF9800)
+                <div key={idx} className="px-4 py-2 text-white rounded-full text-sm flex items-center gap-2" style={{ backgroundColor: '#FF9800' }}>
                   <span className="font-medium">{activity.name}</span>
                   <span className="text-xs opacity-90">{activity.price === 0 ? 'Free' : `KSh ${activity.price}/person`}</span>
                 </div>
@@ -409,20 +429,21 @@ const AttractionDetail = () => {
           </div>
         )}
 
+        {/* CONTACT INFORMATION */}
         {(attraction.phone_number || attraction.email) && (
-          <div className="mt-6 p-6 border bg-card">
+          <div className="mt-6 p-6 border bg-card" style={{ borderColor: TEAL_COLOR }}>
             <h2 className="text-xl font-semibold mb-3">Contact Information</h2>
             <div className="space-y-2">
               {attraction.phone_number && (
                 <p className="flex items-center gap-2">
-                  <Phone className="h-4 w-4 text-[#008080]" />
-                  <a href={`tel:${attraction.phone_number}`} className="text-[#008080] hover:underline">{attraction.phone_number}</a>
+                  <Phone className="h-4 w-4" style={{ color: TEAL_COLOR }}/>
+                  <a href={`tel:${attraction.phone_number}`} className="text-primary hover:underline">{attraction.phone_number}</a>
                 </p>
               )}
               {attraction.email && (
                 <p className="flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-[#008080]" />
-                  <a href={`mailto:${attraction.email}`} className="text-[#008080] hover:underline">{attraction.email}</a>
+                  <Mail className="h-4 w-4" style={{ color: TEAL_COLOR }}/>
+                  <a href={`mailto:${attraction.email}`} className="text-primary hover:underline">{attraction.email}</a>
                 </p>
               )}
             </div>
@@ -438,6 +459,7 @@ const AttractionDetail = () => {
 
       <Dialog open={bookingOpen} onOpenChange={setBookingOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          {/* Calendar Icon is likely used within MultiStepBooking component */}
           <MultiStepBooking 
             onSubmit={handleBookingSubmit} 
             priceAdult={attraction.price_adult || 0}

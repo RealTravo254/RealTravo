@@ -207,6 +207,7 @@ const TripDetail = () => {
           guest_phone: !user ? data.guest_phone : null,
           slots_booked: totalPeople,
           visit_date: dateToUse,
+          referral_tracking_id: getReferralTrackingId(),
           booking_details: { trip_name: trip.name, date: dateToUse, adults: data.num_adults, children: data.num_children, activities: data.selectedActivities } as any,
           emailData: {
             bookingId: '',
@@ -281,6 +282,7 @@ const TripDetail = () => {
         guest_email: !user ? data.guest_email : null,
         guest_phone: !user ? data.guest_phone : null,
         payment_status: 'completed',
+        referral_tracking_id: getReferralTrackingId(),
       }]);
 
       if (error) throw error;

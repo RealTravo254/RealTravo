@@ -144,6 +144,7 @@ const AttractionDetail = () => {
           guest_email: !user ? data.guest_email : null,
           guest_phone: !user ? data.guest_phone : null,
           payment_status: 'paid',
+          referral_tracking_id: getReferralTrackingId(),
         }]).select();
 
         if (error) throw error;

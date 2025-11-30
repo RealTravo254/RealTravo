@@ -44,7 +44,7 @@ export interface BookingFormData {
   guest_name: string;
   guest_email: string;
   guest_phone: string;
-  payment_method: string; // "mpesa", "card" (Removed "airtel")
+  payment_method: string; // "mpesa", "card"
   payment_phone: string;
   card_number: string;
   card_expiry: string;
@@ -116,13 +116,13 @@ export const MultiStepBooking = ({
   // Function to check if all selected facilities have valid start/end dates
   const areFacilityDatesValid = () => {
     return formData.selectedFacilities.every(f => {
-      // Must have both dates filled
-      if (!f.startDate || !f.endDate) return false;
+      // Must have both start and end dates filled
+      if (!f.startDate || !f.endDate) return false; 
       
       const start = new Date(f.startDate).getTime();
       const end = new Date(f.endDate).getTime();
       
-      // End date must be >= Start date (valid range)
+      // End date must be >= Start date
       return end >= start;
     });
   };
@@ -134,9 +134,9 @@ export const MultiStepBooking = ({
     if (currentStep === 1 && !formData.visit_date && !skipDateSelection) return;
     if (currentStep === 2 && formData.num_adults === 0 && formData.num_children === 0) return;
     
-    // VALIDATION: Check facility dates on Step 3
+    // **VALIDATION: Check facility dates on Step 3**
     if (currentStep === 3 && !skipFacilitiesAndActivities && formData.selectedFacilities.length > 0 && !areFacilityDatesValid()) {
-        return; // Prevent navigating forward if facility dates are invalid
+      return;
     }
     
     // Skip facilities/activities step (Step 3) if not needed
@@ -198,17 +198,15 @@ export const MultiStepBooking = ({
         selectedFacilities: formData.selectedFacilities.filter(f => f.name !== facility.name),
       });
     } else {
-      // INITIALIZE START/END DATE TO VISIT DATE for convenience (can be changed by user)
-      const defaultDate = formData.visit_date || new Date().toISOString().split('T')[0];
-      
+      // NO DEFAULT DATE: Initialize start/end date to empty string
       setFormData({
         ...formData,
         selectedFacilities: [
           ...formData.selectedFacilities, 
           { 
             ...facility, 
-            startDate: defaultDate, 
-            endDate: defaultDate 
+            startDate: "", // Ensure no default date
+            endDate: ""    // Ensure no default date
           }
         ],
       });
@@ -265,16 +263,15 @@ export const MultiStepBooking = ({
         const start = new Date(f.startDate).getTime();
         const end = new Date(f.endDate).getTime();
         
-        // Calculate difference in days. Use 1 day as minimum if dates are valid.
-        const dayDifferenceMs = end - start;
-        const days = Math.ceil(dayDifferenceMs / (1000 * 60 * 60 * 24));
-        
-        // Only charge if end date >= start date
-        if (days >= 0) {
+        // Only calculate if dates are valid (end >= start)
+        if (end >= start) {
+            const dayDifferenceMs = end - start;
+            const days = Math.ceil(dayDifferenceMs / (1000 * 60 * 60 * 24));
+            
+            // Charge at least 1 day
             total += f.price * Math.max(days, 1);
         }
       } 
-      // If dates are not filled (and thus invalid for the Next button), we charge 0 for safety.
     });
     
     // 3. Activities
@@ -596,7 +593,6 @@ export const MultiStepBooking = ({
           {/* Payment Method Selection */}
           <div className="space-y-2">
             <Label>Select Payment Method</Label>
-            {/* Payment options updated from grid-cols-3 to grid-cols-2, removing Airtel */}
             <div className="grid grid-cols-2 gap-2"> 
               <Button
                 type="button"
@@ -690,7 +686,7 @@ export const MultiStepBooking = ({
             disabled={
               (currentStep === 1 && !formData.visit_date && !skipDateSelection) ||
               (currentStep === 2 && formData.num_adults === 0 && formData.num_children === 0) ||
-              // THIS IS THE VALIDATION THAT PREVENTS MOVING PAST STEP 3 IF FACILITY DATES ARE INVALID
+              // Strict validation for facilities on Step 3
               (currentStep === 3 && !skipFacilitiesAndActivities && formData.selectedFacilities.length > 0 && !areFacilityDatesValid()) || 
               (currentStep === 4 && (!formData.guest_name || !formData.guest_email || !formData.guest_phone)) // Guest info validation
             }

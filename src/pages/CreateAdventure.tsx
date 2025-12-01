@@ -167,6 +167,25 @@ const CreateAdventure = () => {
       return;
     }
 
+    // Validate required fields
+    if (!formData.phoneNumber) {
+      toast({
+        title: "Phone Number Required",
+        description: "Please provide a contact phone number",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!formData.locationLink) {
+      toast({
+        title: "Location Required",
+        description: "Please click the button to access your current location",
+        variant: "destructive"
+      });
+      return;
+    }
+
     // Verify email if provided
     if (formData.email && !emailVerified) {
       toast({
@@ -372,9 +391,10 @@ const CreateAdventure = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="description">Description (100 words max)</Label>
+                <Label htmlFor="description">Description (100 words max) *</Label>
                 <Textarea
                   id="description"
+                  required
                   value={formData.description}
                   onChange={(e) => setFormData({...formData, description: e.target.value})}
                   placeholder="Describe your campsite or experience..."
@@ -390,7 +410,7 @@ const CreateAdventure = () => {
               />
 
               <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number</Label>
+                <Label htmlFor="phone">Phone Number *</Label>
                 <PhoneInput
                   value={formData.phoneNumber}
                   onChange={(value) => setFormData({...formData, phoneNumber: value})}
@@ -406,30 +426,33 @@ const CreateAdventure = () => {
               <h3 className="text-lg font-semibold">Operational Details</h3>
 
               <div className="space-y-2">
-                <Label htmlFor="locationLink">Location Link</Label>
+                <Label htmlFor="locationLink">Location Link *</Label>
                 <div className="flex gap-2">
                   <Input
                     id="locationLink"
+                    required
+                    disabled
                     value={formData.locationLink}
-                    onChange={(e) => setFormData({...formData, locationLink: e.target.value})}
-                    placeholder="https://maps.google.com/..."
+                    placeholder="Click button to access your current location"
+                    className="cursor-not-allowed"
                   />
                   <Button type="button" variant="outline" onClick={getCurrentLocation} className="shrink-0">
                     <MapPin className="h-4 w-4 mr-2" />
                     Auto-Access My Location
                   </Button>
                 </div>
-                <p className="text-sm text-muted-foreground">Add Google Maps link or use your current location</p>
+                <p className="text-sm text-muted-foreground">Use the button to access your current location</p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="openingHours">Opening Hours</Label>
+                  <Label htmlFor="openingHours">Opening Hours *</Label>
                   <div className="relative">
                     <Clock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="openingHours"
                       type="time"
+                      required
                       className="pl-10"
                       value={formData.openingHours}
                       onChange={(e) => setFormData({...formData, openingHours: e.target.value})}
@@ -438,12 +461,13 @@ const CreateAdventure = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="closingHours">Closing Hours</Label>
+                  <Label htmlFor="closingHours">Closing Hours *</Label>
                   <div className="relative">
                     <Clock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="closingHours"
                       type="time"
+                      required
                       className="pl-10"
                       value={formData.closingHours}
                       onChange={(e) => setFormData({...formData, closingHours: e.target.value})}

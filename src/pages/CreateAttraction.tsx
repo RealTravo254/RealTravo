@@ -223,6 +223,25 @@ export default function CreateAttraction() {
       return;
     }
 
+    // Validate required fields
+    if (!formData.phone_number) {
+      toast({
+        title: "Phone Number Required",
+        description: "Please provide a contact phone number",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!formData.location_link) {
+      toast({
+        title: "Location Required",
+        description: "Please click the button to access your current location",
+        variant: "destructive"
+      });
+      return;
+    }
+
     // Verify email if provided
     if (formData.email && !emailVerified) {
       toast({
@@ -380,9 +399,10 @@ export default function CreateAttraction() {
             </div>
 
             <div>
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="description">Description *</Label>
               <Textarea
                 id="description"
+                required
                 value={formData.description}
                 onChange={(e) => setFormData({...formData, description: e.target.value})}
                 rows={4}
@@ -403,7 +423,7 @@ export default function CreateAttraction() {
             />
 
             <div>
-              <Label htmlFor="phone_number">Phone Number</Label>
+              <Label htmlFor="phone_number">Phone Number *</Label>
               <PhoneInput
                 value={formData.phone_number}
                 onChange={(value) => setFormData({...formData, phone_number: value})}
@@ -414,13 +434,15 @@ export default function CreateAttraction() {
             </div>
 
             <div>
-              <Label htmlFor="location_link">Location Link (Google Maps)</Label>
+              <Label htmlFor="location_link">Location Link (Google Maps) *</Label>
               <Input
                 id="location_link"
                 type="url"
+                required
+                disabled
                 value={formData.location_link}
-                onChange={(e) => setFormData({...formData, location_link: e.target.value})}
-                placeholder="https://maps.google.com/..."
+                placeholder="Click button to access your current location"
+                className="cursor-not-allowed"
               />
             </div>
 
@@ -443,20 +465,22 @@ export default function CreateAttraction() {
             
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="opening_hours">Opening Hours</Label>
+                <Label htmlFor="opening_hours">Opening Hours *</Label>
                 <Input
                   id="opening_hours"
                   type="time"
+                  required
                   value={formData.opening_hours}
                   onChange={(e) => setFormData({...formData, opening_hours: e.target.value})}
                 />
               </div>
 
               <div>
-                <Label htmlFor="closing_hours">Closing Hours</Label>
+                <Label htmlFor="closing_hours">Closing Hours *</Label>
                 <Input
                   id="closing_hours"
                   type="time"
+                  required
                   value={formData.closing_hours}
                   onChange={(e) => setFormData({...formData, closing_hours: e.target.value})}
                 />

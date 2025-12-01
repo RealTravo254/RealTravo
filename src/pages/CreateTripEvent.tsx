@@ -138,6 +138,25 @@ const CreateTripEvent = () => {
       return;
     }
 
+    // Validate required fields
+    if (!formData.phone_number) {
+      toast({
+        title: "Phone Number Required",
+        description: "Please provide a contact phone number",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!formData.map_link) {
+      toast({
+        title: "Location Required",
+        description: "Please click the button to access your current location",
+        variant: "destructive"
+      });
+      return;
+    }
+
     // Verify email if provided
     if (formData.email && !emailVerified) {
       toast({
@@ -361,13 +380,14 @@ const CreateTripEvent = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="price_child">Price (Child)</Label>
+                <Label htmlFor="price_child">Price (Child) *</Label>
                 <div className="relative">
                   <DollarSign className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="price_child"
                     type="number"
                     step="0.01"
+                    required
                     className="pl-10"
                     value={formData.price_child}
                     onChange={(e) => setFormData({...formData, price_child: e.target.value})}
@@ -377,12 +397,13 @@ const CreateTripEvent = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="available_tickets">Available Tickets</Label>
+                <Label htmlFor="available_tickets">Available Tickets *</Label>
                 <div className="relative">
                   <Users className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="available_tickets"
                     type="number"
+                    required
                     className="pl-10"
                     value={formData.available_tickets}
                     onChange={(e) => setFormData({...formData, available_tickets: e.target.value})}
@@ -399,7 +420,7 @@ const CreateTripEvent = () => {
               />
 
               <div className="space-y-2">
-                <Label htmlFor="phone_number">Contact Phone</Label>
+                <Label htmlFor="phone_number">Contact Phone *</Label>
                 <PhoneInput
                   value={formData.phone_number}
                   onChange={(value) => setFormData({...formData, phone_number: value})}
@@ -411,9 +432,10 @@ const CreateTripEvent = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="description">Description *</Label>
               <Textarea
                 id="description"
+                required
                 value={formData.description}
                 onChange={(e) => setFormData({...formData, description: e.target.value})}
                 placeholder="Describe your tour..."
@@ -422,19 +444,21 @@ const CreateTripEvent = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="map_link">Map Location Link</Label>
+              <Label htmlFor="map_link">Map Location Link *</Label>
               <div className="flex gap-2">
                 <Input
                   id="map_link"
+                  required
+                  disabled
                   value={formData.map_link}
-                  onChange={(e) => setFormData({...formData, map_link: e.target.value})}
-                  placeholder="https://maps.google.com/..."
+                  placeholder="Click button to access your current location"
+                  className="cursor-not-allowed"
                 />
                 <Button type="button" variant="outline" onClick={getCurrentLocation}>
                   <Navigation className="h-4 w-4" />
                 </Button>
               </div>
-              <p className="text-sm text-muted-foreground">Add Google Maps link or use your current location</p>
+              <p className="text-sm text-muted-foreground">Use the button to access your current location</p>
             </div>
 
             <div className="space-y-2">

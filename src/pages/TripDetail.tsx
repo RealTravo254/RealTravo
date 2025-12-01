@@ -7,7 +7,7 @@ import { MobileBottomBar } from "@/components/MobileBottomBar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MapPin, Phone, Share2, Calendar, Mail, ArrowLeft, Heart, Copy } from "lucide-react";
-import { generateReferralLink, trackReferralClick } from "@/lib/referralUtils";
+import { generateReferralLink, trackReferralClick, getReferralTrackingId } from "@/lib/referralUtils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -47,6 +47,7 @@ interface Trip {
   email: string;
   map_link: string;
   activities?: Activity[];
+  created_by: string;
 }
 
 const TripDetail = () => {
@@ -62,6 +63,7 @@ const TripDetail = () => {
   const { savedItems, handleSave: handleSaveItem } = useSavedItems();
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
+  const [checkoutRequestId, setCheckoutRequestId] = useState<string>("");
   
   const isSaved = savedItems.has(id || "");
 
@@ -153,40 +155,134 @@ const TripDetail = () => {
     if (!trip) return;
     
     setIsProcessing(true);
+    setCheckoutRequestId(""); // Reset
     
     try {
       const totalAmount = (data.num_adults * trip.price) + (data.num_children * trip.price_child) +
                          data.selectedActivities.reduce((sum, a) => sum + (a.price * a.numberOfPeople), 0);
+      const totalPeople = data.num_adults + data.num_children;
 
-      // Free booking flow (omitted complex supabase logic for brevity but kept function calls)
+      // Free booking flow
       if (totalAmount === 0) {
-        // ... (Supabase insert for free booking, notifications, and email functions) ...
+        const { error } = await supabase.from('bookings').insert([{
+          user_id: user?.id || null,
+          item_id: id,
+          booking_type: 'trip',
+          visit_date: trip.date,
+          total_amount: totalAmount,
+          slots_booked: totalPeople,
+          booking_details: {
+            trip_name: trip.name,
+            date: trip.date,
+            adults: data.num_adults,
+            children: data.num_children,
+            activities: data.selectedActivities
+          } as any,
+          payment_method: 'free',
+          is_guest_booking: !user,
+          guest_name: !user ? data.guest_name : null,
+          guest_email: !user ? data.guest_email : null,
+          guest_phone: !user ? data.guest_phone : null,
+          payment_status: 'paid',
+          referral_tracking_id: getReferralTrackingId()
+        }]);
+        if (error) throw error;
         setIsProcessing(false);
         setIsCompleted(true);
         return;
       }
 
-      // M-Pesa payment flow (omitted complex supabase logic for brevity but kept function calls)
+      // M-Pesa payment flow
       if (data.payment_method === "mpesa") {
-        // ... (STK Push, Polling, and Fallback Query logic) ...
-        // Example simplification:
-        await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate payment processing
+        const bookingPayload = {
+          user_id: user?.id || null,
+          item_id: id,
+          booking_type: 'trip',
+          host_id: trip.created_by,
+          is_guest_booking: !user,
+          guest_name: !user ? data.guest_name : null,
+          guest_email: !user ? data.guest_email : null,
+          guest_phone: !user ? data.guest_phone : null,
+          slots_booked: totalPeople,
+          visit_date: trip.date,
+          referral_tracking_id: getReferralTrackingId(),
+          booking_details: {
+            trip_name: trip.name,
+            date: trip.date,
+            adults: data.num_adults,
+            children: data.num_children,
+            activities: data.selectedActivities
+          } as any,
+          emailData: {
+            bookingId: '',
+            email: user ? user.email : data.guest_email,
+            guestName: user ? user.user_metadata?.name || data.guest_name : data.guest_name,
+            bookingType: "trip",
+            itemName: trip.name,
+            totalAmount,
+            bookingDetails: {
+              adults: data.num_adults,
+              children: data.num_children,
+              selectedActivities: data.selectedActivities,
+              phone: user ? "" : data.guest_phone
+            },
+            visitDate: trip.date
+          }
+        };
+
+        const { data: mpesaResponse, error: mpesaError } = await supabase.functions.invoke("mpesa-stk-push", {
+          body: {
+            phoneNumber: data.payment_phone,
+            amount: totalAmount,
+            accountReference: `TRIP-${trip.id}`,
+            transactionDesc: `Booking for ${trip.name}`,
+            bookingData: bookingPayload
+          }
+        });
+
+        if (mpesaError || !mpesaResponse?.success) {
+          throw new Error(mpesaResponse?.error || "M-Pesa payment failed");
+        }
+
+        const reqId = mpesaResponse.checkoutRequestId;
+        setCheckoutRequestId(reqId); // Store for realtime subscription
         
-        // Assume successful for this simplified example:
-        setIsProcessing(false);
-        setIsCompleted(true);
+        // The MultiStepBooking component will now handle showing payment status via realtime subscription
+        // We keep processing state active so it shows the "Processing Payment..." UI
         return;
       }
 
-      // Other payment methods (omitted complex supabase logic for brevity but kept function calls)
-      // ... (Supabase insert for completed booking) ...
-
+      // Other payment methods
+      const { error } = await supabase.from('bookings').insert([{
+        user_id: user?.id || null,
+        item_id: id,
+        booking_type: 'trip',
+        visit_date: trip.date,
+        total_amount: totalAmount,
+        slots_booked: totalPeople,
+        booking_details: {
+          trip_name: trip.name,
+          date: trip.date,
+          adults: data.num_adults,
+          children: data.num_children,
+          activities: data.selectedActivities
+        } as any,
+        payment_method: data.payment_method,
+        is_guest_booking: !user,
+        guest_name: !user ? data.guest_name : null,
+        guest_email: !user ? data.guest_email : null,
+        guest_phone: !user ? data.guest_phone : null,
+        payment_status: 'completed',
+        referral_tracking_id: getReferralTrackingId()
+      }]);
+      if (error) throw error;
       setIsProcessing(false);
       setIsCompleted(true);
     } catch (error: any) {
       console.error('Booking error:', error);
       toast({ title: "Booking failed", description: error.message || "Failed to create booking", variant: "destructive" });
       setIsProcessing(false);
+      setCheckoutRequestId("");
     }
   };
 
@@ -430,6 +526,7 @@ const TripDetail = () => {
             skipDateSelection={!trip.is_custom_date}
             fixedDate={trip.date}
             skipFacilitiesAndActivities={true}
+            checkoutRequestId={checkoutRequestId}
           />
         </DialogContent>
       </Dialog>

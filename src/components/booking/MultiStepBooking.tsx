@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Calendar, Users, Loader2, CreditCard } from "lucide-react";
+import { Calendar, Users, Loader2, CreditCard, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/contexts/AuthContext"; // Assuming this path is correct
 import { supabase } from "@/integrations/supabase/client";
@@ -33,6 +33,7 @@ interface MultiStepBookingProps {
   skipDateSelection?: boolean; // Skip date selection for fixed-date items
   fixedDate?: string; // Pre-set date for fixed-date items
   skipFacilitiesAndActivities?: boolean; // Skip facilities/activities for trips and events
+  checkoutRequestId?: string; // For tracking payment status
 }
 
 export interface BookingFormData {
@@ -64,12 +65,15 @@ export const MultiStepBooking = ({
   skipDateSelection = false,
   fixedDate = "",
   skipFacilitiesAndActivities = false,
+  checkoutRequestId = "",
 }: MultiStepBookingProps) => {
   // Use the custom Auth hook
   const { user } = useAuth();
   
   // State for step management and form data (start at step 2 if skipping date selection)
   const [currentStep, setCurrentStep] = useState(skipDateSelection ? 2 : 1);
+  const [paymentStatus, setPaymentStatus] = useState<string>("");
+  const [paymentMessage, setPaymentMessage] = useState<string>("");
   const [formData, setFormData] = useState<BookingFormData>({
     visit_date: skipDateSelection ? fixedDate : "",
     num_adults: 1,
@@ -109,6 +113,49 @@ export const MultiStepBooking = ({
     
     fetchUserProfile();
   }, [user]);
+
+  // Listen for real-time payment status updates
+  useEffect(() => {
+    if (!checkoutRequestId || !isProcessing) return;
+
+    const channel = supabase
+      .channel(`payment-${checkoutRequestId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'pending_payments',
+          filter: `checkout_request_id=eq.${checkoutRequestId}`,
+        },
+        (payload: any) => {
+          const newData = payload.new;
+          if (newData && newData.payment_status) {
+            const status = newData.payment_status;
+            const resultCode = newData.result_code;
+            
+            if (status === 'completed' || resultCode === '0') {
+              setPaymentStatus('success');
+              setPaymentMessage('Payment Successful! Your booking is confirmed.');
+            } else if (resultCode === '1032') {
+              setPaymentStatus('cancelled');
+              setPaymentMessage('Payment Cancelled. You cancelled the payment on your phone.');
+            } else if (resultCode === '2001') {
+              setPaymentStatus('error');
+              setPaymentMessage('Unable to Process. Wrong PIN entered.');
+            } else if (status === 'failed') {
+              setPaymentStatus('failed');
+              setPaymentMessage('Payment Failed. Please try again or contact support.');
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [checkoutRequestId, isProcessing]);
 
   // Total steps including the conditional guest info step
   const totalSteps = 5;
@@ -284,13 +331,61 @@ export const MultiStepBooking = ({
 
   // --- Rendering Conditional States ---
 
-  // Loading/Processing Screen
+  // Loading/Processing Screen with real-time status updates
   if (isProcessing) {
+    if (paymentStatus === 'success') {
+      return (
+        <div className="flex flex-col items-center justify-center p-8 space-y-4">
+          <div className="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
+            <CheckCircle2 className="h-10 w-10 text-green-600" />
+          </div>
+          <p className="text-xl font-bold text-green-600">Successful</p>
+          <p className="text-sm text-muted-foreground text-center">{paymentMessage}</p>
+        </div>
+      );
+    }
+    
+    if (paymentStatus === 'cancelled') {
+      return (
+        <div className="flex flex-col items-center justify-center p-8 space-y-4">
+          <div className="h-16 w-16 rounded-full bg-orange-100 flex items-center justify-center">
+            <XCircle className="h-10 w-10 text-orange-600" />
+          </div>
+          <p className="text-xl font-bold text-orange-600">Cancelled</p>
+          <p className="text-sm text-muted-foreground text-center">{paymentMessage}</p>
+        </div>
+      );
+    }
+    
+    if (paymentStatus === 'error') {
+      return (
+        <div className="flex flex-col items-center justify-center p-8 space-y-4">
+          <div className="h-16 w-16 rounded-full bg-red-100 flex items-center justify-center">
+            <AlertCircle className="h-10 w-10 text-red-600" />
+          </div>
+          <p className="text-xl font-bold text-red-600">Unable to Process</p>
+          <p className="text-sm text-muted-foreground text-center">{paymentMessage}</p>
+        </div>
+      );
+    }
+    
+    if (paymentStatus === 'failed') {
+      return (
+        <div className="flex flex-col items-center justify-center p-8 space-y-4">
+          <div className="h-16 w-16 rounded-full bg-red-100 flex items-center justify-center">
+            <XCircle className="h-10 w-10 text-red-600" />
+          </div>
+          <p className="text-xl font-bold text-red-600">Failed</p>
+          <p className="text-sm text-muted-foreground text-center">{paymentMessage}</p>
+        </div>
+      );
+    }
+    
     return (
       <div className="flex flex-col items-center justify-center p-8 space-y-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <p className="text-lg font-medium">Processing Payment...</p>
-        <p className="text-sm text-muted-foreground">Please wait while we confirm your payment</p>
+        <p className="text-sm text-muted-foreground">Please confirm the payment on your phone</p>
       </div>
     );
   }
@@ -300,9 +395,7 @@ export const MultiStepBooking = ({
     return (
       <div className="flex flex-col items-center justify-center p-8 space-y-4">
         <div className="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
-          <svg className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
+          <CheckCircle2 className="h-10 w-10 text-green-600" />
         </div>
         <p className="text-xl font-bold">Booking Confirmed! 🎉</p>
         <p className="text-sm text-muted-foreground text-center">Your booking for {itemName} has been successfully confirmed. You will receive a confirmation email shortly.</p>

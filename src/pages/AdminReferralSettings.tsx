@@ -13,6 +13,33 @@ import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Settings } from "lucide-react";
 
+// Define the specified Teal color
+const TEAL_COLOR = "#008080";
+const TEAL_HOVER_COLOR = "#005555"; // A darker shade of teal for hover
+
+// Helper function for primary button styles
+const getTealButtonStyle = () => {
+  return {
+    backgroundColor: TEAL_COLOR,
+    borderColor: TEAL_COLOR,
+    color: 'white',
+    transition: 'background-color 0.15s',
+  };
+};
+
+const handleMouseEnter = (e: React.MouseEvent<HTMLButtonElement>) => {
+  if (!e.currentTarget.disabled) {
+    (e.currentTarget.style as any).backgroundColor = TEAL_HOVER_COLOR;
+  }
+};
+
+const handleMouseLeave = (e: React.MouseEvent<HTMLButtonElement>) => {
+  if (!e.currentTarget.disabled) {
+    (e.currentTarget.style as any).backgroundColor = TEAL_COLOR;
+  }
+};
+
+
 export default function AdminReferralSettings() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -61,7 +88,7 @@ export default function AdminReferralSettings() {
           .select("*")
           .single();
 
-        if (error) throw error;
+        if (error && error.code !== 'PGRST116') throw error; // PGRST116 means no rows found (expected for new setup)
 
         if (settingsData) {
           setSettings({
@@ -89,8 +116,9 @@ export default function AdminReferralSettings() {
   }, [user, navigate]);
 
   const handleSave = async () => {
-    // Validate commission rates don't exceed service fees
+    // 1. Validation: Commission rate cannot exceed service fee
     const validationErrors = [];
+    // Renaming Adventure Place to be consistent with the label for clarity in validation
     if (settings.tripCommissionRate > settings.tripServiceFee) validationErrors.push("Trip");
     if (settings.eventCommissionRate > settings.eventServiceFee) validationErrors.push("Event");
     if (settings.hotelCommissionRate > settings.hotelServiceFee) validationErrors.push("Hotel");
@@ -108,23 +136,44 @@ export default function AdminReferralSettings() {
 
     setSaving(true);
     try {
-      const { error } = await supabase
+      // Fetch the ID of the single referral_settings row
+      const { data: existingSettings, error: fetchError } = await supabase
         .from("referral_settings")
-        .update({
-          trip_commission_rate: settings.tripCommissionRate,
-          event_commission_rate: settings.eventCommissionRate,
-          hotel_commission_rate: settings.hotelCommissionRate,
-          attraction_commission_rate: settings.attractionCommissionRate,
-          adventure_place_commission_rate: settings.adventurePlaceCommissionRate,
-          trip_service_fee: settings.tripServiceFee,
-          event_service_fee: settings.eventServiceFee,
-          hotel_service_fee: settings.hotelServiceFee,
-          attraction_service_fee: settings.attractionServiceFee,
-          adventure_place_service_fee: settings.adventurePlaceServiceFee,
-        })
-        .eq("id", (await supabase.from("referral_settings").select("id").single()).data?.id);
+        .select("id")
+        .single();
 
-      if (error) throw error;
+      if (fetchError && fetchError.code !== 'PGRST116') throw fetchError; // Ignore "no rows" error
+
+      const updateData = {
+        trip_commission_rate: settings.tripCommissionRate,
+        event_commission_rate: settings.eventCommissionRate,
+        hotel_commission_rate: settings.hotelCommissionRate,
+        attraction_commission_rate: settings.attractionCommissionRate,
+        adventure_place_commission_rate: settings.adventurePlaceCommissionRate,
+        trip_service_fee: settings.tripServiceFee,
+        event_service_fee: settings.eventServiceFee,
+        hotel_service_fee: settings.hotelServiceFee,
+        attraction_service_fee: settings.attractionServiceFee,
+        adventure_place_service_fee: settings.adventurePlaceServiceFee,
+      };
+
+      let saveError;
+      if (existingSettings) {
+        // Update existing row
+        const { error } = await supabase
+          .from("referral_settings")
+          .update(updateData)
+          .eq("id", existingSettings.id);
+        saveError = error;
+      } else {
+        // Insert new row if none exists (assuming the table is configured for a single-row design)
+        const { error } = await supabase
+          .from("referral_settings")
+          .insert([updateData]);
+        saveError = error;
+      }
+      
+      if (saveError) throw saveError;
 
       toast({
         title: "Success",
@@ -164,7 +213,8 @@ export default function AdminReferralSettings() {
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      <main className="flex-1 container mx-auto px-4 py-8">
+      {/* The main content area uses flex-1, which allows it to grow and the content inside it to scroll if it overflows the viewport, satisfying the small screen scroll requirement. */}
+      <main className="flex-1 container mx-auto px-4 py-8 overflow-y-auto"> 
         <div className="max-w-2xl mx-auto">
           <Button
             variant="ghost"
@@ -187,6 +237,13 @@ export default function AdminReferralSettings() {
                 <p className="text-sm text-muted-foreground">
                   Configure platform service fees and referral commission rates by category
                 </p>
+                {/* Visual aid for the calculation structure */}
+                <div className="p-3 mt-2 bg-slate-50 border-l-4 border-teal-500 rounded-r text-xs">
+                    <p className="font-semibold text-teal-700">Formula Hint:</p>
+                    <p>Referral Payout = Booking Value $\times$ (Service Fee %) $\times$ (Commission Rate % / 100)</p>
+                    <p className="mt-1 text-red-600">⚠️ **Commission Rate (%)** must be $\leq$ **Service Fee (%)** to avoid platform loss.</p>
+                </div>
+                
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -402,10 +459,14 @@ export default function AdminReferralSettings() {
             </Card>
 
 
+            {/* Color change applied here */}
             <Button
               onClick={handleSave}
               disabled={saving}
               className="w-full"
+              style={getTealButtonStyle()}
+              onMouseEnter={handleMouseEnter}
+              onMouseLeave={handleMouseLeave}
             >
               {saving ? "Saving..." : "Save All Settings"}
             </Button>

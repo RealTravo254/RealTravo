@@ -6,7 +6,6 @@ import { Footer } from "@/components/Footer";
 import { MobileBottomBar } from "@/components/MobileBottomBar";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
-// Import components. The `rounded-none` class is applied below where possible.
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoginForm } from "@/components/auth/LoginForm";
@@ -41,7 +40,7 @@ const Auth = () => {
       <Header />
       
       <main className="container px-4 py-8 max-w-md mx-auto">
-        {/* Back Button styling changed to use the TEAL color for the icon/text in 'ghost' variant */}
+        {/* Back Button styling uses TEAL color */}
         <Button
           variant="ghost"
           size="sm"
@@ -68,7 +67,7 @@ const Auth = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {/* Pass the new TEAL color properties to the LoginForm component */}
+                {/* Pass the TEAL color properties to the LoginForm component */}
                 <LoginForm 
                   onSwitchToSignup={() => handleSwitchTab("signup")} 
                   primaryColor={TEAL_COLOR} 
@@ -87,7 +86,7 @@ const Auth = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {/* Pass the new TEAL color properties to the SignupForm component */}
+                {/* Pass the TEAL color properties to the SignupForm component */}
                 <SignupForm 
                   onSwitchToLogin={() => handleSwitchTab("login")} 
                   primaryColor={TEAL_COLOR} 

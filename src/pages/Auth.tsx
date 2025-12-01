@@ -47,13 +47,14 @@ const Auth = () => {
           size="sm"
           onClick={() => navigate(-1)}
           className="mb-4"
-          style={{ color: TEAL_COLOR }}
+          style={{ color: TEAL_COLOR }} // Uses TEAL_COLOR
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back
         </Button>
         
         <Tabs value={activeTab} onValueChange={setActiveTab}>
+          {/* TabsList and TabsTrigger control styling typically managed by Tailwind configuration */}
           <TabsList className="grid w-full grid-cols-2 rounded-none">
             <TabsTrigger value="login" className="rounded-none">Login</TabsTrigger>
             <TabsTrigger value="signup" className="rounded-none">Sign Up</TabsTrigger>
@@ -71,8 +72,8 @@ const Auth = () => {
                 {/* Passes TEAL color properties for the Login button */}
                 <LoginForm 
                   onSwitchToSignup={() => handleSwitchTab("signup")} 
-                  primaryColor={TEAL_COLOR} 
-                  primaryHoverColor={TEAL_HOVER_COLOR}
+                  primaryColor={TEAL_COLOR} // Passes TEAL_COLOR
+                  primaryHoverColor={TEAL_HOVER_COLOR} // Passes TEAL_HOVER_COLOR
                 />
               </CardContent>
             </Card>
@@ -90,8 +91,8 @@ const Auth = () => {
                 {/* Passes TEAL color properties for the Sign Up button */}
                 <SignupForm 
                   onSwitchToLogin={() => handleSwitchTab("login")} 
-                  primaryColor={TEAL_COLOR} 
-                  primaryHoverColor={TEAL_HOVER_COLOR}
+                  primaryColor={TEAL_COLOR} // Passes TEAL_COLOR
+                  primaryHoverColor={TEAL_HOVER_COLOR} // Passes TEAL_HOVER_COLOR
                 />
               </CardContent>
             </Card>
@@ -100,6 +101,8 @@ const Auth = () => {
       </main>
 
       <MobileBottomBar />
+      {/* Footer is not shown, but Header/MobileBottomBar might need similar styling if they contain blue elements */}
+      <Footer />
     </div>
   );
 };

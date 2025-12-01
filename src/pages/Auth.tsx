@@ -12,9 +12,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { LoginForm } from "@/components/auth/LoginForm";
 import { SignupForm } from "@/components/auth/SignupForm";
 
-// Define the specified BLUE color
-const BLUE_COLOR = "#1f71f0"; // A common, standard blue
-const BLUE_HOVER_COLOR = "#165ac8"; // A darker shade of blue for hover
+// Define the specified TEAL color (008080)
+const TEAL_COLOR = "#008080";
+const TEAL_HOVER_COLOR = "#005555"; // A darker shade of teal for hover
 
 const Auth = () => {
   const [activeTab, setActiveTab] = useState("login");
@@ -41,13 +41,13 @@ const Auth = () => {
       <Header />
       
       <main className="container px-4 py-8 max-w-md mx-auto">
-        {/* Back Button styling changed to use the NEW BLUE color for the icon/text in 'ghost' variant */}
+        {/* Back Button styling changed to use the TEAL color for the icon/text in 'ghost' variant */}
         <Button
           variant="ghost"
           size="sm"
           onClick={() => navigate(-1)}
           className="mb-4"
-          style={{ color: BLUE_COLOR }}
+          style={{ color: TEAL_COLOR }}
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back
@@ -68,12 +68,11 @@ const Auth = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {/* Pass the new blue color properties to the LoginForm component */}
+                {/* Pass the TEAL color properties to the LoginForm component */}
                 <LoginForm 
                   onSwitchToSignup={() => handleSwitchTab("signup")} 
-                  // Renaming prop keys to be generic (primaryColor, primaryHoverColor) for clarity
-                  primaryColor={BLUE_COLOR} 
-                  primaryHoverColor={BLUE_HOVER_COLOR}
+                  primaryColor={TEAL_COLOR} 
+                  primaryHoverColor={TEAL_HOVER_COLOR}
                 />
               </CardContent>
             </Card>
@@ -88,11 +87,11 @@ const Auth = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {/* Pass the new blue color properties to the SignupForm component */}
+                {/* Pass the TEAL color properties to the SignupForm component */}
                 <SignupForm 
                   onSwitchToLogin={() => handleSwitchTab("login")} 
-                  primaryColor={BLUE_COLOR} 
-                  primaryHoverColor={BLUE_HOVER_COLOR}
+                  primaryColor={TEAL_COLOR} 
+                  primaryHoverColor={TEAL_HOVER_COLOR}
                 />
               </CardContent>
             </Card>
@@ -101,8 +100,6 @@ const Auth = () => {
       </main>
 
       <MobileBottomBar />
-      {/* Footer component was not used in original return, keeping it commented */}
-      {/* <Footer /> */}
     </div>
   );
 };

@@ -11,6 +11,10 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { Plane, Building, Tent, MapPin, Plus, ArrowLeft } from "lucide-react";
 
+// Define the specified Teal color
+const TEAL_COLOR = "#008080";
+const TEAL_HOVER_COLOR = "#005555"; // A darker shade of teal for hover
+
 const BecomeHost = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -201,6 +205,7 @@ const BecomeHost = () => {
             className="hover:bg-accent"
           >
             <ArrowLeft className="h-5 w-5" />
+            Back
           </Button>
           <h1 className="text-3xl font-bold">Become a Host</h1>
         </div>
@@ -232,7 +237,14 @@ const BecomeHost = () => {
                 navigate("/CreateTripEvent");
               }}
               size="sm"
-              className="absolute top-2 right-2 z-10 bg-primary hover:bg-primary/90"
+              className="absolute top-2 right-2 z-10 text-white"
+              style={{ 
+                backgroundColor: TEAL_COLOR,
+                borderColor: TEAL_COLOR,
+                hover: { backgroundColor: TEAL_HOVER_COLOR } 
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = TEAL_HOVER_COLOR}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = TEAL_COLOR}
             >
               <Plus className="h-4 w-4 mr-1" />
               Add Tour
@@ -265,7 +277,14 @@ const BecomeHost = () => {
                 navigate("/CreateHotel");
               }}
               size="sm"
-              className="absolute top-2 right-2 z-10 bg-primary hover:bg-primary/90"
+              className="absolute top-2 right-2 z-10 text-white"
+              style={{ 
+                backgroundColor: TEAL_COLOR,
+                borderColor: TEAL_COLOR,
+                hover: { backgroundColor: TEAL_HOVER_COLOR } 
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = TEAL_HOVER_COLOR}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = TEAL_COLOR}
             >
               <Plus className="h-4 w-4 mr-1" />
               Add Hotel
@@ -298,7 +317,14 @@ const BecomeHost = () => {
                 navigate("/create-attraction");
               }}
               size="sm"
-              className="absolute top-2 right-2 z-10 bg-primary hover:bg-primary/90"
+              className="absolute top-2 right-2 z-10 text-white"
+              style={{ 
+                backgroundColor: TEAL_COLOR,
+                borderColor: TEAL_COLOR,
+                hover: { backgroundColor: TEAL_HOVER_COLOR } 
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = TEAL_HOVER_COLOR}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = TEAL_COLOR}
             >
               <Plus className="h-4 w-4 mr-1" />
               Add Attraction
@@ -331,7 +357,14 @@ const BecomeHost = () => {
                 navigate("/CreateAdventure");
               }}
               size="sm"
-              className="absolute top-2 right-2 z-10 bg-primary hover:bg-primary/90"
+              className="absolute top-2 right-2 z-10 text-white"
+              style={{ 
+                backgroundColor: TEAL_COLOR,
+                borderColor: TEAL_COLOR,
+                hover: { backgroundColor: TEAL_HOVER_COLOR } 
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = TEAL_HOVER_COLOR}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = TEAL_COLOR}
             >
               <Plus className="h-4 w-4 mr-1" />
               Add Experience

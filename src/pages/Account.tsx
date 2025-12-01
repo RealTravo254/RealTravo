@@ -10,6 +10,9 @@ import { ChevronRight, User, Briefcase, CreditCard, Shield, LogOut, UserCog, Use
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 
+// Define the specified Teal color
+const TEAL_COLOR = "#008080"; 
+
 export default function Account() {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
@@ -175,7 +178,8 @@ export default function Account() {
                     className="w-full flex items-center justify-between p-6 hover:bg-accent transition-colors"
                   >
                     <div className="flex items-center gap-4">
-                      <item.icon className="h-5 w-5 text-primary" />
+                      {/* Icon color changed to Teal (#008080) */}
+                      <item.icon className="h-5 w-5" style={{ color: TEAL_COLOR }} /> 
                       <span className="font-medium text-foreground">{item.label}</span>
                     </div>
                     <ChevronRight className="h-5 w-5 text-muted-foreground" />

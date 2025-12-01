@@ -21,6 +21,11 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { CountrySelector } from "@/components/creation/CountrySelector";
 
+// Define the specified Teal color
+const TEAL_COLOR = "#008080";
+const TEAL_HOVER_COLOR = "#005555"; // A darker shade of teal for hover
+const LIGHT_TEAL_BG = "#0080801A"; // Teal with 10% opacity for background (used as replacement for bg-primary/10)
+
 const ProfileEdit = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -240,8 +245,11 @@ const ProfileEdit = () => {
                 {/* Name Field */}
                 <div className="p-4 flex items-center justify-between hover:bg-accent/50 transition-colors cursor-pointer group">
                   <div className="flex items-center gap-4 flex-1">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                      <User className="h-5 w-5 text-primary" />
+                    <div 
+                      className="w-10 h-10 rounded-full flex items-center justify-center"
+                      style={{ backgroundColor: LIGHT_TEAL_BG }}
+                    >
+                      <User className="h-5 w-5" style={{ color: TEAL_COLOR }} />
                     </div>
                     <div className="flex-1">
                       <Label htmlFor="name" className="text-sm text-muted-foreground cursor-pointer">
@@ -264,8 +272,11 @@ const ProfileEdit = () => {
                 {/* Date of Birth Field */}
                 <div className="p-4 flex items-center justify-between hover:bg-accent/50 transition-colors cursor-pointer group">
                   <div className="flex items-center gap-4 flex-1">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                      <Calendar className="h-5 w-5 text-primary" />
+                    <div 
+                      className="w-10 h-10 rounded-full flex items-center justify-center"
+                      style={{ backgroundColor: LIGHT_TEAL_BG }}
+                    >
+                      <Calendar className="h-5 w-5" style={{ color: TEAL_COLOR }} />
                     </div>
                     <div className="flex-1">
                       <Label htmlFor="dob" className="text-sm text-muted-foreground cursor-pointer">
@@ -286,8 +297,11 @@ const ProfileEdit = () => {
                 {/* Gender Field */}
                 <div className="p-4 flex items-center justify-between hover:bg-accent/50 transition-colors">
                   <div className="flex items-center gap-4 flex-1">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                      <User className="h-5 w-5 text-primary" />
+                    <div 
+                      className="w-10 h-10 rounded-full flex items-center justify-center"
+                      style={{ backgroundColor: LIGHT_TEAL_BG }}
+                    >
+                      <User className="h-5 w-5" style={{ color: TEAL_COLOR }} />
                     </div>
                     <div className="flex-1">
                       <Label htmlFor="gender" className="text-sm text-muted-foreground">
@@ -320,8 +334,11 @@ const ProfileEdit = () => {
                 {/* Country Field */}
                 <div className="p-4 flex items-center justify-between hover:bg-accent/50 transition-colors">
                   <div className="flex items-center gap-4 flex-1">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                      <Globe className="h-5 w-5 text-primary" />
+                    <div 
+                      className="w-10 h-10 rounded-full flex items-center justify-center"
+                      style={{ backgroundColor: LIGHT_TEAL_BG }}
+                    >
+                      <Globe className="h-5 w-5" style={{ color: TEAL_COLOR }} />
                     </div>
                     <div className="flex-1">
                       <Label className="text-sm text-muted-foreground">
@@ -339,8 +356,11 @@ const ProfileEdit = () => {
                 {/* Phone Number Field */}
                 <div className="p-4 hover:bg-accent/50 transition-colors">
                   <div className="flex items-center gap-4 flex-1">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                      <Phone className="h-5 w-5 text-primary" />
+                    <div 
+                      className="w-10 h-10 rounded-full flex items-center justify-center"
+                      style={{ backgroundColor: LIGHT_TEAL_BG }}
+                    >
+                      <Phone className="h-5 w-5" style={{ color: TEAL_COLOR }} />
                     </div>
                     <div className="flex-1 space-y-2">
                       <Label htmlFor="phone" className="text-sm text-muted-foreground">
@@ -361,6 +381,13 @@ const ProfileEdit = () => {
                             size="sm"
                             onClick={handleSendVerificationCode}
                             disabled={sendingCode}
+                            style={{ 
+                              backgroundColor: TEAL_COLOR,
+                              borderColor: TEAL_COLOR,
+                              color: 'white'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = TEAL_HOVER_COLOR}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = TEAL_COLOR}
                           >
                             {sendingCode ? "Sending..." : "Verify"}
                           </Button>
@@ -386,6 +413,13 @@ const ProfileEdit = () => {
                               size="sm"
                               onClick={handleVerifyCode}
                               disabled={verifyingCode || verificationCode.length !== 6}
+                              style={{ 
+                                backgroundColor: TEAL_COLOR,
+                                borderColor: TEAL_COLOR,
+                                color: 'white'
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = TEAL_HOVER_COLOR}
+                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = TEAL_COLOR}
                             >
                               {verifyingCode ? "Verifying..." : "Confirm"}
                             </Button>
@@ -402,8 +436,14 @@ const ProfileEdit = () => {
               <div className="p-6 flex gap-4">
                 <Button
                   type="submit"
-                  className="flex-1"
+                  className="flex-1 text-white"
                   disabled={loading}
+                  style={{ 
+                    backgroundColor: TEAL_COLOR,
+                    borderColor: TEAL_COLOR 
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = TEAL_HOVER_COLOR}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = TEAL_COLOR}
                 >
                   {loading ? "Saving..." : "Save Changes"}
                 </Button>

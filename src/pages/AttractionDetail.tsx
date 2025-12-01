@@ -283,7 +283,7 @@ const AttractionDetail = () => {
               <CarouselContent>
                 {images?.map((url, index) => (
                   <CarouselItem key={index}>
-                    <img src={url} alt={`${attraction.location_name} ${index + 1}`} className="w-full h-64 md:h-96 object-cover" />
+                    <img src={url} alt={`${attraction.location_name} ${index + 1}`} loading="lazy" decoding="async" className="w-full h-64 md:h-96 object-cover" />
                   </CarouselItem>
                 ))}
               </CarouselContent>

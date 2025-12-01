@@ -700,7 +700,7 @@ const Index = () => {
                 image_url: "https://images.unsplash.com/photo-1483347756197-71ef80e95f73?w=800&h=600&fit=crop"
               }].map(vlog => <div key={vlog.id} className="flex-shrink-0 w-[85vw] md:w-64 snap-center md:snap-align-none">
                                     <Card className="cursor-pointer hover:shadow-lg transition-shadow overflow-hidden h-full">
-                                        <img src={vlog.image_url} alt={vlog.title} className="w-full h-48 object-cover" />
+                                        <img src={vlog.image_url} alt={vlog.title} loading="lazy" decoding="async" className="w-full h-48 object-cover" />
                                         <div className="p-4">
                                             <h3 className="font-bold text-base mb-2 line-clamp-1">{vlog.title}</h3>
                                             <p className="text-sm text-muted-foreground line-clamp-2">{vlog.description}</p>

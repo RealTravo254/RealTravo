@@ -126,6 +126,8 @@ export const MapView = ({ listings, onMarkerClick }: MapViewProps) => {
             <img
               src={selectedListing.image_url}
               alt={selectedListing.name}
+              loading="lazy"
+              decoding="async"
               className="w-full h-40 object-cover rounded-lg mb-3"
             />
             

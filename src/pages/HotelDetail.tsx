@@ -377,7 +377,7 @@ const HotelDetail = () => {
           }}>
               <CarouselContent>
                 {displayImages.map((img, idx) => <CarouselItem key={idx}>
-                    <img src={img} alt={`${hotel.name} ${idx + 1}`} className="w-full h-64 md:h-96 object-cover" />
+                    <img src={img} alt={`${hotel.name} ${idx + 1}`} loading="lazy" decoding="async" className="w-full h-64 md:h-96 object-cover" />
                   </CarouselItem>)}
               </CarouselContent>
               {displayImages.length > 1 && <>

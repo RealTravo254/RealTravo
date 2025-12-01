@@ -652,7 +652,7 @@ const EditListing = () => {
                     <div className="grid grid-cols-3 gap-4 mt-2">
                       {existingImages.map((img, idx) => (
                         <div key={`existing-${idx}`} className="relative">
-                          <img src={img} alt="" className="w-full h-24 object-cover rounded" />
+                          <img src={img} alt="" loading="lazy" decoding="async" className="w-full h-24 object-cover rounded" />
                           <Button
                             size="icon"
                             variant="destructive"

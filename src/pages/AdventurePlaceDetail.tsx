@@ -205,8 +205,8 @@ const AdventurePlaceDetail = () => {
         <div className="grid lg:grid-cols-[2fr,1fr] gap-6">
           <div className="w-full relative">
             <Carousel opts={{ loop: true }} plugins={[Autoplay({ delay: 3000 })]} className="w-full rounded-2xl overflow-hidden">
-              <CarouselContent>
-                {displayImages.map((img, idx) => <CarouselItem key={idx}><img src={img} alt={`${place.name} ${idx + 1}`} className="w-full h-64 md:h-96 object-cover" /></CarouselItem>)}
+              <CarouselContent>
+                {displayImages.map((img, idx) => <CarouselItem key={idx}><img src={img} alt={`${place.name} ${idx + 1}`} loading="lazy" decoding="async" className="w-full h-64 md:h-96 object-cover" /></CarouselItem>)}
               </CarouselContent>
               {displayImages.length > 1 && (
                 <>

@@ -410,7 +410,7 @@ const EventDetail = () => {
             <Carousel className="w-full rounded-2xl overflow-hidden">
               <CarouselContent>
                 {allImages.map((img, idx) => <CarouselItem key={idx}>
-                    <img src={img} alt={`${event.name} ${idx + 1}`} className="w-full h-64 md:h-96 object-cover" />
+                    <img src={img} alt={`${event.name} ${idx + 1}`} loading="lazy" decoding="async" className="w-full h-64 md:h-96 object-cover" />
                   </CarouselItem>)}
               </CarouselContent>
               {allImages.length > 1 && <>

@@ -14,6 +14,8 @@ export const ApprovedTab = ({ approvedListings, handleToggleVisibility }: any) =
             <img 
               src={item.image_url} 
               alt={item.name}
+              loading="lazy"
+              decoding="async"
               className="w-32 h-32 object-cover rounded"
             />
             <div className="flex-1 space-y-2">

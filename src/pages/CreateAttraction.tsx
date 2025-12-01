@@ -757,7 +757,7 @@ export default function CreateAttraction() {
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {photoPreviews.map((preview, index) => (
                   <div key={index} className="relative">
-                    <img src={preview} alt={`Preview ${index + 1}`} className="w-full h-32 object-cover rounded-lg" />
+                    <img src={preview} alt={`Preview ${index + 1}`} loading="lazy" decoding="async" className="w-full h-32 object-cover rounded-lg" />
                     <Button
                       type="button"
                       variant="destructive"

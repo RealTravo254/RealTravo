@@ -394,19 +394,21 @@ export const SearchBarWithSuggestions = ({ value, onChange, onSubmit, onSuggesti
                     onClick={() => handleSuggestionClick(result)}
                     className="w-full px-4 py-3 flex gap-3 hover:bg-accent transition-colors text-left border-b last:border-b-0"
                   >
-                    {/* Image with category badge */}
-                    <div className="relative w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden">
-                      {result.image_url ? (
-                        <img 
-                          src={result.image_url} 
-                          alt={result.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-muted flex items-center justify-center">
-                          <TypeIcon className="h-8 w-8 text-muted-foreground" />
-                        </div>
-                      )}
+                    {/* Image with category badge */}
+                    <div className="relative w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden">
+                      {result.image_url ? (
+                        <img 
+                          src={result.image_url} 
+                          alt={result.name}
+                          loading="lazy"
+                          decoding="async"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-muted flex items-center justify-center">
+                          <TypeIcon className="h-8 w-8 text-muted-foreground" />
+                        </div>
+                      )}
                       {/* Badge background set to Teal */}
                       <Badge 
                         className="absolute top-1 left-1 text-primary-foreground text-[0.65rem] px-1.5 py-0.5 font-bold"

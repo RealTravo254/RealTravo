@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import Index from "./pages/Index";
@@ -122,6 +122,7 @@ const App = () => (
               <Route path="/payment-history" element={<PaymentHistory />} />
               <Route path="/my-referrals" element={<MyReferrals />} />
               <Route path="/install" element={<Install />} />
+              <Route path="/host-bookings" element={<Navigate to="/become-host" replace />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </div>

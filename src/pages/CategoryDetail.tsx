@@ -20,6 +20,7 @@ const CategoryDetail = () => {
   const [filteredItems, setFilteredItems] = useState<any[]>([]);
   const { savedItems, handleSave } = useSavedItems();
   const [loading, setLoading] = useState(true);
+  const [hasMore, setHasMore] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [bookingStats, setBookingStats] = useState<Map<string, number>>(new Map());
   const { toast } = useToast();
@@ -79,7 +80,7 @@ const CategoryDetail = () => {
   // Infinite scroll
   useEffect(() => {
     const handleScroll = () => {
-      if (loading) return;
+      if (loading || !hasMore) return;
       
       const scrollHeight = document.documentElement.scrollHeight;
       const scrollTop = document.documentElement.scrollTop;
@@ -92,15 +93,17 @@ const CategoryDetail = () => {
 
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [loading, items.length]);
+  }, [loading, hasMore, items.length]);
 
   const loadMore = async () => {
-    if (loading) return;
+    if (loading || !hasMore) return;
     
     setLoading(true);
     const moreData = await fetchData(items.length, 20);
     if (moreData.length > 0) {
       setItems(prev => [...prev, ...moreData]);
+    } else {
+      setHasMore(false); // No more data to load
     }
     setLoading(false);
   };
@@ -214,8 +217,12 @@ const CategoryDetail = () => {
 
   const loadInitialData = async () => {
     setLoading(true);
+    setHasMore(true); // Reset when loading initial data
     const data = await fetchData(0, 15);
     setItems(data);
+    if (data.length < 15) {
+      setHasMore(false); // Less data than requested means no more
+    }
     setLoading(false);
   };
 

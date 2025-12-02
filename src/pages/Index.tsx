@@ -24,6 +24,7 @@ const Index = () => {
     handleSave
   } = useSavedItems();
   const [loading, setLoading] = useState(true);
+  const [hasMoreSearchResults, setHasMoreSearchResults] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const {
     toast
@@ -284,8 +285,14 @@ const Index = () => {
     
     if (offset === 0) {
       setListings(combined);
+      setHasMoreSearchResults(true); // Reset when starting fresh search
     } else {
       setListings(prev => [...prev, ...combined]);
+    }
+    
+    // Stop loading more if we got less data than requested
+    if (combined.length < limit) {
+      setHasMoreSearchResults(false);
     }
     
     setLoading(false);
@@ -294,10 +301,10 @@ const Index = () => {
 
   // Infinite scroll for search results
   useEffect(() => {
-    if (!searchQuery) return;
+    if (!searchQuery || !hasMoreSearchResults) return;
     
     const handleScroll = () => {
-      if (loading) return;
+      if (loading || !hasMoreSearchResults) return;
       
       const scrollHeight = document.documentElement.scrollHeight;
       const scrollTop = document.documentElement.scrollTop;
@@ -310,11 +317,16 @@ const Index = () => {
 
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [loading, searchQuery, listings.length]);
+  }, [loading, searchQuery, listings.length, hasMoreSearchResults]);
 
   const loadMoreSearchResults = async () => {
-    if (loading || !searchQuery) return;
+    if (loading || !searchQuery || !hasMoreSearchResults) return;
+    const prevLength = listings.length;
     await fetchAllData(searchQuery, listings.length, 20);
+    // Check if we got less data than requested
+    if (listings.length === prevLength) {
+      setHasMoreSearchResults(false);
+    }
   };
   useEffect(() => {
     fetchAllData();

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
-import { Footer } from "@/components/Footer";
+
 import { MobileBottomBar } from "@/components/MobileBottomBar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -378,7 +378,6 @@ const EventDetail = () => {
         <div className="container px-4 py-6 max-w-6xl mx-auto">
           <div className="h-64 md:h-96 bg-muted animate-pulse rounded-lg" />
         </div>
-        <Footer />
         <MobileBottomBar />
       </div>;
   }
@@ -388,7 +387,6 @@ const EventDetail = () => {
         <div className="container mx-auto px-4 py-8">
           <p>Event not found</p>
         </div>
-        <Footer />
         <MobileBottomBar />
       </div>;
   }
@@ -573,7 +571,6 @@ const EventDetail = () => {
         </DialogContent>
       </Dialog>
 
-      <Footer />
       <MobileBottomBar />
     </div>;
 };

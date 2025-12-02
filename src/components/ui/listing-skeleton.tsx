@@ -3,8 +3,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 export function ListingSkeleton() {
   return (
     <div className="border rounded-lg overflow-hidden bg-card shadow-sm">
-      {/* Image skeleton */}
-      <Skeleton className="aspect-[4/3] w-full" />
+      {/* Image skeleton with fixed aspect ratio to prevent layout shift */}
+      <div className="relative" style={{ paddingBottom: '75%' }}>
+        <Skeleton className="absolute inset-0 w-full h-full" />
+      </div>
       
       {/* Content skeleton */}
       <div className="p-3 md:p-4 space-y-2">

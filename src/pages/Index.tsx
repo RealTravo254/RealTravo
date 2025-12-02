@@ -5,7 +5,7 @@ import { MobileBottomBar } from "@/components/MobileBottomBar";
 import { SearchBarWithSuggestions } from "@/components/SearchBarWithSuggestions";
 import { ListingCard } from "@/components/ListingCard";
 import { MapView } from "@/components/MapView";
-import { Footer } from "@/components/Footer";
+
 import { Card } from "@/components/ui/card";
 import { Calendar, Hotel, Tent, Compass, Map, Grid, MapPin, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -751,7 +751,6 @@ const Index = () => {
                     </section>
                 </div>
             </main>
-            <Footer className={isSearchFocused ? 'hidden' : ''} />
             <MobileBottomBar />
         </div>;
 };

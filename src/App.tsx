@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { InstallPrompt } from "@/components/InstallPrompt";
+import { PageLayout } from "@/components/PageLayout";
 import Index from "./pages/Index";
 import Saved from "./pages/Saved";
 import Bookings from "./pages/Bookings";
@@ -69,8 +70,9 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <InstallPrompt />
-          <div className="w-full">
-            <Routes>
+          <PageLayout>
+            <div className="w-full">
+              <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/saved" element={<Saved />} />
               <Route path="/bookings" element={<Bookings />} />
@@ -127,6 +129,7 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
           </div>
+          </PageLayout>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

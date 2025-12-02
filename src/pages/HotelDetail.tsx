@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Header } from "@/components/Header";
-import { Footer } from "@/components/Footer";
+
 import { MobileBottomBar } from "@/components/MobileBottomBar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -350,7 +350,6 @@ const HotelDetail = () => {
     return <div className="min-h-screen bg-background pb-20 md:pb-0">
         <Header />
         <div className="container px-4 py-6"><div className="h-96 bg-muted animate-pulse rounded-lg" /></div>
-        <Footer />
         <MobileBottomBar />
       </div>;
   }
@@ -571,7 +570,6 @@ const HotelDetail = () => {
         </DialogContent>
       </Dialog>
 
-      <Footer />
       <MobileBottomBar />
     </div>;
 };

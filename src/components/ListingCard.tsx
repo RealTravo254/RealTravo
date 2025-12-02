@@ -86,16 +86,18 @@ export const ListingCard = ({
       className="group overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer border rounded-lg bg-card shadow-sm
                    w-full" 
     >
-      <div className="relative aspect-[4/3] overflow-hidden m-0">
+      <div className="relative overflow-hidden m-0" style={{ paddingBottom: '75%' }}>
         <img
           src={optimizeSupabaseImage(imageUrl, { width: 640, height: 480, quality: 85 })}
           srcSet={generateImageSrcSet(imageUrl, [320, 640, 960])}
           sizes="(max-width: 640px) 320px, (max-width: 1024px) 640px, 640px"
           alt={name}
+          width={640}
+          height={480}
           loading={priority ? "eager" : "lazy"}
           fetchPriority={priority ? "high" : "auto"}
           decoding="async"
-          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 m-0 p-0"
+          className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 m-0 p-0"
         />
         
         {/* Category Badges use Teal BG (0, 128, 128) */}

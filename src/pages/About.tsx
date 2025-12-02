@@ -1,6 +1,6 @@
 import { Header } from "@/components/Header";
 import { MobileBottomBar } from "@/components/MobileBottomBar";
-import { Footer } from "@/components/Footer";
+
 import { Card } from "@/components/ui/card";
 
 const About = () => {
@@ -31,7 +31,7 @@ const About = () => {
         </Card>
       </main>
 
-      <Footer />
+      
       <MobileBottomBar />
     </div>
   );

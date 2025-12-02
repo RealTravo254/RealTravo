@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { MobileBottomBar } from "@/components/MobileBottomBar";
-import { Footer } from "@/components/Footer";
+
 import { SearchBarWithSuggestions } from "@/components/SearchBarWithSuggestions";
 import { ListingCard } from "@/components/ListingCard";
 import { FilterBar } from "@/components/FilterBar";
@@ -362,7 +362,6 @@ const CategoryDetail = () => {
         </div>
       </main>
 
-      <Footer />
       <MobileBottomBar />
     </div>
   );

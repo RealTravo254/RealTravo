@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Header } from "@/components/Header";
-import { Footer } from "@/components/Footer";
+
 import { MobileBottomBar } from "@/components/MobileBottomBar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -288,7 +288,7 @@ const AdventurePlaceDetail = () => {
     }
   };
 
-  if (loading || !place) return <div className="min-h-screen bg-background"><Header /><div className="h-96 bg-muted animate-pulse" /><Footer /><MobileBottomBar /></div>;
+  if (loading || !place) return <div className="min-h-screen bg-background"><Header /><div className="h-96 bg-muted animate-pulse" /><MobileBottomBar /></div>;
 
   const displayImages = [place.image_url, ...(place.gallery_images || []), ...(place.images || [])].filter(Boolean);
 
@@ -522,10 +522,9 @@ const AdventurePlaceDetail = () => {
         </DialogContent>
       </Dialog>
 
-      <Footer />
-      <MobileBottomBar />
-    </div>
-  );
+      <MobileBottomBar />
+    </div>
+  );
 };
 
 export default AdventurePlaceDetail;

@@ -298,7 +298,7 @@ const CategoryDetail = () => {
           isSearchVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-full h-0 overflow-hidden'
         }`}
       >
-        <div className="container px-4 py-4 relative z-[100]">
+        <div className="container px-4 py-4 relative z-[200]">
           <SearchBarWithSuggestions
             value={searchQuery}
             onChange={setSearchQuery}
@@ -339,10 +339,10 @@ const CategoryDetail = () => {
         </div>
       </div>
 
-      <main className="container px-4 py-8 space-y-4">
+      <main className={cn("container px-4 py-8 space-y-4", isSearchFocused && "relative z-0")}>
         <h1 className="text-3xl font-bold">{config.title}</h1>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-6">
           {loading ? (
             <>
               {[...Array(12)].map((_, i) => (

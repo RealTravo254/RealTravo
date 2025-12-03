@@ -499,9 +499,9 @@ const Index = () => {
                         <h2 className="text-xl md:text-2xl font-bold mb-4">
                             {searchQuery ? 'Search Results' : 'All Listings'}
                         </h2>
-                        {loading ? <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {loading ? <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
                                 {[...Array(6)].map((_, i) => <ListingSkeleton key={i} />)}
-                            </div> : listings.length > 0 ? <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            </div> : listings.length > 0 ? <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
                                 {listings.map(listing => <ListingCard key={listing.id} id={listing.id} type={listing.type} name={listing.name} location={listing.location} country={listing.country} imageUrl={listing.image_url} price={listing.price || listing.entry_fee || 0} isSaved={savedItems.has(listing.id)} onSave={() => handleSave(listing.id, listing.type)} availableTickets={listing.type === "TRIP" || listing.type === "EVENT" ? listing.available_tickets : undefined} bookedTickets={listing.type === "TRIP" || listing.type === "EVENT" ? bookingStats[listing.id] || 0 : undefined} showBadge={true} />)}
                             </div> : <p className="text-center text-muted-foreground py-8">No results found</p>}
                     </div>}
@@ -527,7 +527,7 @@ const Index = () => {
                         
                         {searchQuery && viewMode === 'map' ? <MapView listings={listings} /> : searchQuery ?
           // Column grid view for search results
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
                                 {loading ? [...Array(12)].map((_, i) => <ListingSkeleton key={i} />) : listings.length === 0 ? <div className="col-span-full text-center py-12">
                                         <p className="text-muted-foreground text-lg">No results found for "{searchQuery}"</p>
                                         <p className="text-muted-foreground text-sm mt-2">Try searching with different keywords</p>

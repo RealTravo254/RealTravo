@@ -52,7 +52,7 @@ const CreatorDashboard = () => {
           .from("creator_booking_summary")
           .select("*")
           .in("item_id", allIds)
-          .eq("status", "confirmed")
+          .eq("payment_status", "paid")
           .order("created_at", { ascending: false });
         setBookings(data || []);
       }

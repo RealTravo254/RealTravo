@@ -65,11 +65,12 @@ const HostBookingDetails = () => {
 
       setItemName(item.name);
 
-      // Fetch bookings
+      // Fetch paid bookings only (hosts can only see confirmed paid bookings)
       const { data: bookingsData } = await supabase
         .from("bookings")
         .select("*")
         .eq("item_id", itemId)
+        .eq("payment_status", "paid")
         .order("created_at", { ascending: false });
 
       if (bookingsData) {

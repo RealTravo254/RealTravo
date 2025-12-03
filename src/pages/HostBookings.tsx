@@ -56,7 +56,7 @@ const HostBookings = () => {
             .select("*", { count: "exact", head: true })
             .eq("item_id", trip.id)
             .eq("booking_type", "trip")
-            .eq("status", "pending");
+            .eq("payment_status", "paid");
 
           allItems.push({
             id: trip.id,
@@ -75,7 +75,7 @@ const HostBookings = () => {
             .select("*", { count: "exact", head: true })
             .eq("item_id", hotel.id)
             .eq("booking_type", "hotel")
-            .eq("status", "pending");
+            .eq("payment_status", "paid");
 
           allItems.push({
             id: hotel.id,
@@ -94,7 +94,7 @@ const HostBookings = () => {
             .select("*", { count: "exact", head: true })
             .eq("item_id", adventure.id)
             .eq("booking_type", "adventure")
-            .eq("status", "pending");
+            .eq("payment_status", "paid");
 
           allItems.push({
             id: adventure.id,

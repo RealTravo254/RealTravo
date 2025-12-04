@@ -1,14 +1,15 @@
 // src/components/MultiStepBooking.tsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 // Assuming you are using Shadcn UI components
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Calendar, Users, Loader2, CreditCard, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
+import { Calendar, Users, Loader2, CreditCard, CheckCircle2, XCircle, AlertCircle, Clock, RefreshCw } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import { Progress } from "@/components/ui/progress";
 
 interface Facility {
   name: string;
@@ -76,6 +77,9 @@ export const MultiStepBooking = ({
   const [currentStep, setCurrentStep] = useState(skipDateSelection ? 2 : 1);
   const [paymentStatus, setPaymentStatus] = useState<string>("");
   const [paymentMessage, setPaymentMessage] = useState<string>("");
+  const [countdown, setCountdown] = useState(60);
+  const [isManualChecking, setIsManualChecking] = useState(false);
+  const countdownRef = useRef<NodeJS.Timeout | null>(null);
   const [formData, setFormData] = useState<BookingFormData>({
     visit_date: skipDateSelection ? fixedDate : "",
     num_adults: 1,
@@ -115,6 +119,31 @@ export const MultiStepBooking = ({
     
     fetchUserProfile();
   }, [user]);
+
+  // Countdown timer for payment processing
+  useEffect(() => {
+    if (!isProcessing || !checkoutRequestId) {
+      setCountdown(60);
+      return;
+    }
+
+    // Reset countdown when processing starts
+    setCountdown(60);
+
+    countdownRef.current = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          if (countdownRef.current) clearInterval(countdownRef.current);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => {
+      if (countdownRef.current) clearInterval(countdownRef.current);
+    };
+  }, [isProcessing, checkoutRequestId]);
 
   // Poll M-Pesa STK Query and listen for real-time payment status updates
   useEffect(() => {
@@ -287,6 +316,58 @@ export const MultiStepBooking = ({
       supabase.removeChannel(channel);
     };
   }, [checkoutRequestId, isProcessing, user, navigate]);
+
+  // Manual check payment status
+  const manualCheckStatus = async () => {
+    if (!checkoutRequestId || isManualChecking) return;
+    
+    setIsManualChecking(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('mpesa-stk-query', {
+        body: { checkoutRequestId }
+      });
+
+      if (error) {
+        console.error('Manual check error:', error);
+        return;
+      }
+
+      console.log('Manual check response:', data);
+
+      const code = String(data?.resultCode);
+      switch (code) {
+        case '0':
+          setPaymentStatus('success');
+          setPaymentMessage('Payment Successful! Your booking is confirmed.');
+          setTimeout(() => {
+            if (user) navigate('/bookings');
+          }, 2500);
+          break;
+        case '1':
+          setPaymentStatus('error');
+          setPaymentMessage('Insufficient balance in your M-Pesa account.');
+          break;
+        case '1025':
+          setPaymentStatus('error');
+          setPaymentMessage('Wrong PIN entered. Please try again.');
+          break;
+        case '1032':
+          setPaymentStatus('cancelled');
+          setPaymentMessage('Payment was cancelled. Please try again if you wish to complete your booking.');
+          break;
+        case '1037':
+          setPaymentStatus('timeout');
+          setPaymentMessage('Payment timed out. You did not enter your PIN in time.');
+          break;
+        case '1001':
+          setPaymentStatus('error');
+          setPaymentMessage('Unable to process - your phone is busy with another session.');
+          break;
+      }
+    } finally {
+      setIsManualChecking(false);
+    }
+  };
 
   // Total steps including the conditional guest info step
   const totalSteps = 5;
@@ -500,23 +581,72 @@ export const MultiStepBooking = ({
       );
     }
     
-    if (paymentStatus === 'failed') {
+    if (paymentStatus === 'failed' || paymentStatus === 'timeout') {
       return (
         <div className="flex flex-col items-center justify-center p-8 space-y-4">
           <div className="h-16 w-16 rounded-full bg-red-100 flex items-center justify-center">
             <XCircle className="h-10 w-10 text-red-600" />
           </div>
-          <p className="text-xl font-bold text-red-600">Failed</p>
+          <p className="text-xl font-bold text-red-600">{paymentStatus === 'timeout' ? 'Timed Out' : 'Failed'}</p>
           <p className="text-sm text-muted-foreground text-center">{paymentMessage}</p>
+          <Button 
+            variant="outline" 
+            onClick={manualCheckStatus}
+            disabled={isManualChecking}
+            className="mt-2"
+          >
+            {isManualChecking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+            Check Status Again
+          </Button>
         </div>
       );
     }
     
+    // Default: Waiting for payment confirmation with countdown
+    const progressPercentage = Math.max(0, (countdown / 60) * 100);
+    
     return (
-      <div className="flex flex-col items-center justify-center p-8 space-y-4">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="text-lg font-medium">Processing Payment...</p>
-        <p className="text-sm text-muted-foreground">Please confirm the payment on your phone</p>
+      <div className="flex flex-col items-center justify-center p-8 space-y-6">
+        {/* Animated loader */}
+        <div className="relative">
+          <div className="h-20 w-20 rounded-full border-4 border-primary/20 flex items-center justify-center">
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          </div>
+          {/* Countdown badge */}
+          <div className="absolute -bottom-2 -right-2 bg-primary text-primary-foreground rounded-full h-8 w-8 flex items-center justify-center text-sm font-bold">
+            {countdown}
+          </div>
+        </div>
+        
+        <div className="text-center space-y-2">
+          <p className="text-lg font-semibold">Waiting for Payment Confirmation</p>
+          <p className="text-sm text-muted-foreground">Please check your phone and enter your M-Pesa PIN</p>
+        </div>
+        
+        {/* Progress bar */}
+        <div className="w-full max-w-xs space-y-2">
+          <Progress value={progressPercentage} className="h-2" />
+          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+            <Clock className="h-4 w-4" />
+            <span>{countdown}s remaining</span>
+          </div>
+        </div>
+        
+        {/* Manual check button */}
+        <Button 
+          variant="outline" 
+          size="sm"
+          onClick={manualCheckStatus}
+          disabled={isManualChecking}
+          className="mt-2"
+        >
+          {isManualChecking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+          Check Status Now
+        </Button>
+        
+        <p className="text-xs text-muted-foreground text-center max-w-xs">
+          If you've already entered your PIN, the payment will be confirmed automatically.
+        </p>
       </div>
     );
   }

@@ -140,6 +140,7 @@ const Bookings = () => {
       switch (result_code) {
         case "0": return "bg-green-500/10 text-green-500"; // Success
         case "1": return "bg-orange-500/10 text-orange-500"; // Insufficient funds
+        case "1025": return "bg-red-500/10 text-red-500"; // Wrong PIN
         case "1032": return "bg-red-500/10 text-red-500"; // User cancelled
         case "1037": return "bg-yellow-500/10 text-yellow-500"; // Timeout
         case "1001": return "bg-orange-500/10 text-orange-500"; // Subscriber busy
@@ -170,6 +171,7 @@ const Bookings = () => {
       switch (result_code) {
         case "0": return "Paid";
         case "1": return "Insufficient Funds";
+        case "1025": return "Wrong PIN";
         case "1032": return "Cancelled by User";
         case "1037": return "PIN Timeout";
         case "1001": return "Subscriber Busy";
@@ -198,7 +200,7 @@ const Bookings = () => {
     
     // Allow retry for these Daraja result codes
     if (result_code) {
-      return ["1", "1032", "1037", "1001", "2001", "2"].includes(result_code);
+      return ["1", "1025", "1032", "1037", "1001", "2001", "2"].includes(result_code);
     }
     
     // Fallback to payment_status

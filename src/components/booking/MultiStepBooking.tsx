@@ -1,15 +1,12 @@
 // src/components/MultiStepBooking.tsx
-import { useState, useEffect, useRef } from "react";
-// Assuming you are using Shadcn UI components
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Calendar, Users, Loader2, CreditCard, CheckCircle2, XCircle, AlertCircle, Clock, RefreshCw } from "lucide-react";
+import { Calendar, Users, Loader2, CheckCircle2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
-import { Progress } from "@/components/ui/progress";
 
 interface Facility {
   name: string;
@@ -28,14 +25,13 @@ interface MultiStepBookingProps {
   activities?: Activity[];
   priceAdult?: number;
   priceChild?: number;
-  entranceType?: string; // e.g., "paid", "free"
+  entranceType?: string;
   isProcessing?: boolean;
   isCompleted?: boolean;
   itemName: string;
-  skipDateSelection?: boolean; // Skip date selection for fixed-date items
-  fixedDate?: string; // Pre-set date for fixed-date items
-  skipFacilitiesAndActivities?: boolean; // Skip facilities/activities for trips and events
-  checkoutRequestId?: string; // For tracking payment status
+  skipDateSelection?: boolean;
+  fixedDate?: string;
+  skipFacilitiesAndActivities?: boolean;
 }
 
 export interface BookingFormData {
@@ -47,11 +43,6 @@ export interface BookingFormData {
   guest_name: string;
   guest_email: string;
   guest_phone: string;
-  payment_method: string; // "mpesa", "card"
-  payment_phone: string;
-  card_number: string;
-  card_expiry: string;
-  card_cvv: string;
 }
 
 export const MultiStepBooking = ({
@@ -67,43 +58,28 @@ export const MultiStepBooking = ({
   skipDateSelection = false,
   fixedDate = "",
   skipFacilitiesAndActivities = false,
-  checkoutRequestId = "",
 }: MultiStepBookingProps) => {
-  // Use the custom Auth hook
   const { user } = useAuth();
-  const navigate = useNavigate();
   
-  // State for step management and form data (start at step 2 if skipping date selection)
   const [currentStep, setCurrentStep] = useState(skipDateSelection ? 2 : 1);
-  const [paymentStatus, setPaymentStatus] = useState<string>("");
-  const [paymentMessage, setPaymentMessage] = useState<string>("");
-  const [countdown, setCountdown] = useState(60);
-  const [isManualChecking, setIsManualChecking] = useState(false);
-  const countdownRef = useRef<NodeJS.Timeout | null>(null);
   const [formData, setFormData] = useState<BookingFormData>({
     visit_date: skipDateSelection ? fixedDate : "",
     num_adults: 1,
     num_children: 0,
     selectedFacilities: [],
     selectedActivities: [],
-    // Pre-fill user data if available - will fetch from profiles
     guest_name: "",
     guest_email: user?.email || "",
     guest_phone: "",
-    payment_method: "mpesa",
-    payment_phone: "",
-    card_number: "",
-    card_expiry: "",
-    card_cvv: "",
   });
 
-  // Fetch user profile data for name
+  // Fetch user profile data
   useEffect(() => {
     const fetchUserProfile = async () => {
       if (user) {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('name, email')
+          .select('name, email, phone_number')
           .eq('id', user.id)
           .single();
         
@@ -112,6 +88,7 @@ export const MultiStepBooking = ({
             ...prev,
             guest_name: profile.name || "",
             guest_email: profile.email || user.email || "",
+            guest_phone: profile.phone_number || "",
           }));
         }
       }
@@ -120,320 +97,38 @@ export const MultiStepBooking = ({
     fetchUserProfile();
   }, [user]);
 
-  // Countdown timer for payment processing
-  useEffect(() => {
-    if (!isProcessing || !checkoutRequestId) {
-      setCountdown(60);
-      return;
-    }
+  const totalSteps = 4;
 
-    // Reset countdown when processing starts
-    setCountdown(60);
-
-    countdownRef.current = setInterval(() => {
-      setCountdown(prev => {
-        if (prev <= 1) {
-          if (countdownRef.current) clearInterval(countdownRef.current);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => {
-      if (countdownRef.current) clearInterval(countdownRef.current);
-    };
-  }, [isProcessing, checkoutRequestId]);
-
-  // Poll M-Pesa STK Query and listen for real-time payment status updates
-  useEffect(() => {
-    if (!checkoutRequestId || !isProcessing) return;
-
-    let pollInterval: NodeJS.Timeout;
-    let pollCount = 0;
-    const maxPolls = 12; // Poll for ~60 seconds (5s * 12)
-    let stopped = false;
-
-    // Function to handle result codes
-    const handleResultCode = (resultCode: string | number, resultDesc?: string) => {
-      const code = String(resultCode);
-      
-      switch (code) {
-        case '0':
-          setPaymentStatus('success');
-          setPaymentMessage('Payment Successful! Your booking is confirmed.');
-          return true; // Final state
-        case '1':
-          setPaymentStatus('error');
-          setPaymentMessage('Insufficient balance in your M-Pesa account.');
-          return true;
-        case '1025':
-          setPaymentStatus('error');
-          setPaymentMessage('Wrong PIN entered. Please try again.');
-          return true;
-        case '1032':
-          setPaymentStatus('cancelled');
-          setPaymentMessage('Payment was cancelled. Please try again if you wish to complete your booking.');
-          return true;
-        case '1037':
-          setPaymentStatus('timeout');
-          setPaymentMessage('Payment timed out. You did not enter your PIN in time.');
-          return true;
-        case '1001':
-          setPaymentStatus('error');
-          setPaymentMessage('Unable to process - your phone is busy with another session.');
-          return true;
-        case '2':
-          setPaymentStatus('error');
-          setPaymentMessage('Transaction type not supported.');
-          return true;
-        case '2001':
-          setPaymentStatus('error');
-          setPaymentMessage('Invalid transaction request.');
-          return true;
-        default:
-          // Still pending or unknown
-          return false;
-      }
-    };
-
-    // Function to query M-Pesa status
-    const queryPaymentStatus = async () => {
-      if (stopped) return;
-      
-      try {
-        console.log(`Polling M-Pesa status (${pollCount + 1}/${maxPolls})...`);
-        const { data, error } = await supabase.functions.invoke('mpesa-stk-query', {
-          body: { checkoutRequestId }
-        });
-
-        if (error) {
-          console.error('STK Query error:', error);
-          pollCount++;
-          return;
-        }
-
-        console.log('STK Query response:', data);
-
-        // Handle rate limit
-        if (data?.resultCode === 'RATE_LIMIT') {
-          console.log('Rate limited, will retry...');
-          pollCount++;
-          return;
-        }
-
-        // Check if we got a final result
-        const isFinal = handleResultCode(data?.resultCode, data?.resultDesc);
-        
-        if (isFinal) {
-          stopped = true;
-          clearInterval(pollInterval);
-          
-          // Redirect on success after delay
-          if (data?.resultCode === '0' || data?.resultCode === 0) {
-            setTimeout(() => {
-              if (user) {
-                navigate('/bookings');
-              }
-            }, 2500);
-          }
-        }
-
-        pollCount++;
-        if (pollCount >= maxPolls && !stopped) {
-          clearInterval(pollInterval);
-          stopped = true;
-          setPaymentStatus('timeout');
-          setPaymentMessage('Payment confirmation timeout. Please check your M-Pesa messages or visit My Bookings to see the status.');
-        }
-      } catch (err) {
-        console.error('Error querying payment status:', err);
-        pollCount++;
-      }
-    };
-
-    // Start polling after 5 seconds delay (give user time to enter PIN)
-    const startDelay = setTimeout(() => {
-      if (!stopped) {
-        queryPaymentStatus(); // Initial query
-        pollInterval = setInterval(queryPaymentStatus, 5000); // Poll every 5 seconds
-      }
-    }, 5000);
-
-    // Also listen for real-time updates as backup
-    const channel = supabase
-      .channel(`payment-${checkoutRequestId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'pending_payments',
-          filter: `checkout_request_id=eq.${checkoutRequestId}`,
-        },
-        (payload: any) => {
-          if (stopped) return;
-          
-          const newData = payload.new;
-          if (newData && (newData.payment_status || newData.result_code)) {
-            const resultCode = newData.result_code;
-            
-            if (resultCode) {
-              const isFinal = handleResultCode(resultCode, newData.result_desc);
-              
-              if (isFinal) {
-                stopped = true;
-                clearInterval(pollInterval);
-                
-                if (resultCode === '0') {
-                  setTimeout(() => {
-                    if (user) {
-                      navigate('/bookings');
-                    }
-                  }, 2500);
-                }
-              }
-            } else if (newData.payment_status === 'completed') {
-              stopped = true;
-              setPaymentStatus('success');
-              setPaymentMessage('Payment Successful! Your booking is confirmed.');
-              clearInterval(pollInterval);
-              setTimeout(() => {
-                if (user) {
-                  navigate('/bookings');
-                }
-              }, 2500);
-            }
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      stopped = true;
-      clearTimeout(startDelay);
-      clearInterval(pollInterval);
-      supabase.removeChannel(channel);
-    };
-  }, [checkoutRequestId, isProcessing, user, navigate]);
-
-  // Manual check payment status
-  const manualCheckStatus = async () => {
-    if (!checkoutRequestId || isManualChecking) return;
-    
-    setIsManualChecking(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('mpesa-stk-query', {
-        body: { checkoutRequestId }
-      });
-
-      if (error) {
-        console.error('Manual check error:', error);
-        return;
-      }
-
-      console.log('Manual check response:', data);
-
-      const code = String(data?.resultCode);
-      switch (code) {
-        case '0':
-          setPaymentStatus('success');
-          setPaymentMessage('Payment Successful! Your booking is confirmed.');
-          setTimeout(() => {
-            if (user) navigate('/bookings');
-          }, 2500);
-          break;
-        case '1':
-          setPaymentStatus('error');
-          setPaymentMessage('Insufficient balance in your M-Pesa account.');
-          break;
-        case '1025':
-          setPaymentStatus('error');
-          setPaymentMessage('Wrong PIN entered. Please try again.');
-          break;
-        case '1032':
-          setPaymentStatus('cancelled');
-          setPaymentMessage('Payment was cancelled. Please try again if you wish to complete your booking.');
-          break;
-        case '1037':
-          setPaymentStatus('timeout');
-          setPaymentMessage('Payment timed out. You did not enter your PIN in time.');
-          break;
-        case '1001':
-          setPaymentStatus('error');
-          setPaymentMessage('Unable to process - your phone is busy with another session.');
-          break;
-      }
-    } finally {
-      setIsManualChecking(false);
-    }
-  };
-
-  // Total steps including the conditional guest info step
-  const totalSteps = 5;
-
-  // Function to check if all selected facilities have valid start/end dates
   const areFacilityDatesValid = () => {
     return formData.selectedFacilities.every(f => {
-      // Must have both start and end dates filled
       if (!f.startDate || !f.endDate) return false; 
-      
       const start = new Date(f.startDate).getTime();
       const end = new Date(f.endDate).getTime();
-      
-      // End date must be >= Start date
       return end >= start;
     });
   };
 
-  // --- Handlers for Navigation ---
-  
   const handleNext = () => {
-    // Basic validation checks for moving forward
     if (currentStep === 1 && !formData.visit_date && !skipDateSelection) return;
     if (currentStep === 2 && formData.num_adults === 0 && formData.num_children === 0) return;
     
-    // **VALIDATION: Check facility dates on Step 3**
     if (currentStep === 3 && !skipFacilitiesAndActivities && formData.selectedFacilities.length > 0 && !areFacilityDatesValid()) {
       return;
     }
     
-    // Skip facilities/activities step (Step 3) if not needed
     if (currentStep === 2 && skipFacilitiesAndActivities) {
-      // If user is logged in, skip to payment (Step 5)
       if (user) {
-        setCurrentStep(5);
+        setCurrentStep(4);
       } else {
-        // Otherwise go to guest info (Step 4)
         setCurrentStep(4);
       }
       return;
     }
     
-    // Skip guest info step (Step 4) if user is logged in
-    if (currentStep === 3 && user) {
-      setCurrentStep(5);
-    } else {
-      setCurrentStep(Math.min(currentStep + 1, totalSteps));
-    }
+    setCurrentStep(Math.min(currentStep + 1, totalSteps));
   };
 
   const handlePrevious = () => {
-    // Handle going back from payment (Step 5)
-    if (currentStep === 5) {
-      if (skipFacilitiesAndActivities) {
-        // If skipping facilities, go back to guest info or number of people
-        setCurrentStep(user ? 2 : 4);
-      } else if (user) {
-        // If user logged in, skip guest info
-        setCurrentStep(3);
-      } else {
-        setCurrentStep(4);
-      }
-      return;
-    }
-    
-    // Handle going back from guest info (Step 4)
     if (currentStep === 4 && skipFacilitiesAndActivities) {
       setCurrentStep(2);
       return;
@@ -447,8 +142,6 @@ export const MultiStepBooking = ({
     await onSubmit(formData);
   };
 
-  // --- Handlers for Data Updates ---
-
   const toggleFacility = (facility: Facility) => {
     const exists = formData.selectedFacilities.find(f => f.name === facility.name);
     if (exists) {
@@ -457,16 +150,11 @@ export const MultiStepBooking = ({
         selectedFacilities: formData.selectedFacilities.filter(f => f.name !== facility.name),
       });
     } else {
-      // NO DEFAULT DATE: Initialize start/end date to empty string
       setFormData({
         ...formData,
         selectedFacilities: [
           ...formData.selectedFacilities, 
-          { 
-            ...facility, 
-            startDate: "", // Ensure no default date
-            endDate: ""    // Ensure no default date
-          }
+          { ...facility, startDate: "", endDate: "" }
         ],
       });
     }
@@ -482,7 +170,6 @@ export const MultiStepBooking = ({
     } else {
       setFormData({
         ...formData,
-        // Initialize with a default of 1 person
         selectedActivities: [...formData.selectedActivities, { ...activity, numberOfPeople: 1 }],
       });
     }
@@ -506,34 +193,25 @@ export const MultiStepBooking = ({
     });
   };
 
-  // --- Calculation Logic ---
-
   const calculateTotal = () => {
     let total = 0;
     
-    // 1. Entrance fees
     if (entranceType !== 'free') {
       total += (formData.num_adults * priceAdult) + (formData.num_children * priceChild);
     }
     
-    // 2. Facilities (calculate by number of days if applicable)
     formData.selectedFacilities.forEach(f => {
       if (f.startDate && f.endDate) {
         const start = new Date(f.startDate).getTime();
         const end = new Date(f.endDate).getTime();
-        
-        // Only calculate if dates are valid (end >= start)
         if (end >= start) {
-            const dayDifferenceMs = end - start;
-            const days = Math.ceil(dayDifferenceMs / (1000 * 60 * 60 * 24));
-            
-            // Charge at least 1 day
-            total += f.price * Math.max(days, 1);
+          const dayDifferenceMs = end - start;
+          const days = Math.ceil(dayDifferenceMs / (1000 * 60 * 60 * 24));
+          total += f.price * Math.max(days, 1);
         }
       } 
     });
     
-    // 3. Activities
     formData.selectedActivities.forEach(a => {
       total += a.price * a.numberOfPeople;
     });
@@ -541,112 +219,13 @@ export const MultiStepBooking = ({
     return total;
   };
 
-  // --- Rendering Conditional States ---
-
-  // Loading/Processing Screen with real-time status updates
+  // Processing Screen
   if (isProcessing) {
-    if (paymentStatus === 'success') {
-      return (
-        <div className="flex flex-col items-center justify-center p-8 space-y-4">
-          <div className="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
-            <CheckCircle2 className="h-10 w-10 text-green-600" />
-          </div>
-          <p className="text-xl font-bold text-green-600">Successful</p>
-          <p className="text-sm text-muted-foreground text-center">{paymentMessage}</p>
-        </div>
-      );
-    }
-    
-    if (paymentStatus === 'cancelled') {
-      return (
-        <div className="flex flex-col items-center justify-center p-8 space-y-4">
-          <div className="h-16 w-16 rounded-full bg-orange-100 flex items-center justify-center">
-            <XCircle className="h-10 w-10 text-orange-600" />
-          </div>
-          <p className="text-xl font-bold text-orange-600">Cancelled</p>
-          <p className="text-sm text-muted-foreground text-center">{paymentMessage}</p>
-        </div>
-      );
-    }
-    
-    if (paymentStatus === 'error') {
-      return (
-        <div className="flex flex-col items-center justify-center p-8 space-y-4">
-          <div className="h-16 w-16 rounded-full bg-red-100 flex items-center justify-center">
-            <AlertCircle className="h-10 w-10 text-red-600" />
-          </div>
-          <p className="text-xl font-bold text-red-600">Unable to Process</p>
-          <p className="text-sm text-muted-foreground text-center">{paymentMessage}</p>
-        </div>
-      );
-    }
-    
-    if (paymentStatus === 'failed' || paymentStatus === 'timeout') {
-      return (
-        <div className="flex flex-col items-center justify-center p-8 space-y-4">
-          <div className="h-16 w-16 rounded-full bg-red-100 flex items-center justify-center">
-            <XCircle className="h-10 w-10 text-red-600" />
-          </div>
-          <p className="text-xl font-bold text-red-600">{paymentStatus === 'timeout' ? 'Timed Out' : 'Failed'}</p>
-          <p className="text-sm text-muted-foreground text-center">{paymentMessage}</p>
-          <Button 
-            variant="outline" 
-            onClick={manualCheckStatus}
-            disabled={isManualChecking}
-            className="mt-2"
-          >
-            {isManualChecking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-            Check Status Again
-          </Button>
-        </div>
-      );
-    }
-    
-    // Default: Waiting for payment confirmation with countdown
-    const progressPercentage = Math.max(0, (countdown / 60) * 100);
-    
     return (
-      <div className="flex flex-col items-center justify-center p-8 space-y-6">
-        {/* Animated loader */}
-        <div className="relative">
-          <div className="h-20 w-20 rounded-full border-4 border-primary/20 flex items-center justify-center">
-            <Loader2 className="h-10 w-10 animate-spin text-primary" />
-          </div>
-          {/* Countdown badge */}
-          <div className="absolute -bottom-2 -right-2 bg-primary text-primary-foreground rounded-full h-8 w-8 flex items-center justify-center text-sm font-bold">
-            {countdown}
-          </div>
-        </div>
-        
-        <div className="text-center space-y-2">
-          <p className="text-lg font-semibold">Waiting for Payment Confirmation</p>
-          <p className="text-sm text-muted-foreground">Please check your phone and enter your M-Pesa PIN</p>
-        </div>
-        
-        {/* Progress bar */}
-        <div className="w-full max-w-xs space-y-2">
-          <Progress value={progressPercentage} className="h-2" />
-          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-            <Clock className="h-4 w-4" />
-            <span>{countdown}s remaining</span>
-          </div>
-        </div>
-        
-        {/* Manual check button */}
-        <Button 
-          variant="outline" 
-          size="sm"
-          onClick={manualCheckStatus}
-          disabled={isManualChecking}
-          className="mt-2"
-        >
-          {isManualChecking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-          Check Status Now
-        </Button>
-        
-        <p className="text-xs text-muted-foreground text-center max-w-xs">
-          If you've already entered your PIN, the payment will be confirmed automatically.
-        </p>
+      <div className="flex flex-col items-center justify-center p-8 space-y-4">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="text-lg font-semibold">Saving your booking...</p>
+        <p className="text-sm text-muted-foreground">Please wait</p>
       </div>
     );
   }
@@ -658,13 +237,13 @@ export const MultiStepBooking = ({
         <div className="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
           <CheckCircle2 className="h-10 w-10 text-green-600" />
         </div>
-        <p className="text-xl font-bold">Booking Confirmed! 🎉</p>
-        <p className="text-sm text-muted-foreground text-center">Your booking for {itemName} has been successfully confirmed. You will receive a confirmation email shortly.</p>
+        <p className="text-xl font-bold">Booking Submitted!</p>
+        <p className="text-sm text-muted-foreground text-center">
+          Your booking for {itemName} has been saved. Payment is pending.
+        </p>
       </div>
     );
   }
-
-  // --- Main Form Rendering ---
 
   return (
     <div className="space-y-6 max-w-lg mx-auto p-4 sm:p-6 border rounded-lg shadow-lg">
@@ -672,7 +251,7 @@ export const MultiStepBooking = ({
       
       {/* Progress Indicator */}
       <div className="flex items-center justify-between mb-6">
-        {[1, 2, 3, 4, 5].map((step) => (
+        {[1, 2, 3, 4].map((step) => (
           <div
             key={step}
             className={`h-2 flex-1 mx-1 rounded-full transition-colors duration-300 ${
@@ -682,7 +261,7 @@ export const MultiStepBooking = ({
         ))}
       </div>
 
-      {/* --- Step 1: Visit Date --- */}
+      {/* Step 1: Visit Date */}
       {currentStep === 1 && !skipDateSelection && (
         <div className="space-y-4">
           <div className="flex items-center gap-2 mb-4">
@@ -695,18 +274,16 @@ export const MultiStepBooking = ({
               id="visit_date"
               type="date"
               value={formData.visit_date}
-              // Prevent selecting past dates
               min={new Date().toISOString().split('T')[0]} 
               onChange={(e) => setFormData({ ...formData, visit_date: e.target.value })}
               className="mt-2"
             />
-            {/* Validation Hint */}
             {!formData.visit_date && <p className="text-xs text-red-500 mt-1">Please select a date to proceed.</p>}
           </div>
         </div>
       )}
 
-      {/* --- Step 2: Number of People --- */}
+      {/* Step 2: Number of People */}
       {currentStep === 2 && (
         <div className="space-y-4">
           <div className="flex items-center gap-2 mb-4">
@@ -752,7 +329,7 @@ export const MultiStepBooking = ({
         </div>
       )}
 
-      {/* --- Step 3: Facilities & Activities --- */}
+      {/* Step 3: Facilities & Activities */}
       {currentStep === 3 && !skipFacilitiesAndActivities && (
         <div className="space-y-6">
           <h3 className="text-lg font-semibold">Step 3: Additional Services (Optional)</h3>
@@ -805,13 +382,12 @@ export const MultiStepBooking = ({
                                 placeholder="End Date"
                                 value={selected.endDate || ""}
                                 onChange={(e) => updateFacilityDates(facility.name, 'endDate', e.target.value)}
-                                // Min should be the start date of the facility rental
                                 min={selected.startDate || formData.visit_date || new Date().toISOString().split('T')[0]} 
                               />
                             </div>
                           </div>
                           {isDateInvalid && (
-                             <p className="text-xs text-red-500 mt-2">Please select valid Start and End dates (End date must be the same or after Start date).</p>
+                             <p className="text-xs text-red-500 mt-2">Please select valid Start and End dates.</p>
                           )}
                         </div>
                       )}
@@ -863,168 +439,87 @@ export const MultiStepBooking = ({
           )}
           
           {(facilities.length === 0 && activities.length === 0) && (
-              <p className="text-muted-foreground text-center p-4 bg-muted rounded-lg">No additional services available for this booking.</p>
+              <p className="text-muted-foreground text-center p-4 bg-muted rounded-lg">No additional services available.</p>
           )}
           
           {!areFacilityDatesValid() && formData.selectedFacilities.length > 0 && (
             <div className="p-3 bg-red-100 border border-red-400 rounded-lg">
-                <p className="text-sm font-medium text-red-700">Please review facility dates. All selected facilities require a valid Start and End date.</p>
+                <p className="text-sm font-medium text-red-700">Please review facility dates.</p>
             </div>
           )}
 
           <div className="p-4 bg-primary/10 rounded-lg">
             <p className="text-sm font-medium text-primary">Total Add-ons:</p>
             <p className="text-sm text-primary/80">
-              {formData.selectedFacilities.length} Facility {formData.selectedFacilities.length !== 1 ? 'Rentals' : 'Rental'}, {formData.selectedActivities.length} Activit{formData.selectedActivities.length !== 1 ? 'ies' : 'y'}
+              {formData.selectedFacilities.length} Facility(s), {formData.selectedActivities.length} Activity(s)
             </p>
           </div>
         </div>
       )}
 
-      {/* --- Step 4: Guest Information (if not logged in) --- */}
-      {currentStep === 4 && !user && (
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold">Step 4: Your Contact Information</h3>
-          <p className="text-sm text-muted-foreground">This info is used for booking confirmation and communication.</p>
-          <div>
-            <Label htmlFor="guest_name">Full Name *</Label>
-            <Input
-              id="guest_name"
-              value={formData.guest_name}
-              onChange={(e) => setFormData({ ...formData, guest_name: e.target.value })}
-              className="mt-2"
-              required
-            />
-          </div>
-          <div>
-            <Label htmlFor="guest_email">Email</Label>
-            <Input
-              id="guest_email"
-              type="email"
-              value={formData.guest_email}
-              onChange={(e) => setFormData({ ...formData, guest_email: e.target.value })}
-              className="mt-2"
-              required
-            />
-          </div>
-          <div>
-            <Label htmlFor="guest_phone">Phone Number</Label>
-            <Input
-              id="guest_phone"
-              type="tel"
-              value={formData.guest_phone}
-              onChange={(e) => setFormData({ ...formData, guest_phone: e.target.value })}
-              className="mt-2"
-              required
-              placeholder="e.g., 10 DIGITS"
-            />
-          </div>
-        </div>
-      )}
-
-      {/* --- Step 5: Payment --- */}
-      {currentStep === 5 && (
+      {/* Step 4: Contact Info & Summary */}
+      {currentStep === 4 && (
         <div className="space-y-6">
-          <div className="flex items-center gap-2 mb-4">
-            <CreditCard className="h-5 w-5 text-primary" />
-            <h3 className="text-lg font-semibold">Step 5: Review & Payment</h3>
-          </div>
+          <h3 className="text-lg font-semibold">Step 4: Contact Info & Summary</h3>
           
-          {/* Booking Summary */}
-          <div className="p-4 bg-primary/10 rounded-lg space-y-2 border border-primary">
-            <p className="text-sm font-medium text-primary">Booking for {itemName} on {formData.visit_date}</p>
-            <p className="text-sm text-primary/80">
-              Guests: {formData.num_adults} Adult{formData.num_adults !== 1 ? 's' : ''}, {formData.num_children} Child{formData.num_children !== 1 ? 'ren' : ''}
-            </p>
-            {formData.selectedFacilities.length > 0 || formData.selectedActivities.length > 0 ? (
-                <p className="text-xs text-primary/70">{formData.selectedFacilities.length} Facility(s), {formData.selectedActivities.length} Activity(s) added.</p>
-            ) : null}
-            <div className="border-t border-primary/30 pt-2 mt-2">
-                <p className="text-xl font-bold text-primary">Total: KES {calculateTotal().toLocaleString()}</p>
-            </div>
-          </div>
-
-          {/* Payment Method Selection */}
-          <div className="space-y-2">
-            <Label>Select Payment Method</Label>
-            <div className="grid grid-cols-2 gap-2"> 
-              <Button
-                type="button"
-                variant={formData.payment_method === "mpesa" ? "default" : "outline"}
-                onClick={() => setFormData({ ...formData, payment_method: "mpesa" })}
-              >
-                M-Pesa
-              </Button>
-              <Button
-                type="button"
-                variant={formData.payment_method === "card" ? "default" : "outline"}
-                onClick={() => setFormData({ ...formData, payment_method: "card" })}
-              >
-                Card
-              </Button>
-            </div>
-          </div>
-
-          {/* Mobile Money Input */}
-          {(formData.payment_method === "mpesa") && (
+          {/* Contact Information */}
+          <div className="space-y-4">
             <div>
-              <Label htmlFor="payment_phone">Phone Number for Payment </Label>
+              <Label htmlFor="guest_name">Full Name *</Label>
               <Input
-                id="payment_phone"
-                type="tel"
-                value={formData.payment_phone}
-                onChange={(e) => setFormData({ ...formData, payment_phone: e.target.value })}
-                placeholder="2547XXXXXXXX"
+                id="guest_name"
+                value={formData.guest_name}
+                onChange={(e) => setFormData({ ...formData, guest_name: e.target.value })}
                 className="mt-2"
                 required
               />
             </div>
-          )}
-
-          {/* Card Details Input */}
-          {formData.payment_method === "card" && (
-            <div className="space-y-3">
-              <div>
-                <Label htmlFor="card_number">Card Number</Label>
-                <Input
-                  id="card_number"
-                  value={formData.card_number}
-                  onChange={(e) => setFormData({ ...formData, card_number: e.target.value })}
-                  placeholder="1234 5678 9012 3456"
-                  className="mt-2"
-                  required
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label htmlFor="card_expiry">Expiry (MM/YY) </Label>
-                  <Input
-                    id="card_expiry"
-                    value={formData.card_expiry}
-                    onChange={(e) => setFormData({ ...formData, card_expiry: e.target.value })}
-                    placeholder="MM/YY"
-                    className="mt-2"
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="card_cvv">CVV </Label>
-                  <Input
-                    id="card_cvv"
-                    value={formData.card_cvv}
-                    onChange={(e) => setFormData({ ...formData, card_cvv: e.target.value })}
-                    placeholder="123"
-                    className="mt-2"
-                    required
-                  />
-                </div>
-              </div>
+            <div>
+              <Label htmlFor="guest_email">Email *</Label>
+              <Input
+                id="guest_email"
+                type="email"
+                value={formData.guest_email}
+                onChange={(e) => setFormData({ ...formData, guest_email: e.target.value })}
+                className="mt-2"
+                required
+              />
             </div>
-          )}
+            <div>
+              <Label htmlFor="guest_phone">Phone Number *</Label>
+              <Input
+                id="guest_phone"
+                type="tel"
+                value={formData.guest_phone}
+                onChange={(e) => setFormData({ ...formData, guest_phone: e.target.value })}
+                className="mt-2"
+                required
+                placeholder="e.g., 0712345678"
+              />
+            </div>
+          </div>
+          
+          {/* Booking Summary */}
+          <div className="p-4 bg-primary/10 rounded-lg space-y-2 border border-primary">
+            <p className="text-sm font-medium text-primary">Booking for {itemName}</p>
+            <p className="text-sm text-primary/80">Date: {formData.visit_date}</p>
+            <p className="text-sm text-primary/80">
+              Guests: {formData.num_adults} Adult(s), {formData.num_children} Child(ren)
+            </p>
+            {(formData.selectedFacilities.length > 0 || formData.selectedActivities.length > 0) && (
+              <p className="text-xs text-primary/70">
+                {formData.selectedFacilities.length} Facility(s), {formData.selectedActivities.length} Activity(s) added
+              </p>
+            )}
+            <div className="border-t border-primary/30 pt-2 mt-2">
+              <p className="text-xl font-bold text-primary">Total: KES {calculateTotal().toLocaleString()}</p>
+              <p className="text-xs text-muted-foreground">Payment pending</p>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* --- Navigation Buttons --- */}
+      {/* Navigation Buttons */}
       <div className="flex justify-between gap-4 mt-6 pt-6 border-t">
         {currentStep > (skipDateSelection ? 2 : 1) && (
           <Button type="button" variant="outline" onClick={handlePrevious} className="w-24">
@@ -1040,9 +535,7 @@ export const MultiStepBooking = ({
             disabled={
               (currentStep === 1 && !formData.visit_date && !skipDateSelection) ||
               (currentStep === 2 && formData.num_adults === 0 && formData.num_children === 0) ||
-              // Strict validation for facilities on Step 3
-              (currentStep === 3 && !skipFacilitiesAndActivities && formData.selectedFacilities.length > 0 && !areFacilityDatesValid()) || 
-              (currentStep === 4 && (!formData.guest_name || !formData.guest_email || !formData.guest_phone)) // Guest info validation
+              (currentStep === 3 && !skipFacilitiesAndActivities && formData.selectedFacilities.length > 0 && !areFacilityDatesValid())
             }
           >
             Next
@@ -1052,13 +545,14 @@ export const MultiStepBooking = ({
             type="button"
             onClick={handleSubmit}
             className="ml-auto w-40"
-            disabled={isProcessing || calculateTotal() === 0 || 
-                      // Payment validation
-                      (formData.payment_method !== 'card' && !formData.payment_phone) ||
-                      (formData.payment_method === 'card' && (!formData.card_number || !formData.card_expiry || !formData.card_cvv))
+            disabled={
+              isProcessing || 
+              !formData.guest_name || 
+              !formData.guest_email || 
+              !formData.guest_phone
             }
           >
-            {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Confirm Booking'}
+            {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Submit Booking'}
           </Button>
         )}
       </div>

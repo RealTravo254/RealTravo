@@ -513,54 +513,6 @@ export type Database = {
         }
         Relationships: []
       }
-      mpesa_callback_log: {
-        Row: {
-          checkout_request_id: string
-          created_at: string | null
-          id: string
-          merchant_request_id: string | null
-          pending_payment_id: string | null
-          raw_payload: Json
-          result_code: string
-          result_desc: string | null
-        }
-        Insert: {
-          checkout_request_id: string
-          created_at?: string | null
-          id?: string
-          merchant_request_id?: string | null
-          pending_payment_id?: string | null
-          raw_payload: Json
-          result_code: string
-          result_desc?: string | null
-        }
-        Update: {
-          checkout_request_id?: string
-          created_at?: string | null
-          id?: string
-          merchant_request_id?: string | null
-          pending_payment_id?: string | null
-          raw_payload?: Json
-          result_code?: string
-          result_desc?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "fk_pending_payment"
-            columns: ["pending_payment_id"]
-            isOneToOne: false
-            referencedRelation: "pending_payments"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "mpesa_callback_log_pending_payment_id_fkey"
-            columns: ["pending_payment_id"]
-            isOneToOne: false
-            referencedRelation: "pending_payments"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       notifications: {
         Row: {
           created_at: string | null

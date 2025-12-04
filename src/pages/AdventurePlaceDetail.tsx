@@ -66,7 +66,6 @@ const AdventurePlaceDetail = () => {
   const { savedItems, handleSave: handleSaveItem } = useSavedItems();
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
-  const [checkoutRequestId, setCheckoutRequestId] = useState<string>("");
   const isSaved = savedItems.has(id || "");
 
   useEffect(() => { 
@@ -151,7 +150,6 @@ const AdventurePlaceDetail = () => {
   const handleBookingSubmit = async (data: BookingFormData) => {
     if (!place) return;
     setIsProcessing(true);
-    setCheckoutRequestId(""); // Reset
 
     try {
       const totalAmount = (data.num_adults * (place.entry_fee_type === 'free' ? 0 : place.entry_fee)) +
@@ -166,46 +164,25 @@ const AdventurePlaceDetail = () => {
                          data.selectedActivities.reduce((sum, a) => sum + (a.price * a.numberOfPeople), 0);
       const totalPeople = data.num_adults + data.num_children;
 
-      if (totalAmount === 0) {
-        const { error } = await supabase.from('bookings').insert([{
+      // Save booking as pending
+      const { error } = await supabase.from('pending_payments').insert([{
+        checkout_request_id: `BOOKING-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        phone_number: data.guest_phone || '',
+        amount: totalAmount,
+        account_reference: `ADVENTURE-${place.id}`,
+        transaction_desc: `Booking for ${place.name}`,
+        payment_status: 'pending',
+        user_id: user?.id || null,
+        host_id: place.created_by,
+        booking_data: {
           user_id: user?.id || null,
-          item_id: id,
           booking_type: 'adventure_place',
-          visit_date: data.visit_date,
+          item_id: id,
           total_amount: totalAmount,
-          slots_booked: totalPeople,
-          booking_details: {
-            place_name: place.name,
-            adults: data.num_adults,
-            children: data.num_children,
-            facilities: data.selectedFacilities,
-            activities: data.selectedActivities
-          } as any,
-          payment_method: 'free',
           is_guest_booking: !user,
-          guest_name: !user ? data.guest_name : null,
-          guest_email: !user ? data.guest_email : null,
-          guest_phone: !user ? data.guest_phone : null,
-          payment_status: 'paid',
-          referral_tracking_id: getReferralTrackingId()
-        }]);
-        if (error) throw error;
-        setIsProcessing(false);
-        setIsCompleted(true);
-        return;
-      }
-      
-      // M-Pesa flow
-      if (data.payment_method === "mpesa") {
-        const bookingPayload = {
-          user_id: user?.id || null,
-          item_id: id,
-          booking_type: 'adventure_place',
-          host_id: place.created_by,
-          is_guest_booking: !user,
-          guest_name: !user ? data.guest_name : null,
-          guest_email: !user ? data.guest_email : null,
-          guest_phone: !user ? data.guest_phone : null,
+          guest_name: data.guest_name,
+          guest_email: data.guest_email,
+          guest_phone: data.guest_phone,
           slots_booked: totalPeople,
           visit_date: data.visit_date,
           referral_tracking_id: getReferralTrackingId(),
@@ -215,76 +192,18 @@ const AdventurePlaceDetail = () => {
             children: data.num_children,
             facilities: data.selectedFacilities,
             activities: data.selectedActivities
-          } as any,
-          emailData: {
-            bookingId: '',
-            email: user ? user.email : data.guest_email,
-            guestName: user ? user.user_metadata?.name || data.guest_name : data.guest_name,
-            bookingType: "adventure_place",
-            itemName: place.name,
-            totalAmount,
-            bookingDetails: {
-              adults: data.num_adults,
-              children: data.num_children,
-              facilities: data.selectedFacilities,
-              activities: data.selectedActivities,
-              phone: user ? "" : data.guest_phone
-            },
-            visitDate: data.visit_date
           }
-        };
-
-        const { data: mpesaResponse, error: mpesaError } = await supabase.functions.invoke("mpesa-stk-push", {
-          body: {
-            phoneNumber: data.payment_phone,
-            amount: totalAmount,
-            accountReference: `ADVENTURE-${place.id}`,
-            transactionDesc: `Booking for ${place.name}`,
-            bookingData: bookingPayload
-          }
-        });
-
-        if (mpesaError || !mpesaResponse?.success) {
-          throw new Error(mpesaResponse?.error || "M-Pesa payment failed");
         }
-
-        const reqId = mpesaResponse.checkoutRequestId;
-        setCheckoutRequestId(reqId); // Store for realtime subscription
-        
-        // MultiStepBooking will handle showing payment status via realtime
-        return;
-      }
-
-      // Other payment methods
-      const { error } = await supabase.from('bookings').insert([{
-        user_id: user?.id || null,
-        item_id: id,
-        booking_type: 'adventure_place',
-        visit_date: data.visit_date,
-        total_amount: totalAmount,
-        slots_booked: totalPeople,
-        booking_details: {
-          place_name: place.name,
-          adults: data.num_adults,
-          children: data.num_children,
-          facilities: data.selectedFacilities,
-          activities: data.selectedActivities
-        } as any,
-        payment_method: data.payment_method,
-        is_guest_booking: !user,
-        guest_name: !user ? data.guest_name : null,
-        guest_email: !user ? data.guest_email : null,
-        guest_phone: !user ? data.guest_phone : null,
-        payment_status: 'completed',
-        referral_tracking_id: getReferralTrackingId()
       }]);
+
       if (error) throw error;
+      
       setIsProcessing(false);
       setIsCompleted(true);
+      toast({ title: "Booking Submitted", description: "Your booking has been saved. Payment is pending." });
     } catch (error: any) {
       toast({ title: "Booking failed", description: error.message, variant: "destructive" });
       setIsProcessing(false);
-      setCheckoutRequestId("");
     }
   };
 
@@ -517,7 +436,6 @@ const AdventurePlaceDetail = () => {
             isProcessing={isProcessing} 
             isCompleted={isCompleted} 
             itemName={place.name}
-            checkoutRequestId={checkoutRequestId}
           />
         </DialogContent>
       </Dialog>

@@ -50,6 +50,7 @@ interface Hotel {
   map_link: string;
   establishment_type: string;
   available_rooms: number;
+  created_by: string | null;
 }
 
 // Define the custom colors
@@ -174,168 +175,55 @@ const HotelDetail = () => {
   const handleBookingSubmit = async (data: BookingFormData) => {
     if (!hotel) return;
     setIsProcessing(true);
+    
     try {
-      const totalAmount = data.selectedFacilities.reduce((sum, f) => {
+      const totalAmount = data.selectedFacilities.reduce((sum, f) => { 
         if (f.startDate && f.endDate) {
           const days = Math.ceil((new Date(f.endDate).getTime() - new Date(f.startDate).getTime()) / (1000 * 60 * 60 * 24));
-          return sum + f.price * Math.max(days, 1);
+          return sum + (f.price * Math.max(days, 1));
         }
         return sum + f.price;
-      }, 0) + data.selectedActivities.reduce((sum, a) => sum + a.price * a.numberOfPeople, 0);
-      
-      if (totalAmount === 0) {
-        const {
-          data: bookingResult,
-          error
-        } = await supabase.from('bookings').insert([{
-          user_id: user?.id || null,
-          item_id: id,
-          booking_type: 'hotel',
-          visit_date: data.visit_date,
-          total_amount: 0,
-          booking_details: {
-            hotel_name: hotel.name,
-            adults: data.num_adults,
-            children: data.num_children,
-            facilities: data.selectedFacilities,
-            activities: data.selectedActivities
-          } as any,
-          payment_method: 'free',
-          is_guest_booking: !user,
-          guest_name: !user ? data.guest_name : null,
-          guest_email: !user ? data.guest_email : null,
-          guest_phone: !user ? data.guest_phone : null,
-          payment_status: 'paid'
-        }]).select();
-        
-        if (error) throw error;
-        
-        const {
-          data: hotelData
-        } = await supabase.from('hotels').select('created_by').eq('id', id).single();
-        
-        if (hotelData?.created_by) {
-          await supabase.from('notifications').insert({
-            user_id: hotelData.created_by,
-            type: 'booking',
-            title: 'New Booking Received',
-            message: `You have a new free booking for ${hotel.name}`,
-            data: {
-              booking_id: bookingResult[0].id,
-              item_type: 'hotel'
-            }
-          });
-        }
-        
-        if (user) {
-          await supabase.from('notifications').insert({
-            user_id: user.id,
-            type: 'booking',
-            title: 'Booking Confirmed',
-            message: `Your free booking for ${hotel.name} has been confirmed`,
-            data: {
-              booking_id: bookingResult[0].id,
-              item_type: 'hotel'
-            }
-          });
-        }
-        
-        await supabase.functions.invoke('send-booking-confirmation', {
-          body: {
-            bookingId: bookingResult[0].id,
-            email: user ? user.email : data.guest_email,
-            guestName: user ? user.user_metadata?.name || data.guest_name : data.guest_name,
-            bookingType: 'hotel',
-            itemName: hotel.name,
-            totalAmount: 0,
-            bookingDetails: {
-              adults: data.num_adults,
-              children: data.num_children,
-              selectedFacilities: data.selectedFacilities,
-              selectedActivities: data.selectedActivities,
-              phone: user ? "" : data.guest_phone
-            },
-            visitDate: data.visit_date
-          }
-        });
-        
-        setIsProcessing(false);
-        setIsCompleted(true);
-        return;
-      }
+      }, 0) +
+      data.selectedActivities.reduce((sum, a) => sum + (a.price * a.numberOfPeople), 0);
+      const totalPeople = data.num_adults + data.num_children;
 
-      // M-Pesa flow
-      if (data.payment_method === "mpesa") {
-        const bookingPayload = {
+      // Save booking as pending
+      const { error } = await supabase.from('pending_payments').insert([{
+        checkout_request_id: `BOOKING-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        phone_number: data.guest_phone || '',
+        amount: totalAmount,
+        account_reference: `HOTEL-${hotel.id}`,
+        transaction_desc: `Booking for ${hotel.name}`,
+        payment_status: 'pending',
+        user_id: user?.id || null,
+        host_id: hotel.created_by,
+        booking_data: {
           user_id: user?.id || null,
-          booking_type: "hotel",
+          booking_type: 'hotel',
           item_id: id,
-          visit_date: data.visit_date,
           total_amount: totalAmount,
-          payment_method: data.payment_method,
-          payment_phone: data.payment_phone || null,
           is_guest_booking: !user,
-          guest_name: !user ? data.guest_name : null,
-          guest_email: !user ? data.guest_email : null,
-          guest_phone: !user ? data.guest_phone : null,
+          guest_name: data.guest_name,
+          guest_email: data.guest_email,
+          guest_phone: data.guest_phone,
+          slots_booked: totalPeople,
+          visit_date: data.visit_date,
+          referral_tracking_id: getReferralTrackingId(),
           booking_details: {
             hotel_name: hotel.name,
             adults: data.num_adults,
             children: data.num_children,
             facilities: data.selectedFacilities,
             activities: data.selectedActivities
-          } as any,
-          referral_tracking_id: getReferralTrackingId()
-        };
-        const {
-          data: mpesaResponse,
-          error: mpesaError
-        } = await supabase.functions.invoke("mpesa-stk-push", {
-          body: {
-            phoneNumber: data.payment_phone,
-            amount: totalAmount,
-            accountReference: `HOTEL-${hotel.id}`,
-            transactionDesc: `Booking for ${hotel.name}`,
-            bookingData: bookingPayload
-          }
-        });
-        
-        if (mpesaError || !mpesaResponse?.success) throw new Error("M-Pesa payment failed");
-        
-        const checkoutRequestId = mpesaResponse.checkoutRequestId;
-        const startTime = Date.now();
-        
-        while (Date.now() - startTime < 40000) {
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          const {
-            data: pendingPayment
-          } = await supabase.from('pending_payments').select('payment_status').eq('checkout_request_id', checkoutRequestId).single();
-          
-          if (pendingPayment?.payment_status === 'completed') {
-            setIsProcessing(false);
-            setIsCompleted(true);
-            return;
-          } else if (pendingPayment?.payment_status === 'failed') {
-            throw new Error('Payment failed');
           }
         }
-        
-        const {
-          data: queryResponse
-        } = await supabase.functions.invoke('mpesa-stk-query', {
-          body: {
-            checkoutRequestId
-          }
-        });
-        
-        if (queryResponse?.resultCode === '0') {
-          setIsProcessing(false);
-          setIsCompleted(true);
-          return;
-        } else {
-          throw new Error('Payment timeout');
-        }
-      }
+      }]);
+
+      if (error) throw error;
+      
+      setIsProcessing(false);
+      setIsCompleted(true);
+      toast({ title: "Booking Submitted", description: "Your booking has been saved. Payment is pending." });
     } catch (error: any) {
       toast({
         title: "Booking failed",

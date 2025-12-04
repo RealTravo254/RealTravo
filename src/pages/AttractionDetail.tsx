@@ -50,6 +50,7 @@ interface Attraction {
   closing_hours: string | null;
   days_opened: string[] | null;
   location_link: string | null;
+  created_by: string | null;
 }
 
 // Define the Teal color for repeated use (0,128,128)
@@ -164,76 +165,44 @@ const AttractionDetail = () => {
       const totalAmount = (data.num_adults * (attraction.price_adult || 0)) +
                            (data.num_children * (attraction.price_child || 0)) +
                            data.selectedActivities.reduce((sum, a) => sum + (a.price * a.numberOfPeople), 0);
+      const totalPeople = data.num_adults + data.num_children;
 
-      if (totalAmount === 0 || attraction.entrance_type === 'free') {
-        const { data: bookingResult, error } = await supabase.from('bookings').insert([{
+      // Save booking as pending
+      const { error } = await supabase.from('pending_payments').insert([{
+        checkout_request_id: `BOOKING-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        phone_number: data.guest_phone || '',
+        amount: totalAmount,
+        account_reference: `ATTR-${attraction.id}`,
+        transaction_desc: `Booking for ${attraction.location_name}`,
+        payment_status: 'pending',
+        user_id: user?.id || null,
+        host_id: attraction.created_by,
+        booking_data: {
           user_id: user?.id || null,
-          item_id: id,
           booking_type: 'attraction',
-          visit_date: data.visit_date,
-          total_amount: 0,
-          booking_details: { attraction_name: attraction.location_name, adults: data.num_adults, children: data.num_children, activities: data.selectedActivities } as any,
-          payment_method: 'free',
-          is_guest_booking: !user,
-          guest_name: !user ? data.guest_name : null,
-          guest_email: !user ? data.guest_email : null,
-          guest_phone: !user ? data.guest_phone : null,
-          payment_status: 'paid',
-          referral_tracking_id: getReferralTrackingId(),
-        }]).select();
-
-        if (error) throw error;
-
-        setIsProcessing(false);
-        setIsCompleted(true);
-        return;
-      }
-
-      // M-Pesa flow
-      if (data.payment_method === "mpesa") {
-        const bookingPayload = {
-          user_id: user?.id || null,
-          booking_type: "attraction",
           item_id: id,
-          visit_date: data.visit_date,
           total_amount: totalAmount,
-          payment_method: data.payment_method,
-          payment_phone: data.payment_phone || null,
-          booking_details: { attraction_name: attraction.location_name, adults: data.num_adults, children: data.num_children, activities: data.selectedActivities } as any,
+          is_guest_booking: !user,
+          guest_name: data.guest_name,
+          guest_email: data.guest_email,
+          guest_phone: data.guest_phone,
+          slots_booked: totalPeople,
+          visit_date: data.visit_date,
           referral_tracking_id: getReferralTrackingId(),
-        };
-
-        const { data: mpesaResponse, error: mpesaError } = await supabase.functions.invoke("mpesa-stk-push", {
-          body: { phoneNumber: data.payment_phone, amount: totalAmount, accountReference: `ATTR-${attraction.id}`, transactionDesc: `Booking for ${attraction.location_name}`, bookingData: bookingPayload },
-        });
-
-        if (mpesaError || !mpesaResponse?.success) throw new Error("M-Pesa payment failed");
-
-        const checkoutRequestId = mpesaResponse.checkoutRequestId;
-        const startTime = Date.now();
-
-        while (Date.now() - startTime < 40000) {
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          const { data: pendingPayment } = await supabase.from('pending_payments').select('payment_status').eq('checkout_request_id', checkoutRequestId).single();
-
-          if (pendingPayment?.payment_status === 'completed') {
-            setIsProcessing(false);
-            setIsCompleted(true);
-            return;
-          } else if (pendingPayment?.payment_status === 'failed') {
-            throw new Error('Payment failed');
+          booking_details: {
+            attraction_name: attraction.location_name,
+            adults: data.num_adults,
+            children: data.num_children,
+            activities: data.selectedActivities
           }
         }
+      }]);
 
-        const { data: queryResponse } = await supabase.functions.invoke('mpesa-stk-query', { body: { checkoutRequestId } });
-        if (queryResponse?.resultCode === '0') {
-          setIsProcessing(false);
-          setIsCompleted(true);
-          return;
-        } else {
-          throw new Error('Payment timeout');
-        }
-      }
+      if (error) throw error;
+      
+      setIsProcessing(false);
+      setIsCompleted(true);
+      toast({ title: "Booking Submitted", description: "Your booking has been saved. Payment is pending." });
     } catch (error: any) {
       toast({ title: "Booking failed", description: error.message, variant: "destructive" });
       setIsProcessing(false);

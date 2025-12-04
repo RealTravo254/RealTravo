@@ -63,7 +63,6 @@ const TripDetail = () => {
   const { savedItems, handleSave: handleSaveItem } = useSavedItems();
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
-  const [checkoutRequestId, setCheckoutRequestId] = useState<string>("");
   
   const isSaved = savedItems.has(id || "");
 
@@ -155,54 +154,31 @@ const TripDetail = () => {
     if (!trip) return;
     
     setIsProcessing(true);
-    setCheckoutRequestId(""); // Reset
     
     try {
       const totalAmount = (data.num_adults * trip.price) + (data.num_children * trip.price_child) +
                          data.selectedActivities.reduce((sum, a) => sum + (a.price * a.numberOfPeople), 0);
       const totalPeople = data.num_adults + data.num_children;
 
-      // Free booking flow
-      if (totalAmount === 0) {
-        const { error } = await supabase.from('bookings').insert([{
+      // Save booking as pending
+      const { error } = await supabase.from('pending_payments').insert([{
+        checkout_request_id: `BOOKING-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        phone_number: data.guest_phone || '',
+        amount: totalAmount,
+        account_reference: `TRIP-${trip.id}`,
+        transaction_desc: `Booking for ${trip.name}`,
+        payment_status: 'pending',
+        user_id: user?.id || null,
+        host_id: trip.created_by,
+        booking_data: {
           user_id: user?.id || null,
-          item_id: id,
           booking_type: 'trip',
-          visit_date: trip.date,
+          item_id: id,
           total_amount: totalAmount,
-          slots_booked: totalPeople,
-          booking_details: {
-            trip_name: trip.name,
-            date: trip.date,
-            adults: data.num_adults,
-            children: data.num_children,
-            activities: data.selectedActivities
-          } as any,
-          payment_method: 'free',
           is_guest_booking: !user,
-          guest_name: !user ? data.guest_name : null,
-          guest_email: !user ? data.guest_email : null,
-          guest_phone: !user ? data.guest_phone : null,
-          payment_status: 'paid',
-          referral_tracking_id: getReferralTrackingId()
-        }]);
-        if (error) throw error;
-        setIsProcessing(false);
-        setIsCompleted(true);
-        return;
-      }
-
-      // M-Pesa payment flow
-      if (data.payment_method === "mpesa") {
-        const bookingPayload = {
-          user_id: user?.id || null,
-          item_id: id,
-          booking_type: 'trip',
-          host_id: trip.created_by,
-          is_guest_booking: !user,
-          guest_name: !user ? data.guest_name : null,
-          guest_email: !user ? data.guest_email : null,
-          guest_phone: !user ? data.guest_phone : null,
+          guest_name: data.guest_name,
+          guest_email: data.guest_email,
+          guest_phone: data.guest_phone,
           slots_booked: totalPeople,
           visit_date: trip.date,
           referral_tracking_id: getReferralTrackingId(),
@@ -212,77 +188,19 @@ const TripDetail = () => {
             adults: data.num_adults,
             children: data.num_children,
             activities: data.selectedActivities
-          } as any,
-          emailData: {
-            bookingId: '',
-            email: user ? user.email : data.guest_email,
-            guestName: user ? user.user_metadata?.name || data.guest_name : data.guest_name,
-            bookingType: "trip",
-            itemName: trip.name,
-            totalAmount,
-            bookingDetails: {
-              adults: data.num_adults,
-              children: data.num_children,
-              selectedActivities: data.selectedActivities,
-              phone: user ? "" : data.guest_phone
-            },
-            visitDate: trip.date
           }
-        };
-
-        const { data: mpesaResponse, error: mpesaError } = await supabase.functions.invoke("mpesa-stk-push", {
-          body: {
-            phoneNumber: data.payment_phone,
-            amount: totalAmount,
-            accountReference: `TRIP-${trip.id}`,
-            transactionDesc: `Booking for ${trip.name}`,
-            bookingData: bookingPayload
-          }
-        });
-
-        if (mpesaError || !mpesaResponse?.success) {
-          throw new Error(mpesaResponse?.error || "M-Pesa payment failed");
         }
-
-        const reqId = mpesaResponse.checkoutRequestId;
-        setCheckoutRequestId(reqId); // Store for realtime subscription
-        
-        // The MultiStepBooking component will now handle showing payment status via realtime subscription
-        // We keep processing state active so it shows the "Processing Payment..." UI
-        return;
-      }
-
-      // Other payment methods
-      const { error } = await supabase.from('bookings').insert([{
-        user_id: user?.id || null,
-        item_id: id,
-        booking_type: 'trip',
-        visit_date: trip.date,
-        total_amount: totalAmount,
-        slots_booked: totalPeople,
-        booking_details: {
-          trip_name: trip.name,
-          date: trip.date,
-          adults: data.num_adults,
-          children: data.num_children,
-          activities: data.selectedActivities
-        } as any,
-        payment_method: data.payment_method,
-        is_guest_booking: !user,
-        guest_name: !user ? data.guest_name : null,
-        guest_email: !user ? data.guest_email : null,
-        guest_phone: !user ? data.guest_phone : null,
-        payment_status: 'completed',
-        referral_tracking_id: getReferralTrackingId()
       }]);
+
       if (error) throw error;
+      
       setIsProcessing(false);
       setIsCompleted(true);
+      toast({ title: "Booking Submitted", description: "Your booking has been saved. Payment is pending." });
     } catch (error: any) {
       console.error('Booking error:', error);
       toast({ title: "Booking failed", description: error.message || "Failed to create booking", variant: "destructive" });
       setIsProcessing(false);
-      setCheckoutRequestId("");
     }
   };
 
@@ -524,7 +442,6 @@ const TripDetail = () => {
             skipDateSelection={!trip.is_custom_date}
             fixedDate={trip.date}
             skipFacilitiesAndActivities={true}
-            checkoutRequestId={checkoutRequestId}
           />
         </DialogContent>
       </Dialog>

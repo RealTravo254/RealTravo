@@ -179,38 +179,24 @@ export const SearchBarWithSuggestions = ({ value, onChange, onSubmit, onSuggesti
     return false;
   };
 
-  const getActivitiesAndFacilitiesText = (activities: any, facilities: any) => {
+  const getActivitiesText = (activities: any) => {
     const items: string[] = [];
     
-    // Get activities
+    // Get activities only (no facilities)
     if (activities) {
       if (Array.isArray(activities)) {
         activities.forEach(item => {
           const name = typeof item === 'object' && item.name ? item.name : (typeof item === 'string' ? item : null);
-          if (name && items.length < 4) items.push(name);
+          if (name && items.length < 3) items.push(name);
         });
       } else if (typeof activities === "object") {
         Object.values(activities).forEach(val => {
-          if (typeof val === 'string' && val && items.length < 4) items.push(val);
+          if (typeof val === 'string' && val && items.length < 3) items.push(val);
         });
       }
     }
     
-    // Get facilities
-    if (facilities) {
-      if (Array.isArray(facilities)) {
-        facilities.forEach(item => {
-          const name = typeof item === 'object' && item.name ? item.name : (typeof item === 'string' ? item : null);
-          if (name && items.length < 4) items.push(name);
-        });
-      } else if (typeof facilities === "object") {
-        Object.values(facilities).forEach(val => {
-          if (typeof val === 'string' && val && items.length < 4) items.push(val);
-        });
-      }
-    }
-    
-    return items.slice(0, 4).join(" • ");
+    return items.slice(0, 3).join(" • ");
   };
 
   const saveToHistory = async (query: string) => {
@@ -474,16 +460,6 @@ export const SearchBarWithSuggestions = ({ value, onChange, onSubmit, onSuggesti
                       </Badge>
                     </div>
 
-                    {/* Activities & Facilities on left side */}
-                    {getActivitiesAndFacilitiesText(result.activities, result.facilities) && (
-                      <div className="flex flex-col justify-center gap-1 min-w-[80px] max-w-[100px]">
-                        <p className="text-[10px] font-medium text-muted-foreground uppercase">Activities</p>
-                        <p className="text-xs" style={{ color: TEAL_COLOR }}>
-                          {getActivitiesAndFacilitiesText(result.activities, result.facilities)}
-                        </p>
-                      </div>
-                    )}
-
                     {/* Content */}
                     <div className="flex-1 flex flex-col gap-1">
                       <div className="flex items-start justify-between gap-2">
@@ -507,6 +483,16 @@ export const SearchBarWithSuggestions = ({ value, onChange, onSubmit, onSuggesti
                         </div>
                       )}
                     </div>
+
+                    {/* Activities on right side */}
+                    {getActivitiesText(result.activities) && (
+                      <div className="flex flex-col justify-center gap-1 min-w-[80px] max-w-[100px] text-right">
+                        <p className="text-[10px] font-medium text-muted-foreground uppercase">Activities</p>
+                        <p className="text-xs" style={{ color: TEAL_COLOR }}>
+                          {getActivitiesText(result.activities)}
+                        </p>
+                      </div>
+                    )}
                   </button>
                 );
               })}

@@ -29,6 +29,8 @@ const CreateHotel = () => {
     registrationName: "",
     registrationNumber: "",
     locationName: "",
+    place: "",
+    localName: "",
     country: "",
     description: "",
     email: "",
@@ -287,10 +289,10 @@ const CreateHotel = () => {
       const { error } = await supabase
         .from("hotels")
         .insert([{
-          name: formData.registrationName,
+          name: formData.localName || formData.registrationName,
           registration_number: formData.registrationNumber,
           location: formData.locationName,
-          place: formData.locationName,
+          place: formData.place || formData.locationName,
           country: formData.country,
           description: formData.description || null,
           email: formData.email || null,
@@ -381,6 +383,31 @@ const CreateHotel = () => {
                     placeholder="Enter location name"
                   />
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="place">Place *</Label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="place"
+                    required
+                    className="pl-10"
+                    value={formData.place}
+                    onChange={(e) => setFormData({...formData, place: e.target.value})}
+                    placeholder="Enter place (e.g., Nairobi, Mombasa)"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="localName">Local Name (Optional)</Label>
+                <Input
+                  id="localName"
+                  value={formData.localName}
+                  onChange={(e) => setFormData({...formData, localName: e.target.value})}
+                  placeholder="Enter local/common name"
+                />
               </div>
 
               <div className="space-y-2">

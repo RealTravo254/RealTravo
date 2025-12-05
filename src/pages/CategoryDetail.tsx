@@ -297,7 +297,7 @@ const CategoryDetail = () => {
         className={cn(
           "bg-background border-b transition-all duration-300",
           isSearchVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-full h-0 overflow-hidden',
-          isSearchFocused && "relative z-[300]"
+          isSearchFocused && "relative z-[500]"
         )}
       >
         <div className="container px-4 py-4">
@@ -320,9 +320,9 @@ const CategoryDetail = () => {
       <div 
         ref={filterRef}
         className={cn(
-          "bg-background border-b transition-all duration-300",
+          "bg-background border-b transition-all duration-300 relative z-10",
           isSticky && "sticky top-16 z-30 shadow-md md:relative md:shadow-none",
-          isSearchFocused && "hidden"
+          isSearchFocused && "opacity-0 pointer-events-none"
         )}
       >
         <div className="container px-4 py-4">
@@ -341,7 +341,7 @@ const CategoryDetail = () => {
         </div>
       </div>
 
-      <main className={cn("container px-4 py-8 space-y-4", isSearchFocused && "relative z-0")}>
+      <main className={cn("container px-4 py-8 space-y-4 relative z-0", isSearchFocused && "pointer-events-none opacity-50")}>
         <h1 className="text-3xl font-bold">{config.title}</h1>
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-6">

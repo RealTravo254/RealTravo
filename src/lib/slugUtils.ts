@@ -37,7 +37,9 @@ export const createDetailPath = (
  * The ID is the last 8 characters after the final hyphen
  */
 export const extractIdFromSlug = (slugWithId: string): string => {
-  // Check if it's a UUID format (contains hyphens in UUID pattern)
+  if (!slugWithId) return '';
+  
+  // Check if it's a full UUID format
   const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (uuidPattern.test(slugWithId)) {
     return slugWithId;
@@ -46,20 +48,29 @@ export const extractIdFromSlug = (slugWithId: string): string => {
   // Clean up slug - remove leading/trailing hyphens and collapse multiple hyphens
   const cleanSlug = slugWithId.replace(/^-+|-+$/g, '').replace(/-+/g, '-');
   
-  // Extract the last segment as ID prefix (typically 8 chars)
-  const lastHyphenIndex = cleanSlug.lastIndexOf('-');
-  if (lastHyphenIndex !== -1) {
-    const idPart = cleanSlug.substring(lastHyphenIndex + 1);
-    // Return if it looks like a valid ID prefix (alphanumeric)
-    if (idPart && /^[0-9a-f]+$/i.test(idPart)) {
-      return idPart;
+  if (!cleanSlug) return '';
+  
+  // Split by hyphen and look for the ID part (last segment that looks like hex)
+  const parts = cleanSlug.split('-');
+  
+  // Check from the end for a valid hex ID part
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const part = parts[i];
+    if (part && /^[0-9a-f]+$/i.test(part) && part.length >= 6) {
+      return part;
     }
   }
   
-  // If no hyphen or invalid format, check if the whole string is a potential ID
-  const cleanedId = cleanSlug.replace(/-/g, '');
-  if (/^[0-9a-f]+$/i.test(cleanedId)) {
-    return cleanedId.substring(0, 8);
+  // If no valid hex part found, try to extract from the entire cleaned string
+  const hexMatch = cleanSlug.match(/[0-9a-f]{8}/i);
+  if (hexMatch) {
+    return hexMatch[0];
+  }
+  
+  // Last resort - return the last part after hyphen
+  const lastHyphenIndex = cleanSlug.lastIndexOf('-');
+  if (lastHyphenIndex !== -1 && lastHyphenIndex < cleanSlug.length - 1) {
+    return cleanSlug.substring(lastHyphenIndex + 1);
   }
   
   return cleanSlug;

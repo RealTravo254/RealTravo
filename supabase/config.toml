@@ -19,7 +19,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.approve-items]
-verify_jwt = false
+verify_jwt = true
 
 [functions.hash-pin]
 verify_jwt = false

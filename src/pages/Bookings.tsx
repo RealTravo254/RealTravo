@@ -51,15 +51,15 @@ const Bookings = () => {
     if (user) {
       fetchBookings();
 
-      // Subscribe to real-time updates on pending_payments
+      // Subscribe to real-time updates on payments
       const channel = supabase
-        .channel('pending-payments-updates')
+        .channel('payments-updates')
         .on(
           'postgres_changes',
           {
             event: '*',
             schema: 'public',
-            table: 'pending_payments',
+            table: 'payments',
             filter: `user_id=eq.${user.id}`,
           },
           (payload) => {
@@ -87,12 +87,12 @@ const Bookings = () => {
 
       if (bookingsError) throw bookingsError;
 
-      // Fetch pending payments (not yet converted to bookings)
+      // Fetch pending/failed payments from payments table
       const { data: pendingPayments, error: pendingError } = await supabase
-        .from("pending_payments")
+        .from("payments" as any)
         .select("*")
         .eq("user_id", user?.id)
-        .in("payment_status", ["pending", "failed", "cancelled", "timeout"])
+        .in("payment_status", ["pending", "failed"])
         .order("created_at", { ascending: false });
 
       if (pendingError) throw pendingError;
@@ -220,9 +220,9 @@ const Bookings = () => {
     setRetryingPaymentId(booking.pendingPaymentId);
 
     try {
-      // Get the pending payment to retrieve booking data
+      // Get the payment record to retrieve booking data
       const { data: pendingPayment, error: fetchError } = await supabase
-        .from("pending_payments")
+        .from("payments" as any)
         .select("*")
         .eq("id", booking.pendingPaymentId)
         .single();
@@ -231,23 +231,25 @@ const Bookings = () => {
         throw new Error("Could not find payment record");
       }
 
+      const payment = pendingPayment as any;
+
       // Call M-Pesa STK Push
       const { data, error } = await supabase.functions.invoke("mpesa-stk-push", {
         body: {
-          phoneNumber: pendingPayment.phone_number,
-          amount: pendingPayment.amount,
-          accountReference: pendingPayment.account_reference,
-          transactionDesc: `Retry: ${pendingPayment.transaction_desc || "Booking Payment"}`,
-          bookingData: pendingPayment.booking_data,
+          phoneNumber: payment.phone_number,
+          amount: payment.amount,
+          accountReference: payment.account_reference,
+          transactionDesc: `Retry: ${payment.transaction_desc || "Booking Payment"}`,
+          bookingData: payment.booking_data,
         },
       });
 
       if (error) throw error;
 
       if (data?.success) {
-        // Update pending payment with new checkout request ID
+        // Update payment record with new checkout request ID
         await supabase
-          .from("pending_payments")
+          .from("payments" as any)
           .update({
             checkout_request_id: data.checkoutRequestId,
             merchant_request_id: data.merchantRequestId,

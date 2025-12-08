@@ -519,45 +519,6 @@ export type Database = {
         }
         Relationships: []
       }
-      mpesa_callback_log: {
-        Row: {
-          amount: number | null
-          checkout_request_id: string
-          created_at: string
-          id: string
-          merchant_request_id: string | null
-          mpesa_receipt_number: string | null
-          phone_number: string | null
-          raw_callback: Json | null
-          result_code: string | null
-          result_desc: string | null
-        }
-        Insert: {
-          amount?: number | null
-          checkout_request_id: string
-          created_at?: string
-          id?: string
-          merchant_request_id?: string | null
-          mpesa_receipt_number?: string | null
-          phone_number?: string | null
-          raw_callback?: Json | null
-          result_code?: string | null
-          result_desc?: string | null
-        }
-        Update: {
-          amount?: number | null
-          checkout_request_id?: string
-          created_at?: string
-          id?: string
-          merchant_request_id?: string | null
-          mpesa_receipt_number?: string | null
-          phone_number?: string | null
-          raw_callback?: Json | null
-          result_code?: string | null
-          result_desc?: string | null
-        }
-        Relationships: []
-      }
       notifications: {
         Row: {
           created_at: string | null
@@ -594,7 +555,7 @@ export type Database = {
         }
         Relationships: []
       }
-      pending_payments: {
+      payments: {
         Row: {
           account_reference: string
           amount: number

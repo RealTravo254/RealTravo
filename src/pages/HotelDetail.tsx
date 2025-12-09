@@ -316,23 +316,9 @@ const HotelDetail = () => {
                     <p className="font-semibold sm:text-sm">{hotel.opening_hours} - {hotel.closing_hours}</p>
                     {hotel.days_opened && hotel.days_opened.length > 0 && <p className="text-xs text-muted-foreground mt-1">{hotel.days_opened.join(', ')}</p>}
                   </div>
-                </div>
-              )}
-
-              {/* START: Available Rooms Section with RED_COLOR */}
-              {hotel.available_rooms !== null && hotel.available_rooms !== undefined && (
-                <div className={`mt-3 ${hotel.opening_hours || hotel.closing_hours ? 'border-t pt-3 sm:pt-2' : ''}`}>
-                  <p className="text-sm sm:text-xs text-muted-foreground mb-1">Available Rooms</p>
-                  <p 
-                    className="text-2xl sm:text-xl font-bold"
-                    style={{ color: RED_COLOR }}
-                  >
-                    {hotel.available_rooms}
-                  </p>
                 </div>
               )}
-              {/* END: Available Rooms Section */}
-              </div>
+              </div>
 
             <div className="space-y-3">
               {/* Book Now Button Teal and dark hover */}

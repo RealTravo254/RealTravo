@@ -545,7 +545,7 @@ const Index = () => {
                                         </Button>
                                     </>
                                 )}
-                                <div ref={featuredForYouRef} onScroll={handleScroll('featuredForYou')} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={() => onTouchEnd(featuredForYouRef)} className="gap-2 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none md:gap-[8px] flex items-start justify-start pl-1 pr-8 md:pl-2 md:pr-12">
+                                <div ref={featuredForYouRef} onScroll={handleScroll('featuredForYou')} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={() => onTouchEnd(featuredForYouRef)} className="gap-2 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none md:gap-[8px] flex items-start justify-start pl-1 pr-8 md:pl-2 md:pr-12 scroll-smooth">
                                 {loading || listings.length === 0 ? [...Array(10)].map((_, i) => <div key={i} className="flex-shrink-0 w-[62vw] md:w-64 rounded-lg overflow-hidden shadow-md snap-center md:snap-align-none">
                                             <div className="aspect-[4/3] bg-muted animate-pulse" />
                                             <div className="p-2 md:p-4 space-y-2 md:space-y-3">
@@ -584,7 +584,7 @@ const Index = () => {
                                     </Button>
                                 </>
                             )}
-                            <div ref={featuredEventsRef} onScroll={handleScroll('featuredEvents')} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={() => onTouchEnd(featuredEventsRef)} className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none md:gap-[8px] pl-1 pr-8 md:pl-2 md:pr-12">
+                            <div ref={featuredEventsRef} onScroll={handleScroll('featuredEvents')} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={() => onTouchEnd(featuredEventsRef)} className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none md:gap-[8px] pl-1 pr-8 md:pl-2 md:pr-12 scroll-smooth">
                             {loadingScrollable ? <div className="flex gap-2 md:gap-4">
                                     {[...Array(5)].map((_, i) => <div key={i} className="flex-shrink-0 w-[62vw] md:w-64 snap-center md:snap-align-none">
                                             <ListingSkeleton />
@@ -619,7 +619,7 @@ const Index = () => {
                                     </Button>
                                 </>
                             )}
-                            <div ref={featuredCampsitesRef} onScroll={handleScroll('featuredCampsites')} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={() => onTouchEnd(featuredCampsitesRef)} className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none md:gap-[8px] pl-1 pr-8 md:pl-2 md:pr-12">
+                            <div ref={featuredCampsitesRef} onScroll={handleScroll('featuredCampsites')} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={() => onTouchEnd(featuredCampsitesRef)} className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none md:gap-[8px] pl-1 pr-8 md:pl-2 md:pr-12 scroll-smooth">
                             {loadingScrollable ? <div className="flex gap-2 md:gap-4">
                                     {[...Array(5)].map((_, i) => <div key={i} className="flex-shrink-0 w-[62vw] md:w-64 snap-center md:snap-align-none">
                                             <ListingSkeleton />
@@ -652,7 +652,7 @@ const Index = () => {
                                     </Button>
                                 </>
                             )}
-                            <div ref={featuredHotelsRef} onScroll={handleScroll('featuredHotels')} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={() => onTouchEnd(featuredHotelsRef)} className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none md:gap-[8px] pl-1 pr-8 md:pl-2 md:pr-12">
+                            <div ref={featuredHotelsRef} onScroll={handleScroll('featuredHotels')} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={() => onTouchEnd(featuredHotelsRef)} className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none md:gap-[8px] pl-1 pr-8 md:pl-2 md:pr-12 scroll-smooth">
                             {loadingScrollable ? <div className="flex gap-2 md:gap-4">
                                     {[...Array(5)].map((_, i) => <div key={i} className="flex-shrink-0 w-[62vw] md:w-64 snap-center md:snap-align-none">
                                             <ListingSkeleton />
@@ -685,7 +685,7 @@ const Index = () => {
                                     </Button>
                                 </>
                             )}
-                            <div ref={featuredAttractionsRef} onScroll={handleScroll('featuredAttractions')} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={() => onTouchEnd(featuredAttractionsRef)} className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none md:gap-[8px] pl-1 pr-8 md:pl-2 md:pr-12">
+                            <div ref={featuredAttractionsRef} onScroll={handleScroll('featuredAttractions')} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={() => onTouchEnd(featuredAttractionsRef)} className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none md:gap-[8px] pl-1 pr-8 md:pl-2 md:pr-12 scroll-smooth">
                             {loadingScrollable ? <div className="flex gap-2 md:gap-4">
                                     {[...Array(5)].map((_, i) => <div key={i} className="flex-shrink-0 w-[62vw] md:w-64 snap-center md:snap-align-none">
                                             <ListingSkeleton />
@@ -720,7 +720,7 @@ const Index = () => {
                                     </Button>
                                 </>
                             )}
-                            <div ref={featuredTripsRef} onScroll={handleScroll('featuredTrips')} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={() => onTouchEnd(featuredTripsRef)} className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none md:gap-[8px] pl-1 pr-8 md:pl-2 md:pr-12">
+                            <div ref={featuredTripsRef} onScroll={handleScroll('featuredTrips')} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={() => onTouchEnd(featuredTripsRef)} className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none md:gap-[8px] pl-1 pr-8 md:pl-2 md:pr-12 scroll-smooth">
                             {loadingScrollable ? <div className="flex gap-2 md:gap-4">
                                     {[...Array(5)].map((_, i) => <div key={i} className="flex-shrink-0 w-[62vw] md:w-64 snap-center md:snap-align-none">
                                             <ListingSkeleton />
@@ -764,7 +764,7 @@ const Index = () => {
                             <Button variant="ghost" size="icon" onClick={() => scrollSection(vlogsRef, 'right')} className="absolute right-2 top-[30%] -translate-y-1/2 z-10 h-8 w-8 md:h-10 md:w-10 rounded-full bg-black/50 hover:bg-black/70 text-white">
                                 <ChevronRight className="h-5 w-5 md:h-6 md:w-6" />
                             </Button>
-                            <div ref={vlogsRef} onScroll={handleScroll('vlogs')} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={() => onTouchEnd(vlogsRef)} className="flex gap-2 md:gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none pl-1 pr-8 md:pl-2 md:pr-12">
+                            <div ref={vlogsRef} onScroll={handleScroll('vlogs')} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={() => onTouchEnd(vlogsRef)} className="flex gap-2 md:gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none pl-1 pr-8 md:pl-2 md:pr-12 scroll-smooth">
                             {[{
                 id: "1",
                 title: "Exploring the Swiss Alps",

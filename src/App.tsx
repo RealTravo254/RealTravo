@@ -59,6 +59,7 @@ import VerificationList from "./pages/admin/VerificationList";
 import VerificationDetail from "./pages/admin/VerificationDetail";
 import PaymentHistory from "./pages/PaymentHistory";
 import Install from "./pages/Install";
+import AllBookings from "./pages/admin/AllBookings";
 
 const queryClient = new QueryClient();
 
@@ -94,6 +95,7 @@ const App = () => (
               <Route path="/admin/rejected" element={<RejectedItems />} />
               <Route path="/admin/review/:itemType/:id" element={<AdminReviewDetail />} />
               <Route path="/admin/bookings" element={<AdminBookings />} />
+              <Route path="/admin/all-bookings" element={<AllBookings />} />
               <Route path="/admin/verification" element={<AdminVerification />} />
               <Route path="/admin/verification/list/:status" element={<VerificationList />} />
               <Route path="/admin/verification-detail/:id" element={<VerificationDetail />} />

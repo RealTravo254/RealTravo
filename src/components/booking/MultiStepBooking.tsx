@@ -106,6 +106,15 @@ export const MultiStepBooking = ({
             // Mark payment as succeeded so we can handle dialog close properly
             console.log('✅ Payment succeeded for booking:', bookingId);
             setPaymentSucceeded(true);
+            
+            // Auto-close after showing success message for 2 seconds
+            setTimeout(() => {
+                resetPayment();
+                setPaymentSucceeded(false);
+                if (onPaymentSuccess) {
+                    onPaymentSuccess();
+                }
+            }, 2000);
         },
         onError: (error) => {
             console.log('❌ Payment failed:', error);

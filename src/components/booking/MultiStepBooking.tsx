@@ -76,8 +76,10 @@ export const MultiStepBooking = ({
 }: MultiStepBookingProps) => {
     const { user } = useAuth();
     
-    // Logged-in users skip contact info step (Step 4 becomes just summary)
-    const totalSteps = user ? 3 : 4;
+    // Both logged-in users and guests see facilities step
+    // Logged-in users: 4 steps (Date, Guests, Facilities, Summary)
+    // Guests: 4 steps (Date, Guests, Facilities, Contact+Summary)
+    const totalSteps = skipFacilitiesAndActivities ? (user ? 3 : 4) : 4;
     
     const [currentStep, setCurrentStep] = useState(skipDateSelection ? 2 : 1);
     const [formData, setFormData] = useState<BookingFormData>({
@@ -140,14 +142,14 @@ export const MultiStepBooking = ({
         if (currentStep === 1 && !formData.visit_date && !skipDateSelection) return;
         if (currentStep === 2 && formData.num_adults === 0 && formData.num_children === 0) return;
         
-        if (currentStep === 3 && !skipFacilitiesAndActivities && !user && formData.selectedFacilities.length > 0 && !areFacilityDatesValid()) {
+        // Validate facility dates in step 3 for all users
+        if (currentStep === 3 && !skipFacilitiesAndActivities && formData.selectedFacilities.length > 0 && !areFacilityDatesValid()) {
             return;
         }
         
-        // For logged-in users: step 2 -> step 3 (summary) when skipping facilities
-        // For guests: step 2 -> step 4 (contact + summary) when skipping facilities
+        // When skipping facilities, go directly to summary step
         if (currentStep === 2 && skipFacilitiesAndActivities) {
-            setCurrentStep(user ? 3 : 4);
+            setCurrentStep(totalSteps);
             return;
         }
         
@@ -156,11 +158,9 @@ export const MultiStepBooking = ({
 
     const handlePrevious = () => {
         // Handle going back when skipping facilities
-        if (skipFacilitiesAndActivities) {
-            if ((user && currentStep === 3) || (!user && currentStep === 4)) {
-                setCurrentStep(2);
-                return;
-            }
+        if (skipFacilitiesAndActivities && currentStep === totalSteps) {
+            setCurrentStep(2);
+            return;
         }
         
         const minStep = skipDateSelection ? 2 : 1;
@@ -408,8 +408,8 @@ export const MultiStepBooking = ({
                 </div>
             )}
 
-            {/* Step 3: Facilities & Activities (guests only) OR Summary (logged-in users) */}
-            {currentStep === 3 && !skipFacilitiesAndActivities && !user && (
+            {/* Step 3: Facilities & Activities (for all users) */}
+            {currentStep === 3 && !skipFacilitiesAndActivities && (
                 <div className="space-y-6">
                     <h3 className="text-lg font-semibold">Step 3: Additional Services (Optional)</h3>
                     
@@ -536,11 +536,11 @@ export const MultiStepBooking = ({
                 </div>
             )}
 
-            {/* Step 3: Summary for logged-in users OR Step 4 for guests */}
-            {(currentStep === 3 && user) || (currentStep === 4 && !user) ? (
+            {/* Step 4: Summary (or Step 3 if skipping facilities) */}
+            {currentStep === totalSteps ? (
                 <div className="space-y-6">
                     <h3 className="text-lg font-semibold">
-                        Step {user ? 3 : 4}: Review & Submit
+                        Step {totalSteps}: Review & Submit
                     </h3>
                     
                     {!user && (

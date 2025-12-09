@@ -17,7 +17,7 @@ import { CountrySelector } from "@/components/creation/CountrySelector";
 import { PageHeader } from "@/components/creation/PageHeader";
 import { PhoneInput } from "@/components/creation/PhoneInput";
 import { approvalStatusSchema } from "@/lib/validation";
-import { AutoVerifyEmail } from "@/components/creation/AutoVerifyEmail";
+import { EmailVerification } from "@/components/creation/EmailVerification";
 
 const CreateTripEvent = () => {
   const navigate = useNavigate();
@@ -412,7 +412,7 @@ const CreateTripEvent = () => {
                 </div>
               </div>
 
-              <AutoVerifyEmail
+              <EmailVerification
                 email={formData.email}
                 onEmailChange={(email) => setFormData({...formData, email})}
                 isVerified={emailVerified}

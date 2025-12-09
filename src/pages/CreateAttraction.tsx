@@ -17,7 +17,7 @@ import { Footer } from "@/components/Footer";
 import { PageHeader } from "@/components/creation/PageHeader";
 import { PhoneInput } from "@/components/creation/PhoneInput";
 import { approvalStatusSchema } from "@/lib/validation";
-import { AutoVerifyEmail } from "@/components/creation/AutoVerifyEmail";
+import { EmailVerification } from "@/components/creation/EmailVerification";
 const EAST_AFRICAN_COUNTRIES = [
   { name: "Kenya", code: "KE", flag: "🇰🇪" },
   { name: "Uganda", code: "UG", flag: "🇺🇬" },
@@ -415,7 +415,7 @@ export default function CreateAttraction() {
           <div className="space-y-4">
             <h2 className="text-xl font-semibold">Contact Information</h2>
             
-            <AutoVerifyEmail
+            <EmailVerification
               email={formData.email}
               onEmailChange={(email) => setFormData({...formData, email})}
               isVerified={emailVerified}

@@ -17,7 +17,7 @@ import { registrationNumberSchema, descriptionSchema, approvalStatusSchema } fro
 import { CountrySelector } from "@/components/creation/CountrySelector";
 import { PageHeader } from "@/components/creation/PageHeader";
 import { PhoneInput } from "@/components/creation/PhoneInput";
-import { AutoVerifyEmail } from "@/components/creation/AutoVerifyEmail";
+import { EmailVerification } from "@/components/creation/EmailVerification";
 
 const CreateAdventure = () => {
   const navigate = useNavigate();
@@ -430,7 +430,7 @@ const CreateAdventure = () => {
                 />
               </div>
 
-              <AutoVerifyEmail
+              <EmailVerification
                 email={formData.email}
                 onEmailChange={(email) => setFormData({...formData, email})}
                 isVerified={emailVerified}

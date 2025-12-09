@@ -6,7 +6,7 @@ import { MobileBottomBar } from "@/components/MobileBottomBar";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronRight, ClipboardList, CheckCircle, XCircle, ShieldCheck, ArrowLeft } from "lucide-react";
+import { ChevronRight, ClipboardList, CheckCircle, XCircle, ShieldCheck, ArrowLeft, CalendarCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -19,6 +19,7 @@ const AdminDashboard = () => {
   const [approvedCount, setApprovedCount] = useState(0);
   const [rejectedCount, setRejectedCount] = useState(0);
   const [hostVerificationCount, setHostVerificationCount] = useState(0);
+  const [bookingsCount, setBookingsCount] = useState(0);
 
   useEffect(() => {
     if (!user) {
@@ -99,6 +100,13 @@ const AdminDashboard = () => {
         .eq("status", "pending");
       
       setHostVerificationCount(hostVerificationsPending || 0);
+
+      // Fetch total bookings count
+      const { count: totalBookings } = await supabase
+        .from("bookings")
+        .select("id", { count: "exact", head: true });
+      
+      setBookingsCount(totalBookings || 0);
     } catch (error) {
       console.error("Error fetching counts:", error);
     }
@@ -184,6 +192,20 @@ const AdminDashboard = () => {
               </div>
               <div className="flex items-center gap-2">
                 <Badge variant="secondary">{hostVerificationCount}</Badge>
+                <ChevronRight className="h-5 w-5 text-muted-foreground" />
+              </div>
+            </button>
+
+            <button
+              onClick={() => navigate("/admin/all-bookings")}
+              className="w-full flex items-center justify-between p-6 hover:bg-accent transition-colors"
+            >
+              <div className="flex items-center gap-4">
+                <CalendarCheck className="h-5 w-5 text-primary" />
+                <span className="font-medium text-foreground">All Bookings</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="default">{bookingsCount}</Badge>
                 <ChevronRight className="h-5 w-5 text-muted-foreground" />
               </div>
             </button>

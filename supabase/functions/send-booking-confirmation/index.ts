@@ -31,44 +31,36 @@ const handler = async (req: Request): Promise<Response> => {
     const typeDisplay = bookingType.charAt(0).toUpperCase() + bookingType.slice(1);
 
     // Build booking details HTML
-    let detailsHTML = "";
+    const details = bookingDetails as any;
+    const totalPeople = (details.adults || 0) + (details.children || 0);
     
-    if (bookingType === "trip") {
-      const details = bookingDetails as any;
-      detailsHTML = `
-        <p><strong>Number of Adults:</strong> ${details.adults || 0}</p>
-        <p><strong>Number of Children:</strong> ${details.children || 0}</p>
-        ${details.selectedActivities && details.selectedActivities.length > 0 ? `
-          <p><strong>Activities:</strong></p>
-          <ul>
-            ${details.selectedActivities.map((act: any) => `
-              <li>${act.name} - ${act.adults} adults, ${act.children} children (${act.price} each)</li>
-            `).join('')}
-          </ul>
-        ` : ''}
+    let detailsHTML = `
+      <p><strong>Booked By:</strong> ${guestName}</p>
+      <p><strong>Number of People:</strong> ${totalPeople} (${details.adults || 0} adults, ${details.children || 0} children)</p>
+      ${visitDate ? `<p><strong>Visit Date:</strong> ${visitDate}</p>` : ''}
+    `;
+    
+    // Add facilities if present
+    if (details.selectedFacilities && details.selectedFacilities.length > 0) {
+      detailsHTML += `
+        <p><strong>Facilities:</strong></p>
+        <ul style="margin: 5px 0; padding-left: 20px;">
+          ${details.selectedFacilities.map((fac: any) => `
+            <li>${fac.name}${fac.checkIn ? ` - Check-in: ${fac.checkIn}, Check-out: ${fac.checkOut}` : ''} (KES ${fac.price || 0})</li>
+          `).join('')}
+        </ul>
       `;
-    } else if (bookingType === "hotel" || bookingType === "adventure_place") {
-      const details = bookingDetails as any;
-      detailsHTML = `
-        <p><strong>Visit Date:</strong> ${visitDate || 'Not specified'}</p>
-        <p><strong>Number of Adults:</strong> ${details.adults || 0}</p>
-        <p><strong>Number of Children:</strong> ${details.children || 0}</p>
-        ${details.selectedFacilities && details.selectedFacilities.length > 0 ? `
-          <p><strong>Facilities:</strong></p>
-          <ul>
-            ${details.selectedFacilities.map((fac: any) => `
-              <li>${fac.name} - Check-in: ${fac.checkIn}, Check-out: ${fac.checkOut} (${fac.price} per day)</li>
-            `).join('')}
-          </ul>
-        ` : ''}
-        ${details.selectedActivities && details.selectedActivities.length > 0 ? `
-          <p><strong>Activities:</strong></p>
-          <ul>
-            ${details.selectedActivities.map((act: any) => `
-              <li>${act.name} - ${act.people} people (${act.price} each)</li>
-            `).join('')}
-          </ul>
-        ` : ''}
+    }
+    
+    // Add activities if present
+    if (details.selectedActivities && details.selectedActivities.length > 0) {
+      detailsHTML += `
+        <p><strong>Activities:</strong></p>
+        <ul style="margin: 5px 0; padding-left: 20px;">
+          ${details.selectedActivities.map((act: any) => `
+            <li>${act.name} - ${act.people || act.adults || 0} people (KES ${act.price || 0} each)</li>
+          `).join('')}
+        </ul>
       `;
     }
 

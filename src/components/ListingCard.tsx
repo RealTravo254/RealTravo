@@ -190,59 +190,43 @@ export const ListingCard = ({
                     </p>
                 </div>
 
-                {/* --- Activities/Amenities/Warning Section Wrapper --- */}
-                {/* Hide if minimalDisplay is true */}
-                {!minimalDisplay && (
-                <div className={`flex-1 min-h-0 overflow-hidden ${hideEmptySpace && !isTripOrEvent && activityNames.length === 0 ? 'hidden' : ''}`}> 
-                    
-                    {/* --- Activities Section for NON-TRIP/EVENT types --- */}
-                    {/* Only render if NOT Trip/Event AND activities exist. */}
-                    {!isTripOrEvent && activityNames.length > 0 && (
-                        <div className="flex flex-wrap gap-0.5 md:gap-1 pt-0.5 md:pt-1">
-                            {activityNames.map((activity, index) => (
-                                <span
-                                    key={index}
-                                    className={cn("text-[8px] md:text-xs px-1 md:px-1.5 py-0.5 rounded-full bg-muted", tealTextClass)}
-                                >
-                                    {activity}
+                {/* --- Activities Section for NON-TRIP/EVENT types --- */}
+                {!minimalDisplay && !isTripOrEvent && activityNames.length > 0 && (
+                    <div className="flex flex-wrap gap-0.5 md:gap-1 pt-0.5 md:pt-1 flex-1 min-h-0 overflow-hidden">
+                        {activityNames.map((activity, index) => (
+                            <span
+                                key={index}
+                                className={cn("text-[7px] md:text-[10px] px-1 md:px-1.5 py-0.5 rounded-full bg-muted", tealTextClass)}
+                            >
+                                {activity}
+                            </span>
+                        ))}
+                    </div>
+                )}
+                
+                {/* Price, Date and Few slots remaining for Trips/Events - on same row */}
+                {isTripOrEvent && !minimalDisplay && (
+                    <div className={`flex items-center justify-between gap-1 pt-1 border-t border-border/50 mt-auto ${hideEmptySpace && hidePrice && !date ? 'hidden' : ''}`}> 
+                        <div className="flex items-center gap-2 flex-wrap">
+                            {!hidePrice && price !== undefined && price > 0 && (
+                                <span className="text-[10px] md:text-xs font-bold text-[rgb(200,0,0)]">
+                                    KSh {price.toLocaleString()}
                                 </span>
-                            ))}
-                        </div>
-                    )}
-                    
-                    {/* --- New Section for "Few slots remaining" for TRIP/EVENT types --- */}
-                    {isTripOrEvent && (
-                         // MODIFIED: Use `h-full` when few slots are remaining, otherwise set a small fixed height to ensure it doesn't disappear.
-                        <div className={cn("pt-1 h-6 transition-opacity", fewSlotsRemaining ? "opacity-100" : "opacity-0", hideEmptySpace && !fewSlotsRemaining ? "hidden" : "")}>
-                            {fewSlotsRemaining && (
-                                <span className="text-xs md:text-sm font-semibold text-destructive px-2 py-1 bg-destructive/10 rounded-sm">
-                                    Few slots remaining!
+                            )}
+                            {date && !isCustomDate && (
+                                <span className="text-[10px] md:text-xs text-muted-foreground">
+                                    {formatDate(date)}
+                                </span>
+                            )}
+                            {isCustomDate && (
+                                <span className="text-[10px] md:text-xs text-muted-foreground italic">
+                                    Flexible Date
                                 </span>
                             )}
                         </div>
-                    )}
-
-                </div>
-                )}
-                {/* ------------------------------------------------------------------ */}
-                
-                {/* Price and Date Info for Trips/Events - Only render for these types and not in minimal mode */}
-                {/* MODIFIED: Added mt-auto to push this section to the bottom */}
-                {isTripOrEvent && !minimalDisplay && (
-                    <div className={`flex flex-wrap items-center gap-2 pt-1 border-t border-border/50 mt-auto ${hideEmptySpace && hidePrice && !date ? 'hidden' : ''}`}> 
-                        {!hidePrice && price !== undefined && price > 0 && (
-                            <span className="text-[10px] md:text-xs font-bold text-[rgb(200,0,0)]">
-                                KSh {price.toLocaleString()}
-                            </span>
-                        )}
-                        {date && !isCustomDate && (
-                            <span className="text-[10px] md:text-xs text-muted-foreground">
-                                {formatDate(date)}
-                            </span>
-                        )}
-                        {isCustomDate && (
-                            <span className="text-[10px] md:text-xs text-muted-foreground italic">
-                                Flexible Date
+                        {fewSlotsRemaining && (
+                            <span className="text-[8px] md:text-[10px] font-medium text-destructive px-1 py-0.5 bg-destructive/10 rounded-sm whitespace-nowrap">
+                                Few left!
                             </span>
                         )}
                     </div>

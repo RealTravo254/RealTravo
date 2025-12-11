@@ -26,8 +26,8 @@ interface Notification {
   created_at: string;
 }
 
-// Custom Teal color based on rgba(0, 128, 128, 0.8) which is approximately #008080CC
-const UNREAD_BADGE_CLASS = "bg-[#008080CC] text-white";
+// Custom Teal color based on rgba(0, 128, 128, 1) which is #008080
+const UNREAD_TEAL_CLASS = "bg-[#008080] text-white";
 
 export const NotificationBell = () => {
   const { user } = useAuth();
@@ -133,14 +133,14 @@ export const NotificationBell = () => {
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger asChild>
-        {/* Hover over notification removed: changed `group relative` to `relative`, and updated `hover:bg-white group relative` */}
+        {/* Hover over notification removed: removed hover:bg-white and group relative */}
         <button className="rounded-full h-10 w-10 flex items-center justify-center transition-colors bg-white/10 relative">
-          {/* Removed `group-hover:text-[#008080]` */}
+          {/* Removed group-hover:text-[#008080] */}
           <Bell className="h-5 w-5 text-white" />
           {unreadCount > 0 && (
             <Badge
-              // Replaced `variant="destructive"` with custom class for Teal color
-              className={`absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs ${UNREAD_BADGE_CLASS}`}
+              // Replaced variant="destructive" with the custom Teal color class
+              className={`absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs ${UNREAD_TEAL_CLASS}`}
             >
               {unreadCount > 99 ? '99+' : unreadCount}
             </Badge>
@@ -185,7 +185,10 @@ export const NotificationBell = () => {
                   <div className="flex items-start justify-between gap-2 mb-1">
                     <h4 className="font-semibold text-sm">{notification.title}</h4>
                     {!notification.is_read && (
-                      <div className="h-2 w-2 rounded-full bg-primary flex-shrink-0 mt-1" />
+                      <div 
+                        // Updated from bg-primary to the custom Teal color
+                        className={`h-2 w-2 rounded-full flex-shrink-0 mt-1 ${UNREAD_TEAL_CLASS.split(' ')[0]}`} 
+                      />
                     )}
                   </div>
                   <p className="text-sm text-muted-foreground mb-2">

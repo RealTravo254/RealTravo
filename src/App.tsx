@@ -8,6 +8,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { PageLayout } from "@/components/PageLayout";
 import { SplashScreen } from "@/components/SplashScreen";
+import { OfflineIndicator } from "@/components/OfflineIndicator";
 import Index from "./pages/Index";
 import Saved from "./pages/Saved";
 import Bookings from "./pages/Bookings";
@@ -84,6 +85,7 @@ const App = () => {
         <Toaster />
         <Sonner />
         {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
+        <OfflineIndicator />
         <BrowserRouter>
           <AuthProvider>
             <InstallPrompt />

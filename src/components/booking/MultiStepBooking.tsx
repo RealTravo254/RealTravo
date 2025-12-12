@@ -320,20 +320,7 @@ export const MultiStepBooking = ({
         );
     }
 
-    // Completion Screen (Only shown if isCompleted is true, typically used for free bookings or after payment success/failure state is handled)
-    if (isCompleted) {
-        return (
-            <div className="flex flex-col items-center justify-center p-8 space-y-4">
-                <div className="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
-                    <CheckCircle2 className="h-10 w-10 text-green-600" />
-                </div>
-                <p className="text-xl font-bold">Booking Submitted!</p>
-                <p className="text-sm text-muted-foreground text-center">
-                    Your booking for {itemName} has been saved. Payment is pending.
-                </p>
-            </div>
-        );
-    }
+    // Completion screen removed - payment success is handled by PaymentStatusDialog auto-close
 
     const isMpesaSelected = calculateTotal() > 0 && paymentMethod === 'mpesa';
     const isCardSelected = calculateTotal() > 0 && paymentMethod === 'card';

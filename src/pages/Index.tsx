@@ -184,6 +184,7 @@ const Index = () => {
       return;
     }
     const [placesData, hotelsData, attractionsData] = await Promise.all([supabase.from("adventure_places").select("*").eq("approval_status", "approved").eq("is_hidden", false).limit(12), supabase.from("hotels").select("*").eq("approval_status", "approved").eq("is_hidden", false).limit(12), supabase.from("attractions").select("*").eq("approval_status", "approved").eq("is_hidden", false).limit(12)]);
+    
     const combined = [...(placesData.data || []).map(item => ({
       ...item,
       type: "ADVENTURE PLACE",
@@ -203,7 +204,33 @@ const Index = () => {
       location: item.location_name,
       image_url: item.photo_urls?.[0] || ""
     }))];
-    const nearby = combined.slice(0, 12);
+    
+    // Calculate distance for items with coordinates
+    const withDistance = combined.map(item => {
+      let distance: number | undefined;
+      const itemAny = item as any;
+      if (itemAny.latitude && itemAny.longitude && position) {
+        distance = calculateDistance(
+          position.latitude,
+          position.longitude,
+          itemAny.latitude,
+          itemAny.longitude
+        );
+      }
+      return { ...item, distance };
+    });
+    
+    // Sort by distance (items with distance first, then others)
+    const sorted = withDistance.sort((a, b) => {
+      if (a.distance !== undefined && b.distance !== undefined) {
+        return a.distance - b.distance;
+      }
+      if (a.distance !== undefined) return -1;
+      if (b.distance !== undefined) return 1;
+      return 0;
+    });
+    
+    const nearby = sorted.slice(0, 12);
     setNearbyPlacesHotels(nearby);
     // Only set loading to false if we have data
     if (nearby.length > 0) {
@@ -560,7 +587,7 @@ const Index = () => {
                                                 <div className="h-3 md:h-4 bg-muted animate-pulse rounded w-1/2" />
                                             </div>
                                         </div>) : (position ? nearbyPlacesHotels : listings).map((item, index) => <div key={item.id} className="flex-shrink-0 w-[62vw] md:w-64">
-                                             <ListingCard id={item.id} type={item.type} name={item.name} imageUrl={item.image_url} location={item.location} country={item.country} price={item.price || item.entry_fee || 0} date={item.date} isCustomDate={item.is_custom_date} onSave={handleSave} isSaved={savedItems.has(item.id)} hidePrice={true} showBadge={true} priority={index === 0} availableTickets={item.type === "TRIP" || item.type === "EVENT" ? item.available_tickets : undefined} bookedTickets={item.type === "TRIP" || item.type === "EVENT" ? bookingStats[item.id] || 0 : undefined} activities={item.activities} />
+                                             <ListingCard id={item.id} type={item.type} name={item.name} imageUrl={item.image_url} location={item.location} country={item.country} price={item.price || item.entry_fee || 0} date={item.date} isCustomDate={item.is_custom_date} onSave={handleSave} isSaved={savedItems.has(item.id)} hidePrice={true} showBadge={true} priority={index === 0} availableTickets={item.type === "TRIP" || item.type === "EVENT" ? item.available_tickets : undefined} bookedTickets={item.type === "TRIP" || item.type === "EVENT" ? bookingStats[item.id] || 0 : undefined} activities={item.activities} distance={position ? item.distance : undefined} />
                                          </div>)}
                                 </div>
                             </div>}

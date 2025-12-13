@@ -28,6 +28,7 @@ interface ListingCardProps {
   minimalDisplay?: boolean; // Only show name and location
   hideEmptySpace?: boolean; // Hide space when no content to display
   compact?: boolean; // Smaller height, hide location
+  distance?: number; // Distance in km from user's location
 }
 export const ListingCard = ({
   id,
@@ -50,7 +51,8 @@ export const ListingCard = ({
   priority = false,
   minimalDisplay = false,
   hideEmptySpace = false,
-  compact = false
+  compact = false,
+  distance
 }: ListingCardProps) => {
   // Extract activity names from activities array
   const getActivityNames = (activities: any[] | undefined): string[] => {
@@ -141,6 +143,11 @@ export const ListingCard = ({
                     <p className="text-[10px] md:text-sm text-muted-foreground line-clamp-1">
                         {location}, {country}
                     </p>
+                    {distance !== undefined && (
+                        <span className="text-[9px] md:text-xs text-primary font-medium ml-auto whitespace-nowrap">
+                            {distance < 1 ? `${Math.round(distance * 1000)}m` : `${distance.toFixed(1)}km`}
+                        </span>
+                    )}
                 </div>
 
                 {/* --- Activities Section for NON-TRIP/EVENT types --- */}

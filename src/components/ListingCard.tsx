@@ -152,11 +152,20 @@ export const ListingCard = ({
                 </div>
 
                 {/* --- Activities Section for NON-TRIP/EVENT types --- */}
-                {!minimalDisplay && !isTripOrEvent && activityNames.length > 0 && <div className="flex-wrap gap-0.5 md:gap-1 pt-0.5 md:pt-1 flex-1 min-h-0 overflow-hidden flex items-start justify-start">
-                        {activityNames.map((activity, index) => <span key={index} className={cn("text-[7px] md:text-[10px] px-1 md:px-1.5 py-0.5 rounded-full bg-muted", tealTextClass)}>
+                {!minimalDisplay && !isTripOrEvent && activityNames.length > 0 && (
+                    <div className="flex flex-wrap gap-0.5 md:gap-1 pt-0.5 md:pt-1 flex-1 min-h-0 overflow-hidden items-start justify-start">
+                        {activityNames.slice(0, 3).map((activity, index) => (
+                            <span key={index} className={cn("text-[7px] md:text-[10px] px-1 md:px-1.5 py-0.5 rounded-full bg-muted", tealTextClass)}>
                                 {activity}
-                            </span>)}
-                    </div>}
+                            </span>
+                        ))}
+                        {activityNames.length > 3 && (
+                            <span className={cn("text-[7px] md:text-[10px] px-1 md:px-1.5 py-0.5 rounded-full bg-muted", tealTextClass)}>
+                                +{activityNames.length - 3}
+                            </span>
+                        )}
+                    </div>
+                )}
                 
                 {/* Price, Date and Few slots remaining for Trips/Events - on same row */}
                 {isTripOrEvent && !minimalDisplay && <div className={`flex items-center justify-between gap-1 pt-1 border-t border-border/50 mt-auto ${hideEmptySpace && hidePrice && !date ? 'hidden' : ''}`}> 

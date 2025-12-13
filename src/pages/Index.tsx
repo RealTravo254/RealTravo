@@ -661,9 +661,20 @@ const Index = () => {
                                     {[...Array(5)].map((_, i) => <div key={i} className="flex-shrink-0 w-[62vw] md:w-64">
                                             <ListingSkeleton />
                                         </div>)}
-                                </div> : scrollableRows.campsites.length === 0 ? <p className="text-center text-muted-foreground py-8 w-full">No campsites available</p> : scrollableRows.campsites.map((place, index) => <div key={place.id} className="flex-shrink-0 w-[62vw] md:w-64">
-                                        <ListingCard id={place.id} type="ADVENTURE PLACE" name={place.name} imageUrl={place.image_url} location={place.location} country={place.country} price={place.entry_fee || 0} date="" onSave={handleSave} isSaved={savedItems.has(place.id)} hidePrice={true} showBadge={true} priority={index === 0} activities={place.activities} />
-                                    </div>)}
+                                </div> : scrollableRows.campsites.length === 0 ? <p className="text-center text-muted-foreground py-8 w-full">No campsites available</p> : [...scrollableRows.campsites]
+                                    .sort((a, b) => {
+                                      if (!position) return 0;
+                                      const distA = a.latitude && a.longitude ? calculateDistance(position.latitude, position.longitude, a.latitude, a.longitude) : Infinity;
+                                      const distB = b.latitude && b.longitude ? calculateDistance(position.latitude, position.longitude, b.latitude, b.longitude) : Infinity;
+                                      return distA - distB;
+                                    })
+                                    .map((place, index) => {
+                                      const itemDistance = position && place.latitude && place.longitude
+                                        ? calculateDistance(position.latitude, position.longitude, place.latitude, place.longitude)
+                                        : undefined;
+                                      return <div key={place.id} className="flex-shrink-0 w-[62vw] md:w-64">
+                                        <ListingCard id={place.id} type="ADVENTURE PLACE" name={place.name} imageUrl={place.image_url} location={place.location} country={place.country} price={place.entry_fee || 0} date="" onSave={handleSave} isSaved={savedItems.has(place.id)} hidePrice={true} showBadge={true} priority={index === 0} activities={place.activities} distance={itemDistance} />
+                                    </div>})}
                             </div>
                         </div>
                     </section>
@@ -692,9 +703,20 @@ const Index = () => {
                                     {[...Array(5)].map((_, i) => <div key={i} className="flex-shrink-0 w-[62vw] md:w-64">
                                             <ListingSkeleton />
                                         </div>)}
-                                </div> : scrollableRows.hotels.length === 0 ? <p className="text-center text-muted-foreground py-8 w-full">No hotels available</p> : scrollableRows.hotels.map((hotel, index) => <div key={hotel.id} className="flex-shrink-0 w-[62vw] md:w-64">
-                                        <ListingCard id={hotel.id} type="HOTEL" name={hotel.name} imageUrl={hotel.image_url} location={hotel.location} country={hotel.country} price={0} date="" onSave={handleSave} isSaved={savedItems.has(hotel.id)} hidePrice={true} showBadge={true} priority={index === 0} activities={hotel.activities} />
-                                    </div>)}
+                                </div> : scrollableRows.hotels.length === 0 ? <p className="text-center text-muted-foreground py-8 w-full">No hotels available</p> : [...scrollableRows.hotels]
+                                    .sort((a, b) => {
+                                      if (!position) return 0;
+                                      const distA = a.latitude && a.longitude ? calculateDistance(position.latitude, position.longitude, a.latitude, a.longitude) : Infinity;
+                                      const distB = b.latitude && b.longitude ? calculateDistance(position.latitude, position.longitude, b.latitude, b.longitude) : Infinity;
+                                      return distA - distB;
+                                    })
+                                    .map((hotel, index) => {
+                                      const itemDistance = position && hotel.latitude && hotel.longitude
+                                        ? calculateDistance(position.latitude, position.longitude, hotel.latitude, hotel.longitude)
+                                        : undefined;
+                                      return <div key={hotel.id} className="flex-shrink-0 w-[62vw] md:w-64">
+                                        <ListingCard id={hotel.id} type="HOTEL" name={hotel.name} imageUrl={hotel.image_url} location={hotel.location} country={hotel.country} price={0} date="" onSave={handleSave} isSaved={savedItems.has(hotel.id)} hidePrice={true} showBadge={true} priority={index === 0} activities={hotel.activities} distance={itemDistance} />
+                                    </div>})}
                             </div>
                         </div>
                     </section>
@@ -723,9 +745,20 @@ const Index = () => {
                                     {[...Array(5)].map((_, i) => <div key={i} className="flex-shrink-0 w-[62vw] md:w-64">
                                             <ListingSkeleton />
                                         </div>)}
-                                </div> : scrollableRows.attractions.length === 0 ? <p className="text-center text-muted-foreground py-8 w-full">No attractions available</p> : scrollableRows.attractions.map((attraction, index) => <div key={attraction.id} className="flex-shrink-0 w-[62vw] md:w-64">
-                                        <ListingCard id={attraction.id} type="ATTRACTION" name={attraction.local_name || attraction.location_name} imageUrl={attraction.photo_urls?.[0] || ""} location={attraction.location_name} country={attraction.country} price={attraction.price_adult || 0} date="" onSave={handleSave} isSaved={savedItems.has(attraction.id)} hidePrice={true} showBadge={true} priority={index === 0} activities={attraction.activities} />
-                                    </div>)}
+                                </div> : scrollableRows.attractions.length === 0 ? <p className="text-center text-muted-foreground py-8 w-full">No attractions available</p> : [...scrollableRows.attractions]
+                                    .sort((a, b) => {
+                                      if (!position) return 0;
+                                      const distA = a.latitude && a.longitude ? calculateDistance(position.latitude, position.longitude, a.latitude, a.longitude) : Infinity;
+                                      const distB = b.latitude && b.longitude ? calculateDistance(position.latitude, position.longitude, b.latitude, b.longitude) : Infinity;
+                                      return distA - distB;
+                                    })
+                                    .map((attraction, index) => {
+                                      const itemDistance = position && attraction.latitude && attraction.longitude
+                                        ? calculateDistance(position.latitude, position.longitude, attraction.latitude, attraction.longitude)
+                                        : undefined;
+                                      return <div key={attraction.id} className="flex-shrink-0 w-[62vw] md:w-64">
+                                        <ListingCard id={attraction.id} type="ATTRACTION" name={attraction.local_name || attraction.location_name} imageUrl={attraction.photo_urls?.[0] || ""} location={attraction.location_name} country={attraction.country} price={attraction.price_adult || 0} date="" onSave={handleSave} isSaved={savedItems.has(attraction.id)} hidePrice={true} showBadge={true} priority={index === 0} activities={attraction.activities} distance={itemDistance} />
+                                    </div>})}
                             </div>
                         </div>
                     </section>

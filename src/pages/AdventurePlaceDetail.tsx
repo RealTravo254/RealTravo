@@ -19,7 +19,7 @@ import { MultiStepBooking, BookingFormData } from "@/components/booking/MultiSte
 import { generateReferralLink, trackReferralClick } from "@/lib/referralUtils";
 import { useBookingSubmit } from "@/hooks/useBookingSubmit";
 import { extractIdFromSlug } from "@/lib/slugUtils";
-import { useGeolocation } from "@/hooks/useGeolocation";
+import { useGeolocation, calculateDistance } from "@/hooks/useGeolocation";
 
 // Define the specific colors
 const TEAL_COLOR = "#008080"; // Icons, Links, Book Button, and now FACILITIES
@@ -54,6 +54,8 @@ interface AdventurePlace {
   days_opened: string[] | null;
   available_slots: number;
   created_by: string;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 const AdventurePlaceDetail = () => {
@@ -71,6 +73,11 @@ const AdventurePlaceDetail = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
   const isSaved = savedItems.has(id || "");
+
+  // Calculate distance if position and place coordinates available
+  const distance = position && place?.latitude && place?.longitude
+    ? calculateDistance(position.latitude, position.longitude, place.latitude, place.longitude)
+    : undefined;
 
   useEffect(() => { 
     fetchPlace(); 
@@ -264,6 +271,11 @@ const AdventurePlaceDetail = () => {
                 {/* Location Icon Teal */}
                 <MapPin className="h-4 w-4" style={{ color: TEAL_COLOR }} />
                 <span className="sm:text-sm">{place.location}, {place.country}</span>
+                {distance !== undefined && (
+                  <span className="text-xs font-medium ml-auto" style={{ color: TEAL_COLOR }}>
+                    {distance < 1 ? `${Math.round(distance * 1000)}m away` : `${distance.toFixed(1)}km away`}
+                  </span>
+                )}
               </div>
               {place.place && (
                 <p className="text-sm sm:text-xs text-muted-foreground mb-4 sm:mb-2">Place: {place.place}</p>

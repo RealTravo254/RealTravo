@@ -32,29 +32,31 @@ interface Activity {
   price: number;
 }
 interface Hotel {
-  id: string;
-  name: string;
-  local_name: string | null;
-  location: string;
-  place: string;
-  country: string;
-  image_url: string;
-  images: string[];
-  gallery_images: string[];
-  description: string;
-  amenities: string[];
-  phone_numbers: string[];
-  email: string;
-  facilities: Facility[];
-  activities: Activity[];
-  opening_hours: string;
-  closing_hours: string;
-  days_opened: string[];
-  registration_number: string;
-  map_link: string;
-  establishment_type: string;
-  available_rooms: number;
-  created_by: string | null;
+  id: string;
+  name: string;
+  local_name: string | null;
+  location: string;
+  place: string;
+  country: string;
+  image_url: string;
+  images: string[];
+  gallery_images: string[];
+  description: string;
+  amenities: string[];
+  phone_numbers: string[];
+  email: string;
+  facilities: Facility[];
+  activities: Activity[];
+  opening_hours: string;
+  closing_hours: string;
+  days_opened: string[];
+  registration_number: string;
+  map_link: string;
+  establishment_type: string;
+  available_rooms: number;
+  created_by: string | null;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 // Define the custom colors
@@ -78,7 +80,12 @@ const HotelDetail = () => {
   const [isCompleted, setIsCompleted] = useState(false);
   const isSaved = savedItems.has(id || "");
 
-  useEffect(() => {
+  // Calculate distance if position and hotel coordinates available
+  const distance = position && hotel?.latitude && hotel?.longitude
+    ? calculateDistance(position.latitude, position.longitude, hotel.latitude, hotel.longitude)
+    : undefined;
+
+  useEffect(() => {
     fetchHotel();
     
     // Track referral clicks
@@ -301,6 +308,11 @@ const HotelDetail = () => {
                 {/* MapPin Icon Teal */}
                 <MapPin className="h-4 w-4" style={{ color: TEAL_COLOR }} />
                 <span className="sm:text-sm">{hotel.location}, {hotel.country}</span>
+                {distance !== undefined && (
+                  <span className="text-xs font-medium ml-auto" style={{ color: TEAL_COLOR }}>
+                    {distance < 1 ? `${Math.round(distance * 1000)}m away` : `${distance.toFixed(1)}km away`}
+                  </span>
+                )}
               </div>
               {hotel.place && (
                 <p className="text-sm text-muted-foreground mb-4 sm:mb-2">Place: {hotel.place}</p>

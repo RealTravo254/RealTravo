@@ -370,9 +370,7 @@ export const SearchBarWithSuggestions = ({ value, onChange, onSubmit, onSuggesti
 
       {showSuggestions && (
         <div 
-            className="fixed md:absolute left-0 right-0 bg-card border-t md:border md:border-t-0 md:rounded-t-none rounded-none md:rounded-b-lg shadow-lg max-h-[60vh] md:max-h-96 overflow-y-auto z-[150] mt-0" 
-            // Apply dynamic top for fixed mobile view, and '100%' for absolute desktop view
-            style={{ ...getSuggestionTopStyle(), top: '100%', left: '0', right: '0', marginTop: 0 }}
+            className="absolute left-0 right-0 top-full bg-card border border-border rounded-b-lg shadow-lg max-h-[60vh] md:max-h-96 overflow-y-auto z-[150]"
         >
           {/* Show search history and trending when no value */}
           {!value.trim() && (

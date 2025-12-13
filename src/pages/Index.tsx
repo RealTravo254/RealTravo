@@ -512,11 +512,11 @@ const Index = () => {
                     </div>}
                 
                 <div className={`px-4 ${isSearchFocused ? 'hidden' : ''}`}>
-                    {/* Latest - MODIFIED FOR HORIZONTAL SCROLLING OR MAP VIEW */}
+                    {/* Near You / Latest - Show nearby items if location is on, otherwise show latest */}
                     <section className="mb-4 md:mb-8">
                         <div className="mb-2 md:mb-4 mt-2 md:mt-0 flex items-start justify-between">
                             <h2 className="text-xs md:text-2xl font-bold whitespace-nowrap overflow-hidden text-ellipsis">
-                                {searchQuery ? 'Search Results' : position ? 'Featured For You' : 'Latest'}
+                                {searchQuery ? 'Search Results' : position ? 'Near You' : 'Latest'}
                             </h2>
                             {searchQuery && listings.length > 0 && <div className="flex gap-2">
                                     <Button variant={viewMode === 'list' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('list')} className="gap-1">
@@ -551,14 +551,15 @@ const Index = () => {
                                         </Button>
                                     </>}
                                 <div ref={featuredForYouRef} onScroll={handleScroll('featuredForYou')} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={() => onTouchEnd(featuredForYouRef)} className="gap-2 overflow-x-auto pb-4 scrollbar-hide md:gap-[8px] flex items-start justify-start pl-1 pr-8 md:pl-2 md:pr-12 scroll-smooth">
-                                {loading || listings.length === 0 ? [...Array(10)].map((_, i) => <div key={i} className="flex-shrink-0 w-[62vw] md:w-64 rounded-lg overflow-hidden shadow-md">
+                                {/* Show nearby items if location is on, otherwise show latest */}
+                                {(position ? loadingNearby : loading) || (position ? nearbyPlacesHotels : listings).length === 0 ? [...Array(10)].map((_, i) => <div key={i} className="flex-shrink-0 w-[62vw] md:w-64 rounded-lg overflow-hidden shadow-md">
                                             <div className="aspect-[4/3] bg-muted animate-pulse" />
                                             <div className="p-2 md:p-4 space-y-2 md:space-y-3">
                                                 <div className="h-4 md:h-5 bg-muted animate-pulse rounded w-4/5" />
                                                 <div className="h-3 md:h-4 bg-muted animate-pulse rounded w-2/3" />
                                                 <div className="h-3 md:h-4 bg-muted animate-pulse rounded w-1/2" />
                                             </div>
-                                        </div>) : listings.map((item, index) => <div key={item.id} className="flex-shrink-0 w-[62vw] md:w-64">
+                                        </div>) : (position ? nearbyPlacesHotels : listings).map((item, index) => <div key={item.id} className="flex-shrink-0 w-[62vw] md:w-64">
                                              <ListingCard id={item.id} type={item.type} name={item.name} imageUrl={item.image_url} location={item.location} country={item.country} price={item.price || item.entry_fee || 0} date={item.date} isCustomDate={item.is_custom_date} onSave={handleSave} isSaved={savedItems.has(item.id)} hidePrice={true} showBadge={true} priority={index === 0} availableTickets={item.type === "TRIP" || item.type === "EVENT" ? item.available_tickets : undefined} bookedTickets={item.type === "TRIP" || item.type === "EVENT" ? bookingStats[item.id] || 0 : undefined} activities={item.activities} />
                                          </div>)}
                                 </div>
@@ -568,11 +569,11 @@ const Index = () => {
 
                     <hr className="border-t border-gray-200 my-2 md:my-6" />
 
-                    {/* Featured Events */}
+                    {/* Events */}
                     <section className="mb-3 md:mb-8">
                         <div className="mb-2 md:mb-4 flex items-start justify-between">
                             <h2 className="text-xs md:text-2xl font-bold whitespace-nowrap overflow-hidden text-ellipsis">
-                                Featured Events
+                                Events
                             </h2>
                             <Link to="/category/events" className="text-primary text-3xs md:text-sm hover:underline">
                                 View All
@@ -601,11 +602,11 @@ const Index = () => {
 
                     <hr className="border-t border-gray-200 my-2 md:my-6" />
 
-                    {/* Featured Campsite & Experience */}
+                    {/* Campsite & Experience */}
                     <section className="mb-3 md:mb-8">
                         <div className="mb-2 md:mb-4 flex items-start justify-between">
                             <h2 className="text-xs md:text-2xl font-bold whitespace-nowrap overflow-hidden text-ellipsis">
-                                Featured Campsite & Experience
+                                Campsite & Experience
                             </h2>
                             <Link to="/category/campsite" className="text-primary text-3xs md:text-sm hover:underline">
                                 View All
@@ -632,11 +633,11 @@ const Index = () => {
                         </div>
                     </section>
 
-                    {/* Featured Hotels */}
+                    {/* Hotels */}
                     <section className="mb-3 md:mb-8">
                         <div className="mb-2 md:mb-4 flex items-start justify-between">
                             <h2 className="text-xs md:text-2xl font-bold whitespace-nowrap overflow-hidden text-ellipsis">
-                                Featured Hotels
+                                Hotels
                             </h2>
                             <Link to="/category/hotels" className="text-primary text-3xs md:text-sm hover:underline">
                                 View All
@@ -663,11 +664,11 @@ const Index = () => {
                         </div>
                     </section>
 
-                    {/* Featured Attractions */}
+                    {/* Attractions */}
                     <section className="mb-3 md:mb-8">
                         <div className="mb-2 md:mb-4 flex items-start justify-between">
                             <h2 className="text-xs md:text-2xl font-bold whitespace-nowrap overflow-hidden text-ellipsis">
-                                Featured Attractions
+                                Attractions
                             </h2>
                             <Link to="/category/adventure" className="text-primary text-3xs md:text-sm hover:underline">
                                 View All
@@ -696,11 +697,11 @@ const Index = () => {
 
                     <hr className="border-t border-gray-200 my-2 md:my-6" />
 
-                    {/* Featured Trips Only Section */}
+                    {/* Trips Section */}
                     <section className="mb-3 md:mb-8">
                         <div className="mb-2 md:mb-4 flex items-start justify-between">
                             <h2 className="text-xs md:text-2xl font-bold whitespace-nowrap overflow-hidden text-ellipsis">
-                                Featured Trips
+                                Trips
                             </h2>
                             <Link to="/category/trips" className="text-primary text-3xs md:text-sm hover:underline">
                                 View All

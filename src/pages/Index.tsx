@@ -409,7 +409,7 @@ const Index = () => {
     description: "Visit must-see landmarks"
   }, {
     icon: Hotel,
-    title: "Hotels",
+    title: "Hotels and accommodation",
     path: "/category/hotels",
     bgImage: "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&h=600&fit=crop&auto=format&q=80",
     description: "Find comfortable stays"

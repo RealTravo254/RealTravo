@@ -137,22 +137,19 @@ export const ListingCard = ({
                     {name}
                 </h3>
                 
-                {/* Location - Placed below Name */}
-                <div className="flex items-center gap-1">
+                {/* Location and Distance - Placed below Name */}
+                <div className="flex items-center gap-1 flex-wrap">
                     <MapPin className={cn("h-3 w-3 flex-shrink-0", tealTextClass)} />
                     <p className="text-[10px] md:text-sm text-muted-foreground line-clamp-1">
-                        {location}, {country}
+                        {location}
                     </p>
-                </div>
-                
-                {/* Distance badge for non-trip/event types */}
-                {distance !== undefined && type !== "TRIP" && type !== "EVENT" && (
-                    <div className="flex items-center gap-1">
-                        <span className={cn("text-[8px] md:text-xs px-1.5 py-0.5 rounded-full bg-primary/10 font-medium", tealTextClass)}>
-                            📍 {distance < 1 ? `${Math.round(distance * 1000)}m away` : `${distance.toFixed(1)}km away`}
+                    {/* Distance inline for non-trip/event types */}
+                    {distance !== undefined && type !== "TRIP" && type !== "EVENT" && (
+                        <span className={cn("text-[8px] md:text-xs px-1.5 py-0.5 rounded-full bg-primary/10 font-medium whitespace-nowrap", tealTextClass)}>
+                            📍 {distance < 1 ? `${Math.round(distance * 1000)}m` : `${distance.toFixed(1)}km`}
                         </span>
-                    </div>
-                )}
+                    )}
+                </div>
 
                 {/* --- Activities Section for NON-TRIP/EVENT types --- */}
                 {!minimalDisplay && !isTripOrEvent && activityNames.length > 0 && (

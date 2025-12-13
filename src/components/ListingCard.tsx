@@ -143,13 +143,16 @@ export const ListingCard = ({
                     <p className="text-[10px] md:text-sm text-muted-foreground line-clamp-1">
                         {location}, {country}
                     </p>
-                    {/* Show distance only for non-trip/event types */}
-                    {distance !== undefined && type !== "TRIP" && type !== "EVENT" && (
-                        <span className="text-[9px] md:text-xs text-primary font-medium ml-auto whitespace-nowrap">
-                            {distance < 1 ? `${Math.round(distance * 1000)}m` : `${distance.toFixed(1)}km`}
-                        </span>
-                    )}
                 </div>
+                
+                {/* Distance badge for non-trip/event types */}
+                {distance !== undefined && type !== "TRIP" && type !== "EVENT" && (
+                    <div className="flex items-center gap-1">
+                        <span className={cn("text-[8px] md:text-xs px-1.5 py-0.5 rounded-full bg-primary/10 font-medium", tealTextClass)}>
+                            📍 {distance < 1 ? `${Math.round(distance * 1000)}m away` : `${distance.toFixed(1)}km away`}
+                        </span>
+                    </div>
+                )}
 
                 {/* --- Activities Section for NON-TRIP/EVENT types --- */}
                 {!minimalDisplay && !isTripOrEvent && activityNames.length > 0 && (

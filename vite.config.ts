@@ -14,10 +14,31 @@ export default defineConfig(({ mode }) => ({
     sourcemap: true,
     rollupOptions: {
       output: {
-        manualChunks: {
-          'mapbox': ['mapbox-gl'],
-          'vendor': ['react', 'react-dom', 'react-router-dom'],
-          'ui': ['@radix-ui/react-dialog', '@radix-ui/react-popover', '@radix-ui/react-dropdown-menu'],
+        manualChunks(id) {
+          // Let mapbox-gl be code-split naturally via dynamic imports
+          if (id.includes('mapbox-gl')) {
+            return 'mapbox';
+          }
+          // Core vendor chunk - smaller subset
+          if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/')) {
+            return 'react-vendor';
+          }
+          // Router chunk
+          if (id.includes('react-router')) {
+            return 'router';
+          }
+          // UI components chunk
+          if (id.includes('@radix-ui')) {
+            return 'ui';
+          }
+          // Supabase chunk - defer auth loading
+          if (id.includes('@supabase')) {
+            return 'supabase';
+          }
+          // Calendar/date picker chunk
+          if (id.includes('react-day-picker') || id.includes('date-fns')) {
+            return 'calendar';
+          }
         },
       },
     },

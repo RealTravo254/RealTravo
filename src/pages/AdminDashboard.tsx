@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
+import { Footer } from "@/components/Footer";
 import { MobileBottomBar } from "@/components/MobileBottomBar";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -59,37 +60,34 @@ const AdminDashboard = () => {
 
   const fetchCounts = async () => {
     try {
-      const [pendingTrips, pendingHotels, pendingAdventures, pendingAttractions] = await Promise.all([
+      const [pendingTrips, pendingHotels, pendingAdventures] = await Promise.all([
         supabase.from("trips").select("id", { count: "exact", head: true }).eq("approval_status", "pending"),
         supabase.from("hotels").select("id", { count: "exact", head: true }).eq("approval_status", "pending"),
         supabase.from("adventure_places").select("id", { count: "exact", head: true }).eq("approval_status", "pending"),
-        supabase.from("attractions").select("id", { count: "exact", head: true }).eq("approval_status", "pending"),
       ]);
 
       const totalPending = (pendingTrips.count || 0) + (pendingHotels.count || 0) + 
-                          (pendingAdventures.count || 0) + (pendingAttractions.count || 0);
+                          (pendingAdventures.count || 0);
       setPendingCount(totalPending);
 
-      const [approvedTrips, approvedHotels, approvedAdventures, approvedAttractions] = await Promise.all([
+      const [approvedTrips, approvedHotels, approvedAdventures] = await Promise.all([
         supabase.from("trips").select("id", { count: "exact", head: true }).eq("approval_status", "approved"),
         supabase.from("hotels").select("id", { count: "exact", head: true }).eq("approval_status", "approved"),
         supabase.from("adventure_places").select("id", { count: "exact", head: true }).eq("approval_status", "approved"),
-        supabase.from("attractions").select("id", { count: "exact", head: true }).eq("approval_status", "approved"),
       ]);
 
       const totalApproved = (approvedTrips.count || 0) + (approvedHotels.count || 0) + 
-                           (approvedAdventures.count || 0) + (approvedAttractions.count || 0);
+                           (approvedAdventures.count || 0);
       setApprovedCount(totalApproved);
 
-      const [rejectedTrips, rejectedHotels, rejectedAdventures, rejectedAttractions] = await Promise.all([
+      const [rejectedTrips, rejectedHotels, rejectedAdventures] = await Promise.all([
         supabase.from("trips").select("id", { count: "exact", head: true }).eq("approval_status", "rejected"),
         supabase.from("hotels").select("id", { count: "exact", head: true }).eq("approval_status", "rejected"),
         supabase.from("adventure_places").select("id", { count: "exact", head: true }).eq("approval_status", "rejected"),
-        supabase.from("attractions").select("id", { count: "exact", head: true }).eq("approval_status", "rejected"),
       ]);
 
       const totalRejected = (rejectedTrips.count || 0) + (rejectedHotels.count || 0) + 
-                           (rejectedAdventures.count || 0) + (rejectedAttractions.count || 0);
+                           (rejectedAdventures.count || 0);
       setRejectedCount(totalRejected);
 
       // Fetch host verifications pending count

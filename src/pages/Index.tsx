@@ -142,7 +142,7 @@ const Index = () => {
   const fetchScrollableRows = async () => {
     setLoadingScrollable(true);
     try {
-      const [tripsData, hotelsData, attractionsData, campsitesData, eventsData] = await Promise.all([supabase.from("trips").select("*").eq("approval_status", "approved").eq("is_hidden", false).eq("type", "trip").limit(8), supabase.from("hotels").select("*").eq("approval_status", "approved").eq("is_hidden", false).limit(8), supabase.from("attractions").select("*").eq("approval_status", "approved").eq("is_hidden", false).limit(8), supabase.from("adventure_places").select("*").eq("approval_status", "approved").eq("is_hidden", false).limit(8), supabase.from("trips").select("*").eq("approval_status", "approved").eq("is_hidden", false).eq("type", "event").limit(8)]);
+      const [tripsData, hotelsData, campsitesData, eventsData] = await Promise.all([supabase.from("trips").select("*").eq("approval_status", "approved").eq("is_hidden", false).eq("type", "trip").limit(8), supabase.from("hotels").select("*").eq("approval_status", "approved").eq("is_hidden", false).limit(8), supabase.from("adventure_places").select("*").eq("approval_status", "approved").eq("is_hidden", false).limit(8), supabase.from("trips").select("*").eq("approval_status", "approved").eq("is_hidden", false).eq("type", "event").limit(8)]);
       console.log("Fetched scrollable data:", {
         trips: {
           count: tripsData.data?.length || 0,
@@ -153,11 +153,6 @@ const Index = () => {
           count: hotelsData.data?.length || 0,
           error: hotelsData.error,
           data: hotelsData.data
-        },
-        attractions: {
-          count: attractionsData.data?.length || 0,
-          error: attractionsData.error,
-          data: attractionsData.data
         },
         campsites: {
           count: campsitesData.data?.length || 0,
@@ -173,7 +168,7 @@ const Index = () => {
       setScrollableRows({
         trips: tripsData.data || [],
         hotels: hotelsData.data || [],
-        attractions: attractionsData.data || [],
+        attractions: [],
         campsites: campsitesData.data || [],
         events: eventsData.data || []
       });
@@ -205,7 +200,7 @@ const Index = () => {
       // Keep loading true if position is not available yet
       return;
     }
-    const [placesData, hotelsData, attractionsData] = await Promise.all([supabase.from("adventure_places").select("*").eq("approval_status", "approved").eq("is_hidden", false).limit(12), supabase.from("hotels").select("*").eq("approval_status", "approved").eq("is_hidden", false).limit(12), supabase.from("attractions").select("*").eq("approval_status", "approved").eq("is_hidden", false).limit(12)]);
+    const [placesData, hotelsData] = await Promise.all([supabase.from("adventure_places").select("*").eq("approval_status", "approved").eq("is_hidden", false).limit(12), supabase.from("hotels").select("*").eq("approval_status", "approved").eq("is_hidden", false).limit(12)]);
     const combined = [...(placesData.data || []).map(item => ({
       ...item,
       type: "ADVENTURE PLACE",
@@ -216,14 +211,6 @@ const Index = () => {
       type: "HOTEL",
       table: "hotels",
       category: "Hotel"
-    })), ...(attractionsData.data || []).map(item => ({
-      ...item,
-      type: "ATTRACTION",
-      table: "attractions",
-      category: "Attraction",
-      name: item.local_name || item.location_name,
-      location: item.location_name,
-      image_url: item.photo_urls?.[0] || ""
     }))];
 
     // Calculate distance for items with coordinates

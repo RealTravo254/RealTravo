@@ -100,28 +100,20 @@ export const SearchBarWithSuggestions = ({ value, onChange, onSubmit, onSuggesti
     const queryValue = value.trim().toLowerCase();
 
     try {
-      // Fetch all items - we'll filter client-side for activities/facilities
-      const [tripsData, eventsData, hotelsData, adventuresData, attractionsData] = await Promise.all([
-        supabase.from("trips").select("id, name, location, place, country, activities, date, image_url").eq("approval_status", "approved").eq("type", "trip").limit(50),
-        supabase.from("trips").select("id, name, location, place, country, activities, date, image_url").eq("approval_status", "approved").eq("type", "event").limit(50),
-        supabase.from("hotels").select("id, name, location, place, country, activities, facilities, image_url").eq("approval_status", "approved").limit(50),
-        supabase.from("adventure_places").select("id, name, location, place, country, activities, facilities, image_url").eq("approval_status", "approved").limit(50),
-        supabase.from("attractions").select("id, location_name, local_name, country, activities, facilities, photo_urls").eq("approval_status", "approved").limit(50)
-      ]);
+      // Fetch all items - we'll filter client-side for activities/facilities
+      const [tripsData, eventsData, hotelsData, adventuresData] = await Promise.all([
+        supabase.from("trips").select("id, name, location, place, country, activities, date, image_url").eq("approval_status", "approved").eq("type", "trip").limit(50),
+        supabase.from("trips").select("id, name, location, place, country, activities, date, image_url").eq("approval_status", "approved").eq("type", "event").limit(50),
+        supabase.from("hotels").select("id, name, location, place, country, activities, facilities, image_url").eq("approval_status", "approved").limit(50),
+        supabase.from("adventure_places").select("id, name, location, place, country, activities, facilities, image_url").eq("approval_status", "approved").limit(50)
+      ]);
 
-      let combined: SearchResult[] = [
-        ...(tripsData.data || []).map((item) => ({ ...item, type: "trip" as const })),
-        ...(eventsData.data || []).map((item) => ({ ...item, type: "event" as const })),
-        ...(hotelsData.data || []).map((item) => ({ ...item, type: "hotel" as const })),
-        ...(adventuresData.data || []).map((item) => ({ ...item, type: "adventure" as const })),
-        ...(attractionsData.data || []).map((item) => ({ 
-          ...item, 
-          type: "attraction" as const, 
-          name: item.location_name,
-          location: item.local_name || item.location_name,
-          image_url: item.photo_urls?.[0] || undefined
-        }))
-      ];
+      let combined: SearchResult[] = [
+        ...(tripsData.data || []).map((item) => ({ ...item, type: "trip" as const })),
+        ...(eventsData.data || []).map((item) => ({ ...item, type: "event" as const })),
+        ...(hotelsData.data || []).map((item) => ({ ...item, type: "hotel" as const })),
+        ...(adventuresData.data || []).map((item) => ({ ...item, type: "adventure" as const }))
+      ];
 
       // Filter by search query (including activities and facilities)
       if (queryValue) {

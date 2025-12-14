@@ -27,12 +27,10 @@ const TripDetail = lazy(() => import("./pages/TripDetail"));
 const EventDetail = lazy(() => import("./pages/EventDetail"));
 const HotelDetail = lazy(() => import("./pages/HotelDetail"));
 const AdventurePlaceDetail = lazy(() => import("./pages/AdventurePlaceDetail"));
-const AttractionDetail = lazy(() => import("./pages/AttractionDetail"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const CreateTripEvent = lazy(() => import("./pages/CreateTripEvent"));
 const CreateHotel = lazy(() => import("./pages/CreateHotel"));
 const CreateAdventure = lazy(() => import("./pages/CreateAdventure"));
-const CreateAttraction = lazy(() => import("./pages/CreateAttraction"));
 const ProfileEdit = lazy(() => import("./pages/ProfileEdit"));
 const BecomeHost = lazy(() => import("./pages/BecomeHost"));
 const HostItemDetail = lazy(() => import("./pages/HostItemDetail"));
@@ -104,7 +102,7 @@ const App = () => {
                     <Route path="/event/:slug" element={<EventDetail />} />
                     <Route path="/hotel/:slug" element={<HotelDetail />} />
                     <Route path="/adventure/:slug" element={<AdventurePlaceDetail />} />
-                    <Route path="/attraction/:slug" element={<AttractionDetail />} />
+                    <Route path="/attraction/:slug" element={<AdventurePlaceDetail />} />
                     <Route path="/auth" element={<Auth />} />
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/profile/edit" element={<ProfileEdit />} />
@@ -124,7 +122,7 @@ const App = () => {
                     <Route path="/create-trip" element={<CreateTripEvent />} />
                     <Route path="/create-hotel" element={<CreateHotel />} />
                     <Route path="/create-adventure" element={<CreateAdventure />} />
-                    <Route path="/create-attraction" element={<CreateAttraction />} />
+                    <Route path="/create-attraction" element={<CreateAdventure />} />
                     <Route path="/host/item/:itemType/:id" element={<HostItemDetail />} />
                     <Route path="/host/bookings/:itemType" element={<HostBookings />} />
                     <Route path="/host/bookings/:itemType/:id" element={<HostBookingDetails />} />

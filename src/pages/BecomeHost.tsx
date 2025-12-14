@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Header } from "@/components/Header";
+import { Footer } from "@/components/Footer";
 import { MobileBottomBar } from "@/components/MobileBottomBar";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -85,10 +86,6 @@ const BecomeHost = () => {
             data: adventures,
             error: adventuresError
           } = await supabase.from("adventure_places").select("id, name, location, place, country, image_url, description, email, phone_numbers, amenities, activities, facilities, entry_fee, entry_fee_type, map_link, gallery_images, images, approval_status, created_at, created_by, approved_by, approved_at, is_hidden, registration_number").eq("created_by", user.id);
-          const {
-            data: attractions,
-            error: attractionsError
-          } = await supabase.from("attractions").select("id, location_name, local_name, country, description, email, phone_number, entrance_type, price_adult, price_child, photo_urls, gallery_images, approval_status, created_at, created_by, approved_by, approved_at, is_hidden, registration_number, registration_type, opening_hours, closing_hours, days_opened, location_link").eq("created_by", user.id);
 
           // Show specific error messages for each item type that failed
           if (tripsError) {
@@ -112,13 +109,6 @@ const BecomeHost = () => {
               variant: "destructive"
             });
           }
-          if (attractionsError) {
-            toast({
-              title: "Error Loading Attractions",
-              description: "Failed to load your attractions. Please try again.",
-              variant: "destructive"
-            });
-          }
           const allContent = [...(trips?.map(t => ({
             ...t,
             type: "trip"
@@ -128,11 +118,6 @@ const BecomeHost = () => {
           })) || []), ...(adventures?.map(a => ({
             ...a,
             type: "adventure"
-          })) || []), ...(attractions?.map(a => ({
-            ...a,
-            type: "attraction",
-            name: a.local_name || a.location_name,
-            location: a.location_name
           })) || [])];
           setMyContent(allContent);
           setLoading(false);

@@ -32,7 +32,22 @@ const CategoryDetail = () => {
   const {
     toast
   } = useToast();
-  const { position } = useGeolocation();
+  const { position, requestLocation } = useGeolocation();
+  
+  // Request location on first user interaction
+  useEffect(() => {
+    const handleInteraction = () => {
+      requestLocation();
+      window.removeEventListener('scroll', handleInteraction);
+      window.removeEventListener('click', handleInteraction);
+    };
+    window.addEventListener('scroll', handleInteraction, { once: true });
+    window.addEventListener('click', handleInteraction, { once: true });
+    return () => {
+      window.removeEventListener('scroll', handleInteraction);
+      window.removeEventListener('click', handleInteraction);
+    };
+  }, [requestLocation]);
   const [isSticky, setIsSticky] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
   const [isSearchVisible, setIsSearchVisible] = useState(true);

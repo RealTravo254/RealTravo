@@ -30,8 +30,24 @@ const Index = () => {
     toast
   } = useToast();
   const {
-    position
+    position,
+    requestLocation
   } = useGeolocation();
+  
+  // Request location on first user interaction
+  useEffect(() => {
+    const handleInteraction = () => {
+      requestLocation();
+      window.removeEventListener('scroll', handleInteraction);
+      window.removeEventListener('click', handleInteraction);
+    };
+    window.addEventListener('scroll', handleInteraction, { once: true });
+    window.addEventListener('click', handleInteraction, { once: true });
+    return () => {
+      window.removeEventListener('scroll', handleInteraction);
+      window.removeEventListener('click', handleInteraction);
+    };
+  }, [requestLocation]);
   const [isSearchVisible, setIsSearchVisible] = useState(true);
   const [showSearchIcon, setShowSearchIcon] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);

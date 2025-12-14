@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { InstallPrompt } from "@/components/InstallPrompt";
+import { MobileInstallBanner } from "@/components/MobileInstallBanner";
 import { PageLayout } from "@/components/PageLayout";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 
@@ -87,6 +88,7 @@ const App = () => {
         <BrowserRouter>
           <AuthProvider>
             <InstallPrompt />
+            <MobileInstallBanner />
             <PageLayout>
               <Suspense fallback={<PageLoader />}>
                 <div className="w-full">

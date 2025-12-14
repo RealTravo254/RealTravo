@@ -1,6 +1,7 @@
-import { Home, Ticket, Heart, Phone, Info, LogIn, LogOut, Sun, Moon, User, FileText, Shield } from "lucide-react";
+import { Home, Ticket, Heart, Phone, Info, Video, LogIn, LogOut, Sun, Moon, User, FileText, Shield } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+// Removed unused Button import
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,7 +18,8 @@ const MobileThemeToggle = () => {
   };
 
   return (
-    <li className="pt-2 border-t border-gray-200 dark:border-gray-700">
+    // Removed border-t and pt-2 here, will manage separation outside
+    <li className="list-none">
       <button
         onClick={toggleTheme}
         className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 group"
@@ -35,6 +37,12 @@ const MobileThemeToggle = () => {
   );
 };
 
+// Component to render a thin separator line
+const Separator = () => (
+  <hr className="my-2 border-gray-200 dark:border-gray-700/50" />
+);
+
+
 export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
   const { user, signOut } = useAuth();
   const [userName, setUserName] = useState("");
@@ -43,7 +51,6 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
     const fetchUserData = async () => {
       if (!user) return;
 
-      // Fetch only user profile name (not email)
       const { data: profile } = await supabase
         .from("profiles")
         .select("name")
@@ -65,13 +72,13 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
       return;
     }
 
-    // Direct navigation for protected routes
     window.location.href = path;
     onClose();
   };
 
 
   const bottomNavItems = [
+    { icon: Video, label: "Vlog", path: "/vlog", protected: false },
     { icon: Phone, label: "Contact", path: "/contact", protected: false },
     { icon: Info, label: "About", path: "/about", protected: false },
   ];
@@ -93,10 +100,8 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
     onClose();
   };
 
-  // Auth Display with blue Login button
   const AuthDisplay = user ? (
-    // Removed border-t from this li
-    <li className="mt-4 pt-4">
+    <li className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-800">
       <p className="px-4 py-2 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">Account</p>
       <Link
         to="/profile"
@@ -108,6 +113,7 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
           {userName || "My Profile"}
         </span>
       </Link>
+      <Separator /> {/* ADDED Separator after Profile, before Logout */}
       <button
         onClick={handleLogout}
         className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all duration-200 group"
@@ -115,17 +121,19 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
         <LogOut className="h-5 w-5 text-red-600 dark:text-red-400" />
         <span className="font-medium text-red-600 dark:text-red-400">Logout</span>
       </button>
+      <Separator /> {/* ADDED Separator after Logout */}
     </li>
   ) : (
-    // Removed border-t from this li
-    <li className="mt-4 pt-4">
+    <li className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-800">
       <Link
         to="/auth"
         onClick={onClose}
-       className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg bg-teal-600 dark:bg-teal-800 text-white hover:bg-teal-700 dark:hover:bg-teal-700 transition-all duration-200 group"      >
+        className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg bg-teal-600 dark:bg-teal-800 text-white hover:bg-teal-700 dark:hover:bg-teal-700 transition-all duration-200 group" 
+      >
         <LogIn className="h-5 w-5 text-white" />
         <span className="font-medium text-white">Login / Register</span>
       </Link>
+      <Separator /> {/* ADDED Separator after Login/Register */}
     </li>
   );
 
@@ -158,11 +166,11 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
 
           {/* 1. HOME, MY BOOKINGS, WISHLIST (TOP SECTION) */}
           <li className="mb-4 pt-2">
+            <p className="px-4 py-2 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">Navigation</p>
             <ul className="space-y-1">
               {topContentItems.map((item, index) => {
                 return (
                   <li key={item.path}>
-                    {/* Home is a link, others are buttons for protected navigation */}
                     {item.label === "Home" ? (
                       <Link
                         to={item.path}
@@ -185,12 +193,16 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
                         </span>
                       </button>
                     )}
-                    {/* ADD DARK MODE TOGGLE */}
+                    
+                    {/* ADD SEPARATOR AFTER EACH ITEM (Home, My Bookings, Wishlist) */}
+                    <Separator />
+
+                    {/* DARK MODE TOGGLE IS PLACED AFTER WISHLIST/SAVED */}
                     {item.label === "Wishlist" && (
-                      <>
-                        {/* Dark/Light Mode Toggle - Note: This one still has a line from the MobileThemeToggle component */}
-                        <MobileThemeToggle />
-                      </>
+                        <>
+                          <MobileThemeToggle />
+                          <Separator /> {/* ADD SEPARATOR AFTER DARK MODE TOGGLE */}
+                        </>
                     )}
                   </li>
                 );
@@ -199,10 +211,11 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
           </li>
 
           {/* 2. VLOG, CONTACT, ABOUT (COMPANY SECTION) */}
-          {/* Removed border-t from this li */}
+          {/* Removed the top border here as separation is now handled by the last separator above */}
           <li className="mb-4 pt-4">
+            <p className="px-4 py-2 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">Company</p>
             <ul className="space-y-1">
-              {bottomNavItems.map((item) => (
+              {bottomNavItems.map((item, index) => (
                 <li key={item.path}>
                   <Link
                     to={item.path}
@@ -214,14 +227,17 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
                       {item.label}
                     </span>
                   </Link>
+                  {/* ADD SEPARATOR AFTER EACH ITEM (Vlog, Contact, About) */}
+                  <Separator />
                 </li>
               ))}
             </ul>
           </li>
 
           {/* 3. LEGAL SECTION */}
-          {/* Removed border-t from this li */}
+          {/* Removed the top border here as separation is now handled by the last separator above */}
           <li className="mb-4 pt-4">
+            <p className="px-4 py-2 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">Legal</p>
             <ul className="space-y-1">
               {legalItems.map((item) => (
                 <li key={item.path}>
@@ -235,16 +251,21 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
                       {item.label}
                     </span>
                   </Link>
+                  {/* ADD SEPARATOR AFTER EACH ITEM (Terms, Privacy) */}
+                  <Separator />
                 </li>
               ))}
             </ul>
           </li>
 
           {/* LOGIN/LOGOUT ICON AND NAME */}
+          {/* The AuthDisplay already has a top border, I'll keep it there for visual grouping. */}
           {AuthDisplay}
 
         </ul>
       </nav>
+
+      {/* Removed Install App Bottom Banner */}
     </div>
-   );
+  );
 };

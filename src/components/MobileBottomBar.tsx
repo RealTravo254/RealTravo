@@ -34,7 +34,7 @@ export const MobileBottomBar = () => {
               key={item.path}
               to={item.path}
               className={cn(
-                "flex flex-col items-center gap-1 py-2 px-4 rounded-lg transition-all duration-200",
+                "flex flex-col items-center justify-center gap-1 min-w-[48px] min-h-[48px] py-2 px-4 rounded-lg transition-all duration-200",
                 // Inactive icon and text color is Dark Gray (text-gray-700)
                 // On hover, it transitions to the Active Teal color for feedback
                 isActive 

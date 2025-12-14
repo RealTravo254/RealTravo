@@ -447,12 +447,6 @@ const Index = () => {
     bgImage: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800&h=600&fit=crop&auto=format&q=80",
     description: "Discover exciting events"
   }, {
-    icon: MapPin,
-    title: "Attractions",
-    path: "/category/adventure",
-    bgImage: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=600&fit=crop&auto=format&q=80",
-    description: "Visit must-see landmarks"
-  }, {
     icon: Hotel,
     title: "Hotels & accommodation",
     path: "/category/hotels",

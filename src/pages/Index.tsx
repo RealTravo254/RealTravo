@@ -492,13 +492,13 @@ const Index = () => {
                     
                     {/* Categories Section - Below on all screens */}
                     <div className="w-full px-2 md:px-0 flex justify-center">
-                        <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 md:gap-4 w-full max-w-6xl">
+                        <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 md:gap-4 w-full max-w-6xl pr-0">
                             {categories.map(cat => <div key={cat.title} onClick={() => navigate(cat.path)} className="relative h-20 md:h-40 lg:h-48 cursor-pointer overflow-hidden group rounded-lg" style={{
               backgroundImage: `url(${cat.bgImage})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center'
             }}>
-                                    <div className="absolute inset-0 bg-black/50 group-hover:bg-black/40 transition-all flex flex-col items-center justify-center text-center p-2 md:p-4">
+                                    <div className="absolute inset-0 bg-black/50 group-hover:bg-black/40 transition-all text-center p-2 md:p-4 flex-col flex items-center justify-center">
                                         <cat.icon className="h-5 w-5 md:h-12 md:w-12 lg:h-16 lg:w-16 text-white mb-1 md:mb-3" />
                                         <span className="font-bold text-white text-xs md:text-base lg:text-lg leading-tight" role="heading" aria-level={3}>{cat.title}</span>
                                         <p className="text-white/80 text-2xs md:text-sm text-center mt-0.5 md:mt-1 hidden md:block">{cat.description}</p>

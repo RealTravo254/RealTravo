@@ -69,11 +69,11 @@ export const ListingCard = ({
   // For priority images, always load immediately
   const shouldLoadImage = priority || isIntersecting;
 
-  const getActivityNames = (activities: any[] | undefined): string[] => {
-    if (!activities || !Array.isArray(activities)) return [];
-    return activities.map(item => typeof item === 'object' && item.name ? item.name : typeof item === 'string' ? item : null).filter(Boolean).slice(0, 5) as string[];
-  };
-  const activityNames = getActivityNames(activities);
+  // REMOVED: getActivityNames function is no longer needed
+
+  // REMOVED: activityNames variable is no longer needed
+  // const activityNames = getActivityNames(activities);
+
   const navigate = useNavigate();
   
   const handleCardClick = () => {
@@ -120,7 +120,15 @@ export const ListingCard = ({
     quality: 70
   });
 
-  return <Card onClick={handleCardClick} className={cn("group overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer border rounded-lg bg-card shadow-sm w-full flex flex-col", compact ? "h-auto" : "h-auto")}>
+  return (
+    <Card 
+      onClick={handleCardClick} 
+      className={cn(
+        "group overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer border bg-card shadow-sm w-[320px] flex flex-col", // Increased width (w-[320px])
+        "rounded-none", // REMOVED border radius
+        compact ? "h-auto" : "h-auto" // Retained h-auto but card will be generally taller due to increased width
+      )}
+    >
             {/* Image Container with intersection observer */}
             <div ref={imageContainerRef} className="relative overflow-hidden m-0 bg-muted" style={{ paddingBottom: '50%' }}>
                 {/* Skeleton placeholder - show when not loading or image not loaded */}
@@ -191,8 +199,8 @@ export const ListingCard = ({
                     )}
                 </div>
 
-                {/* Activities Section - Always visible when activities exist */}
-                {activityNames.length > 0 && (
+                {/* Activities Section - REMOVED to meet the requirement */}
+                {/* {activityNames.length > 0 && (
                     <div className="flex flex-wrap gap-0.5 md:gap-1 flex-1 min-h-0 overflow-hidden items-start justify-start">
                         {activityNames.slice(0, 3).map((activity, index) => (
                             <span key={index} className={cn("text-[7px] md:text-[10px] px-1 md:px-1.5 py-0.5 rounded-full bg-muted", tealTextClass)}>
@@ -205,7 +213,7 @@ export const ListingCard = ({
                             </span>
                         )}
                     </div>
-                )}
+                )} */}
                 
                 {/* Price, Date and Few slots remaining for Trips/Events - on same row */}
                 {isTripOrEvent && !minimalDisplay && <div className={`flex items-center justify-between gap-1 pt-1 border-t border-border/50 mt-auto ${hideEmptySpace && hidePrice && !date ? 'hidden' : ''}`}> 
@@ -225,5 +233,6 @@ export const ListingCard = ({
                             </span>}
                     </div>}
             </div>
-        </Card>;
+        </Card>
+  );
 };

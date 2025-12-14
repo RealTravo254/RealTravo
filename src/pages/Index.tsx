@@ -492,7 +492,7 @@ const Index = () => {
                     
                     {/* Categories Section - Below on all screens */}
                     <div className="w-full px-2 md:px-0">
-                        <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 md:gap-4">
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 justify-items-center">
                             {categories.map(cat => <div key={cat.title} onClick={() => navigate(cat.path)} className="relative h-20 md:h-40 lg:h-48 cursor-pointer overflow-hidden group rounded-lg" style={{
               backgroundImage: `url(${cat.bgImage})`,
               backgroundSize: 'cover',

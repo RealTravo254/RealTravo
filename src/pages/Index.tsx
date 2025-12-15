@@ -499,33 +499,33 @@ const Index = () => {
                     </div>
                 </div>}
 
-            <main className="container md:px-4 md:py-8 px-4 py-[24px]">
-{/* Categories Section - Below on all screens */}
-                    <div className="w-full">
-                        <div className="flex flex-wrap gap-2 md:gap-4 w-full">
-                            {categories.map(cat => (
-                                <div 
-                                    key={cat.title} 
-                                    onClick={() => navigate(cat.path)} 
-                                    className="relative h-20 md:h-40 lg:h-48 cursor-pointer overflow-hidden group rounded-lg w-full sm:w-[calc(50%-4px)] lg:flex-grow lg:basis-0" 
-                                    style={{
-                                        backgroundImage: `url(${cat.bgImage})`,
-                                        backgroundSize: 'cover',
-                                        backgroundPosition: 'center'
-                                    }}
-                                >
-                                    <div className="absolute inset-0 bg-black/50 group-hover:bg-black/40 transition-all text-center p-2 md:p-4 flex-col flex items-center justify-center">
-                                        <cat.icon className="h-5 w-5 md:h-12 md:w-12 lg:h-16 lg:w-16 text-white mb-1 md:mb-3" />
-                                        <span className="font-bold text-white text-xs md:text-base lg:text-lg leading-tight" role="heading" aria-level={3}>{cat.title}</span>
-                                        <p className="text-white/80 text-2xs md:text-sm text-center mt-0.5 md:mt-1 hidden md:block">{cat.description}</p>
-                                    </div>
+            <main className="w-full">
+                {/* Categories Section - Full width */}
+                <div className="w-full px-4 md:px-6 lg:px-8 py-4 md:py-6">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 w-full">
+                        {categories.map(cat => (
+                            <div 
+                                key={cat.title} 
+                                onClick={() => navigate(cat.path)} 
+                                className="relative h-24 md:h-40 lg:h-48 cursor-pointer overflow-hidden group rounded-lg" 
+                                style={{
+                                    backgroundImage: `url(${cat.bgImage})`,
+                                    backgroundSize: 'cover',
+                                    backgroundPosition: 'center'
+                                }}
+                            >
+                                <div className="absolute inset-0 bg-black/50 group-hover:bg-black/40 transition-all text-center p-2 md:p-4 flex-col flex items-center justify-center">
+                                    <cat.icon className="h-5 w-5 md:h-12 md:w-12 lg:h-16 lg:w-16 text-white mb-1 md:mb-3" />
+                                    <span className="font-bold text-white text-xs md:text-base lg:text-lg leading-tight" role="heading" aria-level={3}>{cat.title}</span>
+                                    <p className="text-white/80 text-2xs md:text-sm text-center mt-0.5 md:mt-1 hidden md:block">{cat.description}</p>
                                 </div>
-                            ))}
-                        </div>
+                            </div>
+                        ))}
                     </div>
+                </div>
                 
                 {/* Search Results - Show when search is focused */}
-                {isSearchFocused && <div className="px-4 mt-4">
+                {isSearchFocused && <div className="w-full px-4 md:px-6 lg:px-8 mt-4">
                         <h2 className="text-xl md:text-2xl font-bold mb-4">
                             {searchQuery ? 'Search Results' : 'All Listings'}
                         </h2>
@@ -541,7 +541,7 @@ const Index = () => {
                             </div> : <p className="text-center text-muted-foreground py-8">No results found</p>}
                     </div>}
                 
-                <div className={`px-4 ${isSearchFocused ? 'hidden' : ''}`}>
+                <div className={`w-full px-4 md:px-6 lg:px-8 ${isSearchFocused ? 'hidden' : ''}`}>
                     {/* Near You / Latest - Show nearby items if location is on, otherwise show latest */}
                     <section className="mb-2 md:mb-6">
                         <div className="mb-1.5 md:mb-3 mt-1 md:mt-0 px-0 mx-[10px] items-end justify-between flex flex-row my-[5px]">

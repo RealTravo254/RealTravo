@@ -138,7 +138,7 @@ const EventDetail = () => {
       window.open(event.map_link, "_blank");
     } else {
       const query = encodeURIComponent(`${event?.name}, ${event?.location}, ${event?.country}`);
-      window.open(`https://www.google.com/maps/search/?api=1&query=$${query}`, "_blank");
+      window.open(`https://www.google.com/maps/search/?api=1&query=$$${query}`, "_blank");
     }
   };
 
@@ -195,6 +195,7 @@ const EventDetail = () => {
         <Header />
         <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8">
           <p>Event not found</p>
+          <Button onClick={() => navigate(-1)} className="mt-4" style={{ backgroundColor: TEAL_COLOR }}>Go Back</Button>
         </div>
         <MobileBottomBar />
       </div>;
@@ -209,7 +210,7 @@ const EventDetail = () => {
       {/* MODIFICATION 1: Use full width with padding (px-4/sm:px-8) */}
       <main className="px-4 sm:px-8 py-6">
         
-        {/* MODIFICATION 2: Constrain main content width for readability on desktop, maintaining centered look */}
+        {/* MODIFICATION 2: Inner container to constrain content width for readability and center it */}
         <div className="max-w-7xl mx-auto">
             
             {/* The grid layout for the image and details */}

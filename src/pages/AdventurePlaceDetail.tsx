@@ -240,51 +240,58 @@ const AdventurePlaceDetail = () => {
   const displayImages = [place.image_url, ...(place.gallery_images || []), ...(place.images || [])].filter(Boolean);
 
   return (
-    <div className="min-h-screen bg-background pb-20 md:pb-0">
+    <div className="min-h-screen bg-background pb-20 md:pb-0">
       <Header />
       
-      <main className="container px-4 py-6 sm:py-4 max-w-6xl mx-auto">
+      <main className="container px-4 max-w-6xl mx-auto">
         <div className="grid lg:grid-cols-[2fr,1fr] gap-6 sm:gap-4">
-          <div className="w-full relative">
-            
-            {/* START: BACK BUTTON - Now positioned absolutely over the carousel */}
-            <Button 
-              variant="ghost" 
-              onClick={() => navigate(-1)} 
-              className="absolute top-4 left-4 z-20 h-10 w-10 p-0 rounded-full bg-black/50 hover:bg-black/70 text-white"
-              size="icon"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            {/* END: BACK BUTTON */}
+          <div className="w-full">
+            <div className="relative">
+              {/* Back Button over carousel */}
+              <Button 
+                variant="ghost" 
+                onClick={() => navigate(-1)} 
+                className="absolute top-4 left-4 z-20 h-10 w-10 p-0 rounded-full text-white"
+                style={{ backgroundColor: '#008080' }}
+                size="icon"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
 
-            {/* START: CAROUSEL - Removed rounded-2xl class */}
-            <Carousel opts={{ loop: true }} plugins={[Autoplay({ delay: 3000 })]} className="w-full overflow-hidden">
-              <CarouselContent>
-                {displayImages.map((img, idx) => <CarouselItem key={idx}><img src={img} alt={`${place.name} ${idx + 1}`} loading="lazy" decoding="async" className="w-full h-64 md:h-96 object-cover" /></CarouselItem>)}
-              </CarouselContent>
-              {displayImages.length > 1 && (
-                <>
-                  <CarouselPrevious className="left-4 z-10 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 text-white border-none" />
-                  <CarouselNext className="right-4 z-10 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 text-white border-none" />
-                </>
-              )}
-            </Carousel>
-            {/* END: CAROUSEL */}
-            
-            {/* START: Description Section with slide-down effect and border radius */}
-            {place.description && (
-              <div 
-                className="absolute bottom-0 left-0 right-0 bg-black/70 backdrop-blur-sm text-white p-4 sm:p-3 z-10 
-                           shadow-lg 
-                           transform translate-y-2" // The key styling for the "slide down" effect
-              >
-                <h2 className="text-lg sm:text-base font-semibold mb-2 sm:mb-1">About This Place</h2>
-                <p className="text-sm line-clamp-3">{place.description}</p>
-              </div>
-            )}
-            {/* END: Description Section */}
-          </div>
+              <Carousel 
+                opts={{ loop: true }} 
+                plugins={[Autoplay({ delay: 3000 })]} 
+                className="w-full overflow-hidden"
+                setApi={(api) => {
+                  if (api) api.on("select", () => setCurrent(api.selectedScrollSnap()));
+                }}
+              >
+                <CarouselContent>
+                  {displayImages.map((img, idx) => <CarouselItem key={idx}><img src={img} alt={`${place.name} ${idx + 1}`} loading="lazy" decoding="async" className="w-full h-64 md:h-96 object-cover" /></CarouselItem>)}
+                </CarouselContent>
+              </Carousel>
+              
+              {/* Dot indicators */}
+              {displayImages.length > 1 && (
+                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2 z-10">
+                  {displayImages.map((_, idx) => (
+                    <div 
+                      key={idx} 
+                      className={`w-2 h-2 rounded-full transition-all ${current === idx ? 'bg-white w-4' : 'bg-white/50'}`}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            {/* Description Section below slideshow */}
+            {place.description && (
+              <div className="bg-card border rounded-lg p-4 sm:p-3 mt-4">
+                <h2 className="text-lg sm:text-base font-semibold mb-2 sm:mb-1">About This Place</h2>
+                <p className="text-sm text-muted-foreground">{place.description}</p>
+              </div>
+            )}
+          </div>
           
           <div className="space-y-4 sm:space-y-3">
             <div>

@@ -462,29 +462,24 @@ const Index = () => {
                         
                         {/* New container classes: flex, flex-wrap, and justify-center to handle variable card count */}
                         <div className="flex flex-wrap justify-center gap-2 md:gap-4 w-full max-w-6xl pr-0">
-                            {categories.map(cat => (
-                                {/* Card classes: 
-                                    - w-full: Full width on smallest screens
-                                    - sm:w-[calc(50%-4px)]: Two columns on medium screens (accounting for gap)
-                                    - lg:flex-grow lg:basis-0: Allows cards to stretch equally and fill the row on large screens.
-                                */}
-                                <div 
-                                    key={cat.title} 
-                                    onClick={() => navigate(cat.path)} 
-                                    className="relative h-20 md:h-40 lg:h-48 cursor-pointer overflow-hidden group rounded-lg w-full sm:w-[calc(50%-4px)] lg:flex-grow lg:basis-0" 
-                                    style={{
-                                        backgroundImage: `url(${cat.bgImage})`,
-                                        backgroundSize: 'cover',
-                                        backgroundPosition: 'center'
-                                    }}
-                                >
-                                    <div className="absolute inset-0 bg-black/50 group-hover:bg-black/40 transition-all text-center p-2 md:p-4 flex-col flex items-center justify-center">
-                                        <cat.icon className="h-5 w-5 md:h-12 md:w-12 lg:h-16 lg:w-16 text-white mb-1 md:mb-3" />
-                                        <span className="font-bold text-white text-xs md:text-base lg:text-lg leading-tight" role="heading" aria-level={3}>{cat.title}</span>
-                                        <p className="text-white/80 text-2xs md:text-sm text-center mt-0.5 md:mt-1 hidden md:block">{cat.description}</p>
-                                    </div>
-                                </div>
-                            ))}
+                            {categories.map(cat => (
+                                <div 
+                                    key={cat.title} 
+                                    onClick={() => navigate(cat.path)} 
+                                    className="relative h-20 md:h-40 lg:h-48 cursor-pointer overflow-hidden group rounded-lg w-full sm:w-[calc(50%-4px)] lg:flex-grow lg:basis-0" 
+                                    style={{
+                                        backgroundImage: `url(${cat.bgImage})`,
+                                        backgroundSize: 'cover',
+                                        backgroundPosition: 'center'
+                                    }}
+                                >
+                                    <div className="absolute inset-0 bg-black/50 group-hover:bg-black/40 transition-all text-center p-2 md:p-4 flex-col flex items-center justify-center">
+                                        <cat.icon className="h-5 w-5 md:h-12 md:w-12 lg:h-16 lg:w-16 text-white mb-1 md:mb-3" />
+                                        <span className="font-bold text-white text-xs md:text-base lg:text-lg leading-tight" role="heading" aria-level={3}>{cat.title}</span>
+                                        <p className="text-white/80 text-2xs md:text-sm text-center mt-0.5 md:mt-1 hidden md:block">{cat.description}</p>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 

@@ -16,6 +16,8 @@ export const ConditionalFooter = ({ className }: ConditionalFooterProps) => {
   // Pages where footer should be visible
   const footerVisiblePaths = [
     "/", // Home page
+    "/contact", // Contact page
+    "/about", // About page
   ];
 
   // Path prefixes where footer should be visible

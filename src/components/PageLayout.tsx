@@ -7,7 +7,7 @@ interface PageLayoutProps {
 
 /**
  * Layout wrapper that conditionally renders Footer
- * Footer is ONLY displayed on Home and Category pages
+ * Footer is ONLY displayed on Home, Category, Contact, and About pages
  */
 export const PageLayout = ({ children }: PageLayoutProps) => {
   const location = useLocation();
@@ -16,12 +16,16 @@ export const PageLayout = ({ children }: PageLayoutProps) => {
   // Pages where footer should be visible
   const shouldShowFooter = 
     pathname === "/" || // Home page
+    pathname === "/contact" || // Contact page
+    pathname === "/about" || // About page
     pathname.startsWith("/category/"); // Category pages
 
   return (
-    <>
-      {children}
+    <div className="w-full min-h-screen flex flex-col">
+      <div className="flex-1 w-full">
+        {children}
+      </div>
       {shouldShowFooter && <Footer />}
-    </>
+    </div>
   );
 };

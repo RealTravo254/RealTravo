@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { approvalStatusSchema } from "@/lib/validation";
 import { EmailVerification } from "@/components/creation/EmailVerification";
+import { compressImages } from "@/lib/imageCompression";
 
 interface Facility {
   name: string;
@@ -116,11 +117,20 @@ const EditListing = () => {
 
   const fetchListing = async () => {
     try {
-      let table: "hotels" | "adventure_places" | "trips" | "attractions" = "hotels";
+      let table: "hotels" | "adventure_places" | "trips" = "hotels";
       if (type === "hotel") table = "hotels";
       else if (type === "adventure") table = "adventure_places";
       else if (type === "trip") table = "trips";
-      else if (type === "attraction") table = "attractions";
+      else if (type === "attraction") {
+        // Attractions table doesn't exist
+        toast({
+          title: "Not Supported",
+          description: "Attractions are not supported",
+          variant: "destructive",
+        });
+        navigate("/become-host");
+        return;
+      }
 
       const { data, error } = await supabase
         .from(table)
@@ -231,7 +241,7 @@ const EditListing = () => {
     setEditMode({ ...editMode, [field]: !editMode[field] });
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const files = Array.from(e.target.files);
       if (existingImages.length + newImages.length + files.length > 10) {
@@ -242,7 +252,16 @@ const EditListing = () => {
         });
         return;
       }
-      setNewImages([...newImages, ...files]);
+      
+      try {
+        // Compress images before adding
+        const compressed = await compressImages(files);
+        setNewImages([...newImages, ...compressed.map(c => c.file)]);
+      } catch (error) {
+        console.error("Error compressing images:", error);
+        // Fall back to original files if compression fails
+        setNewImages([...newImages, ...files]);
+      }
     }
   };
 
@@ -372,11 +391,20 @@ const EditListing = () => {
   const handleSaveField = async (field: string) => {
     setSaving(true);
     try {
-      let table: "hotels" | "adventure_places" | "trips" | "attractions" = "hotels";
+      let table: "hotels" | "adventure_places" | "trips" = "hotels";
       if (type === "hotel") table = "hotels";
       else if (type === "adventure") table = "adventure_places";
       else if (type === "trip") table = "trips";
-      else if (type === "attraction") table = "attractions";
+      else if (type === "attraction") {
+        // Attractions table doesn't exist
+        toast({
+          title: "Not Supported",
+          description: "Attractions are not supported",
+          variant: "destructive",
+        });
+        setSaving(false);
+        return;
+      }
 
       let updateData: any = {};
 
@@ -517,22 +545,26 @@ const EditListing = () => {
         return;
       }
 
-      let table: "hotels" | "adventure_places" | "trips" | "attractions" = "hotels";
+      let table: "hotels" | "adventure_places" | "trips" = "hotels";
       if (type === "hotel") table = "hotels";
       else if (type === "adventure") table = "adventure_places";
       else if (type === "trip") table = "trips";
-      else if (type === "attraction") table = "attractions";
+      else if (type === "attraction") {
+        // Attractions table doesn't exist
+        toast({
+          title: "Not Supported",
+          description: "Attractions are not supported",
+          variant: "destructive",
+        });
+        setSaving(false);
+        return;
+      }
 
-      const updateData: any = {
+      let updateData: any = {
         gallery_images: allImages,
         image_url: allImages[0] || existingImages[0],
+        images: allImages,
       };
-
-      if (type === "attraction") {
-        updateData.photo_urls = allImages;
-      } else {
-        updateData.images = allImages;
-      }
 
       const { error } = await supabase
         .from(table)
@@ -634,594 +666,442 @@ const EditListing = () => {
           )}
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6">
-          {/* Main Content */}
-          <div className="md:col-span-2 space-y-6">
-            {/* Images Section */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>Images</CardTitle>
-                  <EditButton field="images" onSave={handleSaveImages} />
-                </div>
-              </CardHeader>
-              <CardContent>
-                {editMode.images ? (
-                  <div>
-                    <Label>Images ({existingImages.length + newImages.length}/10)</Label>
-                    <div className="grid grid-cols-3 gap-4 mt-2">
-                      {existingImages.map((img, idx) => (
-                        <div key={`existing-${idx}`} className="relative">
-                          <img src={img} alt="" loading="lazy" decoding="async" className="w-full h-24 object-cover rounded" />
-                          <Button
-                            size="icon"
-                            variant="destructive"
-                            className="absolute -top-2 -right-2 h-6 w-6"
-                            onClick={() => removeExistingImage(idx)}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ))}
-                      {newImages.map((file, idx) => (
-                        <div key={`new-${idx}`} className="relative">
-                          <img
-                            src={URL.createObjectURL(file)}
-                            alt=""
-                            className="w-full h-24 object-cover rounded"
-                          />
-                          <Button
-                            size="icon"
-                            variant="destructive"
-                            className="absolute -top-2 -right-2 h-6 w-6"
-                            onClick={() => removeNewImage(idx)}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ))}
-                      {existingImages.length + newImages.length < 10 && (
-                        <label className="border-2 border-dashed rounded flex items-center justify-center h-24 cursor-pointer hover:bg-secondary">
-                          <Upload className="h-6 w-6 text-muted-foreground" />
-                          <input
-                            type="file"
-                            accept="image/*"
-                            multiple
-                            className="hidden"
-                            onChange={handleImageUpload}
-                          />
-                        </label>
-                      )}
-                    </div>
+        {/* Images Section - Full Width */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold">Images</h2>
+            <EditButton field="images" onSave={handleSaveImages} />
+          </div>
+          {editMode.images ? (
+            <div className="bg-card rounded-lg border p-4">
+              <Label className="text-sm text-muted-foreground mb-2 block">Images ({existingImages.length + newImages.length}/10)</Label>
+              <div className="grid grid-cols-4 md:grid-cols-6 gap-3">
+                {existingImages.map((img, idx) => (
+                  <div key={`existing-${idx}`} className="relative aspect-square">
+                    <img src={img} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover rounded-lg" />
+                    <Button
+                      size="icon"
+                      variant="destructive"
+                      className="absolute -top-2 -right-2 h-6 w-6"
+                      onClick={() => removeExistingImage(idx)}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
                   </div>
-                ) : (
-                  <div className="grid grid-cols-3 gap-4">
-                    {existingImages.slice(0, 6).map((img, idx) => (
-                      <img key={idx} src={img} alt="" className="w-full h-24 object-cover rounded" />
-                    ))}
+                ))}
+                {newImages.map((file, idx) => (
+                  <div key={`new-${idx}`} className="relative aspect-square">
+                    <img src={URL.createObjectURL(file)} alt="" className="w-full h-full object-cover rounded-lg" />
+                    <Button
+                      size="icon"
+                      variant="destructive"
+                      className="absolute -top-2 -right-2 h-6 w-6"
+                      onClick={() => removeNewImage(idx)}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
                   </div>
+                ))}
+                {existingImages.length + newImages.length < 10 && (
+                  <label className="border-2 border-dashed rounded-lg flex items-center justify-center aspect-square cursor-pointer hover:bg-secondary/50 transition-colors">
+                    <Upload className="h-6 w-6 text-muted-foreground" />
+                    <input type="file" accept="image/*" multiple className="hidden" onChange={handleImageUpload} />
+                  </label>
                 )}
-              </CardContent>
-            </Card>
-
-            {/* Name & Description */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Name</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Input value={name} disabled className="bg-muted cursor-not-allowed" />
-                <p className="text-xs text-muted-foreground mt-1">Name cannot be changed</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>Description</CardTitle>
-                  <EditButton field="description" onSave={() => handleSaveField("description")} />
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-4 md:grid-cols-6 gap-3">
+              {existingImages.slice(0, 6).map((img, idx) => (
+                <div key={idx} className="aspect-square">
+                  <img src={img} alt="" className="w-full h-full object-cover rounded-lg" />
                 </div>
-              </CardHeader>
-              <CardContent>
-                {editMode.description ? (
-                  <Textarea
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    rows={4}
-                  />
-                ) : (
-                  <p className="text-sm">{description || "No description"}</p>
-                )}
-              </CardContent>
-            </Card>
+              ))}
+            </div>
+          )}
+        </div>
 
-            {/* Location & Map */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MapPin className="h-5 w-5" />
-                  Location
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Input value={location} disabled className="bg-muted cursor-not-allowed" />
-                <p className="text-xs text-muted-foreground mt-1">Location cannot be changed</p>
-              </CardContent>
-            </Card>
+        {/* Grid Layout for Fields */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Name */}
+          <div className="bg-card rounded-lg border p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Pencil className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium text-muted-foreground">Name</span>
+            </div>
+            <p className="font-medium truncate">{name}</p>
+            <p className="text-xs text-muted-foreground mt-1">Cannot be changed</p>
+          </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Map Link</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Input value={mapLink} disabled className="bg-muted cursor-not-allowed" />
-                <p className="text-xs text-muted-foreground mt-1">Map link cannot be changed</p>
-              </CardContent>
-            </Card>
+          {/* Location */}
+          <div className="bg-card rounded-lg border p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <MapPin className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium text-muted-foreground">Location</span>
+            </div>
+            <p className="font-medium truncate">{location || "Not set"}</p>
+            <p className="text-xs text-muted-foreground mt-1">Cannot be changed</p>
+          </div>
 
-            {/* Contact Information */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <Mail className="h-5 w-5" />
-                    Contact Email
-                  </CardTitle>
-                  <EditButton field="email" onSave={() => handleSaveField("email")} />
-                </div>
-              </CardHeader>
-              <CardContent>
-                {editMode.email ? (
-                  <EmailVerification
-                    email={email}
-                    onEmailChange={(newEmail) => {
-                      setEmail(newEmail);
-                      // Reset verification if email changed from original
-                      if (newEmail !== originalEmail) {
-                        setEmailVerified(false);
-                      } else {
-                        setEmailVerified(true);
-                      }
-                    }}
-                    isVerified={emailVerified}
-                    onVerificationChange={setEmailVerified}
-                  />
-                ) : (
-                  <p className="text-sm">{email || "No email set"}</p>
-                )}
-              </CardContent>
-            </Card>
+          {/* Map Link */}
+          <div className="bg-card rounded-lg border p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <MapPin className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium text-muted-foreground">Map Link</span>
+            </div>
+            <p className="font-medium truncate text-sm">{mapLink || "Not set"}</p>
+            <p className="text-xs text-muted-foreground mt-1">Cannot be changed</p>
+          </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Phone className="h-5 w-5" />
-                  Phone Numbers
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-1">
-                  {phoneNumbers.length > 0 ? (
-                    phoneNumbers.map((phone, idx) => (
-                      <Input key={idx} value={phone} disabled className="bg-muted cursor-not-allowed mb-2" />
-                    ))
-                  ) : (
-                    <Input value="No phone number" disabled className="bg-muted cursor-not-allowed" />
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">Phone numbers cannot be changed</p>
-              </CardContent>
-            </Card>
-
-            {/* Operating Hours - Only for hotels, adventures, and attractions */}
-            {type !== "trip" && (
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <Clock className="h-5 w-5" />
-                    Operating Hours
-                  </CardTitle>
-                  <EditButton field="hours" onSave={() => handleSaveField("hours")} />
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {editMode.hours ? (
-                  <>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label>Opening Time</Label>
-                        <Input
-                          type="time"
-                          value={openingHours}
-                          onChange={(e) => setOpeningHours(e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <Label>Closing Time</Label>
-                        <Input
-                          type="time"
-                          value={closingHours}
-                          onChange={(e) => setClosingHours(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <Label>Working Days</Label>
-                      <div className="grid grid-cols-2 gap-2 mt-2">
-                        {DAYS_OF_WEEK.map((day) => (
-                          <div key={day} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={day}
-                              checked={daysOpened.includes(day)}
-                              onCheckedChange={() => toggleDay(day)}
-                            />
-                            <label htmlFor={day} className="text-sm cursor-pointer">
-                              {day}
-                            </label>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-sm">
-                      {openingHours && closingHours
-                        ? `${openingHours} - ${closingHours}`
-                        : "No hours set"}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {daysOpened.length > 0 ? daysOpened.join(", ") : "No days set"}
-                    </p>
-                </>
-                 )}
-              </CardContent>
-            </Card>
-            )}
-
-            {/* Trip-specific fields */}
-            {type === "trip" && (
-              <>
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Calendar className="h-5 w-5" />
-                      Date
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <Input 
-                      type="date" 
-                      value={date} 
-                      disabled 
-                      className="bg-muted cursor-not-allowed" 
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">Date cannot be changed</p>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="flex items-center gap-2">
-                        <DollarSign className="h-5 w-5" />
-                        Pricing
-                      </CardTitle>
-                      <EditButton field="price" onSave={() => handleSaveField("price")} />
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {editMode.price ? (
-                      <>
-                        <div>
-                          <Label>Adult Price (KSh)</Label>
-                          <Input
-                            type="number"
-                            value={price}
-                            onChange={(e) => setPrice(parseFloat(e.target.value) || 0)}
-                            min={0}
-                          />
-                        </div>
-                        <div>
-                          <Label>Child Price (KSh)</Label>
-                          <Input
-                            type="number"
-                            value={priceChild}
-                            onChange={(e) => setPriceChild(parseFloat(e.target.value) || 0)}
-                            min={0}
-                          />
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <p className="text-sm">Adult: KSh {price}</p>
-                        <p className="text-sm">Child: KSh {priceChild}</p>
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="flex items-center gap-2">
-                        <Users className="h-5 w-5" />
-                        Available Tickets
-                      </CardTitle>
-                      <EditButton field="slots" onSave={() => handleSaveField("slots")} />
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    {editMode.slots ? (
-                      <Input
-                        type="number"
-                        value={availableSlots}
-                        onChange={(e) => setAvailableSlots(parseInt(e.target.value) || 0)}
-                        min={0}
-                      />
-                    ) : (
-                      <p className="text-sm">{availableSlots} tickets</p>
-                    )}
-                  </CardContent>
-                </Card>
-              </>
-            )}
-
-            {/* Amenities */}
-            {(type === "hotel" || type === "adventure" || type === "attraction") && (
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle>Amenities</CardTitle>
-                    <EditButton field="amenities" onSave={() => handleSaveField("amenities")} />
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {editMode.amenities ? (
-                    <>
-                      {amenities.map((amenity, idx) => (
-                        <div key={idx} className="flex gap-2">
-                          <Input
-                            value={amenity}
-                            onChange={(e) => updateAmenity(idx, e.target.value)}
-                            placeholder="Amenity name"
-                          />
-                          <Button
-                            size="icon"
-                            variant="destructive"
-                            onClick={() => removeAmenity(idx)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ))}
-                      <Button size="sm" onClick={addAmenity}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Amenity
-                      </Button>
-                    </>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {amenities.length > 0 ? amenities.map((amenity, idx) => (
-                        <Badge key={idx} variant="secondary">{amenity}</Badge>
-                      )) : <p className="text-sm text-muted-foreground">No amenities added</p>}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Facilities */}
-            {(type === "hotel" || type === "adventure" || type === "attraction") && (
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle>Facilities & Rooms</CardTitle>
-                    <EditButton field="facilities" onSave={() => handleSaveField("facilities")} />
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {editMode.facilities ? (
-                    <>
-                      {facilities.map((facility, idx) => (
-                        <div key={idx} className="flex gap-2">
-                          <Input
-                            placeholder="Facility name"
-                            value={facility.name}
-                            onChange={(e) => updateFacility(idx, "name", e.target.value)}
-                          />
-                          <Input
-                            type="number"
-                            placeholder="Price"
-                            value={facility.price}
-                            onChange={(e) => updateFacility(idx, "price", parseFloat(e.target.value) || 0)}
-                          />
-                          {(type === "hotel" || type === "attraction") && (
-                            <Input
-                              type="number"
-                              placeholder="Capacity"
-                              value={facility.capacity || 1}
-                              onChange={(e) => updateFacility(idx, "capacity", parseInt(e.target.value) || 1)}
-                            />
-                          )}
-                          <Button
-                            size="icon"
-                            variant="destructive"
-                            onClick={() => removeFacility(idx)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ))}
-                      <Button size="sm" onClick={addFacility}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Facility
-                      </Button>
-                    </>
-                  ) : (
-                    <div className="space-y-2">
-                      {facilities.length > 0 ? facilities.map((facility, idx) => (
-                        <div key={idx} className="flex justify-between items-center p-2 border rounded">
-                          <span className="text-sm">{facility.name}</span>
-                          <div className="flex gap-2 text-sm text-muted-foreground">
-                            <span>KSh {facility.price}</span>
-                            {(type === "hotel" || type === "attraction") && <span>• {facility.capacity} guests</span>}
-                          </div>
-                        </div>
-                      )) : <p className="text-sm text-muted-foreground">No facilities added</p>}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Activities */}
-            {(type === "hotel" || type === "adventure" || type === "attraction") && (
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle>Activities</CardTitle>
-                    <EditButton field="activities" onSave={() => handleSaveField("activities")} />
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {editMode.activities ? (
-                    <>
-                      {activities.map((activity, idx) => (
-                        <div key={idx} className="flex gap-2">
-                          <Input
-                            placeholder="Activity name"
-                            value={activity.name}
-                            onChange={(e) => updateActivity(idx, "name", e.target.value)}
-                          />
-                          <Input
-                            type="number"
-                            placeholder="Price"
-                            value={activity.price}
-                            onChange={(e) => updateActivity(idx, "price", parseFloat(e.target.value) || 0)}
-                          />
-                          <Button
-                            size="icon"
-                            variant="destructive"
-                            onClick={() => removeActivity(idx)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ))}
-                      <Button size="sm" onClick={addActivity}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Activity
-                      </Button>
-                    </>
-                  ) : (
-                    <div className="space-y-2">
-                      {activities.length > 0 ? activities.map((activity, idx) => (
-                        <div key={idx} className="flex justify-between items-center p-2 border rounded">
-                          <span className="text-sm">{activity.name}</span>
-                          <span className="text-sm text-muted-foreground">KSh {activity.price}</span>
-                        </div>
-                      )) : <p className="text-sm text-muted-foreground">No activities added</p>}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Entrance Fee */}
-            {(type === "adventure" || type === "attraction") && (
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2">
-                      <DollarSign className="h-5 w-5" />
-                      Entrance Fee
-                    </CardTitle>
-                    <EditButton field="entranceFee" onSave={() => handleSaveField("entranceFee")} />
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {editMode.entranceFee ? (
-                    <>
-                      <div>
-                        <Label>Type</Label>
-                        <Select value={entranceFeeType} onValueChange={setEntranceFeeType}>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="free">Free</SelectItem>
-                            <SelectItem value="paid">Paid</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {entranceFeeType === "paid" && (
-                        <div>
-                          <Label>Price (KSh)</Label>
-                          <Input
-                            type="number"
-                            value={entranceFee}
-                            onChange={(e) => setEntranceFee(parseFloat(e.target.value) || 0)}
-                            min={0}
-                          />
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <p className="text-sm capitalize">
-                      {entranceFeeType === "free" ? "Free" : `Paid - KSh ${entranceFee}`}
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
+          {/* Contact Email */}
+          <div className="bg-card rounded-lg border p-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Mail className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium text-muted-foreground">Email</span>
+              </div>
+              <EditButton field="email" onSave={() => handleSaveField("email")} />
+            </div>
+            {editMode.email ? (
+              <EmailVerification
+                email={email}
+                onEmailChange={(newEmail) => {
+                  setEmail(newEmail);
+                  if (newEmail !== originalEmail) {
+                    setEmailVerified(false);
+                  } else {
+                    setEmailVerified(true);
+                  }
+                }}
+                isVerified={emailVerified}
+                onVerificationChange={setEmailVerified}
+              />
+            ) : (
+              <p className="font-medium truncate">{email || "Not set"}</p>
             )}
           </div>
 
-          {/* Sidebar - Bookings */}
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Bookings ({bookings.length})</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {bookings.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">No bookings yet</p>
-                ) : (
-                  <>
-                    <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                      {bookings.slice(0, 3).map((booking) => (
-                        <div key={booking.id} className="border rounded-lg p-3 space-y-2">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <p className="text-sm font-medium">{booking.guest_name_masked}</p>
-                              <p className="text-xs text-muted-foreground">{booking.guest_email_limited}</p>
-                            </div>
-                            <Badge variant={booking.payment_status === "completed" ? "default" : "secondary"}>
-                              {booking.payment_status}
-                            </Badge>
-                          </div>
-                          <Separator />
-                          <div className="text-xs space-y-1">
-                            <p>Amount: KSh {booking.total_amount}</p>
-                            <p>Slots: {booking.slots_booked}</p>
-                            <p>Date: {new Date(booking.created_at).toLocaleDateString()}</p>
-                          </div>
-                        </div>
-                      ))}
+          {/* Phone Numbers */}
+          <div className="bg-card rounded-lg border p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Phone className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium text-muted-foreground">Phone</span>
+            </div>
+            <p className="font-medium">{phoneNumbers.length > 0 ? phoneNumbers[0] : "Not set"}</p>
+            {phoneNumbers.length > 1 && (
+              <p className="text-xs text-muted-foreground">+{phoneNumbers.length - 1} more</p>
+            )}
+            <p className="text-xs text-muted-foreground mt-1">Cannot be changed</p>
+          </div>
+
+          {/* Operating Hours - Only for hotels, adventures, and attractions */}
+          {type !== "trip" && (
+            <div className="bg-card rounded-lg border p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium text-muted-foreground">Hours</span>
+                </div>
+                <EditButton field="hours" onSave={() => handleSaveField("hours")} />
+              </div>
+              {editMode.hours ? (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs">Open</Label>
+                      <Input type="time" value={openingHours} onChange={(e) => setOpeningHours(e.target.value)} className="h-8 text-sm" />
                     </div>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="w-full"
-                      onClick={() => navigate(`/host/bookings/${type}/${id}`)}
-                    >
-                      See All Bookings
-                    </Button>
-                  </>
-                )}
-              </CardContent>
-            </Card>
+                    <div>
+                      <Label className="text-xs">Close</Label>
+                      <Input type="time" value={closingHours} onChange={(e) => setClosingHours(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {DAYS_OF_WEEK.map((day) => (
+                      <Badge
+                        key={day}
+                        variant={daysOpened.includes(day) ? "default" : "outline"}
+                        className="cursor-pointer text-xs"
+                        onClick={() => toggleDay(day)}
+                      >
+                        {day.slice(0, 3)}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <p className="font-medium">{openingHours && closingHours ? `${openingHours} - ${closingHours}` : "Not set"}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{daysOpened.length > 0 ? daysOpened.map(d => d.slice(0, 3)).join(", ") : "No days set"}</p>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Trip-specific: Date */}
+          {type === "trip" && (
+            <div className="bg-card rounded-lg border p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium text-muted-foreground">Date</span>
+              </div>
+              <p className="font-medium">{date ? new Date(date).toLocaleDateString() : "Not set"}</p>
+              <p className="text-xs text-muted-foreground mt-1">Cannot be changed</p>
+            </div>
+          )}
+
+          {/* Trip-specific: Pricing */}
+          {type === "trip" && (
+            <div className="bg-card rounded-lg border p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium text-muted-foreground">Pricing</span>
+                </div>
+                <EditButton field="price" onSave={() => handleSaveField("price")} />
+              </div>
+              {editMode.price ? (
+                <div className="space-y-2">
+                  <div>
+                    <Label className="text-xs">Adult (KSh)</Label>
+                    <Input type="number" value={price} onChange={(e) => setPrice(parseFloat(e.target.value) || 0)} min={0} className="h-8" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Child (KSh)</Label>
+                    <Input type="number" value={priceChild} onChange={(e) => setPriceChild(parseFloat(e.target.value) || 0)} min={0} className="h-8" />
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <p className="font-medium">KSh {price}</p>
+                  <p className="text-xs text-muted-foreground">Child: KSh {priceChild}</p>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Trip-specific: Tickets */}
+          {type === "trip" && (
+            <div className="bg-card rounded-lg border p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium text-muted-foreground">Tickets</span>
+                </div>
+                <EditButton field="slots" onSave={() => handleSaveField("slots")} />
+              </div>
+              {editMode.slots ? (
+                <Input
+                  type="number"
+                  value={availableSlots}
+                  onChange={(e) => setAvailableSlots(parseInt(e.target.value) || 0)}
+                  min={0}
+                  className="h-8"
+                />
+              ) : (
+                <p className="font-medium">{availableSlots} tickets</p>
+              )}
+            </div>
+          )}
+
+          {/* Entrance Fee */}
+          {(type === "adventure" || type === "attraction") && (
+            <div className="bg-card rounded-lg border p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium text-muted-foreground">Entry Fee</span>
+                </div>
+                <EditButton field="entranceFee" onSave={() => handleSaveField("entranceFee")} />
+              </div>
+              {editMode.entranceFee ? (
+                <div className="space-y-2">
+                  <Select value={entranceFeeType} onValueChange={setEntranceFeeType}>
+                    <SelectTrigger className="h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="free">Free</SelectItem>
+                      <SelectItem value="paid">Paid</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {entranceFeeType === "paid" && (
+                    <Input
+                      type="number"
+                      placeholder="Price (KSh)"
+                      value={entranceFee}
+                      onChange={(e) => setEntranceFee(parseFloat(e.target.value) || 0)}
+                      min={0}
+                      className="h-8"
+                    />
+                  )}
+                </div>
+              ) : (
+                <p className="font-medium capitalize">{entranceFeeType === "free" ? "Free" : `KSh ${entranceFee}`}</p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Description - Full Width */}
+        <div className="mt-6 bg-card rounded-lg border p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold">Description</h2>
+            <EditButton field="description" onSave={() => handleSaveField("description")} />
+          </div>
+          {editMode.description ? (
+            <Textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={4}
+              placeholder="Enter description..."
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">{description || "No description"}</p>
+          )}
+        </div>
+
+        {/* Amenities, Facilities, Activities - Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
+          {/* Amenities */}
+          {(type === "hotel" || type === "adventure" || type === "attraction") && (
+            <div className="bg-card rounded-lg border p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-medium">Amenities</h3>
+                <EditButton field="amenities" onSave={() => handleSaveField("amenities")} />
+              </div>
+              {editMode.amenities ? (
+                <div className="space-y-2">
+                  {amenities.map((amenity, idx) => (
+                    <div key={idx} className="flex gap-2">
+                      <Input
+                        value={amenity}
+                        onChange={(e) => updateAmenity(idx, e.target.value)}
+                        placeholder="Amenity"
+                        className="h-8 text-sm"
+                      />
+                      <Button size="icon" variant="destructive" className="h-8 w-8" onClick={() => removeAmenity(idx)}>
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button size="sm" variant="outline" onClick={addAmenity} className="w-full">
+                    <Plus className="h-3 w-3 mr-1" /> Add
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-1">
+                  {amenities.length > 0 ? amenities.map((amenity, idx) => (
+                    <Badge key={idx} variant="secondary" className="text-xs">{amenity}</Badge>
+                  )) : <p className="text-sm text-muted-foreground">None</p>}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Facilities */}
+          {(type === "hotel" || type === "adventure" || type === "attraction") && (
+            <div className="bg-card rounded-lg border p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-medium">Facilities</h3>
+                <EditButton field="facilities" onSave={() => handleSaveField("facilities")} />
+              </div>
+              {editMode.facilities ? (
+                <div className="space-y-2">
+                  {facilities.map((facility, idx) => (
+                    <div key={idx} className="flex gap-1">
+                      <Input placeholder="Name" value={facility.name} onChange={(e) => updateFacility(idx, "name", e.target.value)} className="h-8 text-sm flex-1" />
+                      <Input type="number" placeholder="Price" value={facility.price} onChange={(e) => updateFacility(idx, "price", parseFloat(e.target.value) || 0)} className="h-8 text-sm w-16" />
+                      {(type === "hotel" || type === "attraction") && (
+                        <Input type="number" placeholder="Cap" value={facility.capacity || 1} onChange={(e) => updateFacility(idx, "capacity", parseInt(e.target.value) || 1)} className="h-8 text-sm w-14" />
+                      )}
+                      <Button size="icon" variant="destructive" className="h-8 w-8" onClick={() => removeFacility(idx)}>
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button size="sm" variant="outline" onClick={addFacility} className="w-full">
+                    <Plus className="h-3 w-3 mr-1" /> Add
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {facilities.length > 0 ? facilities.map((facility, idx) => (
+                    <div key={idx} className="flex justify-between text-sm">
+                      <span>{facility.name}</span>
+                      <span className="text-muted-foreground">{facility.price === 0 ? "Free" : `KSh ${facility.price}`}</span>
+                    </div>
+                  )) : <p className="text-sm text-muted-foreground">None</p>}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Activities */}
+          {(type === "hotel" || type === "adventure" || type === "attraction") && (
+            <div className="bg-card rounded-lg border p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-medium">Activities</h3>
+                <EditButton field="activities" onSave={() => handleSaveField("activities")} />
+              </div>
+              {editMode.activities ? (
+                <div className="space-y-2">
+                  {activities.map((activity, idx) => (
+                    <div key={idx} className="flex gap-1">
+                      <Input placeholder="Name" value={activity.name} onChange={(e) => updateActivity(idx, "name", e.target.value)} className="h-8 text-sm flex-1" />
+                      <Input type="number" placeholder="Price" value={activity.price} onChange={(e) => updateActivity(idx, "price", parseFloat(e.target.value) || 0)} className="h-8 text-sm w-20" />
+                      <Button size="icon" variant="destructive" className="h-8 w-8" onClick={() => removeActivity(idx)}>
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button size="sm" variant="outline" onClick={addActivity} className="w-full">
+                    <Plus className="h-3 w-3 mr-1" /> Add
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {activities.length > 0 ? activities.map((activity, idx) => (
+                    <div key={idx} className="flex justify-between text-sm">
+                      <span>{activity.name}</span>
+                      <span className="text-muted-foreground">{activity.price === 0 ? "Free" : `KSh ${activity.price}`}</span>
+                    </div>
+                  )) : <p className="text-sm text-muted-foreground">None</p>}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Bookings Card */}
+          <div className="bg-card rounded-lg border p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-medium">Bookings ({bookings.length})</h3>
+            </div>
+            {bookings.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">No bookings yet</p>
+            ) : (
+              <div className="space-y-2">
+                {bookings.slice(0, 3).map((booking) => (
+                  <div key={booking.id} className="border rounded p-2 space-y-1">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium truncate">{booking.guest_name_masked}</span>
+                      <Badge variant={booking.payment_status === "completed" ? "default" : "secondary"} className="text-xs">
+                        {booking.payment_status}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">KSh {booking.total_amount}</p>
+                  </div>
+                ))}
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full"
+                  onClick={() => navigate(`/host/bookings/${type}/${id}`)}
+                >
+                  See All Bookings
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </main>

@@ -197,24 +197,6 @@ serve(async (req) => {
       console.error('Error saving payment:', dbError);
     }
 
-    // Send payment initiation email for guest bookings
-    if (bookingData.is_guest_booking && bookingData.guest_email) {
-      try {
-        await supabaseClient.functions.invoke('send-payment-initiation', {
-          body: {
-            email: bookingData.guest_email,
-            guestName: bookingData.guest_name,
-            itemName: bookingData.emailData?.itemName || 'your booking',
-            totalAmount: bookingData.total_amount,
-            phone: phoneNumber,
-          },
-        });
-        console.log('Payment initiation email sent to guest');
-      } catch (emailError) {
-        console.error('Error sending payment initiation email:', emailError);
-      }
-    }
-
     return new Response(
       JSON.stringify({
         success: true,

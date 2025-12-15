@@ -121,8 +121,9 @@ export const SignupForm = () => {
     }
   };
 
-  const handleVerifyOtp = async () => {
-    if (otp.length !== 6) {
+  const handleVerifyOtp = async (codeToVerify?: string) => {
+    const code = codeToVerify || otp;
+    if (code.length !== 6) {
       setErrors({ otp: "Please enter the complete 6-digit code" });
       return;
     }
@@ -133,7 +134,7 @@ export const SignupForm = () => {
     try {
       const { error } = await supabase.auth.verifyOtp({
         email,
-        token: otp,
+        token: code,
         type: 'email',
       });
 
@@ -233,10 +234,18 @@ export const SignupForm = () => {
 
         <div className="space-y-4">
           <div className="flex justify-center">
-            <InputOTP
+          <InputOTP
               maxLength={6}
               value={otp}
-              onChange={setOtp}
+              onChange={(value) => {
+                setOtp(value);
+                // Auto-submit when 6 digits entered
+                if (value.length === 6) {
+                  setTimeout(() => {
+                    handleVerifyOtp();
+                  }, 100);
+                }
+              }}
             >
               <InputOTPGroup>
                 <InputOTPSlot index={0} />
@@ -252,20 +261,12 @@ export const SignupForm = () => {
             <p className="text-sm text-destructive text-center">{errors.otp}</p>
           )}
 
-          <Button
-            onClick={handleVerifyOtp}
-            className="w-full"
-            disabled={verifying || otp.length !== 6}
-          >
-            {verifying ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Verifying...
-              </>
-            ) : (
-              "Verify Email"
-            )}
-          </Button>
+          {verifying && (
+            <div className="flex items-center justify-center gap-2 text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Verifying...</span>
+            </div>
+          )}
 
           <div className="text-center space-y-2">
             <p className="text-sm text-muted-foreground">

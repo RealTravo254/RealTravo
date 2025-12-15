@@ -38,8 +38,10 @@ export type Database = {
           image_url: string
           images: string[] | null
           is_hidden: boolean | null
+          latitude: number | null
           local_name: string | null
           location: string
+          longitude: number | null
           map_link: string | null
           name: string
           opening_hours: string | null
@@ -70,8 +72,10 @@ export type Database = {
           image_url: string
           images?: string[] | null
           is_hidden?: boolean | null
+          latitude?: number | null
           local_name?: string | null
           location: string
+          longitude?: number | null
           map_link?: string | null
           name: string
           opening_hours?: string | null
@@ -102,8 +106,10 @@ export type Database = {
           image_url?: string
           images?: string[] | null
           is_hidden?: boolean | null
+          latitude?: number | null
           local_name?: string | null
           location?: string
+          longitude?: number | null
           map_link?: string | null
           name?: string
           opening_hours?: string | null
@@ -112,120 +118,6 @@ export type Database = {
           registration_number?: string | null
         }
         Relationships: []
-      }
-      attractions: {
-        Row: {
-          activities: Json | null
-          amenities: Json | null
-          approval_status: string
-          approved_at: string | null
-          approved_by: string | null
-          closing_hours: string | null
-          country: string
-          created_at: string
-          created_by: string | null
-          days_opened: string[] | null
-          description: string | null
-          email: string | null
-          entrance_type: string
-          facilities: Json | null
-          gallery_images: string[] | null
-          id: string
-          is_hidden: boolean | null
-          latitude: number | null
-          local_name: string | null
-          location_link: string | null
-          location_name: string
-          longitude: number | null
-          opening_hours: string | null
-          phone_number: string | null
-          photo_urls: string[] | null
-          price_adult: number | null
-          price_child: number | null
-          registration_number: string
-          registration_type: string
-          updated_at: string
-        }
-        Insert: {
-          activities?: Json | null
-          amenities?: Json | null
-          approval_status?: string
-          approved_at?: string | null
-          approved_by?: string | null
-          closing_hours?: string | null
-          country: string
-          created_at?: string
-          created_by?: string | null
-          days_opened?: string[] | null
-          description?: string | null
-          email?: string | null
-          entrance_type?: string
-          facilities?: Json | null
-          gallery_images?: string[] | null
-          id?: string
-          is_hidden?: boolean | null
-          latitude?: number | null
-          local_name?: string | null
-          location_link?: string | null
-          location_name: string
-          longitude?: number | null
-          opening_hours?: string | null
-          phone_number?: string | null
-          photo_urls?: string[] | null
-          price_adult?: number | null
-          price_child?: number | null
-          registration_number: string
-          registration_type: string
-          updated_at?: string
-        }
-        Update: {
-          activities?: Json | null
-          amenities?: Json | null
-          approval_status?: string
-          approved_at?: string | null
-          approved_by?: string | null
-          closing_hours?: string | null
-          country?: string
-          created_at?: string
-          created_by?: string | null
-          days_opened?: string[] | null
-          description?: string | null
-          email?: string | null
-          entrance_type?: string
-          facilities?: Json | null
-          gallery_images?: string[] | null
-          id?: string
-          is_hidden?: boolean | null
-          latitude?: number | null
-          local_name?: string | null
-          location_link?: string | null
-          location_name?: string
-          longitude?: number | null
-          opening_hours?: string | null
-          phone_number?: string | null
-          photo_urls?: string[] | null
-          price_adult?: number | null
-          price_child?: number | null
-          registration_number?: string
-          registration_type?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "attractions_approved_by_fkey"
-            columns: ["approved_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "attractions_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       bank_details: {
         Row: {
@@ -446,8 +338,10 @@ export type Database = {
           image_url: string
           images: string[] | null
           is_hidden: boolean | null
+          latitude: number | null
           local_name: string | null
           location: string
+          longitude: number | null
           map_link: string | null
           name: string
           opening_hours: string | null
@@ -477,8 +371,10 @@ export type Database = {
           image_url: string
           images?: string[] | null
           is_hidden?: boolean | null
+          latitude?: number | null
           local_name?: string | null
           location: string
+          longitude?: number | null
           map_link?: string | null
           name: string
           opening_hours?: string | null
@@ -508,53 +404,16 @@ export type Database = {
           image_url?: string
           images?: string[] | null
           is_hidden?: boolean | null
+          latitude?: number | null
           local_name?: string | null
           location?: string
+          longitude?: number | null
           map_link?: string | null
           name?: string
           opening_hours?: string | null
           phone_numbers?: string[] | null
           place?: string
           registration_number?: string | null
-        }
-        Relationships: []
-      }
-      mpesa_callback_log: {
-        Row: {
-          amount: number | null
-          checkout_request_id: string
-          created_at: string
-          id: string
-          merchant_request_id: string | null
-          mpesa_receipt_number: string | null
-          phone_number: string | null
-          raw_callback: Json | null
-          result_code: string | null
-          result_desc: string | null
-        }
-        Insert: {
-          amount?: number | null
-          checkout_request_id: string
-          created_at?: string
-          id?: string
-          merchant_request_id?: string | null
-          mpesa_receipt_number?: string | null
-          phone_number?: string | null
-          raw_callback?: Json | null
-          result_code?: string | null
-          result_desc?: string | null
-        }
-        Update: {
-          amount?: number | null
-          checkout_request_id?: string
-          created_at?: string
-          id?: string
-          merchant_request_id?: string | null
-          mpesa_receipt_number?: string | null
-          phone_number?: string | null
-          raw_callback?: Json | null
-          result_code?: string | null
-          result_desc?: string | null
         }
         Relationships: []
       }
@@ -594,7 +453,7 @@ export type Database = {
         }
         Relationships: []
       }
-      pending_payments: {
+      payments: {
         Row: {
           account_reference: string
           amount: number

@@ -76,26 +76,40 @@ export const useMpesaPayment = (options: MpesaPaymentOptions = {}) => {
 
     // Also poll as fallback (M-Pesa callback might be delayed)
     const pollInterval = setInterval(async () => {
-      const { data } = await supabase
+      console.log('Polling payment status for:', checkoutRequestId);
+      const { data, error } = await supabase
         .from('payments' as any)
         .select('payment_status, result_desc, id, booking_data')
         .eq('checkout_request_id', checkoutRequestId)
-        .single();
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error polling payment:', error);
+        return;
+      }
 
       const payment = data as unknown as PaymentRecord | null;
+      console.log('Polled payment data:', payment);
+      
       if (payment) {
         if (payment.payment_status === 'completed') {
+          console.log('Payment completed! Booking ID:', payment.booking_data?.booking_id);
           clearInterval(pollInterval);
           setPaymentStatus('success');
           if (options.onSuccess) options.onSuccess(payment.booking_data?.booking_id || payment.id);
         } else if (payment.payment_status === 'failed') {
+          console.log('Payment failed:', payment.result_desc);
           clearInterval(pollInterval);
           setPaymentStatus('failed');
           setErrorMessage(payment.result_desc || 'Payment failed');
           if (options.onError) options.onError(payment.result_desc || 'Payment failed');
+        } else {
+          console.log('Payment still pending, status:', payment.payment_status);
         }
+      } else {
+        console.log('No payment record found for checkout ID');
       }
-    }, 5000);
+    }, 3000);
 
     // Timeout after 60 seconds
     const timeout = setTimeout(async () => {

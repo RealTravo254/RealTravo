@@ -1,252 +1,219 @@
+import { useState } from "react";
 import { MapPin, Heart } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { cn, optimizeSupabaseImage, generateImageSrcSet } from "@/lib/utils";
+import { cn, optimizeSupabaseImage } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { createDetailPath } from "@/lib/slugUtils";
-// Note: Assuming ListingCardProps interface is defined elsewhere
+import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
+
 interface ListingCardProps {
-    id: string;
-    type: 'TRIP' | 'EVENT' | 'HOTEL' | 'ADVENTURE PLACE' | 'ACCOMMODATION' | 'ATTRACTION';
-    name: string;
-    imageUrl: string;
-    location: string;
-    country: string;
-    price?: number;
-    date?: string;
-    isCustomDate?: boolean;
-    onSave?: (id: string, type: string) => void;
-    isSaved?: boolean;
-    amenities?: string[];
-    activities?: any[];
-    hidePrice?: boolean;
-    availableTickets?: number;
-    bookedTickets?: number;
-    showBadge?: boolean;
-    priority?: boolean;
+  id: string;
+  type: 'TRIP' | 'EVENT' | 'HOTEL' | 'ADVENTURE PLACE' | 'ACCOMMODATION' | 'ATTRACTION';
+  name: string;
+  imageUrl: string;
+  location: string;
+  country: string;
+  price?: number;
+  date?: string;
+  isCustomDate?: boolean;
+  onSave?: (id: string, type: string) => void;
+  isSaved?: boolean;
+  amenities?: string[];
+  activities?: any[];
+  hidePrice?: boolean;
+  availableTickets?: number;
+  bookedTickets?: number;
+  showBadge?: boolean;
+  priority?: boolean;
+  minimalDisplay?: boolean;
+  hideEmptySpace?: boolean;
+  compact?: boolean;
+  distance?: number;
 }
 
 export const ListingCard = ({
-    id,
-    type,
-    name,
-    imageUrl,
-    location,
-    country,
-    price,
-    date,
-    isCustomDate = false,
-    onSave,
-    isSaved = false,
-    amenities,
-    activities,
-    hidePrice = false,
-    availableTickets,
-    bookedTickets,
-    showBadge = false,
-    priority = false,
+  id,
+  type,
+  name,
+  imageUrl,
+  location,
+  country,
+  price,
+  date,
+  isCustomDate = false,
+  onSave,
+  isSaved = false,
+  amenities,
+  activities,
+  hidePrice = false,
+  availableTickets,
+  bookedTickets,
+  showBadge = false,
+  priority = false,
+  minimalDisplay = false,
+  hideEmptySpace = false,
+  compact = false,
+  distance
 }: ListingCardProps) => {
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
-    // Extract activity names from activities array
-    const getActivityNames = (activities: any[] | undefined): string[] => {
-        if (!activities || !Array.isArray(activities)) return [];
-        return activities
-            .map(item => typeof item === 'object' && item.name ? item.name : (typeof item === 'string' ? item : null))
-            .filter(Boolean)
-            .slice(0, 4) as string[];
+  // Use intersection observer for lazy loading - load when 200px before entering viewport
+  const { ref: imageContainerRef, isIntersecting } = useIntersectionObserver({
+    rootMargin: '200px',
+    triggerOnce: true,
+  });
+
+  // For priority images, always load immediately
+  const shouldLoadImage = priority || isIntersecting;
+
+  const navigate = useNavigate();
+
+  const handleCardClick = () => {
+    const typeMap: Record<string, string> = {
+      "TRIP": "trip",
+      "EVENT": "event",
+      "HOTEL": "hotel",
+      "ADVENTURE PLACE": "adventure",
+      "ACCOMMODATION": "accommodation",
+      "ATTRACTION": "attraction"
     };
+    const path = createDetailPath(typeMap[type], id, name, location);
+    navigate(path);
+  };
 
-    const activityNames = getActivityNames(activities);
-    const navigate = useNavigate();
-
-    const handleCardClick = () => {
-        const typeMap: Record<string, string> = {
-            "TRIP": "trip",
-            "EVENT": "event",
-            "HOTEL": "hotel",
-            "ADVENTURE PLACE": "adventure",
-            "ACCOMMODATION": "accommodation",
-            "ATTRACTION": "attraction"
-        };
-        const path = createDetailPath(typeMap[type], id, name, location);
-        navigate(path);
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return "";
+    const options: Intl.DateTimeFormatOptions = {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
     };
+    return new Date(dateString).toLocaleDateString(undefined, options);
+  };
 
-    const formatDate = (dateString: string | undefined) => {
-        if (!dateString) return "";
-        const options: Intl.DateTimeFormatOptions = {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric'
-        };
-        return new Date(dateString).toLocaleDateString(undefined, options);
-    };
+  const handleSaveClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onSave) {
+      onSave(id, type);
+    }
+  };
 
-    const handleSaveClick = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        if (onSave) {
-            onSave(id, type);
-        }
-    };
+  const tealBgClass = "bg-[rgb(0,128,128)] text-white";
+  const tealTextClass = "text-[rgb(0,100,100)]";
 
-    // Define the custom Teal background and text classes (0, 128, 128)
-    const tealBgClass = "bg-[rgb(0,128,128)] text-white";
-    const tealTextClass = "text-[rgb(0,128,128)]";
+  const remainingTickets = availableTickets !== undefined ? availableTickets - (bookedTickets || 0) : undefined;
+  const fewSlotsRemaining = (type === "TRIP" || type === "EVENT") && remainingTickets !== undefined && remainingTickets > 0 && remainingTickets <= 20;
+  const isTripOrEvent = type === "TRIP" || type === "EVENT";
 
-    // --- MODIFICATION: Determine if the Tickets Remaining section will be shown ---
-    const showTicketsRemaining = type === "TRIP" && availableTickets !== undefined && (availableTickets - (bookedTickets || 0)) < 20;
+  // Optimized image URL - smaller size for faster loading
+  const optimizedImageUrl = optimizeSupabaseImage(imageUrl, {
+    width: 320,
+    height: 200,
+    quality: 70
+  });
 
-    // --- MODIFICATION: Define a fixed height for the activities container to ensure height consistency ---
-    // The max activity section height is based on the max content (e.g., one line of badges) + padding/margin.
-    // Let's use Tailwind's h-6 (1.5rem / 24px) to reserve space for activities (or h-8 for a safer two lines).
-    // Using h-6 looks appropriate for a single row of small badges.
-    const activityContainerClass = "h-6 md:h-7"; // Adjusted for potential one line of badges + padding
-
-    return (
-        <Card
-            onClick={handleCardClick}
-            className="group overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer border rounded-lg bg-card shadow-sm
-                       w-full"
-        >
-            <div className="relative overflow-hidden m-0" style={{ paddingBottom: '65%' }}>
-                <img
-                    src={optimizeSupabaseImage(imageUrl, { width: 640, height: 480, quality: 85 })}
-                    srcSet={generateImageSrcSet(imageUrl, [320, 640, 960])}
-                    sizes="(max-width: 640px) 320px, (max-width: 1024px) 640px, 640px"
-                    alt={name}
-                    width={640}
-                    height={480}
-                    loading={priority ? "eager" : "lazy"}
-                    fetchPriority={priority ? "high" : "auto"}
-                    decoding="async"
-                    className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 m-0 p-0"
-                />
-               
-                {/* Category Badges use Teal BG (0, 128, 128) */}
-                {type === "TRIP" && (
-                    <Badge className={cn("absolute top-2 left-2 backdrop-blur text-xs font-bold z-10 px-2 py-1", tealBgClass)}>
-                        TRIP
-                    </Badge>
-                )}
-
-                {type === "EVENT" && (
-                    <Badge className={cn("absolute top-2 left-2 backdrop-blur text-xs font-bold z-10 px-2 py-1", tealBgClass)}>
-                        EVENT
-                    </Badge>
-                )}
-
-                {type !== "EVENT" && type !== "TRIP" && showBadge && (
-                    <Badge className={cn("absolute top-2 left-2 backdrop-blur text-[0.6rem] z-10 p-1", tealBgClass)}>
-                        {type}
-                    </Badge>
-                )}
-
-
-                {onSave && (
-                    <Button
-                        size="icon"
-                        onClick={handleSaveClick}
-                        className={cn(
-                            "absolute top-2 right-2 z-20 h-10 w-10 md:h-8 md:w-8 rounded-full p-0 bg-transparent touch-manipulation active:scale-95 transition-transform",
-                            "border border-black hover:border-red-500 shadow-sm",
-                            "outline-none focus-visible:ring-0 focus-visible:bg-transparent hover:bg-transparent"
-                        )}
-                    >
-                        <Heart
-                            className={cn(
-                                "h-5 w-5 md:h-4 md:w-4",
-                                isSaved
-                                    ? "text-red-500 fill-red-500"
-                                    : "text-white drop-shadow-sm"
-                            )}
-                        />
-                    </Button>
-                )}
-
-                {/* Price as a Red Button (from previous request) */}
-                {!hidePrice && price !== undefined && (type === "TRIP" || type === "EVENT") && (
-                    <Button
-                        className="absolute bottom-2 left-2 bg-[rgb(200,0,0)] hover:bg-[rgb(255,0,0)] text-primary-foreground px-3 py-1.5 md:px-2 md:py-1 rounded-md shadow-lg z-10 h-auto"
-                        onClick={(e) => e.stopPropagation()} // Prevent card click
-                    >
-                        <p className="font-bold text-sm md:text-xs whitespace-nowrap">
-                            KSh {price}
-                        </p>
-                    </Button>
-                )}
-
-                {(date || isCustomDate) && (
-                    <div className="absolute bottom-2 right-2 bg-background/90 backdrop-blur text-foreground px-2 py-1 rounded-md shadow-md z-10">
-                        <p className="text-xs font-semibold">
-                            {isCustomDate ? "Custom Date" : formatDate(date)}
-                        </p>
-                    </div>
-                )}
+  return (
+    <Card 
+      onClick={handleCardClick} 
+      className={cn(
+        "group overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer border bg-card shadow-sm w-full flex flex-col",
+        // Changed "rounded-lg" to "rounded-none" to remove border radius
+        "rounded-none", 
+        compact ? "h-auto" : "h-auto"
+      )}
+    >
+      {/* Image Container with intersection observer */}
+      {/* INCREASED paddingBottom from '60%' to '75%' for a taller card */}
+      <div ref={imageContainerRef} className="relative overflow-hidden m-0 bg-muted" style={{ paddingBottom: '75%' }}>
+        {/* Skeleton placeholder - show when not loading or image not loaded */}
+        {(!shouldLoadImage || (!imageLoaded && !imageError)) && (
+            <div className="absolute inset-0 bg-muted animate-pulse" />
+        )}
+        
+        {/* Actual image - only render when in viewport */}
+        {shouldLoadImage && (
+          <img 
+            src={optimizedImageUrl}
+            alt={name} 
+            width={320} 
+            height={200} 
+            loading="lazy"
+            decoding="async"
+            onLoad={() => setImageLoaded(true)}
+            onError={() => setImageError(true)}
+            className={cn(
+              "absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-all duration-300 m-0 p-0",
+              imageLoaded ? "opacity-100" : "opacity-0"
+            )} 
+          />
+        )}
+        
+        {/* Error fallback */}
+        {imageError && (
+            <div className="absolute inset-0 bg-muted flex items-center justify-center">
+              <span className="text-muted-foreground text-xs">No image</span>
             </div>
-           
-            <div className="p-2 md:p-4 flex flex-col space-y-1 md:space-y-2">
-                <h3 className="font-bold text-xs md:text-base line-clamp-2">
-                    {name}
-                </h3>
-               
-                <div className="flex items-center gap-1">
-                    {/* MapPin Icon Color now uses custom Teal (0, 128, 128) */}
-                    <MapPin className={cn("h-3 w-3 flex-shrink-0", tealTextClass)} />
-                    <p className="text-[10px] md:text-sm text-muted-foreground line-clamp-1">
-                        {location}, {country}
-                    </p>
-                </div>
+        )}
+        
+        {/* Category Badges */}
+        {type === "TRIP" && <Badge className={cn("absolute top-1.5 left-1.5 backdrop-blur text-[10px] md:text-xs font-bold z-10 px-1.5 py-0.5 md:px-2 md:py-1", tealBgClass)}>
+            TRIP
+        </Badge>}
 
-                {/* Price and Date Info for Trips/Events - displayed prominently */}
-                {(type === "TRIP" || type === "EVENT") && (
-                    <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-border/50">
-                        {!hidePrice && price !== undefined && price > 0 && (
-                            <span className="text-[10px] md:text-xs font-bold text-[rgb(200,0,0)]">
-                                KSh {price.toLocaleString()}
-                            </span>
-                        )}
-                        {date && !isCustomDate && (
-                            <span className="text-[10px] md:text-xs text-muted-foreground">
-                                {formatDate(date)}
-                            </span>
-                        )}
-                        {isCustomDate && (
-                            <span className="text-[10px] md:text-xs text-muted-foreground italic">
-                                Flexible Date
-                            </span>
-                        )}
-                    </div>
-                )}
+        {type === "EVENT" && <Badge className={cn("absolute top-1.5 left-1.5 backdrop-blur text-[10px] md:text-xs font-bold z-10 px-1.5 py-0.5 md:px-2 md:py-1", tealBgClass)}>
+            EVENT
+        </Badge>}
 
-                {/* Activities Section - MODIFIED for fixed height */}
-                <div className={cn("flex flex-wrap gap-0.5 md:gap-1 pt-0.5 md:pt-1", activityContainerClass)}>
-                    {activityNames.length > 0 && (
-                        activityNames.map((activity, index) => (
-                            <span
-                                key={index}
-                                className={cn("text-[8px] md:text-xs px-1 md:px-1.5 py-0.5 rounded-full bg-muted", tealTextClass)}
-                            >
-                                {activity}
-                            </span>
-                        ))
-                    )}
-                </div>
-               
-                {showTicketsRemaining && (
-                    <div className="flex items-center justify-between pt-1 border-t border-border/50">
-                        <p className="text-xs md:text-sm font-medium text-muted-foreground">
-                            Tickets Remaining:
-                        </p>
-                        <p className={cn(
-                            "text-xs md:text-sm font-bold",
-                            (availableTickets - (bookedTickets || 0)) <= 5 ? "text-destructive" : "text-green-600 dark:text-green-400"
-                        )}>
-                            {Math.max(0, availableTickets - (bookedTickets || 0))}
-                        </p>
-                    </div>
-                )}
+        {type !== "EVENT" && type !== "TRIP" && showBadge && <Badge className={cn("absolute top-1.5 left-1.5 backdrop-blur text-[8px] md:text-[0.6rem] z-10 px-1 py-0.5 md:p-1", tealBgClass)}>
+            {type}
+        </Badge>}
+
+        {onSave && <Button size="icon" onClick={handleSaveClick} aria-label={isSaved ? "Remove from wishlist" : "Add to wishlist"} className={cn("absolute top-1.5 right-1.5 z-20 h-8 w-8 md:h-8 md:w-8 p-0 bg-transparent touch-manipulation active:scale-95 transition-transform", "border-none shadow-none", "outline-none focus-visible:ring-0 focus-visible:bg-transparent hover:bg-transparent")}>
+            <Heart className={cn("h-4 w-4 md:h-4 md:w-4", isSaved ? "text-red-500 fill-red-500" : "text-black stroke-[2.5] drop-shadow-[0_1px_1px_rgba(255,255,255,0.8)]")} />
+        </Button>}
+      </div>
+      
+      {/* Content Area */}
+      <div className="p-2 md:p-4 flex flex-col space-y-1 md:space-y-2 flex-1"> 
+        <h3 className="font-bold text-xs md:text-base line-clamp-2">
+            {name}
+        </h3>
+        
+        {/* Location - Always visible */}
+        <div className="flex items-center gap-1 flex-wrap">
+            <MapPin className={cn("h-3 w-3 flex-shrink-0", tealTextClass)} />
+            <p className="text-[10px] md:text-sm text-muted-foreground line-clamp-1 flex-1">
+                {location}
+            </p>
+            {/* Distance inline for non-trip/event types */}
+            {distance !== undefined && type !== "TRIP" && type !== "EVENT" && (
+                <span className={cn("text-[8px] md:text-xs px-1.5 py-0.5 rounded-full bg-primary/10 font-medium whitespace-nowrap", tealTextClass)}>
+                    📍 {distance < 1 ? `${Math.round(distance * 1000)}m` : `${distance.toFixed(1)}km`}
+                </span>
+            )}
+        </div>
+        
+        {/* Price, Date and Few slots remaining for Trips/Events - on same row */}
+        {isTripOrEvent && !minimalDisplay && <div className={`flex items-center justify-between gap-1 pt-1 border-t border-border/50 mt-auto ${hideEmptySpace && hidePrice && !date ? 'hidden' : ''}`}> 
+            <div className="flex items-center gap-2 flex-wrap">
+                {!hidePrice && price !== undefined && price > 0 && <span className="text-[10px] md:text-xs font-bold text-[rgb(200,0,0)]">
+                    KSh {price.toLocaleString()}
+                </span>}
+                {date && !isCustomDate && <span className="text-[10px] md:text-xs text-muted-foreground">
+                    {formatDate(date)}
+                </span>}
+                {isCustomDate && <span className="text-[10px] md:text-xs text-muted-foreground italic">
+                    Flexible Date
+                </span>}
             </div>
-        </Card>
-    );
+            {fewSlotsRemaining && <span className="text-[8px] md:text-[10px] font-medium text-[rgb(180,0,0)] px-1 py-0.5 bg-red-100 rounded-sm whitespace-nowrap">
+                Few left!
+            </span>}
+        </div>}
+      </div>
+    </Card>
+  );
 };

@@ -42,16 +42,17 @@ export function optimizeSupabaseImage(
 
 /**
  * Generates srcset for responsive images
+ * Uses smaller sizes optimized for listing cards (~254px display)
  */
 export function generateImageSrcSet(
   url: string,
-  sizes: number[] = [320, 640, 960, 1280]
+  sizes: number[] = [160, 256, 320, 480]
 ): string {
   if (!url || !url.includes('supabase.co/storage')) {
     return '';
   }
   
   return sizes
-    .map(size => `${optimizeSupabaseImage(url, { width: size, quality: 85 })} ${size}w`)
+    .map(size => `${optimizeSupabaseImage(url, { width: size, quality: 75 })} ${size}w`)
     .join(', ');
 }

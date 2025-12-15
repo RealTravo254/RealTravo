@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useCallback } from "react";
 
 interface GeolocationPosition {
   latitude: number;
@@ -8,9 +8,15 @@ interface GeolocationPosition {
 export const useGeolocation = () => {
   const [position, setPosition] = useState<GeolocationPosition | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [requested, setRequested] = useState(false);
 
-  useEffect(() => {
+  const requestLocation = useCallback(() => {
+    if (requested) return;
+    
+    setRequested(true);
+    setLoading(true);
+
     if (!navigator.geolocation) {
       setError("Geolocation is not supported by your browser");
       setLoading(false);
@@ -18,16 +24,16 @@ export const useGeolocation = () => {
     }
 
     navigator.geolocation.getCurrentPosition(
-      (position) => {
+      (pos) => {
         setPosition({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
         });
         setLoading(false);
       },
-      (error) => {
-        console.warn("Geolocation error:", error.message);
-        setError(error.message);
+      (err) => {
+        console.warn("Geolocation error:", err.message);
+        setError(err.message);
         setLoading(false);
       },
       {
@@ -36,9 +42,9 @@ export const useGeolocation = () => {
         maximumAge: 300000, // 5 minutes
       }
     );
-  }, []);
+  }, [requested]);
 
-  return { position, error, loading };
+  return { position, error, loading, requestLocation };
 };
 
 // Helper function to calculate distance between two points (Haversine formula)

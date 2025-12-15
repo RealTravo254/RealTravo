@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Header } from "@/components/Header";
-import { Footer } from "@/components/Footer";
 import { MobileBottomBar } from "@/components/MobileBottomBar";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -106,7 +105,7 @@ const Profile = () => {
   };
 
   if (loading) {
-    return <div>Loading...</div>;
+    return null;
   }
 
   return (

@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import { subscribeToPushNotifications, registerServiceWorker, isPushNotificationSupported } from "@/lib/pushNotifications";
 
 interface AuthContextType {
   user: User | null;
@@ -30,6 +31,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+
+  // Register service worker on mount
+  useEffect(() => {
+    if (isPushNotificationSupported()) {
+      registerServiceWorker();
+    }
+  }, []);
+
+  // Subscribe to push notifications when user logs in
+  useEffect(() => {
+    if (user && isPushNotificationSupported()) {
+      // Request permission and subscribe after a short delay
+      const timer = setTimeout(() => {
+        subscribeToPushNotifications(user.id).catch(console.error);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [user]);
 
   useEffect(() => {
     // Set up auth state listener

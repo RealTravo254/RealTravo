@@ -11,6 +11,7 @@ interface OptimizedImageProps {
   priority?: boolean;
   sizes?: string;
   onLoad?: () => void;
+  quality?: number;
 }
 
 export const OptimizedImage = ({
@@ -20,8 +21,9 @@ export const OptimizedImage = ({
   height,
   className,
   priority = false,
-  sizes = "(max-width: 640px) 320px, (max-width: 1024px) 640px, 640px",
+  sizes = "(max-width: 480px) 256px, (max-width: 768px) 320px, 480px",
   onLoad,
+  quality = 75,
 }: OptimizedImageProps) => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isInView, setIsInView] = useState(priority);
@@ -80,8 +82,8 @@ export const OptimizedImage = ({
       {/* Actual image - only rendered when in view */}
       {isInView && (
         <img
-          src={optimizeSupabaseImage(src, { width, height: Math.round(width * (height / width)), quality: 85 })}
-          srcSet={generateImageSrcSet(src, [320, 640, 960])}
+          src={optimizeSupabaseImage(src, { width: Math.min(width, 480), height: Math.round(Math.min(width, 480) * (height / width)), quality })}
+          srcSet={generateImageSrcSet(src, [160, 256, 320, 480])}
           sizes={sizes}
           alt={alt}
           width={width}

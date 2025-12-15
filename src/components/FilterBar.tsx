@@ -219,6 +219,40 @@ export const FilterBar = ({ type, onApplyFilters }: FilterBarProps) => {
               </Popover>
             </div>
 
+            <div className="space-y-2">
+              <Label className="text-xs md:text-sm">Check-Out</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal text-xs md:text-sm h-8 md:h-10",
+                      !checkOut && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-1 md:mr-2 h-3 w-3 md:h-4 md:w-4" />
+                    {checkOut ? format(checkOut, "PP") : <span>Check-out</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={checkOut}
+                    onSelect={setCheckOut}
+                    disabled={(date) => {
+                      const today = new Date(new Date().setHours(0, 0, 0, 0));
+                      if (checkIn) {
+                        return date <= checkIn;
+                      }
+                      return date < today;
+                    }}
+                    initialFocus
+                    className="pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
             <div className="space-y-2 relative">
               <Label className="text-xs md:text-sm">Location</Label>
               <Input

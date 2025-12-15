@@ -453,6 +453,10 @@ const TripDetail = () => {
             skipDateSelection={!trip.is_custom_date}
             fixedDate={trip.date}
             skipFacilitiesAndActivities={true}
+            itemId={trip.id}
+            bookingType="trip"
+            hostId={trip.created_by || ""}
+            onPaymentSuccess={() => setIsCompleted(true)}
           />
         </DialogContent>
       </Dialog>

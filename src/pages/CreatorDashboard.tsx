@@ -30,7 +30,6 @@ const CreatorDashboard = () => {
       const { data: trips } = await supabase.from("trips").select("*").eq("created_by", user.id);
       const { data: hotels } = await supabase.from("hotels").select("*").eq("created_by", user.id);
       const { data: adventures } = await supabase.from("adventure_places").select("*").eq("created_by", user.id);
-      const { data: attractions } = await supabase.from("attractions").select("*").eq("created_by", user.id);
       
       const { data: hotelsAsAdmin } = await supabase.from("hotels").select("*").contains("allowed_admin_emails", userEmail ? [userEmail] : []);
       const { data: adventuresAsAdmin } = await supabase.from("adventure_places").select("*").contains("allowed_admin_emails", userEmail ? [userEmail] : []);
@@ -39,7 +38,6 @@ const CreatorDashboard = () => {
         ...(trips?.map(t => ({ ...t, type: "trip" })) || []),
         ...(hotels?.map(h => ({ ...h, type: "hotel" })) || []),
         ...(adventures?.map(a => ({ ...a, type: "adventure_place" })) || []),
-        ...(attractions?.map(a => ({ ...a, type: "attraction" })) || []),
         ...(hotelsAsAdmin?.filter(h => h.created_by !== user.id).map(h => ({ ...h, type: "hotel" })) || []),
         ...(adventuresAsAdmin?.filter(a => a.created_by !== user.id).map(a => ({ ...a, type: "adventure_place" })) || [])
       ];
@@ -195,11 +193,10 @@ const CreatorDashboard = () => {
         <p className="text-muted-foreground mb-8">View all confirmed bookings for your listings</p>
 
         <Tabs defaultValue="trips" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="trips">Trips</TabsTrigger>
             <TabsTrigger value="hotels">Hotels</TabsTrigger>
             <TabsTrigger value="campsites">Campsites</TabsTrigger>
-            <TabsTrigger value="attractions">Attractions</TabsTrigger>
           </TabsList>
 
           <TabsContent value="trips" className="space-y-4 mt-6">
@@ -230,16 +227,6 @@ const CreatorDashboard = () => {
               </Badge>
             </div>
             {renderBookings('adventure_place', 'Campsite & Experience Bookings')}
-          </TabsContent>
-
-          <TabsContent value="attractions" className="space-y-4 mt-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold">Attraction Bookings</h2>
-              <Badge variant="outline" className="text-lg px-4 py-1">
-                {getBookingsByType('attraction').length}
-              </Badge>
-            </div>
-            {renderBookings('attraction', 'Attraction Bookings')}
           </TabsContent>
         </Tabs>
       </main>

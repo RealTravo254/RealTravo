@@ -36,7 +36,6 @@ const MyListing = () => {
       const { data: trips } = await supabase.from("trips").select("*").eq("created_by", user.id);
       const { data: hotels } = await supabase.from("hotels").select("*").eq("created_by", user.id);
       const { data: adventures } = await supabase.from("adventure_places").select("*").eq("created_by", user.id);
-      const { data: attractions } = await supabase.from("attractions").select("*").eq("created_by", user.id);
       
       const { data: hotelsAsAdmin } = await supabase.from("hotels").select("*").contains("allowed_admin_emails", userEmail ? [userEmail] : []);
       const { data: adventuresAsAdmin } = await supabase.from("adventure_places").select("*").contains("allowed_admin_emails", userEmail ? [userEmail] : []);
@@ -45,7 +44,6 @@ const MyListing = () => {
         trips: trips?.length, 
         hotels: hotels?.length, 
         adventures: adventures?.length,
-        attractions: attractions?.length,
         hotelsAsAdmin: hotelsAsAdmin?.length,
         adventuresAsAdmin: adventuresAsAdmin?.length
       });
@@ -54,8 +52,7 @@ const MyListing = () => {
         ...(trips?.map(t => ({ ...t, type: "trip", isCreator: true })) || []),
         ...(hotels?.map(h => ({ ...h, type: "hotel", isCreator: true })) || []),
         ...(adventures?.map(a => ({ ...a, type: "adventure", isCreator: true })) || []),
-        ...(attractions?.map(a => ({ ...a, type: "attraction", isCreator: true })) || []),
-        // Filter out items already listed as creator to avoid duplicates, though IDs should prevent it
+        // Filter out items already listed as creator to avoid duplicates
         ...(hotelsAsAdmin?.filter(h => h.created_by !== user.id).map(h => ({ ...h, type: "hotel", isCreator: false })) || []),
         ...(adventuresAsAdmin?.filter(a => a.created_by !== user.id).map(a => ({ ...a, type: "adventure", isCreator: false })) || [])
       ];
@@ -247,13 +244,6 @@ const MyListing = () => {
               {renderListings('trip')}
             </div>
 
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-2xl font-bold">Attractions</h2>
-                <Badge variant="outline" className="text-lg px-4 py-1">{getCategoryCount('attraction')}</Badge>
-              </div>
-              {renderListings('attraction')}
-            </div>
 
             <div>
               <div className="flex items-center justify-between mb-4">
@@ -281,13 +271,6 @@ const MyListing = () => {
               {renderBookings('trip')}
             </div>
 
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-2xl font-bold">Attraction Bookings</h2>
-                <Badge variant="outline" className="text-lg px-4 py-1">{getBookingCount('attraction')}</Badge>
-              </div>
-              {renderBookings('attraction')}
-            </div>
 
             <div>
               <div className="flex items-center justify-between mb-4">

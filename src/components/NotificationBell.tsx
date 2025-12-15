@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Bell } from "lucide-react";
 import {
   Sheet,
@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -26,17 +25,55 @@ interface Notification {
   created_at: string;
 }
 
+// Notification sound URL (using a free notification sound)
+const NOTIFICATION_SOUND_URL = "https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3";
+
+// Custom Tailwind Classes for Teal (#008080)
+const TEAL_HOVER_10 = 'hover:bg-[#008080]/10'; // Read/Bell hover (lighter)
+const TEAL_BG_20_HOVER_30 = 'bg-[#008080]/20 hover:bg-[#008080]/30'; // Unread background/hover (darker)
+
 export const NotificationBell = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
+
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const previousUnreadCountRef = useRef<number>(0);
+
+  // Initialize audio element
+  useEffect(() => {
+    audioRef.current = new Audio(NOTIFICATION_SOUND_URL);
+    audioRef.current.volume = 0.5;
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
+
+  // Play notification sound
+  const playNotificationSound = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch(console.error);
+    }
+  }, []);
+
+  // Show in-app toast notification
+  const showInAppNotification = useCallback((notification: Notification) => {
+    toast({
+      title: notification.title,
+      description: notification.message,
+    });
+  }, []);
 
   useEffect(() => {
     if (!user) {
       setNotifications([]);
       setUnreadCount(0);
+      previousUnreadCountRef.current = 0;
       return;
     }
 
@@ -48,7 +85,24 @@ export const NotificationBell = () => {
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          // Play sound and show toast for new notifications
+          playNotificationSound();
+          if (payload.new) {
+            showInAppNotification(payload.new as Notification);
+          }
+          fetchNotifications();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
           schema: 'public',
           table: 'notifications',
           filter: `user_id=eq.${user.id}`
@@ -62,7 +116,7 @@ export const NotificationBell = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, [user, playNotificationSound, showInAppNotification]);
 
   const fetchNotifications = async () => {
     if (!user) return;
@@ -130,8 +184,8 @@ export const NotificationBell = () => {
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger asChild>
-        <button className="rounded-full h-10 w-10 flex items-center justify-center transition-colors bg-white/10 hover:bg-white group relative">
-          <Bell className="h-5 w-5 text-white group-hover:text-[#008080]" />
+        <button className={`rounded-full h-10 w-10 flex items-center justify-center transition-colors bg-header-foreground/10 ${TEAL_HOVER_10} group relative`} aria-label="Notifications">
+          <Bell className="h-5 w-5 text-header-foreground group-hover:text-header" />
           {unreadCount > 0 && (
             <Badge
               variant="destructive"
@@ -159,7 +213,7 @@ export const NotificationBell = () => {
           </div>
         </SheetHeader>
 
-        <ScrollArea className="h-[calc(100vh-120px)] mt-4">
+        <ScrollArea className="h-[calc(100vh-180px)] mt-4">
           {notifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Bell className="h-12 w-12 text-muted-foreground mb-4" />
@@ -173,8 +227,8 @@ export const NotificationBell = () => {
                   onClick={() => handleNotificationClick(notification)}
                   className={`w-full text-left p-4 rounded-lg border transition-colors ${
                     notification.is_read
-                      ? 'bg-background hover:bg-accent'
-                      : 'bg-accent/50 hover:bg-accent'
+                      ? `bg-background ${TEAL_HOVER_10}` // Read state: background with teal hover
+                      : TEAL_BG_20_HOVER_30 // Unread state: teal background with darker teal hover
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2 mb-1">

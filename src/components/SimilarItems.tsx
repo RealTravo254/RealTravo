@@ -60,25 +60,6 @@ export const SimilarItems = ({ currentItemId, itemType, location, country }: Sim
           .limit(6);
         if (error) throw error;
         setItems((data || []).map(item => ({ ...item, route, price: item.entry_fee })));
-      } else if (itemType === "attraction") {
-        route = "/attraction";
-        const { data, error } = await supabase
-          .from("attractions")
-          .select("id, location_name, country, photo_urls, gallery_images, description, price_adult")
-          .eq("approval_status", "approved")
-          .eq("is_hidden", false)
-          .neq("id", currentItemId)
-          .eq("country", country || "")
-          .limit(6);
-        if (error) throw error;
-        setItems((data || []).map(item => ({ 
-          ...item, 
-          route, 
-          name: item.location_name,
-          location: item.country,
-          image_url: item.gallery_images?.[0] || item.photo_urls?.[0] || "",
-          price: item.price_adult 
-        })));
       }
     } catch (error) {
       console.error("Error fetching similar items:", error);

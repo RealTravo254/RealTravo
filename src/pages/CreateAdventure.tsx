@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
-import { MobileBottomBar } from "@/components/MobileBottomBar";
 import { Footer } from "@/components/Footer";
+import { MobileBottomBar } from "@/components/MobileBottomBar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,7 +17,7 @@ import { registrationNumberSchema, descriptionSchema, approvalStatusSchema } fro
 import { CountrySelector } from "@/components/creation/CountrySelector";
 import { PageHeader } from "@/components/creation/PageHeader";
 import { PhoneInput } from "@/components/creation/PhoneInput";
-import { AutoVerifyEmail } from "@/components/creation/AutoVerifyEmail";
+import { EmailVerification } from "@/components/creation/EmailVerification";
 
 const CreateAdventure = () => {
   const navigate = useNavigate();
@@ -40,7 +40,9 @@ const CreateAdventure = () => {
     closingHours: "",
     entranceFeeType: "free",
     childPrice: "0",
-    adultPrice: "0"
+    adultPrice: "0",
+    latitude: null as number | null,
+    longitude: null as number | null
   });
   
   const [workingDays, setWorkingDays] = useState({
@@ -92,16 +94,21 @@ const CreateAdventure = () => {
         (position) => {
           const { latitude, longitude } = position.coords;
           const mapUrl = `https://www.google.com/maps?q=${latitude},${longitude}`;
-          setFormData({...formData, locationLink: mapUrl});
+          setFormData(prev => ({
+            ...prev, 
+            locationLink: mapUrl,
+            latitude: latitude,
+            longitude: longitude
+          }));
           toast({
             title: "Location Added",
-            description: "Your current location has been added to the map link.",
+            description: `Coordinates captured: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
           });
         },
         (error) => {
           toast({
             title: "Location Error",
-            description: "Unable to get your location. Please add the link manually.",
+            description: "Unable to get your location. Please try again.",
             variant: "destructive"
           });
         }
@@ -179,10 +186,10 @@ const CreateAdventure = () => {
       return;
     }
 
-    if (!formData.locationLink) {
+    if (!formData.latitude || !formData.longitude) {
       toast({
         title: "Location Required",
-        description: "Please click the button to access your current location",
+        description: "Please click the button to capture your location coordinates",
         variant: "destructive"
       });
       return;
@@ -283,8 +290,8 @@ const CreateAdventure = () => {
       const { error } = await supabase
         .from("adventure_places")
         .insert([{
-        name: formData.registrationName,
-        local_name: formData.localName || null,
+          name: formData.registrationName,
+          local_name: formData.localName || null,
           registration_number: formData.registrationNumber,
           location: formData.locationName,
           place: formData.place || formData.locationName,
@@ -293,6 +300,8 @@ const CreateAdventure = () => {
           email: formData.email || null,
           phone_numbers: formData.phoneNumber ? [formData.phoneNumber] : null,
           map_link: formData.locationLink || null,
+          latitude: formData.latitude,
+          longitude: formData.longitude,
           opening_hours: formData.openingHours || null,
           closing_hours: formData.closingHours || null,
           days_opened: selectedDays.length > 0 ? selectedDays : null,
@@ -349,7 +358,7 @@ const CreateAdventure = () => {
               <h3 className="text-lg font-semibold">Registration & Contact</h3>
               
               <div className="space-y-2">
-                <Label htmlFor="registrationName">Registration Name (as per government documentation) *</Label>
+                <Label htmlFor="registrationName">Registration Name (as per government documentation) </Label>
                 <Input
                   id="registrationName"
                   required
@@ -360,7 +369,7 @@ const CreateAdventure = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="registrationNumber">Registration Number *</Label>
+                <Label htmlFor="registrationNumber">Registration Number </Label>
                 <Input
                   id="registrationNumber"
                   required
@@ -371,7 +380,7 @@ const CreateAdventure = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="locationName">Location Name *</Label>
+                <Label htmlFor="locationName">Location Name </Label>
                 <div className="relative">
                   <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -386,7 +395,7 @@ const CreateAdventure = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="place">Place *</Label>
+                <Label htmlFor="place">Place</Label>
                 <div className="relative">
                   <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -411,7 +420,7 @@ const CreateAdventure = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="country">Country *</Label>
+                <Label htmlFor="country">Country </Label>
                 <CountrySelector
                   value={formData.country}
                   onChange={(value) => setFormData({...formData, country: value})}
@@ -419,7 +428,7 @@ const CreateAdventure = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="description">Description (100 words max) *</Label>
+                <Label htmlFor="description">Description (100 words max) </Label>
                 <Textarea
                   id="description"
                   required
@@ -430,7 +439,7 @@ const CreateAdventure = () => {
                 />
               </div>
 
-              <AutoVerifyEmail
+              <EmailVerification
                 email={formData.email}
                 onEmailChange={(email) => setFormData({...formData, email})}
                 isVerified={emailVerified}
@@ -438,7 +447,7 @@ const CreateAdventure = () => {
               />
 
               <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number *</Label>
+                <Label htmlFor="phone">Phone Number </Label>
                 <PhoneInput
                   value={formData.phoneNumber}
                   onChange={(value) => setFormData({...formData, phoneNumber: value})}
@@ -454,27 +463,29 @@ const CreateAdventure = () => {
               <h3 className="text-lg font-semibold">Operational Details</h3>
 
               <div className="space-y-2">
-                <Label htmlFor="locationLink">Location Link *</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="locationLink"
-                    required
-                    disabled
-                    value={formData.locationLink}
-                    placeholder="Click button to access your current location"
-                    className="cursor-not-allowed"
-                  />
-                  <Button type="button" variant="outline" onClick={getCurrentLocation} className="shrink-0">
-                    <MapPin className="h-4 w-4 mr-2" />
-                    Auto-Access My Location
+                <Label htmlFor="locationLink">Location Coordinates</Label>
+                <div className="flex flex-col gap-2">
+                  <Button type="button" variant="outline" onClick={getCurrentLocation} className="w-full sm:w-auto">
+                    <Navigation className="h-4 w-4 mr-2" />
+                    {formData.latitude ? 'Update My Location' : 'Auto-Detect My Location'}
                   </Button>
+                  {formData.latitude && formData.longitude && (
+                    <div className="flex items-center gap-2 p-2 bg-primary/10 rounded-md">
+                      <MapPin className="h-4 w-4 text-primary" />
+                      <span className="text-sm font-medium text-primary">
+                        📍 {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}
+                      </span>
+                    </div>
+                  )}
                 </div>
-                <p className="text-sm text-muted-foreground">Use the button to access your current location</p>
+                <p className="text-sm text-muted-foreground">
+                  {formData.latitude ? 'Location captured successfully' : 'Click the button to capture your current location coordinates'}
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="openingHours">Opening Hours *</Label>
+                  <Label htmlFor="openingHours">Opening Hours</Label>
                   <div className="relative">
                     <Clock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input
@@ -489,7 +500,7 @@ const CreateAdventure = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="closingHours">Closing Hours *</Label>
+                  <Label htmlFor="closingHours">Closing Hours </Label>
                   <div className="relative">
                     <Clock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input

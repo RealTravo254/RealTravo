@@ -24,16 +24,16 @@ interface SearchBarProps {
 }
 
 interface SearchResult {
-  id: string;
-  name: string;
-  type: "trip" | "hotel" | "adventure" | "attraction" | "event";
-  location?: string;
-  place?: string;
-  country?: string;
-  activities?: any;
-  facilities?: any;
-  date?: string;
-  image_url?: string;
+  id: string;
+  name: string;
+  type: "trip" | "hotel" | "adventure" | "attraction" | "event";
+  location?: string;
+  place?: string;
+  country?: string;
+  activities?: any;
+  facilities?: any;
+  date?: string;
+  image_url?: string;
 }
 
 const SEARCH_HISTORY_KEY = "search_history";
@@ -52,6 +52,7 @@ export const SearchBarWithSuggestions = ({ value, onChange, onSubmit, onSuggesti
   const [trendingSearches, setTrendingSearches] = useState<TrendingSearch[]>([]);
   const navigate = useNavigate();
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLDivElement>(null); // Ref for the div containing the Input/Search button
 
   // Load search history and trending searches from database
   useEffect(() => {
@@ -95,109 +96,101 @@ export const SearchBarWithSuggestions = ({ value, onChange, onSubmit, onSuggesti
     }
   }, [value, showSuggestions]);
 
-  const fetchSuggestions = async () => {
-    const queryValue = value.trim().toLowerCase();
+  const fetchSuggestions = async () => {
+    const queryValue = value.trim().toLowerCase();
 
-    try {
+    try {
       // Fetch all items - we'll filter client-side for activities/facilities
-      const [tripsData, eventsData, hotelsData, adventuresData, attractionsData] = await Promise.all([
+      const [tripsData, eventsData, hotelsData, adventuresData] = await Promise.all([
         supabase.from("trips").select("id, name, location, place, country, activities, date, image_url").eq("approval_status", "approved").eq("type", "trip").limit(50),
         supabase.from("trips").select("id, name, location, place, country, activities, date, image_url").eq("approval_status", "approved").eq("type", "event").limit(50),
         supabase.from("hotels").select("id, name, location, place, country, activities, facilities, image_url").eq("approval_status", "approved").limit(50),
-        supabase.from("adventure_places").select("id, name, location, place, country, activities, facilities, image_url").eq("approval_status", "approved").limit(50),
-        supabase.from("attractions").select("id, location_name, local_name, country, activities, facilities, photo_urls").eq("approval_status", "approved").limit(50)
+        supabase.from("adventure_places").select("id, name, location, place, country, activities, facilities, image_url").eq("approval_status", "approved").limit(50)
       ]);
 
       let combined: SearchResult[] = [
         ...(tripsData.data || []).map((item) => ({ ...item, type: "trip" as const })),
         ...(eventsData.data || []).map((item) => ({ ...item, type: "event" as const })),
         ...(hotelsData.data || []).map((item) => ({ ...item, type: "hotel" as const })),
-        ...(adventuresData.data || []).map((item) => ({ ...item, type: "adventure" as const })),
-        ...(attractionsData.data || []).map((item) => ({ 
-          ...item, 
-          type: "attraction" as const, 
-          name: item.location_name,
-          location: item.local_name || item.location_name,
-          image_url: item.photo_urls?.[0] || undefined
-        }))
+        ...(adventuresData.data || []).map((item) => ({ ...item, type: "adventure" as const }))
       ];
 
-      // Filter by search query (including activities and facilities)
-      if (queryValue) {
-        combined = combined.filter(item => {
-          // Check basic fields
-          const basicMatch = 
-            item.name?.toLowerCase().includes(queryValue) ||
-            item.location?.toLowerCase().includes(queryValue) ||
-            item.place?.toLowerCase().includes(queryValue) ||
-            item.country?.toLowerCase().includes(queryValue);
-          
-          if (basicMatch) return true;
-          
-          // Check activities
-          if (item.activities) {
-            const activitiesMatch = checkJsonArrayMatch(item.activities, queryValue);
-            if (activitiesMatch) return true;
-          }
-          
-          // Check facilities
-          if (item.facilities) {
-            const facilitiesMatch = checkJsonArrayMatch(item.facilities, queryValue);
-            if (facilitiesMatch) return true;
-          }
-          
-          return false;
-        });
-      }
+      // Filter by search query (including activities and facilities)
+      if (queryValue) {
+        combined = combined.filter(item => {
+          // Check basic fields
+          const basicMatch = 
+            item.name?.toLowerCase().includes(queryValue) ||
+            item.location?.toLowerCase().includes(queryValue) ||
+            item.place?.toLowerCase().includes(queryValue) ||
+            item.country?.toLowerCase().includes(queryValue);
+          
+          if (basicMatch) return true;
+          
+          // Check activities
+          if (item.activities) {
+            const activitiesMatch = checkJsonArrayMatch(item.activities, queryValue);
+            if (activitiesMatch) return true;
+          }
+          
+          // Check facilities
+          if (item.facilities) {
+            const facilitiesMatch = checkJsonArrayMatch(item.facilities, queryValue);
+            if (facilitiesMatch) return true;
+          }
+          
+          return false;
+        });
+      }
 
-      // Sort alphabetically by name
-      combined.sort((a, b) => a.name.localeCompare(b.name));
+      // Sort alphabetically by name
+      combined.sort((a, b) => a.name.localeCompare(b.name));
 
-      setSuggestions(combined.slice(0, 20));
-    } catch (error) {
-      console.error("Error fetching suggestions:", error);
-    }
-  };
+      setSuggestions(combined.slice(0, 20));
+    } catch (error) {
+      console.error("Error fetching suggestions:", error);
+    }
+  };
 
-  const checkJsonArrayMatch = (data: any, query: string): boolean => {
-    if (Array.isArray(data)) {
-      return data.some(item => {
-        if (typeof item === 'string') {
-          return item.toLowerCase().includes(query);
-        }
-        if (typeof item === 'object' && item !== null) {
-          return item.name?.toLowerCase().includes(query);
-        }
-        return false;
-      });
-    }
-    if (typeof data === 'object' && data !== null) {
-      return Object.values(data).some(val => 
-        typeof val === 'string' && val.toLowerCase().includes(query)
-      );
-    }
-    return false;
-  };
+  const checkJsonArrayMatch = (data: any, query: string): boolean => {
+    if (Array.isArray(data)) {
+      return data.some(item => {
+        if (typeof item === 'string') {
+          return item.toLowerCase().includes(query);
+        }
+        if (typeof item === 'object' && item !== null) {
+          return item.name?.toLowerCase().includes(query);
+        }
+        return false;
+      });
+    }
+    if (typeof data === 'object' && data !== null) {
+      return Object.values(data).some(val => 
+        typeof val === 'string' && val.toLowerCase().includes(query)
+      );
+    }
+    return false;
+  };
 
-  const getActivitiesText = (activities: any) => {
-    const items: string[] = [];
-    
-    // Get activities only (no facilities)
-    if (activities) {
-      if (Array.isArray(activities)) {
-        activities.forEach(item => {
-          const name = typeof item === 'object' && item.name ? item.name : (typeof item === 'string' ? item : null);
-          if (name && items.length < 3) items.push(name);
-        });
-      } else if (typeof activities === "object") {
-        Object.values(activities).forEach(val => {
-          if (typeof val === 'string' && val && items.length < 3) items.push(val);
-        });
-      }
-    }
-    
-    return items.slice(0, 3).join(" • ");
-  };
+  const getActivitiesText = (activities: any) => {
+    const items: string[] = [];
+    
+    // Get activities only (no facilities)
+    if (activities) {
+      if (Array.isArray(activities)) {
+        activities.forEach(item => {
+          const name = typeof item === 'object' && item.name ? item.name : (typeof item === 'string' ? item : null);
+          if (name && items.length < 3) items.push(name);
+        });
+      } else if (typeof activities === "object") {
+        Object.values(activities).forEach(val => {
+          if (typeof val === 'string' && val && items.length < 3) items.push(val);
+        });
+      }
+    }
+    
+    return items.slice(0, 3).join(" • ");
+  };
 
   const saveToHistory = async (query: string) => {
     const trimmedQuery = query.trim();
@@ -303,10 +296,21 @@ export const SearchBarWithSuggestions = ({ value, onChange, onSubmit, onSuggesti
         return Plane;
     }
   };
+    
+  // Calculate the top position for the fixed suggestion box in mobile view
+  const getSuggestionTopStyle = (): React.CSSProperties => {
+    if (!inputRef.current) return {};
+    
+    const inputRect = inputRef.current.getBoundingClientRect();
+    // For fixed position, top is the distance from the top of the viewport
+    const top = inputRect.bottom;
+    
+    return { top: `${top}px` };
+  };
 
   return (
     <div ref={wrapperRef} className="relative w-full mx-auto">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2" ref={inputRef}>
         {showBackButton && (
           <Button
             variant="ghost"
@@ -332,11 +336,13 @@ export const SearchBarWithSuggestions = ({ value, onChange, onSubmit, onSuggesti
               setShowSuggestions(true);
               onFocus?.();
             }}
-            onBlur={onBlur}
-            // Input border focus set to Teal
-            className="pl-10 md:pl-12 pr-20 md:pr-24 h-10 md:h-14 text-sm md:text-lg rounded-full border-2 shadow-md"
-            style={{ borderColor: showSuggestions ? TEAL_COLOR : undefined }}
-          />
+            // The original onBlur is called inside the useEffect for click outside
+            // We remove it here to prevent immediate hiding on focus shift within the component.
+            // onBlur={onBlur} 
+            // Input border focus set to Teal
+            className="pl-10 md:pl-12 pr-20 md:pr-24 h-10 md:h-14 text-sm md:text-lg rounded-full border-2 shadow-md"
+            style={{ borderColor: showSuggestions ? TEAL_COLOR : undefined }}
+          />
           <Button
             onClick={() => {
               saveToHistory(value);
@@ -354,8 +360,13 @@ export const SearchBarWithSuggestions = ({ value, onChange, onSubmit, onSuggesti
         </div>
       </div>
 
-      {showSuggestions && (
-        <div className="fixed md:absolute top-auto md:top-full left-0 right-0 mt-0 md:mt-2 bg-card border-t md:border rounded-none md:rounded-lg shadow-lg max-h-[60vh] md:max-h-96 overflow-y-auto z-[150]" style={{ top: showBackButton ? 'calc(var(--header-height, 64px) + 60px)' : 'calc(var(--header-height, 64px) + 60px)' }}>
+      {showSuggestions && (
+        <div 
+            className="fixed md:absolute left-0 right-0 md:left-0 md:right-0 md:top-full bg-card border border-border rounded-b-lg shadow-lg max-h-[60vh] md:max-h-96 overflow-y-auto z-[9999]"
+            style={{ 
+              top: inputRef.current ? `${inputRef.current.getBoundingClientRect().bottom}px` : '100%',
+            }}
+        >
           {/* Show search history and trending when no value */}
           {!value.trim() && (
             <div>
@@ -431,69 +442,69 @@ export const SearchBarWithSuggestions = ({ value, onChange, onSubmit, onSuggesti
                 const TypeIcon = getTypeIcon(result.type);
                 const formattedDate = result.date ? new Date(result.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : null;
                 return (
-                  <button
-                    key={result.id}
-                    onClick={() => handleSuggestionClick(result)}
-                    className="w-full px-4 py-3 flex gap-3 hover:bg-accent transition-colors text-left border-b last:border-b-0"
-                  >
-                    {/* Image with category badge */}
-                    <div className="relative w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden">
-                      {result.image_url ? (
-                        <img 
-                          src={result.image_url} 
-                          alt={result.name}
-                          loading="lazy"
-                          decoding="async"
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-muted flex items-center justify-center">
-                          <TypeIcon className="h-8 w-8 text-muted-foreground" />
-                        </div>
-                      )}
-                      {/* Badge background set to Teal */}
-                      <Badge 
-                        className="absolute top-1 left-1 text-primary-foreground text-[0.65rem] px-1.5 py-0.5 font-bold"
-                        style={{ backgroundColor: TEAL_COLOR }}
-                      >
-                        {getTypeLabel(result.type).toUpperCase()}
-                      </Badge>
-                    </div>
+                  <button
+                    key={result.id}
+                    onClick={() => handleSuggestionClick(result)}
+                    className="w-full px-4 py-3 flex gap-3 hover:bg-accent transition-colors text-left border-b last:border-b-0"
+                  >
+                    {/* Image with category badge */}
+                    <div className="relative w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden">
+                      {result.image_url ? (
+                        <img 
+                          src={result.image_url} 
+                          alt={result.name}
+                          loading="lazy"
+                          decoding="async"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-muted flex items-center justify-center">
+                          <TypeIcon className="h-8 w-8 text-muted-foreground" />
+                        </div>
+                      )}
+                      {/* Badge background set to Teal */}
+                      <Badge 
+                        className="absolute top-1 left-1 text-primary-foreground text-[0.65rem] px-1.5 py-0.5 font-bold"
+                        style={{ backgroundColor: TEAL_COLOR }}
+                      >
+                        {getTypeLabel(result.type).toUpperCase()}
+                      </Badge>
+                    </div>
 
-                    {/* Content */}
-                    <div className="flex-1 flex flex-col gap-1">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2 flex-1">
-                          {/* Type icon color set to Teal */}
-                          <TypeIcon className="h-5 w-5 flex-shrink-0" style={{ color: TEAL_COLOR }} />
-                          <p className="font-semibold text-base">{result.name}</p>
-                        </div>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {result.location && `${result.location}, `}{result.place && `${result.place}, `}{result.country}
-                      </p>
-                      {formattedDate && (result.type === "trip" || result.type === "event") && (
-                        <div 
-                          className="flex items-center gap-1 text-xs font-medium" 
-                          // Date text color set to Teal
-                          style={{ color: TEAL_COLOR }}
-                        >
-                          <Calendar className="h-3 w-3" />
-                          <span>{formattedDate}</span>
-                        </div>
-                      )}
-                    </div>
+                    {/* Content */}
+                    <div className="flex-1 flex flex-col gap-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-1">
+                          {/* Type icon color set to Teal */}
+                          <TypeIcon className="h-5 w-5 flex-shrink-0" style={{ color: TEAL_COLOR }} />
+                          <p className="font-semibold text-base">{result.name}</p>
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {result.location && `${result.location}, `}{result.place && `${result.place}, `}{result.country}
+                      </p>
+                      {formattedDate && (result.type === "trip" || result.type === "event") && (
+                        <div 
+                          className="flex items-center gap-1 text-xs font-medium" 
+                          // Date text color set to Teal
+                          style={{ color: TEAL_COLOR }}
+                        >
+                          <Calendar className="h-3 w-3" />
+                          <span>{formattedDate}</span>
+                        </div>
+                      )}
+                    </div>
 
-                    {/* Activities on right side */}
-                    {getActivitiesText(result.activities) && (
-                      <div className="flex flex-col justify-center gap-1 min-w-[80px] max-w-[100px] text-right">
-                        <p className="text-[10px] font-medium text-muted-foreground uppercase">Activities</p>
-                        <p className="text-xs" style={{ color: TEAL_COLOR }}>
-                          {getActivitiesText(result.activities)}
-                        </p>
-                      </div>
-                    )}
-                  </button>
+                    {/* Activities on right side */}
+                    {getActivitiesText(result.activities) && (
+                      <div className="flex flex-col justify-center gap-1 min-w-[80px] max-w-[100px] text-right">
+                        <p className="text-[10px] font-medium text-muted-foreground uppercase">Activities</p>
+                        <p className="text-xs" style={{ color: TEAL_COLOR }}>
+                          {getActivitiesText(result.activities)}
+                        </p>
+                      </div>
+                    )}
+                  </button>
                 );
               })}
             </>

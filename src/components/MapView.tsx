@@ -20,74 +20,85 @@ export const MapView = ({ listings, onMarkerClick }: MapViewProps) => {
   useEffect(() => {
     if (!mapContainer.current || !listings.length) return;
 
-    // Get Mapbox token from environment or use placeholder
-    const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN || 'YOUR_MAPBOX_TOKEN_HERE';
-    
-    if (mapboxToken === 'YOUR_MAPBOX_TOKEN_HERE') {
-      console.warn('Please add your Mapbox token to Supabase Edge Function Secrets');
-    }
+    let rafId: number;
+    let mapInstance: mapboxgl.Map | null = null;
 
-    mapboxgl.accessToken = mapboxToken;
+    // Defer map initialization to avoid forced reflow during initial render
+    rafId = requestAnimationFrame(() => {
+      if (!mapContainer.current) return;
 
-    // Calculate center based on listings
-    const centerLat = listings.reduce((sum, item) => sum + (item.latitude || 0), 0) / listings.length || 0;
-    const centerLng = listings.reduce((sum, item) => sum + (item.longitude || 0), 0) / listings.length || 0;
+      // Get Mapbox token from environment or use placeholder
+      const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN || 'YOUR_MAPBOX_TOKEN_HERE';
+      
+      if (mapboxToken === 'YOUR_MAPBOX_TOKEN_HERE') {
+        console.warn('Please add your Mapbox token to Supabase Edge Function Secrets');
+      }
 
-    // Initialize map
-    map.current = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/streets-v12',
-      center: [centerLng || 36.8219, centerLat || -1.2921], // Default to Nairobi
-      zoom: 6,
-    });
+      mapboxgl.accessToken = mapboxToken;
 
-    // Add navigation controls
-    map.current.addControl(
-      new mapboxgl.NavigationControl({
-        visualizePitch: true,
-      }),
-      'top-right'
-    );
+      // Calculate center based on listings
+      const centerLat = listings.reduce((sum, item) => sum + (item.latitude || 0), 0) / listings.length || 0;
+      const centerLng = listings.reduce((sum, item) => sum + (item.longitude || 0), 0) / listings.length || 0;
 
-    // Clear existing markers
-    markers.current.forEach(marker => marker.remove());
-    markers.current = [];
-
-    // Add markers for each listing
-    listings.forEach((listing) => {
-      // Use latitude/longitude if available, otherwise skip
-      const lat = listing.latitude || 0;
-      const lng = listing.longitude || 0;
-
-      if (!lat || !lng) return;
-
-      // Create custom marker element
-      const el = document.createElement('div');
-      el.className = 'custom-marker';
-      el.style.backgroundImage = 'url(https://docs.mapbox.com/mapbox-gl-js/assets/custom_marker.png)';
-      el.style.width = '30px';
-      el.style.height = '40px';
-      el.style.backgroundSize = 'cover';
-      el.style.cursor = 'pointer';
-
-      // Create marker
-      const marker = new mapboxgl.Marker(el)
-        .setLngLat([lng, lat])
-        .addTo(map.current!);
-
-      // Add click event
-      el.addEventListener('click', () => {
-        setSelectedListing(listing);
-        if (onMarkerClick) {
-          onMarkerClick(listing);
-        }
+      // Initialize map
+      mapInstance = new mapboxgl.Map({
+        container: mapContainer.current,
+        style: 'mapbox://styles/mapbox/streets-v12',
+        center: [centerLng || 36.8219, centerLat || -1.2921], // Default to Nairobi
+        zoom: 6,
       });
 
-      markers.current.push(marker);
+      map.current = mapInstance;
+
+      // Add navigation controls
+      mapInstance.addControl(
+        new mapboxgl.NavigationControl({
+          visualizePitch: true,
+        }),
+        'top-right'
+      );
+
+      // Clear existing markers
+      markers.current.forEach(marker => marker.remove());
+      markers.current = [];
+
+      // Add markers for each listing
+      listings.forEach((listing) => {
+        // Use latitude/longitude if available, otherwise skip
+        const lat = listing.latitude || 0;
+        const lng = listing.longitude || 0;
+
+        if (!lat || !lng) return;
+
+        // Create custom marker element
+        const el = document.createElement('div');
+        el.className = 'custom-marker';
+        el.style.backgroundImage = 'url(https://docs.mapbox.com/mapbox-gl-js/assets/custom_marker.png)';
+        el.style.width = '30px';
+        el.style.height = '40px';
+        el.style.backgroundSize = 'cover';
+        el.style.cursor = 'pointer';
+
+        // Create marker
+        const marker = new mapboxgl.Marker(el)
+          .setLngLat([lng, lat])
+          .addTo(mapInstance!);
+
+        // Add click event
+        el.addEventListener('click', () => {
+          setSelectedListing(listing);
+          if (onMarkerClick) {
+            onMarkerClick(listing);
+          }
+        });
+
+        markers.current.push(marker);
+      });
     });
 
     // Cleanup
     return () => {
+      cancelAnimationFrame(rafId);
       markers.current.forEach(marker => marker.remove());
       map.current?.remove();
     };

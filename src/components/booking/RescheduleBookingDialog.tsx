@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { supabase } from "@/integrations/supabase/client";
-import { format, differenceInHours, isBefore, startOfDay, addDays } from "date-fns";
+import { format, differenceInHours, isBefore, startOfDay } from "date-fns";
 import { toast } from "sonner";
 import { CalendarIcon, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -36,9 +36,11 @@ export function RescheduleBookingDialog({
   const [isEligible, setIsEligible] = useState(true);
   const [eligibilityMessage, setEligibilityMessage] = useState("");
   const [isFixedDate, setIsFixedDate] = useState(false);
+  const [isNewSchedule, setIsNewSchedule] = useState(false);
 
   useEffect(() => {
     if (open) {
+      setIsNewSchedule(!booking.visit_date);
       checkEligibility();
       loadWorkingDays();
       loadBookedDates();
@@ -46,7 +48,7 @@ export function RescheduleBookingDialog({
   }, [open, booking]);
 
   const checkEligibility = async () => {
-    // Check if booking type is event or fixed-date trip
+    // Check if booking type is event - events with fixed dates cannot be rescheduled
     if (booking.booking_type === 'event') {
       setIsEligible(false);
       setEligibilityMessage("Events with fixed dates cannot be rescheduled.");
@@ -69,7 +71,7 @@ export function RescheduleBookingDialog({
       }
     }
 
-    // Check 48-hour constraint
+    // Check 48-hour constraint only if there's an existing visit date
     if (booking.visit_date) {
       const bookingDate = new Date(booking.visit_date);
       const now = new Date();
@@ -113,12 +115,8 @@ export function RescheduleBookingDialog({
           .single();
         data = result.data;
       } else if (booking.booking_type === 'attraction') {
-        const result = await supabase
-          .from('attractions')
-          .select('days_opened')
-          .eq('id', booking.item_id)
-          .single();
-        data = result.data;
+        // Attractions table doesn't exist - use empty working days
+        data = null;
       }
       
       if (data?.days_opened && Array.isArray(data.days_opened)) {
@@ -190,8 +188,8 @@ export function RescheduleBookingDialog({
   };
 
   const handleReschedule = async () => {
-    if (!selectedDate || !booking.visit_date) {
-      toast.error("Please select a new date");
+    if (!selectedDate) {
+      toast.error("Please select a date");
       return;
     }
 
@@ -226,17 +224,19 @@ export function RescheduleBookingDialog({
 
       if (updateError) throw updateError;
 
-      // Create reschedule log
-      const { error: logError } = await supabase
-        .from('reschedule_log')
-        .insert({
-          booking_id: booking.id,
-          user_id: user.id,
-          old_date: booking.visit_date,
-          new_date: newDateStr
-        });
+      // Create reschedule log only if it was a reschedule (had previous date)
+      if (booking.visit_date) {
+        const { error: logError } = await supabase
+          .from('reschedule_log')
+          .insert({
+            booking_id: booking.id,
+            user_id: user.id,
+            old_date: booking.visit_date,
+            new_date: newDateStr
+          });
 
-      if (logError) throw logError;
+        if (logError) throw logError;
+      }
 
       // Get item name for notification
       let itemName = booking.booking_details.trip_name || 
@@ -246,11 +246,15 @@ export function RescheduleBookingDialog({
                      'Your booking';
 
       // Create notification for user
+      const notificationMessage = isNewSchedule 
+        ? `Your visit date for ${itemName} has been set to ${format(selectedDate, 'PPP')}.`
+        : `Your booking for ${itemName} has been successfully moved to ${format(selectedDate, 'PPP')}.`;
+
       await supabase.from('notifications').insert({
         user_id: user.id,
-        type: 'booking_rescheduled',
-        title: 'Booking Rescheduled',
-        message: `Your booking for ${itemName} has been successfully moved to ${format(selectedDate, 'PPP')}.`,
+        type: isNewSchedule ? 'visit_date_set' : 'booking_rescheduled',
+        title: isNewSchedule ? 'Visit Date Set' : 'Booking Rescheduled',
+        message: notificationMessage,
         data: {
           booking_id: booking.id,
           old_date: booking.visit_date,
@@ -270,16 +274,20 @@ export function RescheduleBookingDialog({
         const { data } = await supabase.from('adventure_places').select('created_by').eq('id', booking.item_id).single();
         creatorId = data?.created_by;
       } else if (booking.booking_type === 'attraction') {
-        const { data } = await supabase.from('attractions').select('created_by').eq('id', booking.item_id).single();
-        creatorId = data?.created_by;
+        // Attractions table doesn't exist - skip
+        creatorId = null;
       }
 
       if (creatorId) {
+        const hostMessage = isNewSchedule
+          ? `Booking #${booking.id.substring(0, 8)} for ${itemName} has a visit date set to ${format(selectedDate, 'PPP')}.`
+          : `Booking #${booking.id.substring(0, 8)} for ${itemName} has been rescheduled to ${format(selectedDate, 'PPP')} by the user.`;
+
         await supabase.from('notifications').insert({
           user_id: creatorId,
-          type: 'booking_rescheduled_host',
-          title: 'Booking Date Changed',
-          message: `Booking #${booking.id.substring(0, 8)} for ${itemName} has been rescheduled to ${format(selectedDate, 'PPP')} by the user.`,
+          type: isNewSchedule ? 'visit_date_set_host' : 'booking_rescheduled_host',
+          title: isNewSchedule ? 'Visit Date Set' : 'Booking Date Changed',
+          message: hostMessage,
           data: {
             booking_id: booking.id,
             old_date: booking.visit_date,
@@ -288,12 +296,12 @@ export function RescheduleBookingDialog({
         });
       }
 
-      toast.success("Booking rescheduled successfully");
+      toast.success(isNewSchedule ? "Visit date set successfully" : "Booking rescheduled successfully");
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
       console.error('Reschedule error:', error);
-      toast.error(error.message || "Failed to reschedule booking");
+      toast.error(error.message || "Failed to update booking");
     } finally {
       setLoading(false);
     }
@@ -308,9 +316,11 @@ export function RescheduleBookingDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Reschedule Booking</DialogTitle>
+          <DialogTitle>{isNewSchedule ? 'Set Visit Date' : 'Reschedule Booking'}</DialogTitle>
           <DialogDescription>
-            Select a new date for your booking. Changes must be made at least 48 hours before your scheduled date.
+            {isNewSchedule 
+              ? 'Select a visit date for your booking. You must schedule at least 48 hours in advance.'
+              : 'Select a new date for your booking. Changes must be made at least 48 hours before your scheduled date.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -318,29 +328,31 @@ export function RescheduleBookingDialog({
           <div className="flex items-start gap-3 p-4 bg-destructive/10 rounded-lg">
             <AlertCircle className="h-5 w-5 text-destructive mt-0.5" />
             <div>
-              <p className="font-medium text-destructive">Cannot Reschedule</p>
+              <p className="font-medium text-destructive">Cannot {isNewSchedule ? 'Schedule' : 'Reschedule'}</p>
               <p className="text-sm text-muted-foreground mt-1">{eligibilityMessage}</p>
             </div>
           </div>
         ) : (
           <div className="space-y-6">
             <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm">
-                <CalendarIcon className="h-4 w-4" />
-                <span className="font-medium">Current Date:</span>
-                <span>{booking.visit_date ? format(new Date(booking.visit_date), 'PPP') : 'Not set'}</span>
-              </div>
+              {booking.visit_date && (
+                <div className="flex items-center gap-2 text-sm">
+                  <CalendarIcon className="h-4 w-4" />
+                  <span className="font-medium">Current Date:</span>
+                  <span>{format(new Date(booking.visit_date), 'PPP')}</span>
+                </div>
+              )}
               {selectedDate && (
                 <div className="flex items-center gap-2 text-sm text-primary">
                   <CalendarIcon className="h-4 w-4" />
-                  <span className="font-medium">New Date:</span>
+                  <span className="font-medium">{isNewSchedule ? 'Selected Date:' : 'New Date:'}</span>
                   <span>{format(selectedDate, 'PPP')}</span>
                 </div>
               )}
             </div>
 
             <div className="border rounded-lg p-4">
-              <p className="text-sm font-medium mb-3">Select New Date</p>
+              <p className="text-sm font-medium mb-3">Select {isNewSchedule ? 'Visit' : 'New'} Date</p>
               <Calendar
                 mode="single"
                 selected={selectedDate}
@@ -350,21 +362,23 @@ export function RescheduleBookingDialog({
               />
               <div className="mt-4 space-y-2 text-xs text-muted-foreground">
                 <p>• Dates in gray are not available (non-working days or fully booked)</p>
-                <p>• You can only reschedule up to 48 hours before your booking</p>
+                <p>• You must schedule at least 48 hours in advance</p>
                 {workingDays.length > 0 && (
                   <p>• Working days: {workingDays.join(', ')}</p>
                 )}
               </div>
             </div>
 
-            {selectedDate && booking.visit_date && (
+            {selectedDate && (
               <div className="p-4 bg-primary/5 rounded-lg space-y-2">
-                <p className="font-medium">Confirm Reschedule</p>
+                <p className="font-medium">Confirm {isNewSchedule ? 'Visit Date' : 'Reschedule'}</p>
+                {booking.visit_date && (
+                  <p className="text-sm">
+                    From: <span className="font-medium">{format(new Date(booking.visit_date), 'PPP')}</span>
+                  </p>
+                )}
                 <p className="text-sm">
-                  From: <span className="font-medium">{format(new Date(booking.visit_date), 'PPP')}</span>
-                </p>
-                <p className="text-sm">
-                  To: <span className="font-medium text-primary">{format(selectedDate, 'PPP')}</span>
+                  {isNewSchedule ? 'Date:' : 'To:'} <span className="font-medium text-primary">{format(selectedDate, 'PPP')}</span>
                 </p>
               </div>
             )}
@@ -374,7 +388,7 @@ export function RescheduleBookingDialog({
                 Cancel
               </Button>
               <Button onClick={handleReschedule} disabled={!selectedDate || loading}>
-                {loading ? "Rescheduling..." : "Confirm Reschedule"}
+                {loading ? "Processing..." : (isNewSchedule ? "Confirm Date" : "Confirm Reschedule")}
               </Button>
             </div>
           </div>

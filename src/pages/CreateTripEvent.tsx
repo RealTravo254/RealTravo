@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
-import { MobileBottomBar } from "@/components/MobileBottomBar";
 import { Footer } from "@/components/Footer";
+import { MobileBottomBar } from "@/components/MobileBottomBar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,7 +17,7 @@ import { CountrySelector } from "@/components/creation/CountrySelector";
 import { PageHeader } from "@/components/creation/PageHeader";
 import { PhoneInput } from "@/components/creation/PhoneInput";
 import { approvalStatusSchema } from "@/lib/validation";
-import { AutoVerifyEmail } from "@/components/creation/AutoVerifyEmail";
+import { EmailVerification } from "@/components/creation/EmailVerification";
 
 const CreateTripEvent = () => {
   const navigate = useNavigate();
@@ -245,13 +245,13 @@ const CreateTripEvent = () => {
           title="Create Tour" 
           backgroundImage="https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=1200"
         />
-        <h1 className="md:hidden text-3xl font-bold mb-8">Create Tour</h1>
+        <h1 className="md:hidden text-3xl font-bold mb-8">Create Trip,event or a sport activities</h1>
         
         <Card className="p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Trip/Event Type Selector */}
             <div className="space-y-2">
-              <Label>Listing Type *</Label>
+              <Label>Listing Type </Label>
               <div className="flex gap-4">
                 <label className="flex items-center space-x-2 cursor-pointer">
                   <input
@@ -262,7 +262,7 @@ const CreateTripEvent = () => {
                     onChange={(e) => setFormData({...formData, type: e.target.value as "trip" | "event"})}
                     className="w-4 h-4"
                   />
-                  <span>Trip (Flexible Dates)</span>
+                  <span>Trip (Flexible Dates or fixed)</span>
                 </label>
                 <label className="flex items-center space-x-2 cursor-pointer">
                   <input
@@ -273,14 +273,14 @@ const CreateTripEvent = () => {
                     onChange={(e) => setFormData({...formData, type: e.target.value as "trip" | "event", is_custom_date: false})}
                     className="w-4 h-4"
                   />
-                  <span>Event (Fixed Date)</span>
+                  <span>Event or Sports (Fixed Date)</span>
                 </label>
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label htmlFor="name">Name *</Label>
+                <Label htmlFor="name">Name </Label>
                 <Input
                   id="name"
                   required
@@ -291,7 +291,7 @@ const CreateTripEvent = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="country">Country *</Label>
+                <Label htmlFor="country">Country </Label>
                 <CountrySelector
                   value={formData.country}
                   onChange={(value) => setFormData({...formData, country: value})}
@@ -299,7 +299,7 @@ const CreateTripEvent = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="place">Place *</Label>
+                <Label htmlFor="place">Place </Label>
                 <div className="relative">
                   <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -314,7 +314,7 @@ const CreateTripEvent = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="location">Location Details *</Label>
+                <Label htmlFor="location">Location Details</Label>
                 <Input
                   id="location"
                   required
@@ -363,7 +363,7 @@ const CreateTripEvent = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="price">Price (Adult) *</Label>
+                <Label htmlFor="price">Price (Adult)</Label>
                 <div className="relative">
                   <DollarSign className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -380,7 +380,7 @@ const CreateTripEvent = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="price_child">Price (Child) *</Label>
+                <Label htmlFor="price_child">Price (Child) </Label>
                 <div className="relative">
                   <DollarSign className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -397,7 +397,7 @@ const CreateTripEvent = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="available_tickets">Available Tickets *</Label>
+                <Label htmlFor="available_tickets">Available Tickets </Label>
                 <div className="relative">
                   <Users className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -412,7 +412,7 @@ const CreateTripEvent = () => {
                 </div>
               </div>
 
-              <AutoVerifyEmail
+              <EmailVerification
                 email={formData.email}
                 onEmailChange={(email) => setFormData({...formData, email})}
                 isVerified={emailVerified}
@@ -420,7 +420,7 @@ const CreateTripEvent = () => {
               />
 
               <div className="space-y-2">
-                <Label htmlFor="phone_number">Contact Phone *</Label>
+                <Label htmlFor="phone_number">Contact Phone </Label>
                 <PhoneInput
                   value={formData.phone_number}
                   onChange={(value) => setFormData({...formData, phone_number: value})}
@@ -432,7 +432,7 @@ const CreateTripEvent = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description">Description *</Label>
+              <Label htmlFor="description">Description </Label>
               <Textarea
                 id="description"
                 required
@@ -444,7 +444,7 @@ const CreateTripEvent = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="map_link">Map Location Link *</Label>
+              <Label htmlFor="map_link">Map Location Link </Label>
               <div className="flex gap-2">
                 <Input
                   id="map_link"
@@ -462,7 +462,7 @@ const CreateTripEvent = () => {
             </div>
 
             <div className="space-y-2">
-              <Label>Gallery Images (Max 5) *</Label>
+              <Label>Gallery Images (Max 5) </Label>
               <Label htmlFor="gallery-images-trip" className="cursor-pointer">
                 <div className="border-2 border-dashed rounded-lg p-6 text-center hover:bg-accent/50 transition-colors">
                   <div className="mx-auto h-12 w-12 text-muted-foreground mb-2">📁</div>

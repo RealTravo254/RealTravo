@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { MobileBottomBar } from "@/components/MobileBottomBar";
-
 import { SearchBarWithSuggestions } from "@/components/SearchBarWithSuggestions";
 import { ListingCard } from "@/components/ListingCard";
 import { FilterBar } from "@/components/FilterBar";
@@ -12,25 +11,49 @@ import { useToast } from "@/hooks/use-toast";
 import { getUserId } from "@/lib/sessionManager";
 import { cn } from "@/lib/utils";
 import { useSavedItems } from "@/hooks/useSavedItems";
-
+import { useGeolocation, calculateDistance } from "@/hooks/useGeolocation";
 const CategoryDetail = () => {
-  const { category } = useParams<{ category: string }>();
+  const {
+    category
+  } = useParams<{
+    category: string;
+  }>();
   const [searchQuery, setSearchQuery] = useState("");
   const [items, setItems] = useState<any[]>([]);
   const [filteredItems, setFilteredItems] = useState<any[]>([]);
-  const { savedItems, handleSave } = useSavedItems();
+  const {
+    savedItems,
+    handleSave
+  } = useSavedItems();
   const [loading, setLoading] = useState(true);
   const [hasMore, setHasMore] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [bookingStats, setBookingStats] = useState<Map<string, number>>(new Map());
-  const { toast } = useToast();
+  const {
+    toast
+  } = useToast();
+  const { position, requestLocation } = useGeolocation();
+  
+  // Request location on first user interaction
+  useEffect(() => {
+    const handleInteraction = () => {
+      requestLocation();
+      window.removeEventListener('scroll', handleInteraction);
+      window.removeEventListener('click', handleInteraction);
+    };
+    window.addEventListener('scroll', handleInteraction, { once: true });
+    window.addEventListener('click', handleInteraction, { once: true });
+    return () => {
+      window.removeEventListener('scroll', handleInteraction);
+      window.removeEventListener('click', handleInteraction);
+    };
+  }, [requestLocation]);
   const [isSticky, setIsSticky] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
   const [isSearchVisible, setIsSearchVisible] = useState(true);
   const [showSearchIcon, setShowSearchIcon] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
-
   const categoryConfig: {
     [key: string]: {
       title: string;
@@ -66,9 +89,7 @@ const CategoryDetail = () => {
       type: "ADVENTURE PLACE"
     }
   };
-
   const config = category ? categoryConfig[category] : null;
-
   useEffect(() => {
     const initializeData = async () => {
       const uid = await getUserId();
@@ -82,23 +103,18 @@ const CategoryDetail = () => {
   useEffect(() => {
     const handleScroll = () => {
       if (loading || !hasMore) return;
-      
       const scrollHeight = document.documentElement.scrollHeight;
       const scrollTop = document.documentElement.scrollTop;
       const clientHeight = document.documentElement.clientHeight;
-      
       if (scrollTop + clientHeight >= scrollHeight - 500) {
         loadMore();
       }
     };
-
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, [loading, hasMore, items.length]);
-
   const loadMore = async () => {
     if (loading || !hasMore) return;
-    
     setLoading(true);
     const moreData = await fetchData(items.length, 20);
     if (moreData.length > 0) {
@@ -108,16 +124,13 @@ const CategoryDetail = () => {
     }
     setLoading(false);
   };
-
   useEffect(() => {
-    setFilteredItems(items);
-  }, [items]);
-
+    setFilteredItems(getSortedItems(items));
+  }, [items, position]);
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
       const searchBarHeight = searchRef.current?.offsetHeight || 0;
-      
       if (currentScrollY > searchBarHeight + 100) {
         setIsSearchVisible(false);
         setShowSearchIcon(true);
@@ -128,29 +141,23 @@ const CategoryDetail = () => {
         setIsSticky(false);
       }
     };
-
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
-
   const handleSearchIconClick = () => {
     setIsSearchVisible(true);
     setShowSearchIcon(false);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
   };
-
   const fetchData = async (offset: number = 0, limit: number = 20) => {
     if (!config) return [];
-
     const allData: any[] = [];
-    
     for (const table of config.tables) {
-      let query = supabase
-        .from(table as any)
-        .select("*")
-        .eq("approval_status", "approved")
-        .eq("is_hidden", false);
-      
+      let query = supabase.from(table as any).select("*").eq("approval_status", "approved").eq("is_hidden", false);
+
       // Filter by event type if specified
       if (config.eventType) {
         query = query.eq("type", config.eventType);
@@ -162,25 +169,24 @@ const CategoryDetail = () => {
         // For trips category, only show trips (not events)
         query = query.eq("type", "trip");
       }
-      
       query = query.range(offset, offset + limit - 1);
-      
-      const { data } = await query;
-      
+      const {
+        data
+      } = await query;
       if (data && Array.isArray(data)) {
-        allData.push(...data.map((item: any) => ({ ...item, table })));
+        allData.push(...data.map((item: any) => ({
+          ...item,
+          table
+        })));
       }
     }
-    
+
     // Fetch booking statistics for events/trips
     const tripIds = allData.filter(item => item.table === 'trips').map(item => item.id);
     if (tripIds.length > 0) {
-      const { data: bookingsData } = await supabase
-        .from('bookings')
-        .select('item_id, slots_booked')
-        .in('item_id', tripIds)
-        .in('status', ['confirmed', 'pending']);
-      
+      const {
+        data: bookingsData
+      } = await supabase.from('bookings').select('item_id, slots_booked').in('item_id', tripIds).in('status', ['confirmed', 'pending']);
       if (bookingsData) {
         const stats = new Map<string, number>();
         bookingsData.forEach(booking => {
@@ -190,9 +196,14 @@ const CategoryDetail = () => {
         setBookingStats(prevStats => new Map([...prevStats, ...stats]));
       }
     }
-    
-    // Sort: past events/trips last
-    const sortedData = allData.sort((a, b) => {
+
+    return allData;
+  };
+
+  // Sort items: by distance when location available, otherwise by date/created_at
+  const getSortedItems = (itemsToSort: any[]) => {
+    return [...itemsToSort].sort((a, b) => {
+      // For trips/events, sort by date
       const aDate = a.date ? new Date(a.date) : null;
       const bDate = b.date ? new Date(b.date) : null;
       const now = new Date();
@@ -200,22 +211,30 @@ const CategoryDetail = () => {
       if (aDate && bDate) {
         const aIsPast = aDate < now;
         const bIsPast = bDate < now;
-        
         if (aIsPast && !bIsPast) return 1;
         if (!aIsPast && bIsPast) return -1;
-        
         return aDate.getTime() - bDate.getTime();
+      }
+      
+      // For non-date items, sort by distance if location available
+      if (position && !aDate && !bDate) {
+        const aHasCoords = a.latitude && a.longitude;
+        const bHasCoords = b.latitude && b.longitude;
+        
+        if (aHasCoords && bHasCoords) {
+          const aDist = calculateDistance(position.latitude, position.longitude, a.latitude, a.longitude);
+          const bDist = calculateDistance(position.latitude, position.longitude, b.latitude, b.longitude);
+          return aDist - bDist;
+        }
+        if (aHasCoords && !bHasCoords) return -1;
+        if (!aHasCoords && bHasCoords) return 1;
       }
       
       if (aDate && !bDate) return -1;
       if (!aDate && bDate) return 1;
-      
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
-
-    return sortedData;
   };
-
   const loadInitialData = async () => {
     setLoading(true);
     setHasMore(true); // Reset when loading initial data
@@ -226,36 +245,23 @@ const CategoryDetail = () => {
     }
     setLoading(false);
   };
-
   const handleSearch = () => {
     if (!searchQuery.trim()) {
       setFilteredItems(items);
       return;
     }
-
-    const filtered = items.filter(item => 
-      item.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.location?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.country?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filtered = items.filter(item => item.name?.toLowerCase().includes(searchQuery.toLowerCase()) || item.location?.toLowerCase().includes(searchQuery.toLowerCase()) || item.country?.toLowerCase().includes(searchQuery.toLowerCase()));
     setFilteredItems(filtered);
   };
-
   const handleApplyFilters = (filters: any) => {
     let filtered = [...items];
-
     if (filters.location) {
-      filtered = filtered.filter(
-        (item) =>
-          item.location?.toLowerCase().includes(filters.location.toLowerCase()) ||
-          item.place?.toLowerCase().includes(filters.location.toLowerCase()) ||
-          item.country?.toLowerCase().includes(filters.location.toLowerCase())
-      );
+      filtered = filtered.filter(item => item.location?.toLowerCase().includes(filters.location.toLowerCase()) || item.place?.toLowerCase().includes(filters.location.toLowerCase()) || item.country?.toLowerCase().includes(filters.location.toLowerCase()));
     }
 
     // Date filtering for trips/events
     if (filters.dateFrom && filters.dateTo) {
-      filtered = filtered.filter((item) => {
+      filtered = filtered.filter(item => {
         if (item.date) {
           const itemDate = new Date(item.date);
           return itemDate >= new Date(filters.dateFrom) && itemDate <= new Date(filters.dateTo);
@@ -263,7 +269,7 @@ const CategoryDetail = () => {
         return false; // Exclude items without dates
       });
     } else if (filters.dateFrom) {
-      filtered = filtered.filter((item) => {
+      filtered = filtered.filter(item => {
         if (item.date) {
           const itemDate = new Date(item.date);
           return itemDate >= new Date(filters.dateFrom);
@@ -271,7 +277,7 @@ const CategoryDetail = () => {
         return false;
       });
     } else if (filters.dateTo) {
-      filtered = filtered.filter((item) => {
+      filtered = filtered.filter(item => {
         if (item.date) {
           const itemDate = new Date(item.date);
           return itemDate <= new Date(filters.dateTo);
@@ -279,111 +285,51 @@ const CategoryDetail = () => {
         return false;
       });
     }
-
     setFilteredItems(filtered);
   };
-
   if (!config) {
     return <div>Category not found</div>;
   }
-
-  return (
-    <div className="min-h-screen bg-background pb-20 md:pb-0">
+  return <div className="min-h-screen bg-background pb-20 md:pb-0">
       <Header onSearchClick={handleSearchIconClick} showSearchIcon={showSearchIcon} />
       
       {/* Search Bar - Shows when visible, suggestions appear over everything */}
-      <div 
-        ref={searchRef}
-        className={cn(
-          "bg-background border-b transition-all duration-300",
-          isSearchVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-full h-0 overflow-hidden',
-          isSearchFocused && "relative z-[500]"
-        )}
-      >
+      <div ref={searchRef} className={cn("bg-background border-b transition-all duration-300", isSearchVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-full h-0 overflow-hidden', isSearchFocused && "relative z-[500]")}>
         <div className="container px-4 py-4">
-          <SearchBarWithSuggestions
-            value={searchQuery}
-            onChange={setSearchQuery}
-            onSubmit={handleSearch}
-            onFocus={() => setIsSearchFocused(true)}
-            onBlur={() => setIsSearchFocused(false)}
-            onBack={() => {
-              setIsSearchFocused(false);
-              setSearchQuery("");
-            }}
-            showBackButton={isSearchFocused}
-          />
+          <SearchBarWithSuggestions value={searchQuery} onChange={setSearchQuery} onSubmit={handleSearch} onFocus={() => setIsSearchFocused(true)} onBlur={() => setIsSearchFocused(false)} onBack={() => {
+          setIsSearchFocused(false);
+          setSearchQuery("");
+        }} showBackButton={isSearchFocused} />
         </div>
       </div>
 
       {/* Filter Bar - Sticky on mobile when scrolled, hidden when search suggestions are open */}
-      <div 
-        ref={filterRef}
-        className={cn(
-          "bg-background border-b transition-all duration-300 relative z-10",
-          isSticky && "sticky top-16 z-30 shadow-md md:relative md:shadow-none",
-          isSearchFocused && "opacity-0 pointer-events-none"
-        )}
-      >
+      <div ref={filterRef} className={cn("bg-background border-b transition-all duration-300 relative z-10", isSticky && "sticky top-16 z-30 shadow-md md:relative md:shadow-none", isSearchFocused && "opacity-0 pointer-events-none")}>
         <div className="container px-4 py-4">
-          <FilterBar
-            type={
-              category === "hotels"
-                ? "hotels"
-                : category === "adventure"
-                ? "adventure"
-                : category === "campsite"
-                ? "adventure"
-                : "trips-events"
-            }
-            onApplyFilters={handleApplyFilters}
-          />
+          <FilterBar type={category === "hotels" ? "hotels" : category === "adventure" ? "adventure" : category === "campsite" ? "adventure" : "trips-events"} onApplyFilters={handleApplyFilters} />
         </div>
       </div>
 
       <main className={cn("container px-4 py-8 space-y-4 relative z-0", isSearchFocused && "pointer-events-none opacity-50")}>
-        <h1 className="text-3xl font-bold">{config.title}</h1>
+        
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-6">
-          {loading ? (
-            <>
-              {[...Array(12)].map((_, i) => (
-                <ListingSkeleton key={i} />
-              ))}
-            </>
-          ) : filteredItems.length === 0 ? (
-            <p className="col-span-full text-center text-muted-foreground py-8">No items found</p>
-          ) : (
-            filteredItems.map((item) => {
-              const isAttraction = item.table === "attractions";
-              const isEvent = item.table === "trips" && (item.type === "event" || category === "events");
-              const isTripOrEvent = item.table === "trips";
-              return (
-              <ListingCard
-                key={item.id}
-                id={item.id}
-                type={item.table === "trips" ? (isEvent ? "EVENT" : "TRIP") : item.table === "hotels" ? "HOTEL" : isAttraction ? "ATTRACTION" : "ADVENTURE PLACE"}
-                name={isAttraction ? (item.local_name || item.location_name) : item.name}
-                imageUrl={isAttraction ? (item.photo_urls?.[0] || "") : item.image_url}
-                location={isAttraction ? item.location_name : item.location}
-                country={item.country}
-                price={isAttraction ? (item.price_adult || 0) : (item.price || item.entry_fee || 0)}
-                date={item.date}
-                isCustomDate={item.is_custom_date}
-                onSave={handleSave}
-                isSaved={savedItems.has(item.id)}
-                amenities={item.amenities}
-                activities={item.activities}
-                showBadge={false}
-              />
-            )})
-          )}
+          {loading ? <>
+              {[...Array(12)].map((_, i) => <ListingSkeleton key={i} />)}
+            </> : filteredItems.length === 0 ? <p className="col-span-full text-center text-muted-foreground py-8">No items found</p> : filteredItems.map(item => {
+          const isAttraction = item.table === "attractions";
+          const isEvent = item.table === "trips" && (item.type === "event" || category === "events");
+          const isTripOrEvent = item.table === "trips";
+          // Calculate distance for all items with coordinates (except trips/events)
+          const itemDistance = position && !isTripOrEvent && item.latitude && item.longitude
+            ? calculateDistance(position.latitude, position.longitude, item.latitude, item.longitude)
+            : undefined;
+          return <ListingCard key={item.id} id={item.id} type={item.table === "trips" ? isEvent ? "EVENT" : "TRIP" : item.table === "hotels" ? "HOTEL" : isAttraction ? "ATTRACTION" : "ADVENTURE PLACE"} name={isAttraction ? item.local_name || item.location_name : item.name} imageUrl={isAttraction ? item.photo_urls?.[0] || "" : item.image_url} location={isAttraction ? item.location_name : item.location} country={item.country} price={isAttraction ? item.price_adult || 0 : item.price || item.entry_fee || 0} date={item.date} isCustomDate={item.is_custom_date} onSave={handleSave} isSaved={savedItems.has(item.id)} amenities={item.amenities} activities={item.activities} showBadge={false} hideEmptySpace={true} distance={itemDistance} />;
+        })}
         </div>
       </main>
 
       <MobileBottomBar />
-    </div>
-  );
+    </div>;
 };
-
 export default CategoryDetail;

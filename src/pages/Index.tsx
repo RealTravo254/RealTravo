@@ -1,11 +1,14 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { MobileBottomBar } from "@/components/MobileBottomBar";
 import { SearchBarWithSuggestions } from "@/components/SearchBarWithSuggestions";
 import { ListingCard } from "@/components/ListingCard";
-import { MapView } from "@/components/MapView";
 
+// Lazy load MapView to defer loading heavy mapbox-gl library
+const MapView = lazy(() => import("@/components/MapView").then(mod => ({
+  default: mod.MapView
+})));
 import { Card } from "@/components/ui/card";
 import { Calendar, Hotel, Tent, Compass, Map, Grid, MapPin, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,7 +19,6 @@ import { useGeolocation, calculateDistance } from "@/hooks/useGeolocation";
 import { ListingSkeleton } from "@/components/ui/listing-skeleton";
 import { useSavedItems } from "@/hooks/useSavedItems";
 import { getCachedHomePageData, setCachedHomePageData } from "@/hooks/useHomePageCache";
-
 const Index = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
@@ -32,8 +34,28 @@ const Index = () => {
     toast
   } = useToast();
   const {
-    position
+    position,
+    requestLocation
   } = useGeolocation();
+
+  // Request location on first user interaction
+  useEffect(() => {
+    const handleInteraction = () => {
+      requestLocation();
+      window.removeEventListener('scroll', handleInteraction);
+      window.removeEventListener('click', handleInteraction);
+    };
+    window.addEventListener('scroll', handleInteraction, {
+      once: true
+    });
+    window.addEventListener('click', handleInteraction, {
+      once: true
+    });
+    return () => {
+      window.removeEventListener('scroll', handleInteraction);
+      window.removeEventListener('click', handleInteraction);
+    };
+  }, [requestLocation]);
   const [isSearchVisible, setIsSearchVisible] = useState(true);
   const [showSearchIcon, setShowSearchIcon] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
@@ -64,7 +86,6 @@ const Index = () => {
   const featuredHotelsRef = useRef<HTMLDivElement>(null);
   const featuredAttractionsRef = useRef<HTMLDivElement>(null);
   const featuredTripsRef = useRef<HTMLDivElement>(null);
-  const vlogsRef = useRef<HTMLDivElement>(null);
 
   // Scroll position tracking
   const [scrollPositions, setScrollPositions] = useState<Record<string, number>>({
@@ -73,8 +94,7 @@ const Index = () => {
     featuredCampsites: 0,
     featuredHotels: 0,
     featuredAttractions: 0,
-    featuredTrips: 0,
-    vlogs: 0
+    featuredTrips: 0
   });
 
   // Touch swipe tracking
@@ -122,7 +142,7 @@ const Index = () => {
   const fetchScrollableRows = async () => {
     setLoadingScrollable(true);
     try {
-      const [tripsData, hotelsData, attractionsData, campsitesData, eventsData] = await Promise.all([supabase.from("trips").select("*").eq("approval_status", "approved").eq("is_hidden", false).eq("type", "trip").limit(8), supabase.from("hotels").select("*").eq("approval_status", "approved").eq("is_hidden", false).limit(8), supabase.from("attractions").select("*").eq("approval_status", "approved").eq("is_hidden", false).limit(8), supabase.from("adventure_places").select("*").eq("approval_status", "approved").eq("is_hidden", false).limit(8), supabase.from("trips").select("*").eq("approval_status", "approved").eq("is_hidden", false).eq("type", "event").limit(8)]);
+      const [tripsData, hotelsData, campsitesData, eventsData] = await Promise.all([supabase.from("trips").select("*").eq("approval_status", "approved").eq("is_hidden", false).eq("type", "trip").limit(8), supabase.from("hotels").select("*").eq("approval_status", "approved").eq("is_hidden", false).limit(8), supabase.from("adventure_places").select("*").eq("approval_status", "approved").eq("is_hidden", false).limit(8), supabase.from("trips").select("*").eq("approval_status", "approved").eq("is_hidden", false).eq("type", "event").limit(8)]);
       console.log("Fetched scrollable data:", {
         trips: {
           count: tripsData.data?.length || 0,
@@ -133,11 +153,6 @@ const Index = () => {
           count: hotelsData.data?.length || 0,
           error: hotelsData.error,
           data: hotelsData.data
-        },
-        attractions: {
-          count: attractionsData.data?.length || 0,
-          error: attractionsData.error,
-          data: attractionsData.data
         },
         campsites: {
           count: campsitesData.data?.length || 0,
@@ -153,7 +168,7 @@ const Index = () => {
       setScrollableRows({
         trips: tripsData.data || [],
         hotels: hotelsData.data || [],
-        attractions: attractionsData.data || [],
+        attractions: [],
         campsites: campsitesData.data || [],
         events: eventsData.data || []
       });
@@ -185,7 +200,7 @@ const Index = () => {
       // Keep loading true if position is not available yet
       return;
     }
-    const [placesData, hotelsData, attractionsData] = await Promise.all([supabase.from("adventure_places").select("*").eq("approval_status", "approved").eq("is_hidden", false).limit(12), supabase.from("hotels").select("*").eq("approval_status", "approved").eq("is_hidden", false).limit(12), supabase.from("attractions").select("*").eq("approval_status", "approved").eq("is_hidden", false).limit(12)]);
+    const [placesData, hotelsData] = await Promise.all([supabase.from("adventure_places").select("*").eq("approval_status", "approved").eq("is_hidden", false).limit(12), supabase.from("hotels").select("*").eq("approval_status", "approved").eq("is_hidden", false).limit(12)]);
     const combined = [...(placesData.data || []).map(item => ({
       ...item,
       type: "ADVENTURE PLACE",
@@ -196,16 +211,31 @@ const Index = () => {
       type: "HOTEL",
       table: "hotels",
       category: "Hotel"
-    })), ...(attractionsData.data || []).map(item => ({
-      ...item,
-      type: "ATTRACTION",
-      table: "attractions",
-      category: "Attraction",
-      name: item.local_name || item.location_name,
-      location: item.location_name,
-      image_url: item.photo_urls?.[0] || ""
     }))];
-    const nearby = combined.slice(0, 12);
+
+    // Calculate distance for items with coordinates
+    const withDistance = combined.map(item => {
+      let distance: number | undefined;
+      const itemAny = item as any;
+      if (itemAny.latitude && itemAny.longitude && position) {
+        distance = calculateDistance(position.latitude, position.longitude, itemAny.latitude, itemAny.longitude);
+      }
+      return {
+        ...item,
+        distance
+      };
+    });
+
+    // Sort by distance (items with distance first, then others)
+    const sorted = withDistance.sort((a, b) => {
+      if (a.distance !== undefined && b.distance !== undefined) {
+        return a.distance - b.distance;
+      }
+      if (a.distance !== undefined) return -1;
+      if (b.distance !== undefined) return 1;
+      return 0;
+    });
+    const nearby = sorted.slice(0, 12);
     setNearbyPlacesHotels(nearby);
     // Only set loading to false if we have data
     if (nearby.length > 0) {
@@ -229,38 +259,25 @@ const Index = () => {
         type: "EVENT"
       }));
     };
-    const fetchTable = async (table: "hotels" | "adventure_places" | "attractions", type: string) => {
+    const fetchTable = async (table: "hotels" | "adventure_places", type: string) => {
       let dbQuery = supabase.from(table).select("*").eq("approval_status", "approved").eq("is_hidden", false);
       if (query) {
         const searchPattern = `%${query}%`;
-        if (table === "attractions") {
-          dbQuery = dbQuery.or(`location_name.ilike.${searchPattern},country.ilike.${searchPattern}`);
-        } else {
-          dbQuery = dbQuery.or(`name.ilike.${searchPattern},location.ilike.${searchPattern},country.ilike.${searchPattern}`);
-        }
+        dbQuery = dbQuery.or(`name.ilike.${searchPattern},location.ilike.${searchPattern},country.ilike.${searchPattern}`);
       }
       dbQuery = dbQuery.range(offset, offset + limit - 1);
       const {
         data
       } = await dbQuery;
-      if (table === "attractions") {
-        return (data || []).map((item: any) => ({
-          ...item,
-          type,
-          name: item.local_name || item.location_name,
-          location: item.location_name,
-          image_url: item.photo_urls?.[0] || ""
-        }));
-      }
       return (data || []).map((item: any) => ({
         ...item,
         type
       }));
     };
-    const [events, hotels, adventures, attractions] = await Promise.all([fetchEvents(), fetchTable("hotels", "HOTEL"), fetchTable("adventure_places", "ADVENTURE PLACE"), fetchTable("attractions", "ATTRACTION")]);
+    const [events, hotels, adventures] = await Promise.all([fetchEvents(), fetchTable("hotels", "HOTEL"), fetchTable("adventure_places", "ADVENTURE PLACE")]);
 
     // Filter out events and trips from Featured For You section
-    let combined = [...hotels, ...adventures, ...attractions];
+    let combined = [...hotels, ...adventures];
 
     // Fetch booking statistics for events
     const eventIds = events.map((event: any) => event.id);
@@ -284,19 +301,17 @@ const Index = () => {
     } else {
       combined = combined.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     }
-    
     if (offset === 0) {
       setListings(combined);
       setHasMoreSearchResults(true); // Reset when starting fresh search
     } else {
       setListings(prev => [...prev, ...combined]);
     }
-    
+
     // Stop loading more if we got less data than requested
     if (combined.length < limit) {
       setHasMoreSearchResults(false);
     }
-    
     setLoading(false);
     return combined;
   };
@@ -304,23 +319,18 @@ const Index = () => {
   // Infinite scroll for search results
   useEffect(() => {
     if (!searchQuery || !hasMoreSearchResults) return;
-    
     const handleScroll = () => {
       if (loading || !hasMoreSearchResults) return;
-      
       const scrollHeight = document.documentElement.scrollHeight;
       const scrollTop = document.documentElement.scrollTop;
       const clientHeight = document.documentElement.clientHeight;
-      
       if (scrollTop + clientHeight >= scrollHeight - 500) {
         loadMoreSearchResults();
       }
     };
-
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, [loading, searchQuery, listings.length, hasMoreSearchResults]);
-
   const loadMoreSearchResults = async () => {
     if (loading || !searchQuery || !hasMoreSearchResults) return;
     const prevLength = listings.length;
@@ -352,7 +362,6 @@ const Index = () => {
     // Then fetch fresh data in background
     fetchAllData();
     fetchScrollableRows();
-    
     const initUserId = async () => {
       const id = await getUserId();
       setUserId(id);
@@ -401,25 +410,19 @@ const Index = () => {
   };
   const categories = [{
     icon: Calendar,
-    title: "Trips",
+    title: "Trips & tours",
     path: "/category/trips",
     bgImage: "https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&h=600&fit=crop&auto=format&q=80",
     description: "Explore guided tours and day trips"
   }, {
     icon: Compass,
-    title: "Events",
+    title: "Sports & events",
     path: "/category/events",
     bgImage: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800&h=600&fit=crop&auto=format&q=80",
     description: "Discover exciting events"
   }, {
-    icon: MapPin,
-    title: "Attractions",
-    path: "/category/adventure",
-    bgImage: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=600&fit=crop&auto=format&q=80",
-    description: "Visit must-see landmarks"
-  }, {
     icon: Hotel,
-    title: "Hotels",
+    title: "Hotels & accommodation",
     path: "/category/hotels",
     bgImage: "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&h=600&fit=crop&auto=format&q=80",
     description: "Find comfortable stays"
@@ -433,377 +436,320 @@ const Index = () => {
   return <div className="min-h-screen bg-background pb-20 md:pb-0">
             <Header onSearchClick={handleSearchIconClick} showSearchIcon={showSearchIcon} />
             
+            {/* Hero Section with Search Bar and Background Image - Hidden when search focused */}
+            {!isSearchFocused && (
+              <div 
+                ref={searchRef}
+                className="relative w-full h-48 md:h-72 lg:h-80"
+                style={{
+                  backgroundImage: `url(https://images.unsplash.com/photo-1506929562872-bb421503ef21?w=1920&h=600&fit=crop&auto=format&q=80)`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center'
+                }}
+              >
+                <div className="absolute inset-0 bg-black/40" />
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <div className="container md:px-4 px-4">
+                    <h1 className="text-white text-2xl md:text-4xl lg:text-5xl font-bold text-center mb-4 md:mb-6">
+                      Discover Your Next Adventure
+                    </h1>
+                    <SearchBarWithSuggestions 
+                      value={searchQuery} 
+                      onChange={setSearchQuery} 
+                      onSubmit={() => {
+                        if (searchQuery.trim()) {
+                          fetchAllData(searchQuery);
+                          setIsSearchFocused(true);
+                        }
+                      }} 
+                      onSuggestionSearch={query => {
+                        setSearchQuery(query);
+                        fetchAllData(query);
+                        setIsSearchFocused(true);
+                      }} 
+                      onFocus={() => setIsSearchFocused(true)} 
+                      onBlur={() => {}}
+                      onBack={() => {
+                        setIsSearchFocused(false);
+                        setSearchQuery("");
+                        fetchAllData();
+                      }} 
+                      showBackButton={false} 
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+            
             {/* Search Bar - Appears below header when focused on all screens */}
             {isSearchFocused && <div className="sticky top-[64px] z-[100] bg-background p-4 border-b shadow-md">
-                    <div className="max-w-3xl mx-auto">
+                    <div className="container md:px-4 px-4 mx-auto">
                         <SearchBarWithSuggestions value={searchQuery} onChange={setSearchQuery} onSubmit={() => {
-          fetchAllData(searchQuery);
+          if (searchQuery.trim()) {
+            fetchAllData(searchQuery);
+          }
         }} onSuggestionSearch={query => {
+          setSearchQuery(query);
           fetchAllData(query);
         }} onFocus={() => setIsSearchFocused(true)} onBlur={() => {
           // Keep search focused when there's content
         }} onBack={() => {
           setIsSearchFocused(false);
           setSearchQuery("");
+          fetchAllData(); // Reset to all listings
         }} showBackButton={true} />
                     </div>
                 </div>}
 
-            <main className="container px-0 md:px-4 py-0 md:py-8">
-                {/* Hero and Categories - Hide when search is focused */}
-                <section className={`flex flex-col gap-1 md:gap-3 ${isSearchFocused ? 'hidden' : ''}`}>
-                {/* Hero Section with Background Image */}
-                    <div className="w-full">
-                        <div className="relative w-full overflow-hidden flex flex-col items-center justify-center p-4 md:p-12 py-12 md:py-24" style={{
-            backgroundImage: 'url(https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=1920&h=800&fit=crop&auto=format&q=80)',
-            backgroundSize: 'cover',
-            backgroundPosition: 'center'
-          }}>
-                            {/* Overlay for better text readability */}
-                            <div className="absolute inset-0 bg-black/40" />
-                            
-                            {/* Content */}
-                            <div className="relative z-10 flex flex-col items-center gap-4 md:gap-6 max-w-3xl mx-auto">
-                                <h1 className="text-2xl md:text-4xl lg:text-5xl font-bold text-white mb-2 md:mb-4 text-center drop-shadow-lg">
-                                    Discover Your Next Adventure
-                                </h1>
-                                
-                                {/* Search Bar Below Paragraph */}
-                                <div className="w-full mt-2 md:mt-4 relative z-[200]">
-                                    <SearchBarWithSuggestions value={searchQuery} onChange={setSearchQuery} onSubmit={() => fetchAllData(searchQuery)} onSuggestionSearch={query => fetchAllData(query)} onFocus={() => setIsSearchFocused(true)} />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    {/* Categories Section - Below on all screens */}
-                    <div className="w-full px-2 md:px-0">
-                        <div className="grid grid-cols-2 lg:grid-cols-5 gap-1.5 md:gap-4">
-                            {categories.map(cat => <div key={cat.title} onClick={() => navigate(cat.path)} className="relative h-16 md:h-40 lg:h-48 cursor-pointer overflow-hidden group rounded-lg" style={{
-              backgroundImage: `url(${cat.bgImage})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center'
-            }}>
-                                    <div className="absolute inset-0 bg-black/50 group-hover:bg-black/40 transition-all flex flex-col items-center justify-center p-2 md:p-4">
-                                        <cat.icon className="h-4 w-4 md:h-12 md:w-12 lg:h-16 lg:w-16 text-white mb-0.5 md:mb-3" />
-                                        <h3 className="font-bold text-white text-3xs md:text-base lg:text-lg">{cat.title}</h3>
-                                        <p className="text-white/80 text-2xs md:text-sm text-center mt-0.5 md:mt-1 hidden md:block">{cat.description}</p>
-                                    </div>
-                                </div>)}
-                        </div>
-                    </div>
-                </section>
+            <main className="w-full">
+                {/* Categories Section - Full width - Hidden when search focused */}
+                {!isSearchFocused && (
+                  <div className="w-full px-4 md:px-6 lg:px-8 py-4 md:py-6">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 w-full">
+                          {categories.map(cat => (
+                              <div 
+                                  key={cat.title} 
+                                  onClick={() => navigate(cat.path)} 
+                                  className="relative h-24 md:h-40 lg:h-48 cursor-pointer overflow-hidden group rounded-lg" 
+                                  style={{
+                                      backgroundImage: `url(${cat.bgImage})`,
+                                      backgroundSize: 'cover',
+                                      backgroundPosition: 'center'
+                                  }}
+                              >
+                                  <div className="absolute inset-0 bg-black/50 group-hover:bg-black/40 transition-all text-center p-2 md:p-4 flex-col flex items-center justify-center">
+                                      <cat.icon className="h-5 w-5 md:h-12 md:w-12 lg:h-16 lg:w-16 text-white mb-1 md:mb-3" />
+                                      <span className="font-bold text-white text-xs md:text-base lg:text-lg leading-tight" role="heading" aria-level={3}>{cat.title}</span>
+                                      <p className="text-white/80 text-2xs md:text-sm text-center mt-0.5 md:mt-1 hidden md:block">{cat.description}</p>
+                                  </div>
+                              </div>
+                          ))}
+                      </div>
+                  </div>
+                )}
                 
                 {/* Search Results - Show when search is focused */}
-                {isSearchFocused && <div className="px-4 mt-4">
+                {isSearchFocused && <div className="w-full px-4 md:px-6 lg:px-8 mt-4">
                         <h2 className="text-xl md:text-2xl font-bold mb-4">
                             {searchQuery ? 'Search Results' : 'All Listings'}
                         </h2>
-                        {loading ? <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
-                                {[...Array(6)].map((_, i) => <ListingSkeleton key={i} />)}
-                            </div> : listings.length > 0 ? <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
-                                {listings.map(listing => <ListingCard key={listing.id} id={listing.id} type={listing.type} name={listing.name} location={listing.location} country={listing.country} imageUrl={listing.image_url} price={listing.price || listing.entry_fee || 0} isSaved={savedItems.has(listing.id)} onSave={() => handleSave(listing.id, listing.type)} availableTickets={listing.type === "TRIP" || listing.type === "EVENT" ? listing.available_tickets : undefined} bookedTickets={listing.type === "TRIP" || listing.type === "EVENT" ? bookingStats[listing.id] || 0 : undefined} showBadge={true} />)}
+                        {loading ? <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 md:gap-4">
+                                {[...Array(6)].map((_, i) => <div key={i} className="w-full"><ListingSkeleton /></div>)}
+                            </div> : listings.length > 0 ? <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-5">
+                                {listings.map((listing, index) => {
+            const itemDistance = position && listing.latitude && listing.longitude ? calculateDistance(position.latitude, position.longitude, listing.latitude, listing.longitude) : undefined;
+            return <div key={listing.id} className="w-full">
+                                    <ListingCard id={listing.id} type={listing.type} name={listing.name} location={listing.location} country={listing.country} imageUrl={listing.image_url} price={listing.price || listing.entry_fee || 0} date={listing.date} isCustomDate={listing.is_custom_date} isSaved={savedItems.has(listing.id)} onSave={() => handleSave(listing.id, listing.type)} availableTickets={listing.type === "TRIP" || listing.type === "EVENT" ? listing.available_tickets : undefined} bookedTickets={listing.type === "TRIP" || listing.type === "EVENT" ? bookingStats[listing.id] || 0 : undefined} showBadge={true} priority={index < 4} hidePrice={listing.type === "HOTEL" || listing.type === "ADVENTURE PLACE"} activities={listing.activities} distance={itemDistance} />
+                                </div>;
+          })}
                             </div> : <p className="text-center text-muted-foreground py-8">No results found</p>}
                     </div>}
                 
-                <div className={`px-4 ${isSearchFocused ? 'hidden' : ''}`}>
-                    {/* Latest - MODIFIED FOR HORIZONTAL SCROLLING OR MAP VIEW */}
-                    <section className="mb-4 md:mb-8">
-                        <div className="mb-2 md:mb-4 mt-2 md:mt-0 flex items-start justify-between">
+                <div className={`w-full px-4 md:px-6 lg:px-8 ${isSearchFocused ? 'hidden' : ''}`}>
+                    {/* Near You / Latest - Show nearby items if location is on, otherwise show latest */}
+                    <section className="mb-2 md:mb-6">
+                        <div className="mb-1.5 md:mb-3 mt-1 md:mt-0 px-0 mx-[10px] items-end justify-between flex flex-row my-[5px]">
                             <h2 className="text-xs md:text-2xl font-bold whitespace-nowrap overflow-hidden text-ellipsis">
-                                {searchQuery ? 'Search Results' : position ? 'Featured For You' : 'Latest'}
+                                {searchQuery ? 'Search Results' : position ? 'Near You' : 'Latest'}
                             </h2>
                             {searchQuery && listings.length > 0 && <div className="flex gap-2">
                                     <Button variant={viewMode === 'list' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('list')} className="gap-1">
                                         <Grid className="h-4 w-4" />
                                         <span className="hidden md:inline">List</span>
                                     </Button>
-                                    <Button variant={viewMode === 'map' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('map')} className="gap-1">
-                                        <Map className="h-4 w-4" />
-                                        <span className="hidden md:inline">Map</span>
-                                    </Button>
                                 </div>}
                         </div>
                         
-                        {searchQuery && viewMode === 'map' ? <MapView listings={listings} /> : searchQuery ?
+                        {searchQuery && viewMode === 'map' ? <Suspense fallback={<div className="h-[400px] bg-muted animate-pulse rounded-lg" />}><MapView listings={listings} /></Suspense> : searchQuery ?
           // Column grid view for search results
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
-                                {loading ? [...Array(12)].map((_, i) => <ListingSkeleton key={i} />) : listings.length === 0 ? <div className="col-span-full text-center py-12">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-5">
+                                {loading ? [...Array(12)].map((_, i) => <div key={i} className="w-full"><ListingSkeleton /></div>) : listings.length === 0 ? <div className="col-span-full text-center py-12">
                                         <p className="text-muted-foreground text-lg">No results found for "{searchQuery}"</p>
                                         <p className="text-muted-foreground text-sm mt-2">Try searching with different keywords</p>
-                                    </div> : listings.map((item, index) => <ListingCard key={item.id} id={item.id} type={item.type} name={item.name} imageUrl={item.image_url} location={item.location} country={item.country} price={item.price || item.entry_fee || item.price_adult || 0} date={item.date} isCustomDate={item.is_custom_date} onSave={handleSave} isSaved={savedItems.has(item.id)} hidePrice={item.type === "HOTEL" || item.type === "ADVENTURE PLACE"} showBadge={true} priority={index < 4} availableTickets={item.type === "TRIP" || item.type === "EVENT" ? item.available_tickets : undefined} bookedTickets={item.type === "TRIP" || item.type === "EVENT" ? bookingStats[item.id] || 0 : undefined} />)}
+                                    </div> : listings.map((item, index) => {
+              const itemDistance = position && item.latitude && item.longitude ? calculateDistance(position.latitude, position.longitude, item.latitude, item.longitude) : undefined;
+              return <div key={item.id} className="w-full">
+                                        <ListingCard id={item.id} type={item.type} name={item.name} imageUrl={item.image_url} location={item.location} country={item.country} price={item.price || item.entry_fee || item.price_adult || 0} date={item.date} isCustomDate={item.is_custom_date} onSave={handleSave} isSaved={savedItems.has(item.id)} hidePrice={item.type === "HOTEL" || item.type === "ADVENTURE PLACE"} showBadge={true} priority={index < 4} availableTickets={item.type === "TRIP" || item.type === "EVENT" ? item.available_tickets : undefined} bookedTickets={item.type === "TRIP" || item.type === "EVENT" ? bookingStats[item.id] || 0 : undefined} activities={item.activities} distance={itemDistance} />
+                                    </div>;
+            })}
                             </div> :
           // Horizontal scroll view for latest items (when not searching)
           <div className="relative">
-                                {!searchQuery && listings.length > 0 && (
-                                    <>
-                                        <Button variant="ghost" size="icon" onClick={() => scrollSection(featuredForYouRef, 'left')} className="absolute left-0 top-1/2 -translate-y-1/2 z-10 h-8 w-8 md:h-10 md:w-10 rounded-full bg-black/50 hover:bg-black/70 text-white">
+                                {!searchQuery && listings.length > 0 && <>
+                                        <Button variant="ghost" size="icon" aria-label="Scroll left" onClick={() => scrollSection(featuredForYouRef, 'left')} className="absolute left-0 top-1/2 -translate-y-1/2 z-10 h-8 w-8 md:h-10 md:w-10 rounded-full bg-black/50 hover:bg-black/70 text-white">
                                             <ChevronLeft className="h-5 w-5 md:h-6 md:w-6" />
                                         </Button>
-                                        <Button variant="ghost" size="icon" onClick={() => scrollSection(featuredForYouRef, 'right')} className="absolute right-0 top-1/2 -translate-y-1/2 z-10 h-8 w-8 md:h-10 md:w-10 rounded-full bg-black/50 hover:bg-black/70 text-white">
+                                        <Button variant="ghost" size="icon" aria-label="Scroll right" onClick={() => scrollSection(featuredForYouRef, 'right')} className="absolute right-0 top-1/2 -translate-y-1/2 z-10 h-8 w-8 md:h-10 md:w-10 rounded-full bg-black/50 hover:bg-black/70 text-white">
                                             <ChevronRight className="h-5 w-5 md:h-6 md:w-6" />
                                         </Button>
-                                    </>
-                                )}
-                                <div ref={featuredForYouRef} onScroll={handleScroll('featuredForYou')} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={() => onTouchEnd(featuredForYouRef)} className="gap-2 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none md:gap-[8px] flex items-start justify-start pl-1 pr-8 md:pl-2 md:pr-12">
-                                {loading || listings.length === 0 ? [...Array(10)].map((_, i) => <div key={i} className="flex-shrink-0 w-[62vw] md:w-64 rounded-lg overflow-hidden shadow-md snap-center md:snap-align-none">
-                                            <div className="aspect-[4/3] bg-muted animate-pulse" />
-                                            <div className="p-2 md:p-4 space-y-2 md:space-y-3">
-                                                <div className="h-4 md:h-5 bg-muted animate-pulse rounded w-4/5" />
-                                                <div className="h-3 md:h-4 bg-muted animate-pulse rounded w-2/3" />
-                                                <div className="h-3 md:h-4 bg-muted animate-pulse rounded w-1/2" />
+                                    </>}
+                                <div ref={featuredForYouRef} onScroll={handleScroll('featuredForYou')} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={() => onTouchEnd(featuredForYouRef)} className="gap-3 overflow-x-auto pb-2 scrollbar-hide md:gap-4 flex items-start justify-start pl-1 pr-8 md:pl-2 md:pr-12 scroll-smooth">
+                                {/* Show nearby items if location is on, otherwise show latest */}
+                                {(position ? loadingNearby : loading) || (position ? nearbyPlacesHotels : listings).length === 0 ? [...Array(10)].map((_, i) => <div key={i} className="flex-shrink-0 w-[45vw] md:w-56 rounded-lg overflow-hidden shadow-md">
+                                            <div className="aspect-[2/1] bg-muted animate-pulse" />
+                                            <div className="p-2 space-y-1.5">
+                                                <div className="h-3 bg-muted animate-pulse rounded w-4/5" />
+                                                <div className="h-2.5 bg-muted animate-pulse rounded w-2/3" />
                                             </div>
-                                        </div>) : listings.map((item, index) => <div key={item.id} className="flex-shrink-0 w-[62vw] md:w-64 snap-center md:snap-align-none">
-                                             <ListingCard id={item.id} type={item.type} name={item.name} imageUrl={item.image_url} location={item.location} country={item.country} price={item.price || item.entry_fee || 0} date={item.date} isCustomDate={item.is_custom_date} onSave={handleSave} isSaved={savedItems.has(item.id)} hidePrice={true} showBadge={true} priority={index === 0} availableTickets={item.type === "TRIP" || item.type === "EVENT" ? item.available_tickets : undefined} bookedTickets={item.type === "TRIP" || item.type === "EVENT" ? bookingStats[item.id] || 0 : undefined} activities={item.activities} />
+                                        </div>) : (position ? nearbyPlacesHotels : listings).map((item, index) => <div key={item.id} className="flex-shrink-0 w-[45vw] md:w-56">
+                                             <ListingCard id={item.id} type={item.type} name={item.name} imageUrl={item.image_url} location={item.location} country={item.country} price={item.price || item.entry_fee || 0} date={item.date} isCustomDate={item.is_custom_date} onSave={handleSave} isSaved={savedItems.has(item.id)} hidePrice={true} showBadge={true} priority={index === 0} availableTickets={item.type === "TRIP" || item.type === "EVENT" ? item.available_tickets : undefined} bookedTickets={item.type === "TRIP" || item.type === "EVENT" ? bookingStats[item.id] || 0 : undefined} activities={item.activities} distance={position ? item.distance : undefined} />
                                          </div>)}
                                 </div>
                             </div>}
                     </section>
 
 
-                    <hr className="border-t border-gray-200 my-2 md:my-6" />
+                    <hr className="border-t border-gray-200 my-1 md:my-4" />
 
-                    {/* Featured Events */}
-                    <section className="mb-3 md:mb-8">
-                        <div className="mb-2 md:mb-4 flex items-start justify-between">
+                    {/* Events */}
+                    <section className="mb-2 md:mb-6">
+                        <div className="mb-1.5 md:mb-3 flex items-start justify-between">
                             <h2 className="text-xs md:text-2xl font-bold whitespace-nowrap overflow-hidden text-ellipsis">
-                                Featured Events
+                                Sports and events.
                             </h2>
                             <Link to="/category/events" className="text-primary text-3xs md:text-sm hover:underline">
                                 View All
                             </Link>
                         </div>
                         <div className="relative">
-                            {scrollableRows.events.length > 0 && (
-                                <>
-                                    <Button variant="ghost" size="icon" onClick={() => scrollSection(featuredEventsRef, 'left')} className="absolute left-0 top-1/2 -translate-y-1/2 z-10 h-8 w-8 md:h-10 md:w-10 rounded-full bg-black/50 hover:bg-black/70 text-white">
+                            {scrollableRows.events.length > 0 && <>
+                                    <Button variant="ghost" size="icon" aria-label="Scroll left" onClick={() => scrollSection(featuredEventsRef, 'left')} className="absolute left-0 top-1/2 -translate-y-1/2 z-10 h-8 w-8 md:h-10 md:w-10 rounded-full bg-black/50 hover:bg-black/70 text-white">
                                         <ChevronLeft className="h-5 w-5 md:h-6 md:w-6" />
                                     </Button>
-                                    <Button variant="ghost" size="icon" onClick={() => scrollSection(featuredEventsRef, 'right')} className="absolute right-0 top-1/2 -translate-y-1/2 z-10 h-8 w-8 md:h-10 md:w-10 rounded-full bg-black/50 hover:bg-black/70 text-white">
+                                    <Button variant="ghost" size="icon" aria-label="Scroll right" onClick={() => scrollSection(featuredEventsRef, 'right')} className="absolute right-0 top-1/2 -translate-y-1/2 z-10 h-8 w-8 md:h-10 md:w-10 rounded-full bg-black/50 hover:bg-black/70 text-white">
                                         <ChevronRight className="h-5 w-5 md:h-6 md:w-6" />
                                     </Button>
-                                </>
-                            )}
-                            <div ref={featuredEventsRef} onScroll={handleScroll('featuredEvents')} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={() => onTouchEnd(featuredEventsRef)} className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none md:gap-[8px] pl-1 pr-8 md:pl-2 md:pr-12">
-                            {loadingScrollable ? <div className="flex gap-2 md:gap-4">
-                                    {[...Array(5)].map((_, i) => <div key={i} className="flex-shrink-0 w-[62vw] md:w-64 snap-center md:snap-align-none">
+                                </>}
+                            <div ref={featuredEventsRef} onScroll={handleScroll('featuredEvents')} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={() => onTouchEnd(featuredEventsRef)} className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide md:gap-4 pl-1 pr-8 md:pl-2 md:pr-12 scroll-smooth">
+                            {loadingScrollable ? <div className="flex gap-1.5 md:gap-2">
+                                    {[...Array(5)].map((_, i) => <div key={i} className="flex-shrink-0 w-[45vw] md:w-56">
                                             <ListingSkeleton />
                                         </div>)}
-                                </div> : scrollableRows.events.length === 0 ? <p className="text-center text-muted-foreground py-8 w-full">No events available</p> : scrollableRows.events.map((event, index) => <div key={event.id} className="flex-shrink-0 w-[62vw] md:w-64 snap-center md:snap-align-none">
+                                </div> : scrollableRows.events.length === 0 ? <p className="text-center text-muted-foreground py-8 w-full">No events available</p> : scrollableRows.events.map((event, index) => <div key={event.id} className="flex-shrink-0 w-[45vw] md:w-56">
                                         <ListingCard id={event.id} type="EVENT" name={event.name} imageUrl={event.image_url} location={event.location} country={event.country} price={event.price} date={event.date} isCustomDate={event.is_custom_date} onSave={handleSave} isSaved={savedItems.has(event.id)} showBadge={false} priority={index === 0} activities={event.activities} />
                                     </div>)}
                             </div>
                         </div>
                     </section>
 
-                    <hr className="border-t border-gray-200 my-2 md:my-6" />
+                    <hr className="border-t border-gray-200 my-1 md:my-4" />
 
-                    {/* Featured Campsite & Experience */}
-                    <section className="mb-3 md:mb-8">
-                        <div className="mb-2 md:mb-4 flex items-start justify-between">
+                    {/* Campsite & Experience */}
+                    <section className="mb-2 md:mb-6">
+                        <div className="mb-1.5 md:mb-3 flex items-start justify-between">
                             <h2 className="text-xs md:text-2xl font-bold whitespace-nowrap overflow-hidden text-ellipsis">
-                                Featured Campsite & Experience
+                                Campsite & Experience
                             </h2>
                             <Link to="/category/campsite" className="text-primary text-3xs md:text-sm hover:underline">
                                 View All
                             </Link>
                         </div>
                         <div className="relative">
-                            {scrollableRows.campsites.length > 0 && (
-                                <>
-                                    <Button variant="ghost" size="icon" onClick={() => scrollSection(featuredCampsitesRef, 'left')} className="absolute left-0 top-1/2 -translate-y-1/2 z-10 h-8 w-8 md:h-10 md:w-10 rounded-full bg-black/50 hover:bg-black/70 text-white">
+                            {scrollableRows.campsites.length > 0 && <>
+                                    <Button variant="ghost" size="icon" aria-label="Scroll left" onClick={() => scrollSection(featuredCampsitesRef, 'left')} className="absolute left-0 top-1/2 -translate-y-1/2 z-10 h-8 w-8 md:h-10 md:w-10 rounded-full bg-black/50 hover:bg-black/70 text-white">
                                         <ChevronLeft className="h-5 w-5 md:h-6 md:w-6" />
                                     </Button>
-                                    <Button variant="ghost" size="icon" onClick={() => scrollSection(featuredCampsitesRef, 'right')} className="absolute right-0 top-1/2 -translate-y-1/2 z-10 h-8 w-8 md:h-10 md:w-10 rounded-full bg-black/50 hover:bg-black/70 text-white">
+                                    <Button variant="ghost" size="icon" aria-label="Scroll right" onClick={() => scrollSection(featuredCampsitesRef, 'right')} className="absolute right-0 top-1/2 -translate-y-1/2 z-10 h-8 w-8 md:h-10 md:w-10 rounded-full bg-black/50 hover:bg-black/70 text-white">
                                         <ChevronRight className="h-5 w-5 md:h-6 md:w-6" />
                                     </Button>
-                                </>
-                            )}
-                            <div ref={featuredCampsitesRef} onScroll={handleScroll('featuredCampsites')} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={() => onTouchEnd(featuredCampsitesRef)} className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none md:gap-[8px] pl-1 pr-8 md:pl-2 md:pr-12">
-                            {loadingScrollable ? <div className="flex gap-2 md:gap-4">
-                                    {[...Array(5)].map((_, i) => <div key={i} className="flex-shrink-0 w-[62vw] md:w-64 snap-center md:snap-align-none">
+                                </>}
+                            <div ref={featuredCampsitesRef} onScroll={handleScroll('featuredCampsites')} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={() => onTouchEnd(featuredCampsitesRef)} className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide md:gap-4 pl-1 pr-8 md:pl-2 md:pr-12 scroll-smooth">
+                            {loadingScrollable ? <div className="flex gap-1.5 md:gap-2">
+                                    {[...Array(5)].map((_, i) => <div key={i} className="flex-shrink-0 w-[45vw] md:w-56">
                                             <ListingSkeleton />
                                         </div>)}
-                                </div> : scrollableRows.campsites.length === 0 ? <p className="text-center text-muted-foreground py-8 w-full">No campsites available</p> : scrollableRows.campsites.map((place, index) => <div key={place.id} className="flex-shrink-0 w-[62vw] md:w-64 snap-center md:snap-align-none">
-                                        <ListingCard id={place.id} type="ADVENTURE PLACE" name={place.name} imageUrl={place.image_url} location={place.location} country={place.country} price={place.entry_fee || 0} date="" onSave={handleSave} isSaved={savedItems.has(place.id)} hidePrice={true} showBadge={true} priority={index === 0} activities={place.activities} />
-                                    </div>)}
-                            </div>
-                        </div>
-                    </section>
-
-                    {/* Featured Hotels */}
-                    <section className="mb-3 md:mb-8">
-                        <div className="mb-2 md:mb-4 flex items-start justify-between">
-                            <h2 className="text-xs md:text-2xl font-bold whitespace-nowrap overflow-hidden text-ellipsis">
-                                Featured Hotels
-                            </h2>
-                            <Link to="/category/hotels" className="text-primary text-3xs md:text-sm hover:underline">
-                                View All
-                            </Link>
-                        </div>
-                        <div className="relative">
-                            {scrollableRows.hotels.length > 0 && (
-                                <>
-                                    <Button variant="ghost" size="icon" onClick={() => scrollSection(featuredHotelsRef, 'left')} className="absolute left-0 top-1/2 -translate-y-1/2 z-10 h-8 w-8 md:h-10 md:w-10 rounded-full bg-black/50 hover:bg-black/70 text-white">
-                                        <ChevronLeft className="h-5 w-5 md:h-6 md:w-6" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" onClick={() => scrollSection(featuredHotelsRef, 'right')} className="absolute right-0 top-1/2 -translate-y-1/2 z-10 h-8 w-8 md:h-10 md:w-10 rounded-full bg-black/50 hover:bg-black/70 text-white">
-                                        <ChevronRight className="h-5 w-5 md:h-6 md:w-6" />
-                                    </Button>
-                                </>
-                            )}
-                            <div ref={featuredHotelsRef} onScroll={handleScroll('featuredHotels')} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={() => onTouchEnd(featuredHotelsRef)} className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none md:gap-[8px] pl-1 pr-8 md:pl-2 md:pr-12">
-                            {loadingScrollable ? <div className="flex gap-2 md:gap-4">
-                                    {[...Array(5)].map((_, i) => <div key={i} className="flex-shrink-0 w-[62vw] md:w-64 snap-center md:snap-align-none">
-                                            <ListingSkeleton />
-                                        </div>)}
-                                </div> : scrollableRows.hotels.length === 0 ? <p className="text-center text-muted-foreground py-8 w-full">No hotels available</p> : scrollableRows.hotels.map((hotel, index) => <div key={hotel.id} className="flex-shrink-0 w-[62vw] md:w-64 snap-center md:snap-align-none">
-                                        <ListingCard id={hotel.id} type="HOTEL" name={hotel.name} imageUrl={hotel.image_url} location={hotel.location} country={hotel.country} price={0} date="" onSave={handleSave} isSaved={savedItems.has(hotel.id)} hidePrice={true} showBadge={true} priority={index === 0} activities={hotel.activities} />
-                                    </div>)}
-                            </div>
-                        </div>
-                    </section>
-
-                    {/* Featured Attractions */}
-                    <section className="mb-3 md:mb-8">
-                        <div className="mb-2 md:mb-4 flex items-start justify-between">
-                            <h2 className="text-xs md:text-2xl font-bold whitespace-nowrap overflow-hidden text-ellipsis">
-                                Featured Attractions
-                            </h2>
-                            <Link to="/category/adventure" className="text-primary text-3xs md:text-sm hover:underline">
-                                View All
-                            </Link>
-                        </div>
-                        <div className="relative">
-                            {scrollableRows.attractions.length > 0 && (
-                                <>
-                                    <Button variant="ghost" size="icon" onClick={() => scrollSection(featuredAttractionsRef, 'left')} className="absolute left-0 top-1/2 -translate-y-1/2 z-10 h-8 w-8 md:h-10 md:w-10 rounded-full bg-black/50 hover:bg-black/70 text-white">
-                                        <ChevronLeft className="h-5 w-5 md:h-6 md:w-6" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" onClick={() => scrollSection(featuredAttractionsRef, 'right')} className="absolute right-0 top-1/2 -translate-y-1/2 z-10 h-8 w-8 md:h-10 md:w-10 rounded-full bg-black/50 hover:bg-black/70 text-white">
-                                        <ChevronRight className="h-5 w-5 md:h-6 md:w-6" />
-                                    </Button>
-                                </>
-                            )}
-                            <div ref={featuredAttractionsRef} onScroll={handleScroll('featuredAttractions')} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={() => onTouchEnd(featuredAttractionsRef)} className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none md:gap-[8px] pl-1 pr-8 md:pl-2 md:pr-12">
-                            {loadingScrollable ? <div className="flex gap-2 md:gap-4">
-                                    {[...Array(5)].map((_, i) => <div key={i} className="flex-shrink-0 w-[62vw] md:w-64 snap-center md:snap-align-none">
-                                            <ListingSkeleton />
-                                        </div>)}
-                                </div> : scrollableRows.attractions.length === 0 ? <p className="text-center text-muted-foreground py-8 w-full">No attractions available</p> : scrollableRows.attractions.map((attraction, index) => <div key={attraction.id} className="flex-shrink-0 w-[62vw] md:w-64 snap-center md:snap-align-none">
-                                        <ListingCard id={attraction.id} type="ATTRACTION" name={attraction.local_name || attraction.location_name} imageUrl={attraction.photo_urls?.[0] || ""} location={attraction.location_name} country={attraction.country} price={attraction.price_adult || 0} date="" onSave={handleSave} isSaved={savedItems.has(attraction.id)} hidePrice={true} showBadge={true} priority={index === 0} activities={attraction.activities} />
-                                    </div>)}
-                            </div>
-                        </div>
-                    </section>
-
-                    <hr className="border-t border-gray-200 my-2 md:my-6" />
-
-                    {/* Featured Trips Only Section */}
-                    <section className="mb-3 md:mb-8">
-                        <div className="mb-2 md:mb-4 flex items-start justify-between">
-                            <h2 className="text-xs md:text-2xl font-bold whitespace-nowrap overflow-hidden text-ellipsis">
-                                Featured Trips
-                            </h2>
-                            <Link to="/category/trips" className="text-primary text-3xs md:text-sm hover:underline">
-                                View All
-                            </Link>
-                        </div>
-                        <div className="relative">
-                            {scrollableRows.trips.length > 0 && (
-                                <>
-                                    <Button variant="ghost" size="icon" onClick={() => scrollSection(featuredTripsRef, 'left')} className="absolute left-0 top-1/2 -translate-y-1/2 z-10 h-8 w-8 md:h-10 md:w-10 rounded-full bg-black/50 hover:bg-black/70 text-white">
-                                        <ChevronLeft className="h-5 w-5 md:h-6 md:w-6" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" onClick={() => scrollSection(featuredTripsRef, 'right')} className="absolute right-0 top-1/2 -translate-y-1/2 z-10 h-8 w-8 md:h-10 md:w-10 rounded-full bg-black/50 hover:bg-black/70 text-white">
-                                        <ChevronRight className="h-5 w-5 md:h-6 md:w-6" />
-                                    </Button>
-                                </>
-                            )}
-                            <div ref={featuredTripsRef} onScroll={handleScroll('featuredTrips')} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={() => onTouchEnd(featuredTripsRef)} className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none md:gap-[8px] pl-1 pr-8 md:pl-2 md:pr-12">
-                            {loadingScrollable ? <div className="flex gap-2 md:gap-4">
-                                    {[...Array(5)].map((_, i) => <div key={i} className="flex-shrink-0 w-[62vw] md:w-64 snap-center md:snap-align-none">
-                                            <ListingSkeleton />
-                                        </div>)}
-                                </div> : scrollableRows.trips.length === 0 ? <p className="text-center text-muted-foreground py-8 w-full">No trips available</p> : scrollableRows.trips.map(trip => {
-                const isEvent = trip.type === "event";
-                return <div key={trip.id} className="flex-shrink-0 w-[62vw] md:w-64 snap-center md:snap-align-none">
-                                        <ListingCard id={trip.id} type={isEvent ? "EVENT" : "TRIP"} name={trip.name} imageUrl={trip.image_url} location={trip.location} country={trip.country} price={trip.price} date={trip.date} isCustomDate={trip.is_custom_date} onSave={handleSave} isSaved={savedItems.has(trip.id)} showBadge={isEvent} availableTickets={trip.available_tickets} bookedTickets={bookingStats[trip.id] || 0} activities={trip.activities} />
+                                </div> : scrollableRows.campsites.length === 0 ? <p className="text-center text-muted-foreground py-8 w-full">No campsites available</p> : [...scrollableRows.campsites].sort((a, b) => {
+                if (!position) return 0;
+                const distA = a.latitude && a.longitude ? calculateDistance(position.latitude, position.longitude, a.latitude, a.longitude) : Infinity;
+                const distB = b.latitude && b.longitude ? calculateDistance(position.latitude, position.longitude, b.latitude, b.longitude) : Infinity;
+                return distA - distB;
+              }).map((place, index) => {
+                const itemDistance = position && place.latitude && place.longitude ? calculateDistance(position.latitude, position.longitude, place.latitude, place.longitude) : undefined;
+                return <div key={place.id} className="flex-shrink-0 w-[45vw] md:w-56">
+                                        <ListingCard id={place.id} type="ADVENTURE PLACE" name={place.name} imageUrl={place.image_url} location={place.location} country={place.country} price={place.entry_fee || 0} date="" onSave={handleSave} isSaved={savedItems.has(place.id)} hidePrice={true} showBadge={true} priority={index === 0} activities={place.activities} distance={itemDistance} />
                                     </div>;
               })}
                             </div>
                         </div>
                     </section>
 
-                    <hr className="border-t border-gray-200 my-4 md:my-8" />
-
-                    {/* Nearby Places/Hotels */}
-                    <section className="mb-8">
-                        <h2 className="text-sm md:text-2xl font-bold mb-4 whitespace-nowrap overflow-hidden text-ellipsis">
-                            Near You
-                        </h2>
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                            {loadingNearby ? [...Array(12)].map((_, i) => <ListingSkeleton key={i} />) : nearbyPlacesHotels.length > 0 ? nearbyPlacesHotels.map(item => <ListingCard key={item.id} id={item.id} type={item.type} name={item.name} imageUrl={item.image_url} location={item.location} country={item.country} price={item.type === "HOTEL" ? 0 : item.entry_fee || item.price_adult || 0} onSave={handleSave} isSaved={savedItems.has(item.id)} hidePrice={true} showBadge={true} />) : <p className="col-span-full text-muted-foreground text-center">No nearby places found</p>}
-                        </div>
-                    </section>
-
-                    {/* Vlogs Section */}
-                    <section className="mb-8">
-                        <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-sm md:text-2xl font-bold whitespace-nowrap overflow-hidden text-ellipsis">
-                                Travel Vlogs
+                    {/* Hotels */}
+                    <section className="mb-2 md:mb-6">
+                        <div className="mb-1.5 md:mb-3 flex items-start justify-between">
+                            <h2 className="text-xs md:text-2xl font-bold whitespace-nowrap overflow-hidden text-ellipsis">
+                                Hotels and accommodations.
                             </h2>
-                            <Link to="/vlog" className="text-primary text-3xs md:text-sm hover:underline">
+                            <Link to="/category/hotels" className="text-primary text-3xs md:text-sm hover:underline">
                                 View All
                             </Link>
                         </div>
                         <div className="relative">
-                            <Button variant="ghost" size="icon" onClick={() => scrollSection(vlogsRef, 'left')} className="absolute left-2 top-[30%] -translate-y-1/2 z-10 h-8 w-8 md:h-10 md:w-10 rounded-full bg-black/50 hover:bg-black/70 text-white">
-                                <ChevronLeft className="h-5 w-5 md:h-6 md:w-6" />
-                            </Button>
-                            <Button variant="ghost" size="icon" onClick={() => scrollSection(vlogsRef, 'right')} className="absolute right-2 top-[30%] -translate-y-1/2 z-10 h-8 w-8 md:h-10 md:w-10 rounded-full bg-black/50 hover:bg-black/70 text-white">
-                                <ChevronRight className="h-5 w-5 md:h-6 md:w-6" />
-                            </Button>
-                            <div ref={vlogsRef} onScroll={handleScroll('vlogs')} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={() => onTouchEnd(vlogsRef)} className="flex gap-2 md:gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory md:snap-none pl-1 pr-8 md:pl-2 md:pr-12">
-                            {[{
-                id: "1",
-                title: "Exploring the Swiss Alps",
-                description: "Join us on an incredible journey through the majestic Swiss Alps",
-                image_url: "https://images.unsplash.com/photo-1531366936337-7c912a4589a7?w=800&h=600&fit=crop"
-              }, {
-                id: "2",
-                title: "Tokyo Street Food Adventure",
-                description: "Dive into the vibrant food culture of Tokyo",
-                image_url: "https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=800&h=600&fit=crop"
-              }, {
-                id: "3",
-                title: "Safari Adventure in Kenya",
-                description: "Witness the incredible wildlife of Kenya",
-                image_url: "https://images.unsplash.com/photo-1516426122078-c23e76319801?w=800&h=600&fit=crop"
-              }, {
-                id: "4",
-                title: "Diving the Great Barrier Reef",
-                description: "Explore the underwater wonders of Australia",
-                image_url: "https://images.unsplash.com/photo-1583212292454-1fe6229603b7?w=800&h=600&fit=crop"
-              }, {
-                id: "5",
-                title: "Northern Lights in Iceland",
-                description: "Chase the aurora borealis across Iceland",
-                image_url: "https://images.unsplash.com/photo-1483347756197-71ef80e95f73?w=800&h=600&fit=crop"
-              }].map(vlog => <div key={vlog.id} className="flex-shrink-0 w-[62vw] md:w-64 snap-center md:snap-align-none">
-                                    <Card className="cursor-pointer hover:shadow-lg transition-shadow overflow-hidden h-full">
-                                        <img src={vlog.image_url} alt={vlog.title} loading="lazy" decoding="async" className="w-full h-32 md:h-48 object-cover" />
-                                        <div className="p-2 md:p-4">
-                                            <h3 className="font-bold text-xs md:text-base mb-1 md:mb-2 line-clamp-1">{vlog.title}</h3>
-                                            <p className="text-[10px] md:text-sm text-muted-foreground line-clamp-2">{vlog.description}</p>
-                                        </div>
-                                    </Card>
-                                </div>)}
+                            {scrollableRows.hotels.length > 0 && <>
+                                    <Button variant="ghost" size="icon" aria-label="Scroll left" onClick={() => scrollSection(featuredHotelsRef, 'left')} className="absolute left-0 top-1/2 -translate-y-1/2 z-10 h-8 w-8 md:h-10 md:w-10 rounded-full bg-black/50 hover:bg-black/70 text-white">
+                                        <ChevronLeft className="h-5 w-5 md:h-6 md:w-6" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" aria-label="Scroll right" onClick={() => scrollSection(featuredHotelsRef, 'right')} className="absolute right-0 top-1/2 -translate-y-1/2 z-10 h-8 w-8 md:h-10 md:w-10 rounded-full bg-black/50 hover:bg-black/70 text-white">
+                                        <ChevronRight className="h-5 w-5 md:h-6 md:w-6" />
+                                    </Button>
+                                </>}
+                            <div ref={featuredHotelsRef} onScroll={handleScroll('featuredHotels')} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={() => onTouchEnd(featuredHotelsRef)} className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide md:gap-4 pl-1 pr-8 md:pl-2 md:pr-12 scroll-smooth">
+                            {loadingScrollable ? <div className="flex gap-1.5 md:gap-2">
+                                    {[...Array(5)].map((_, i) => <div key={i} className="flex-shrink-0 w-[45vw] md:w-56">
+                                            <ListingSkeleton />
+                                        </div>)}
+                                </div> : scrollableRows.hotels.length === 0 ? <p className="text-center text-muted-foreground py-8 w-full">No hotels available</p> : [...scrollableRows.hotels].sort((a, b) => {
+                if (!position) return 0;
+                const distA = a.latitude && a.longitude ? calculateDistance(position.latitude, position.longitude, a.latitude, a.longitude) : Infinity;
+                const distB = b.latitude && b.longitude ? calculateDistance(position.latitude, position.longitude, b.latitude, b.longitude) : Infinity;
+                return distA - distB;
+              }).map((hotel, index) => {
+                const itemDistance = position && hotel.latitude && hotel.longitude ? calculateDistance(position.latitude, position.longitude, hotel.latitude, hotel.longitude) : undefined;
+                return <div key={hotel.id} className="flex-shrink-0 w-[45vw] md:w-56">
+                                        <ListingCard id={hotel.id} type="HOTEL" name={hotel.name} imageUrl={hotel.image_url} location={hotel.location} country={hotel.country} price={0} date="" onSave={handleSave} isSaved={savedItems.has(hotel.id)} hidePrice={true} showBadge={true} priority={index === 0} activities={hotel.activities} distance={itemDistance} />
+                                    </div>;
+              })}
                             </div>
-                            <div className="flex justify-center gap-2 mt-2">
-                                {Array.from({
-                length: 2
-              }).map((_, idx) => <div key={idx} className={`h-2 rounded-full transition-all ${idx === 0 ? 'w-8 bg-primary' : 'w-2 bg-muted-foreground/30'}`} />)}
+                        </div>
+                    </section>
+
+                    {/* Attractions */}
+                    <section className="mb-2 md:mb-6">
+                        
+                        
+                    </section>
+
+                    <hr className="border-t border-gray-200 my-1 md:my-4" />
+
+                    {/* Trips Section */}
+                    <section className="mb-2 md:mb-6">
+                        <div className="mb-1.5 md:mb-3 flex items-start justify-between">
+                            <h2 className="text-xs md:text-2xl font-bold whitespace-nowrap overflow-hidden text-ellipsis">
+                                Trips and tours.
+                            </h2>
+                            <Link to="/category/trips" className="text-primary text-3xs md:text-sm hover:underline">
+                                View All
+                            </Link>
+                        </div>
+                        <div className="relative">
+                            {scrollableRows.trips.length > 0 && <>
+                                    <Button variant="ghost" size="icon" aria-label="Scroll left" onClick={() => scrollSection(featuredTripsRef, 'left')} className="absolute left-0 top-1/2 -translate-y-1/2 z-10 h-8 w-8 md:h-10 md:w-10 rounded-full bg-black/50 hover:bg-black/70 text-white">
+                                        <ChevronLeft className="h-5 w-5 md:h-6 md:w-6" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" aria-label="Scroll right" onClick={() => scrollSection(featuredTripsRef, 'right')} className="absolute right-0 top-1/2 -translate-y-1/2 z-10 h-8 w-8 md:h-10 md:w-10 rounded-full bg-black/50 hover:bg-black/70 text-white">
+                                        <ChevronRight className="h-5 w-5 md:h-6 md:w-6" />
+                                    </Button>
+                                </>}
+                            <div ref={featuredTripsRef} onScroll={handleScroll('featuredTrips')} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={() => onTouchEnd(featuredTripsRef)} className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide md:gap-4 pl-1 pr-8 md:pl-2 md:pr-12 scroll-smooth">
+                            {loadingScrollable ? <div className="flex gap-1.5 md:gap-2">
+                                    {[...Array(5)].map((_, i) => <div key={i} className="flex-shrink-0 w-[45vw] md:w-56">
+                                            <ListingSkeleton />
+                                        </div>)}
+                                </div> : scrollableRows.trips.length === 0 ? <p className="text-center text-muted-foreground py-8 w-full">No trips available</p> : scrollableRows.trips.map(trip => {
+                const isEvent = trip.type === "event";
+                return <div key={trip.id} className="flex-shrink-0 w-[45vw] md:w-56">
+                                        <ListingCard id={trip.id} type={isEvent ? "EVENT" : "TRIP"} name={trip.name} imageUrl={trip.image_url} location={trip.location} country={trip.country} price={trip.price} date={trip.date} isCustomDate={trip.is_custom_date} onSave={handleSave} isSaved={savedItems.has(trip.id)} showBadge={isEvent} availableTickets={trip.available_tickets} bookedTickets={bookingStats[trip.id] || 0} activities={trip.activities} />
+                                    </div>;
+              })}
                             </div>
                         </div>
                     </section>

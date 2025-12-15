@@ -64,7 +64,7 @@ Deno.serve(async (req) => {
     // Determine payment status: pending -> completed or failed
     const paymentStatus = resultCode === '0' ? 'completed' : 'failed';
     const bookingStatus = resultCode === '0' ? 'confirmed' : 'cancelled';
-    const bookingPaymentStatus = resultCode === '0' ? 'paid' : 'failed';
+    const bookingPaymentStatus = resultCode === '0' ? 'completed' : 'failed';
 
     // First, get the payment record to access booking_data
     const { data: payment, error: fetchError } = await supabaseClient
@@ -167,14 +167,25 @@ async function sendNotificationsAndEmails(
 ) {
   try {
     const itemName = bookingData.emailData?.itemName || 'your booking';
+    
+    console.log('=== SENDING NOTIFICATIONS AND EMAILS ===');
+    console.log('Booking ID:', booking.id);
+    console.log('Guest Email:', bookingData.guest_email);
+    console.log('Guest Name:', bookingData.guest_name);
+    console.log('Item Name:', itemName);
+    console.log('Is Guest Booking:', bookingData.is_guest_booking);
+    console.log('User ID:', bookingData.user_id);
 
-    // Send confirmation email to user/guest
-    if (bookingData.guest_email) {
-      console.log('Sending confirmation email to:', bookingData.guest_email);
+    // Send confirmation email to user/guest - this should always work for both logged-in and guest users
+    const guestEmail = bookingData.guest_email;
+    const guestName = bookingData.guest_name || 'Guest';
+    
+    if (guestEmail) {
+      console.log('📧 Attempting to send confirmation email to:', guestEmail);
       
       const emailResult = await sendConfirmationEmail(
-        bookingData.guest_email,
-        bookingData.guest_name,
+        guestEmail,
+        guestName,
         booking.id,
         bookingData.booking_type,
         itemName,
@@ -185,25 +196,44 @@ async function sendNotificationsAndEmails(
       );
       
       if (emailResult.success) {
-        console.log('✅ Confirmation email sent to user');
+        console.log('✅ Confirmation email sent successfully to:', guestEmail);
       } else {
-        console.error('❌ Failed to send confirmation email:', emailResult.error);
+        console.error('❌ Failed to send confirmation email to:', guestEmail, 'Error:', emailResult.error);
       }
+    } else {
+      console.warn('⚠️ No guest email found in booking data. Cannot send confirmation email.');
+      console.log('Booking data keys:', Object.keys(bookingData));
     }
 
     // Create notification for user if logged in
     if (bookingData.user_id) {
+      const details = bookingData.booking_details || {};
+      const totalPeople = (details.adults || 0) + (details.children || 0);
+      const facilitiesList = details.selectedFacilities?.map((f: any) => f.name).join(', ') || '';
+      const activitiesList = details.selectedActivities?.map((a: any) => a.name).join(', ') || '';
+      
+      let userMessage = `Payment confirmed for ${itemName}. Booked by: ${bookingData.guest_name || 'Guest'}. People: ${totalPeople} (${details.adults || 0} adults, ${details.children || 0} children).`;
+      if (facilitiesList) userMessage += ` Facilities: ${facilitiesList}.`;
+      if (activitiesList) userMessage += ` Activities: ${activitiesList}.`;
+      userMessage += ` Total: KES ${bookingData.total_amount}`;
+      
       const { error: userNotifError } = await supabase
         .from('notifications')
         .insert({
           user_id: bookingData.user_id,
           type: 'payment_confirmed',
           title: 'Payment Successful',
-          message: `Your payment of KES ${bookingData.total_amount} for ${itemName} has been confirmed.`,
+          message: userMessage,
           data: { 
             booking_id: booking.id, 
             amount: bookingData.total_amount,
-            mpesa_receipt: mpesaReceiptNumber 
+            mpesa_receipt: mpesaReceiptNumber,
+            guest_name: bookingData.guest_name,
+            total_people: totalPeople,
+            adults: details.adults || 0,
+            children: details.children || 0,
+            facilities: details.selectedFacilities || [],
+            activities: details.selectedActivities || []
           },
         });
 
@@ -217,6 +247,16 @@ async function sendNotificationsAndEmails(
     // Create notification for host and send email
     const hostId = bookingData.host_id || payment.host_id;
     if (hostId) {
+      const details = bookingData.booking_details || {};
+      const totalPeople = (details.adults || 0) + (details.children || 0);
+      const facilitiesList = details.selectedFacilities?.map((f: any) => f.name).join(', ') || '';
+      const activitiesList = details.selectedActivities?.map((a: any) => a.name).join(', ') || '';
+      
+      let hostMessage = `New paid booking for ${itemName}. Booked by: ${bookingData.guest_name || 'Guest'}. People: ${totalPeople} (${details.adults || 0} adults, ${details.children || 0} children).`;
+      if (facilitiesList) hostMessage += ` Facilities: ${facilitiesList}.`;
+      if (activitiesList) hostMessage += ` Activities: ${activitiesList}.`;
+      hostMessage += ` Amount: KES ${bookingData.total_amount}`;
+      
       // Create in-app notification for host
       const { error: hostNotifError } = await supabase
         .from('notifications')
@@ -224,11 +264,16 @@ async function sendNotificationsAndEmails(
           user_id: hostId,
           type: 'new_booking',
           title: 'New Paid Booking',
-          message: `You have a new paid booking for ${itemName}. Amount: KES ${bookingData.total_amount}`,
+          message: hostMessage,
           data: { 
             booking_id: booking.id, 
             amount: bookingData.total_amount, 
-            guest_name: bookingData.guest_name 
+            guest_name: bookingData.guest_name,
+            total_people: totalPeople,
+            adults: details.adults || 0,
+            children: details.children || 0,
+            facilities: details.selectedFacilities || [],
+            activities: details.selectedActivities || []
           },
         });
 

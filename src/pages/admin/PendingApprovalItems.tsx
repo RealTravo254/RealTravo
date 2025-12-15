@@ -37,24 +37,16 @@ const PendingApprovalItems = () => {
 
   const fetchPendingItems = async () => {
     try {
-      const [tripsRes, hotelsRes, adventuresRes, attractionsRes] = await Promise.all([
+      const [tripsRes, hotelsRes, adventuresRes] = await Promise.all([
         supabase.from("trips").select("id, name, location, created_at").eq("approval_status", "pending"),
         supabase.from("hotels").select("id, name, location, created_at").eq("approval_status", "pending"),
         supabase.from("adventure_places").select("id, name, location, created_at").eq("approval_status", "pending"),
-        supabase.from("attractions").select("id, location_name, local_name, created_at").eq("approval_status", "pending"),
       ]);
 
       const allItems: ListingItem[] = [
         ...(tripsRes.data?.map(t => ({ ...t, type: "trip" })) || []),
         ...(hotelsRes.data?.map(h => ({ ...h, type: "hotel" })) || []),
         ...(adventuresRes.data?.map(a => ({ ...a, type: "adventure" })) || []),
-        ...(attractionsRes.data?.map(a => ({ 
-          id: a.id, 
-          name: a.local_name || a.location_name, 
-          location: a.location_name,
-          type: "attraction",
-          created_at: a.created_at
-        })) || []),
       ];
 
       const sortedItems = allItems.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -86,7 +78,6 @@ const PendingApprovalItems = () => {
       case "trip": return Plane;
       case "hotel": return Building;
       case "adventure": return Tent;
-      case "attraction": return MapPin;
       default: return MapPin;
     }
   };

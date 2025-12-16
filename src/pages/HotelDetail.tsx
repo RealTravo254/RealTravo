@@ -7,11 +7,11 @@ import { MobileBottomBar } from "@/components/MobileBottomBar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 // Icons will be Teal: #008080
-import { MapPin, Phone, Share2, Mail, Calendar, Clock, ArrowLeft, Heart, Copy } from "lucide-react"; 
+import { MapPin, Phone, Share2, Mail, Clock, ArrowLeft, Heart, Copy } from "lucide-react"; 
 import { SimilarItems } from "@/components/SimilarItems";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext } from "@/components/ui/carousel";
+import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
 import { ReviewSection } from "@/components/ReviewSection";
 import Autoplay from "embla-carousel-autoplay";
 import { useSavedItems } from "@/hooks/useSavedItems";
@@ -258,78 +258,104 @@ const HotelDetail = () => {
   
   if (loading || !hotel) {
     return <div className="min-h-screen bg-background pb-20 md:pb-0">
-        <Header />
-        <div className="container px-4 py-6"><div className="h-96 bg-muted animate-pulse rounded-lg" /></div>
+        <Header className="hidden md:block" />
+        <div className="h-96 bg-muted animate-pulse" />
         <MobileBottomBar />
       </div>;
   }
   
   const displayImages = [hotel.image_url, ...(hotel.gallery_images || []), ...(hotel.images || [])].filter(Boolean);
   
-  return <div className="min-h-screen bg-background pb-20 md:pb-0">
-      <Header />
+  return (
+    <div className="min-h-screen bg-background pb-20 md:pb-0">
+      {/* Header hidden on small screen / PWA mode */}
+      <Header className="hidden md:block" /> 
       
-      <main className="container max-w-6xl mx-auto px-4">
-        <div className="grid lg:grid-cols-[2fr,1fr] gap-6 sm:gap-4">
-          {/* --- Image Carousel Section --- */}
-          <div className="w-full">
-            <div className="relative">
-              {/* Back Button over carousel */}
-              <Button 
-                variant="ghost" 
-                onClick={() => navigate(-1)} 
-                className="absolute top-4 left-4 z-20 h-10 w-10 p-0 rounded-full text-white"
-                style={{ backgroundColor: '#008080' }}
-                size="icon"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
+      {/* FULL-WIDTH SLIDESHOW SECTION: Mobile-first full width, desktop contained max-w */}
+      <div className="relative w-full overflow-hidden md:max-w-6xl md:mx-auto">
+        
+        {/* Back Button: Top Left, Dark RGBA */}
+        <Button 
+          variant="ghost" 
+          onClick={() => navigate(-1)} 
+          className="absolute top-4 left-4 z-30 h-10 w-10 p-0 rounded-full text-white md:left-8" // Increased Z-index and adjusted md:left
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }} // Dark RGBA
+          size="icon"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
 
-              <Carousel opts={{
-                loop: true
-              }} plugins={[Autoplay({
-                delay: 3000
-              })]} className="w-full overflow-hidden" setApi={api => {
-                if (api) api.on("select", () => setCurrent(api.selectedScrollSnap()));
-              }}>
-                <CarouselContent>
-                  {displayImages.map((img, idx) => <CarouselItem key={idx}>
-                      <img src={img} alt={`${hotel.name} ${idx + 1}`} loading="lazy" decoding="async" className="w-full h-64 md:h-96 object-cover" />
-                    </CarouselItem>)}
-                </CarouselContent>
-              </Carousel>
-              
-              {/* Dot indicators */}
-              {displayImages.length > 1 && (
-                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2 z-10">
-                  {displayImages.map((_, idx) => (
-                    <div 
-                      key={idx} 
-                      className={`w-2 h-2 rounded-full transition-all ${current === idx ? 'bg-white w-4' : 'bg-white/50'}`}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-            
-            {/* Description Section below slideshow */}
-            {hotel.description && 
-              <div className="bg-card border rounded-lg p-4 sm:p-3 mt-4">
-                <h2 className="text-lg sm:text-base font-semibold mb-2">About This Hotel</h2>
-                <p className="text-sm text-muted-foreground">{hotel.description}</p>
-              </div>
-            }
+        {/* Save Button: Top Right, Dark RGBA/Red filled */}
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={handleSave} 
+          className={`absolute top-4 right-4 z-30 h-10 w-10 p-0 rounded-full text-white md:right-8 ${isSaved ? "bg-red-500 hover:bg-red-600" : ""}`}
+          style={{ backgroundColor: isSaved ? RED_COLOR : 'rgba(0, 0, 0, 0.5)' }} // Dark RGBA or RED if saved
+        >
+          <Heart className={`h-5 w-5 ${isSaved ? "fill-white" : ""}`} />
+        </Button>
+
+        <Carousel 
+          opts={{ loop: true }} 
+          plugins={[Autoplay({ delay: 3000 })]} 
+          className="w-full overflow-hidden"
+          style={{ 
+            borderBottom: `2px solid ${TEAL_COLOR}`, // Teal bottom border for small/big screen
+            marginTop: 0, 
+            width: '100%', 
+            maxHeight: '600px' // Added max height for larger screens
+          }}
+          setApi={(api) => {
+            if (api) api.on("select", () => setCurrent(api.selectedScrollSnap()));
+          }}
+        >
+          <CarouselContent>
+            {displayImages.map((img, idx) => (
+              <CarouselItem key={idx}>
+                <img 
+                  src={img} 
+                  alt={`${hotel.name} ${idx + 1}`} 
+                  loading="lazy" 
+                  decoding="async" 
+                  className="w-full h-[60vh] md:h-96 lg:h-[500px] object-cover" // Ensure height consistency
+                />
+              </CarouselItem>
+            ))}
+          </CarouselContent>
+        </Carousel>
+
+        {/* Name Overlay: Fading RGBA, concentrated at center bottom */}
+        <div className="absolute bottom-0 left-0 right-0 p-4 md:p-8 z-20 text-white bg-gradient-to-t from-black/80 via-black/50 to-transparent">
+          <h1 className="text-3xl sm:text-2xl font-bold mb-0">{hotel.name}</h1>
+          {hotel.local_name && (
+            <p className="text-lg sm:text-base text-white/90 mb-0">"{hotel.local_name}"</p>
+          )}
+        </div>
+        
+        {/* Dot indicators */}
+        {displayImages.length > 1 && (
+          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2 z-30">
+            {displayImages.map((_, idx) => (
+              <div 
+                key={idx} 
+                className={`w-2 h-2 rounded-full transition-all ${current === idx ? 'bg-white w-4' : 'bg-white/50'}`}
+              />
+            ))}
           </div>
-
-          {/* --- Detail/Booking Section (Right Column on large screens, Stacked on small) --- */}
-          <div className="space-y-4 sm:space-y-3">
-            <div>
-              <h1 className="text-3xl sm:text-2xl font-bold mb-2">{hotel.name}</h1>
-              {hotel.local_name && (
-                <p className="text-lg sm:text-base text-muted-foreground mb-2">"{hotel.local_name}"</p>
-              )}
+        )}
+      </div>
+      
+      {/* Main Content starts here, contained by the max-width wrapper */}
+      <main className="container px-4 max-w-6xl mx-auto mt-4 sm:mt-6">
+        <div className="grid lg:grid-cols-[2fr,1fr] gap-6 sm:gap-4">
+          
+          {/* LEFT COLUMN (Description, Amenities, Facilities, Activities) */}
+          <div className="w-full space-y-4">
+            
+            {/* Location/Distance/Details section (Moved from right column) */}
+            <div>
               <div className="flex items-center gap-2 text-muted-foreground mb-2">
-                {/* MapPin Icon Teal */}
                 <MapPin className="h-4 w-4" style={{ color: TEAL_COLOR }} />
                 <span className="sm:text-sm">{hotel.location}, {hotel.country}</span>
                 {distance !== undefined && (
@@ -339,14 +365,84 @@ const HotelDetail = () => {
                 )}
               </div>
               {hotel.place && (
-                <p className="text-sm text-muted-foreground mb-4 sm:mb-2">Place: {hotel.place}</p>
+                <p className="text-sm sm:text-xs text-muted-foreground mb-4 sm:mb-2">Place: {hotel.place}</p>
               )}
-            </div>
+            </div>
 
-            {/* Operating Hours/Availability Card */}
-            <div className="p-4 sm:p-3 border bg-card mb-4 sm:mb-2" style={{ borderColor: TEAL_COLOR }}>
-              <div className="flex items-center gap-2">
-                <Clock className="h-5 w-5" style={{ color: TEAL_COLOR }} />
+            {/* Description Section */}
+            {hotel.description && 
+              <div className="bg-card border rounded-lg p-4 sm:p-3">
+                <h2 className="text-lg sm:text-base font-semibold mb-2 sm:mb-1">About This Hotel</h2>
+                <p className="text-sm text-muted-foreground">{hotel.description}</p>
+              </div>
+            }
+
+            {/* --- Amenities Section (RED) --- */}
+            {hotel.amenities && hotel.amenities.length > 0 && (
+              <div className="p-4 sm:p-3 border bg-card rounded-lg">
+                <h2 className="text-xl sm:text-lg font-semibold mb-4 sm:mb-3">Amenities</h2>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                  {hotel.amenities.map((amenity, idx) => (
+                    <div 
+                      key={idx} 
+                      className="px-3 py-2 text-white rounded-lg text-sm flex items-center justify-center text-center min-h-[44px]"
+                      style={{ backgroundColor: RED_COLOR }}
+                    >
+                      <span className="font-medium">{amenity}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* --- Facilities (Room Types) Section (TEAL) --- */}
+            {hotel.facilities && hotel.facilities.length > 0 && (
+              <div className="p-4 sm:p-3 border bg-card rounded-lg">
+                <h2 className="text-xl sm:text-lg font-semibold mb-4 sm:mb-3">Facilities (Room Types)</h2>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                  {hotel.facilities.map((facility, idx) => (
+                    <div 
+                      key={idx} 
+                      className="px-3 py-2 text-white rounded-lg text-sm flex flex-col items-center justify-center text-center min-h-[60px]"
+                      style={{ backgroundColor: TEAL_COLOR }}
+                    >
+                      <span className="font-medium">{facility.name}</span>
+                      <span className="text-xs opacity-90 mt-1">{facility.price === 0 ? 'Free' : `KSh ${facility.price}/day`}</span>
+                      {facility.capacity > 0 && <span className="text-xs opacity-90">Capacity: {facility.capacity}</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* --- Activities Section (ORANGE) --- */}
+            {hotel.activities && hotel.activities.length > 0 && (
+              <div className="p-4 sm:p-3 border bg-card rounded-lg">
+                <h2 className="text-xl sm:text-lg font-semibold mb-4 sm:mb-3">Activities</h2>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                  {hotel.activities.map((activity, idx) => (
+                    <div 
+                      key={idx} 
+                      className="px-3 py-2 text-white rounded-lg text-sm flex flex-col items-center justify-center text-center min-h-[60px]"
+                      style={{ backgroundColor: ORANGE_COLOR }}
+                    >
+                      <span className="font-medium">{activity.name}</span>
+                      <span className="text-xs opacity-90 mt-1">{activity.price === 0 ? 'Free' : `KSh ${activity.price}/person`}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* RIGHT COLUMN (Booking Card, Contact, Share Buttons) */}
+          <div className="space-y-4 sm:space-y-3">
+            
+            {/* Operating Hours/Availability Card (Booking Card structure) */}
+            <div className="space-y-3 p-4 sm:p-3 border bg-card rounded-lg">
+              
+              <div className="flex items-start gap-2">
+                <Clock className="h-5 w-5 mt-1" style={{ color: TEAL_COLOR }} />
                 <div>
                   <p className="text-sm sm:text-xs text-muted-foreground">Working Hours & Days</p>
                   <p className="font-semibold sm:text-sm">
@@ -362,157 +458,101 @@ const HotelDetail = () => {
                   </p>
                 </div>
               </div>
+
+              <div className="border-t pt-3 sm:pt-2">
+                <p className="text-sm sm:text-xs text-muted-foreground mb-1">Available Rooms</p>
+                <p 
+                  className="text-2xl sm:text-xl font-bold"
+                  style={{ color: TEAL_COLOR }} 
+                >
+                  {hotel.available_rooms !== null && hotel.available_rooms !== undefined
+                    ? `${hotel.available_rooms} Rooms`
+                    : 'Check Availability'}
+                </p>
+                <p className="text-xs text-muted-foreground mt-2 sm:mt-1">
+                  *Room prices vary by type/facilities selected
+                </p>
+              </div>
+
+              {/* Book Now Button */}
+              <Button 
+                size="lg" 
+                className="w-full text-white h-10 sm:h-9" 
+                onClick={() => { setIsCompleted(false); setBookingOpen(true); }}
+                style={{ backgroundColor: TEAL_COLOR }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#005555')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = TEAL_COLOR)}
+              >
+                Book Now
+              </Button>
             </div>
 
-            <div className="space-y-3">
-              {/* Book Now Button Teal and dark hover */}
-              <Button 
-                size="lg" 
-                className="w-full text-white h-10 sm:h-9" 
-                onClick={() => { setIsCompleted(false); setBookingOpen(true); }}
-                style={{ backgroundColor: TEAL_COLOR }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#005555')}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = TEAL_COLOR)}
-              >
-                Book Now
-              </Button>
-            </div>
+            {/* Action Buttons (Map, Copy, Share) */}
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={openInMaps} 
+                className="flex-1 h-9" 
+                style={{ borderColor: TEAL_COLOR, color: TEAL_COLOR }}
+              >
+                <MapPin className="h-4 w-4 md:mr-2" style={{ color: TEAL_COLOR }} />
+                <span className="hidden md:inline">Map</span>
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleCopyLink} 
+                className="flex-1 h-9"
+                style={{ borderColor: TEAL_COLOR, color: TEAL_COLOR }}
+              >
+                <Copy className="h-4 w-4 md:mr-2" style={{ color: TEAL_COLOR }} />
+                <span className="hidden md:inline">Copy Link</span>
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleShare} 
+                className="flex-1 h-9"
+                style={{ borderColor: TEAL_COLOR, color: TEAL_COLOR }}
+              >
+                <Share2 className="h-4 w-4 md:mr-2" style={{ color: TEAL_COLOR }} />
+                <span className="hidden md:inline">Share</span>
+              </Button>
+              {/* Removed the small save button here as it's now a full overlay button */}
+            </div>
 
-            {/* Action Buttons */}
-            <div className="flex gap-2">
-              {/* Map Button: Border/Icon Teal */}
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={openInMaps} 
-                className="flex-1 h-9" 
-                style={{ borderColor: TEAL_COLOR, color: TEAL_COLOR }}
-              >
-                <MapPin className="h-4 w-4 md:mr-2" style={{ color: TEAL_COLOR }} />
-                <span className="hidden md:inline">Map</span>
-              </Button>
-              {/* Copy Link Button: Border/Icon Teal */}
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleCopyLink} 
-                className="flex-1 h-9"
-                style={{ borderColor: TEAL_COLOR, color: TEAL_COLOR }}
-              >
-                <Copy className="h-4 w-4 md:mr-2" style={{ color: TEAL_COLOR }} />
-                <span className="hidden md:inline">Copy Link</span>
-              </Button>
-              {/* Share Button: Border/Icon Teal */}
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleShare} 
-                className="flex-1 h-9"
-                style={{ borderColor: TEAL_COLOR, color: TEAL_COLOR }}
-              >
-                <Share2 className="h-4 w-4 md:mr-2" style={{ color: TEAL_COLOR }} />
-                <span className="hidden md:inline">Share</span>
-              </Button>
-              {/* Save Button: Border/Icon Teal (and filled red if saved) */}
-              <Button 
-                variant="outline" 
-                size="icon" 
-                onClick={handleSave} 
-                className={`h-9 w-9 ${isSaved ? "bg-red-500 text-white hover:bg-red-600" : ""}`}
-                style={{ borderColor: TEAL_COLOR, color: isSaved ? 'white' : TEAL_COLOR }}
-              >
-                <Heart className={`h-4 w-4 ${isSaved ? "fill-current" : ""}`} />
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* --- Amenities Section --- */}
-        {hotel.amenities && hotel.amenities.length > 0 && (
-          <div className="mt-6 sm:mt-4 p-4 sm:p-3 border bg-card rounded-lg">
-            <h2 className="text-xl sm:text-lg font-semibold mb-4 sm:mb-3">Amenities</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-              {hotel.amenities.map((amenity, idx) => (
-                <div 
-                  key={idx} 
-                  className="px-3 py-2 text-white rounded-lg text-sm flex items-center justify-center text-center min-h-[44px]"
-                  style={{ backgroundColor: RED_COLOR }}
-                >
-                  <span className="font-medium">{amenity}</span>
+            {/* --- Contact Information Section --- */}
+            {(hotel.phone_numbers || hotel.email) && (
+              <div className="p-4 sm:p-3 border bg-card rounded-lg">
+                <h2 className="text-xl sm:text-lg font-semibold mb-4 sm:mb-3">Contact Information</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-1 gap-2">
+                  {hotel.phone_numbers?.map((phone, idx) => (
+                    <a 
+                      key={idx} 
+                      href={`tel:${phone}`}
+                      className="flex items-center gap-2 px-4 py-3 border rounded-lg hover:bg-muted transition-colors"
+                      style={{ borderColor: TEAL_COLOR }}
+                    >
+                      <Phone className="h-4 w-4" style={{ color: TEAL_COLOR }} />
+                      <span className="text-sm" style={{ color: TEAL_COLOR }}>{phone}</span>
+                    </a>
+                  ))}
+                  {hotel.email && (
+                    <a 
+                      href={`mailto:${hotel.email}`}
+                      className="flex items-center gap-2 px-4 py-3 border rounded-lg hover:bg-muted transition-colors"
+                      style={{ borderColor: TEAL_COLOR }}
+                    >
+                      <Mail className="h-4 w-4" style={{ color: TEAL_COLOR }} />
+                      <span className="text-sm" style={{ color: TEAL_COLOR }}>{hotel.email}</span>
+                    </a>
+                  )}
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
           </div>
-        )}
-
-        {/* --- Facilities (Room Types) Section --- */}
-        {hotel.facilities && hotel.facilities.length > 0 && (
-          <div className="mt-6 sm:mt-4 p-4 sm:p-3 border bg-card rounded-lg">
-            <h2 className="text-xl sm:text-lg font-semibold mb-4 sm:mb-3">Facilities (Room Types)</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-              {hotel.facilities.map((facility, idx) => (
-                <div 
-                  key={idx} 
-                  className="px-3 py-2 text-white rounded-lg text-sm flex flex-col items-center justify-center text-center min-h-[60px]"
-                  style={{ backgroundColor: TEAL_COLOR }}
-                >
-                  <span className="font-medium">{facility.name}</span>
-                  <span className="text-xs opacity-90 mt-1">{facility.price === 0 ? 'Free' : `KSh ${facility.price}/day`}</span>
-                  {facility.capacity > 0 && <span className="text-xs opacity-90">Capacity: {facility.capacity}</span>}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* --- Activities Section --- */}
-        {hotel.activities && hotel.activities.length > 0 && (
-          <div className="mt-6 sm:mt-4 p-4 sm:p-3 border bg-card rounded-lg">
-            <h2 className="text-xl sm:text-lg font-semibold mb-4 sm:mb-3">Activities</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-              {hotel.activities.map((activity, idx) => (
-                <div 
-                  key={idx} 
-                  className="px-3 py-2 text-white rounded-lg text-sm flex flex-col items-center justify-center text-center min-h-[60px]"
-                  style={{ backgroundColor: ORANGE_COLOR }}
-                >
-                  <span className="font-medium">{activity.name}</span>
-                  <span className="text-xs opacity-90 mt-1">{activity.price === 0 ? 'Free' : `KSh ${activity.price}/person`}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* --- Contact Information Section --- */}
-        {(hotel.phone_numbers || hotel.email) && (
-          <div className="mt-6 sm:mt-4 p-4 sm:p-3 border bg-card rounded-lg">
-            <h2 className="text-xl sm:text-lg font-semibold mb-4 sm:mb-3">Contact Information</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {hotel.phone_numbers?.map((phone, idx) => (
-                <a 
-                  key={idx} 
-                  href={`tel:${phone}`}
-                  className="flex items-center gap-2 px-4 py-3 border rounded-lg hover:bg-muted transition-colors"
-                  style={{ borderColor: TEAL_COLOR }}
-                >
-                  <Phone className="h-4 w-4" style={{ color: TEAL_COLOR }} />
-                  <span className="text-sm" style={{ color: TEAL_COLOR }}>{phone}</span>
-                </a>
-              ))}
-              {hotel.email && (
-                <a 
-                  href={`mailto:${hotel.email}`}
-                  className="flex items-center gap-2 px-4 py-3 border rounded-lg hover:bg-muted transition-colors"
-                  style={{ borderColor: TEAL_COLOR }}
-                >
-                  <Mail className="h-4 w-4" style={{ color: TEAL_COLOR }} />
-                  <span className="text-sm" style={{ color: TEAL_COLOR }}>{hotel.email}</span>
-                </a>
-              )}
-            </div>
-          </div>
-        )}
+        </div>
 
         {/* --- Review Section --- */}
         <div className="mt-6 sm:mt-4">
@@ -541,6 +581,7 @@ const HotelDetail = () => {
       </Dialog>
 
       <MobileBottomBar />
-    </div>;
+    </div>
+  );
 };
 export default HotelDetail;

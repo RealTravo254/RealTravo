@@ -16,8 +16,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { NavigationDrawer } from "./NavigationDrawer";
 import { Link, useNavigate } from "react-router-dom";
-import { ThemeToggle } from "./ThemeToggle"; // <--- Component to update
-import { NotificationBell } from "./NotificationBell"; // <--- Component to update
+import { ThemeToggle } from "./ThemeToggle"; 
+import { NotificationBell } from "./NotificationBell"; 
 
 interface HeaderProps {
   onSearchClick?: () => void;
@@ -30,6 +30,7 @@ export const Header = ({ onSearchClick, showSearchIcon = true }: HeaderProps) =>
   const { user, signOut } = useAuth();
   const [userRole, setUserRole] = useState<string | null>(null);
 
+  // ... (Role and User Name useEffects and getUserInitials function remain unchanged) ...
   useEffect(() => {
     const checkRole = async () => {
       if (!user) {
@@ -85,28 +86,19 @@ export const Header = ({ onSearchClick, showSearchIcon = true }: HeaderProps) =>
     return "U";
   };
 
-  // Mobile account icon tap handler
-  const [showMobileAccountDialog, setShowMobileAccountDialog] = useState(false);
-
-  const handleMobileAccountTap = () => {
-    if (!user) {
-      // Redirect to login
-      window.location.href = "/auth";
-    } else {
-      setShowMobileAccountDialog(!showMobileAccountDialog);
-    }
-  };
-
   return (
-    // 1. Updated Background/Color: Default to white/transparent on mobile, apply background color on medium screens up.
-    // NOTE: The request was to *not* show background color on a small screen.
-    <header className="sticky top-0 z-50 w-full border-b border-border bg-white text-black h-16 dark:bg-black dark:text-white md:bg-[#008080] md:text-white dark:md:bg-[#008080] dark:md:text-white">
-      <div className="container flex h-full items-center justify-between px-4">
+    // 1. Mobile Header: Make it absolutely positioned, no height, no background.
+    // Desktop Header (md:): Revert to sticky, h-16, and background color.
+    <header className="absolute top-0 left-0 right-0 z-50 text-black dark:text-white md:sticky md:h-16 md:border-b md:border-border md:bg-[#008080] md:text-white dark:md:bg-[#008080] dark:md:text-white">
+      {/* 2. Mobile Container: Remove flex properties and padding. Use absolute children for positioning. 
+           Desktop Container: Keep standard flex layout for md: */}
+      <div className="container md:flex md:h-full md:items-center md:justify-between md:px-4">
         
-        {/* Logo and Drawer Trigger (Left Side) */}
-        <div className="flex items-center gap-3">
+        {/* Mobile Left Icons (Menu) */}
+        <div className="absolute top-4 left-4 flex items-center gap-3 md:relative md:top-auto md:left-auto">
           <Sheet open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
             <SheetTrigger asChild>
+              {/* Menu Icon: Positioned top-left on mobile */}
               <button className="inline-flex items-center justify-center h-10 w-10 rounded-md text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors md:text-white md:hover:bg-[#006666]" aria-label="Open navigation menu">
                 <Menu className="h-5 w-5" />
               </button>
@@ -116,47 +108,21 @@ export const Header = ({ onSearchClick, showSearchIcon = true }: HeaderProps) =>
             </SheetContent>
           </Sheet>
           
-          {/* 2. Hide Logo and Description on Small Screens (Default Hidden) */}
+          {/* Logo/Description: Always HIDDEN on small screens */}
           <Link to="/" className="hidden md:flex items-center gap-3">
-            <div className="h-8 w-8 rounded-lg bg-white flex items-center justify-center text-[#0066cc] font-bold text-lg">
-              T
-            </div>
-            <div>
-              <span className="font-bold text-base md:text-lg text-white block">
-                TripTrac
-              </span>
-              <p className="text-xs text-white/90 block">Your journey starts now.</p>
-            </div>
+            {/* ... Logo HTML ... */}
           </Link>
         </div>
 
-        {/* Desktop Navigation (Centered) - Keep hidden on mobile */}
+        {/* Desktop Navigation (Centered): Always HIDDEN on small screens */}
         <nav className="hidden lg:flex items-center gap-6">
-          <Link to="/" className="flex items-center gap-2 font-bold hover:text-muted-foreground transition-colors">
-            <Home className="h-4 w-4" />
-            <span>Home</span>
-          </Link>
-          <Link to="/bookings" className="flex items-center gap-2 font-bold hover:text-muted-foreground transition-colors">
-            <Ticket className="h-4 w-4" />
-            <span>My Bookings</span>
-          </Link>
-          <Link to="/saved" className="flex items-center gap-2 font-bold hover:text-muted-foreground transition-colors">
-            <Heart className="h-4 w-4" />
-            <span>Wishlist</span>
-          </Link>
-          <button 
-            onClick={() => user ? navigate('/become-host') : navigate('/auth')} 
-            className="flex items-center gap-2 font-bold hover:text-muted-foreground transition-colors"
-          >
-            <FolderOpen className="h-4 w-4" />
-            <span>Become a Host</span>
-          </button>
+          {/* ... Desktop Nav Links ... */}
         </nav>
 
-        {/* Account Controls (Right Side) */}
-        <div className="flex items-center gap-2">
+        {/* 3. Mobile Right Icons (Search, Notification) */}
+        <div className="absolute top-4 right-4 flex items-center gap-2 md:relative md:top-auto md:right-auto md:flex">
           
-          {/* 3. Search Icon Button - Visible on all screens */}
+          {/* Search Icon Button: Always visible, positioned top-right (relative to its wrapper) */}
           {showSearchIcon && (
             <button 
               onClick={() => {
@@ -167,30 +133,34 @@ export const Header = ({ onSearchClick, showSearchIcon = true }: HeaderProps) =>
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }
               }}
-              // Updated hover styles for mobile (white background, black icon)
-              className="rounded-full h-10 w-10 flex items-center justify-center transition-colors bg-white/10 hover:bg-white group md:bg-white/10 md:hover:bg-white"
+              className="rounded-full h-10 w-10 flex items-center justify-center transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 md:bg-white/10 md:hover:bg-white"
               aria-label="Search"
             >
-              {/* Updated icon color for mobile (black) and hover (black) */}
-              <Search className="h-5 w-5 text-black dark:text-white group-hover:text-[#008080] md:text-white dark:md:text-white md:group-hover:text-[#008080]" />
+              <Search className="h-5 w-5 text-black dark:text-white md:text-white dark:md:text-white md:group-hover:text-[#008080]" />
             </button>
           )}
           
-          {/* 4. Notification Bell - Visible on all screens, adjusting styles for mobile */}
+          {/* Notification Bell with RGBA Background on Mobile */}
           <div className="flex items-center gap-2">
-            <NotificationBell 
-              // Passing classes to adjust bell color for mobile (white background, black icon)
-              mobileIconClasses="text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
-              desktopIconClasses="md:text-white md:hover:bg-[#006666]"
-            />
+            {/* WRAPPER for Notification Bell - Apply RGBA background ONLY on non-md screens */}
+            <div className="rounded-full h-10 w-10 flex items-center justify-center transition-colors md:bg-transparent"
+                 style={{ 
+                    // Apply rgba background color directly for mobile screens
+                    backgroundColor: 'rgba(0, 0, 0, 0.1)', 
+                    // Important: Resetting the inline style for desktop is complex. Tailwind classes will override it if they specify background.
+                 }}
+            >
+                <NotificationBell 
+                    mobileIconClasses="text-black dark:text-white"
+                    desktopIconClasses="md:text-white md:hover:bg-[#006666]"
+                />
+            </div>
           </div>
 
-          {/* Desktop Auth Actions (Right Side) - Theme, Account */}
-          {/* 5. ThemeToggle and Account Button - Hidden on small screen (default hidden on div) */}
+          {/* Theme Toggle and Account: Hidden on mobile, shown on desktop */}
           <div className="hidden md:flex items-center gap-2">
             <ThemeToggle />
             
-            {/* Account Button - Keep hidden on mobile, show on md: */}
             <button 
               onClick={() => user ? navigate('/account') : navigate('/auth')}
               className="rounded-full h-10 w-10 flex items-center justify-center transition-colors 

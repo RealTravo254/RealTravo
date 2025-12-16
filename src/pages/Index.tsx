@@ -510,7 +510,7 @@ const Index = () => {
                               <div 
                                   key={cat.title} 
                                   onClick={() => navigate(cat.path)} 
-                                  className="relative h-24 md:h-40 lg:h-48 cursor-pointer overflow-hidden group rounded-lg" 
+                                  className="relative h-24 md:h-40 lg:h-48 cursor-pointer overflow-hidden group rounded-lg"
                                   style={{
                                       backgroundImage: `url(${cat.bgImage})`,
                                       backgroundSize: 'cover',

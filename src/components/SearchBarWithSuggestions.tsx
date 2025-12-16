@@ -100,20 +100,20 @@ export const SearchBarWithSuggestions = ({ value, onChange, onSubmit, onSuggesti
     const queryValue = value.trim().toLowerCase();
 
     try {
-      // Fetch all items - we'll filter client-side for activities/facilities
-      const [tripsData, eventsData, hotelsData, adventuresData] = await Promise.all([
-        supabase.from("trips").select("id, name, location, place, country, activities, date, image_url").eq("approval_status", "approved").eq("type", "trip").limit(50),
-        supabase.from("trips").select("id, name, location, place, country, activities, date, image_url").eq("approval_status", "approved").eq("type", "event").limit(50),
-        supabase.from("hotels").select("id, name, location, place, country, activities, facilities, image_url").eq("approval_status", "approved").limit(50),
-        supabase.from("adventure_places").select("id, name, location, place, country, activities, facilities, image_url").eq("approval_status", "approved").limit(50)
-      ]);
+      // Fetch all items - we'll filter client-side for activities/facilities
+      const [tripsData, eventsData, hotelsData, adventuresData] = await Promise.all([
+        supabase.from("trips").select("id, name, location, place, country, activities, date, image_url").eq("approval_status", "approved").eq("type", "trip").limit(50),
+        supabase.from("trips").select("id, name, location, place, country, activities, date, image_url").eq("approval_status", "approved").eq("type", "event").limit(50),
+        supabase.from("hotels").select("id, name, location, place, country, activities, facilities, image_url").eq("approval_status", "approved").limit(50),
+        supabase.from("adventure_places").select("id, name, location, place, country, activities, facilities, image_url").eq("approval_status", "approved").limit(50)
+      ]);
 
-      let combined: SearchResult[] = [
-        ...(tripsData.data || []).map((item) => ({ ...item, type: "trip" as const })),
-        ...(eventsData.data || []).map((item) => ({ ...item, type: "event" as const })),
-        ...(hotelsData.data || []).map((item) => ({ ...item, type: "hotel" as const })),
-        ...(adventuresData.data || []).map((item) => ({ ...item, type: "adventure" as const }))
-      ];
+      let combined: SearchResult[] = [
+        ...(tripsData.data || []).map((item) => ({ ...item, type: "trip" as const })),
+        ...(eventsData.data || []).map((item) => ({ ...item, type: "event" as const })),
+        ...(hotelsData.data || []).map((item) => ({ ...item, type: "hotel" as const })),
+        ...(adventuresData.data || []).map((item) => ({ ...item, type: "adventure" as const }))
+      ];
 
       // Filter by search query (including activities and facilities)
       if (queryValue) {
@@ -296,18 +296,7 @@ export const SearchBarWithSuggestions = ({ value, onChange, onSubmit, onSuggesti
         return Plane;
     }
   };
-    
-  // Calculate the top position for the fixed suggestion box in mobile view
-  const getSuggestionTopStyle = (): React.CSSProperties => {
-    if (!inputRef.current) return {};
     
-    const inputRect = inputRef.current.getBoundingClientRect();
-    // For fixed position, top is the distance from the top of the viewport
-    const top = inputRect.bottom;
-    
-    return { top: `${top}px` };
-  };
-
   return (
     <div ref={wrapperRef} className="relative w-full mx-auto">
       <div className="flex items-center gap-2" ref={inputRef}>
@@ -360,13 +349,14 @@ export const SearchBarWithSuggestions = ({ value, onChange, onSubmit, onSuggesti
         </div>
       </div>
 
-      {showSuggestions && (
-        <div 
-            className="fixed md:absolute left-0 right-0 md:left-0 md:right-0 md:top-full bg-card border border-border rounded-b-lg shadow-lg max-h-[60vh] md:max-h-96 overflow-y-auto z-[9999]"
-            style={{ 
-              top: inputRef.current ? `${inputRef.current.getBoundingClientRect().bottom}px` : '100%',
-            }}
-        >
+      {showSuggestions && (
+        <div 
+          // MODIFIED CLASS: Removed md:top-full 
+            className="fixed md:absolute left-0 right-0 md:left-0 md:right-0 bg-card border border-border rounded-b-lg shadow-lg max-h-[60vh] md:max-h-96 overflow-y-auto z-[9999]"
+            style={{ 
+              top: inputRef.current ? `${inputRef.current.getBoundingClientRect().bottom}px` : '100%',
+            }}
+        >
           {/* Show search history and trending when no value */}
           {!value.trim() && (
             <div>

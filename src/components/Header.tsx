@@ -101,14 +101,15 @@ export const Header = ({ onSearchClick, showSearchIcon = true }: HeaderProps) =>
         <div className="absolute top-4 left-4 flex items-center gap-3 md:relative md:top-auto md:left-auto">
           <Sheet open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
             <SheetTrigger asChild>
-              {/* Menu Icon Wrapper: Added rounded-full and dark RGBA background style */}
+              {/* Menu Icon Wrapper: APPLIED DESIRED BIG SCREEN STYLES */}
               <button 
-                className="inline-flex items-center justify-center h-10 w-10 rounded-full transition-colors hover:bg-gray-700 md:bg-transparent md:text-white md:hover:bg-[#006666]" 
+                className="inline-flex items-center justify-center h-10 w-10 rounded-full transition-colors hover:bg-gray-700 
+                md:bg-white/10 md:text-white md:hover:bg-white md:group" // Added md:bg-white/10 and md:hover:bg-white
                 aria-label="Open navigation menu"
-                style={mobileIconBgStyle} // Apply darker RGBA background
+                style={mobileIconBgStyle} // Apply darker RGBA background on mobile
               >
-                {/* Menu Icon: Explicitly white on mobile (default) */}
-                <Menu className="h-5 w-5 text-white" />
+                {/* Menu Icon: APPLIED DESIRED BIG SCREEN STYLES */}
+                <Menu className="h-5 w-5 text-white md:text-white md:group-hover:text-[#008080]" /> // Added md:text-white and md:group-hover:text-[#008080]
               </button>
             </SheetTrigger>
             <SheetContent side="left" className="w-72 p-0 h-screen">
@@ -119,14 +120,14 @@ export const Header = ({ onSearchClick, showSearchIcon = true }: HeaderProps) =>
           {/* Logo/Description: Always HIDDEN on small screens */}
           <Link to="/" className="hidden md:flex items-center gap-3">
              <div className="h-8 w-8 rounded-lg bg-white flex items-center justify-center text-[#0066cc] font-bold text-lg">
-                T
-              </div>
-              <div>
-                <span className="font-bold text-base md:text-lg text-white block">
-                  TripTrac
-                </span>
-                <p className="text-xs text-white/90 block">Your journey starts now.</p>
-              </div>
+               T
+             </div>
+             <div>
+               <span className="font-bold text-base md:text-lg text-white block">
+                 TripTrac
+               </span>
+               <p className="text-xs text-white/90 block">Your journey starts now.</p>
+             </div>
           </Link>
         </div>
 
@@ -156,7 +157,7 @@ export const Header = ({ onSearchClick, showSearchIcon = true }: HeaderProps) =>
         {/* Mobile Right Icons (Search, Notification) - Fixed Positioned */}
         <div className="absolute top-4 right-4 flex items-center gap-2 md:relative md:top-auto md:right-auto md:flex">
           
-          {/* Search Icon Button: Added rounded-full and dark RGBA background style */}
+          {/* Search Icon Button: Search icon is explicitly white on mobile, and the desktop styles already look correct and distinct, so leaving it */}
           {showSearchIcon && (
             <button 
               onClick={() => {
@@ -171,33 +172,39 @@ export const Header = ({ onSearchClick, showSearchIcon = true }: HeaderProps) =>
               aria-label="Search"
               style={mobileIconBgStyle} // Apply darker RGBA background
             >
-              {/* Search Icon: Explicitly white on mobile (default) */}
+              {/* Search Icon: The desktop styles are md:text-white dark:md:text-white md:group-hover:text-[#008080], matching the other icons' text color. */}
               <Search className="h-5 w-5 text-white md:text-white dark:md:text-white md:group-hover:text-[#008080]" />
             </button>
           )}
           
           {/* Notification Bell with Dark RGBA Background on Mobile */}
-          <div className="flex items-center gap-2">
-            {/* Notification Wrapper: Already styled, just updating the style object */}
-            <div className="rounded-full h-10 w-10 flex items-center justify-center transition-colors md:bg-transparent"
-                 style={mobileIconBgStyle} // Apply darker RGBA background
+          <div className="flex items-center gap-2 group"> {/* Added group to the div wrapper for hover effect on desktop */}
+            {/* Notification Wrapper: APPLIED DESIRED BIG SCREEN STYLES */}
+            <div className="rounded-full h-10 w-10 flex items-center justify-center transition-colors 
+                md:bg-white/10 md:hover:bg-white" // Added md:bg-white/10 and md:hover:bg-white
+                 style={mobileIconBgStyle} // Apply darker RGBA background on mobile
             >
-                <NotificationBell 
-                    // Notification Icon: Explicitly white on mobile (default)
-                    mobileIconClasses="text-white"
-                    desktopIconClasses="md:text-white md:hover:bg-[#006666]"
-                />
+              <NotificationBell 
+                // Notification Icon: Explicitly white on mobile (default)
+                mobileIconClasses="text-white"
+                // APPLIED DESIRED BIG SCREEN STYLES
+                desktopIconClasses="md:text-white md:group-hover:text-[#008080]" // Changed md:hover:bg-[#006666] to match the account icon's hover text
+              />
             </div>
           </div>
 
           {/* Theme Toggle and Account: Hidden on mobile, shown on desktop */}
           <div className="hidden md:flex items-center gap-2">
-            <ThemeToggle />
+            {/* Theme Toggle Wrapper: Ensure ThemeToggle component has the required background and icon colors */}
+            <div className="rounded-full h-10 w-10 flex items-center justify-center transition-colors 
+                bg-white/10 hover:bg-white group">
+              <ThemeToggle iconClasses="text-white group-hover:text-[#008080]" /> {/* Added prop to ThemeToggle (assuming it accepts it) */}
+            </div>
             
             <button 
               onClick={() => user ? navigate('/account') : navigate('/auth')}
               className="rounded-full h-10 w-10 flex items-center justify-center transition-colors 
-                        bg-white/10 hover:bg-white group" 
+                         bg-white/10 hover:bg-white group" 
               aria-label="Account"
             >
               <User className="h-5 w-5 text-white group-hover:text-[#008080]" />

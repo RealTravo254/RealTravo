@@ -5,8 +5,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
-import { InstallPrompt } from "@/components/InstallPrompt";
-// REMOVED: import { MobileInstallBanner } from "@/components/MobileInstallBanner"; // This line is removed
+// REMOVED: import { InstallPrompt } from "@/components/InstallPrompt";
+// REMOVED: import { MobileInstallBanner } from "@/components/MobileInstallBanner";
 import { PageLayout } from "@/components/PageLayout";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 
@@ -84,7 +84,7 @@ const App = () => {
         <OfflineIndicator />
         <BrowserRouter>
           <AuthProvider>
-            <InstallPrompt />
+            {/* REMOVED: <InstallPrompt /> */}
             {/* REMOVED: <MobileInstallBanner /> */}
             <PageLayout>
               <Suspense fallback={<PageLoader />}>

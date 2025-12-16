@@ -16,13 +16,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { NavigationDrawer } from "./NavigationDrawer";
 import { Link, useNavigate } from "react-router-dom";
-import { ThemeToggle } from "./ThemeToggle"; 
-import { NotificationBell } from "./NotificationBell"; 
-
-// Define the darker RGBA background style for mobile icons
-const mobileIconBgStyle = { 
-    backgroundColor: 'rgba(0, 0, 0, 0.6)', // Darker, less transparent black
-};
+import { ThemeToggle } from "./ThemeToggle"; // <--- Component to update
+import { NotificationBell } from "./NotificationBell"; // <--- Component to update
 
 interface HeaderProps {
   onSearchClick?: () => void;
@@ -35,7 +30,6 @@ export const Header = ({ onSearchClick, showSearchIcon = true }: HeaderProps) =>
   const { user, signOut } = useAuth();
   const [userRole, setUserRole] = useState<string | null>(null);
 
-  // --- Start of unchanged functional code ---
   useEffect(() => {
     const checkRole = async () => {
       if (!user) {
@@ -69,7 +63,7 @@ export const Header = ({ onSearchClick, showSearchIcon = true }: HeaderProps) =>
           .select('name')
           .eq('id', session.user.id)
           .single();
-        
+        
         if (profile?.name) {
           setUserName(profile.name);
         }
@@ -79,6 +73,7 @@ export const Header = ({ onSearchClick, showSearchIcon = true }: HeaderProps) =>
     fetchUserProfile();
   }, [user]);
 
+  // Function to get initials from the user's name
   const getUserInitials = () => {
     if (userName) {
       const names = userName.trim().split(' ');
@@ -89,48 +84,50 @@ export const Header = ({ onSearchClick, showSearchIcon = true }: HeaderProps) =>
     }
     return "U";
   };
-  // --- End of unchanged functional code ---
+
+  // Mobile account icon tap handler
+  const [showMobileAccountDialog, setShowMobileAccountDialog] = useState(false);
+
+  const handleMobileAccountTap = () => {
+    if (!user) {
+      // Redirect to login
+      window.location.href = "/auth";
+    } else {
+      setShowMobileAccountDialog(!showMobileAccountDialog);
+    }
+  };
 
   return (
-    // Mobile Header: Fixed positioning (z-[100] ensures visibility)
-    // Desktop Header (md:): Restores sticky, height, and background color.
-    <header className="fixed top-0 left-0 right-0 z-[100] text-black dark:text-white md:sticky md:h-16 md:border-b md:border-border md:bg-[#008080] md:text-white dark:md:bg-[#008080] dark:md:text-white">
-      <div className="container md:flex md:h-full md:items-center md:justify-between md:px-4">
-        
-        {/* Mobile Left Icons (Menu) - Fixed Positioned */}
-        <div className="absolute top-4 left-4 flex items-center gap-3 md:relative md:top-auto md:left-auto">
-          <Sheet open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
-            <SheetTrigger asChild>
-              {/* Menu Icon Wrapper: APPLYING ACCOUNT STYLES FOR DESKTOP (md:bg-white/10 md:hover:bg-white group) */}
-              <button 
-                className="inline-flex items-center justify-center h-10 w-10 rounded-full transition-colors hover:bg-gray-700 md:bg-white/10 md:hover:bg-white group" 
-                aria-label="Open navigation menu"
-                style={mobileIconBgStyle} // Apply darker RGBA background
-              >
-                {/* Menu Icon: Applying ACCOUNT ICON COLOR FOR DESKTOP (group-hover:text-[#008080]) */}
-                <Menu className="h-5 w-5 text-white group-hover:text-[#008080]" />
-              </button>
-            </SheetTrigger>
+    <header className="sticky top-0 z-50 w-full border-b border-border bg-[#008080] text-white h-16 dark:bg-[#008080] dark:text-white">
+      <div className="container flex h-full items-center justify-between px-4">
+        
+        {/* Logo and Drawer Trigger (Left Side) */}
+        <div className="flex items-center gap-3">
+          <Sheet open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
+            <SheetTrigger asChild>
+              <button className="inline-flex items-center justify-center h-10 w-10 rounded-md text-white hover:bg-[#006666] transition-colors" aria-label="Open navigation menu">
+                <Menu className="h-5 w-5" />
+              </button>
+            </SheetTrigger>
             <SheetContent side="left" className="w-72 p-0 h-screen">
               <NavigationDrawer onClose={() => setIsDrawerOpen(false)} />
             </SheetContent>
           </Sheet>
-          
-          {/* Logo/Description: Always HIDDEN on small screens */}
-          <Link to="/" className="hidden md:flex items-center gap-3">
-             <div className="h-8 w-8 rounded-lg bg-white flex items-center justify-center text-[#0066cc] font-bold text-lg">
-                T
-              </div>
-              <div>
-                <span className="font-bold text-base md:text-lg text-white block">
-                  TripTrac
-                </span>
-                <p className="text-xs text-white/90 block">Your journey starts now.</p>
-              </div>
-          </Link>
+          
+          <Link to="/" className="flex items-center gap-3">
+            <div className="h-8 w-8 rounded-lg bg-white flex items-center justify-center text-[#0066cc] font-bold text-lg">
+              T
+            </div>
+            <div>
+              <span className="font-bold text-base md:text-lg text-white block">
+                TripTrac
+              </span>
+              <p className="text-xs text-white/90 block">Your journey starts now.</p>
+            </div>
+          </Link>
         </div>
 
-        {/* Desktop Navigation (Centered): Visible from lg: breakpoint up */}
+        {/* Desktop Navigation (Centered) */}
         <nav className="hidden lg:flex items-center gap-6">
           <Link to="/" className="flex items-center gap-2 font-bold hover:text-muted-foreground transition-colors">
             <Home className="h-4 w-4" />
@@ -144,8 +141,8 @@ export const Header = ({ onSearchClick, showSearchIcon = true }: HeaderProps) =>
             <Heart className="h-4 w-4" />
             <span>Wishlist</span>
           </Link>
-          <button 
-            onClick={() => user ? navigate('/become-host') : navigate('/auth')} 
+          <button 
+            onClick={() => user ? navigate('/become-host') : navigate('/auth')} 
             className="flex items-center gap-2 font-bold hover:text-muted-foreground transition-colors"
           >
             <FolderOpen className="h-4 w-4" />
@@ -153,57 +150,45 @@ export const Header = ({ onSearchClick, showSearchIcon = true }: HeaderProps) =>
           </button>
         </nav>
 
-        {/* Mobile Right Icons (Search, Notification) - Fixed Positioned */}
-        <div className="absolute top-4 right-4 flex items-center gap-2 md:relative md:top-auto md:right-auto md:flex">
-          
-          {/* Search Icon Button: Added rounded-full and dark RGBA background style */}
-          {showSearchIcon && (
-            <button 
-              onClick={() => {
-                if (onSearchClick) {
-                  onSearchClick();
-                } else {
-                  navigate('/');
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }
-              }}
-              className="rounded-full h-10 w-10 flex items-center justify-center transition-colors hover:bg-gray-700 md:bg-white/10 md:hover:bg-white"
-              aria-label="Search"
-              style={mobileIconBgStyle} // Apply darker RGBA background
-            >
-              {/* Search Icon: Explicitly white on mobile (default) */}
-              <Search className="h-5 w-5 text-white md:text-white dark:md:text-white md:group-hover:text-[#008080]" />
-            </button>
-          )}
-          
-          {/* Notification Bell with Dark RGBA Background on Mobile */}
-          {/* APPLYING ACCOUNT STYLES FOR DESKTOP (md:bg-white/10 md:hover:bg-white group) */}
-          <div className="flex items-center gap-2">
-            {/* Notification Wrapper: Added md:bg-white/10 md:hover:bg-white and 'group' */}
-            <div className="rounded-full h-10 w-10 flex items-center justify-center transition-colors md:bg-white/10 md:hover:bg-white group"
-                 style={mobileIconBgStyle} // Apply darker RGBA background
-            >
-                <NotificationBell 
-                    // Notification Icon: APPLYING ACCOUNT ICON COLOR FOR DESKTOP (md:group-hover:text-[#008080])
-                    mobileIconClasses="text-white"
-                    desktopIconClasses="md:text-white md:group-hover:text-[#008080]"
-                />
-            </div>
+        {/* Account Controls (Right Side) */}
+        <div className="flex items-center gap-2">
+          
+          {/* Search Icon Button */}
+          {showSearchIcon && (
+            <button 
+              onClick={() => {
+                if (onSearchClick) {
+                  onSearchClick();
+                } else {
+                  navigate('/');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+              }}
+              className="rounded-full h-10 w-10 flex items-center justify-center transition-colors bg-white/10 hover:bg-white group"
+              aria-label="Search"
+            >
+              <Search className="h-5 w-5 text-white group-hover:text-[#008080]" />
+            </button>
+          )}
+          
+          {/* Mobile: Notification Bell replaces Account Icon */}
+          <div className="md:hidden flex items-center gap-2">
+            <NotificationBell />
           </div>
 
-          {/* Theme Toggle and Account: Hidden on mobile, shown on desktop */}
+          {/* Desktop Auth Actions (Right Side) - Notification, Theme, Account */}
           <div className="hidden md:flex items-center gap-2">
-            {/* ThemeToggle should already have consistent styling */}
+            <NotificationBell />
             <ThemeToggle />
-            
-            {/* Account button (reference styles) */}
-            <button 
+            
+            {/* Account Button - Added group and hover styles for consistency */}
+            <button 
               onClick={() => user ? navigate('/account') : navigate('/auth')}
-              className="rounded-full h-10 w-10 flex items-center justify-center transition-colors 
-                        bg-white/10 hover:bg-white group" 
+              className="rounded-full h-10 w-10 flex items-center justify-center transition-colors 
+                                    bg-white/10 hover:bg-white group" // <--- Applied white hover background
               aria-label="Account"
             >
-              <User className="h-5 w-5 text-white group-hover:text-[#008080]" />
+              <User className="h-5 w-5 text-white group-hover:text-[#008080]" /> {/* <--- Applied teal icon on hover */}
             </button>
           </div>
         </div>

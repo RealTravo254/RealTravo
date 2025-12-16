@@ -436,50 +436,54 @@ const Index = () => {
   return <div className="min-h-screen bg-background pb-20 md:pb-0">
             <Header onSearchClick={handleSearchIconClick} showSearchIcon={showSearchIcon} />
             
-            {/* Hero Section with Search Bar and Background Image - Hidden when search focused */}
-            {!isSearchFocused && (
-              <div 
-                ref={searchRef}
-                className="relative w-full h-48 md:h-72 lg:h-80"
-                style={{
-                  backgroundImage: `url(https://images.unsplash.com/photo-1506929562872-bb421503ef21?w=1920&h=600&fit=crop&auto=format&q=80)`,
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center'
-                }}
-              >
-                <div className="absolute inset-0 bg-black/40" />
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <div className="container md:px-4 px-4">
-                    <h1 className="text-white text-2xl md:text-4xl lg:text-5xl font-bold text-center mb-4 md:mb-6">
-                      Discover Your Next Adventure
-                    </h1>
-                    <SearchBarWithSuggestions 
-                      value={searchQuery} 
-                      onChange={setSearchQuery} 
-                      onSubmit={() => {
-                        if (searchQuery.trim()) {
-                          fetchAllData(searchQuery);
-                          setIsSearchFocused(true);
-                        }
-                      }} 
-                      onSuggestionSearch={query => {
-                        setSearchQuery(query);
-                        fetchAllData(query);
-                        setIsSearchFocused(true);
-                      }} 
-                      onFocus={() => setIsSearchFocused(true)} 
-                      onBlur={() => {}}
-                      onBack={() => {
-                        setIsSearchFocused(false);
-                        setSearchQuery("");
-                        fetchAllData();
-                      }} 
-                      showBackButton={false} 
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
+     {/* Hero Section with Search Bar and Background Image - Hidden when search focused */}
+     {!isSearchFocused && (
+    <div 
+      ref={searchRef}
+      // 👇 MODIFIED CLASSES HERE 👇
+      className="relative w-full h-[50vh] lg:h-[65vh]" 
+      // h-[50vh] sets 50% height for small screens (default).
+      // lg:h-[65vh] overrides it to 65% height for large screens (lg breakpoint and up).
+      // h-48 md:h-72 lg:h-80 have been removed/replaced.
+      style={{
+        backgroundImage: `url(https://images.unsplash.com/photo-1506929562872-bb421503ef21?w=1920&h=600&fit=crop&auto=format&q=80)`, 
+        backgroundSize: 'cover',
+        backgroundPosition: 'center'
+      }}
+    >
+      <div className="absolute inset-0 bg-black/40" />
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <div className="container md:px-4 px-4">
+          <h1 className="text-white text-2xl md:text-4xl lg:text-5xl font-bold text-center mb-4 md:mb-6">
+            Discover Your Next Adventure
+          </h1>
+          <SearchBarWithSuggestions 
+            value={searchQuery} 
+            onChange={setSearchQuery} 
+            onSubmit={() => {
+              if (searchQuery.trim()) {
+                fetchAllData(searchQuery);
+                setIsSearchFocused(true);
+              }
+            }} 
+            onSuggestionSearch={query => {
+              setSearchQuery(query);
+              fetchAllData(query);
+              setIsSearchFocused(true);
+            }} 
+            onFocus={() => setIsSearchFocused(true)} 
+            onBlur={() => {}}
+            onBack={() => {
+              setIsSearchFocused(false);
+              setSearchQuery("");
+              fetchAllData();
+            }} 
+            showBackButton={false} 
+          />
+        </div>
+      </div>
+    </div>
+)}
             
             {/* Search Bar - Appears below header when focused on all screens */}
             {isSearchFocused && <div className="sticky top-[64px] z-[100] bg-background p-4 border-b shadow-md">
@@ -510,7 +514,7 @@ const Index = () => {
                               <div 
                                   key={cat.title} 
                                   onClick={() => navigate(cat.path)} 
-                                  className="relative h-24 md:h-40 lg:h-48 cursor-pointer overflow-hidden group rounded-lg"
+                                  className="relative h-24 md:h-40 lg:h-48 cursor-pointer overflow-hidden group rounded-lg" 
                                   style={{
                                       backgroundImage: `url(${cat.bgImage})`,
                                       backgroundSize: 'cover',

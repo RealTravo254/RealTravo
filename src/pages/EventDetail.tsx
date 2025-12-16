@@ -5,21 +5,19 @@ import { MobileBottomBar } from "@/components/MobileBottomBar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 // Icons will be Teal: #008080
-import { MapPin, Share2, Heart, Calendar, Phone, Mail, ArrowLeft, Copy, Star } from "lucide-react";
+import { MapPin, Share2, Heart, Calendar, Phone, Mail, ArrowLeft, Copy } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { SimilarItems } from "@/components/SimilarItems";
-import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import { ReviewSection } from "@/components/ReviewSection";
 import { useSavedItems } from "@/hooks/useSavedItems";
 import { MultiStepBooking, BookingFormData } from "@/components/booking/MultiStepBooking";
 import { generateReferralLink, trackReferralClick } from "@/lib/referralUtils";
 import { useBookingSubmit } from "@/hooks/useBookingSubmit";
 import { extractIdFromSlug } from "@/lib/slugUtils";
-import Autoplay from "embla-carousel-autoplay"; // Added Autoplay for consistency
-
 interface Activity {
   name: string;
   price: number;
@@ -46,65 +44,32 @@ interface Event {
   created_by: string | null;
 }
 
-// Define the custom colors
+// Define the Teal and Orange colors
 const TEAL_COLOR = "#008080";
 const ORANGE_COLOR = "#FF9800";
-const RED_COLOR = "#EF4444"; 
-
-// --- Helper Component: Read-only Star Rating Display (Re-added for review consistency) ---
-interface StarRatingDisplayProps {
-  rating: number | null;
-  count: number | null;
-  iconSize?: number; 
-}
-
-const StarRatingDisplay = ({ rating, count, iconSize = 5 }: StarRatingDisplayProps) => {
-  if (rating === null || rating === 0) return null;
-
-  const fullStars = Math.floor(rating);
-  
-  return (
-    <div className="flex items-center gap-1">
-      {[...Array(5)].map((_, i) => (
-        <Star
-          key={i}
-          className={`h-${iconSize} w-${iconSize}`}
-          style={{ color: ORANGE_COLOR }}
-          fill={i < fullStars ? ORANGE_COLOR : "transparent"} 
-          stroke={ORANGE_COLOR}
-        />
-      ))}
-      <span className="text-base font-semibold ml-1" style={{ color: ORANGE_COLOR }}>
-        {rating.toFixed(1)}
-      </span>
-      {count !== null && (
-        <span className="text-sm text-muted-foreground">
-          ({count} reviews)
-        </span>
-      )}
-    </div>
-  );
-};
-
-
 const EventDetail = () => {
-  const { slug } = useParams();
+  const {
+    slug
+  } = useParams();
   const id = slug ? extractIdFromSlug(slug) : null;
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const { toast } = useToast();
+  const {
+    user
+  } = useAuth();
+  const {
+    toast
+  } = useToast();
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
   const [showBooking, setShowBooking] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const { savedItems, handleSave: handleSaveItem } = useSavedItems();
+  const {
+    savedItems,
+    handleSave: handleSaveItem
+  } = useSavedItems();
   const isSaved = savedItems.has(id || "");
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
-  const [averageRating, setAverageRating] = useState<number | null>(null); // New State
-  const [reviewCount, setReviewCount] = useState<number | null>(null); // New State
-
-
   useEffect(() => {
     if (id) {
       fetchEvent();
@@ -117,13 +82,18 @@ const EventDetail = () => {
       trackReferralClick(refSlug, id, "event", "booking");
     }
   }, [id]);
-
   const fetchEvent = async () => {
     if (!id) return;
     try {
-      let { data, error } = await supabase.from("trips").select("*").eq("id", id).eq("type", "event").single();
+      let {
+        data,
+        error
+      } = await supabase.from("trips").select("*").eq("id", id).eq("type", "event").single();
       if (error && id.length === 8) {
-        const { data: prefixData, error: prefixError } = await supabase.from("trips").select("*").ilike("id", `${id}%`).eq("type", "event").single();
+        const {
+          data: prefixData,
+          error: prefixError
+        } = await supabase.from("trips").select("*").ilike("id", `${id}%`).eq("type", "event").single();
         if (!prefixError) {
           data = prefixData;
           error = null;
@@ -141,13 +111,11 @@ const EventDetail = () => {
       setLoading(false);
     }
   };
-
   const handleSave = () => {
     if (id) {
       handleSaveItem(id, "event");
     }
   };
-
   const handleCopyLink = async () => {
     if (!event) {
       toast({
@@ -172,7 +140,6 @@ const EventDetail = () => {
       });
     }
   };
-
   const handleShare = async () => {
     if (!event) {
       toast({
@@ -197,7 +164,6 @@ const EventDetail = () => {
       await handleCopyLink();
     }
   };
-
   const openInMaps = () => {
     if (event?.map_link) {
       window.open(event.map_link, "_blank");
@@ -206,17 +172,15 @@ const EventDetail = () => {
       window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, "_blank");
     }
   };
-
-  const { submitBooking } = useBookingSubmit();
-
+  const {
+    submitBooking
+  } = useBookingSubmit();
   const handleBookingSubmit = async (data: BookingFormData) => {
     if (!event) return;
     setIsProcessing(true);
     try {
       const totalPeople = data.num_adults + data.num_children;
-      // Calculate total amount including activity price * number of people
-      const totalAmount = data.num_adults * event.price + data.num_children * event.price_child + data.selectedActivities.reduce((sum, a) => sum + a.price * (a.numberOfPeople || 1), 0);
-      
+      const totalAmount = data.num_adults * event.price + data.num_children * event.price_child + data.selectedActivities.reduce((sum, a) => sum + a.price * a.numberOfPeople, 0);
       await submitBooking({
         itemId: event.id,
         itemName: event.name,
@@ -252,289 +216,233 @@ const EventDetail = () => {
       setIsProcessing(false);
     }
   };
-
   if (loading) {
     return <div className="min-h-screen bg-background pb-20 md:pb-0">
-      <Header />
-      <div className="container px-4 py-6 max-w-6xl mx-auto">
-        <div className="h-64 md:h-96 bg-muted animate-pulse rounded-lg" />
-      </div>
-      <MobileBottomBar />
-    </div>;
+        <Header />
+        <div className="container px-4 py-6 max-w-6xl mx-auto">
+          <div className="h-64 md:h-96 bg-muted animate-pulse rounded-lg" />
+        </div>
+        <MobileBottomBar />
+      </div>;
   }
-
   if (!event) {
     return <div className="min-h-screen bg-background">
-      <Header />
-      <div className="container mx-auto px-4 py-8">
-        <p>Event not found</p>
-      </div>
-      <MobileBottomBar />
-    </div>;
+        <Header />
+        <div className="container mx-auto px-4 py-8">
+          <p>Event not found</p>
+        </div>
+        <MobileBottomBar />
+      </div>;
   }
-
   const allImages = [event.image_url, ...(event.images || [])].filter(Boolean);
-
+  
   return <div className="min-h-screen bg-background pb-20 md:pb-0">
-    <Header />
+      <Header />
+      
+      <main className="container px-4 max-w-6xl mx-auto">
+        <div className="grid lg:grid-cols-[2fr,1fr] gap-6">
+          {/* --- Image Carousel Section --- */}
+          <div className="w-full">
+            <div className="relative">
+              {/* Back Button over carousel */}
+              <Button 
+                variant="ghost" 
+                onClick={() => navigate(-1)} 
+                className="absolute top-4 left-4 z-20 h-10 w-10 p-0 rounded-full text-white"
+                style={{ backgroundColor: '#008080' }}
+                size="icon"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
 
-    <main className="container px-4 max-w-6xl mx-auto">
-      {/* Main Grid: 2/3rds for Content, 1/3rd for Details/Actions on large screens */}
-      <div className="grid lg:grid-cols-[2fr,1fr] gap-6 sm:gap-4">
-        
-        {/* --- Image Carousel Section & Main Content (Left Column on large screens) --- */}
-        <div className="order-1 lg:order-1 w-full"> 
-          <div className="relative">
-            {/* Back Button over carousel */}
-            <Button
-              variant="ghost"
-              onClick={() => navigate(-1)}
-              className="absolute top-4 left-4 z-20 h-10 w-10 p-0 rounded-full text-white"
-              style={{ backgroundColor: TEAL_COLOR }}
-              size="icon"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-
-            <Carousel
-              opts={{ loop: true }}
-              plugins={[Autoplay({ delay: 3000 })]}
-              className="w-full overflow-hidden"
-              setApi={(api) => {
-                if (api) api.on("select", () => setCurrentImageIndex(api.selectedScrollSnap()));
-              }}
-            >
-              <CarouselContent
-                // Border radius for carousel: bottom radius for small, bottom-right radius for large
-                className={`
-                  rounded-b-lg // Bottom radius for small screens
-                  lg:rounded-b-none 
-                  lg:rounded-br-lg 
-                `}
-                style={{ 
-                  borderBottom: `2px solid ${TEAL_COLOR}`,
-                  borderRight: `2px solid ${TEAL_COLOR}`
+              <Carousel 
+                className="w-full overflow-hidden"
+                setApi={(api) => {
+                  if (api) api.on("select", () => setCurrentImageIndex(api.selectedScrollSnap()));
                 }}
               >
-                {allImages.map((img, idx) => <CarouselItem key={idx}>
-                  <img src={img} alt={`${event.name} ${idx + 1}`} loading="lazy" decoding="async" className="w-full h-64 md:h-96 object-cover" />
-                </CarouselItem>)}
-              </CarouselContent>
-            </Carousel>
-
-            {/* Dot indicators */}
-            {allImages.length > 1 && (
-              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2 z-10">
-                {allImages.map((_, idx) => (
-                  <div
-                    key={idx}
-                    className={`w-2 h-2 rounded-full transition-all ${currentImageIndex === idx ? 'bg-white w-4' : 'bg-white/50'}`}
-                  />
-                ))}
+                <CarouselContent>
+                  {allImages.map((img, idx) => <CarouselItem key={idx}>
+                      <img src={img} alt={`${event.name} ${idx + 1}`} loading="lazy" decoding="async" className="w-full h-64 md:h-96 object-cover" />
+                    </CarouselItem>)}
+                </CarouselContent>
+              </Carousel>
+              
+              {/* Dot indicators */}
+              {allImages.length > 1 && (
+                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2 z-10">
+                  {allImages.map((_, idx) => (
+                    <div 
+                      key={idx} 
+                      className={`w-2 h-2 rounded-full transition-all ${currentImageIndex === idx ? 'bg-white w-4' : 'bg-white/50'}`}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            {/* Description Section below slideshow */}
+            {event.description && (
+              <div className="bg-card border rounded-lg p-4 sm:p-3 mt-4">
+                <h2 className="text-lg sm:text-base font-semibold mb-2">About This Event</h2>
+                <p className="text-sm text-muted-foreground">{event.description}</p>
               </div>
             )}
           </div>
 
-          {/* Description Section (Mobile Order: 6, Desktop Order: 2) */}
-          {event.description && (
-            <div className="bg-card border rounded-lg p-4 sm:p-3 mt-4">
-              <h2 className="text-lg sm:text-base font-semibold mb-2">About This Event</h2>
-              <p className="text-sm text-muted-foreground">{event.description}</p>
-            </div>
-          )}
-          
-          {/* --- Activities Section (ORANGE) (Mobile Order: 7) --- */}
-          {event.activities && event.activities.length > 0 && (
-            <div className="mt-6 sm:mt-4 p-4 sm:p-3 border bg-card rounded-lg">
-              <h2 className="text-xl sm:text-lg font-semibold mb-4 sm:mb-3">Included Activities (Optional Add-ons)</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                {event.activities.map((activity, idx) => (
-                  <div
-                    key={idx}
-                    className="px-3 py-2 text-white rounded-lg text-sm flex flex-col items-center justify-center text-center min-h-[60px]"
-                    style={{ backgroundColor: ORANGE_COLOR }}
-                  >
-                    <span className="font-medium">{activity.name}</span>
-                    <span className="text-xs opacity-90 mt-1">{activity.price > 0 ? `KSh ${activity.price}` : 'Free'}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* --- Review Section (Mobile Order: 8) --- */}
-          <div className="mt-6 sm:mt-4 rounded-none my-[10px] sm:my-[5px]">
-            <ReviewSection 
-              itemId={event.id} 
-              itemType="event"
-              onRatingsChange={({ averageRating, reviewCount }: { averageRating: number | null, reviewCount: number | null }) => {
-                  setAverageRating(averageRating);
-                  setReviewCount(reviewCount);
-              }}
-            />
-          </div>
-        </div> {/* End of Left/Full Width Column (order-1 lg:order-1) */}
-
-        {/* --- Detail/Booking Section (Right Column on large screens, Stacked on small) --- */}
-        <div className="order-2 lg:order-2 space-y-4 sm:space-y-3">
-          <div>
-            <h1 className="text-3xl sm:text-2xl font-bold mb-2">{event.name}</h1>
-            <div className="flex items-center gap-2 text-muted-foreground mb-4 sm:mb-2">
-              {/* Map Pin Icon Teal */}
-              <MapPin className="h-4 w-4" style={{ color: TEAL_COLOR }} />
-              <span className="sm:text-sm">{event.location}, {event.country}</span>
-              <Badge className="ml-auto bg-primary/20 text-primary font-semibold text-xs" variant="outline">
-                {event.type.charAt(0).toUpperCase() + event.type.slice(1)}
-              </Badge>
-            </div>
-          </div>
-
-          {/* Price and Booking Card (Mobile Order: 2) */}
-          <div className="space-y-3 sm:space-y-2 p-4 sm:p-3 border bg-card rounded-lg" style={{ borderColor: TEAL_COLOR }}>
-            <div className="flex items-center gap-2">
-              {/* Calendar Icon Teal */}
-              <Calendar className="h-5 w-5" style={{ color: TEAL_COLOR }} />
-              <div>
-                <p className="text-sm sm:text-xs text-muted-foreground">Event Date</p>
-                <p className="font-semibold sm:text-sm">{new Date(event.date).toLocaleDateString()}</p>
+          {/* --- Detail/Booking Section (Right Column on large screens, Stacked on small) --- */}
+          <div className="space-y-4">
+            <div>
+              <h1 className="text-3xl **sm:text-2xl** font-bold mb-2">{event.name}</h1>
+              <div className="flex items-center gap-2 text-muted-foreground mb-4 **sm:mb-2**">
+                {/* Map Pin Icon Teal */}
+                <MapPin className="h-4 w-4" style={{
+                color: TEAL_COLOR
+              }} />
+                <span className="**sm:text-sm**">{event.location}, {event.country}</span>
               </div>
             </div>
 
-            <div className={`${event.phone_number || event.email ? 'border-t pt-3 sm:pt-2' : ''}`}>
-              <p className="text-sm sm:text-xs text-muted-foreground mb-1">Entrance Fee</p>
-              <p className="text-2xl sm:text-xl font-bold" style={{ color: TEAL_COLOR }}>
-                KSh {event.price}
-              </p>
-              {event.price_child > 0 && <p className="text-sm sm:text-xs text-muted-foreground">Child: KSh {event.price_child}</p>}
-              <p className="text-sm sm:text-xs text-muted-foreground mt-2 sm:mt-1">Available Tickets: {event.available_tickets}</p>
+            {/* Price and Booking Card */}
+            <div className="space-y-3 **sm:space-y-2** p-4 **sm:p-2** border bg-card">
+              <div className="flex items-center gap-2">
+                {/* Calendar Icon Teal */}
+                <Calendar className="h-5 w-5" style={{
+                color: TEAL_COLOR
+              }} />
+                <div>
+                  <p className="text-sm **sm:text-xs** text-muted-foreground">Event Date</p>
+                  <p className="font-semibold **sm:text-sm**">{new Date(event.date).toLocaleDateString()}</p>
+                </div>
+              </div>
+              
+              <div className="border-t pt-3 **sm:pt-2**">
+                <p className="text-sm **sm:text-xs** text-muted-foreground mb-1">Entrance Fee</p>
+                <p className="text-2xl **sm:text-xl** font-bold">KSh {event.price}</p>
+                {event.price_child > 0 && <p className="text-sm **sm:text-xs** text-muted-foreground">Child: KSh {event.price_child}</p>}
+                <p className="text-sm **sm:text-xs** text-muted-foreground mt-2 **sm:mt-1**">Available Tickets: {event.available_tickets}</p>
+              </div>
+
+              {/* Book Now Button Teal and dark hover */}
+              <Button size="lg" className="w-full text-white **h-10 sm:h-9**" // Reduced height for small screens
+            onClick={() => setShowBooking(true)} disabled={event.available_tickets <= 0} style={{
+              backgroundColor: TEAL_COLOR
+            }} onMouseEnter={e => e.currentTarget.style.backgroundColor = '#005555'} onMouseLeave={e => e.currentTarget.style.backgroundColor = TEAL_COLOR}>
+                {event.available_tickets <= 0 ? "Sold Out" : "Book Now"}
+              </Button>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-2">
+              {/* Map Button: Border/Icon Teal */}
+              <Button variant="outline" size="sm" onClick={openInMaps} className="flex-1 **h-9**" // Reduced height for small screens
+            style={{
+              borderColor: TEAL_COLOR,
+              color: TEAL_COLOR
+            }}>
+                <MapPin className="h-4 w-4 md:mr-2" style={{
+                color: TEAL_COLOR
+              }} />
+                <span className="hidden md:inline">Map</span>
+              </Button>
+              {/* Copy Link Button: Border/Icon Teal */}
+              <Button variant="outline" size="sm" onClick={handleCopyLink} className="flex-1 **h-9**" // Reduced height for small screens
+            style={{
+              borderColor: TEAL_COLOR,
+              color: TEAL_COLOR
+            }}>
+                <Copy className="h-4 w-4 md:mr-2" style={{
+                color: TEAL_COLOR
+              }} />
+                <span className="hidden md:inline">Copy Link</span>
+              </Button>
+              {/* Share Button: Border/Icon Teal */}
+              <Button variant="outline" size="sm" onClick={handleShare} className="flex-1 **h-9**" // Reduced height for small screens
+            style={{
+              borderColor: TEAL_COLOR,
+              color: TEAL_COLOR
+            }}>
+                <Share2 className="h-4 w-4 md:mr-2" style={{
+                color: TEAL_COLOR
+              }} />
+                <span className="hidden md:inline">Share</span>
+              </Button>
+              {/* Save Button: Border/Icon Teal (and filled red if saved) */}
+              <Button variant="outline" size="icon" onClick={handleSave} className={`**h-9 w-9** ${isSaved ? "bg-red-500 text-white hover:bg-red-600" : ""}`} // Reduced size for small screens
+            style={{
+              borderColor: TEAL_COLOR,
+              color: isSaved ? 'white' : TEAL_COLOR
+            }}>
+                <Heart className={`h-4 w-4 ${isSaved ? "fill-current" : ""}`} />
+              </Button>
             </div>
           </div>
-          
-          {/* --- NEW: Overall Star Rating Display (Mobile Order: 3, Above Book Now) --- */}
-          {averageRating !== null && (
-              <div className="p-2 sm:p-0">
-                  <StarRatingDisplay rating={averageRating} count={reviewCount} iconSize={6} />
-              </div>
-          )}
+        </div>
 
-          {/* Book Now Button Teal and dark hover (Mobile Order: 4) */}
-          <Button
-            size="lg"
-            className="w-full text-white h-10 sm:h-9"
-            onClick={() => { setIsCompleted(false); setShowBooking(true); }}
-            disabled={event.available_tickets <= 0}
-            style={{ backgroundColor: TEAL_COLOR }}
-            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#005555'}
-            onMouseLeave={e => e.currentTarget.style.backgroundColor = TEAL_COLOR}
-          >
-            {event.available_tickets <= 0 ? "Sold Out" : "Book Now"}
-          </Button>
-          
-
-          {/* Action Buttons (Teal Borders) (Mobile Order: 5) */}
-          <div className="flex gap-2">
-            {/* Map Button: Border/Icon Teal */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={openInMaps}
-              className="flex-1 h-9"
-              style={{ borderColor: TEAL_COLOR, color: TEAL_COLOR }}
-            >
-              <MapPin className="h-4 w-4 md:mr-2" style={{ color: TEAL_COLOR }} />
-              <span className="hidden md:inline">Map</span>
-            </Button>
-            {/* Copy Link Button: Border/Icon Teal */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleCopyLink}
-              className="flex-1 h-9"
-              style={{ borderColor: TEAL_COLOR, color: TEAL_COLOR }}
-            >
-              <Copy className="h-4 w-4 md:mr-2" style={{ color: TEAL_COLOR }} />
-              <span className="hidden md:inline">Copy Link</span>
-            </Button>
-            {/* Share Button: Border/Icon Teal */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleShare}
-              className="flex-1 h-9"
-              style={{ borderColor: TEAL_COLOR, color: TEAL_COLOR }}
-            >
-              <Share2 className="h-4 w-4 md:mr-2" style={{ color: TEAL_COLOR }} />
-              <span className="hidden md:inline">Share</span>
-            </Button>
-            {/* Save Button: Border/Icon Teal (and filled red if saved) */}
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={handleSave}
-              className={`h-9 w-9 ${isSaved ? "bg-red-500 text-white hover:bg-red-600" : ""}`}
-              style={{ borderColor: TEAL_COLOR, color: isSaved ? 'white' : TEAL_COLOR }}
-            >
-              <Heart className={`h-4 w-4 ${isSaved ? "fill-current" : ""}`} />
-            </Button>
-          </div>
-
-          {/* Contact Information Section (Mobile Order: 9, after all main content) */}
-          {(event.phone_number || event.email) && (
-            <div className="mt-4 p-4 sm:p-3 border bg-card rounded-lg">
-              <h2 className="text-xl sm:text-lg font-semibold mb-3">Contact Information</h2>
-              <div className="space-y-2">
-                {event.phone_number && (
-                  <a
-                    href={`tel:${event.phone_number}`}
-                    className="flex items-center gap-2 px-4 py-3 border rounded-lg hover:bg-muted transition-colors"
-                    style={{ borderColor: TEAL_COLOR }}
-                  >
-                    <Phone className="h-4 w-4" style={{ color: TEAL_COLOR }} />
-                    <span className="text-sm" style={{ color: TEAL_COLOR }}>{event.phone_number}</span>
-                  </a>
-                )}
-                {event.email && (
-                  <a
-                    href={`mailto:${event.email}`}
-                    className="flex items-center gap-2 px-4 py-3 border rounded-lg hover:bg-muted transition-colors"
-                    style={{ borderColor: TEAL_COLOR }}
-                  >
-                    <Mail className="h-4 w-4" style={{ color: TEAL_COLOR }} />
-                    <span className="text-sm" style={{ color: TEAL_COLOR }}>{event.email}</span>
-                  </a>
-                )}
-              </div>
+        {/* --- Activities Section --- */}
+        {event.activities && event.activities.length > 0 && (
+          <div className="mt-6 sm:mt-4 p-4 sm:p-3 border bg-card rounded-lg">
+            <h2 className="text-xl sm:text-lg font-semibold mb-4 sm:mb-3">Included Activities</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+              {event.activities.map((activity, idx) => (
+                <div 
+                  key={idx} 
+                  className="px-3 py-2 text-white rounded-lg text-sm flex flex-col items-center justify-center text-center min-h-[60px]"
+                  style={{ backgroundColor: ORANGE_COLOR }}
+                >
+                  <span className="font-medium">{activity.name}</span>
+                  <span className="text-xs opacity-90 mt-1">{activity.price > 0 ? `KSh ${activity.price}` : 'Free'}</span>
+                </div>
+              ))}
             </div>
-          )}
-        </div> {/* End of Right Column (order-2 lg:order-2) */}
-      </div>
+          </div>
+        )}
 
-      {/* --- Similar Items Section (Full Width, lowest order) --- */}
-      <SimilarItems currentItemId={event.id} itemType="trip" location={event.location} country={event.country} />
-    </main>
+        {/* --- Contact Information Section --- */}
+        {(event.phone_number || event.email) && (
+          <div className="mt-6 sm:mt-4 p-4 sm:p-3 border bg-card rounded-lg">
+            <h2 className="text-xl sm:text-lg font-semibold mb-4 sm:mb-3">Contact Information</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {event.phone_number && (
+                <a 
+                  href={`tel:${event.phone_number}`}
+                  className="flex items-center gap-2 px-4 py-3 border rounded-lg hover:bg-muted transition-colors"
+                  style={{ borderColor: TEAL_COLOR }}
+                >
+                  <Phone className="h-4 w-4" style={{ color: TEAL_COLOR }} />
+                  <span className="text-sm" style={{ color: TEAL_COLOR }}>{event.phone_number}</span>
+                </a>
+              )}
+              {event.email && (
+                <a 
+                  href={`mailto:${event.email}`}
+                  className="flex items-center gap-2 px-4 py-3 border rounded-lg hover:bg-muted transition-colors"
+                  style={{ borderColor: TEAL_COLOR }}
+                >
+                  <Mail className="h-4 w-4" style={{ color: TEAL_COLOR }} />
+                  <span className="text-sm" style={{ color: TEAL_COLOR }}>{event.email}</span>
+                </a>
+              )}
+            </div>
+          </div>
+        )}
 
-    <Dialog open={showBooking} onOpenChange={setShowBooking}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <MultiStepBooking
-          onSubmit={handleBookingSubmit}
-          activities={event.activities || []}
-          priceAdult={event.price}
-          priceChild={event.price_child}
-          isProcessing={isProcessing}
-          isCompleted={isCompleted}
-          itemName={event.name}
-          skipDateSelection={true}
-          fixedDate={event.date}
-          skipFacilities={true} // Events usually don't have facilities
-          itemId={event.id}
-          bookingType="event"
-          hostId={event.created_by || ""}
-          onPaymentSuccess={() => setIsCompleted(true)}
-        />
-      </DialogContent>
-    </Dialog>
+        {/* --- Review Section --- */}
+        <div className="mt-6 **sm:mt-4** rounded-none my-[10px] **sm:my-[5px]**">
+          <ReviewSection itemId={event.id} itemType="event" />
+        </div>
 
-    <MobileBottomBar />
-  </div>;
+        {/* --- Similar Items Section --- */}
+        <SimilarItems currentItemId={event.id} itemType="trip" location={event.location} country={event.country} />
+      </main>
+
+      <Dialog open={showBooking} onOpenChange={setShowBooking}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <MultiStepBooking onSubmit={handleBookingSubmit} activities={event.activities || []} priceAdult={event.price} priceChild={event.price_child} isProcessing={isProcessing} isCompleted={isCompleted} itemName={event.name} skipDateSelection={true} fixedDate={event.date} skipFacilitiesAndActivities={true} itemId={event.id} bookingType="event" hostId={event.created_by || ""} onPaymentSuccess={() => setIsCompleted(true)} />
+        </DialogContent>
+      </Dialog>
+
+      <MobileBottomBar />
+    </div>;
 };
 export default EventDetail;

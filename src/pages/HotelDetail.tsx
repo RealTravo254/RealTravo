@@ -378,20 +378,12 @@ const HotelDetail = () => {
                 </div>
               </div>
 
-              <div className="border-t pt-3 sm:pt-2">
-                <p className="text-sm sm:text-xs text-muted-foreground mb-1">Available Rooms</p>
-                <p 
-                  className="text-2xl sm:text-xl font-bold"
-                  style={{ color: TEAL_COLOR }} 
-                >
-                  {hotel.available_rooms !== null && hotel.available_rooms !== undefined
-                    ? `${hotel.available_rooms} Rooms`
-                    : 'Check Availability'}
-                </p>
-                <p className="text-xs text-muted-foreground mt-2 sm:mt-1">
-                  *Room prices vary by type/facilities selected
-                </p>
-              </div>
+              <div className="border-t pt-3 sm:pt-2">
+               {/* The entire block for "Available Rooms" has been removed from here */}
+                  <p className="text-xs text-muted-foreground mt-2 sm:mt-1">
+                      Room prices vary by type/facilities selected
+                  </p>
+              </div>
 
               {/* Book Now Button */}
               <Button 

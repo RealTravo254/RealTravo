@@ -9,8 +9,9 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Edit, Eye, MapPin, Mail, Phone, Calendar, Download } from "lucide-react";
+import { Edit, Eye, MapPin, Mail, Phone, Calendar, Download, FileText } from "lucide-react";
 import { exportBookingsToCSV } from "@/lib/csvExport";
+import { downloadAllBookingsAsPDF } from "@/lib/bookingDownload";
 
 const HostItemDetail = () => {
   const { itemType: type, id } = useParams();
@@ -226,20 +227,35 @@ const HostItemDetail = () => {
             <Card className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold">Bookings</h3>
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary">{bookings.length}</Badge>
-                  {bookings.length > 0 && (
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => exportBookingsToCSV(bookings, item.name)}
-                    >
-                      <Download className="h-4 w-4 mr-1" />
-                      CSV
-                    </Button>
-                  )}
-                </div>
+                <Badge variant="secondary">{bookings.length}</Badge>
               </div>
+              
+              {bookings.length > 0 && (
+                <div className="flex gap-2 mb-4">
+                  <Button 
+                    variant="default" 
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => downloadAllBookingsAsPDF({
+                      itemName: item.name,
+                      itemType: type || 'item',
+                      bookings
+                    })}
+                  >
+                    <FileText className="h-4 w-4 mr-1" />
+                    PDF
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => exportBookingsToCSV(bookings, item.name)}
+                  >
+                    <Download className="h-4 w-4 mr-1" />
+                    CSV
+                  </Button>
+                </div>
+              )}
               
               {bookings.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">

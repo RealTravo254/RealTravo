@@ -7,7 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, DollarSign, Users, MapPin, CalendarClock, RefreshCw, XCircle } from "lucide-react";
+import { Calendar, DollarSign, Users, MapPin, CalendarClock, XCircle } from "lucide-react";
 import { RescheduleBookingDialog } from "@/components/booking/RescheduleBookingDialog";
 import { toast } from "sonner";
 import {
@@ -35,10 +35,6 @@ interface Booking {
   slots_booked: number | null;
   visit_date: string | null;
   item_id: string;
-  isPending?: boolean;
-  payment_phone?: string;
-  pendingPaymentId?: string;
-  result_code?: string | null;
 }
 
 const Bookings = () => {
@@ -47,7 +43,6 @@ const Bookings = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [rescheduleBooking, setRescheduleBooking] = useState<Booking | null>(null);
-  const [retryingPaymentId, setRetryingPaymentId] = useState<string | null>(null);
   const [cancellingBookingId, setCancellingBookingId] = useState<string | null>(null);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [bookingToCancel, setBookingToCancel] = useState<Booking | null>(null);
@@ -61,74 +56,21 @@ const Bookings = () => {
   useEffect(() => {
     if (user) {
       fetchBookings();
-
-      const channel = supabase
-        .channel('payments-updates')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'payments',
-            filter: `user_id=eq.${user.id}`,
-          },
-          (payload) => {
-            console.log('Pending payment update:', payload);
-            fetchBookings();
-          }
-        )
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
     }
   }, [user]);
 
   const fetchBookings = async () => {
     try {
-      const { data: confirmedBookings, error: bookingsError } = await supabase
+      // Fetch only bookings where payment is confirmed/paid/completed
+      const { data, error } = await supabase
         .from("bookings")
         .select("*")
         .eq("user_id", user?.id)
+        .in("payment_status", ["paid", "completed", "confirmed"])
         .order("created_at", { ascending: false });
 
-      if (bookingsError) throw bookingsError;
-
-      const { data: pendingPayments, error: pendingError } = await supabase
-        .from("payments" as any)
-        .select("*")
-        .eq("user_id", user?.id)
-        .in("payment_status", ["pending", "failed"])
-        .order("created_at", { ascending: false });
-
-      if (pendingError) throw pendingError;
-
-      const pendingAsBookings: Booking[] = (pendingPayments || []).map((pp: any) => ({
-        id: pp.id,
-        booking_type: pp.booking_data?.booking_type || "unknown",
-        total_amount: pp.amount,
-        booking_details: pp.booking_data?.booking_details || {},
-        payment_status: pp.payment_status,
-        status: "pending",
-        created_at: pp.created_at,
-        guest_name: pp.booking_data?.guest_name || null,
-        guest_email: pp.booking_data?.guest_email || null,
-        guest_phone: pp.booking_data?.guest_phone || null,
-        slots_booked: pp.booking_data?.slots_booked || 1,
-        visit_date: pp.booking_data?.visit_date || null,
-        item_id: pp.booking_data?.item_id || "",
-        isPending: true,
-        payment_phone: pp.phone_number,
-        pendingPaymentId: pp.id,
-        result_code: pp.result_code,
-      }));
-
-      const allBookings = [...(confirmedBookings || []), ...pendingAsBookings].sort(
-        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
-
-      setBookings(allBookings);
+      if (error) throw error;
+      setBookings(data || []);
     } catch (error) {
       console.error("Error fetching bookings:", error);
     } finally {
@@ -136,75 +78,13 @@ const Bookings = () => {
     }
   };
 
-  const getStatusColor = (booking: Booking) => {
-    const { payment_status, result_code } = booking;
-    if (result_code) {
-      switch (result_code) {
-        case "0": return "bg-green-500/10 text-green-500";
-        case "1": return "bg-orange-500/10 text-orange-500";
-        case "1025": return "bg-red-500/10 text-red-500";
-        case "1032": return "bg-red-500/10 text-red-500";
-        case "1037": return "bg-yellow-500/10 text-yellow-500";
-        case "1001": return "bg-orange-500/10 text-orange-500";
-        case "2001": return "bg-red-500/10 text-red-500";
-        default: return "bg-orange-500/10 text-orange-500";
-      }
-    }
-    switch (payment_status) {
-      case "confirmed": 
-      case "paid":
-      case "completed":
-        return "bg-green-500/10 text-green-500";
-      case "pending": 
-        return "bg-yellow-500/10 text-yellow-500";
-      default: 
-        return "bg-gray-500/10 text-gray-500";
-    }
-  };
-
-  const getPaymentStatusLabel = (booking: Booking) => {
-    const { payment_status, result_code } = booking;
-    if (result_code) {
-      switch (result_code) {
-        case "0": return "Paid";
-        case "1": return "Insufficient Funds";
-        case "1025": return "Wrong PIN";
-        case "1032": return "Cancelled by User";
-        case "1037": return "PIN Timeout";
-        case "1001": return "Subscriber Busy";
-        case "2001": return "Invalid Request";
-        default: return `Failed (${result_code})`;
-      }
-    }
-    switch (payment_status) {
-      case "paid":
-      case "completed":
-        return "Paid";
-      case "pending":
-        return "Awaiting Payment";
-      default:
-        return payment_status;
-    }
-  };
-
-  const canRetryPayment = (booking: Booking) => {
-    if (!booking.isPending) return false;
-    const { result_code, payment_status } = booking;
-    if (result_code) {
-      return ["1", "1025", "1032", "1037", "1001", "2001", "2"].includes(result_code);
-    }
-    return ["failed", "cancelled", "timeout"].includes(payment_status);
-  };
-
   const canReschedule = (booking: Booking) => {
-    if (!['paid', 'completed'].includes(booking.payment_status)) return false;
     if (booking.status === 'cancelled') return false;
     if (booking.booking_type === 'event') return false;
     return true;
   };
 
   const canCancel = (booking: Booking) => {
-    if (!['paid', 'completed'].includes(booking.payment_status)) return false;
     if (booking.status === 'cancelled') return false;
     if (booking.visit_date) {
       const visitDate = new Date(booking.visit_date);
@@ -213,59 +93,6 @@ const Bookings = () => {
       if (hoursUntil < 48) return false;
     }
     return true;
-  };
-
-  const retryPayment = async (booking: Booking) => {
-    if (!booking.payment_phone || !booking.pendingPaymentId) {
-      toast.error("Unable to retry payment. Missing payment information.");
-      return;
-    }
-    setRetryingPaymentId(booking.pendingPaymentId);
-    try {
-      const { data: pendingPayment, error: fetchError } = await supabase
-        .from("payments" as any)
-        .select("*")
-        .eq("id", booking.pendingPaymentId)
-        .single();
-
-      if (fetchError || !pendingPayment) throw new Error("Could not find payment record");
-
-      const payment = pendingPayment as any;
-      const { data, error } = await supabase.functions.invoke("mpesa-stk-push", {
-        body: {
-          phoneNumber: payment.phone_number,
-          amount: payment.amount,
-          accountReference: payment.account_reference,
-          transactionDesc: `Retry: ${payment.transaction_desc || "Booking Payment"}`,
-          bookingData: payment.booking_data,
-        },
-      });
-
-      if (error) throw error;
-
-      if (data?.success) {
-        await supabase
-          .from("payments" as any)
-          .update({
-            checkout_request_id: data.checkoutRequestId,
-            merchant_request_id: data.merchantRequestId,
-            payment_status: "pending",
-            result_code: null,
-            result_desc: null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", booking.pendingPaymentId);
-
-        toast.success("Payment request sent!");
-        setTimeout(() => fetchBookings(), 3000);
-      } else {
-        throw new Error(data?.error || "Failed to initiate payment");
-      }
-    } catch (error: any) {
-      toast.error(error.message || "Failed to retry payment.");
-    } finally {
-      setRetryingPaymentId(null);
-    }
   };
 
   const handleCancelBooking = async () => {
@@ -278,7 +105,6 @@ const Bookings = () => {
         .eq('id', bookingToCancel.id);
 
       if (error) throw error;
-
       toast.success("Booking cancelled successfully");
       fetchBookings();
     } catch (error: any) {
@@ -295,7 +121,7 @@ const Bookings = () => {
       <div className="min-h-screen flex flex-col">
         <Header />
         <main className="flex-1 container px-4 py-8">
-          <p>Loading...</p>
+          <p>Loading your paid bookings...</p>
         </main>
         <MobileBottomBar />
       </div>
@@ -307,11 +133,13 @@ const Bookings = () => {
       <Header />
       
       <main className="flex-1 container px-4 py-8 pb-24 md:pb-8 max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold mb-8">My Bookings</h1>
+        <h1 className="text-3xl font-bold mb-2">My Bookings</h1>
+        <p className="text-muted-foreground mb-8">View your confirmed and completed trips</p>
         
         {bookings.length === 0 ? (
-          <div className="text-center py-16">
-            <p className="text-xl text-muted-foreground">No bookings yet</p>
+          <div className="text-center py-16 border rounded-lg bg-card">
+            <p className="text-xl text-muted-foreground">No confirmed bookings found</p>
+            <p className="text-sm text-muted-foreground mt-2">Only bookings with successful payments appear here.</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -320,19 +148,17 @@ const Bookings = () => {
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                   <div className="flex-1 space-y-3">
                     <div className="flex items-center gap-3 flex-wrap">
-                      <Badge variant="outline">{booking.booking_type}</Badge>
-                      <Badge className={getStatusColor(booking)}>
-                        {getPaymentStatusLabel(booking)}
+                      <Badge variant="outline" className="capitalize">{booking.booking_type}</Badge>
+                      <Badge className="bg-green-500/10 text-green-600 border-green-500/20">
+                        Paid
                       </Badge>
-                      {!booking.isPending && (
-                        <Badge className={booking.status === 'cancelled' ? "bg-red-500/10 text-red-500" : "bg-green-500/10 text-green-500"}>
-                          {booking.status}
-                        </Badge>
+                      {booking.status === 'cancelled' && (
+                        <Badge variant="destructive">Cancelled</Badge>
                       )}
                     </div>
 
                     <h3 className="text-xl font-semibold">
-                      {booking.booking_details.trip_name || booking.booking_details.hotel_name || 'Booking'}
+                      {booking.booking_details.trip_name || booking.booking_details.hotel_name || booking.booking_details.event_name || 'Booking'}
                     </h3>
 
                     <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
@@ -344,23 +170,16 @@ const Bookings = () => {
                       )}
                       <div className="flex items-center gap-1">
                         <Users className="h-4 w-4" />
-                        <span>{booking.slots_booked} Tickets</span>
+                        <span>{booking.slots_booked || 1} Person(s)</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-3 min-w-[140px]">
                     <div className="flex items-center gap-2">
                       <DollarSign className="h-5 w-5 text-primary" />
-                      <span className="text-2xl font-bold">KSh {booking.total_amount}</span>
+                      <span className="text-2xl font-bold">KSh {booking.total_amount.toLocaleString()}</span>
                     </div>
-                    
-                    {canRetryPayment(booking) && (
-                      <Button size="sm" onClick={() => retryPayment(booking)} disabled={retryingPaymentId === booking.pendingPaymentId}>
-                        <RefreshCw className={`h-4 w-4 mr-2 ${retryingPaymentId === booking.pendingPaymentId ? 'animate-spin' : ''}`} />
-                        Retry Payment
-                      </Button>
-                    )}
                     
                     {canReschedule(booking) && (
                       <Button variant="outline" size="sm" onClick={() => setRescheduleBooking(booking)}>
@@ -370,7 +189,7 @@ const Bookings = () => {
                     )}
 
                     {canCancel(booking) && (
-                      <Button variant="destructive" size="sm" onClick={() => { setBookingToCancel(booking); setShowCancelDialog(true); }}>
+                      <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => { setBookingToCancel(booking); setShowCancelDialog(true); }}>
                         <XCircle className="h-4 w-4 mr-2" />
                         Cancel
                       </Button>
@@ -393,13 +212,16 @@ const Bookings = () => {
       <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Cancel Booking?</AlertDialogTitle>
-            <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
+            <AlertDialogTitle>Cancel Confirmed Booking?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to cancel this booking? This action is permanent. 
+              Refunds are subject to our cancellation policy.
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>No, Keep it</AlertDialogCancel>
+            <AlertDialogCancel>Keep Booking</AlertDialogCancel>
             <AlertDialogAction onClick={handleCancelBooking} className="bg-destructive text-white">
-              Yes, Cancel
+              Confirm Cancellation
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

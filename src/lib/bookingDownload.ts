@@ -242,3 +242,196 @@ export const downloadBookingAsHTML = async (booking: BookingDownloadData, qrCode
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 };
+
+export interface AllBookingsExportData {
+  itemName: string;
+  itemType: string;
+  bookings: Array<{
+    id: string;
+    guest_name_masked?: string;
+    guest_email_limited?: string;
+    guest_phone_limited?: string;
+    total_amount: number;
+    status: string;
+    payment_status?: string;
+    created_at: string;
+    slots_booked?: number;
+    booking_details?: any;
+  }>;
+}
+
+export const downloadAllBookingsAsPDF = async (data: AllBookingsExportData): Promise<void> => {
+  const formatCurrency = (amount: number) => `KES ${amount?.toLocaleString() || 0}`;
+  const totalRevenue = data.bookings.reduce((sum, b) => sum + (b.total_amount || 0), 0);
+  const paidBookings = data.bookings.filter(b => b.payment_status === 'paid' || b.payment_status === 'completed');
+
+  const bookingRows = data.bookings.map((booking, index) => `
+    <tr>
+      <td>${index + 1}</td>
+      <td><code>${booking.id?.slice(0, 8) || 'N/A'}...</code></td>
+      <td>${booking.guest_name_masked || 'Guest'}</td>
+      <td>${booking.guest_email_limited || 'N/A'}</td>
+      <td>${booking.guest_phone_limited || 'N/A'}</td>
+      <td>${format(new Date(booking.created_at), 'PP')}</td>
+      <td>${booking.slots_booked || 1}</td>
+      <td>${formatCurrency(booking.total_amount)}</td>
+      <td><span class="status ${booking.payment_status}">${booking.payment_status || booking.status}</span></td>
+    </tr>
+  `).join('');
+
+  const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <title>All Bookings - ${data.itemName}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 30px;
+      background: #f5f5f5;
+      font-size: 12px;
+    }
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    }
+    .header {
+      background: linear-gradient(135deg, #008080, #006666);
+      color: white;
+      padding: 25px 30px;
+    }
+    .header h1 { font-size: 22px; margin-bottom: 4px; }
+    .header p { opacity: 0.9; font-size: 13px; }
+    .summary {
+      display: flex;
+      gap: 20px;
+      padding: 20px 30px;
+      background: #f8f9fa;
+      border-bottom: 1px solid #eee;
+    }
+    .summary-card {
+      flex: 1;
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      text-align: center;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .summary-card h3 { font-size: 11px; color: #666; text-transform: uppercase; margin-bottom: 5px; }
+    .summary-card p { font-size: 20px; font-weight: bold; color: #008080; }
+    .content { padding: 20px 30px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+    }
+    th {
+      background: #f8f9fa;
+      padding: 12px 8px;
+      text-align: left;
+      font-weight: 600;
+      color: #333;
+      border-bottom: 2px solid #e0e0e0;
+    }
+    td {
+      padding: 10px 8px;
+      border-bottom: 1px solid #f0f0f0;
+      vertical-align: middle;
+    }
+    tr:hover { background: #fafafa; }
+    code {
+      background: #f0f0f0;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+    }
+    .status {
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .status.paid, .status.completed { background: #dcfce7; color: #166534; }
+    .status.pending { background: #fef3c7; color: #92400e; }
+    .status.failed { background: #fecaca; color: #991b1b; }
+    .footer {
+      padding: 15px 30px;
+      text-align: center;
+      font-size: 11px;
+      color: #999;
+      border-top: 1px solid #f0f0f0;
+    }
+    @media print {
+      body { background: white; padding: 0; }
+      .container { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>${data.itemName}</h1>
+      <p>${data.itemType.charAt(0).toUpperCase() + data.itemType.slice(1)} • All Bookings Report</p>
+    </div>
+    
+    <div class="summary">
+      <div class="summary-card">
+        <h3>Total Bookings</h3>
+        <p>${data.bookings.length}</p>
+      </div>
+      <div class="summary-card">
+        <h3>Paid Bookings</h3>
+        <p>${paidBookings.length}</p>
+      </div>
+      <div class="summary-card">
+        <h3>Total Revenue</h3>
+        <p>${formatCurrency(totalRevenue)}</p>
+      </div>
+    </div>
+
+    <div class="content">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Booking ID</th>
+            <th>Guest Name</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>Date</th>
+            <th>People</th>
+            <th>Amount</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${bookingRows || '<tr><td colspan="9" style="text-align:center;padding:30px;">No bookings found</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="footer">
+      <p>Generated on ${format(new Date(), 'PPP')} • Total ${data.bookings.length} bookings</p>
+    </div>
+  </div>
+</body>
+</html>
+  `;
+
+  // Create blob and trigger download
+  const blob = new Blob([htmlContent], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `bookings-${data.itemName.replace(/\s+/g, '-').toLowerCase()}-${format(new Date(), 'yyyy-MM-dd')}.html`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+};

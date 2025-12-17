@@ -33,6 +33,13 @@ interface Booking {
 interface ItemDetails {
   name: string;
   type: string;
+  hostId?: string;
+}
+
+interface HostInfo {
+  name: string;
+  email: string | null;
+  phone_number: string | null;
 }
 
 const AllBookings = () => {
@@ -42,6 +49,7 @@ const AllBookings = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
   const [itemDetails, setItemDetails] = useState<Record<string, ItemDetails>>({});
+  const [hostInfo, setHostInfo] = useState<Record<string, HostInfo>>({});
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -127,6 +135,7 @@ const AllBookings = () => {
 
   const fetchItemDetails = async (items: { id: string; type: string }[]) => {
     const details: Record<string, ItemDetails> = {};
+    const hostIds: Set<string> = new Set();
 
     for (const item of items) {
       try {
@@ -134,31 +143,33 @@ const AllBookings = () => {
         if (item.type === "trip" || item.type === "event") {
           const { data: tripData } = await supabase
             .from("trips")
-            .select("name")
+            .select("name, created_by")
             .eq("id", item.id)
             .single();
           data = tripData;
         } else if (item.type === "hotel") {
           const { data: hotelData } = await supabase
             .from("hotels")
-            .select("name")
+            .select("name, created_by")
             .eq("id", item.id)
             .single();
           data = hotelData;
         } else if (item.type === "adventure" || item.type === "adventure_place") {
           const { data: adventureData } = await supabase
             .from("adventure_places")
-            .select("name")
+            .select("name, created_by")
             .eq("id", item.id)
             .single();
           data = adventureData;
         } else if (item.type === "attraction") {
-          // Attractions table doesn't exist - skip
           data = null;
         }
 
         if (data) {
-          details[item.id] = { name: data.name, type: item.type };
+          details[item.id] = { name: data.name, type: item.type, hostId: data.created_by };
+          if (data.created_by) {
+            hostIds.add(data.created_by);
+          }
         }
       } catch (error) {
         console.error("Error fetching item details:", error);
@@ -166,6 +177,37 @@ const AllBookings = () => {
     }
 
     setItemDetails(details);
+    
+    // Fetch host profiles
+    if (hostIds.size > 0) {
+      await fetchHostProfiles(Array.from(hostIds));
+    }
+  };
+
+  const fetchHostProfiles = async (hostIds: string[]) => {
+    const hosts: Record<string, HostInfo> = {};
+    
+    for (const hostId of hostIds) {
+      try {
+        const { data } = await supabase
+          .from("profiles")
+          .select("name, email, phone_number")
+          .eq("id", hostId)
+          .single();
+        
+        if (data) {
+          hosts[hostId] = {
+            name: data.name,
+            email: data.email,
+            phone_number: data.phone_number,
+          };
+        }
+      } catch (error) {
+        console.error("Error fetching host profile:", error);
+      }
+    }
+    
+    setHostInfo(hosts);
   };
 
   const getStatusBadge = (status: string) => {
@@ -356,9 +398,68 @@ const AllBookings = () => {
                     )}
                   </div>
                 </div>
+              </div>
 
+              {/* Host Info */}
+              <div className="space-y-4">
+                <h3 className="font-semibold text-lg">Host Information</h3>
+                
+                {(() => {
+                  const hostId = itemDetails[selectedBooking.item_id]?.hostId;
+                  const host = hostId ? hostInfo[hostId] : null;
+                  
+                  if (!host) {
+                    return <p className="text-muted-foreground">Host information not available</p>;
+                  }
+                  
+                  return (
+                    <>
+                      <div className="flex items-center gap-3">
+                        <User className="h-5 w-5 text-muted-foreground" />
+                        <div>
+                          <p className="text-sm text-muted-foreground">Name</p>
+                          <p className="font-medium">{host.name}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <Mail className="h-5 w-5 text-muted-foreground" />
+                        <div>
+                          <p className="text-sm text-muted-foreground">Email</p>
+                          {host.email ? (
+                            <a href={`mailto:${host.email}`} className="font-medium text-primary hover:underline">
+                              {host.email}
+                            </a>
+                          ) : (
+                            <p>Not provided</p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <Phone className="h-5 w-5 text-muted-foreground" />
+                        <div>
+                          <p className="text-sm text-muted-foreground">Phone Number</p>
+                          {host.phone_number ? (
+                            <a href={`tel:${host.phone_number}`} className="font-medium text-primary hover:underline">
+                              {host.phone_number}
+                            </a>
+                          ) : (
+                            <p>Not provided</p>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* Additional Details and Download */}
+            <div className="mt-6 pt-6 border-t">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {selectedBooking.booking_details && (
-                  <div className="pt-4 border-t">
+                  <div>
                     <p className="text-sm text-muted-foreground mb-2">Additional Details</p>
                     <pre className="text-xs bg-muted p-3 rounded overflow-auto max-h-40">
                       {JSON.stringify(selectedBooking.booking_details, null, 2)}
@@ -366,7 +467,7 @@ const AllBookings = () => {
                   </div>
                 )}
 
-                <div className="pt-4">
+                <div className="flex items-end">
                   <BookingDownloadButton
                     booking={{
                       bookingId: selectedBooking.id,

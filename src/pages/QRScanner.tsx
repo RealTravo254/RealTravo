@@ -32,6 +32,8 @@ interface VerifiedBooking {
   status: string;
   booking_details: any;
   item_name?: string;
+  checked_in?: boolean;
+  checked_in_at?: string;
 }
 
 const QRScanner = () => {
@@ -39,7 +41,7 @@ const QRScanner = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const isOnline = useOnlineStatus();
-  const { verifyBookingOffline, saveOfflineScan, cachedHostBookings } = useOfflineBookings();
+  const { verifyBookingOffline, saveOfflineScan, cachedHostBookings, getPendingCheckIns, clearSyncedCheckIns } = useOfflineBookings();
   const [isMobile, setIsMobile] = useState(false);
   const [scanning, setScanning] = useState(true);
   const [verifiedBooking, setVerifiedBooking] = useState<VerifiedBooking | null>(null);
@@ -47,6 +49,43 @@ const QRScanner = () => {
   const [errorMessage, setErrorMessage] = useState("");
   const [itemName, setItemName] = useState("");
   const [isOfflineScan, setIsOfflineScan] = useState(false);
+  const [isCheckingIn, setIsCheckingIn] = useState(false);
+  const [checkedIn, setCheckedIn] = useState(false);
+
+  // Sync offline check-ins when coming online
+  useEffect(() => {
+    const syncOfflineCheckIns = async () => {
+      if (!isOnline || !user) return;
+      
+      const pendingCheckIns = getPendingCheckIns();
+      if (pendingCheckIns.length === 0) return;
+
+      console.log(`Syncing ${pendingCheckIns.length} offline check-ins...`);
+      
+      for (const checkIn of pendingCheckIns) {
+        try {
+          await supabase
+            .from("bookings")
+            .update({
+              checked_in: true,
+              checked_in_at: checkIn.checkedInAt,
+              checked_in_by: checkIn.checkedInBy
+            })
+            .eq("id", checkIn.bookingId);
+        } catch (error) {
+          console.error("Failed to sync check-in:", error);
+        }
+      }
+      
+      clearSyncedCheckIns();
+      toast({
+        title: "Synced",
+        description: `${pendingCheckIns.length} offline check-in(s) synced`,
+      });
+    };
+
+    syncOfflineCheckIns();
+  }, [isOnline, user]);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -179,6 +218,50 @@ const QRScanner = () => {
     });
   };
 
+  const confirmCheckIn = async () => {
+    if (!verifiedBooking || !user) return;
+    
+    setIsCheckingIn(true);
+    try {
+      if (isOnline) {
+        const { error } = await supabase
+          .from("bookings")
+          .update({
+            checked_in: true,
+            checked_in_at: new Date().toISOString(),
+            checked_in_by: user.id
+          })
+          .eq("id", verifiedBooking.id);
+
+        if (error) throw error;
+      } else {
+        // Save offline check-in for sync later
+        const offlineCheckIns = JSON.parse(localStorage.getItem('offline_checkins') || '[]');
+        offlineCheckIns.push({
+          bookingId: verifiedBooking.id,
+          checkedInAt: new Date().toISOString(),
+          checkedInBy: user.id
+        });
+        localStorage.setItem('offline_checkins', JSON.stringify(offlineCheckIns));
+      }
+      
+      setCheckedIn(true);
+      toast({
+        title: "Check-in Confirmed",
+        description: `${verifiedBooking.guest_name} has been checked in successfully`,
+      });
+    } catch (error) {
+      console.error("Check-in error:", error);
+      toast({
+        title: "Check-in Failed",
+        description: "Could not complete check-in. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCheckingIn(false);
+    }
+  };
+
   const resetScanner = () => {
     setScanning(true);
     setVerifiedBooking(null);
@@ -186,6 +269,7 @@ const QRScanner = () => {
     setErrorMessage("");
     setItemName("");
     setIsOfflineScan(false);
+    setCheckedIn(false);
   };
 
   if (authLoading) {
@@ -367,7 +451,33 @@ const QRScanner = () => {
                 </div>
               </div>
 
-              <Button onClick={resetScanner} className="w-full mt-4">
+              {/* Check-in Button */}
+              {!checkedIn && !verifiedBooking.checked_in ? (
+                <Button 
+                  onClick={confirmCheckIn} 
+                  className="w-full mt-4 bg-green-600 hover:bg-green-700"
+                  disabled={isCheckingIn}
+                >
+                  {isCheckingIn ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Checking In...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Confirm Check-in
+                    </>
+                  )}
+                </Button>
+              ) : (
+                <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg flex items-center justify-center gap-2 text-green-700 dark:text-green-400">
+                  <CheckCircle className="h-5 w-5" />
+                  <span className="font-medium">Guest Checked In</span>
+                </div>
+              )}
+
+              <Button onClick={resetScanner} variant="outline" className="w-full mt-2">
                 <Camera className="h-4 w-4 mr-2" />
                 Scan Another
               </Button>

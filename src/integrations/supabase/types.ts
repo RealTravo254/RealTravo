@@ -177,6 +177,9 @@ export type Database = {
         Row: {
           booking_details: Json
           booking_type: string
+          checked_in: boolean | null
+          checked_in_at: string | null
+          checked_in_by: string | null
           created_at: string
           guest_email: string | null
           guest_name: string | null
@@ -198,6 +201,9 @@ export type Database = {
         Insert: {
           booking_details: Json
           booking_type: string
+          checked_in?: boolean | null
+          checked_in_at?: string | null
+          checked_in_by?: string | null
           created_at?: string
           guest_email?: string | null
           guest_name?: string | null
@@ -219,6 +225,9 @@ export type Database = {
         Update: {
           booking_details?: Json
           booking_type?: string
+          checked_in?: boolean | null
+          checked_in_at?: string | null
+          checked_in_by?: string | null
           created_at?: string
           guest_email?: string | null
           guest_name?: string | null

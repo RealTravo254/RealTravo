@@ -118,6 +118,21 @@ export const useOfflineBookings = () => {
     return { valid: true, booking };
   }, [cachedHostBookings]);
 
+  // Get pending offline check-ins
+  const getPendingCheckIns = useCallback(() => {
+    try {
+      const data = localStorage.getItem('offline_checkins');
+      return data ? JSON.parse(data) : [];
+    } catch {
+      return [];
+    }
+  }, []);
+
+  // Clear synced check-ins
+  const clearSyncedCheckIns = useCallback(() => {
+    localStorage.removeItem('offline_checkins');
+  }, []);
+
   return {
     isOnline,
     cachedBookings,
@@ -128,5 +143,7 @@ export const useOfflineBookings = () => {
     saveOfflineScan,
     clearPendingScans,
     verifyBookingOffline,
+    getPendingCheckIns,
+    clearSyncedCheckIns,
   };
 };

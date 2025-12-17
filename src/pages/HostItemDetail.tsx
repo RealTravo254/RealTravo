@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Edit, Eye, MapPin, Mail, Phone, Calendar } from "lucide-react";
+import { Edit, Eye, MapPin, Mail, Phone, Calendar, Download } from "lucide-react";
+import { exportBookingsToCSV } from "@/lib/csvExport";
 
 const HostItemDetail = () => {
   const { itemType: type, id } = useParams();
@@ -225,7 +226,19 @@ const HostItemDetail = () => {
             <Card className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold">Bookings</h3>
-                <Badge variant="secondary">{bookings.length}</Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary">{bookings.length}</Badge>
+                  {bookings.length > 0 && (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => exportBookingsToCSV(bookings, item.name)}
+                    >
+                      <Download className="h-4 w-4 mr-1" />
+                      CSV
+                    </Button>
+                  )}
+                </div>
               </div>
               
               {bookings.length === 0 ? (
@@ -244,7 +257,7 @@ const HostItemDetail = () => {
                           {new Date(booking.created_at).toLocaleDateString()}
                         </span>
                       </div>
-                      <p className="text-sm font-medium">${booking.total_amount}</p>
+                      <p className="text-sm font-medium">KES {booking.total_amount?.toLocaleString()}</p>
                       {booking.guest_name_masked && (
                         <p className="text-xs text-muted-foreground">{booking.guest_name_masked}</p>
                       )}

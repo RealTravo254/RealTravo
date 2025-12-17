@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
-// import { Footer } from "@/components/Footer"; // REMOVED
-// import { MobileBottomBar } from "@/components/MobileBottomBar"; // REMOVED
+import { MobileBottomBar } from "@/components/MobileBottomBar"; // RESTORED
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -77,7 +76,7 @@ const AdminDashboard = () => {
       ]);
 
       const totalApproved = (approvedTrips.count || 0) + (approvedHotels.count || 0) + 
-                           (approvedAdventures.count || 0);
+                            (approvedAdventures.count || 0);
       setApprovedCount(totalApproved);
 
       const [rejectedTrips, rejectedHotels, rejectedAdventures] = await Promise.all([
@@ -87,10 +86,9 @@ const AdminDashboard = () => {
       ]);
 
       const totalRejected = (rejectedTrips.count || 0) + (rejectedHotels.count || 0) + 
-                           (rejectedAdventures.count || 0);
+                            (rejectedAdventures.count || 0);
       setRejectedCount(totalRejected);
 
-      // Fetch host verifications pending count
       const { count: hostVerificationsPending } = await supabase
         .from("host_verifications")
         .select("id", { count: "exact", head: true })
@@ -98,7 +96,6 @@ const AdminDashboard = () => {
       
       setHostVerificationCount(hostVerificationsPending || 0);
 
-      // Fetch total bookings count
       const { count: totalBookings } = await supabase
         .from("bookings")
         .select("id", { count: "exact", head: true });
@@ -124,7 +121,8 @@ const AdminDashboard = () => {
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      <main className="flex-1 container px-4 py-8 max-w-4xl mx-auto mb-20 md:mb-0">
+      {/* Added pb-24 to main to ensure content doesn't get hidden behind the mobile bar */}
+      <main className="flex-1 container px-4 py-8 max-w-4xl mx-auto pb-24 md:pb-8">
         <Button
           variant="ghost"
           onClick={() => navigate(-1)}
@@ -209,8 +207,9 @@ const AdminDashboard = () => {
           </div>
         </Card>
       </main>
-      {/* Footer was here */}
-      {/* MobileBottomBar was here */}
+      
+      {/* Render MobileBottomBar for navigation on mobile devices */}
+      <MobileBottomBar />
     </div>
   );
 };

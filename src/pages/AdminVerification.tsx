@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
-// import { Footer } from "@/components/Footer"; // REMOVED
-// import { MobileBottomBar } from "@/components/MobileBottomBar"; // REMOVED
+import { MobileBottomBar } from "@/components/MobileBottomBar"; // RESTORED
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
@@ -95,8 +94,7 @@ const AdminVerification = () => {
             </div>
           </Card>
         </main>
-        {/* <Footer /> REMOVED */}
-        {/* <MobileBottomBar /> REMOVED */}
+        <MobileBottomBar /> {/* RESTORED */}
       </div>
     );
   }
@@ -104,7 +102,8 @@ const AdminVerification = () => {
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      <main className="flex-1 container mx-auto px-4 py-8">
+      {/* Added pb-24 to ensure content doesn't get hidden behind the mobile bar */}
+      <main className="flex-1 container mx-auto px-4 py-8 pb-24 md:pb-8">
         <div className="max-w-2xl mx-auto">
           <Button
             variant="ghost"
@@ -164,8 +163,7 @@ const AdminVerification = () => {
           </Card>
         </div>
       </main>
-      {/* <Footer /> REMOVED */}
-      {/* <MobileBottomBar /> REMOVED */}
+      <MobileBottomBar /> {/* RESTORED */}
     </div>
   );
 };

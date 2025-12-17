@@ -1,26 +1,15 @@
 import { useEffect, useState } from "react";
 import { Header } from "@/components/Header";
-import { MobileBottomBar } from "@/components/MobileBottomBar";
+import { MobileBottomBar } from "@/components/MobileBottomBar"; 
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { 
-  Calendar, 
-  DollarSign, 
-  Users, 
-  CalendarClock, 
-  RefreshCw, 
-  XCircle, 
-  Download, 
-  Ticket,
-  CheckCircle2
-} from "lucide-react";
+import { Calendar, DollarSign, Users, MapPin, CalendarClock, RefreshCw, XCircle } from "lucide-react";
 import { RescheduleBookingDialog } from "@/components/booking/RescheduleBookingDialog";
 import { toast } from "sonner";
-import jsPDF from "jspdf";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -59,6 +48,7 @@ const Bookings = () => {
   const [loading, setLoading] = useState(true);
   const [rescheduleBooking, setRescheduleBooking] = useState<Booking | null>(null);
   const [retryingPaymentId, setRetryingPaymentId] = useState<string | null>(null);
+  const [cancellingBookingId, setCancellingBookingId] = useState<string | null>(null);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [bookingToCancel, setBookingToCancel] = useState<Booking | null>(null);
 
@@ -71,12 +61,27 @@ const Bookings = () => {
   useEffect(() => {
     if (user) {
       fetchBookings();
+
       const channel = supabase
         .channel('payments-updates')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'payments', filter: `user_id=eq.${user.id}` }, 
-        () => fetchBookings())
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'payments',
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            console.log('Pending payment update:', payload);
+            fetchBookings();
+          }
+        )
         .subscribe();
-      return () => { supabase.removeChannel(channel); };
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
   }, [user]);
 
@@ -119,9 +124,11 @@ const Bookings = () => {
         result_code: pp.result_code,
       }));
 
-      setBookings([...(confirmedBookings || []), ...pendingAsBookings].sort(
+      const allBookings = [...(confirmedBookings || []), ...pendingAsBookings].sort(
         (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      ));
+      );
+
+      setBookings(allBookings);
     } catch (error) {
       console.error("Error fetching bookings:", error);
     } finally {
@@ -129,171 +136,274 @@ const Bookings = () => {
     }
   };
 
-  // PDF Generation Logic
-  const generateTicketPDF = (booking: Booking, personIndex?: number) => {
-    const doc = new jsPDF({
-      orientation: "portrait",
-      unit: "mm",
-      format: [100, 150]
-    });
-
-    // Design Elements
-    doc.setFillColor(30, 41, 59); // Dark background header
-    doc.rect(0, 0, 100, 40, 'F');
-    
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(18);
-    doc.text("E-TICKET", 50, 15, { align: "center" });
-    
-    doc.setFontSize(10);
-    doc.text(personIndex !== undefined ? `PASSENGER ${personIndex + 1}` : "GENERAL BOOKING", 50, 25, { align: "center" });
-
-    // Body
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(12);
-    const title = booking.booking_details.trip_name || booking.booking_details.hotel_name || 'Booking';
-    doc.text(title, 10, 55);
-
-    doc.setFontSize(10);
-    doc.text(`Reference: ${booking.id.split('-')[0].toUpperCase()}`, 10, 65);
-    doc.text(`Date: ${booking.visit_date ? new Date(booking.visit_date).toLocaleDateString() : 'N/A'}`, 10, 72);
-    doc.text(`Guest: ${booking.guest_name || 'Valued Customer'}`, 10, 79);
-    
-    if (personIndex === undefined) {
-      doc.text(`Total Group Size: ${booking.slots_booked}`, 10, 86);
-    }
-
-    // Border/Cut line
-    doc.setLineDash([2, 2]);
-    doc.line(5, 120, 95, 120);
-    
-    doc.setFontSize(8);
-    doc.text("Scan at the entrance. Valid for one-time entry.", 50, 135, { align: "center" });
-
-    const fileName = personIndex !== undefined 
-      ? `Ticket_${booking.id.slice(0,5)}_P${personIndex+1}.pdf`
-      : `Booking_Summary_${booking.id.slice(0,5)}.pdf`;
-
-    doc.save(fileName);
-    toast.success("Download started");
-  };
-
   const getStatusColor = (booking: Booking) => {
-    if (booking.result_code === "0" || booking.payment_status === "paid") return "bg-emerald-500/10 text-emerald-600 border-emerald-200";
-    if (booking.isPending) return "bg-amber-500/10 text-amber-600 border-amber-200";
-    return "bg-slate-500/10 text-slate-600 border-slate-200";
+    const { payment_status, result_code } = booking;
+    if (result_code) {
+      switch (result_code) {
+        case "0": return "bg-green-500/10 text-green-500";
+        case "1": return "bg-orange-500/10 text-orange-500";
+        case "1025": return "bg-red-500/10 text-red-500";
+        case "1032": return "bg-red-500/10 text-red-500";
+        case "1037": return "bg-yellow-500/10 text-yellow-500";
+        case "1001": return "bg-orange-500/10 text-orange-500";
+        case "2001": return "bg-red-500/10 text-red-500";
+        default: return "bg-orange-500/10 text-orange-500";
+      }
+    }
+    switch (payment_status) {
+      case "confirmed": 
+      case "paid":
+      case "completed":
+        return "bg-green-500/10 text-green-500";
+      case "pending": 
+        return "bg-yellow-500/10 text-yellow-500";
+      default: 
+        return "bg-gray-500/10 text-gray-500";
+    }
   };
 
   const getPaymentStatusLabel = (booking: Booking) => {
-    if (booking.result_code === "0" || booking.payment_status === "paid") return "Confirmed";
-    if (booking.payment_status === "pending") return "Awaiting Payment";
-    return booking.payment_status;
+    const { payment_status, result_code } = booking;
+    if (result_code) {
+      switch (result_code) {
+        case "0": return "Paid";
+        case "1": return "Insufficient Funds";
+        case "1025": return "Wrong PIN";
+        case "1032": return "Cancelled by User";
+        case "1037": return "PIN Timeout";
+        case "1001": return "Subscriber Busy";
+        case "2001": return "Invalid Request";
+        default: return `Failed (${result_code})`;
+      }
+    }
+    switch (payment_status) {
+      case "paid":
+      case "completed":
+        return "Paid";
+      case "pending":
+        return "Awaiting Payment";
+      default:
+        return payment_status;
+    }
   };
 
   const canRetryPayment = (booking: Booking) => {
-    return booking.isPending && ["failed", "cancelled", "1032"].includes(booking.payment_status || booking.result_code || "");
+    if (!booking.isPending) return false;
+    const { result_code, payment_status } = booking;
+    if (result_code) {
+      return ["1", "1025", "1032", "1037", "1001", "2001", "2"].includes(result_code);
+    }
+    return ["failed", "cancelled", "timeout"].includes(payment_status);
+  };
+
+  const canReschedule = (booking: Booking) => {
+    if (!['paid', 'completed'].includes(booking.payment_status)) return false;
+    if (booking.status === 'cancelled') return false;
+    if (booking.booking_type === 'event') return false;
+    return true;
+  };
+
+  const canCancel = (booking: Booking) => {
+    if (!['paid', 'completed'].includes(booking.payment_status)) return false;
+    if (booking.status === 'cancelled') return false;
+    if (booking.visit_date) {
+      const visitDate = new Date(booking.visit_date);
+      const now = new Date();
+      const hoursUntil = (visitDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+      if (hoursUntil < 48) return false;
+    }
+    return true;
+  };
+
+  const retryPayment = async (booking: Booking) => {
+    if (!booking.payment_phone || !booking.pendingPaymentId) {
+      toast.error("Unable to retry payment. Missing payment information.");
+      return;
+    }
+    setRetryingPaymentId(booking.pendingPaymentId);
+    try {
+      const { data: pendingPayment, error: fetchError } = await supabase
+        .from("payments" as any)
+        .select("*")
+        .eq("id", booking.pendingPaymentId)
+        .single();
+
+      if (fetchError || !pendingPayment) throw new Error("Could not find payment record");
+
+      const payment = pendingPayment as any;
+      const { data, error } = await supabase.functions.invoke("mpesa-stk-push", {
+        body: {
+          phoneNumber: payment.phone_number,
+          amount: payment.amount,
+          accountReference: payment.account_reference,
+          transactionDesc: `Retry: ${payment.transaction_desc || "Booking Payment"}`,
+          bookingData: payment.booking_data,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        await supabase
+          .from("payments" as any)
+          .update({
+            checkout_request_id: data.checkoutRequestId,
+            merchant_request_id: data.merchantRequestId,
+            payment_status: "pending",
+            result_code: null,
+            result_desc: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", booking.pendingPaymentId);
+
+        toast.success("Payment request sent!");
+        setTimeout(() => fetchBookings(), 3000);
+      } else {
+        throw new Error(data?.error || "Failed to initiate payment");
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Failed to retry payment.");
+    } finally {
+      setRetryingPaymentId(null);
+    }
+  };
+
+  const handleCancelBooking = async () => {
+    if (!bookingToCancel) return;
+    setCancellingBookingId(bookingToCancel.id);
+    try {
+      const { error } = await supabase
+        .from('bookings')
+        .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+        .eq('id', bookingToCancel.id);
+
+      if (error) throw error;
+
+      toast.success("Booking cancelled successfully");
+      fetchBookings();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to cancel booking.");
+    } finally {
+      setCancellingBookingId(null);
+      setShowCancelDialog(false);
+      setBookingToCancel(null);
+    }
   };
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen flex flex-col"><Header /><main className="flex-1 p-8">Loading...</main></div>
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-1 container px-4 py-8">
+          <p>Loading...</p>
+        </main>
+        <MobileBottomBar />
+      </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50/50">
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
       
-      <main className="flex-1 container px-4 py-8 pb-24 max-w-3xl mx-auto">
-        <h1 className="text-3xl font-bold mb-8 tracking-tight">My Bookings</h1>
+      <main className="flex-1 container px-4 py-8 pb-24 md:pb-8 max-w-4xl mx-auto">
+        <h1 className="text-3xl font-bold mb-8">My Bookings</h1>
         
         {bookings.length === 0 ? (
-          <div className="text-center py-20 bg-white rounded-xl border border-dashed">
-            <p className="text-muted-foreground">You haven't made any bookings yet.</p>
+          <div className="text-center py-16">
+            <p className="text-xl text-muted-foreground">No bookings yet</p>
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-4">
             {bookings.map((booking) => (
-              <Card key={booking.id} className="overflow-hidden border-none shadow-sm ring-1 ring-slate-200">
-                <div className="p-6">
-                  <div className="flex justify-between items-start mb-4">
-                    <div className="space-y-1">
-                      <div className="flex gap-2 mb-2">
-                        <Badge variant="outline" className="capitalize font-medium">{booking.booking_type}</Badge>
-                        <Badge className={getStatusColor(booking)}>{getPaymentStatusLabel(booking)}</Badge>
-                      </div>
-                      <h3 className="text-xl font-bold text-slate-900">
-                        {booking.booking_details.trip_name || booking.booking_details.hotel_name || 'Travel Booking'}
-                      </h3>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs text-muted-foreground uppercase font-semibold">Total Paid</p>
-                      <p className="text-xl font-black text-primary">KSh {booking.total_amount}</p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4 py-4 border-y border-slate-100 mb-4">
-                    <div className="flex items-center gap-3 text-sm">
-                      <div className="p-2 bg-slate-100 rounded-lg"><Calendar className="h-4 w-4 text-slate-600" /></div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Date</p>
-                        <p className="font-medium">{booking.visit_date ? new Date(booking.visit_date).toLocaleDateString() : 'N/A'}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 text-sm">
-                      <div className="p-2 bg-slate-100 rounded-lg"><Users className="h-4 w-4 text-slate-600" /></div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Guests</p>
-                        <p className="font-medium">{booking.slots_booked} {booking.slots_booked === 1 ? 'Person' : 'People'}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Actions for Non-Paid Bookings */}
-                  {!['paid', 'completed'].includes(booking.payment_status) && (
-                    <div className="flex gap-2">
-                      {canRetryPayment(booking) && (
-                        <Button className="w-full" onClick={() => {/* retry logic */}}>
-                          <RefreshCw className="h-4 w-4 mr-2" /> Retry Payment
-                        </Button>
+              <Card key={booking.id} className="p-6">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                  <div className="flex-1 space-y-3">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <Badge variant="outline">{booking.booking_type}</Badge>
+                      <Badge className={getStatusColor(booking)}>
+                        {getPaymentStatusLabel(booking)}
+                      </Badge>
+                      {!booking.isPending && (
+                        <Badge className={booking.status === 'cancelled' ? "bg-red-500/10 text-red-500" : "bg-green-500/10 text-green-500"}>
+                          {booking.status}
+                        </Badge>
                       )}
                     </div>
-                  )}
-                </div>
 
-                {/* Ticket Download Section - Only for Confirmed Bookings */}
-                {(booking.payment_status === 'paid' || booking.payment_status === 'completed' || booking.result_code === "0") && (
-                  <div className="bg-slate-50 border-t border-slate-100 p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1">
-                        <CheckCircle2 className="h-3 w-3 text-emerald-500" /> Tickets Ready
-                      </span>
-                      <Button variant="link" size="sm" onClick={() => generateTicketPDF(booking)} className="h-auto p-0 text-primary">
-                        Download General Details
-                      </Button>
-                    </div>
-                    
-                    <div className="flex flex-wrap gap-2">
-                      {Array.from({ length: booking.slots_booked || 1 }).map((_, i) => (
-                        <Button 
-                          key={i} 
-                          variant="secondary" 
-                          size="sm" 
-                          className="bg-white border shadow-sm hover:bg-slate-50"
-                          onClick={() => generateTicketPDF(booking, i)}
-                        >
-                          <Ticket className="h-3 w-3 mr-2 text-slate-400" />
-                          Ticket {i + 1}
-                        </Button>
-                      ))}
+                    <h3 className="text-xl font-semibold">
+                      {booking.booking_details.trip_name || booking.booking_details.hotel_name || 'Booking'}
+                    </h3>
+
+                    <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                      {booking.visit_date && (
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-4 w-4" />
+                          <span>{new Date(booking.visit_date).toLocaleDateString()}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-1">
+                        <Users className="h-4 w-4" />
+                        <span>{booking.slots_booked} Tickets</span>
+                      </div>
                     </div>
                   </div>
-                )}
+
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="h-5 w-5 text-primary" />
+                      <span className="text-2xl font-bold">KSh {booking.total_amount}</span>
+                    </div>
+                    
+                    {canRetryPayment(booking) && (
+                      <Button size="sm" onClick={() => retryPayment(booking)} disabled={retryingPaymentId === booking.pendingPaymentId}>
+                        <RefreshCw className={`h-4 w-4 mr-2 ${retryingPaymentId === booking.pendingPaymentId ? 'animate-spin' : ''}`} />
+                        Retry Payment
+                      </Button>
+                    )}
+                    
+                    {canReschedule(booking) && (
+                      <Button variant="outline" size="sm" onClick={() => setRescheduleBooking(booking)}>
+                        <CalendarClock className="h-4 w-4 mr-2" />
+                        Reschedule
+                      </Button>
+                    )}
+
+                    {canCancel(booking) && (
+                      <Button variant="destructive" size="sm" onClick={() => { setBookingToCancel(booking); setShowCancelDialog(true); }}>
+                        <XCircle className="h-4 w-4 mr-2" />
+                        Cancel
+                      </Button>
+                    )}
+                  </div>
+                </div>
               </Card>
             ))}
           </div>
         )}
       </main>
+
+      <RescheduleBookingDialog
+        booking={rescheduleBooking!}
+        open={!!rescheduleBooking}
+        onOpenChange={(open) => !open && setRescheduleBooking(null)}
+        onSuccess={fetchBookings}
+      />
+
+      <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Booking?</AlertDialogTitle>
+            <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>No, Keep it</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCancelBooking} className="bg-destructive text-white">
+              Yes, Cancel
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <MobileBottomBar />
     </div>

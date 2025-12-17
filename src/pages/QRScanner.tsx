@@ -6,9 +6,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Camera, CheckCircle, XCircle, AlertCircle, User, Calendar, Mail, Phone, Users } from "lucide-react";
+import { ArrowLeft, Camera, CheckCircle, XCircle, AlertCircle, User, Calendar, Mail, Phone, Users, WifiOff, Wifi } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import { useOfflineBookings } from "@/hooks/useOfflineBookings";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
 interface BookingData {
   bookingId: string;
@@ -29,18 +31,22 @@ interface VerifiedBooking {
   payment_status: string;
   status: string;
   booking_details: any;
+  item_name?: string;
 }
 
 const QRScanner = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const isOnline = useOnlineStatus();
+  const { verifyBookingOffline, saveOfflineScan, cachedHostBookings } = useOfflineBookings();
   const [isMobile, setIsMobile] = useState(false);
   const [scanning, setScanning] = useState(true);
   const [verifiedBooking, setVerifiedBooking] = useState<VerifiedBooking | null>(null);
   const [verificationStatus, setVerificationStatus] = useState<"idle" | "verifying" | "valid" | "invalid" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState("");
   const [itemName, setItemName] = useState("");
+  const [isOfflineScan, setIsOfflineScan] = useState(false);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -61,9 +67,55 @@ const QRScanner = () => {
     }
   }, [user, authLoading, navigate]);
 
+  const verifyBookingOnline = async (bookingId: string, email: string, visitDate: string) => {
+    const { data: booking, error } = await supabase
+      .from("bookings")
+      .select("*")
+      .eq("id", bookingId)
+      .single();
+
+    if (error || !booking) {
+      return { valid: false, error: "Booking not found" };
+    }
+
+    if (booking.guest_email !== email) {
+      return { valid: false, error: "Booking email doesn't match" };
+    }
+
+    if (booking.payment_status !== "completed" && booking.payment_status !== "paid") {
+      return { valid: false, error: "Booking is not paid" };
+    }
+
+    const bookingVisitDate = booking.visit_date ? format(new Date(booking.visit_date), "yyyy-MM-dd") : null;
+    if (bookingVisitDate !== visitDate) {
+      return { valid: false, error: `Visit date mismatch` };
+    }
+
+    let itemData: { created_by: string | null; name: string } | null = null;
+    const bookingType = booking.booking_type;
+
+    if (bookingType === "trip" || bookingType === "event") {
+      const { data } = await supabase.from("trips").select("created_by, name").eq("id", booking.item_id).single();
+      itemData = data;
+    } else if (bookingType === "hotel") {
+      const { data } = await supabase.from("hotels").select("created_by, name").eq("id", booking.item_id).single();
+      itemData = data;
+    } else if (bookingType === "adventure_place" || bookingType === "campsite" || bookingType === "experience") {
+      const { data } = await supabase.from("adventure_places").select("created_by, name").eq("id", booking.item_id).single();
+      itemData = data;
+    }
+
+    if (itemData && itemData.created_by !== user?.id) {
+      return { valid: false, error: "This booking is not for your listing" };
+    }
+
+    return { valid: true, booking, itemName: itemData?.name };
+  };
+
   const verifyBooking = async (qrData: string) => {
     setVerificationStatus("verifying");
     setErrorMessage("");
+    setIsOfflineScan(false);
 
     try {
       const parsedData: BookingData = JSON.parse(qrData);
@@ -73,85 +125,36 @@ const QRScanner = () => {
         throw new Error("Invalid QR code format");
       }
 
-      // Fetch booking from database
-      const { data: booking, error } = await supabase
-        .from("bookings")
-        .select("*")
-        .eq("id", bookingId)
-        .single();
+      let result: any;
 
-      if (error || !booking) {
+      if (isOnline) {
+        result = await verifyBookingOnline(bookingId, email, visitDate);
+      } else {
+        result = verifyBookingOffline(bookingId, email, visitDate);
+        setIsOfflineScan(true);
+        saveOfflineScan({
+          bookingId,
+          scannedAt: new Date().toISOString(),
+          verified: result.valid,
+          guestName: result.booking?.guest_name,
+          visitDate,
+        });
+      }
+
+      if (!result.valid) {
         setVerificationStatus("invalid");
-        setErrorMessage("Booking not found");
+        setErrorMessage(result.error || "Verification failed");
         return;
       }
 
-      // Verify booking details match
-      if (booking.guest_email !== email) {
-        setVerificationStatus("invalid");
-        setErrorMessage("Booking email doesn't match");
-        return;
-      }
-
-      // Check if booking is paid
-      if (booking.payment_status !== "completed" && booking.payment_status !== "paid") {
-        setVerificationStatus("invalid");
-        setErrorMessage("Booking is not paid");
-        return;
-      }
-
-      // Check if visit date matches
-      const bookingVisitDate = booking.visit_date ? format(new Date(booking.visit_date), "yyyy-MM-dd") : null;
-      if (bookingVisitDate !== visitDate) {
-        setVerificationStatus("invalid");
-        setErrorMessage(`Visit date mismatch. Expected: ${visitDate}, Found: ${bookingVisitDate}`);
-        return;
-      }
-
-      // Verify host owns this item
-      const itemId = booking.item_id;
-      const bookingType = booking.booking_type;
-      
-      let itemData: { created_by: string | null; name: string } | null = null;
-
-      if (bookingType === "trip" || bookingType === "event") {
-        const { data } = await supabase
-          .from("trips")
-          .select("created_by, name")
-          .eq("id", itemId)
-          .single();
-        itemData = data;
-      } else if (bookingType === "hotel") {
-        const { data } = await supabase
-          .from("hotels")
-          .select("created_by, name")
-          .eq("id", itemId)
-          .single();
-        itemData = data;
-      } else if (bookingType === "adventure_place" || bookingType === "campsite" || bookingType === "experience") {
-        const { data } = await supabase
-          .from("adventure_places")
-          .select("created_by, name")
-          .eq("id", itemId)
-          .single();
-        itemData = data;
-      }
-
-      if (itemData) {
-        if (itemData.created_by !== user?.id) {
-          setVerificationStatus("invalid");
-          setErrorMessage("This booking is not for your listing");
-          return;
-        }
-        setItemName(itemData.name || "Unknown Item");
-      }
-
-      setVerifiedBooking(booking as VerifiedBooking);
+      setVerifiedBooking(result.booking as VerifiedBooking);
+      if (result.itemName) setItemName(result.itemName);
+      else if (result.booking?.item_name) setItemName(result.booking.item_name);
       setVerificationStatus("valid");
       
       toast({
-        title: "Booking Verified",
-        description: "Guest check-in confirmed successfully",
+        title: isOnline ? "Booking Verified" : "Booking Verified (Offline)",
+        description: isOnline ? "Guest check-in confirmed" : "Verified from cached data",
       });
 
     } catch (err) {
@@ -182,6 +185,7 @@ const QRScanner = () => {
     setVerificationStatus("idle");
     setErrorMessage("");
     setItemName("");
+    setIsOfflineScan(false);
   };
 
   if (authLoading) {
@@ -229,10 +233,23 @@ const QRScanner = () => {
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <h1 className="text-lg font-semibold">Scan Booking QR</h1>
+        <h1 className="text-lg font-semibold flex-1">Scan Booking QR</h1>
+        <div className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full ${isOnline ? 'bg-green-500/20' : 'bg-yellow-500/20'}`}>
+          {isOnline ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
+          {isOnline ? 'Online' : 'Offline'}
+        </div>
       </div>
 
       <div className="p-4 space-y-4">
+        {!isOnline && (
+          <Card className="border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20">
+            <CardContent className="p-3 flex items-center gap-2 text-sm">
+              <WifiOff className="h-4 w-4 text-yellow-600" />
+              <span>Offline mode: Verifying from {cachedHostBookings.length} cached bookings</span>
+            </CardContent>
+          </Card>
+        )}
+
         {scanning && verificationStatus === "idle" && (
           <>
             <Card>
@@ -274,9 +291,16 @@ const QRScanner = () => {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                Valid Check-in
-              </Badge>
+              <div className="flex gap-2">
+                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                  Valid Check-in
+                </Badge>
+                {isOfflineScan && (
+                  <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+                    Offline Verified
+                  </Badge>
+                )}
+              </div>
 
               <div className="space-y-3">
                 <div className="flex items-start gap-3">

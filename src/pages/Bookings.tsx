@@ -7,11 +7,13 @@ import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, DollarSign, Users, CalendarClock, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
+import { Calendar, DollarSign, Users, CalendarClock, ChevronDown, ChevronUp, WifiOff } from "lucide-react";
 import { RescheduleBookingDialog } from "@/components/booking/RescheduleBookingDialog";
 import { BookingDownloadButton } from "@/components/booking/BookingDownloadButton";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { useOfflineBookings } from "@/hooks/useOfflineBookings";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 interface Booking {
@@ -38,16 +40,14 @@ interface ItemDetails {
   type: string;
 }
 const Bookings = () => {
-  const {
-    user,
-    loading: authLoading
-  } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const isOnline = useOnlineStatus();
+  const { cachedBookings, cacheBookings } = useOfflineBookings();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [itemDetails, setItemDetails] = useState<Record<string, ItemDetails>>({});
   const [loading, setLoading] = useState(true);
   const [rescheduleBooking, setRescheduleBooking] = useState<Booking | null>(null);
-  const [retryingPaymentId, setRetryingPaymentId] = useState<string | null>(null);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [bookingToCancel, setBookingToCancel] = useState<Booking | null>(null);
   const [expandedBookings, setExpandedBookings] = useState<Set<string>>(new Set());
@@ -58,31 +58,45 @@ const Bookings = () => {
   }, [user, authLoading, navigate]);
   useEffect(() => {
     if (user) {
-      fetchBookings();
-      const channel = supabase.channel('payments-updates').on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'payments',
-        filter: `user_id=eq.${user.id}`
-      }, () => fetchBookings()).subscribe();
-      return () => {
-        supabase.removeChannel(channel);
-      };
+      if (isOnline) {
+        fetchBookings();
+        const channel = supabase.channel('payments-updates').on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'payments',
+          filter: `user_id=eq.${user.id}`
+        }, () => fetchBookings()).subscribe();
+        return () => {
+          supabase.removeChannel(channel);
+        };
+      } else {
+        // Use cached bookings when offline
+        setBookings(cachedBookings as Booking[]);
+        setLoading(false);
+      }
     }
-  }, [user]);
+  }, [user, isOnline]);
   const fetchBookings = async () => {
     try {
-      // Fetch only paid/completed bookings
-      const {
-        data: confirmedBookings,
-        error: bookingsError
-      } = await supabase.from("bookings").select("*").eq("user_id", user?.id).in("payment_status", ["paid", "completed"]).not("status", "eq", "cancelled").order("created_at", {
-        ascending: false
-      });
+      const { data: confirmedBookings, error: bookingsError } = await supabase
+        .from("bookings")
+        .select("*")
+        .eq("user_id", user?.id)
+        .in("payment_status", ["paid", "completed"])
+        .not("status", "eq", "cancelled")
+        .order("created_at", { ascending: false });
+      
       if (bookingsError) throw bookingsError;
       setBookings(confirmedBookings || []);
+      
+      // Cache bookings for offline use
+      if (confirmedBookings) {
+        cacheBookings(confirmedBookings.map(b => ({
+          ...b,
+          item_name: itemDetails[b.item_id]?.name
+        })));
+      }
 
-      // Fetch item details
       const itemIds = [...new Set((confirmedBookings || []).map(b => ({
         id: b.item_id,
         type: b.booking_type
@@ -209,7 +223,16 @@ const Bookings = () => {
       
       <main className="flex-1 container px-4 py-8 pb-24 md:pb-8 max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold mb-2">My Bookings</h1>
-        <p className="text-muted-foreground mb-8">Your completed and confirmed bookings</p>
+        <p className="text-muted-foreground mb-4">Your completed and confirmed bookings</p>
+        
+        {!isOnline && (
+          <Card className="mb-6 border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20">
+            <div className="p-3 flex items-center gap-2 text-sm">
+              <WifiOff className="h-4 w-4 text-yellow-600" />
+              <span>You're offline. Showing cached bookings. Some features may be limited.</span>
+            </div>
+          </Card>
+        )}
         
         {bookings.length === 0 ? <Card className="p-12 text-center">
             <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />

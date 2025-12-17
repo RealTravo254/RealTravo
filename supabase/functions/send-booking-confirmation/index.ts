@@ -17,7 +17,14 @@ interface BookingConfirmationRequest {
   totalAmount: number;
   bookingDetails: any;
   visitDate?: string;
+  paymentStatus?: string;
 }
+
+// Generate QR code data URL using external API
+const generateQRCodeUrl = (data: string): string => {
+  const encodedData = encodeURIComponent(data);
+  return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodedData}`;
+};
 
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
@@ -25,7 +32,7 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { bookingId, email, guestName, bookingType, itemName, totalAmount, bookingDetails, visitDate }: BookingConfirmationRequest = await req.json();
+    const { bookingId, email, guestName, bookingType, itemName, totalAmount, bookingDetails, visitDate, paymentStatus }: BookingConfirmationRequest = await req.json();
 
     // Format booking type for display
     const typeDisplay = bookingType.charAt(0).toUpperCase() + bookingType.slice(1);
@@ -64,6 +71,35 @@ const handler = async (req: Request): Promise<Response> => {
       `;
     }
 
+    // Determine if booking is paid
+    const isPaid = paymentStatus === 'paid' || paymentStatus === 'completed';
+    
+    // Generate QR code data for paid bookings
+    const qrData = JSON.stringify({
+      bookingId,
+      visitDate: visitDate || '',
+      email
+    });
+    const qrCodeUrl = generateQRCodeUrl(qrData);
+
+    // QR Code section for paid bookings only
+    const qrCodeHTML = isPaid ? `
+      <div style="text-align: center; margin: 30px 0; padding: 20px; background: #f0f9f9; border-radius: 12px;">
+        <h3 style="color: #008080; margin-bottom: 15px;">🎫 Your Check-in QR Code</h3>
+        <img src="${qrCodeUrl}" alt="Booking QR Code" style="width: 200px; height: 200px; border: 4px solid #008080; border-radius: 8px;" />
+        <p style="color: #666; font-size: 14px; margin-top: 15px;">
+          Show this QR code to the host when you arrive for quick check-in
+        </p>
+      </div>
+    ` : '';
+
+    const statusBadge = isPaid 
+      ? '<span class="status-badge status-paid">✓ Payment Confirmed</span>'
+      : '<span class="status-badge status-pending">Payment Pending</span>';
+
+    const headerTitle = isPaid ? '✅ Booking Confirmed!' : '📋 Booking Submitted!';
+    const headerColor = isPaid ? '#22c55e' : '#008080';
+
     const emailHTML = `
       <!DOCTYPE html>
       <html>
@@ -71,7 +107,7 @@ const handler = async (req: Request): Promise<Response> => {
           <style>
             body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
             .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: #008080; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+            .header { background: ${headerColor}; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
             .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
             .detail-box { background: white; padding: 20px; margin: 20px 0; border-radius: 8px; border-left: 4px solid #008080; }
             .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
@@ -80,17 +116,22 @@ const handler = async (req: Request): Promise<Response> => {
             .amount { font-size: 28px; color: #008080; font-weight: bold; }
             .status-badge { display: inline-block; padding: 8px 16px; border-radius: 20px; font-weight: bold; margin-top: 10px; }
             .status-pending { background: #FFF3CD; color: #856404; }
+            .status-paid { background: #D1FAE5; color: #065F46; }
           </style>
         </head>
         <body>
           <div class="container">
             <div class="header">
-              <h1>📋 Booking Submitted!</h1>
+              <h1>${headerTitle}</h1>
             </div>
             <div class="content">
               <p>Dear ${guestName},</p>
-              <p>Thank you for your booking! Your reservation has been submitted successfully.</p>
+              <p>${isPaid 
+                ? 'Your payment has been confirmed! Your booking is now complete.' 
+                : 'Thank you for your booking! Your reservation has been submitted successfully.'}</p>
               
+              ${qrCodeHTML}
+
               <div class="detail-box">
                 <h2>Booking Details</h2>
                 <p><strong>Booking ID:</strong> ${bookingId}</p>
@@ -102,10 +143,10 @@ const handler = async (req: Request): Promise<Response> => {
                 ${detailsHTML}
                 <hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">
                 <p class="amount">Total Amount: KES ${totalAmount.toFixed(2)}</p>
-                <span class="status-badge status-pending">Payment Pending</span>
+                ${statusBadge}
               </div>
 
-              <p>Please complete your payment to confirm your booking. The host will be notified once payment is received.</p>
+              ${!isPaid ? '<p>Please complete your payment to confirm your booking. The host will be notified once payment is received.</p>' : ''}
               <p>If you have any questions about your booking, please don't hesitate to contact us.</p>
             </div>
             <div class="footer">
@@ -119,7 +160,7 @@ const handler = async (req: Request): Promise<Response> => {
     const { data, error } = await resend.emails.send({
       from: "Bookings <onboarding@resend.dev>",
       to: [email],
-      subject: `Booking Confirmation - ${itemName}`,
+      subject: `${isPaid ? '✅ ' : ''}Booking ${isPaid ? 'Confirmed' : 'Submitted'} - ${itemName}`,
       html: emailHTML,
     });
 

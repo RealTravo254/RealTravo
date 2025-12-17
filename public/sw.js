@@ -1,6 +1,7 @@
-// Service Worker for Push Notifications and Image Caching
+// Service Worker for Push Notifications, Image Caching, and Offline Support
 
 const CACHE_NAME = 'triptrac-images-v1';
+const STATIC_CACHE_NAME = 'triptrac-static-v1';
 const IMAGE_CACHE_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 // Image URL patterns to cache
@@ -9,16 +10,41 @@ const IMAGE_PATTERNS = [
   /images\.unsplash\.com/,
 ];
 
+// Static assets to pre-cache
+const STATIC_ASSETS = [
+  '/',
+  '/index.html',
+  '/favicon.ico',
+];
+
+// Pages to cache for offline access
+const OFFLINE_PAGES = [
+  '/bookings',
+  '/host-bookings',
+  '/qr-scanner',
+];
+
 // Check if URL should be cached
 function shouldCacheImage(url) {
   return IMAGE_PATTERNS.some(pattern => pattern.test(url));
 }
 
-// Fetch event - intercept image requests
+// Install event - cache static assets
+self.addEventListener('install', function(event) {
+  event.waitUntil(
+    caches.open(STATIC_CACHE_NAME).then(function(cache) {
+      return cache.addAll(STATIC_ASSETS);
+    })
+  );
+  self.skipWaiting();
+});
+
+// Fetch event - intercept requests
 self.addEventListener('fetch', function(event) {
   const url = event.request.url;
+  const requestUrl = new URL(url);
   
-  // Only handle image requests
+  // Handle image requests
   if (event.request.destination === 'image' || shouldCacheImage(url)) {
     event.respondWith(
       caches.open(CACHE_NAME).then(function(cache) {
@@ -50,7 +76,56 @@ self.addEventListener('fetch', function(event) {
         });
       })
     );
+    return;
   }
+
+  // Handle navigation requests for offline pages
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(function() {
+        // Return cached index.html for offline navigation
+        return caches.match('/index.html').then(function(response) {
+          return response || new Response('Offline', { status: 503 });
+        });
+      })
+    );
+    return;
+  }
+
+  // Handle API requests - network first, fallback to cache
+  if (requestUrl.pathname.includes('/rest/v1/') || requestUrl.pathname.includes('/functions/v1/')) {
+    event.respondWith(
+      fetch(event.request).then(function(response) {
+        // Cache successful GET requests
+        if (response.ok && event.request.method === 'GET') {
+          const responseClone = response.clone();
+          caches.open(STATIC_CACHE_NAME).then(function(cache) {
+            cache.put(event.request, responseClone);
+          });
+        }
+        return response;
+      }).catch(function() {
+        // Return cached API response if offline
+        return caches.match(event.request).then(function(cachedResponse) {
+          if (cachedResponse) {
+            return cachedResponse;
+          }
+          return new Response(JSON.stringify({ error: 'Offline', offline: true }), {
+            status: 503,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        });
+      })
+    );
+    return;
+  }
+
+  // Default fetch behavior
+  event.respondWith(
+    fetch(event.request).catch(function() {
+      return caches.match(event.request);
+    })
+  );
 });
 
 // Push notification handler
@@ -119,5 +194,33 @@ self.addEventListener('notificationclick', function(event) {
 
 // Handle service worker activation
 self.addEventListener('activate', function(event) {
-  event.waitUntil(self.clients.claim());
+  // Clean up old caches
+  event.waitUntil(
+    caches.keys().then(function(cacheNames) {
+      return Promise.all(
+        cacheNames.filter(function(cacheName) {
+          return cacheName !== CACHE_NAME && cacheName !== STATIC_CACHE_NAME;
+        }).map(function(cacheName) {
+          return caches.delete(cacheName);
+        })
+      );
+    }).then(function() {
+      return self.clients.claim();
+    })
+  );
 });
+
+// Handle background sync for offline scans
+self.addEventListener('sync', function(event) {
+  if (event.tag === 'sync-offline-scans') {
+    event.waitUntil(syncOfflineScans());
+  }
+});
+
+async function syncOfflineScans() {
+  // This will be handled by the app when it comes back online
+  const clients = await self.clients.matchAll();
+  clients.forEach(client => {
+    client.postMessage({ type: 'SYNC_OFFLINE_SCANS' });
+  });
+}

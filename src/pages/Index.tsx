@@ -534,45 +534,56 @@ const Index = () => {
 
             <main className="w-full">
 {!isSearchFocused && (
-  <div className="w-full px-4 md:px-6 lg:px-8 py-4 md:py-6 overflow-hidden">
-    {/* MOBILE: flex row with no-scrollbar
-      DESKTOP: grid with 4 columns
+  <div className="w-full px-4 md:px-6 lg:px-8 py-6 overflow-hidden">
+    {/* Container styling: Added -mt-12 to lift it onto the hero,
+        White background with [28px] rounding to match the Event Detail "About" section.
     */}
-    <div className="flex flex-row overflow-x-auto scrollbar-hide md:grid md:grid-cols-4 gap-0 md:gap-8 w-full">
-      {categories.map(cat => (
-        <div 
-          key={cat.title} 
-          onClick={() => navigate(cat.path)} 
-          className="flex-shrink-0 flex flex-col items-center cursor-pointer group w-1/4 min-w-[80px] md:w-full"
-        >
-          {/* ICON CONTAINER */}
+    <div className="bg-white rounded-[28px] p-6 shadow-sm border border-slate-100 -mt-12 relative z-40">
+      <div className="flex flex-row overflow-x-auto scrollbar-hide md:grid md:grid-cols-4 gap-4 md:gap-8 w-full">
+        {categories.map(cat => (
           <div 
-            className="flex items-center justify-center transition-all
-                       w-14 h-14 rounded-full bg-[#008080] 
-                       md:w-full md:h-40 lg:h-48 md:rounded-lg md:relative"
-            style={{
-              backgroundImage: `url(${cat.bgImage})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center'
-            }}
+            key={cat.title} 
+            onClick={() => navigate(cat.path)} 
+            className="flex-shrink-0 flex flex-col items-center cursor-pointer group w-20 md:w-full"
           >
-            {/* Desktop Overlay: Only visible on md+ */}
-            <div className="hidden md:block absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-all rounded-lg" />
+            {/* ICON CONTAINER */}
+            <div 
+              className="flex items-center justify-center transition-all duration-300
+                         w-16 h-16 rounded-2xl shadow-lg
+                         md:w-full md:h-40 lg:h-48 md:rounded-[24px] md:relative overflow-hidden"
+              style={{
+                backgroundColor: COLORS.TEAL,
+                backgroundImage: `url(${cat.bgImage})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center'
+              }}
+            >
+              {/* Overlay: Using the Teal color for the hover state to match branding */}
+              <div className="absolute inset-0 bg-black/40 group-hover:bg-[#008080]/60 transition-colors duration-300" />
 
-            {/* Icon: Center aligned */}
-            <cat.icon className="relative z-10 h-7 w-7 text-white md:h-12 md:w-12 lg:h-16 lg:w-16" />
-          </div>
+              {/* Icon: Using relative z-index to stay above the overlay */}
+              <cat.icon className="relative z-10 h-7 w-7 text-white md:h-12 md:w-12 lg:h-16 lg:w-16 drop-shadow-md" />
+            </div>
 
-          {/* TEXT: Always below the icon container */}
-          <div className="mt-2 text-center">
-            <span className="font-bold text-gray-800 text-[10px] md:text-base lg:text-lg leading-tight block" role="heading" aria-level={3}>
-              {cat.title}
-            </span>
-            {/* Description: Hidden on mobile to save space */}
-            <p className="hidden md:block text-gray-500 text-sm mt-1">{cat.description}</p>
+            {/* TEXT: Styling matches the 'font-black uppercase tracking-widest' found in the detail page */}
+            <div className="mt-3 text-center">
+              <span 
+                className="font-black uppercase tracking-widest text-[10px] md:text-sm lg:text-base leading-tight block transition-colors group-hover:text-[#FF7F50]"
+                style={{ color: COLORS.TEAL }}
+                role="heading" 
+                aria-level={3}
+              >
+                {cat.title}
+              </span>
+              
+              {/* Description: High-end typography for desktop */}
+              <p className="hidden md:block text-slate-400 font-bold text-[10px] uppercase tracking-tighter mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                {cat.description}
+              </p>
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   </div>
 )}

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MapPin, Heart } from "lucide-react";
+import { MapPin, Heart, Star } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,8 @@ interface ListingCardProps {
   hideEmptySpace?: boolean;
   compact?: boolean;
   distance?: number;
+  avgRating?: number;
+  reviewCount?: number;
 }
 
 export const ListingCard = ({
@@ -55,7 +57,9 @@ export const ListingCard = ({
   minimalDisplay = false,
   hideEmptySpace = false,
   compact = false,
-  distance
+  distance,
+  avgRating,
+  reviewCount
 }: ListingCardProps) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
@@ -135,10 +139,21 @@ export const ListingCard = ({
         )}
       </div>
       
-      <div className="p-2 md:p-4 flex flex-col space-y-2 flex-1"> 
+      <div className="p-2 md:p-4 flex flex-col space-y-1.5 flex-1"> 
         <h3 className="font-bold text-xs md:text-base line-clamp-2 uppercase">
             {name.toUpperCase()}
         </h3>
+        
+        {/* Star Rating Section */}
+        <div className="flex items-center gap-1">
+          <Star className="h-3 w-3 md:h-3.5 md:w-3.5 text-yellow-500 fill-yellow-500" />
+          <span className="text-[10px] md:text-xs font-semibold text-foreground">
+            {avgRating ? avgRating.toFixed(1) : "0.0"}
+          </span>
+          <span className="text-[9px] md:text-[11px] text-muted-foreground">
+            ({reviewCount || 0} {reviewCount === 1 ? "review" : "reviews"})
+          </span>
+        </div>
         
         <div className="flex items-center gap-1 flex-wrap">
             <MapPin className={cn("h-3 w-3 flex-shrink-0", tealTextClass)} />

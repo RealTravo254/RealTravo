@@ -26,10 +26,16 @@ export function ListingSkeleton({ compact = false, className }: ListingSkeletonP
       </div>
       
       {/* Content skeleton matching ListingCard layout */}
-      <div className="p-2 md:p-4 flex flex-col space-y-1 md:space-y-2 flex-1">
+      <div className="p-2 md:p-4 flex flex-col space-y-1.5 flex-1">
         {/* Title skeleton - uppercase style */}
         <Skeleton className="h-3.5 md:h-5 w-4/5" />
-        <Skeleton className="h-3 md:h-4 w-3/5" />
+        
+        {/* Star rating row skeleton */}
+        <div className="flex items-center gap-1">
+          <Skeleton className="h-3 w-3 md:h-3.5 md:w-3.5 rounded-full" />
+          <Skeleton className="h-2.5 md:h-3 w-6" />
+          <Skeleton className="h-2 md:h-2.5 w-14" />
+        </div>
         
         {/* Location row skeleton */}
         <div className="flex items-center gap-1">

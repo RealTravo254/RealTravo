@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, lazy, Suspense } from "react";
+import { useState, useEffect, useRef, lazy, Suspense, useMemo } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { MobileBottomBar } from "@/components/MobileBottomBar";
@@ -19,6 +19,7 @@ import { useGeolocation, calculateDistance } from "@/hooks/useGeolocation";
 import { ListingSkeleton, ListingGridSkeleton, HorizontalScrollSkeleton } from "@/components/ui/listing-skeleton";
 import { useSavedItems } from "@/hooks/useSavedItems";
 import { getCachedHomePageData, setCachedHomePageData } from "@/hooks/useHomePageCache";
+import { useRatings, sortByRating, RatingData } from "@/hooks/useRatings";
 const Index = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
@@ -79,6 +80,45 @@ const Index = () => {
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
 
+  // Collect all item IDs for ratings
+  const allItemIds = useMemo(() => {
+    const ids = new Set<string>();
+    listings.forEach(item => ids.add(item.id));
+    nearbyPlacesHotels.forEach(item => ids.add(item.id));
+    scrollableRows.trips.forEach(item => ids.add(item.id));
+    scrollableRows.hotels.forEach(item => ids.add(item.id));
+    scrollableRows.campsites.forEach(item => ids.add(item.id));
+    scrollableRows.events.forEach(item => ids.add(item.id));
+    return Array.from(ids);
+  }, [listings, nearbyPlacesHotels, scrollableRows]);
+
+  // Fetch ratings for all items
+  const { ratings } = useRatings(allItemIds);
+
+  // Sort items by rating with location prioritization
+  const sortedListings = useMemo(() => {
+    return sortByRating(listings, ratings, position, calculateDistance);
+  }, [listings, ratings, position]);
+
+  const sortedNearbyPlaces = useMemo(() => {
+    return sortByRating(nearbyPlacesHotels, ratings, position, calculateDistance);
+  }, [nearbyPlacesHotels, ratings, position]);
+
+  const sortedEvents = useMemo(() => {
+    return sortByRating(scrollableRows.events, ratings, position, calculateDistance);
+  }, [scrollableRows.events, ratings, position]);
+
+  const sortedCampsites = useMemo(() => {
+    return sortByRating(scrollableRows.campsites, ratings, position, calculateDistance);
+  }, [scrollableRows.campsites, ratings, position]);
+
+  const sortedHotels = useMemo(() => {
+    return sortByRating(scrollableRows.hotels, ratings, position, calculateDistance);
+  }, [scrollableRows.hotels, ratings, position]);
+
+  const sortedTrips = useMemo(() => {
+    return sortByRating(scrollableRows.trips, ratings, position, calculateDistance);
+  }, [scrollableRows.trips, ratings, position]);
   // Scroll refs for navigation
   const featuredForYouRef = useRef<HTMLDivElement>(null);
   const featuredEventsRef = useRef<HTMLDivElement>(null);
@@ -584,11 +624,12 @@ const Index = () => {
                         </h2>
                         {loading ? <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 md:gap-4">
                                 {[...Array(6)].map((_, i) => <div key={i} className="w-full"><ListingSkeleton /></div>)}
-                            </div> : listings.length > 0 ? <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-5">
-                                {listings.map((listing, index) => {
+                            </div> : sortedListings.length > 0 ? <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-5">
+                                {sortedListings.map((listing, index) => {
             const itemDistance = position && listing.latitude && listing.longitude ? calculateDistance(position.latitude, position.longitude, listing.latitude, listing.longitude) : undefined;
+            const ratingData = ratings.get(listing.id);
             return <div key={listing.id} className="w-full">
-                                    <ListingCard id={listing.id} type={listing.type} name={listing.name} location={listing.location} country={listing.country} imageUrl={listing.image_url} price={listing.price || listing.entry_fee || 0} date={listing.date} isCustomDate={listing.is_custom_date} isSaved={savedItems.has(listing.id)} onSave={() => handleSave(listing.id, listing.type)} availableTickets={listing.type === "TRIP" || listing.type === "EVENT" ? listing.available_tickets : undefined} bookedTickets={listing.type === "TRIP" || listing.type === "EVENT" ? bookingStats[listing.id] || 0 : undefined} showBadge={true} priority={index < 4} hidePrice={listing.type === "HOTEL" || listing.type === "ADVENTURE PLACE"} activities={listing.activities} distance={itemDistance} />
+                                    <ListingCard id={listing.id} type={listing.type} name={listing.name} location={listing.location} country={listing.country} imageUrl={listing.image_url} price={listing.price || listing.entry_fee || 0} date={listing.date} isCustomDate={listing.is_custom_date} isSaved={savedItems.has(listing.id)} onSave={() => handleSave(listing.id, listing.type)} availableTickets={listing.type === "TRIP" || listing.type === "EVENT" ? listing.available_tickets : undefined} bookedTickets={listing.type === "TRIP" || listing.type === "EVENT" ? bookingStats[listing.id] || 0 : undefined} showBadge={true} priority={index < 4} hidePrice={listing.type === "HOTEL" || listing.type === "ADVENTURE PLACE"} activities={listing.activities} distance={itemDistance} avgRating={ratingData?.avgRating} reviewCount={ratingData?.reviewCount} />
                                 </div>;
           })}
                             </div> : <p className="text-center text-muted-foreground py-8">No results found</p>}
@@ -612,13 +653,14 @@ const Index = () => {
                         {searchQuery && viewMode === 'map' ? <Suspense fallback={<div className="h-[400px] bg-muted animate-pulse rounded-lg" />}><MapView listings={listings} /></Suspense> : searchQuery ?
           // Column grid view for search results
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-5">
-                                {loading ? [...Array(12)].map((_, i) => <div key={i} className="w-full"><ListingSkeleton /></div>) : listings.length === 0 ? <div className="col-span-full text-center py-12">
+                                {loading ? [...Array(12)].map((_, i) => <div key={i} className="w-full"><ListingSkeleton /></div>) : sortedListings.length === 0 ? <div className="col-span-full text-center py-12">
                                         <p className="text-muted-foreground text-lg">No results found for "{searchQuery}"</p>
                                         <p className="text-muted-foreground text-sm mt-2">Try searching with different keywords</p>
-                                    </div> : listings.map((item, index) => {
+                                    </div> : sortedListings.map((item, index) => {
               const itemDistance = position && item.latitude && item.longitude ? calculateDistance(position.latitude, position.longitude, item.latitude, item.longitude) : undefined;
+              const ratingData = ratings.get(item.id);
               return <div key={item.id} className="w-full">
-                                        <ListingCard id={item.id} type={item.type} name={item.name} imageUrl={item.image_url} location={item.location} country={item.country} price={item.price || item.entry_fee || item.price_adult || 0} date={item.date} isCustomDate={item.is_custom_date} onSave={handleSave} isSaved={savedItems.has(item.id)} hidePrice={item.type === "HOTEL" || item.type === "ADVENTURE PLACE"} showBadge={true} priority={index < 4} availableTickets={item.type === "TRIP" || item.type === "EVENT" ? item.available_tickets : undefined} bookedTickets={item.type === "TRIP" || item.type === "EVENT" ? bookingStats[item.id] || 0 : undefined} activities={item.activities} distance={itemDistance} />
+                                        <ListingCard id={item.id} type={item.type} name={item.name} imageUrl={item.image_url} location={item.location} country={item.country} price={item.price || item.entry_fee || item.price_adult || 0} date={item.date} isCustomDate={item.is_custom_date} onSave={handleSave} isSaved={savedItems.has(item.id)} hidePrice={item.type === "HOTEL" || item.type === "ADVENTURE PLACE"} showBadge={true} priority={index < 4} availableTickets={item.type === "TRIP" || item.type === "EVENT" ? item.available_tickets : undefined} bookedTickets={item.type === "TRIP" || item.type === "EVENT" ? bookingStats[item.id] || 0 : undefined} activities={item.activities} distance={itemDistance} avgRating={ratingData?.avgRating} reviewCount={ratingData?.reviewCount} />
                                     </div>;
             })}
                             </div> :
@@ -634,15 +676,18 @@ const Index = () => {
                                     </>}
                                 <div ref={featuredForYouRef} onScroll={handleScroll('featuredForYou')} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={() => onTouchEnd(featuredForYouRef)} className="gap-3 overflow-x-auto pb-2 scrollbar-hide md:gap-4 flex items-start justify-start pl-1 pr-8 md:pl-2 md:pr-12 scroll-smooth">
                                 {/* Show nearby items if location is on, otherwise show latest */}
-                                {(position ? loadingNearby : loading) || (position ? nearbyPlacesHotels : listings).length === 0 ? [...Array(10)].map((_, i) => <div key={i} className="flex-shrink-0 w-[45vw] md:w-56 rounded-lg overflow-hidden shadow-md">
+                                {(position ? loadingNearby : loading) || (position ? sortedNearbyPlaces : sortedListings).length === 0 ? [...Array(10)].map((_, i) => <div key={i} className="flex-shrink-0 w-[45vw] md:w-56 rounded-lg overflow-hidden shadow-md">
                                             <div className="aspect-[2/1] bg-muted animate-pulse" />
                                             <div className="p-2 space-y-1.5">
                                                 <div className="h-3 bg-muted animate-pulse rounded w-4/5" />
                                                 <div className="h-2.5 bg-muted animate-pulse rounded w-2/3" />
                                             </div>
-                                        </div>) : (position ? nearbyPlacesHotels : listings).map((item, index) => <div key={item.id} className="flex-shrink-0 w-[45vw] md:w-56">
-                                             <ListingCard id={item.id} type={item.type} name={item.name} imageUrl={item.image_url} location={item.location} country={item.country} price={item.price || item.entry_fee || 0} date={item.date} isCustomDate={item.is_custom_date} onSave={handleSave} isSaved={savedItems.has(item.id)} hidePrice={true} showBadge={true} priority={index === 0} availableTickets={item.type === "TRIP" || item.type === "EVENT" ? item.available_tickets : undefined} bookedTickets={item.type === "TRIP" || item.type === "EVENT" ? bookingStats[item.id] || 0 : undefined} activities={item.activities} distance={position ? item.distance : undefined} />
-                                         </div>)}
+                                        </div>) : (position ? sortedNearbyPlaces : sortedListings).map((item, index) => {
+                                          const ratingData = ratings.get(item.id);
+                                          return <div key={item.id} className="flex-shrink-0 w-[45vw] md:w-56">
+                                             <ListingCard id={item.id} type={item.type} name={item.name} imageUrl={item.image_url} location={item.location} country={item.country} price={item.price || item.entry_fee || 0} date={item.date} isCustomDate={item.is_custom_date} onSave={handleSave} isSaved={savedItems.has(item.id)} hidePrice={true} showBadge={true} priority={index === 0} availableTickets={item.type === "TRIP" || item.type === "EVENT" ? item.available_tickets : undefined} bookedTickets={item.type === "TRIP" || item.type === "EVENT" ? bookingStats[item.id] || 0 : undefined} activities={item.activities} distance={position ? item.distance : undefined} avgRating={ratingData?.avgRating} reviewCount={ratingData?.reviewCount} />
+                                         </div>;
+                                        })}
                                 </div>
                             </div>}
                     </section>
@@ -674,9 +719,12 @@ const Index = () => {
                                     {[...Array(5)].map((_, i) => <div key={i} className="flex-shrink-0 w-[45vw] md:w-56">
                                             <ListingSkeleton />
                                         </div>)}
-                                </div> : scrollableRows.events.map((event, index) => <div key={event.id} className="flex-shrink-0 w-[45vw] md:w-56">
-                                        <ListingCard id={event.id} type="EVENT" name={event.name} imageUrl={event.image_url} location={event.location} country={event.country} price={event.price} date={event.date} isCustomDate={event.is_custom_date} onSave={handleSave} isSaved={savedItems.has(event.id)} showBadge={false} priority={index === 0} activities={event.activities} />
-                                    </div>)}
+                                </div> : sortedEvents.map((event, index) => {
+                                  const ratingData = ratings.get(event.id);
+                                  return <div key={event.id} className="flex-shrink-0 w-[45vw] md:w-56">
+                                        <ListingCard id={event.id} type="EVENT" name={event.name} imageUrl={event.image_url} location={event.location} country={event.country} price={event.price} date={event.date} isCustomDate={event.is_custom_date} onSave={handleSave} isSaved={savedItems.has(event.id)} showBadge={false} priority={index === 0} activities={event.activities} avgRating={ratingData?.avgRating} reviewCount={ratingData?.reviewCount} />
+                                    </div>;
+                                })}
                             </div>
                         </div>
                     </section>
@@ -707,15 +755,11 @@ const Index = () => {
                                     {[...Array(5)].map((_, i) => <div key={i} className="flex-shrink-0 w-[45vw] md:w-56">
                                             <ListingSkeleton />
                                         </div>)}
-                                </div> : [...scrollableRows.campsites].sort((a, b) => {
-                if (!position) return 0;
-                const distA = a.latitude && a.longitude ? calculateDistance(position.latitude, position.longitude, a.latitude, a.longitude) : Infinity;
-                const distB = b.latitude && b.longitude ? calculateDistance(position.latitude, position.longitude, b.latitude, b.longitude) : Infinity;
-                return distA - distB;
-              }).map((place, index) => {
+                                </div> : sortedCampsites.map((place, index) => {
                 const itemDistance = position && place.latitude && place.longitude ? calculateDistance(position.latitude, position.longitude, place.latitude, place.longitude) : undefined;
+                const ratingData = ratings.get(place.id);
                 return <div key={place.id} className="flex-shrink-0 w-[45vw] md:w-56">
-                                        <ListingCard id={place.id} type="ADVENTURE PLACE" name={place.name} imageUrl={place.image_url} location={place.location} country={place.country} price={place.entry_fee || 0} date="" onSave={handleSave} isSaved={savedItems.has(place.id)} hidePrice={true} showBadge={true} priority={index === 0} activities={place.activities} distance={itemDistance} />
+                                        <ListingCard id={place.id} type="ADVENTURE PLACE" name={place.name} imageUrl={place.image_url} location={place.location} country={place.country} price={place.entry_fee || 0} date="" onSave={handleSave} isSaved={savedItems.has(place.id)} hidePrice={true} showBadge={true} priority={index === 0} activities={place.activities} distance={itemDistance} avgRating={ratingData?.avgRating} reviewCount={ratingData?.reviewCount} />
                                     </div>;
               })}
                             </div>
@@ -746,15 +790,11 @@ const Index = () => {
                                     {[...Array(5)].map((_, i) => <div key={i} className="flex-shrink-0 w-[45vw] md:w-56">
                                             <ListingSkeleton />
                                         </div>)}
-                                </div> : [...scrollableRows.hotels].sort((a, b) => {
-                if (!position) return 0;
-                const distA = a.latitude && a.longitude ? calculateDistance(position.latitude, position.longitude, a.latitude, a.longitude) : Infinity;
-                const distB = b.latitude && b.longitude ? calculateDistance(position.latitude, position.longitude, b.latitude, b.longitude) : Infinity;
-                return distA - distB;
-              }).map((hotel, index) => {
+                                </div> : sortedHotels.map((hotel, index) => {
                 const itemDistance = position && hotel.latitude && hotel.longitude ? calculateDistance(position.latitude, position.longitude, hotel.latitude, hotel.longitude) : undefined;
+                const ratingData = ratings.get(hotel.id);
                 return <div key={hotel.id} className="flex-shrink-0 w-[45vw] md:w-56">
-                                        <ListingCard id={hotel.id} type="HOTEL" name={hotel.name} imageUrl={hotel.image_url} location={hotel.location} country={hotel.country} price={0} date="" onSave={handleSave} isSaved={savedItems.has(hotel.id)} hidePrice={true} showBadge={true} priority={index === 0} activities={hotel.activities} distance={itemDistance} />
+                                        <ListingCard id={hotel.id} type="HOTEL" name={hotel.name} imageUrl={hotel.image_url} location={hotel.location} country={hotel.country} price={0} date="" onSave={handleSave} isSaved={savedItems.has(hotel.id)} hidePrice={true} showBadge={true} priority={index === 0} activities={hotel.activities} distance={itemDistance} avgRating={ratingData?.avgRating} reviewCount={ratingData?.reviewCount} />
                                     </div>;
               })}
                             </div>

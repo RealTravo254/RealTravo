@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { MobileBottomBar } from "@/components/MobileBottomBar";
@@ -12,6 +12,7 @@ import { getUserId } from "@/lib/sessionManager";
 import { cn } from "@/lib/utils";
 import { useSavedItems } from "@/hooks/useSavedItems";
 import { useGeolocation, calculateDistance } from "@/hooks/useGeolocation";
+import { useRatings, sortByRating, RatingData } from "@/hooks/useRatings";
 const CategoryDetail = () => {
   const {
     category
@@ -124,9 +125,13 @@ const CategoryDetail = () => {
     }
     setLoading(false);
   };
+  // Collect item IDs for ratings
+  const itemIds = useMemo(() => items.map(item => item.id), [items]);
+  const { ratings } = useRatings(itemIds);
+
   useEffect(() => {
-    setFilteredItems(getSortedItems(items));
-  }, [items, position]);
+    setFilteredItems(getSortedItems(items, ratings));
+  }, [items, position, ratings]);
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
@@ -211,44 +216,9 @@ const CategoryDetail = () => {
     return allData;
   };
 
-  // Sort items: by distance when location available, otherwise by date/created_at/rating
-  const getSortedItems = (itemsToSort: any[]) => {
-    return [...itemsToSort].sort((a, b) => {
-      const aDate = a.date ? new Date(a.date) : null;
-      const bDate = b.date ? new Date(b.date) : null;
-      const isTripOrEvent = a.table === 'trips' || b.table === 'trips';
-      
-      // For trips/events, always sort by date (upcoming first)
-      if (isTripOrEvent && aDate && bDate) {
-        return aDate.getTime() - bDate.getTime();
-      }
-      
-      // For non-date items (hotels, adventure_places, attractions)
-      // Priority 1: Sort by distance if location available
-      if (position && !aDate && !bDate) {
-        const aHasCoords = a.latitude && a.longitude;
-        const bHasCoords = b.latitude && b.longitude;
-        
-        if (aHasCoords && bHasCoords) {
-          const aDist = calculateDistance(position.latitude, position.longitude, a.latitude, a.longitude);
-          const bDist = calculateDistance(position.latitude, position.longitude, b.latitude, b.longitude);
-          return aDist - bDist;
-        }
-        if (aHasCoords && !bHasCoords) return -1;
-        if (!aHasCoords && bHasCoords) return 1;
-      }
-      
-      // Priority 2: If no location, sort by created_at (latest first) as proxy for popularity
-      if (!position && !aDate && !bDate) {
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      }
-      
-      // Mixed types: date items first
-      if (aDate && !bDate) return -1;
-      if (!aDate && bDate) return 1;
-      
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    });
+  // Sort items: by rating with location prioritization
+  const getSortedItems = (itemsToSort: any[], ratingsMap: Map<string, RatingData>) => {
+    return sortByRating(itemsToSort, ratingsMap, position, calculateDistance);
   };
   const loadInitialData = async () => {
     setLoading(true);
@@ -335,11 +305,11 @@ const CategoryDetail = () => {
           const isAttraction = item.table === "attractions";
           const isEvent = item.table === "trips" && (item.type === "event" || category === "events");
           const isTripOrEvent = item.table === "trips";
-          // Calculate distance for all items with coordinates (except trips/events)
           const itemDistance = position && !isTripOrEvent && item.latitude && item.longitude
             ? calculateDistance(position.latitude, position.longitude, item.latitude, item.longitude)
             : undefined;
-          return <ListingCard key={item.id} id={item.id} type={item.table === "trips" ? isEvent ? "EVENT" : "TRIP" : item.table === "hotels" ? "HOTEL" : isAttraction ? "ATTRACTION" : "ADVENTURE PLACE"} name={isAttraction ? item.local_name || item.location_name : item.name} imageUrl={isAttraction ? item.photo_urls?.[0] || "" : item.image_url} location={isAttraction ? item.location_name : item.location} country={item.country} price={isAttraction ? item.price_adult || 0 : item.price || item.entry_fee || 0} date={item.date} isCustomDate={item.is_custom_date} onSave={handleSave} isSaved={savedItems.has(item.id)} amenities={item.amenities} activities={item.activities} showBadge={false} hideEmptySpace={true} distance={itemDistance} />;
+          const ratingData = ratings.get(item.id);
+          return <ListingCard key={item.id} id={item.id} type={item.table === "trips" ? isEvent ? "EVENT" : "TRIP" : item.table === "hotels" ? "HOTEL" : isAttraction ? "ATTRACTION" : "ADVENTURE PLACE"} name={isAttraction ? item.local_name || item.location_name : item.name} imageUrl={isAttraction ? item.photo_urls?.[0] || "" : item.image_url} location={isAttraction ? item.location_name : item.location} country={item.country} price={isAttraction ? item.price_adult || 0 : item.price || item.entry_fee || 0} date={item.date} isCustomDate={item.is_custom_date} onSave={handleSave} isSaved={savedItems.has(item.id)} amenities={item.amenities} activities={item.activities} showBadge={false} hideEmptySpace={true} distance={itemDistance} avgRating={ratingData?.avgRating} reviewCount={ratingData?.reviewCount} />;
         })}
         </div>
       </main>

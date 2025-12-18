@@ -81,7 +81,6 @@ const EventDetail = () => {
       if (error) throw error;
       setEvent(data as any);
     } catch (error) {
-      console.error("Error fetching event:", error);
       toast({ title: "Event not found", variant: "destructive" });
     } finally {
       setLoading(false);
@@ -95,31 +94,21 @@ const EventDetail = () => {
     const refLink = await generateReferralLink(event.id, "event", event.id);
     try {
       await navigator.clipboard.writeText(refLink);
-      toast({ title: "Link Copied!", description: user ? "Share to earn commission!" : "Link copied to clipboard" });
-    } catch (error) {
-      toast({ title: "Copy Failed", variant: "destructive" });
-    }
+      toast({ title: "Link Copied!" });
+    } catch (error) { toast({ title: "Copy Failed", variant: "destructive" }); }
   };
 
   const handleShare = async () => {
     if (!event) return;
     const refLink = await generateReferralLink(event.id, "event", event.id);
     if (navigator.share) {
-      try {
-        await navigator.share({ title: event.name, text: `Check out: ${event.name}`, url: refLink });
-      } catch (error) { console.log("Share failed", error); }
-    } else {
-      await handleCopyLink();
-    }
+      try { await navigator.share({ title: event.name, url: refLink }); } catch (e) {}
+    } else { handleCopyLink(); }
   };
 
   const openInMaps = () => {
-    if (event?.map_link) {
-      window.open(event.map_link, "_blank");
-    } else {
-      const query = encodeURIComponent(`${event?.name}, ${event?.location}, ${event?.country}`);
-      window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, "_blank");
-    }
+    if (event?.map_link) window.open(event.map_link, "_blank");
+    else window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event?.name + " " + event?.location)}`, "_blank");
   };
 
   const { submitBooking } = useBookingSubmit();
@@ -129,251 +118,150 @@ const EventDetail = () => {
     setIsProcessing(true);
     try {
       const totalPeople = data.num_adults + data.num_children;
-      const totalAmount = data.num_adults * event.price + 
-                           data.num_children * event.price_child + 
-                           data.selectedActivities.reduce((sum, a) => sum + a.price * a.numberOfPeople, 0);
-
+      const totalAmount = data.num_adults * event.price + data.num_children * event.price_child + data.selectedActivities.reduce((sum, a) => sum + a.price * a.numberOfPeople, 0);
       await submitBooking({
-        itemId: event.id,
-        itemName: event.name,
-        bookingType: 'event',
-        totalAmount,
-        slotsBooked: totalPeople,
-        visitDate: event.date,
-        guestName: data.guest_name,
-        guestEmail: data.guest_email,
-        guestPhone: data.guest_phone,
-        hostId: event.created_by,
-        bookingDetails: {
-          event_name: event.name,
-          date: event.date,
-          adults: data.num_adults,
-          children: data.num_children,
-          activities: data.selectedActivities
-        }
+        itemId: event.id, itemName: event.name, bookingType: 'event', totalAmount, slotsBooked: totalPeople, visitDate: event.date,
+        guestName: data.guest_name, guestEmail: data.guest_email, guestPhone: data.guest_phone, hostId: event.created_by,
+        bookingDetails: { event_name: event.name, date: event.date, adults: data.num_adults, children: data.num_children, activities: data.selectedActivities }
       });
-      setIsProcessing(false);
-      setIsCompleted(true);
+      setIsProcessing(false); setIsCompleted(true);
       toast({ title: "Booking Submitted" });
-    } catch (error: any) {
-      setIsProcessing(false);
-      toast({ title: "Booking failed", variant: "destructive" });
-    }
+    } catch (error: any) { setIsProcessing(false); toast({ title: "Booking failed", variant: "destructive" }); }
   };
 
   if (loading) return <div className="min-h-screen bg-background pb-20"><MobileBottomBar /></div>;
-  if (!event) return <div className="min-h-screen flex items-center justify-center"><p>Event not found</p><MobileBottomBar /></div>;
+  if (!event) return <div className="min-h-screen flex items-center justify-center">Event not found</div>;
 
   const allImages = [event.image_url, ...(event.images || [])].filter(Boolean);
 
   return (
-    <div className="min-h-screen bg-background pb-44 md:pb-10">
+    <div className="min-h-screen bg-background pb-40 md:pb-10">
       <Header className="hidden md:block" /> 
       
-      {/* 1. HERO SLIDESHOW */}
+      {/* HERO / IMAGE SECTION */}
       <div className="relative w-full overflow-hidden md:max-w-6xl md:mx-auto">
-        <Button 
-          variant="ghost" 
-          onClick={() => navigate(-1)} 
-          className="absolute top-4 left-4 z-30 h-10 w-10 p-0 rounded-full text-white"
-          style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }} 
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-
-        <Button 
-          variant="ghost" 
-          onClick={handleSave} 
-          className={`absolute top-4 right-4 z-30 h-10 w-10 p-0 rounded-full text-white transition-colors`}
-          style={{ backgroundColor: isSaved ? RED_COLOR : 'rgba(0, 0, 0, 0.5)' }} 
-        >
-          <Heart className={`h-5 w-5 ${isSaved ? "fill-white" : ""}`} />
-        </Button>
+        <Button variant="ghost" onClick={() => navigate(-1)} className="absolute top-4 left-4 z-30 h-10 w-10 p-0 rounded-full text-white bg-black/50" size="icon"><ArrowLeft className="h-5 w-5" /></Button>
+        <Button variant="ghost" onClick={handleSave} className={`absolute top-4 right-4 z-30 h-10 w-10 p-0 rounded-full text-white ${isSaved ? "bg-red-500" : "bg-black/50"}`} style={{ backgroundColor: isSaved ? RED_COLOR : 'rgba(0,0,0,0.5)' }} size="icon"><Heart className={`h-5 w-5 ${isSaved ? "fill-white" : ""}`} /></Button>
         
         <Carousel opts={{ loop: true }} plugins={[Autoplay({ delay: 3000 })]} className="w-full">
           <CarouselContent>
             {allImages.map((img, idx) => (
-              <CarouselItem key={idx}>
-                <img src={img} alt={event.name} className="w-full h-[42vh] md:h-96 lg:h-[500px] object-cover" />
-              </CarouselItem>
+              <CarouselItem key={idx}><img src={img} alt={event.name} className="w-full h-[42vh] md:h-96 lg:h-[500px] object-cover" /></CarouselItem>
             ))}
           </CarouselContent>
         </Carousel>
 
         <div className="absolute bottom-0 left-0 right-0 p-4 z-20 text-white bg-gradient-to-t from-black/80 to-transparent">
-          <h1 className="text-2xl md:text-3xl font-bold uppercase tracking-tight">{event.name}</h1> 
+          <h1 className="text-2xl font-bold uppercase">{event.name}</h1> 
         </div>
       </div>
       
-      <main className="container px-4 max-w-6xl mx-auto mt-6">
-        <div className="grid lg:grid-cols-[2fr,1fr] gap-8">
+      <main className="container px-4 max-w-6xl mx-auto mt-4">
+        <div className="grid lg:grid-cols-[2fr,1fr] gap-6">
           
-          {/* LEFT CONTENT */}
-          <div className="space-y-6">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <MapPin className="h-5 w-5" style={{ color: TEAL_COLOR }} />
-              <span className="font-medium">{event.location}, {event.country}</span>
-            </div>
-
-            <div className="flex flex-wrap gap-2 lg:hidden">
-                <Button variant="outline" size="sm" onClick={openInMaps} className="rounded-full" style={{ borderColor: TEAL_COLOR, color: TEAL_COLOR }}><MapPin className="h-4 w-4 mr-1" /> Map</Button>
-                <Button variant="outline" size="sm" onClick={handleCopyLink} className="rounded-full" style={{ borderColor: TEAL_COLOR, color: TEAL_COLOR }}><Copy className="h-4 w-4 mr-1" /> Copy</Button>
-                <Button variant="outline" size="sm" onClick={handleShare} className="rounded-full" style={{ borderColor: TEAL_COLOR, color: TEAL_COLOR }}><Share2 className="h-4 w-4 mr-1" /> Share</Button>
+          {/* DESKTOP SIDEBAR */}
+          <div className="hidden lg:block space-y-4 sticky top-20 h-fit">
+            <div className="p-4 border bg-card rounded-lg space-y-4">
+              <div className="flex items-center gap-2"><Calendar className="h-5 w-5" style={{ color: TEAL_COLOR }} /><p className="font-semibold">{new Date(event.date).toLocaleDateString()}</p></div>
+              <div className="border-t pt-3 space-y-1">
+                <div className="flex justify-between items-center"><span className="text-sm text-muted-foreground">Adult:</span><span className="text-xl font-bold" style={{ color: TEAL_COLOR }}>KSh {event.price}</span></div>
+                {event.price_child > 0 && <div className="flex justify-between items-center"><span className="text-sm text-muted-foreground">Child:</span><span className="text-lg font-semibold" style={{ color: TEAL_COLOR }}>KSh {event.price_child}</span></div>}
+                <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2"><Users className="h-3 w-3" /> {event.available_tickets} slots left</div>
+              </div>
+              <Button className="w-full text-white" style={{ backgroundColor: TEAL_COLOR }} onClick={() => { setIsCompleted(false); setShowBooking(true); }} disabled={event.available_tickets <= 0}>{event.available_tickets <= 0 ? "Sold Out" : "Book Now"}</Button>
             </div>
             
-            {event.description && (
-              <div className="bg-card border rounded-xl p-5 shadow-sm">
-                <h2 className="text-lg font-bold mb-3">About This Event</h2>
-                <p className="text-muted-foreground leading-relaxed">{event.description}</p>
-              </div>
-            )}
+            <div className="grid grid-cols-3 gap-2">
+              <Button variant="outline" size="sm" onClick={openInMaps} style={{ borderColor: TEAL_COLOR, color: TEAL_COLOR }} className="flex-col h-16 text-[10px]"><MapPin className="h-4 w-4 mb-1" /> Map</Button>
+              <Button variant="outline" size="sm" onClick={handleCopyLink} style={{ borderColor: TEAL_COLOR, color: TEAL_COLOR }} className="flex-col h-16 text-[10px]"><Copy className="h-4 w-4 mb-1" /> Copy</Button>
+              <Button variant="outline" size="sm" onClick={handleShare} style={{ borderColor: TEAL_COLOR, color: TEAL_COLOR }} className="flex-col h-16 text-[10px]"><Share2 className="h-4 w-4 mb-1" /> Share</Button>
+            </div>
+          </div>
+          
+          {/* MAIN DETAILS */}
+          <div className="w-full space-y-6">
+            <div className="flex items-center gap-2 text-muted-foreground"><MapPin className="h-4 w-4" style={{ color: TEAL_COLOR }} /><span className="text-sm">{event.location}, {event.country}</span></div>
+            
+            <div className="bg-card border rounded-lg p-4">
+              <h2 className="font-semibold mb-2">About This Event</h2>
+              <p className="text-sm text-muted-foreground leading-relaxed">{event.description}</p>
+            </div>
 
             {event.activities && event.activities.length > 0 && (
-              <div className="p-5 border bg-card rounded-xl shadow-sm">
-                <h2 className="text-lg font-bold mb-4">Activities & Perks</h2>
-                <div className="flex flex-wrap gap-3">
+              <div className="p-4 border bg-card rounded-lg">
+                <h2 className="font-semibold mb-4">Included Activities</h2>
+                <div className="flex flex-wrap gap-2">
                   {event.activities.map((activity, idx) => (
-                    <div key={idx} className="px-4 py-2 text-white rounded-lg text-sm font-semibold flex flex-col" style={{ backgroundColor: ORANGE_COLOR }}>
-                      <span>{activity.name}</span>
-                      <span className="text-[10px] opacity-90">{activity.price > 0 ? `KSh ${activity.price}` : 'FREE'}</span>
-                    </div>
+                    <div key={idx} className="px-3 py-1 text-white rounded-full text-xs" style={{ backgroundColor: ORANGE_COLOR }}>{activity.name} • {activity.price > 0 ? `KSh ${activity.price}` : 'Free'}</div>
                   ))}
                 </div>
               </div>
             )}
 
+            {/* Mobile-only Action Row */}
+            <div className="lg:hidden flex gap-2">
+              <Button variant="outline" size="sm" onClick={openInMaps} className="flex-1" style={{ borderColor: TEAL_COLOR, color: TEAL_COLOR }}><MapPin className="h-4 w-4 mr-2" /> Map</Button>
+              <Button variant="outline" size="sm" onClick={handleCopyLink} className="flex-1" style={{ borderColor: TEAL_COLOR, color: TEAL_COLOR }}><Copy className="h-4 w-4 mr-2" /> Link</Button>
+              <Button variant="outline" size="sm" onClick={handleShare} className="flex-1" style={{ borderColor: TEAL_COLOR, color: TEAL_COLOR }}><Share2 className="h-4 w-4 mr-2" /> Share</Button>
+            </div>
+
             {(event.phone_number || event.email) && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {event.phone_number && (
-                    <a href={`tel:${event.phone_number}`} className="flex items-center p-3 border rounded-lg gap-3" style={{borderColor: TEAL_COLOR}}>
-                        <Phone className="h-4 w-4" style={{color: TEAL_COLOR}} />
-                        <span className="text-sm font-medium">{event.phone_number}</span>
-                    </a>
-                  )}
-                  {event.email && (
-                    <a href={`mailto:${event.email}`} className="flex items-center p-3 border rounded-lg gap-3" style={{borderColor: TEAL_COLOR}}>
-                        <Mail className="h-4 w-4" style={{color: TEAL_COLOR}} />
-                        <span className="text-sm font-medium">{event.email}</span>
-                    </a>
-                  )}
+              <div className="p-4 border bg-card rounded-lg">
+                <h2 className="font-semibold mb-3">Contact Information</h2>
+                <div className="flex flex-wrap gap-3">
+                  {event.phone_number && <a href={`tel:${event.phone_number}`} className="flex items-center gap-2 text-sm" style={{ color: TEAL_COLOR }}><Phone className="h-4 w-4" /> {event.phone_number}</a>}
+                  {event.email && <a href={`mailto:${event.email}`} className="flex items-center gap-2 text-sm" style={{ color: TEAL_COLOR }}><Mail className="h-4 w-4" /> {event.email}</a>}
+                </div>
               </div>
             )}
           </div>
-
-          {/* RIGHT SIDEBAR (Desktop) */}
-          <div className="hidden lg:block space-y-4 sticky top-24 h-fit">
-            <div className="p-6 border bg-card rounded-xl shadow-lg space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                    <Calendar className="h-5 w-5" style={{ color: TEAL_COLOR }} />
-                    <span className="font-bold">Event Date</span>
-                </div>
-                <span className="text-sm font-medium">{new Date(event.date).toLocaleDateString(undefined, { dateStyle: 'long' })}</span>
-              </div>
-
-              <div className="space-y-2 border-t pt-4">
-                <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground font-semibold">Adult Ticket</span>
-                    <span className="text-xl font-bold" style={{ color: TEAL_COLOR }}>KSh {event.price}</span>
-                </div>
-                {event.price_child > 0 && (
-                   <div className="flex justify-between items-center">
-                        <span className="text-sm text-muted-foreground font-semibold">Child Ticket</span>
-                        <span className="text-xl font-bold" style={{ color: TEAL_COLOR }}>KSh {event.price_child}</span>
-                    </div>
-                )}
-                <div className="flex justify-between items-center text-xs">
-                    <span className="text-muted-foreground italic">Available Slots</span>
-                    <span className="font-bold bg-muted px-2 py-0.5 rounded">{event.available_tickets} left</span>
-                </div>
-              </div>
-
-              <Button 
-                className="w-full h-12 text-lg font-bold text-white shadow-md hover:opacity-90 transition-opacity" 
-                style={{ backgroundColor: TEAL_COLOR }}
-                onClick={() => { setIsCompleted(false); setShowBooking(true); }}
-                disabled={event.available_tickets <= 0}
-              >
-                {event.available_tickets <= 0 ? "Sold Out" : "Book Now"}
-              </Button>
-            </div>
-
-            <div className="flex gap-2">
-                <Button variant="outline" className="flex-1" style={{borderColor: TEAL_COLOR, color: TEAL_COLOR}} onClick={openInMaps}><MapPin className="h-4 w-4 mr-2"/>Map</Button>
-                <Button variant="outline" className="flex-1" style={{borderColor: TEAL_COLOR, color: TEAL_COLOR}} onClick={handleCopyLink}><Copy className="h-4 w-4 mr-2"/>Link</Button>
-                <Button variant="outline" className="flex-1" style={{borderColor: TEAL_COLOR, color: TEAL_COLOR}} onClick={handleShare}><Share2 className="h-4 w-4 mr-2"/>Share</Button>
-            </div>
-          </div>
         </div>
 
-        <div className="mt-12 space-y-8">
+        <div className="mt-8">
           <ReviewSection itemId={event.id} itemType="event" />
           <SimilarItems currentItemId={event.id} itemType="trip" location={event.location} country={event.country} />
         </div>
       </main>
 
-      {/* FLOATING CTA BAR (Mobile Only) */}
-      <div className="fixed bottom-[65px] left-0 right-0 z-40 lg:hidden px-4 pb-4">
-        <div className="bg-background/95 backdrop-blur-md border border-teal-600/20 shadow-[0_-8px_30px_rgb(0,0,0,0.12)] rounded-2xl p-4 overflow-hidden">
-          <div className="flex flex-col gap-3">
-            {/* Top Row: Date & Availability */}
-            <div className="flex justify-between items-center border-b border-muted pb-2">
-                <div className="flex items-center gap-1.5">
-                    <Calendar className="h-3.5 w-3.5" style={{ color: TEAL_COLOR }} />
-                    <span className="text-[11px] font-bold uppercase tracking-wider">Upcoming: {new Date(event.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                    <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-[11px] font-medium text-muted-foreground">{event.available_tickets} slots left</span>
-                </div>
-            </div>
-
-            {/* Bottom Row: Prices & Button */}
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex flex-col">
-                <div className="flex items-baseline gap-1">
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase">Adult</span>
-                    <span className="text-lg font-black" style={{ color: TEAL_COLOR }}>KSh {event.price}</span>
-                </div>
-                {event.price_child > 0 && (
-                    <div className="flex items-baseline gap-1">
-                        <span className="text-[10px] font-bold text-muted-foreground uppercase">Child</span>
-                        <span className="text-sm font-bold" style={{ color: TEAL_COLOR }}>KSh {event.price_child}</span>
-                    </div>
-                )}
+      {/* FLOATING MOBILE BOTTOM BAR (ENHANCED) */}
+      <div className="fixed bottom-[64px] left-0 right-0 z-40 bg-background/95 backdrop-blur-md border-t p-3 lg:hidden shadow-[0_-8px_20px_rgba(0,0,0,0.1)]">
+        <div className="flex flex-col gap-2">
+          {/* Top Row: Date and Slots Status */}
+          <div className="flex justify-between items-center text-[10px] font-medium uppercase tracking-wider">
+             <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-muted text-muted-foreground"><Calendar className="h-3 w-3" /> {new Date(event.date).toLocaleDateString()}</div>
+             <div className="flex items-center gap-1 text-orange-600"><Users className="h-3 w-3" /> {event.available_tickets} SLOTS LEFT</div>
+          </div>
+          
+          {/* Bottom Row: Price and Button */}
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-col">
+              <div className="flex items-baseline gap-1">
+                <span className="text-xl font-black" style={{ color: TEAL_COLOR }}>KSh {event.price}</span>
+                <span className="text-[10px] text-muted-foreground">/Adult</span>
               </div>
-
-              <Button 
-                className="flex-1 h-12 text-white font-black text-sm uppercase tracking-widest rounded-xl shadow-lg active:scale-95 transition-transform" 
-                style={{ backgroundColor: TEAL_COLOR }}
-                onClick={() => { setIsCompleted(false); setShowBooking(true); }}
-                disabled={event.available_tickets <= 0}
-              >
-                {event.available_tickets <= 0 ? "Sold Out" : "Book Event"}
-              </Button>
+              {event.price_child > 0 && (
+                <div className="flex items-baseline gap-1 -mt-1">
+                  <span className="text-sm font-bold" style={{ color: TEAL_COLOR }}>KSh {event.price_child}</span>
+                  <span className="text-[9px] text-muted-foreground">/Child</span>
+                </div>
+              )}
             </div>
+            
+            <Button 
+              className="flex-1 h-12 text-white font-bold rounded-xl shadow-lg active:scale-95 transition-transform" 
+              style={{ backgroundColor: TEAL_COLOR }}
+              onClick={() => { setIsCompleted(false); setShowBooking(true); }}
+              disabled={event.available_tickets <= 0}
+            >
+              {event.available_tickets <= 0 ? "SOLD OUT" : "BOOK NOW"}
+            </Button>
           </div>
         </div>
       </div>
 
       <Dialog open={showBooking} onOpenChange={setShowBooking}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 border-none">
-          <MultiStepBooking 
-            onSubmit={handleBookingSubmit} 
-            activities={event.activities || []} 
-            priceAdult={event.price} 
-            priceChild={event.price_child} 
-            isProcessing={isProcessing} 
-            isCompleted={isCompleted} 
-            itemName={event.name} 
-            skipDateSelection={true} 
-            fixedDate={event.date} 
-            skipFacilitiesAndActivities={true} 
-            itemId={event.id} 
-            bookingType="event" 
-            hostId={event.created_by || ""} 
-            onPaymentSuccess={() => setIsCompleted(true)} 
-          />
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <MultiStepBooking onSubmit={handleBookingSubmit} activities={event.activities || []} priceAdult={event.price} priceChild={event.price_child} isProcessing={isProcessing} isCompleted={isCompleted} itemName={event.name} skipDateSelection={true} fixedDate={event.date} skipFacilitiesAndActivities={true} itemId={event.id} bookingType="event" hostId={event.created_by || ""} onPaymentSuccess={() => setIsCompleted(true)} />
         </DialogContent>
       </Dialog>
 

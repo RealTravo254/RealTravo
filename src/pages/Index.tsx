@@ -536,29 +536,43 @@ const Index = () => {
 
             <main className="w-full">
 {!isSearchFocused && (
-  <div className="w-full px-4 md:px-6 lg:px-8 py-4 md:py-6">
-    {/* Flex-row with no gap on mobile; Grid with gap on md+ */}
-    <div className="flex flex-row overflow-x-auto no-scrollbar md:grid md:grid-cols-4 lg:grid-cols-6 md:gap-6 w-full">
+  <div className="w-full px-4 md:px-6 lg:px-8 py-4 md:py-6 overflow-hidden">
+    {/* MOBILE: flex row with no-scrollbar
+      DESKTOP: grid with 4 columns
+    */}
+    <div className="flex flex-row overflow-x-auto scrollbar-hide md:grid md:grid-cols-4 gap-0 md:gap-8 w-full">
       {categories.map(cat => (
         <div 
           key={cat.title} 
           onClick={() => navigate(cat.path)} 
-          className="flex-shrink-0 flex flex-col items-center cursor-pointer group min-w-[80px] md:min-w-0"
+          className="flex-shrink-0 flex flex-col items-center cursor-pointer group w-1/4 min-w-[80px] md:w-full"
         >
-          {/* ICON CIRCLE: Teal on all screens, size increases on larger screens */}
-          <div className="flex items-center justify-center transition-transform group-hover:scale-105 w-14 h-14 md:w-20 md:w-20 lg:w-24 lg:h-24 rounded-full bg-[#008080] mb-2 shadow-sm">
-            <cat.icon className="h-7 w-7 md:h-10 md:w-10 lg:h-12 lg:w-12 text-white" />
+          {/* ICON CONTAINER */}
+          <div 
+            className="flex items-center justify-center transition-all
+                       w-14 h-14 rounded-full bg-[#008080] 
+                       md:w-full md:h-40 lg:h-48 md:rounded-lg md:relative"
+            style={{
+              backgroundImage: `url(${cat.bgImage})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center'
+            }}
+          >
+            {/* Desktop Overlay: Only visible on md+ */}
+            <div className="hidden md:block absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-all rounded-lg" />
+
+            {/* Icon: Center aligned */}
+            <cat.icon className="relative z-10 h-7 w-7 text-white md:h-12 md:w-12 lg:h-16 lg:w-16" />
           </div>
 
-          {/* TEXT LABEL: Always below the icon */}
-          <span className="font-bold text-gray-800 text-[10px] md:text-sm lg:text-base text-center leading-tight px-1 uppercase tracking-wider">
-            {cat.title}
-          </span>
-          
-          {/* Optional description only on large screens */}
-          <p className="hidden lg:block text-gray-500 text-xs text-center mt-1">
-            {cat.description}
-          </p>
+          {/* TEXT: Always below the icon container */}
+          <div className="mt-2 text-center">
+            <span className="font-bold text-gray-800 text-[10px] md:text-base lg:text-lg leading-tight block" role="heading" aria-level={3}>
+              {cat.title}
+            </span>
+            {/* Description: Hidden on mobile to save space */}
+            <p className="hidden md:block text-gray-500 text-sm mt-1">{cat.description}</p>
+          </div>
         </div>
       ))}
     </div>

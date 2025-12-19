@@ -128,8 +128,8 @@ export default function AdminReferralSettings() {
         adventure_place_commission_rate: settings.adventurePlaceCommissionRate,
         trip_service_fee: settings.tripServiceFee,
         event_service_fee: settings.eventServiceFee,
-        hotel_service_fee: settings.hotel_service_fee,
-        attraction_service_fee: settings.attraction_service_fee,
+        hotel_service_fee: settings.hotelServiceFee,
+        attraction_service_fee: settings.attractionServiceFee,
         adventure_place_service_fee: settings.adventurePlaceServiceFee,
       };
 

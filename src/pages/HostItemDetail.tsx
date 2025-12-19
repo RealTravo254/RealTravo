@@ -50,18 +50,18 @@ const HostItemDetail = () => {
       else if (type === "adventure") tableName = "adventure_places";
 
       const { data: itemData, error: itemError } = await supabase
-        .from(tableName)
+        .from(tableName as any)
         .select("*")
         .eq("id", id)
         .single();
 
       if (itemError) throw itemError;
-      if (itemData.created_by !== user.id) {
+      if ((itemData as any).created_by !== user.id) {
         toast({ title: "Access Denied", variant: "destructive" });
         navigate("/become-host");
         return;
       }
-      setItem({ ...itemData, type });
+      setItem({ ...(itemData as any), type });
 
       const { data: bookingsData } = await supabase
         .from("creator_booking_summary")

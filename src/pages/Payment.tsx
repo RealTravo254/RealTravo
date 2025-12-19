@@ -104,8 +104,8 @@ export default function Payment() {
             const tableName = tableMap[booking.booking_type];
             
             if (tableName) {
-              const { data: item } = await supabase.from(tableName).select("created_by").eq("id", booking.item_id).single();
-              isCreator = item?.created_by === user.id;
+              const { data: item } = await supabase.from(tableName as any).select("created_by").eq("id", booking.item_id).single();
+              isCreator = (item as any)?.created_by === user.id;
             }
 
             if (isCreator) total += Number(booking.total_amount);

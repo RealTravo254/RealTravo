@@ -96,10 +96,10 @@ const AllBookings = () => {
     for (const item of items) {
       try {
         let table = item.type === "hotel" ? "hotels" : (item.type === "adventure" || item.type === "adventure_place") ? "adventure_places" : "trips";
-        const { data } = await supabase.from(table).select("name, created_by").eq("id", item.id).single();
+        const { data } = await supabase.from(table as any).select("name, created_by").eq("id", item.id).single();
         if (data) {
-          details[item.id] = { name: data.name, type: item.type, hostId: data.created_by };
-          if (data.created_by) hostIds.add(data.created_by);
+          details[item.id] = { name: (data as any).name, type: item.type, hostId: (data as any).created_by };
+          if ((data as any).created_by) hostIds.add((data as any).created_by);
         }
       } catch (e) {}
     }

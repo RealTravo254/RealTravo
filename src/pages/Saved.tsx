@@ -87,7 +87,7 @@ const Saved = () => {
       else tableName = `${saved.item_type}s`;
       
       const { data } = await supabase.from(tableName as any).select("*").eq("id", saved.item_id).maybeSingle();
-      if (data) items.push({ ...data, savedType: saved.item_type });
+      if (data && typeof data === 'object') items.push({ ...(data as Record<string, unknown>), savedType: saved.item_type });
     }
 
     if (offset === 0) setSavedListings(items);
@@ -274,7 +274,6 @@ const Saved = () => {
                   onSave={() => handleSave(item.id, item.savedType)}
                   isSaved={true}
                   showBadge={true}
-                  className="bg-white rounded-[32px] overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl transition-shadow"
                 />
               </div>
             ))}

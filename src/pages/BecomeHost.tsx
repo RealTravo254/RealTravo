@@ -95,6 +95,8 @@ const BecomeHost = () => {
           referrer_id: referrerId,
           referred_user_id: user?.id,
           referral_type: "host",
+          item_id: "host_referral",
+          item_type: "host",
           status: "pending"
         });
         await supabase.from("profiles").update({ referrer_id: referrerId }).eq("id", user?.id);

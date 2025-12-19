@@ -20,6 +20,7 @@ import { useAuth } from "@/contexts/AuthContext";
 const COLORS = {
   TEAL: "#008080",
   CORAL: "#FF7F50",
+  CORAL_LIGHT: "#FF9E7A",
   KHAKI: "#F0E68C",
   KHAKI_DARK: "#857F3E",
   SOFT_GRAY: "#F8F9FA",

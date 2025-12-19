@@ -87,7 +87,7 @@ const CategoryDetail = () => {
     const allData: any[] = [];
     for (const table of config.tables) {
       const { data } = await supabase.from(table as any).select("*").range(offset, offset + limit - 1);
-      if (data) allData.push(...data.map(item => ({ ...item, table })));
+      if (data) allData.push(...data.map((item: any) => ({ ...item, table })));
     }
     return allData;
   };
@@ -173,6 +173,7 @@ const CategoryDetail = () => {
                 name={item.name} 
                 imageUrl={item.image_url} 
                 location={item.location} 
+                country={item.country || ""}
                 price={item.price} 
                 onSave={handleSave} 
                 isSaved={savedItems.has(item.id)} 

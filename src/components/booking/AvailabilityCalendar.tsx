@@ -72,7 +72,7 @@ export function AvailabilityCalendar({
 
     const config = tableMap[itemType];
     if (config) {
-      const { data } = await supabase.from(config.table).select(config.field).eq('id', itemId).single();
+      const { data } = await supabase.from(config.table as any).select(config.field).eq('id', itemId).single();
       totalCapacity = data?.[config.field] || 0;
     }
 

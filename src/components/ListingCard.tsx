@@ -219,5 +219,5 @@ export const ListingCard = ({
         </div>
       </div>
     </Card>
-  );
+  ); 
 };

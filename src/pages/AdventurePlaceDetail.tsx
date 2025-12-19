@@ -132,8 +132,8 @@ const AdventurePlaceDetail = () => {
     <div className="min-h-screen bg-[#F8F9FA] pb-24">
       <Header className="hidden md:block" />
 
-      {/* 1. HERO SECTION - ENHANCED VISIBILITY & FULL IMAGE */}
-      <div className="relative w-full overflow-hidden h-[55vh] md:h-[65vh] bg-black">
+      {/* 1. HERO SECTION - UPDATED TO FILL ENTIRE AREA */}
+      <div className="relative w-full overflow-hidden h-[55vh] md:h-[70vh] bg-slate-900">
         <div className="absolute top-4 left-4 right-4 z-50 flex justify-between">
           <Button onClick={() => navigate(-1)} className="rounded-full bg-black/30 backdrop-blur-md text-white border-none w-10 h-10 p-0 hover:bg-black/50">
             <ArrowLeft className="h-5 w-5" />
@@ -143,39 +143,33 @@ const AdventurePlaceDetail = () => {
           </Button>
         </div>
 
-        <Carousel plugins={[Autoplay({ delay: 4000 })]} className="w-full h-full p-0">
-          <CarouselContent className="h-full ml-0">
+        <Carousel 
+          plugins={[Autoplay({ delay: 4000 })]} 
+          className="w-full h-full"
+        >
+          <CarouselContent className="h-full ml-0"> {/* ml-0 removes gap between slides */}
             {allImages.map((img, idx) => (
-              <CarouselItem key={idx} className="h-full pl-0 basis-full">
+              <CarouselItem key={idx} className="h-full pl-0 basis-full"> {/* pl-0 and basis-full ensures edge-to-edge */}
                 <div className="relative h-full w-full">
                   <img 
                     src={img} 
                     alt={place.name} 
                     className="w-full h-full object-cover object-center" 
                   />
-                  {/* Layer 1: Dark Linear Fade */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/30 to-transparent z-10" />
-                  
-                  {/* Layer 2: Targeted Radial Glow for Text */}
-                  <div 
-                    className="absolute inset-0 z-20 pointer-events-none opacity-90" 
-                    style={{ 
-                      background: `radial-gradient(circle at 10% 90%, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 70%)`,
-                      filter: 'blur(30px)'
-                    }} 
-                  />
+                  {/* Subtle overlay to ensure text readability */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/20 to-transparent z-10" />
                 </div>
               </CarouselItem>
             ))}
           </CarouselContent>
         </Carousel>
 
-        <div className="absolute bottom-10 left-0 z-40 w-full p-8 pointer-events-none">
+        <div className="absolute bottom-12 left-0 z-40 w-full p-6 md:p-12 pointer-events-none">
           <div className="relative z-10 space-y-4 pointer-events-auto max-w-4xl">
             <Badge className="bg-[#FF7F50] text-white border-none px-4 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-full shadow-lg">
               Adventure Place
             </Badge>
-            <h1 className="text-4xl md:text-7xl font-black uppercase tracking-tighter text-white drop-shadow-[0_4px_8px_rgba(0,0,0,0.8)] leading-[0.9]">
+            <h1 className="text-4xl md:text-7xl font-black uppercase tracking-tighter text-white drop-shadow-2xl leading-[0.9]">
               {place.name}
             </h1>
             <div className="flex items-center gap-3 cursor-pointer group w-fit" onClick={openInMaps}>
@@ -183,7 +177,7 @@ const AdventurePlaceDetail = () => {
                 <MapPin className="h-5 w-5 text-white" />
               </div>
               <div className="flex flex-col">
-                <span className="text-sm font-black text-white uppercase tracking-wider drop-shadow-md">{place.location}</span>
+                <span className="text-sm font-black text-white uppercase tracking-wider">{place.location}</span>
                 {distance && (
                   <Badge className="bg-[#008080] text-white text-[9px] font-black border-none w-fit mt-1">
                     {(distance).toFixed(1)}KM AWAY
@@ -198,11 +192,13 @@ const AdventurePlaceDetail = () => {
       <main className="container px-4 max-w-6xl mx-auto -mt-10 relative z-50">
         <div className="flex flex-col lg:grid lg:grid-cols-[1.7fr,1fr] gap-6">
           
+          {/* 2. DESCRIPTION */}
           <div className="order-1 lg:order-none bg-white rounded-[28px] p-7 shadow-sm border border-slate-100">
             <h2 className="text-xl font-black uppercase tracking-tight mb-4" style={{ color: COLORS.TEAL }}>Description</h2>
             <p className="text-slate-500 text-sm leading-relaxed whitespace-pre-line">{place.description}</p>
           </div>
 
+          {/* 3. PRICE & CONTACT CARD */}
           <div className="order-2 lg:col-start-2 lg:row-start-1 lg:row-span-2">
             <div className="bg-white rounded-[32px] p-8 shadow-2xl border border-slate-100 lg:sticky lg:top-24">
               <div className="flex justify-between items-end mb-8">
@@ -225,7 +221,7 @@ const AdventurePlaceDetail = () => {
 
               <Button 
                 onClick={() => setBookingOpen(true)}
-                className="w-full py-8 rounded-2xl text-md font-black uppercase tracking-[0.2em] text-white shadow-xl border-none mb-6 hover:opacity-90 transition-all active:scale-95"
+                className="w-full py-8 rounded-2xl text-md font-black uppercase tracking-[0.2em] text-white shadow-xl border-none mb-6 hover:opacity-90 transition-opacity"
                 style={{ background: `linear-gradient(135deg, ${COLORS.CORAL_LIGHT} 0%, ${COLORS.CORAL} 100%)` }}
               >
                 Book Adventure
@@ -248,11 +244,20 @@ const AdventurePlaceDetail = () => {
                       <span className="text-xs font-bold uppercase">{phone}</span>
                     </a>
                   ))}
+                  {place.email && (
+                    <a href={`mailto:${place.email}`} className="flex items-center gap-3 text-slate-600 group">
+                      <div className="p-2 rounded-lg bg-slate-50 group-hover:bg-teal-50 transition-colors">
+                        <Mail className="h-4 w-4 text-[#008080]" />
+                      </div>
+                      <span className="text-xs font-bold lowercase break-all">{place.email}</span>
+                    </a>
+                  )}
                 </div>
               </div>
             </div>
           </div>
 
+          {/* 4. FACILITIES, ACTIVITIES & AMENITIES */}
           <div className="order-3 lg:col-start-1 space-y-6">
             {place.facilities?.length > 0 && (
               <div className="bg-white rounded-[28px] p-7 shadow-sm border border-slate-100">
@@ -282,6 +287,23 @@ const AdventurePlaceDetail = () => {
                     <div key={i} className="px-5 py-3 rounded-2xl bg-orange-50/50 border border-orange-100 flex items-center gap-3">
                       <span className="text-[11px] font-black text-slate-700 uppercase">{act.name}</span>
                       <span className="text-[10px] font-bold text-[#FF9800]">KSh {act.price}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {place.amenities && (
+              <div className="bg-white rounded-[28px] p-7 shadow-sm border border-slate-100">
+                <div className="flex items-center gap-3 mb-6">
+                  <CheckCircle2 className="h-5 w-5 text-red-600" />
+                  <h2 className="text-xl font-black uppercase tracking-tight text-red-600">Amenities</h2>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {(Array.isArray(place.amenities) ? place.amenities : place.amenities.split(',')).map((item: string, i: number) => (
+                    <div key={i} className="flex items-center gap-2 bg-red-50/50 px-4 py-2.5 rounded-2xl border border-red-100">
+                      <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                      <span className="text-[11px] font-black text-red-700 uppercase tracking-wide">{item.trim()}</span>
                     </div>
                   ))}
                 </div>

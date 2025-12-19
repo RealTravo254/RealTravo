@@ -34,6 +34,7 @@ const TripDetail = () => {
   const id = slug ? extractIdFromSlug(slug) : null;
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   
   const [trip, setTrip] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
@@ -114,7 +115,7 @@ const TripDetail = () => {
     <div className="min-h-screen bg-[#F8F9FA] pb-24">
       <Header className="hidden md:block" />
 
-      {/* HERO SECTION - FIXED FULL IMAGE & TEXT VISIBILITY */}
+      {/* 1. HERO SECTION - FIXED FOR FULL IMAGE COVERAGE */}
       <div className="relative w-full overflow-hidden h-[55vh] md:h-[65vh] bg-slate-900">
         <div className="absolute top-4 left-4 right-4 z-50 flex justify-between">
           <Button onClick={() => navigate(-1)} className="rounded-full bg-black/30 backdrop-blur-md text-white border-none w-10 h-10 p-0 hover:bg-black/50">
@@ -126,51 +127,35 @@ const TripDetail = () => {
         </div>
 
         <Carousel plugins={[Autoplay({ delay: 4000 })]} className="w-full h-full p-0">
-          <CarouselContent className="h-full ml-0">
+          <CarouselContent className="h-full ml-0"> {/* Removed ml-4/default gap */}
             {allImages.map((img, idx) => (
-              <CarouselItem key={idx} className="h-full pl-0 basis-full">
+              <CarouselItem key={idx} className="h-full pl-0 basis-full"> {/* pl-0 ensures no slide padding */}
                 <div className="relative h-full w-full">
                   <img 
                     src={img} 
                     alt={trip.name} 
                     className="w-full h-full object-cover object-center" 
                   />
-                  {/* Layer 1: Global Bottom Gradient */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/30 to-transparent z-10" />
-                  
-                  {/* Layer 2: Targeted Radial Gradient for Text Visibility */}
-                  <div 
-                    className="absolute inset-0 z-20 pointer-events-none opacity-90" 
-                    style={{ 
-                      background: `radial-gradient(circle at 10% 90%, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 70%)`,
-                      filter: 'blur(30px)'
-                    }} 
-                  />
+                  {/* Enhanced dark gradient for better text contrast */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/20 to-transparent z-10" />
                 </div>
               </CarouselItem>
             ))}
           </CarouselContent>
         </Carousel>
 
-        {/* Text Content Overlay */}
         <div className="absolute bottom-10 left-0 z-40 w-full md:w-3/4 lg:w-1/2 p-8 pointer-events-none">
           <div className="relative z-10 space-y-4 pointer-events-auto">
-            <Button className="bg-[#FF7F50] hover:bg-[#FF7F50] border-none px-4 py-1.5 h-auto uppercase font-black tracking-[0.15em] text-[10px] rounded-full shadow-lg">
-              Scheduled Trip
-            </Button>
+            <Button className="bg-[#FF7F50] hover:bg-[#FF7F50] border-none px-4 py-1.5 h-auto uppercase font-black tracking-[0.15em] text-[10px] rounded-full shadow-lg">Scheduled Trip</Button>
             <div>
-              <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tighter leading-none text-white drop-shadow-[0_4px_4px_rgba(0,0,0,0.8)] mb-3">
-                {trip.name}
-              </h1>
+              <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tighter leading-none text-white drop-shadow-2xl mb-3">{trip.name}</h1>
               <div className="flex flex-wrap items-center gap-3 cursor-pointer group w-fit" onClick={openInMaps}>
                 <div className="bg-white/20 backdrop-blur-md p-2 rounded-xl group-hover:bg-[#008080] transition-all duration-300">
                   <MapPin className="h-5 w-5 text-white" />
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-[10px] font-bold text-[#FF7F50] uppercase tracking-widest drop-shadow-md">Destination</span>
-                  <span className="text-sm font-black text-white uppercase tracking-wider group-hover:text-[#008080] transition-colors drop-shadow-md">
-                    {trip.location}, {trip.country}
-                  </span>
+                  <span className="text-[10px] font-bold text-[#FF7F50] uppercase tracking-widest">Destination</span>
+                  <span className="text-sm font-black text-white uppercase tracking-wider group-hover:text-[#008080] transition-colors">{trip.location}, {trip.country}</span>
                 </div>
               </div>
             </div>
@@ -181,6 +166,7 @@ const TripDetail = () => {
       <main className="container px-4 max-w-6xl mx-auto -mt-10 relative z-50">
         <div className="grid lg:grid-cols-[1.7fr,1fr] gap-6 items-start">
           
+          {/* CONTENT COLUMN (LEFT) */}
           <div className="space-y-6">
             <div className="bg-white rounded-[28px] p-7 shadow-sm border border-slate-100">
               <h2 className="text-xl font-black uppercase tracking-tight mb-4" style={{ color: COLORS.TEAL }}>Overview</h2>
@@ -211,10 +197,20 @@ const TripDetail = () => {
             )}
 
             <div className="bg-white rounded-[28px] p-7 shadow-sm border border-slate-100">
+                <div className="flex justify-between items-center mb-8">
+                  <div>
+                    <h2 className="text-xl font-black uppercase tracking-tight" style={{ color: COLORS.TEAL }}>Trip Reviews</h2>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Feedback from travelers</p>
+                  </div>
+                  <div className="bg-slate-50 px-4 py-2 rounded-2xl border border-slate-100 flex items-center gap-2">
+                    <Star className="h-4 w-4 fill-[#FF7F50] text-[#FF7F50]" />
+                  </div>
+                </div>
                 <ReviewSection itemId={trip.id} itemType="trip" />
             </div>
           </div>
 
+          {/* BOOKING SIDEBAR (RIGHT) */}
           <div className="space-y-4">
             <div className="bg-white rounded-[32px] p-8 shadow-2xl border border-slate-100 lg:sticky lg:top-24">
               <div className="flex justify-between items-end mb-8">
@@ -238,6 +234,9 @@ const TripDetail = () => {
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
                     <Users className="h-3 w-3" /> Booking Availability
                   </span>
+                  <span className={`text-[10px] font-black uppercase ${trip.available_tickets < 5 ? 'text-red-500' : 'text-emerald-600'}`}>
+                    {isSoldOut ? "Sold Out" : `${trip.available_tickets} Tickets Remaining`}
+                  </span>
                 </div>
                 <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
                    <div 
@@ -252,7 +251,12 @@ const TripDetail = () => {
                   <span className="text-slate-400 flex items-center gap-1"><Calendar className="h-3 w-3" /> Trip Date</span>
                   <span className={isExpired ? "text-red-500" : "text-slate-700"}>
                     {trip.is_custom_date ? "Flexible" : new Date(trip.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    {isExpired && " (Past)"}
                   </span>
+                </div>
+                <div className="flex justify-between text-xs font-bold uppercase tracking-tight">
+                   <span className="text-slate-400">Child Rate</span>
+                   <span className="text-slate-700">KSh {trip.price_child || 'N/A'}</span>
                 </div>
               </div>
 
@@ -264,6 +268,7 @@ const TripDetail = () => {
                     background: !canBook 
                         ? "#cbd5e1" 
                         : `linear-gradient(135deg, ${COLORS.CORAL_LIGHT} 0%, ${COLORS.CORAL} 100%)`,
+                    boxShadow: !canBook ? "none" : `0 12px 24px -8px ${COLORS.TEAL}88`
                 }}
               >
                 {isSoldOut ? "Fully Booked" : isExpired ? "Trip Expired" : "Secure My Spot"}
@@ -279,10 +284,18 @@ const TripDetail = () => {
                 <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Organizer Contact</h3>
                 {trip.phone_number && (
                   <a href={`tel:${trip.phone_number}`} className="flex items-center gap-3 text-slate-600 hover:text-[#008080] transition-colors">
-                    <div className="p-2 rounded-lg bg-slate-50">
+                    <div className="p-2 rounded-lg bg-slate-50 group-hover:bg-teal-50">
                       <Phone className="h-4 w-4 text-[#008080]" />
                     </div>
                     <span className="text-xs font-bold uppercase tracking-tight">{trip.phone_number}</span>
+                  </a>
+                )}
+                {trip.email && (
+                  <a href={`mailto:${trip.email}`} className="flex items-center gap-3 text-slate-600 hover:text-[#008080] transition-colors">
+                    <div className="p-2 rounded-lg bg-slate-50 group-hover:bg-teal-50">
+                      <Mail className="h-4 w-4 text-[#008080]" />
+                    </div>
+                    <span className="text-xs font-bold uppercase tracking-tight truncate">{trip.email}</span>
                   </a>
                 )}
               </div>
@@ -319,7 +332,11 @@ const TripDetail = () => {
 };
 
 const UtilityButton = ({ icon, label, onClick }: { icon: React.ReactNode, label: string, onClick: () => void }) => (
-  <Button variant="ghost" onClick={onClick} className="flex-col h-auto py-3 bg-[#F8F9FA] text-slate-500 rounded-2xl hover:bg-slate-100 transition-colors border border-slate-100 flex-1">
+  <Button 
+    variant="ghost" 
+    onClick={onClick} 
+    className="flex-col h-auto py-3 bg-[#F8F9FA] text-slate-500 rounded-2xl hover:bg-slate-100 transition-colors border border-slate-100 flex-1"
+  >
     <div className="mb-1">{icon}</div>
     <span className="text-[10px] font-black uppercase tracking-tighter">{label}</span>
   </Button>

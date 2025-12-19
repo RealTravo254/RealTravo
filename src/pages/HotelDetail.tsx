@@ -6,8 +6,8 @@ import { MobileBottomBar } from "@/components/MobileBottomBar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { 
-  MapPin, Share2, Clock, ArrowLeft, 
-  Heart, Star, Circle, ShieldCheck, Tent, Zap, Calendar
+  MapPin, Clock, ArrowLeft, 
+  Heart, Star, Circle, ShieldCheck, Tent, Zap, Calendar, Loader2
 } from "lucide-react";
 import { SimilarItems } from "@/components/SimilarItems";
 import { useToast } from "@/hooks/use-toast";
@@ -38,35 +38,28 @@ const HotelDetail = () => {
   const { savedItems, handleSave: handleSaveItem } = useSavedItems();
   const isSaved = savedItems.has(id || "");
 
-  // Distance Calculation
+  // Memoized distance calculation
   const distance = position && hotel?.latitude && hotel?.longitude
     ? calculateDistance(position.latitude, position.longitude, hotel.latitude, hotel.longitude)
     : undefined;
 
-  // 1. DYNAMIC STARTING PRICE CALCULATION
   const getStartingPrice = () => {
     if (!hotel) return 0;
     const prices: number[] = [];
-    
-    // Check base hotel price
     if (hotel.price_per_night) prices.push(Number(hotel.price_per_night));
-
-    // Check Facilities for prices
-    if (hotel.facilities && Array.isArray(hotel.facilities)) {
-      hotel.facilities.forEach((f: any) => {
-        const p = typeof f === 'object' ? f.price : null;
+    
+    // Check nested arrays for prices
+    const extractPrices = (arr: any[]) => {
+      if (!Array.isArray(arr)) return;
+      arr.forEach((item) => {
+        const p = typeof item === 'object' ? item.price : null;
         if (p) prices.push(Number(p));
       });
-    }
+    };
 
-    // Check Activities for prices
-    if (hotel.activities && Array.isArray(hotel.activities)) {
-      hotel.activities.forEach((act: any) => {
-        const p = typeof act === 'object' ? act.price : null;
-        if (p) prices.push(Number(p));
-      });
-    }
-
+    extractPrices(hotel.facilities);
+    extractPrices(hotel.activities);
+    
     return prices.length > 0 ? Math.min(...prices) : 0;
   };
 
@@ -81,12 +74,12 @@ const HotelDetail = () => {
     window.scrollTo(0, 0);
   }, [id]);
 
-  // Real-time Status Logic
   useEffect(() => {
     if (!hotel) return;
     const checkOpenStatus = () => {
       const now = new Date();
-      const currentDay = now.toLocaleString('en-us', { weekday: 'long' });
+      // Normalize to lowercase for safer comparison
+      const currentDay = now.toLocaleString('en-us', { weekday: 'long' }).toLowerCase();
       const currentTime = now.getHours() * 60 + now.getMinutes();
       
       const parseTime = (timeStr: string) => {
@@ -100,10 +93,14 @@ const HotelDetail = () => {
 
       const openTime = parseTime(hotel.opening_hours || "08:00 AM");
       const closeTime = parseTime(hotel.closing_hours || "11:00 PM");
-      const days = Array.isArray(hotel.days_opened) ? hotel.days_opened : ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+      
+      const days = Array.isArray(hotel.days_opened) 
+        ? hotel.days_opened.map((d: string) => d.toLowerCase()) 
+        : ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
       
       setIsOpenNow(days.includes(currentDay) && currentTime >= openTime && currentTime <= closeTime);
     };
+
     checkOpenStatus();
     const interval = setInterval(checkOpenStatus, 60000);
     return () => clearInterval(interval);
@@ -117,6 +114,7 @@ const HotelDetail = () => {
       setHotel(data);
     } catch (error) {
       toast({ title: "Hotel not found", variant: "destructive" });
+      navigate('/');
     } finally { setLoading(false); }
   };
 
@@ -136,11 +134,16 @@ const HotelDetail = () => {
     setIsProcessing(true);
     try {
       await submitBooking({
-        itemId: hotel.id, itemName: hotel.name, bookingType: 'hotel', 
-        totalAmount: startingPrice, // Uses the lowest found price for entry
+        itemId: hotel.id, 
+        itemName: hotel.name, 
+        bookingType: 'hotel', 
+        totalAmount: startingPrice, 
         visitDate: data.visit_date,
-        guestName: data.guest_name, guestEmail: data.guest_email, guestPhone: data.guest_phone,
-        hostId: hotel.created_by, bookingDetails: { ...data, hotel_name: hotel.name }
+        guestName: data.guest_name, 
+        guestEmail: data.guest_email, 
+        guestPhone: data.guest_phone,
+        hostId: hotel.created_by, 
+        bookingDetails: { ...data, hotel_name: hotel.name }
       });
       setIsCompleted(true);
     } catch (error: any) {
@@ -148,20 +151,55 @@ const HotelDetail = () => {
     } finally { setIsProcessing(false); }
   };
 
-  if (loading) return <div className="min-h-screen bg-white animate-pulse" />;
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-white">
+        <Loader2 className="h-10 w-10 animate-spin text-teal-600 mb-4" />
+        <p className="text-sm font-black uppercase tracking-tighter animate-pulse">Loading Details...</p>
+      </div>
+    );
+  }
+
   if (!hotel) return null;
 
   const allImages = [hotel.image_url, ...(hotel.gallery_images || [])].filter(Boolean);
+
+  const OperatingHoursInfo = () => (
+    <div className="space-y-3 bg-slate-50 p-4 rounded-2xl border border-dashed border-slate-200">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 text-slate-400">
+          <Clock className="h-4 w-4 text-teal-600" />
+          <span className="text-[10px] font-black uppercase tracking-tight">Working Hours</span>
+        </div>
+        <span className={`text-[10px] font-black uppercase ${isOpenNow ? "text-emerald-600" : "text-red-500"}`}>
+          {hotel.opening_hours || "08:00 AM"} - {hotel.closing_hours || "11:00 PM"}
+        </span>
+      </div>
+      <div className="flex flex-col gap-1.5 pt-1 border-t border-slate-100">
+        <div className="flex items-center gap-2 text-slate-400">
+          <Calendar className="h-4 w-4 text-teal-600" />
+          <span className="text-[10px] font-black uppercase tracking-tight">Working Days</span>
+        </div>
+        <p className="text-[10px] font-normal leading-tight text-slate-500 lowercase italic">
+          {Array.isArray(hotel.days_opened) ? hotel.days_opened.join(", ") : "monday, tuesday, wednesday, thursday, friday, saturday, sunday"}
+        </p>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] pb-24">
       <Header className="hidden md:block" />
 
-      {/* Hero Carousel */}
+      {/* Hero Section */}
       <div className="relative w-full h-[45vh] md:h-[65vh] bg-slate-900 overflow-hidden">
         <div className="absolute top-4 left-4 right-4 z-50 flex justify-between">
-          <Button onClick={() => navigate(-1)} className="rounded-full bg-black/40 backdrop-blur-md text-white border-none w-10 h-10 p-0"><ArrowLeft className="h-5 w-5" /></Button>
-          <Button onClick={() => id && handleSaveItem(id, "hotel")} className={`rounded-full backdrop-blur-md border-none w-10 h-10 p-0 shadow-lg ${isSaved ? "bg-red-500" : "bg-black/40"}`}><Heart className={`h-5 w-5 text-white ${isSaved ? "fill-white" : ""}`} /></Button>
+          <Button onClick={() => navigate(-1)} className="rounded-full bg-black/40 backdrop-blur-md text-white border-none w-10 h-10 p-0 shadow-xl">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <Button onClick={() => id && handleSaveItem(id, "hotel")} className={`rounded-full backdrop-blur-md border-none w-10 h-10 p-0 shadow-xl ${isSaved ? "bg-red-500" : "bg-black/40"}`}>
+            <Heart className={`h-5 w-5 text-white ${isSaved ? "fill-white" : ""}`} />
+          </Button>
         </div>
 
         <Carousel plugins={[Autoplay({ delay: 3500 })]} className="w-full h-full">
@@ -190,6 +228,7 @@ const HotelDetail = () => {
           <div className="flex items-center gap-1 text-white/90">
             <MapPin className="h-3.5 w-3.5" />
             <span className="text-[11px] font-bold uppercase truncate">{hotel.location}</span>
+            {distance && <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full ml-2">{distance}km away</span>}
           </div>
         </div>
       </div>
@@ -198,18 +237,17 @@ const HotelDetail = () => {
         <div className="grid grid-cols-1 lg:grid-cols-[1.8fr,1fr] gap-4">
           
           <div className="space-y-4">
-            {/* DESCRIPTION */}
             <section className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
               <h2 className="text-[11px] font-black uppercase tracking-widest mb-3 text-slate-400">Description</h2>
               <p className="text-slate-500 text-sm leading-relaxed">{hotel.description}</p>
             </section>
 
-            {/* PRICE CARD */}
-            <div className="bg-white rounded-[32px] p-6 shadow-xl border border-slate-100">
+            {/* Mobile Booking Card */}
+            <div className="bg-white rounded-[32px] p-6 shadow-xl border border-slate-100 lg:hidden">
               <div className="flex justify-between items-start mb-6">
                 <div>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Starting Price</p>
-                  <span className="text-4xl font-black text-red-600">KSh {startingPrice}</span>
+                  <span className="text-4xl font-black text-red-600">KSh {startingPrice.toLocaleString()}</span>
                 </div>
                 <div className="text-right">
                     <div className="flex items-center gap-1 text-amber-500 font-black text-lg">
@@ -219,27 +257,11 @@ const HotelDetail = () => {
                     <p className="text-[9px] font-black text-slate-400 uppercase">{liveRating.count} reviews</p>
                 </div>
               </div>
-
-              {/* OPERATING INFO */}
-              <div className="space-y-3 mb-6 bg-slate-50 p-4 rounded-2xl border border-dashed border-slate-200">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-slate-400"><Clock className="h-4 w-4 text-teal-600" /><span className="text-[10px] font-black uppercase tracking-tight">Working Hours</span></div>
-                  <span className={`text-[10px] font-black uppercase ${isOpenNow ? "text-emerald-600" : "text-red-500"}`}>
-                    {hotel.opening_hours || "08:00 AM"} - {hotel.closing_hours || "11:00 PM"}
-                  </span>
-                </div>
-                <div className="flex flex-col gap-1.5 pt-1 border-t border-slate-100">
-                  <div className="flex items-center gap-2 text-slate-400"><Calendar className="h-4 w-4 text-teal-600" /><span className="text-[10px] font-black uppercase tracking-tight">Working Days</span></div>
-                  <p className="text-[10px] font-normal leading-tight text-slate-500 lowercase italic">
-                    {Array.isArray(hotel.days_opened) ? hotel.days_opened.join(", ") : "monday, tuesday, wednesday, thursday, friday, saturday, sunday"}
-                  </p>
-                </div>
-              </div>
-
-              <Button onClick={() => setBookingOpen(true)} className="w-full py-7 rounded-2xl text-md font-black uppercase tracking-widest bg-gradient-to-r from-[#FF7F50] to-[#FF4E50] border-none shadow-lg transition-all active:scale-95">Book Now</Button>
+              <OperatingHoursInfo />
+              <Button onClick={() => setBookingOpen(true)} className="w-full mt-6 py-7 rounded-2xl text-md font-black uppercase tracking-widest bg-gradient-to-r from-[#FF7F50] to-[#FF4E50] border-none shadow-lg transition-all active:scale-95">Book Now</Button>
             </div>
 
-            {/* AMENITIES */}
+            {/* Amenities */}
             <section className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
               <div className="flex items-center gap-2 mb-4">
                 <ShieldCheck className="h-5 w-5 text-red-600" />
@@ -255,7 +277,7 @@ const HotelDetail = () => {
               </div>
             </section>
 
-            {/* FACILITIES WITH PRICING */}
+            {/* Facilities */}
             {hotel.facilities?.length > 0 && (
               <section className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
                 <div className="flex items-center gap-2 mb-4">
@@ -267,7 +289,7 @@ const HotelDetail = () => {
                     <div key={i} className="p-3 rounded-xl bg-teal-50/50 border border-teal-100 flex justify-between items-center">
                       <span className="text-[10px] font-black uppercase text-[#008080]">{f.name || f}</span>
                       {f.price && (
-                        <span className="text-[10px] font-bold text-teal-700 bg-teal-100 px-2 py-0.5 rounded-lg">KSh {f.price}</span>
+                        <span className="text-[10px] font-bold text-teal-700 bg-teal-100 px-2 py-0.5 rounded-lg">KSh {f.price.toLocaleString()}</span>
                       )}
                     </div>
                   ))}
@@ -275,18 +297,18 @@ const HotelDetail = () => {
               </section>
             )}
 
-            {/* ACTIVITIES WITH PRICING */}
+            {/* Activities */}
             {hotel.activities?.length > 0 && (
               <section className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
                 <div className="flex items-center gap-2 mb-4">
                   <Zap className="h-5 w-5 text-orange-500" />
-                  <h2 className="text-sm font-black uppercase tracking-widest text-orange-500">Available Activities</h2>
+                  <h2 className="text-sm font-black uppercase tracking-widest text-orange-500">Activities</h2>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {hotel.activities.map((act: any, i: number) => (
                     <Badge key={i} className="bg-orange-50 text-orange-600 border-orange-100 px-3 py-1.5 rounded-xl font-black text-[10px] uppercase flex items-center gap-2">
                       {act.name || act}
-                      {act.price && <span className="text-orange-400">| KSh {act.price}</span>}
+                      {act.price && <span className="text-orange-400">| KSh {act.price.toLocaleString()}</span>}
                     </Badge>
                   ))}
                 </div>
@@ -296,27 +318,45 @@ const HotelDetail = () => {
 
           {/* Desktop Sidebar */}
           <div className="hidden lg:block">
-            <div className="sticky top-24 bg-white rounded-[40px] p-8 shadow-2xl border border-slate-100 text-center">
-               <p className="text-xs font-black uppercase text-slate-400 mb-2">Starting from</p>
-               <h3 className="text-5xl font-black text-red-600 mb-6">KSh {startingPrice}</h3>
-               <Button onClick={() => setBookingOpen(true)} className="w-full py-8 rounded-3xl text-lg font-black uppercase tracking-widest bg-gradient-to-r from-[#FF7F50] to-[#FF4E50] border-none shadow-xl hover:scale-[1.02] transition-transform">Reserve Now</Button>
+            <div className="sticky top-24 bg-white rounded-[40px] p-8 shadow-2xl border border-slate-100 space-y-6">
+                <div className="text-center">
+                  <p className="text-xs font-black uppercase text-slate-400 mb-1">Starting from</p>
+                  <h3 className="text-5xl font-black text-red-600 mb-2">KSh {startingPrice.toLocaleString()}</h3>
+                  <div className="flex items-center justify-center gap-1.5 text-amber-500 font-black">
+                    <Star className="h-4 w-4 fill-current" />
+                    <span className="text-lg">{liveRating.avg || "0"}</span>
+                    <span className="text-slate-400 text-xs font-bold uppercase ml-1">({liveRating.count} reviews)</span>
+                  </div>
+                </div>
+
+                <OperatingHoursInfo />
+
+                <Button 
+                  onClick={() => setBookingOpen(true)} 
+                  className="w-full py-8 rounded-3xl text-lg font-black uppercase tracking-widest bg-gradient-to-r from-[#FF7F50] to-[#FF4E50] border-none shadow-xl hover:scale-[1.02] transition-transform active:scale-95"
+                >
+                  Reserve Now
+                </Button>
+                
+                <p className="text-[10px] text-center font-bold text-slate-400 uppercase tracking-widest">
+                  Secure checkout & instant confirmation
+                </p>
             </div>
           </div>
         </div>
 
-        {/* REVIEW SECTION */}
+        {/* Reviews & Similar */}
         <div className="mt-8">
           <ReviewSection itemId={hotel.id} itemType="hotel" />
         </div>
 
-        {/* SIMILAR ITEMS */}
         <div className="mt-12">
           <h2 className="text-xl font-black uppercase tracking-tighter mb-6">Explore Similar Stays</h2>
           <SimilarItems currentItemId={hotel.id} itemType="hotel" country={hotel.country} />
         </div>
       </main>
 
-      {/* BOOKING MODAL */}
+      {/* Booking Modal */}
       <Dialog open={bookingOpen} onOpenChange={setBookingOpen}>
         <DialogContent className="sm:max-w-2xl p-0 overflow-hidden rounded-[40px] border-none shadow-2xl">
           <MultiStepBooking 
@@ -324,7 +364,7 @@ const HotelDetail = () => {
             itemName={hotel.name}
             itemId={hotel.id}
             bookingType="hotel"
-            priceAdult={startingPrice} // Injects the lowest entry price into the booking flow
+            priceAdult={startingPrice}
             isProcessing={isProcessing} 
             isCompleted={isCompleted} 
             hostId={hotel.created_by}

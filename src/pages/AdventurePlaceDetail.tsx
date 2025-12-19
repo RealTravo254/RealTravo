@@ -60,7 +60,6 @@ const AdventurePlaceDetail = () => {
     requestLocation();
   }, [id]);
 
-  // Real-time Status Calculation
   useEffect(() => {
     if (!place) return;
     const checkOpenStatus = () => {
@@ -80,7 +79,6 @@ const AdventurePlaceDetail = () => {
       const openTime = parseTime(place.opening_hours || "08:00 AM");
       const closeTime = parseTime(place.closing_hours || "06:00 PM");
       const days = Array.isArray(place.days_opened) ? place.days_opened : ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-      
       setIsOpenNow(days.includes(currentDay) && currentTime >= openTime && currentTime <= closeTime);
     };
     checkOpenStatus();
@@ -101,27 +99,16 @@ const AdventurePlaceDetail = () => {
 
   const fetchLiveRating = async () => {
     if (!id) return;
-    const { data } = await supabase.from("reviews").select("rating").eq("item_id", id).eq("item_type", "adventure_place");
+    const { data } = await supabase
+      .from("reviews")
+      .select("rating")
+      .eq("item_id", id)
+      .eq("item_type", "adventure_place");
+
     if (data && data.length > 0) {
       const avg = data.reduce((acc, curr) => acc + curr.rating, 0) / data.length;
       setLiveRating({ avg: parseFloat(avg.toFixed(1)), count: data.length });
     }
-  };
-
-  const getDisplayPrice = () => {
-    if (!place) return { price: 0, label: "Starting Price" };
-    if (place.entry_fee && place.entry_fee > 0) return { price: place.entry_fee, label: "Entrance Fee" };
-    const allItems = [...(place.facilities || []), ...(place.activities || [])];
-    const prices = allItems.map(i => i.price).filter(p => p != null && p > 0);
-    const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
-    return { price: minPrice, label: "Starting Price" };
-  };
-
-  const handleCopyLink = async () => {
-    if (!id) return;
-    const refLink = await generateReferralLink(id, "adventure_place", id);
-    await navigator.clipboard.writeText(refLink);
-    toast({ title: "Link Copied!" });
   };
 
   const { submitBooking } = useBookingSubmit();
@@ -138,7 +125,7 @@ const AdventurePlaceDetail = () => {
       });
       setIsCompleted(true);
     } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({ title: "Error", variant: "destructive" });
     } finally { setIsProcessing(false); }
   };
 
@@ -146,7 +133,7 @@ const AdventurePlaceDetail = () => {
   if (!place) return null;
 
   const allImages = [place.image_url, ...(place.gallery_images || []), ...(place.images || [])].filter(Boolean);
-  const { price: displayPrice, label: priceLabel } = getDisplayPrice();
+  const entryPrice = place.entry_fee || 0;
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] pb-24">
@@ -175,7 +162,11 @@ const AdventurePlaceDetail = () => {
         <div className="absolute bottom-12 left-0 z-40 w-full p-6 md:p-12 pointer-events-none">
           <div className="space-y-4 pointer-events-auto max-w-4xl">
             <div className="flex flex-wrap gap-2">
-               <Badge className="bg-amber-400 text-black border-none px-3 py-1 text-[10px] font-black uppercase rounded-full flex items-center gap-1 shadow-lg"><Star className="h-3 w-3 fill-current" />{liveRating.avg > 0 ? liveRating.avg : "New"}</Badge>
+               {/* LIVE RATING BADGE */}
+               <Badge className="bg-amber-400 text-black border-none px-3 py-1 text-[10px] font-black uppercase rounded-full flex items-center gap-1 shadow-lg">
+                 <Star className="h-3 w-3 fill-current" />
+                 {liveRating.avg > 0 ? liveRating.avg : "New"}
+               </Badge>
                <Badge className={`${isOpenNow ? "bg-emerald-500" : "bg-red-500"} text-white border-none px-3 py-1 text-[10px] font-black uppercase rounded-full flex items-center gap-1.5`}><Circle className={`h-2 w-2 fill-current ${isOpenNow ? "animate-pulse" : ""}`} />{isOpenNow ? "open now" : "closed"}</Badge>
             </div>
             <h1 className="text-4xl md:text-7xl font-black uppercase tracking-tighter text-white leading-[0.9]">{place.name}</h1>
@@ -192,37 +183,13 @@ const AdventurePlaceDetail = () => {
               <p className="text-slate-500 text-sm leading-relaxed whitespace-pre-line">{place.description}</p>
             </section>
 
-            {/* FULL LIST OF FACILITIES */}
+            {/* LISTS - NO ITEMS HIDDEN */}
             {place.facilities?.length > 0 && (
               <section className="bg-white rounded-[28px] p-7 shadow-sm border border-slate-100">
                 <div className="flex items-center gap-3 mb-6"><Tent className="h-5 w-5 text-[#008080]" /><h2 className="text-xl font-black uppercase tracking-tight text-[#008080]">Facilities</h2></div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {place.facilities.map((f: any, i: number) => (
                     <div key={i} className="p-5 rounded-[22px] bg-slate-50 border border-slate-100 flex justify-between items-center"><span className="text-sm font-black uppercase text-slate-700">{f.name}</span><Badge className="bg-white text-[#008080] text-[10px] font-black">KSH {f.price}</Badge></div>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* FULL LIST OF ACTIVITIES */}
-            {place.activities?.length > 0 && (
-              <section className="bg-white rounded-[28px] p-7 shadow-sm border border-slate-100">
-                <div className="flex items-center gap-3 mb-6"><Zap className="h-5 w-5 text-[#FF9800]" /><h2 className="text-xl font-black uppercase tracking-tight text-[#FF9800]">Activities</h2></div>
-                <div className="flex flex-wrap gap-3">
-                  {place.activities.map((act: any, i: number) => (
-                    <div key={i} className="px-5 py-3 rounded-2xl bg-orange-50/50 border border-orange-100 flex items-center gap-3"><span className="text-[11px] font-black text-slate-700 uppercase">{act.name}</span><span className="text-[10px] font-bold text-[#FF9800]">KSh {act.price}</span></div>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* AMENITIES */}
-            {place.amenities && (
-              <section className="bg-white rounded-[28px] p-7 shadow-sm border border-slate-100">
-                <div className="flex items-center gap-3 mb-6"><CheckCircle2 className="h-5 w-5 text-red-600" /><h2 className="text-xl font-black uppercase tracking-tight text-red-600">Amenities</h2></div>
-                <div className="flex flex-wrap gap-2">
-                  {(Array.isArray(place.amenities) ? place.amenities : place.amenities.split(',')).map((item: string, i: number) => (
-                    <div key={i} className="flex items-center gap-2 bg-red-50/50 px-4 py-2.5 rounded-2xl border border-red-100"><div className="w-1.5 h-1.5 rounded-full bg-red-500" /><span className="text-[11px] font-black text-red-700 uppercase">{item.trim()}</span></div>
                   ))}
                 </div>
               </section>
@@ -234,11 +201,15 @@ const AdventurePlaceDetail = () => {
             <div className="bg-white rounded-[32px] p-8 shadow-2xl border border-slate-100">
               <div className="flex justify-between items-end mb-8">
                 <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{priceLabel}</p>
-                  <span className="text-4xl font-black text-red-600">{displayPrice === 0 ? "FREE" : `KSh ${displayPrice}`}</span>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Entrance Fee</p>
+                  <span className="text-4xl font-black text-red-600">{entryPrice === 0 ? "FREE" : `KSh ${entryPrice}`}</span>
                 </div>
+                {/* RATING SUMMARY */}
                 <div className="text-right">
-                  <div className="flex items-center gap-1 justify-end text-amber-500 font-black text-lg"><Star className="h-4 w-4 fill-current" />{liveRating.avg}</div>
+                  <div className="flex items-center gap-1 justify-end text-amber-500 font-black text-lg">
+                    <Star className="h-4 w-4 fill-current" />
+                    <span>{liveRating.avg}</span>
+                  </div>
                   <p className="text-[8px] font-black text-slate-400 uppercase">{liveRating.count} reviews</p>
                 </div>
               </div>
@@ -251,35 +222,21 @@ const AdventurePlaceDetail = () => {
                 </div>
                 <div className="flex flex-col gap-1.5 pt-1 border-t border-slate-100">
                   <div className="flex items-center gap-2 text-slate-400"><Calendar className="h-4 w-4 text-[#008080]" /><span className="text-[10px] font-black uppercase tracking-tight">working days</span></div>
-                  <p className="text-[9px] font-normal leading-tight text-slate-500 lowercase italic">{Array.isArray(place.days_opened) ? place.days_opened.join(", ") : "mon to sun"}</p>
+                  <p className="text-[9px] font-normal leading-tight text-slate-500 lowercase italic">
+                    {Array.isArray(place.days_opened) ? place.days_opened.join(", ") : "mon to sun"}
+                  </p>
                 </div>
               </div>
 
               <Button 
                 onClick={() => setBookingOpen(true)}
-                className="w-full py-8 rounded-2xl text-md font-black uppercase tracking-[0.2em] text-white shadow-xl border-none mb-6 hover:opacity-90 transition-all active:scale-95"
+                className="w-full py-8 rounded-2xl text-md font-black uppercase tracking-[0.2em] text-white shadow-xl border-none mb-6 transition-all active:scale-95"
                 style={{ background: `linear-gradient(135deg, ${COLORS.CORAL_LIGHT} 0%, ${COLORS.CORAL} 100%)` }}
               >
                 Book Adventure
               </Button>
-
-              <div className="grid grid-cols-3 gap-3 mb-8">
-                <UtilityButton icon={<MapPin className="h-5 w-5" />} label="Map" onClick={openInMaps} />
-                <UtilityButton icon={<Copy className="h-5 w-5" />} label="Copy" onClick={handleCopyLink} />
-                <UtilityButton icon={<Share2 className="h-5 w-5" />} label="Share" onClick={() => { if(navigator.share) navigator.share({title: place.name, url: window.location.href}) }} />
-              </div>
-
-              <div className="space-y-4 pt-6 border-t border-slate-100">
-                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Host Information</h3>
-                {place.phone_numbers?.map((p: string, i: number) => <a key={i} href={`tel:${p}`} className="flex items-center gap-3 text-slate-600"><Phone className="h-4 w-4 text-[#008080]" /><span className="text-xs font-bold uppercase">{p}</span></a>)}
-                {place.email && <a href={`mailto:${place.email}`} className="flex items-center gap-3 text-slate-600 group"><Mail className="h-4 w-4 text-[#008080]" /><span className="text-xs font-bold lowercase truncate">{place.email}</span></a>}
-              </div>
             </div>
           </div>
-        </div>
-
-        <div className="mt-12 bg-white rounded-[28px] p-7 shadow-sm border border-slate-100">
-          <ReviewSection itemId={place.id} itemType="adventure_place" />
         </div>
       </main>
 

@@ -43,13 +43,15 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, hideIc
     : "hidden md:flex sticky top-0 left-0 right-0 border-b border-white/10 shadow-lg";
 
   /**
-   * SHARED ICON STYLING
-   * Applies the same background, hover, and transition to all header icons
+   * FIXED ICON STYLING
+   * - text-white: Forces the bell icon (and others) to be white
+   * - bg-black/50: Matches the dark circular background in your image
+   * - md:bg-white/15: Transitions to a lighter glass effect on desktop
    */
   const headerIconStyles = `
     h-11 w-11 rounded-2xl flex items-center justify-center transition-all duration-200 
     active:scale-90 shadow-md md:shadow-none text-white
-    ${isIndexPage ? 'bg-[rgba(0,0,0,0.5)]' : 'bg-white/10'} 
+    bg-black/50 hover:bg-black/60 
     md:bg-white/15 md:hover:bg-white/25
   `;
 
@@ -64,7 +66,7 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, hideIc
     >
       <div className="container mx-auto px-4 flex items-center justify-between h-full">
         
-        {/* Left Section: Menu & Logo */}
+        {/* Left Section: Menu */}
         <div className={`flex items-center gap-4 ${isIndexPage && 'mt-4 md:mt-0'}`}>
           <Sheet open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
             <SheetTrigger asChild>
@@ -84,7 +86,7 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, hideIc
             >
               T
             </div>
-            <div>
+            <div className="hidden sm:block">
               <span className="font-black text-lg uppercase tracking-tighter text-white block leading-none">
                 TripTrac
               </span>
@@ -95,7 +97,7 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, hideIc
           </Link>
         </div>
 
-        {/* Desktop Navigation */}
+        {/* Desktop Nav */}
         <nav className="hidden lg:flex items-center gap-8">
           {[
             { to: "/", icon: <Home className="h-4 w-4" />, label: "Home" },
@@ -124,7 +126,7 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, hideIc
             </button>
           )}
           
-          {/* Notification Bell with identical wrapper styling */}
+          {/* Notification Bell Wrapper - Now matches Search exactly */}
           <div className={headerIconStyles}>
             <NotificationBell />
           </div>

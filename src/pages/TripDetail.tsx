@@ -102,7 +102,6 @@ const TripDetail = () => {
   if (loading) return <div className="min-h-screen bg-[#F8F9FA] animate-pulse" />;
   if (!trip) return null;
 
-  // STATUS LOGIC
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const tripDate = trip.date ? new Date(trip.date) : null;
@@ -110,15 +109,14 @@ const TripDetail = () => {
   const isSoldOut = trip.available_tickets <= 0;
   const canBook = !isExpired && !isSoldOut;
 
-  // Formatting for images
   const allImages = [trip.image_url, ...(trip.gallery_images || []), ...(trip.images || [])].filter(Boolean);
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] pb-24">
       <Header className="hidden md:block" />
 
-      {/* HERO SECTION */}
-      <div className="relative w-full overflow-hidden h-[50vh] md:h-[60vh]">
+      {/* 1. HERO SECTION - FIXED FOR FULL IMAGE COVERAGE */}
+      <div className="relative w-full overflow-hidden h-[55vh] md:h-[65vh] bg-slate-900">
         <div className="absolute top-4 left-4 right-4 z-50 flex justify-between">
           <Button onClick={() => navigate(-1)} className="rounded-full bg-black/30 backdrop-blur-md text-white border-none w-10 h-10 p-0 hover:bg-black/50">
             <ArrowLeft className="h-5 w-5" />
@@ -128,13 +126,18 @@ const TripDetail = () => {
           </Button>
         </div>
 
-        <Carousel plugins={[Autoplay({ delay: 4000 })]} className="w-full h-full">
-          <CarouselContent className="h-full">
+        <Carousel plugins={[Autoplay({ delay: 4000 })]} className="w-full h-full p-0">
+          <CarouselContent className="h-full ml-0"> {/* Removed ml-4/default gap */}
             {allImages.map((img, idx) => (
-              <CarouselItem key={idx} className="h-full">
+              <CarouselItem key={idx} className="h-full pl-0 basis-full"> {/* pl-0 ensures no slide padding */}
                 <div className="relative h-full w-full">
-                  <img src={img} alt={trip.name} className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent z-10" />
+                  <img 
+                    src={img} 
+                    alt={trip.name} 
+                    className="w-full h-full object-cover object-center" 
+                  />
+                  {/* Enhanced dark gradient for better text contrast */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/20 to-transparent z-10" />
                 </div>
               </CarouselItem>
             ))}
@@ -142,7 +145,6 @@ const TripDetail = () => {
         </Carousel>
 
         <div className="absolute bottom-10 left-0 z-40 w-full md:w-3/4 lg:w-1/2 p-8 pointer-events-none">
-          <div className="absolute inset-0 z-0 opacity-80" style={{ background: `radial-gradient(circle at 20% 50%, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0) 85%)`, filter: 'blur(15px)', marginLeft: '-20px' }} />
           <div className="relative z-10 space-y-4 pointer-events-auto">
             <Button className="bg-[#FF7F50] hover:bg-[#FF7F50] border-none px-4 py-1.5 h-auto uppercase font-black tracking-[0.15em] text-[10px] rounded-full shadow-lg">Scheduled Trip</Button>
             <div>
@@ -168,7 +170,7 @@ const TripDetail = () => {
           <div className="space-y-6">
             <div className="bg-white rounded-[28px] p-7 shadow-sm border border-slate-100">
               <h2 className="text-xl font-black uppercase tracking-tight mb-4" style={{ color: COLORS.TEAL }}>Overview</h2>
-              <p className="text-slate-500 text-sm leading-relaxed">{trip.description}</p>
+              <p className="text-slate-500 text-sm leading-relaxed whitespace-pre-line">{trip.description}</p>
             </div>
 
             {trip.activities?.length > 0 && (
@@ -227,7 +229,6 @@ const TripDetail = () => {
                 </div>
               </div>
 
-              {/* NEW: DETAILED TICKET AVAILABILITY SECTION */}
               <div className="mb-8 p-4 bg-slate-50 rounded-2xl border border-slate-100">
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
@@ -237,11 +238,10 @@ const TripDetail = () => {
                     {isSoldOut ? "Sold Out" : `${trip.available_tickets} Tickets Remaining`}
                   </span>
                 </div>
-                {/* Visual Progress Bar */}
                 <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
                    <div 
                     className={`h-full transition-all duration-500 ${trip.available_tickets < 5 ? 'bg-red-500' : 'bg-emerald-500'}`}
-                    style={{ width: `${Math.min((trip.available_tickets / 50) * 100, 100)}%` }} // Assuming max 50 for visual scale
+                    style={{ width: `${Math.min((trip.available_tickets / 50) * 100, 100)}%` }}
                    />
                 </div>
               </div>
@@ -284,13 +284,17 @@ const TripDetail = () => {
                 <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Organizer Contact</h3>
                 {trip.phone_number && (
                   <a href={`tel:${trip.phone_number}`} className="flex items-center gap-3 text-slate-600 hover:text-[#008080] transition-colors">
-                    <Phone className="h-4 w-4 text-[#008080]" />
+                    <div className="p-2 rounded-lg bg-slate-50 group-hover:bg-teal-50">
+                      <Phone className="h-4 w-4 text-[#008080]" />
+                    </div>
                     <span className="text-xs font-bold uppercase tracking-tight">{trip.phone_number}</span>
                   </a>
                 )}
                 {trip.email && (
                   <a href={`mailto:${trip.email}`} className="flex items-center gap-3 text-slate-600 hover:text-[#008080] transition-colors">
-                    <Mail className="h-4 w-4 text-[#008080]" />
+                    <div className="p-2 rounded-lg bg-slate-50 group-hover:bg-teal-50">
+                      <Mail className="h-4 w-4 text-[#008080]" />
+                    </div>
                     <span className="text-xs font-bold uppercase tracking-tight truncate">{trip.email}</span>
                   </a>
                 )}

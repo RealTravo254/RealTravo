@@ -116,8 +116,8 @@ const HotelDetail = () => {
     <div className="min-h-screen bg-[#F8F9FA] pb-24">
       <Header className="hidden md:block" />
 
-      {/* Hero Image Section */}
-      <div className="relative w-full overflow-hidden h-[50vh] md:h-[65vh]">
+      {/* 1. HERO SECTION - UPDATED FOR FULL COVERAGE */}
+      <div className="relative w-full overflow-hidden h-[50vh] md:h-[65vh] bg-slate-900">
         <div className="absolute top-4 left-4 right-4 z-50 flex justify-between">
           <Button onClick={() => navigate(-1)} className="rounded-full bg-black/30 backdrop-blur-md text-white border-none w-10 h-10 p-0 hover:bg-black/50">
             <ArrowLeft className="h-5 w-5" />
@@ -128,12 +128,17 @@ const HotelDetail = () => {
         </div>
 
         <Carousel plugins={[Autoplay({ delay: 4000 })]} className="w-full h-full">
-          <CarouselContent className="h-full">
+          <CarouselContent className="h-full ml-0"> {/* ml-0 removes slide offset gap */}
             {allImages.map((img, idx) => (
-              <CarouselItem key={idx} className="h-full">
+              <CarouselItem key={idx} className="h-full pl-0 basis-full"> {/* pl-0 and basis-full ensures edge-to-edge */}
                 <div className="relative h-full w-full">
-                  <img src={img} alt={hotel.name} className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent z-10" />
+                  <img 
+                    src={img} 
+                    alt={hotel.name} 
+                    className="w-full h-full object-cover object-center" 
+                  />
+                  {/* Bottom Gradient for text contrast */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-transparent to-transparent z-10" />
                 </div>
               </CarouselItem>
             ))}
@@ -155,7 +160,7 @@ const HotelDetail = () => {
             <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tighter text-white drop-shadow-2xl">
               {hotel.name}
             </h1>
-            <div className="flex items-center gap-2 text-white/90" onClick={openInMaps}>
+            <div className="flex items-center gap-2 text-white/90 cursor-pointer w-fit" onClick={openInMaps}>
               <MapPin className="h-4 w-4 text-[#FF7F50]" />
               <span className="text-sm font-black uppercase tracking-widest">{hotel.location}</span>
             </div>
@@ -193,7 +198,7 @@ const HotelDetail = () => {
 
               <Button 
                 onClick={() => setBookingOpen(true)}
-                className="w-full py-8 rounded-2xl text-md font-black uppercase tracking-[0.2em] text-white shadow-xl border-none mb-6"
+                className="w-full py-8 rounded-2xl text-md font-black uppercase tracking-[0.2em] text-white shadow-xl border-none mb-6 hover:opacity-90 transition-opacity"
                 style={{ background: `linear-gradient(135deg, ${COLORS.CORAL_LIGHT} 0%, ${COLORS.CORAL} 100%)` }}
               >
                 Reserve Now
@@ -205,11 +210,9 @@ const HotelDetail = () => {
                 <UtilityButton icon={<Share2 className="h-5 w-5" />} label="Share" onClick={() => {}} />
               </div>
 
-              {/* UPDATED CONTACT SECTION */}
               <div className="space-y-4 pt-6 border-t border-slate-100">
                 <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Host Inquiries</h3>
                 
-                {/* Email Section */}
                 {hotel.email && (
                   <a href={`mailto:${hotel.email}`} className="flex items-center gap-3 text-slate-600 hover:text-[#008080] transition-colors group">
                     <div className="p-2 rounded-lg bg-slate-50 group-hover:bg-teal-50 transition-colors">
@@ -219,7 +222,6 @@ const HotelDetail = () => {
                   </a>
                 )}
 
-                {/* Phone Numbers Section */}
                 {hotel.phone_numbers?.map((p: string, i: number) => (
                   <a key={i} href={`tel:${p}`} className="flex items-center gap-3 text-slate-600 hover:text-[#008080] transition-colors group">
                     <div className="p-2 rounded-lg bg-slate-50 group-hover:bg-teal-50 transition-colors">
@@ -281,7 +283,7 @@ const HotelDetail = () => {
 };
 
 const UtilityButton = ({ icon, label, onClick }: { icon: React.ReactNode, label: string, onClick: () => void }) => (
-  <Button variant="ghost" onClick={onClick} className="flex-col h-auto py-3 bg-[#F8F9FA] text-slate-500 rounded-2xl border border-slate-100 flex-1">
+  <Button variant="ghost" onClick={onClick} className="flex-col h-auto py-3 bg-[#F8F9FA] text-slate-500 rounded-2xl border border-slate-100 flex-1 hover:bg-slate-100 transition-colors">
     <div className="mb-1">{icon}</div>
     <span className="text-[10px] font-black uppercase tracking-tighter">{label}</span>
   </Button>

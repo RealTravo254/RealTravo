@@ -109,7 +109,6 @@ const EventDetail = () => {
   if (loading) return <div className="min-h-screen bg-slate-50 animate-pulse" />;
   if (!event) return null;
 
-  // --- STATUS LOGIC ---
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const eventDate = event.date ? new Date(event.date) : null;
@@ -123,24 +122,29 @@ const EventDetail = () => {
     <div className="min-h-screen bg-[#F8F9FA] pb-24">
       <Header className="hidden md:block" />
 
-      {/* Hero Image Section */}
-      <div className="relative w-full overflow-hidden h-[50vh] md:h-[60vh]">
+      {/* Hero Image Section - FIXED TO FILL SECTION */}
+      <div className="relative w-full overflow-hidden h-[55vh] md:h-[70vh] bg-slate-900">
         <div className="absolute top-4 left-4 right-4 z-50 flex justify-between">
-          <Button onClick={() => navigate(-1)} className="rounded-full bg-black/30 backdrop-blur-md text-white border-none w-10 h-10 p-0 hover:bg-black/50">
+          <Button onClick={() => navigate(-1)} className="rounded-full bg-black/30 backdrop-blur-md text-white border-none w-10 h-10 p-0 hover:bg-black/50 transition-all">
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <Button onClick={handleSave} className={`rounded-full backdrop-blur-md border-none w-10 h-10 p-0 shadow-lg transition-colors ${isSaved ? "bg-red-500" : "bg-black/30 hover:bg-black/50"}`}>
+          <Button onClick={handleSave} className={`rounded-full backdrop-blur-md border-none w-10 h-10 p-0 shadow-lg transition-all ${isSaved ? "bg-red-500" : "bg-black/30 hover:bg-black/50"}`}>
             <Heart className={`h-5 w-5 text-white ${isSaved ? "fill-white" : ""}`} />
           </Button>
         </div>
 
         <Carousel plugins={[Autoplay({ delay: 4000 })]} className="w-full h-full">
-          <CarouselContent className="h-full">
+          <CarouselContent className="h-full ml-0"> {/* ml-0 removes slide gap */}
             {allImages.map((img, idx) => (
-              <CarouselItem key={idx} className="h-full">
+              <CarouselItem key={idx} className="h-full pl-0 basis-full"> {/* pl-0 and basis-full for edge-to-edge */}
                 <div className="relative h-full w-full">
-                  <img src={img} alt={event.name} className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent z-10" />
+                  <img 
+                    src={img} 
+                    alt={event.name} 
+                    className="w-full h-full object-cover object-center" 
+                  />
+                  {/* Enhanced gradient for better text contrast */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent z-10" />
                 </div>
               </CarouselItem>
             ))}
@@ -148,11 +152,10 @@ const EventDetail = () => {
         </Carousel>
 
         <div className="absolute bottom-10 left-0 z-40 w-full md:w-3/4 lg:w-1/2 p-8 pointer-events-none">
-          <div className="absolute inset-0 z-0 opacity-80" style={{ background: `radial-gradient(circle at 20% 50%, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0) 85%)`, filter: 'blur(15px)', marginLeft: '-20px' }} />
           <div className="relative z-10 space-y-4 pointer-events-auto">
             <Button className="bg-[#FF7F50] hover:bg-[#FF7F50] border-none px-4 py-1.5 h-auto uppercase font-black tracking-[0.15em] text-[10px] rounded-full shadow-lg">Experience</Button>
             <div>
-              <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tighter leading-none text-white drop-shadow-2xl mb-3">{event.name}</h1>
+              <h1 className="text-4xl md:text-7xl font-black uppercase tracking-tighter leading-[0.9] text-white drop-shadow-2xl mb-3">{event.name}</h1>
               <div className="flex items-center gap-3 cursor-pointer group w-fit" onClick={openInMaps}>
                 <div className="bg-white/20 backdrop-blur-md p-2 rounded-xl group-hover:bg-[#FF7F50] transition-all duration-300"><MapPin className="h-5 w-5 text-white" /></div>
                 <div className="flex flex-col">
@@ -171,7 +174,7 @@ const EventDetail = () => {
           <div className="space-y-6">
             <div className="bg-white rounded-[28px] p-7 shadow-sm border border-slate-100">
               <h2 className="text-xl font-black uppercase tracking-tight mb-4" style={{ color: COLORS.TEAL }}>About</h2>
-              <p className="text-slate-500 text-sm leading-relaxed">{event.description}</p>
+              <p className="text-slate-500 text-sm leading-relaxed whitespace-pre-line">{event.description}</p>
             </div>
 
             {event.activities?.length > 0 && (
@@ -224,7 +227,6 @@ const EventDetail = () => {
                 </div>
               </div>
 
-              {/* NEW: DETAILED EVENT AVAILABILITY INDICATOR */}
               <div className="mb-8 p-4 bg-slate-50 rounded-2xl border border-slate-100">
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">

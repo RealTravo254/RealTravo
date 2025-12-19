@@ -121,25 +121,21 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, hideIc
             </button>
           )}
           
-          {/* Notification Bell - Wrapped in button for identical behavior */}
-          <button 
-            className={headerIconStyles}
-            onClick={() => navigate('/notifications')}
-            aria-label="Notifications"
-          >
+          {/* Notification Bell Integration */}
+          <div className={headerIconStyles}>
             <NotificationBell />
-          </button>
+          </div>
 
           <div className="hidden md:flex items-center gap-3">
             <button 
               onClick={() => user ? navigate('/account') : navigate('/auth')}
-              className="h-10 w-10 rounded-xl flex items-center justify-center font-black text-xl shadow-lg transition-transform group-hover:rotate-12"
+              className="h-10 px-4 rounded-xl flex items-center gap-2 font-bold text-sm shadow-lg transition-all hover:opacity-90 active:scale-95 text-white"
               style={{ 
                 background: `linear-gradient(135deg, ${COLORS.CORAL} 0%, #FF6B35 100%)`
               }}
             >
               <User className="h-4 w-4" />
-              {user ? "Profile" : "Login"}
+              <span>{user ? "Profile" : "Login"}</span>
             </button>
           </div>
         </div>

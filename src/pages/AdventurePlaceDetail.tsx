@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { 
   MapPin, Phone, Share2, Mail, Clock, ArrowLeft, 
-  Heart, Copy, Star, CheckCircle2, Tent, Zap, Calendar, Circle
+  Heart, Copy, Star, CheckCircle2, Tent, Zap, Calendar, Circle, ShieldCheck
 } from "lucide-react";
 import { SimilarItems } from "@/components/SimilarItems";
 import { useToast } from "@/hooks/use-toast";
@@ -60,6 +60,7 @@ const AdventurePlaceDetail = () => {
     requestLocation();
   }, [id]);
 
+  // Real-time Status Calculation
   useEffect(() => {
     if (!place) return;
     const checkOpenStatus = () => {
@@ -79,6 +80,7 @@ const AdventurePlaceDetail = () => {
       const openTime = parseTime(place.opening_hours || "08:00 AM");
       const closeTime = parseTime(place.closing_hours || "06:00 PM");
       const days = Array.isArray(place.days_opened) ? place.days_opened : ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+      
       setIsOpenNow(days.includes(currentDay) && currentTime >= openTime && currentTime <= closeTime);
     };
     checkOpenStatus();
@@ -124,8 +126,9 @@ const AdventurePlaceDetail = () => {
         hostId: place.created_by, bookingDetails: { ...data, place_name: place.name }
       });
       setIsCompleted(true);
+      toast({ title: "Booking successful!" });
     } catch (error: any) {
-      toast({ title: "Error", variant: "destructive" });
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally { setIsProcessing(false); }
   };
 
@@ -162,7 +165,6 @@ const AdventurePlaceDetail = () => {
         <div className="absolute bottom-12 left-0 z-40 w-full p-6 md:p-12 pointer-events-none">
           <div className="space-y-4 pointer-events-auto max-w-4xl">
             <div className="flex flex-wrap gap-2">
-               {/* LIVE RATING BADGE */}
                <Badge className="bg-amber-400 text-black border-none px-3 py-1 text-[10px] font-black uppercase rounded-full flex items-center gap-1 shadow-lg">
                  <Star className="h-3 w-3 fill-current" />
                  {liveRating.avg > 0 ? liveRating.avg : "New"}
@@ -178,18 +180,49 @@ const AdventurePlaceDetail = () => {
         <div className="flex flex-col lg:grid lg:grid-cols-[1.7fr,1fr] gap-6">
           
           <div className="space-y-6">
+            {/* 1. DESCRIPTION */}
             <section className="bg-white rounded-[28px] p-7 shadow-sm border border-slate-100">
               <h2 className="text-xl font-black uppercase tracking-tight mb-4 text-[#008080]">Description</h2>
               <p className="text-slate-500 text-sm leading-relaxed whitespace-pre-line">{place.description}</p>
             </section>
 
-            {/* LISTS - NO ITEMS HIDDEN */}
+            {/* 2. FACILITIES - FULL LIST */}
             {place.facilities?.length > 0 && (
               <section className="bg-white rounded-[28px] p-7 shadow-sm border border-slate-100">
                 <div className="flex items-center gap-3 mb-6"><Tent className="h-5 w-5 text-[#008080]" /><h2 className="text-xl font-black uppercase tracking-tight text-[#008080]">Facilities</h2></div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {place.facilities.map((f: any, i: number) => (
                     <div key={i} className="p-5 rounded-[22px] bg-slate-50 border border-slate-100 flex justify-between items-center"><span className="text-sm font-black uppercase text-slate-700">{f.name}</span><Badge className="bg-white text-[#008080] text-[10px] font-black">KSH {f.price}</Badge></div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* 3. ACTIVITIES - FULL LIST */}
+            {place.activities?.length > 0 && (
+              <section className="bg-white rounded-[28px] p-7 shadow-sm border border-slate-100">
+                <div className="flex items-center gap-3 mb-6"><Zap className="h-5 w-5 text-[#FF9800]" /><h2 className="text-xl font-black uppercase tracking-tight text-[#FF9800]">Activities</h2></div>
+                <div className="flex flex-wrap gap-3">
+                  {place.activities.map((act: any, i: number) => (
+                    <div key={i} className="px-5 py-3 rounded-2xl bg-orange-50/50 border border-orange-100 flex items-center gap-3">
+                      <span className="text-[11px] font-black text-slate-700 uppercase">{act.name}</span>
+                      <span className="text-[10px] font-bold text-[#FF9800]">KSh {act.price}</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* 4. AMENITIES - FULL LIST */}
+            {place.amenities && (
+              <section className="bg-white rounded-[28px] p-7 shadow-sm border border-slate-100">
+                <div className="flex items-center gap-3 mb-6"><ShieldCheck className="h-5 w-5 text-red-600" /><h2 className="text-xl font-black uppercase tracking-tight text-red-600">Amenities</h2></div>
+                <div className="flex flex-wrap gap-2">
+                  {(Array.isArray(place.amenities) ? place.amenities : place.amenities.split(',')).map((item: string, i: number) => (
+                    <div key={i} className="flex items-center gap-2 bg-red-50/50 px-4 py-2.5 rounded-2xl border border-red-100">
+                      <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                      <span className="text-[11px] font-black text-red-700 uppercase tracking-wide">{item.trim()}</span>
+                    </div>
                   ))}
                 </div>
               </section>
@@ -204,7 +237,6 @@ const AdventurePlaceDetail = () => {
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Entrance Fee</p>
                   <span className="text-4xl font-black text-red-600">{entryPrice === 0 ? "FREE" : `KSh ${entryPrice}`}</span>
                 </div>
-                {/* RATING SUMMARY */}
                 <div className="text-right">
                   <div className="flex items-center gap-1 justify-end text-amber-500 font-black text-lg">
                     <Star className="h-4 w-4 fill-current" />
@@ -238,6 +270,11 @@ const AdventurePlaceDetail = () => {
             </div>
           </div>
         </div>
+
+        {/* 5. RATING & REVIEW SECTION */}
+        <div className="mt-12 bg-white rounded-[28px] p-7 shadow-sm border border-slate-100">
+          <ReviewSection itemId={place.id} itemType="adventure_place" />
+        </div>
       </main>
 
       <Dialog open={bookingOpen} onOpenChange={setBookingOpen}>
@@ -263,12 +300,5 @@ const AdventurePlaceDetail = () => {
     </div>
   );
 };
-
-const UtilityButton = ({ icon, label, onClick }: { icon: React.ReactNode, label: string, onClick: () => void }) => (
-  <Button variant="ghost" onClick={onClick} className="flex-col h-auto py-3 bg-[#F8F9FA] text-slate-500 rounded-2xl border border-slate-100 flex-1 hover:bg-slate-100 transition-colors">
-    <div className="mb-1">{icon}</div>
-    <span className="text-[10px] font-black uppercase tracking-tighter">{label}</span>
-  </Button>
-);
 
 export default AdventurePlaceDetail;

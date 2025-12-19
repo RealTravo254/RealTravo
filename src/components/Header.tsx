@@ -5,7 +5,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { NavigationDrawer } from "./NavigationDrawer";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { ThemeToggle } from "./ThemeToggle"; 
 import { NotificationBell } from "./NotificationBell"; 
 
 const COLORS = {
@@ -41,14 +40,12 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, hideIc
     fetchUserProfile();
   }, [user]);
 
-  /**
-   * VISIBILITY LOGIC:
-   * 1. If Index Page: 'fixed flex' (Always visible, transparent background)
-   * 2. If Other Pages: 'hidden md:flex' (Hidden on mobile, flex on desktop)
-   */
   const mobileHeaderClasses = isIndexPage 
     ? "fixed top-0 left-0 right-0 bg-transparent flex" 
     : "hidden md:flex sticky top-0 left-0 right-0 border-b border-white/10 shadow-lg";
+
+  // Reusable style for the square icon buttons on desktop
+  const iconButtonClasses = "h-11 w-11 rounded-2xl flex items-center justify-center transition-all active:scale-90 md:shadow-none md:bg-white/10 md:hover:bg-white/20";
 
   return (
     <header 
@@ -66,8 +63,10 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, hideIc
           <Sheet open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
             <SheetTrigger asChild>
               <button 
-                className="inline-flex items-center justify-center h-11 w-11 rounded-2xl transition-all active:scale-90 shadow-md md:shadow-none"
-                style={{ backgroundColor: isIndexPage ? COLORS.DARK_BG : 'rgba(255,255,255,0.15)' }}
+                className={iconButtonClasses}
+                style={{ 
+                  backgroundColor: isIndexPage && window.innerWidth < 768 ? COLORS.DARK_BG : undefined 
+                }}
               >
                 <Menu className="h-5 w-5 text-white" />
               </button>
@@ -77,7 +76,6 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, hideIc
             </SheetContent>
           </Sheet>
           
-          {/* Logo: Hidden on small screens if isIndexPage (to prevent clutter with transparent header) */}
           <Link to="/" className={`flex items-center gap-3 group ${isIndexPage ? 'hidden md:flex' : 'flex'}`}>
             <div 
               className="h-10 w-10 rounded-xl flex items-center justify-center font-black text-xl shadow-lg transition-transform group-hover:rotate-12"
@@ -119,25 +117,29 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, hideIc
           {showSearchIcon && (
             <button 
               onClick={() => onSearchClick ? onSearchClick() : navigate('/')}
-              className="h-11 w-11 rounded-2xl flex items-center justify-center transition-all active:scale-90 shadow-md md:shadow-none"
-              style={{ backgroundColor: isIndexPage ? COLORS.DARK_BG : 'rgba(255,255,255,0.1)' }}
+              className={iconButtonClasses}
+              style={{ 
+                backgroundColor: isIndexPage && window.innerWidth < 768 ? COLORS.DARK_BG : undefined 
+              }}
             >
               <Search className="h-5 w-5 text-white" />
             </button>
           )}
           
           <div 
-            className="h-11 w-11 rounded-2xl flex items-center justify-center shadow-md md:shadow-none"
-            style={{ backgroundColor: isIndexPage ? COLORS.DARK_BG : 'transparent' }}
+            className={iconButtonClasses}
+            style={{ 
+              backgroundColor: isIndexPage && window.innerWidth < 768 ? COLORS.DARK_BG : undefined 
+            }}
           >
             <NotificationBell />
           </div>
 
           <div className="hidden md:flex items-center gap-3">
-            <ThemeToggle />
+            {/* ThemeToggle Removed */}
             <button 
               onClick={() => user ? navigate('/account') : navigate('/auth')}
-              className="h-11 px-4 rounded-2xl flex items-center gap-3 transition-all font-black text-[10px] uppercase tracking-widest shadow-lg border-none text-white"
+              className="h-11 px-6 rounded-2xl flex items-center gap-3 transition-all font-black text-[10px] uppercase tracking-widest shadow-lg border-none text-white hover:opacity-90 active:scale-95"
               style={{ 
                 background: `linear-gradient(135deg, ${COLORS.CORAL} 0%, #FF6B35 100%)`
               }}

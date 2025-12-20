@@ -70,9 +70,19 @@ const EventDetail = () => {
   const fetchEvent = async () => {
     if (!id) return;
     try {
-      let { data, error } = await supabase.from("trips").select("*").eq("id", id).eq("type", "event").single();
+      let { data, error } = await supabase
+        .from("trips")
+        .select("id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,price,price_child,available_tickets,description,activities,phone_number,email,created_by,type")
+        .eq("id", id)
+        .eq("type", "event")
+        .single();
       if (error && id.length === 8) {
-        const { data: prefixData, error: prefixError } = await supabase.from("trips").select("*").ilike("id", `${id}%`).eq("type", "event").single();
+        const { data: prefixData, error: prefixError } = await supabase
+          .from("trips")
+          .select("id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,price,price_child,available_tickets,description,activities,phone_number,email,created_by,type")
+          .ilike("id", `${id}%`)
+          .eq("type", "event")
+          .single();
         if (!prefixError) { data = prefixData; error = null; }
       }
       if (error) throw error;

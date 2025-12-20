@@ -109,7 +109,11 @@ const HotelDetail = () => {
   const fetchHotel = async () => {
     if (!id) return;
     try {
-      let { data, error } = await supabase.from("hotels").select("*").eq("id", id).single();
+      let { data, error } = await supabase
+        .from("hotels")
+        .select("id,name,location,place,country,image_url,gallery_images,images,description,amenities,facilities,activities,phone_numbers,email,opening_hours,closing_hours,days_opened,available_rooms,latitude,longitude,created_by,establishment_type")
+        .eq("id", id)
+        .single();
       if (error) throw error;
       setHotel(data);
     } catch (error) {

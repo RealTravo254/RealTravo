@@ -52,7 +52,11 @@ const TripDetail = () => {
   const fetchTrip = async () => {
     if (!id) return;
     try {
-      const { data, error } = await supabase.from("trips").select("*").eq("id", id).single();
+      const { data, error } = await supabase
+        .from("trips")
+        .select("id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,price,price_child,available_tickets,description,activities,phone_number,email,created_by")
+        .eq("id", id)
+        .single();
       if (error) throw error;
       setTrip(data);
     } catch (error) {

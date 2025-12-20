@@ -87,7 +87,11 @@ const AdventurePlaceDetail = () => {
   const fetchPlace = async () => {
     if (!id) return;
     try {
-      let { data, error } = await supabase.from("adventure_places").select("*").eq("id", id).single();
+      let { data, error } = await supabase
+        .from("adventure_places")
+        .select("id,name,location,place,country,image_url,gallery_images,images,description,amenities,facilities,activities,phone_numbers,email,opening_hours,closing_hours,days_opened,entry_fee,entry_fee_type,available_slots,latitude,longitude,created_by")
+        .eq("id", id)
+        .single();
       if (error) throw error;
       setPlace(data);
     } catch (error) {

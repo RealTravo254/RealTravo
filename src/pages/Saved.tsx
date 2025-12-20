@@ -67,28 +67,47 @@ const Saved = () => {
     setIsLoading(true);
     const { data: savedData } = await supabase
       .from("saved_items")
-      .select("*")
+      .select("item_id, item_type")
       .eq("user_id", uid)
       .range(offset, offset + limit - 1)
       .order('created_at', { ascending: false });
 
-    if (!savedData) {
+    if (!savedData || savedData.length === 0) {
       setIsLoading(false);
       return [];
     }
 
-    const items: any[] = [];
-    for (const saved of savedData) {
-      let tableName: string;
-      if (saved.item_type === "adventure_place") tableName = "adventure_places";
-      else if (saved.item_type === "event" || saved.item_type === "trip") tableName = "trips";
-      else if (saved.item_type === "hotel") tableName = "hotels";
-      else if (saved.item_type === "attraction") tableName = "attractions";
-      else tableName = `${saved.item_type}s`;
-      
-      const { data } = await supabase.from(tableName as any).select("*").eq("id", saved.item_id).maybeSingle();
-      if (data && typeof data === 'object') items.push({ ...(data as Record<string, unknown>), savedType: saved.item_type });
-    }
+    // Group items by type for batch fetching
+    const tripIds = savedData.filter(s => s.item_type === "trip" || s.item_type === "event").map(s => s.item_id);
+    const hotelIds = savedData.filter(s => s.item_type === "hotel").map(s => s.item_id);
+    const adventureIds = savedData.filter(s => s.item_type === "adventure_place").map(s => s.item_id);
+
+    // Fetch all items in parallel with optimized field selection
+    const [tripsRes, hotelsRes, adventuresRes] = await Promise.all([
+      tripIds.length > 0 
+        ? supabase.from("trips").select("id,name,location,country,image_url,date,price,available_tickets,type").in("id", tripIds)
+        : Promise.resolve({ data: [] }),
+      hotelIds.length > 0 
+        ? supabase.from("hotels").select("id,name,location,country,image_url").in("id", hotelIds)
+        : Promise.resolve({ data: [] }),
+      adventureIds.length > 0 
+        ? supabase.from("adventure_places").select("id,name,location,country,image_url,entry_fee").in("id", adventureIds)
+        : Promise.resolve({ data: [] }),
+    ]);
+
+    // Create lookup maps
+    const itemMap = new Map<string, any>();
+    (tripsRes.data || []).forEach((item: any) => {
+      const savedType = savedData.find(s => s.item_id === item.id)?.item_type || "trip";
+      itemMap.set(item.id, { ...item, savedType });
+    });
+    (hotelsRes.data || []).forEach((item: any) => itemMap.set(item.id, { ...item, savedType: "hotel" }));
+    (adventuresRes.data || []).forEach((item: any) => itemMap.set(item.id, { ...item, savedType: "adventure_place" }));
+
+    // Preserve order from savedData
+    const items = savedData
+      .map(saved => itemMap.get(saved.item_id))
+      .filter(Boolean);
 
     if (offset === 0) setSavedListings(items);
     else setSavedListings(prev => [...prev, ...items]);

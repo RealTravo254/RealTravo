@@ -778,8 +778,10 @@ const Index = () => {
                                         </div>)}
                                 </div> : sortedEvents.map((event, index) => {
                                   const ratingData = ratings.get(event.id);
+                                  const today = new Date().toISOString().split('T')[0];
+                                  const isOutdated = event.date && !event.is_flexible_date && event.date < today;
                                   return <div key={event.id} className="flex-shrink-0 w-[45vw] md:w-56">
-                                        <ListingCard id={event.id} type="EVENT" name={event.name} imageUrl={event.image_url} location={event.location} country={event.country} price={event.price} date={event.date} isCustomDate={event.is_custom_date} onSave={handleSave} isSaved={savedItems.has(event.id)} showBadge={false} priority={index === 0} activities={event.activities} avgRating={ratingData?.avgRating} reviewCount={ratingData?.reviewCount} />
+                                        <ListingCard id={event.id} type="EVENT" name={event.name} imageUrl={event.image_url} location={event.location} country={event.country} price={event.price} date={event.date} isCustomDate={event.is_custom_date} isOutdated={isOutdated} onSave={handleSave} isSaved={savedItems.has(event.id)} showBadge={false} priority={index === 0} activities={event.activities} avgRating={ratingData?.avgRating} reviewCount={ratingData?.reviewCount} availableTickets={event.available_tickets} bookedTickets={bookingStats[event.id] || 0} />
                                     </div>;
                                 })}
                             </div>
@@ -890,10 +892,13 @@ const Index = () => {
                                     {[...Array(5)].map((_, i) => <div key={i} className="flex-shrink-0 w-[45vw] md:w-56">
                                             <ListingSkeleton />
                                         </div>)}
-                                </div> : scrollableRows.trips.map(trip => {
+                                </div> : sortedTrips.map((trip, index) => {
                 const isEvent = trip.type === "event";
+                const today = new Date().toISOString().split('T')[0];
+                const isOutdated = trip.date && !trip.is_flexible_date && trip.date < today;
+                const ratingData = ratings.get(trip.id);
                 return <div key={trip.id} className="flex-shrink-0 w-[45vw] md:w-56">
-                                        <ListingCard id={trip.id} type={isEvent ? "EVENT" : "TRIP"} name={trip.name} imageUrl={trip.image_url} location={trip.location} country={trip.country} price={trip.price} date={trip.date} isCustomDate={trip.is_custom_date} onSave={handleSave} isSaved={savedItems.has(trip.id)} showBadge={isEvent} availableTickets={trip.available_tickets} bookedTickets={bookingStats[trip.id] || 0} activities={trip.activities} />
+                                        <ListingCard id={trip.id} type={isEvent ? "EVENT" : "TRIP"} name={trip.name} imageUrl={trip.image_url} location={trip.location} country={trip.country} price={trip.price} date={trip.date} isCustomDate={trip.is_custom_date} isOutdated={isOutdated} onSave={handleSave} isSaved={savedItems.has(trip.id)} showBadge={isEvent} availableTickets={trip.available_tickets} bookedTickets={bookingStats[trip.id] || 0} activities={trip.activities} priority={index === 0} avgRating={ratingData?.avgRating} reviewCount={ratingData?.reviewCount} />
                                     </div>;
               })}
                             </div>

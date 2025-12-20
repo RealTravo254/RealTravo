@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, MapPin, Search, XCircle } from "lucide-react";
+import { CalendarIcon, MapPin, Search, XCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,19 +19,29 @@ const COLORS = {
   SOFT_GRAY: "#F8F9FA"
 };
 
-interface FilterBarProps {
-  type: "trips-events" | "hotels" | "adventure";
-  onApplyFilters: (filters: any) => void;
+export interface FilterValues {
+  location?: string;
+  dateFrom?: Date;
+  dateTo?: Date;
+  checkIn?: Date;
+  checkOut?: Date;
 }
 
-export const FilterBar = ({ type, onApplyFilters }: FilterBarProps) => {
+interface FilterBarProps {
+  type: "trips-events" | "hotels" | "adventure";
+  onApplyFilters: (filters: FilterValues) => void;
+  collapsible?: boolean;
+}
+
+export const FilterBar = ({ type, onApplyFilters, collapsible = false }: FilterBarProps) => {
   const [dateFrom, setDateFrom] = useState<Date>();
   const [dateTo, setDateTo] = useState<Date>();
   const [checkIn, setCheckIn] = useState<Date>();
   const [checkOut, setCheckOut] = useState<Date>();
   const [location, setLocation] = useState("");
   const [locations, setLocations] = useState<string[]>([]);
-  const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
+  const [showLocationDropdown, setShowLocationDropdown] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(!collapsible);
 
   useEffect(() => {
     fetchLocations();
@@ -70,7 +80,7 @@ export const FilterBar = ({ type, onApplyFilters }: FilterBarProps) => {
     const validationError = validateFilters();
     if (validationError) return alert(validationError);
 
-    const filters: any = {};
+    const filters: FilterValues = {};
     if (type === "trips-events") {
       if (dateFrom) filters.dateFrom = dateFrom;
       if (dateTo) filters.dateTo = dateTo;
@@ -83,6 +93,15 @@ export const FilterBar = ({ type, onApplyFilters }: FilterBarProps) => {
     onApplyFilters(filters);
   };
 
+  const handleClear = () => {
+    setDateFrom(undefined);
+    setDateTo(undefined);
+    setCheckIn(undefined);
+    setCheckOut(undefined);
+    setLocation("");
+    onApplyFilters({});
+  };
+
   const validateFilters = () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -91,39 +110,96 @@ export const FilterBar = ({ type, onApplyFilters }: FilterBarProps) => {
     return null;
   };
 
+  const hasActiveFilters = location || dateFrom || dateTo || checkIn || checkOut;
+
+  // Collapsed view - just a toggle button
+  if (collapsible && !isExpanded) {
+    return (
+      <Button
+        variant="outline"
+        onClick={() => setIsExpanded(true)}
+        className="w-full h-9 rounded-xl bg-slate-50 border-slate-200 text-xs font-bold flex items-center justify-between"
+      >
+        <span className="flex items-center gap-2">
+          <Search className="h-3.5 w-3.5 text-slate-400" />
+          {hasActiveFilters ? (
+            <span className="text-[#FF7F50]">Filters active</span>
+          ) : (
+            <span className="text-slate-500">Tap to filter</span>
+          )}
+        </span>
+        <ChevronDown className="h-4 w-4 text-slate-400" />
+      </Button>
+    );
+  }
+
   return (
-    <div className="bg-gradient-to-br from-white via-white to-slate-50 rounded-2xl p-3 shadow-md border border-[#008080]/10 relative overflow-hidden">
+    <div className="bg-gradient-to-br from-white via-white to-slate-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 rounded-2xl p-3 shadow-md border border-[#008080]/10 relative overflow-visible">
       {/* Decorative accent */}
       <div className="absolute top-0 left-0 w-full h-0.5" style={{ background: `linear-gradient(90deg, ${COLORS.TEAL} 0%, ${COLORS.CORAL} 100%)` }} />
       
+      {/* Collapse button */}
+      {collapsible && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setIsExpanded(false)}
+          className="absolute -top-1 right-2 h-6 px-2 text-[10px] text-slate-400 hover:text-slate-600"
+        >
+          <ChevronUp className="h-3 w-3 mr-1" />
+          Collapse
+        </Button>
+      )}
+      
       <div className="flex flex-col md:flex-row md:items-end gap-3">
-        {/* Location Input */}
+        {/* Location Input with Popover Dropdown */}
         <div className="flex-1 relative">
           <Label className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Destination</Label>
-          <div className="relative group">
-            <MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 group-focus-within:text-[#FF7F50] transition-colors" />
-            <Input
-              placeholder="Where to?"
-              value={location}
-              onChange={(e) => { setLocation(e.target.value); setShowLocationSuggestions(true); }}
-              onFocus={() => setShowLocationSuggestions(true)}
-              onBlur={() => setTimeout(() => setShowLocationSuggestions(false), 200)}
-              className="pl-8 h-9 bg-slate-50 border-none rounded-xl text-xs font-bold placeholder:text-slate-300 focus-visible:ring-1 focus-visible:ring-[#FF7F50]/20"
-            />
-          </div>
-          {showLocationSuggestions && location && filteredLocations.length > 0 && (
-            <div className="absolute z-[100] w-full bg-white border border-slate-100 rounded-xl mt-1 max-h-36 overflow-y-auto shadow-xl p-1.5 animate-in fade-in slide-in-from-top-2">
-              {filteredLocations.slice(0, 5).map((loc) => (
-                <button
-                  key={loc}
-                  onClick={() => { setLocation(loc); setShowLocationSuggestions(false); }}
-                  className="w-full text-left px-3 py-2 hover:bg-slate-50 rounded-lg text-[10px] font-bold uppercase tracking-tight text-slate-600 transition-colors"
-                >
-                  {loc}
-                </button>
-              ))}
-            </div>
-          )}
+          <Popover open={showLocationDropdown} onOpenChange={setShowLocationDropdown}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className="w-full justify-start text-left h-9 bg-slate-50 dark:bg-slate-800 border-none rounded-xl text-xs font-bold group px-2.5"
+              >
+                <MapPin className="mr-1.5 h-3.5 w-3.5 text-slate-400 group-hover:text-[#FF7F50]" />
+                {location ? (
+                  <span className="truncate">{location}</span>
+                ) : (
+                  <span className="text-slate-300">Where to?</span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-72 p-2 rounded-2xl border-none shadow-xl" align="start" sideOffset={4}>
+              <div className="space-y-2">
+                <Input
+                  placeholder="Search locations..."
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  className="h-9 text-xs rounded-lg"
+                  autoFocus
+                />
+                <div className="max-h-48 overflow-y-auto space-y-1">
+                  {filteredLocations.length > 0 ? (
+                    filteredLocations.slice(0, 10).map((loc) => (
+                      <button
+                        key={loc}
+                        onClick={() => {
+                          setLocation(loc);
+                          setShowLocationDropdown(false);
+                        }}
+                        className="w-full text-left px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-300 transition-colors flex items-center gap-2"
+                      >
+                        <MapPin className="h-3 w-3 text-slate-400" />
+                        {loc}
+                      </button>
+                    ))
+                  ) : (
+                    <p className="text-xs text-slate-400 text-center py-4">No locations found</p>
+                  )}
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
 
         {/* Date Controls */}
@@ -137,7 +213,7 @@ export const FilterBar = ({ type, onApplyFilters }: FilterBarProps) => {
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
-                    className="w-full justify-start text-left h-9 bg-slate-50 border-none rounded-xl text-xs font-bold group px-2.5"
+                    className="w-full justify-start text-left h-9 bg-slate-50 dark:bg-slate-800 border-none rounded-xl text-xs font-bold group px-2.5"
                   >
                     <CalendarIcon className="mr-1.5 h-3.5 w-3.5 text-slate-400 group-hover:text-[#FF7F50]" />
                     {type === "hotels" 
@@ -166,7 +242,7 @@ export const FilterBar = ({ type, onApplyFilters }: FilterBarProps) => {
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
-                    className="w-full justify-start text-left h-9 bg-slate-50 border-none rounded-xl text-xs font-bold group px-2.5"
+                    className="w-full justify-start text-left h-9 bg-slate-50 dark:bg-slate-800 border-none rounded-xl text-xs font-bold group px-2.5"
                   >
                     <CalendarIcon className="mr-1.5 h-3.5 w-3.5 text-slate-400 group-hover:text-[#FF7F50]" />
                     {type === "hotels" 
@@ -207,12 +283,8 @@ export const FilterBar = ({ type, onApplyFilters }: FilterBarProps) => {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => {
-              setDateFrom(undefined); setDateTo(undefined);
-              setCheckIn(undefined); setCheckOut(undefined);
-              setLocation(""); onApplyFilters({});
-            }}
-            className="h-9 w-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500"
+            onClick={handleClear}
+            className="h-9 w-9 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-500"
           >
             <XCircle className="h-4 w-4" />
           </Button>

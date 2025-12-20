@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { MobileBottomBar } from "@/components/MobileBottomBar";
 import { SearchBarWithSuggestions } from "@/components/SearchBarWithSuggestions";
 import { ListingCard } from "@/components/ListingCard";
-import { FilterBar } from "@/components/FilterBar";
+import { FilterBar, FilterValues } from "@/components/FilterBar";
 import { ListingGridSkeleton } from "@/components/ui/listing-skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { getUserId } from "@/lib/sessionManager";
@@ -19,6 +19,7 @@ const CategoryDetail = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [items, setItems] = useState<any[]>([]);
   const [filteredItems, setFilteredItems] = useState<any[]>([]);
+  const [activeFilters, setActiveFilters] = useState<FilterValues>({});
   const { savedItems, handleSave } = useSavedItems();
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
@@ -138,25 +139,65 @@ const CategoryDetail = () => {
     return sorted;
   }, [items, position, ratings, category]);
 
-  useEffect(() => {
-    if (searchQuery) {
-      const filtered = sortedItems.filter(item => 
-        item.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-        item.location?.toLowerCase().includes(searchQuery.toLowerCase())
+  // Apply all filters: search query + filter bar filters
+  const applyFilters = useCallback((itemsToFilter: any[], query: string, filters: FilterValues) => {
+    let result = [...itemsToFilter];
+
+    // Apply search query filter
+    if (query) {
+      result = result.filter(item => 
+        item.name?.toLowerCase().includes(query.toLowerCase()) || 
+        item.location?.toLowerCase().includes(query.toLowerCase())
       );
-      setFilteredItems(filtered);
-    } else {
-      setFilteredItems(sortedItems);
     }
-  }, [sortedItems, searchQuery]);
+
+    // Apply location filter
+    if (filters.location) {
+      const locationLower = filters.location.toLowerCase();
+      result = result.filter(item => 
+        item.location?.toLowerCase().includes(locationLower) ||
+        item.place?.toLowerCase().includes(locationLower) ||
+        item.country?.toLowerCase().includes(locationLower)
+      );
+    }
+
+    // Apply date filters for trips/events
+    if (filters.dateFrom || filters.dateTo) {
+      result = result.filter(item => {
+        if (!item.date) return true; // Include items without dates
+        const itemDate = new Date(item.date);
+        
+        if (filters.dateFrom && itemDate < filters.dateFrom) return false;
+        if (filters.dateTo && itemDate > filters.dateTo) return false;
+        
+        return true;
+      });
+    }
+
+    // Apply date filters for hotels (check-in/check-out)
+    // For hotels, we just filter by the range - this is a simple implementation
+    // In a real app, you'd check room availability in the database
+    if (filters.checkIn || filters.checkOut) {
+      // For now, hotels pass through as they don't have specific dates
+      // The filter bar UI shows check-in/check-out for context
+    }
+
+    return result;
+  }, []);
+
+  useEffect(() => {
+    const filtered = applyFilters(sortedItems, searchQuery, activeFilters);
+    setFilteredItems(filtered);
+  }, [sortedItems, searchQuery, activeFilters, applyFilters]);
 
   const handleSearch = () => {
-    const filtered = sortedItems.filter(item => 
-      item.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      item.location?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filtered = applyFilters(sortedItems, searchQuery, activeFilters);
     setFilteredItems(filtered);
   };
+
+  const handleApplyFilters = useCallback((filters: FilterValues) => {
+    setActiveFilters(filters);
+  }, []);
 
   if (!config) return <div className="p-10 text-center">Category not found</div>;
 
@@ -192,17 +233,16 @@ const CategoryDetail = () => {
         </div>
       </div>
 
-      {/* FILTER BAR: Compact inline filter */}
+      {/* FILTER BAR: Collapsible filter with overlay location */}
       <div className={cn(
-        "bg-background/95 backdrop-blur-sm border-b relative z-10",
+        "bg-background/95 backdrop-blur-sm border-b relative z-40",
         isSearchFocused && "opacity-0 pointer-events-none"
       )}>
         <div className="container px-4 py-2">
           <FilterBar 
-            type={category === "hotels" ? "hotels" : "trips-events"} 
-            onApplyFilters={(filters) => {
-              // Implement filter logic here if needed
-            }} 
+            type={category === "hotels" ? "hotels" : category === "campsite" ? "adventure" : "trips-events"} 
+            onApplyFilters={handleApplyFilters}
+            collapsible={true}
           />
         </div>
       </div>

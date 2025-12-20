@@ -33,9 +33,9 @@ export const CategoryCard = ({
           <Icon className="h-4 w-4 md:h-5 md:w-5" />
         </div>
         <div>
-          {/* Reduced title font size: from text-xs/md:text-lg to text-xs/md:text-base */}
-          <h3 className="font-bold text-xs md:text-base mb-0">{title}</h3>
-          {/* Reduced description font size: from text-xs to text-2xs (if text-2xs is defined, otherwise stick to text-xs) */}
+          {/* Title with matching foreground color on large screens */}
+          <h3 className="font-bold text-xs md:text-base mb-0 text-foreground">{title}</h3>
+          {/* Description with consistent muted color on all screens */}
           <p className="text-xs text-muted-foreground hidden md:block">{description}</p>
         </div>
       </div>

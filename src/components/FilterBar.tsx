@@ -92,43 +92,32 @@ export const FilterBar = ({ type, onApplyFilters }: FilterBarProps) => {
   };
 
   return (
-    <div className="bg-gradient-to-br from-white via-white to-slate-50 rounded-[28px] p-6 shadow-xl border-2 border-[#008080]/20 space-y-6 relative overflow-hidden">
+    <div className="bg-gradient-to-br from-white via-white to-slate-50 rounded-2xl p-3 shadow-md border border-[#008080]/10 relative overflow-hidden">
       {/* Decorative accent */}
-      <div className="absolute top-0 left-0 w-full h-1" style={{ background: `linear-gradient(90deg, ${COLORS.TEAL} 0%, ${COLORS.CORAL} 100%)` }} />
-      <div className="flex items-center justify-between border-b border-slate-50 pb-4">
-        <div>
-          <h3 className="text-lg font-black uppercase tracking-tight" style={{ color: COLORS.TEAL }}>
-            Find Your Next {type === 'hotels' ? 'Stay' : 'Adventure'}
-          </h3>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-            Tailor your search criteria
-          </p>
-        </div>
-        <Search className="h-5 w-5 text-slate-300" />
-      </div>
+      <div className="absolute top-0 left-0 w-full h-0.5" style={{ background: `linear-gradient(90deg, ${COLORS.TEAL} 0%, ${COLORS.CORAL} 100%)` }} />
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="flex flex-col md:flex-row md:items-end gap-3">
         {/* Location Input */}
-        <div className="space-y-2 relative">
-          <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Destination</Label>
+        <div className="flex-1 relative">
+          <Label className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Destination</Label>
           <div className="relative group">
-            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-[#FF7F50] transition-colors" />
+            <MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 group-focus-within:text-[#FF7F50] transition-colors" />
             <Input
               placeholder="Where to?"
               value={location}
               onChange={(e) => { setLocation(e.target.value); setShowLocationSuggestions(true); }}
               onFocus={() => setShowLocationSuggestions(true)}
               onBlur={() => setTimeout(() => setShowLocationSuggestions(false), 200)}
-              className="pl-10 h-12 bg-slate-50 border-none rounded-2xl text-sm font-bold placeholder:text-slate-300 focus-visible:ring-2 focus-visible:ring-[#FF7F50]/20 transition-all"
+              className="pl-8 h-9 bg-slate-50 border-none rounded-xl text-xs font-bold placeholder:text-slate-300 focus-visible:ring-1 focus-visible:ring-[#FF7F50]/20"
             />
           </div>
           {showLocationSuggestions && location && filteredLocations.length > 0 && (
-            <div className="absolute z-[100] w-full bg-white border border-slate-100 rounded-2xl mt-2 max-h-48 overflow-y-auto shadow-2xl p-2 animate-in fade-in slide-in-from-top-2">
-              {filteredLocations.map((loc) => (
+            <div className="absolute z-[100] w-full bg-white border border-slate-100 rounded-xl mt-1 max-h-36 overflow-y-auto shadow-xl p-1.5 animate-in fade-in slide-in-from-top-2">
+              {filteredLocations.slice(0, 5).map((loc) => (
                 <button
                   key={loc}
                   onClick={() => { setLocation(loc); setShowLocationSuggestions(false); }}
-                  className="w-full text-left px-4 py-3 hover:bg-slate-50 rounded-xl text-xs font-black uppercase tracking-tight text-slate-600 transition-colors"
+                  className="w-full text-left px-3 py-2 hover:bg-slate-50 rounded-lg text-[10px] font-bold uppercase tracking-tight text-slate-600 transition-colors"
                 >
                   {loc}
                 </button>
@@ -140,53 +129,53 @@ export const FilterBar = ({ type, onApplyFilters }: FilterBarProps) => {
         {/* Date Controls */}
         {type !== "adventure" && (
           <>
-            <div className="space-y-2">
-              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                {type === "hotels" ? "Check-In" : "Date From"}
+            <div className="flex-1">
+              <Label className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1 block">
+                {type === "hotels" ? "Check-In" : "From"}
               </Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
-                    className="w-full justify-start text-left h-12 bg-slate-50 border-none rounded-2xl text-sm font-bold group"
+                    className="w-full justify-start text-left h-9 bg-slate-50 border-none rounded-xl text-xs font-bold group px-2.5"
                   >
-                    <CalendarIcon className="mr-2 h-4 w-4 text-slate-400 group-hover:text-[#FF7F50]" />
+                    <CalendarIcon className="mr-1.5 h-3.5 w-3.5 text-slate-400 group-hover:text-[#FF7F50]" />
                     {type === "hotels" 
-                      ? (checkIn ? format(checkIn, "PP") : <span className="text-slate-300">Select Date</span>)
-                      : (dateFrom ? format(dateFrom, "PP") : <span className="text-slate-300">Select Date</span>)
+                      ? (checkIn ? format(checkIn, "MMM d") : <span className="text-slate-300">Date</span>)
+                      : (dateFrom ? format(dateFrom, "MMM d") : <span className="text-slate-300">Date</span>)
                     }
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 rounded-3xl border-none shadow-2xl overflow-hidden" align="start">
+                <PopoverContent className="w-auto p-0 rounded-2xl border-none shadow-xl overflow-hidden" align="start">
                   <Calendar
                     mode="single"
                     selected={type === "hotels" ? checkIn : dateFrom}
                     onSelect={type === "hotels" ? setCheckIn : setDateFrom}
                     disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-                    className="p-3"
+                    className="p-2"
                   />
                 </PopoverContent>
               </Popover>
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                {type === "hotels" ? "Check-Out" : "Date To"}
+            <div className="flex-1">
+              <Label className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1 block">
+                {type === "hotels" ? "Check-Out" : "To"}
               </Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
-                    className="w-full justify-start text-left h-12 bg-slate-50 border-none rounded-2xl text-sm font-bold group"
+                    className="w-full justify-start text-left h-9 bg-slate-50 border-none rounded-xl text-xs font-bold group px-2.5"
                   >
-                    <CalendarIcon className="mr-2 h-4 w-4 text-slate-400 group-hover:text-[#FF7F50]" />
+                    <CalendarIcon className="mr-1.5 h-3.5 w-3.5 text-slate-400 group-hover:text-[#FF7F50]" />
                     {type === "hotels" 
-                      ? (checkOut ? format(checkOut, "PP") : <span className="text-slate-300">Select Date</span>)
-                      : (dateTo ? format(dateTo, "PP") : <span className="text-slate-300">Select Date</span>)
+                      ? (checkOut ? format(checkOut, "MMM d") : <span className="text-slate-300">Date</span>)
+                      : (dateTo ? format(dateTo, "MMM d") : <span className="text-slate-300">Date</span>)
                     }
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 rounded-3xl border-none shadow-2xl overflow-hidden" align="start">
+                <PopoverContent className="w-auto p-0 rounded-2xl border-none shadow-xl overflow-hidden" align="start">
                   <Calendar
                     mode="single"
                     selected={type === "hotels" ? checkOut : dateTo}
@@ -195,38 +184,39 @@ export const FilterBar = ({ type, onApplyFilters }: FilterBarProps) => {
                       const baseDate = (type === "hotels" ? checkIn : dateFrom) || new Date();
                       return date <= baseDate;
                     }}
-                    className="p-3"
+                    className="p-2"
                   />
                 </PopoverContent>
               </Popover>
             </div>
           </>
         )}
-      </div>
 
-      <div className="flex flex-col md:flex-row gap-3 pt-2">
-        <Button 
-          onClick={handleApply} 
-          className="flex-1 h-14 rounded-2xl text-xs font-black uppercase tracking-[0.2em] text-white shadow-lg transition-all active:scale-95 border-none"
-          style={{ 
-            background: `linear-gradient(135deg, ${COLORS.CORAL_LIGHT} 0%, ${COLORS.CORAL} 100%)`,
-            boxShadow: `0 8px 20px -6px ${COLORS.CORAL}88`
-          }}
-        >
-          Apply Filters
-        </Button>
-        <Button
-          variant="ghost"
-          onClick={() => {
-            setDateFrom(undefined); setDateTo(undefined);
-            setCheckIn(undefined); setCheckOut(undefined);
-            setLocation(""); onApplyFilters({});
-          }}
-          className="h-14 px-8 rounded-2xl bg-[#F0E68C]/10 text-[#857F3E] hover:bg-[#F0E68C]/30 text-[10px] font-black uppercase tracking-widest border border-[#F0E68C]/20"
-        >
-          <XCircle className="mr-2 h-4 w-4" />
-          Clear
-        </Button>
+        {/* Action Buttons */}
+        <div className="flex gap-2">
+          <Button 
+            onClick={handleApply} 
+            className="h-9 px-4 rounded-xl text-[9px] font-black uppercase tracking-wider text-white shadow-md transition-all active:scale-95 border-none"
+            style={{ 
+              background: `linear-gradient(135deg, ${COLORS.CORAL_LIGHT} 0%, ${COLORS.CORAL} 100%)`,
+            }}
+          >
+            <Search className="h-3.5 w-3.5 mr-1" />
+            Search
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => {
+              setDateFrom(undefined); setDateTo(undefined);
+              setCheckIn(undefined); setCheckOut(undefined);
+              setLocation(""); onApplyFilters({});
+            }}
+            className="h-9 w-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500"
+          >
+            <XCircle className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
     </div>
   );

@@ -192,16 +192,15 @@ const CategoryDetail = () => {
         </div>
       </div>
 
-      {/* FILTER BAR: RELATIVE (Will scroll away with the page content) */}
+      {/* FILTER BAR: Compact inline filter */}
       <div className={cn(
-        "bg-background border-b relative z-10",
+        "bg-background/95 backdrop-blur-sm border-b relative z-10",
         isSearchFocused && "opacity-0 pointer-events-none"
       )}>
-        <div className="container px-4 py-3">
+        <div className="container px-4 py-2">
           <FilterBar 
             type={category === "hotels" ? "hotels" : "trips-events"} 
             onApplyFilters={(filters) => {
-              console.log("Filters applied:", filters);
               // Implement filter logic here if needed
             }} 
           />

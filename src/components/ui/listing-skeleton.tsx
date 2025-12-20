@@ -13,7 +13,7 @@ const ListingSkeletonComponent = ({ compact = false, className }: ListingSkeleto
     <Card className={cn(
       "overflow-hidden border-slate-100 bg-white flex flex-col",
       "rounded-[24px]",
-      compact ? "h-auto" : "h-full",
+      compact ? "h-auto" : "h-full min-h-[380px]",
       className
     )}>
       {/* Image Container Skeleton - Matches m-2 and 70% padding-bottom */}
@@ -47,14 +47,14 @@ const ListingSkeletonComponent = ({ compact = false, className }: ListingSkeleto
         {/* Location Row with icon */}
         <div className="flex items-center gap-1.5 mb-3">
           <Skeleton className="h-3.5 w-3.5 rounded-full" />
-          <Skeleton className="h-3 w-20" />
+          <Skeleton className="h-3 w-24" />
         </div>
 
         {/* Activities/Tags */}
         <div className="flex flex-wrap gap-1 mb-4">
-          <Skeleton className="h-4 w-10 rounded-md" />
-          <Skeleton className="h-4 w-14 rounded-md" />
           <Skeleton className="h-4 w-12 rounded-md" />
+          <Skeleton className="h-4 w-16 rounded-md" />
+          <Skeleton className="h-4 w-14 rounded-md" />
         </div>
         
         {/* Footer: Price & Date - Matches border-t and mt-auto */}
@@ -81,17 +81,14 @@ const ListingSkeletonComponent = ({ compact = false, className }: ListingSkeleto
 // Memoize to prevent unnecessary re-renders
 export const ListingSkeleton = memo(ListingSkeletonComponent);
 
-// Grid skeleton for displaying multiple loading cards
+// Grid skeleton for displaying multiple loading cards - matches listing grid layout
 export const ListingGridSkeleton = memo(({ count = 8, className }: { count?: number; className?: string }) => {
   return (
-    <div className={cn(
-      "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-5",
-      className
-    )}>
+    <>
       {Array.from({ length: count }).map((_, i) => (
         <ListingSkeleton key={i} />
       ))}
-    </div>
+    </>
   );
 });
 

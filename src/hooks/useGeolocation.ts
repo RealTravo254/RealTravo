@@ -10,6 +10,7 @@ export const useGeolocation = () => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [requested, setRequested] = useState(false);
+  const [permissionDenied, setPermissionDenied] = useState(false);
   const watchIdRef = useRef<number | null>(null);
 
   const requestLocation = useCallback(() => {
@@ -17,6 +18,7 @@ export const useGeolocation = () => {
     
     setRequested(true);
     setLoading(true);
+    setPermissionDenied(false);
 
     if (!navigator.geolocation) {
       setError("Geolocation is not supported by your browser");
@@ -32,10 +34,14 @@ export const useGeolocation = () => {
           longitude: pos.coords.longitude,
         });
         setLoading(false);
+        setPermissionDenied(false);
       },
       (err) => {
         setError(err.message);
         setLoading(false);
+        if (err.code === err.PERMISSION_DENIED) {
+          setPermissionDenied(true);
+        }
       },
       {
         enableHighAccuracy: false,
@@ -51,15 +57,61 @@ export const useGeolocation = () => {
           latitude: pos.coords.latitude,
           longitude: pos.coords.longitude,
         });
+        setPermissionDenied(false);
       },
-      () => {},
+      (err) => {
+        if (err.code === err.PERMISSION_DENIED) {
+          setPermissionDenied(true);
+        }
+      },
       {
         enableHighAccuracy: false,
         timeout: 10000,
-        maximumAge: 60000, // 1 minute cache for updates
+        maximumAge: 60000,
       }
     );
   }, [requested]);
+
+  // Force request location (resets requested state)
+  const forceRequestLocation = useCallback(() => {
+    setRequested(false);
+    setError(null);
+    setPermissionDenied(false);
+    // Small delay to allow state reset
+    setTimeout(() => {
+      setRequested(true);
+      setLoading(true);
+
+      if (!navigator.geolocation) {
+        setError("Geolocation is not supported by your browser");
+        setLoading(false);
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setPosition({
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+          });
+          setLoading(false);
+          setPermissionDenied(false);
+        },
+        (err) => {
+          setError(err.message);
+          setLoading(false);
+          if (err.code === err.PERMISSION_DENIED) {
+            setPermissionDenied(true);
+          }
+        },
+        {
+          enableHighAccuracy: false,
+          timeout: 5000,
+          maximumAge: 0,
+        }
+      );
+    }, 100);
+  }, []);
 
   // Cleanup watch on unmount
   useEffect(() => {
@@ -70,7 +122,7 @@ export const useGeolocation = () => {
     };
   }, []);
 
-  return { position, error, loading, requestLocation };
+  return { position, error, loading, permissionDenied, requestLocation, forceRequestLocation };
 };
 
 // Helper function to calculate distance between two points (Haversine formula)

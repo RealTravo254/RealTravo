@@ -10,7 +10,16 @@ const MapView = lazy(() => import("@/components/MapView").then(mod => ({
   default: mod.MapView
 })));
 import { Card } from "@/components/ui/card";
-import { Calendar, Hotel, Tent, Compass, Map, Grid, MapPin, ChevronLeft, ChevronRight } from "lucide-react";
+import { Calendar, Hotel, Tent, Compass, Map, Grid, MapPin, ChevronLeft, ChevronRight, Loader2, Navigation } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -40,8 +49,12 @@ const Index = () => {
   } = useToast();
   const {
     position,
-    requestLocation
+    loading: locationLoading,
+    permissionDenied,
+    requestLocation,
+    forceRequestLocation
   } = useGeolocation();
+  const [showLocationDialog, setShowLocationDialog] = useState(false);
 
   // Request location on first user interaction
   useEffect(() => {
@@ -543,11 +556,23 @@ const Index = () => {
 
   // Handle My Location tap - request location and switch view mode
   const handleMyLocationTap = useCallback(() => {
-    if (!position) {
-      requestLocation();
+    if (permissionDenied) {
+      // Location was denied, show dialog
+      setShowLocationDialog(true);
+      return;
+    }
+    if (!position && !locationLoading) {
+      forceRequestLocation();
     }
     setListingViewMode('my_location');
-  }, [position, requestLocation]);
+  }, [position, locationLoading, permissionDenied, forceRequestLocation]);
+
+  // Show dialog if permission is denied after attempting
+  useEffect(() => {
+    if (permissionDenied && listingViewMode === 'my_location') {
+      setShowLocationDialog(true);
+    }
+  }, [permissionDenied, listingViewMode]);
 
   // Get filtered/sorted items based on view mode
   const getDisplayItems = useCallback((items: any[], sortedByRating: any[], isTripsOrEvents: boolean = false) => {
@@ -786,14 +811,19 @@ const Index = () => {
                             </button>
                             <button 
                               onClick={handleMyLocationTap}
+                              disabled={locationLoading}
                               className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs md:text-sm font-bold whitespace-nowrap transition-all ${
                                 listingViewMode === 'my_location' 
                                   ? 'bg-[#DC2626] text-white shadow-lg' 
                                   : 'bg-[#DC2626]/20 text-[#DC2626] hover:bg-[#DC2626]/30'
-                              }`}
+                              } ${locationLoading ? 'opacity-70 cursor-wait' : ''}`}
                             >
-                              <MapPin className="h-4 w-4" />
-                              My Location
+                              {locationLoading ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <MapPin className="h-4 w-4" />
+                              )}
+                              {locationLoading ? 'Finding...' : 'My Location'}
                             </button>
                         </div>
                     </section>
@@ -965,6 +995,43 @@ const Index = () => {
 
                 </div>
             </main>
+
+            {/* Location Permission Dialog */}
+            <AlertDialog open={showLocationDialog} onOpenChange={setShowLocationDialog}>
+              <AlertDialogContent className="max-w-sm">
+                <AlertDialogHeader>
+                  <div className="flex justify-center mb-4">
+                    <div className="p-3 bg-primary/10 rounded-full">
+                      <Navigation className="h-8 w-8 text-primary" />
+                    </div>
+                  </div>
+                  <AlertDialogTitle className="text-center">Turn On Location</AlertDialogTitle>
+                  <AlertDialogDescription className="text-center">
+                    To see places near you, please enable location access in your device settings. This helps us show you the best experiences in your area.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter className="flex-col gap-2 sm:flex-col">
+                  <AlertDialogAction 
+                    onClick={() => {
+                      setShowLocationDialog(false);
+                      forceRequestLocation();
+                    }}
+                    className="w-full bg-primary hover:bg-primary/90"
+                  >
+                    Try Again
+                  </AlertDialogAction>
+                  <AlertDialogAction 
+                    onClick={() => {
+                      setShowLocationDialog(false);
+                      setListingViewMode('top_destinations');
+                    }}
+                    className="w-full bg-muted text-muted-foreground hover:bg-muted/80"
+                  >
+                    Continue Without Location
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
         </div>;
 };
 export default Index;

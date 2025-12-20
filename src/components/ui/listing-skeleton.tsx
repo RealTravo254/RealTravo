@@ -11,66 +11,62 @@ interface ListingSkeletonProps {
 const ListingSkeletonComponent = ({ compact = false, className }: ListingSkeletonProps) => {
   return (
     <Card className={cn(
-      "overflow-hidden border-slate-100 bg-white flex flex-col",
+      "overflow-hidden border-slate-200 bg-slate-50 flex flex-col",
       "rounded-[24px]",
-      compact ? "h-auto" : "h-full min-h-[380px]",
+      compact ? "h-auto" : "h-full",
       className
     )}>
-      {/* Image Container Skeleton - Matches m-2 and 70% padding-bottom */}
+      {/* Image Container - Matches m-2 and rounded-[20px] with 70% aspect ratio */}
       <div className="relative overflow-hidden m-2 rounded-[20px] bg-slate-100" style={{ paddingBottom: '70%' }}>
         <Skeleton className="absolute inset-0 w-full h-full rounded-[20px]" />
         
-        {/* Floating Category Badge Placeholder */}
-        <Skeleton className="absolute top-3 left-3 h-4 w-14 rounded-full" />
+        {/* Floating Category Badge - top-3 left-3 */}
+        <Skeleton className="absolute top-3 left-3 h-4 w-16 rounded-sm" />
 
-        {/* Distance Badge Placeholder - Bottom Right */}
-        <Skeleton className="absolute bottom-3 right-3 h-5 w-12 rounded-full" />
-
-        {/* Heart Button Placeholder */}
-        <div className="absolute top-3 right-3 z-20 h-8 w-8">
-          <Skeleton className="h-full w-full rounded-full" />
+        {/* Heart Button - top-3 right-3 */}
+        <div className="absolute top-3 right-3 z-20">
+          <Skeleton className="h-8 w-8 rounded-full" />
         </div>
       </div>
       
       {/* Content Section - Matches p-5 */}
       <div className="p-5 flex flex-col flex-1"> 
+        {/* Title + Rating row */}
         <div className="flex justify-between items-start mb-2">
-          {/* Title Placeholder - uppercase style */}
-          <div className="space-y-1.5 w-3/4">
+          <div className="space-y-1 w-3/4">
             <Skeleton className="h-4 w-full" />
-            <Skeleton className="h-4 w-1/2" />
+            <Skeleton className="h-4 w-2/3" />
           </div>
-          {/* Rating Badge Placeholder */}
+          {/* Rating Badge */}
           <Skeleton className="h-6 w-12 rounded-lg" />
         </div>
         
-        {/* Location Row with icon */}
+        {/* Location Row with MapPin icon */}
         <div className="flex items-center gap-1.5 mb-3">
-          <Skeleton className="h-3.5 w-3.5 rounded-full" />
-          <Skeleton className="h-3 w-24" />
+          <Skeleton className="h-3.5 w-3.5 rounded-full flex-shrink-0" />
+          <Skeleton className="h-2.5 w-28" />
         </div>
 
-        {/* Activities/Tags */}
+        {/* Activities/Tags - matches gap-1 mb-4 */}
         <div className="flex flex-wrap gap-1 mb-4">
-          <Skeleton className="h-4 w-12 rounded-md" />
-          <Skeleton className="h-4 w-16 rounded-md" />
           <Skeleton className="h-4 w-14 rounded-md" />
+          <Skeleton className="h-4 w-16 rounded-md" />
+          <Skeleton className="h-4 w-12 rounded-md" />
         </div>
         
-        {/* Footer: Price & Date - Matches border-t and mt-auto */}
+        {/* Footer: Price & Date - matches border-t border-slate-50 mt-auto pt-4 */}
         <div className="mt-auto pt-4 border-t border-slate-50 flex items-center justify-between">
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1">
             <Skeleton className="h-2 w-12" />
             <Skeleton className="h-5 w-20" />
           </div>
 
-          <div className="flex flex-col items-end gap-1.5">
+          <div className="flex flex-col items-end gap-1">
             <div className="flex items-center gap-1">
               <Skeleton className="h-3 w-3" />
-              <Skeleton className="h-3 w-14" />
+              <Skeleton className="h-2.5 w-14" />
             </div>
-            {/* Slots Left placeholder */}
-            <Skeleton className="h-2 w-16" />
+            <Skeleton className="h-2 w-20" />
           </div>
         </div>
       </div>
@@ -92,13 +88,13 @@ export const ListingGridSkeleton = memo(({ count = 8, className }: { count?: num
   );
 });
 
-// Horizontal scroll skeleton
+// Horizontal scroll skeleton - matches the horizontal scroll containers
 export const HorizontalScrollSkeleton = memo(({ count = 5 }: { count?: number }) => {
   return (
     <div className="flex gap-3 md:gap-4 overflow-x-auto pb-2 scrollbar-hide pl-1 pr-8 md:pl-2 md:pr-12">
       {Array.from({ length: count }).map((_, i) => (
         <div key={i} className="flex-shrink-0 w-[45vw] md:w-56">
-          <ListingSkeleton />
+          <ListingSkeleton compact />
         </div>
       ))}
     </div>

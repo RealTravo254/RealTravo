@@ -197,7 +197,7 @@ const Index = () => {
         supabase
           .from("trips")
           .select(
-            "id,name,location,place,country,image_url,date,is_custom_date,is_flexible_date,available_tickets,activities,latitude,longitude,type,created_at,price,price_child"
+            "id,name,location,place,country,image_url,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child"
           )
           .eq("approval_status", "approved")
           .eq("is_hidden", false)
@@ -222,7 +222,7 @@ const Index = () => {
         supabase
           .from("trips")
           .select(
-            "id,name,location,place,country,image_url,date,is_custom_date,is_flexible_date,available_tickets,activities,latitude,longitude,type,created_at,price,price_child"
+            "id,name,location,place,country,image_url,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child"
           )
           .eq("approval_status", "approved")
           .eq("is_hidden", false)
@@ -332,7 +332,7 @@ const Index = () => {
       let dbQuery = supabase
         .from("trips")
         .select(
-          "id,name,location,place,country,image_url,date,is_custom_date,is_flexible_date,available_tickets,activities,latitude,longitude,type,created_at,price,price_child"
+          "id,name,location,place,country,image_url,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child"
         )
         .eq("approval_status", "approved")
         .eq("is_hidden", false)

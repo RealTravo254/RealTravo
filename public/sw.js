@@ -1,7 +1,7 @@
 // Service Worker for Push Notifications, Image Caching, and Offline Support
 
-const CACHE_NAME = 'triptrac-images-v1';
-const STATIC_CACHE_NAME = 'triptrac-static-v1';
+const CACHE_NAME = 'triptrac-images-v2';
+const STATIC_CACHE_NAME = 'triptrac-static-v2';
 const IMAGE_CACHE_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 // Image URL patterns to cache

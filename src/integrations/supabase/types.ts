@@ -426,6 +426,45 @@ export type Database = {
         }
         Relationships: []
       }
+      item_availability_by_date: {
+        Row: {
+          booked_slots: number
+          item_id: string
+          updated_at: string
+          visit_date: string
+        }
+        Insert: {
+          booked_slots?: number
+          item_id: string
+          updated_at?: string
+          visit_date: string
+        }
+        Update: {
+          booked_slots?: number
+          item_id?: string
+          updated_at?: string
+          visit_date?: string
+        }
+        Relationships: []
+      }
+      item_availability_overall: {
+        Row: {
+          booked_slots: number
+          item_id: string
+          updated_at: string
+        }
+        Insert: {
+          booked_slots?: number
+          item_id: string
+          updated_at?: string
+        }
+        Update: {
+          booked_slots?: number
+          item_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string | null
@@ -1069,6 +1108,14 @@ export type Database = {
         Returns: boolean
       }
       hash_pin: { Args: { pin_text: string }; Returns: string }
+      recompute_item_availability_by_date: {
+        Args: { p_item_id: string; p_visit_date: string }
+        Returns: undefined
+      }
+      recompute_item_availability_overall: {
+        Args: { p_item_id: string }
+        Returns: undefined
+      }
       verify_item_credentials: {
         Args: {
           p_item_id: string

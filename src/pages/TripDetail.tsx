@@ -313,6 +313,7 @@ const TripDetail = () => {
             itemName={trip.name} itemId={trip.id} bookingType="trip"
             hostId={trip.created_by || ""} onPaymentSuccess={() => setIsCompleted(true)}
             onCancel={() => setBookingOpen(false)} primaryColor={COLORS.TEAL} accentColor={COLORS.CORAL}
+            totalCapacity={trip.available_tickets || 0}
           />
         </DialogContent>
       </Dialog>

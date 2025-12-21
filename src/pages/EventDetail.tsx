@@ -341,6 +341,7 @@ const EventDetail = () => {
             onCancel={() => setShowBooking(false)}
             primaryColor={COLORS.TEAL}
             accentColor={COLORS.CORAL}
+            totalCapacity={event.available_tickets || 0}
           />
         </DialogContent>
       </Dialog>

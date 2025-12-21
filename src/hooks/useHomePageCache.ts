@@ -13,7 +13,6 @@ export interface HomePageCacheData {
   };
   listings: any[];
   nearbyPlacesHotels: any[];
-  bookingStats: Record<string, number>;
   cachedAt: number;
 }
 

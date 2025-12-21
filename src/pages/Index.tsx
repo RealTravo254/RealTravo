@@ -29,6 +29,7 @@ import { ListingSkeleton, ListingGridSkeleton, HorizontalScrollSkeleton } from "
 import { useSavedItems } from "@/hooks/useSavedItems";
 import { getCachedHomePageData, setCachedHomePageData } from "@/hooks/useHomePageCache";
 import { useRatings, sortByRating, RatingData } from "@/hooks/useRatings";
+import { useRealtimeBookings } from "@/hooks/useRealtimeBookings";
 
 // Memoized listing card wrapper for performance
 const MemoizedListingCard = memo(ListingCard);
@@ -93,7 +94,6 @@ const Index = () => {
   const [nearbyPlacesHotels, setNearbyPlacesHotels] = useState<any[]>([]);
   const [loadingScrollable, setLoadingScrollable] = useState(true);
   const [loadingNearby, setLoadingNearby] = useState(true);
-  const [bookingStats, setBookingStats] = useState<Record<string, number>>({});
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
 
@@ -108,6 +108,14 @@ const Index = () => {
     scrollableRows.events.forEach(item => ids.add(item.id));
     return Array.from(ids);
   }, [listings, nearbyPlacesHotels, scrollableRows]);
+
+  // Collect trip and event IDs for real-time booking stats
+  const tripEventIds = useMemo(() => {
+    return [...scrollableRows.trips, ...scrollableRows.events].map(item => item.id);
+  }, [scrollableRows.trips, scrollableRows.events]);
+
+  // Real-time booking stats subscription - all users see updates instantly
+  const { bookingStats } = useRealtimeBookings(tripEventIds);
 
   // Fetch ratings for all items
   const { ratings } = useRatings(allItemIds);
@@ -252,24 +260,7 @@ const Index = () => {
         events: eventsData.data || []
       });
 
-      // Fetch booking statistics for trips/events
-      const allTripIds = [...(tripsData.data || []), ...(eventsData.data || [])].map((trip: any) => trip.id);
-      if (allTripIds.length > 0) {
-        const { data: bookingsData } = await supabase
-          .from('bookings')
-          .select('item_id, slots_booked')
-          .in('item_id', allTripIds)
-          .in('status', ['confirmed', 'pending']);
-          
-        if (bookingsData) {
-          const stats: Record<string, number> = {};
-          bookingsData.forEach(booking => {
-            const current = stats[booking.item_id] || 0;
-            stats[booking.item_id] = current + (booking.slots_booked || 0);
-          });
-          setBookingStats(stats);
-        }
-      }
+      // Booking stats are now handled by useRealtimeBookings hook for real-time updates
     } catch (error) {
       console.error("Error fetching scrollable rows:", error);
     } finally {
@@ -397,20 +388,7 @@ const Index = () => {
     let combined = [...hotels, ...adventures];
 
     // Fetch booking statistics for events
-    const eventIds = events.map((event: any) => event.id);
-    if (eventIds.length > 0) {
-      const {
-        data: bookingsData
-      } = await supabase.from('bookings').select('item_id, slots_booked').in('item_id', eventIds).in('status', ['confirmed', 'pending']);
-      if (bookingsData) {
-        const stats: Record<string, number> = {};
-        bookingsData.forEach(booking => {
-          const current = stats[booking.item_id] || 0;
-          stats[booking.item_id] = current + (booking.slots_booked || 0);
-        });
-        setBookingStats(stats);
-      }
-    }
+    // Booking stats are now handled by useRealtimeBookings hook for real-time updates
     if (position) {
       combined = combined.sort((a, b) => {
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
@@ -470,7 +448,7 @@ const Index = () => {
         events: []
       });
       setNearbyPlacesHotels(cachedData.nearbyPlacesHotels || []);
-      setBookingStats(cachedData.bookingStats || {});
+      // Booking stats are now handled by useRealtimeBookings hook
       setLoading(false);
       setLoadingScrollable(false);
       setLoadingNearby(false);
@@ -492,11 +470,10 @@ const Index = () => {
       setCachedHomePageData({
         scrollableRows,
         listings,
-        nearbyPlacesHotels,
-        bookingStats
+        nearbyPlacesHotels
       });
     }
-  }, [loading, loadingScrollable, listings, scrollableRows, nearbyPlacesHotels, bookingStats]);
+  }, [loading, loadingScrollable, listings, scrollableRows, nearbyPlacesHotels]);
   useEffect(() => {
     if (position) {
       fetchNearbyPlacesAndHotels();

@@ -3,13 +3,14 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Calendar, Users, Loader2, CheckCircle2, Phone, CreditCard, X } from "lucide-react";
+import { Calendar, Users, Loader2, CheckCircle2, Phone, CreditCard, X, AlertTriangle } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { PaymentStatusDialog } from "./PaymentStatusDialog";
 import { useMpesaPayment } from "@/hooks/useMpesaPayment";
 import { cn } from "@/lib/utils";
+import { useRealtimeItemAvailability } from "@/hooks/useRealtimeBookings";
 
 interface Facility {
     name: string;
@@ -42,6 +43,7 @@ interface MultiStepBookingProps {
     onCancel?: () => void;
     primaryColor?: string;
     accentColor?: string;
+    totalCapacity?: number;
 }
 
 export interface BookingFormData {
@@ -76,8 +78,15 @@ export const MultiStepBooking = ({
     onCancel,
     primaryColor = "#008080",
     accentColor = "#FF7F50",
+    totalCapacity = 0,
 }: MultiStepBookingProps) => {
     const { user } = useAuth();
+    
+    // Real-time availability check - prevents booking if sold out during booking flow
+    const { remainingSlots, isSoldOut } = useRealtimeItemAvailability(
+        itemId || undefined, 
+        totalCapacity
+    );
     
     const totalSteps = skipFacilitiesAndActivities ? (user ? 3 : 4) : 4;
     
@@ -317,8 +326,23 @@ export const MultiStepBooking = ({
     
     const total = calculateTotal();
 
+    // Check if requested slots exceed remaining
+    const requestedSlots = formData.num_adults + formData.num_children;
+    const insufficientSlots = totalCapacity > 0 && requestedSlots > remainingSlots;
+
     return (
         <div className="flex flex-col max-h-[90vh] bg-gradient-to-br from-white via-white to-slate-50 rounded-[32px] overflow-hidden shadow-2xl border border-slate-100">
+            {/* Sold Out Banner - Shows real-time if item becomes sold out during booking */}
+            {isSoldOut && totalCapacity > 0 && (
+                <div className="flex-shrink-0 px-6 py-3 bg-red-50 border-b border-red-200 flex items-center gap-3">
+                    <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0" />
+                    <div>
+                        <p className="text-sm font-bold text-red-700">This item is now fully booked</p>
+                        <p className="text-xs text-red-600">All slots have been reserved. Please try another date or item.</p>
+                    </div>
+                </div>
+            )}
+
             {/* Fixed Header */}
             <div className="flex-shrink-0 p-6 pb-4 border-b border-slate-100">
                 <div className="flex items-center justify-between mb-4">
@@ -747,10 +771,16 @@ export const MultiStepBooking = ({
                                 isPaymentInProgress ||
                                 !formData.guest_name || 
                                 !formData.guest_email ||
-                                (isMpesaSelected && !formData.mpesa_phone)
+                                (isMpesaSelected && !formData.mpesa_phone) ||
+                                isSoldOut ||
+                                insufficientSlots
                             }
                         >
-                            {isProcessing || isPaymentInProgress ? (
+                            {isSoldOut ? (
+                                'Fully Booked'
+                            ) : insufficientSlots ? (
+                                `Only ${remainingSlots} slots left`
+                            ) : isProcessing || isPaymentInProgress ? (
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                             ) : total > 0 ? (
                                 paymentMethod === 'mpesa' ? 'Pay with M-Pesa' : 'Pay with Card'

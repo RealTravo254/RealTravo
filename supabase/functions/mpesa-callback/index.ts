@@ -8,6 +8,17 @@ const corsHeaders = {
 
 const resend = new Resend(Deno.env.get('RESEND_API_KEY'));
 
+// HTML escape function to prevent XSS in emails
+function escapeHtml(unsafe: string): string {
+  if (typeof unsafe !== 'string') return '';
+  return unsafe
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 Deno.serve(async (req) => {
   console.log('=== MPESA CALLBACK ENDPOINT HIT ===');
   console.log('Request Method:', req.method);
@@ -166,7 +177,9 @@ async function sendNotificationsAndEmails(
   mpesaReceiptNumber: string | null
 ) {
   try {
-    const itemName = bookingData.emailData?.itemName || 'your booking';
+    // Safely get item name with fallback
+    const rawItemName = bookingData.emailData?.itemName || 'your booking';
+    const itemName = escapeHtml(String(rawItemName).slice(0, 200)); // Limit length and escape
     
     console.log('=== SENDING NOTIFICATIONS AND EMAILS ===');
     console.log('Booking ID:', booking.id);
@@ -178,9 +191,10 @@ async function sendNotificationsAndEmails(
 
     // Send confirmation email to user/guest - this should always work for both logged-in and guest users
     const guestEmail = bookingData.guest_email;
-    const guestName = bookingData.guest_name || 'Guest';
+    const rawGuestName = bookingData.guest_name || 'Guest';
+    const guestName = escapeHtml(String(rawGuestName).slice(0, 100)); // Limit and escape
     
-    if (guestEmail) {
+    if (guestEmail && typeof guestEmail === 'string' && guestEmail.includes('@')) {
       console.log('📧 Attempting to send confirmation email to:', guestEmail);
       
       const emailResult = await sendConfirmationEmail(
@@ -201,21 +215,25 @@ async function sendNotificationsAndEmails(
         console.error('❌ Failed to send confirmation email to:', guestEmail, 'Error:', emailResult.error);
       }
     } else {
-      console.warn('⚠️ No guest email found in booking data. Cannot send confirmation email.');
+      console.warn('⚠️ No valid guest email found in booking data. Cannot send confirmation email.');
       console.log('Booking data keys:', Object.keys(bookingData));
     }
 
     // Create notification for user if logged in
     if (bookingData.user_id) {
       const details = bookingData.booking_details || {};
-      const totalPeople = (details.adults || 0) + (details.children || 0);
-      const facilitiesList = details.selectedFacilities?.map((f: any) => f.name).join(', ') || '';
-      const activitiesList = details.selectedActivities?.map((a: any) => a.name).join(', ') || '';
+      const totalPeople = (Number(details.adults) || 0) + (Number(details.children) || 0);
+      const facilitiesList = Array.isArray(details.selectedFacilities) 
+        ? details.selectedFacilities.map((f: any) => escapeHtml(String(f.name || f || '').slice(0, 50))).join(', ')
+        : '';
+      const activitiesList = Array.isArray(details.selectedActivities)
+        ? details.selectedActivities.map((a: any) => escapeHtml(String(a.name || a || '').slice(0, 50))).join(', ')
+        : '';
       
-      let userMessage = `Payment confirmed for ${itemName}. Booked by: ${bookingData.guest_name || 'Guest'}. People: ${totalPeople} (${details.adults || 0} adults, ${details.children || 0} children).`;
+      let userMessage = `Payment confirmed for ${itemName}. Booked by: ${guestName}. People: ${totalPeople} (${Number(details.adults) || 0} adults, ${Number(details.children) || 0} children).`;
       if (facilitiesList) userMessage += ` Facilities: ${facilitiesList}.`;
       if (activitiesList) userMessage += ` Activities: ${activitiesList}.`;
-      userMessage += ` Total: KES ${bookingData.total_amount}`;
+      userMessage += ` Total: KES ${Number(bookingData.total_amount) || 0}`;
       
       const { error: userNotifError } = await supabase
         .from('notifications')
@@ -223,17 +241,15 @@ async function sendNotificationsAndEmails(
           user_id: bookingData.user_id,
           type: 'payment_confirmed',
           title: 'Payment Successful',
-          message: userMessage,
+          message: userMessage.slice(0, 500), // Limit message length
           data: { 
             booking_id: booking.id, 
             amount: bookingData.total_amount,
             mpesa_receipt: mpesaReceiptNumber,
-            guest_name: bookingData.guest_name,
+            guest_name: guestName,
             total_people: totalPeople,
-            adults: details.adults || 0,
-            children: details.children || 0,
-            facilities: details.selectedFacilities || [],
-            activities: details.selectedActivities || []
+            adults: Number(details.adults) || 0,
+            children: Number(details.children) || 0,
           },
         });
 
@@ -248,14 +264,18 @@ async function sendNotificationsAndEmails(
     const hostId = bookingData.host_id || payment.host_id;
     if (hostId) {
       const details = bookingData.booking_details || {};
-      const totalPeople = (details.adults || 0) + (details.children || 0);
-      const facilitiesList = details.selectedFacilities?.map((f: any) => f.name).join(', ') || '';
-      const activitiesList = details.selectedActivities?.map((a: any) => a.name).join(', ') || '';
+      const totalPeople = (Number(details.adults) || 0) + (Number(details.children) || 0);
+      const facilitiesList = Array.isArray(details.selectedFacilities)
+        ? details.selectedFacilities.map((f: any) => escapeHtml(String(f.name || f || '').slice(0, 50))).join(', ')
+        : '';
+      const activitiesList = Array.isArray(details.selectedActivities)
+        ? details.selectedActivities.map((a: any) => escapeHtml(String(a.name || a || '').slice(0, 50))).join(', ')
+        : '';
       
-      let hostMessage = `New paid booking for ${itemName}. Booked by: ${bookingData.guest_name || 'Guest'}. People: ${totalPeople} (${details.adults || 0} adults, ${details.children || 0} children).`;
+      let hostMessage = `New paid booking for ${itemName}. Booked by: ${guestName}. People: ${totalPeople} (${Number(details.adults) || 0} adults, ${Number(details.children) || 0} children).`;
       if (facilitiesList) hostMessage += ` Facilities: ${facilitiesList}.`;
       if (activitiesList) hostMessage += ` Activities: ${activitiesList}.`;
-      hostMessage += ` Amount: KES ${bookingData.total_amount}`;
+      hostMessage += ` Amount: KES ${Number(bookingData.total_amount) || 0}`;
       
       // Create in-app notification for host
       const { error: hostNotifError } = await supabase
@@ -264,16 +284,14 @@ async function sendNotificationsAndEmails(
           user_id: hostId,
           type: 'new_booking',
           title: 'New Paid Booking',
-          message: hostMessage,
+          message: hostMessage.slice(0, 500), // Limit message length
           data: { 
             booking_id: booking.id, 
             amount: bookingData.total_amount, 
-            guest_name: bookingData.guest_name,
+            guest_name: guestName,
             total_people: totalPeople,
-            adults: details.adults || 0,
-            children: details.children || 0,
-            facilities: details.selectedFacilities || [],
-            activities: details.selectedActivities || []
+            adults: Number(details.adults) || 0,
+            children: Number(details.children) || 0,
           },
         });
 
@@ -290,12 +308,12 @@ async function sendNotificationsAndEmails(
         .eq('id', hostId)
         .single();
 
-      if (hostProfile?.email) {
+      if (hostProfile?.email && typeof hostProfile.email === 'string' && hostProfile.email.includes('@')) {
         const hostEmailResult = await sendHostNotificationEmail(
           hostProfile.email,
-          hostProfile.name || 'Host',
+          escapeHtml(String(hostProfile.name || 'Host').slice(0, 100)),
           booking.id,
-          bookingData.guest_name,
+          guestName,
           itemName,
           bookingData.total_amount,
           bookingData.visit_date
@@ -325,7 +343,12 @@ async function sendConfirmationEmail(
   mpesaReceipt: string | null
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const typeDisplay = bookingType.charAt(0).toUpperCase() + bookingType.slice(1);
+    // All inputs should already be escaped, but ensure safety
+    const safeGuestName = escapeHtml(String(guestName).slice(0, 100));
+    const safeItemName = escapeHtml(String(itemName).slice(0, 200));
+    const safeBookingType = escapeHtml(String(bookingType).slice(0, 50));
+    const safeBookingId = escapeHtml(String(bookingId).slice(0, 50));
+    const typeDisplay = safeBookingType.charAt(0).toUpperCase() + safeBookingType.slice(1);
 
     const emailHTML = `
       <!DOCTYPE html>
@@ -350,18 +373,18 @@ async function sendConfirmationEmail(
               <h1>✅ Payment Confirmed!</h1>
             </div>
             <div class="content">
-              <p>Dear ${guestName},</p>
+              <p>Dear ${safeGuestName},</p>
               <p>Great news! Your payment has been received and your booking is now confirmed.</p>
               
               <div class="detail-box">
                 <h2>Booking Details</h2>
-                <p><strong>Booking ID:</strong> ${bookingId}</p>
+                <p><strong>Booking ID:</strong> ${safeBookingId}</p>
                 <p><strong>Booking Type:</strong> ${typeDisplay}</p>
-                <p><strong>Item:</strong> ${itemName}</p>
-                ${visitDate ? `<p><strong>Visit Date:</strong> ${visitDate}</p>` : ''}
-                ${mpesaReceipt ? `<p><strong>M-Pesa Receipt:</strong> ${mpesaReceipt}</p>` : ''}
+                <p><strong>Item:</strong> ${safeItemName}</p>
+                ${visitDate ? `<p><strong>Visit Date:</strong> ${escapeHtml(String(visitDate).slice(0, 20))}</p>` : ''}
+                ${mpesaReceipt ? `<p><strong>M-Pesa Receipt:</strong> ${escapeHtml(String(mpesaReceipt).slice(0, 20))}</p>` : ''}
                 <hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">
-                <p class="amount">Total Paid: KES ${totalAmount.toFixed(2)}</p>
+                <p class="amount">Total Paid: KES ${Number(totalAmount).toFixed(2)}</p>
                 <span class="status-badge">Payment Confirmed</span>
               </div>
 
@@ -379,7 +402,7 @@ async function sendConfirmationEmail(
     const { error } = await resend.emails.send({
       from: 'Bookings <onboarding@resend.dev>',
       to: [email],
-      subject: `✅ Payment Confirmed - ${itemName}`,
+      subject: `✅ Payment Confirmed - ${safeItemName}`,
       html: emailHTML,
     });
 
@@ -402,6 +425,12 @@ async function sendHostNotificationEmail(
   visitDate: string | null
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    // All inputs should already be escaped, but ensure safety
+    const safeHostName = escapeHtml(String(hostName).slice(0, 100));
+    const safeGuestName = escapeHtml(String(guestName).slice(0, 100));
+    const safeItemName = escapeHtml(String(itemName).slice(0, 200));
+    const safeBookingId = escapeHtml(String(bookingId).slice(0, 50));
+
     const emailHTML = `
       <!DOCTYPE html>
       <html>
@@ -424,17 +453,17 @@ async function sendHostNotificationEmail(
               <h1>🎉 New Booking Received!</h1>
             </div>
             <div class="content">
-              <p>Dear ${hostName},</p>
+              <p>Dear ${safeHostName},</p>
               <p>You have received a new paid booking!</p>
               
               <div class="detail-box">
                 <h2>Booking Details</h2>
-                <p><strong>Booking ID:</strong> ${bookingId}</p>
-                <p><strong>Guest Name:</strong> ${guestName}</p>
-                <p><strong>Item:</strong> ${itemName}</p>
-                ${visitDate ? `<p><strong>Visit Date:</strong> ${visitDate}</p>` : ''}
+                <p><strong>Booking ID:</strong> ${safeBookingId}</p>
+                <p><strong>Guest Name:</strong> ${safeGuestName}</p>
+                <p><strong>Item:</strong> ${safeItemName}</p>
+                ${visitDate ? `<p><strong>Visit Date:</strong> ${escapeHtml(String(visitDate).slice(0, 20))}</p>` : ''}
                 <hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">
-                <p class="amount">Amount: KES ${totalAmount.toFixed(2)}</p>
+                <p class="amount">Amount: KES ${Number(totalAmount).toFixed(2)}</p>
               </div>
 
               <p>Please prepare to receive your guest. You can view full booking details in your dashboard.</p>
@@ -450,7 +479,7 @@ async function sendHostNotificationEmail(
     const { error } = await resend.emails.send({
       from: 'Bookings <onboarding@resend.dev>',
       to: [email],
-      subject: `🎉 New Booking - ${itemName}`,
+      subject: `🎉 New Booking - ${safeItemName}`,
       html: emailHTML,
     });
 

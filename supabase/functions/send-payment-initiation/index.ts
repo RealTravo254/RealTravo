@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "https://esm.sh/resend@4.0.0";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -8,12 +10,25 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-interface PaymentInitiationRequest {
-  email: string;
-  guestName: string;
-  itemName: string;
-  totalAmount: number;
-  phone: string;
+// Input validation schema
+const paymentInitiationSchema = z.object({
+  email: z.string().email("Invalid email format").max(255, "Email too long"),
+  guestName: z.string().min(1, "Guest name required").max(100, "Guest name too long"),
+  itemName: z.string().min(1, "Item name required").max(200, "Item name too long"),
+  totalAmount: z.number().positive("Amount must be positive").max(10000000, "Amount too large"),
+  phone: z.string().min(9, "Phone too short").max(15, "Phone too long"),
+  checkoutRequestId: z.string().optional(), // Optional: for verification
+});
+
+// HTML escape function to prevent XSS
+function escapeHtml(unsafe: string): string {
+  if (typeof unsafe !== 'string') return '';
+  return unsafe
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -22,7 +37,51 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { email, guestName, itemName, totalAmount, phone }: PaymentInitiationRequest = await req.json();
+    // Parse and validate input
+    const rawData = await req.json();
+    
+    let validatedData;
+    try {
+      validatedData = paymentInitiationSchema.parse(rawData);
+    } catch (validationError) {
+      if (validationError instanceof z.ZodError) {
+        console.error("Validation error:", validationError.errors);
+        return new Response(
+          JSON.stringify({ error: "Invalid input", details: validationError.errors }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      throw validationError;
+    }
+
+    const { email, guestName, itemName, totalAmount, phone, checkoutRequestId } = validatedData;
+
+    // If checkoutRequestId provided, verify it exists in payments table
+    if (checkoutRequestId) {
+      const supabaseClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      );
+
+      const { data: payment, error: paymentError } = await supabaseClient
+        .from('payments')
+        .select('id, phone_number, payment_status')
+        .eq('checkout_request_id', checkoutRequestId)
+        .single();
+
+      if (paymentError || !payment) {
+        console.error("Payment record not found:", checkoutRequestId);
+        return new Response(
+          JSON.stringify({ error: "Payment record not found" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    // Escape all user-provided data for HTML
+    const safeGuestName = escapeHtml(guestName);
+    const safeItemName = escapeHtml(itemName);
+    const safePhone = escapeHtml(phone);
 
     const emailHTML = `
       <!DOCTYPE html>
@@ -47,7 +106,7 @@ const handler = async (req: Request): Promise<Response> => {
               <h1>📱 Payment Initiated</h1>
             </div>
             <div class="content">
-              <p>Dear ${guestName},</p>
+              <p>Dear ${safeGuestName},</p>
               <p>Your payment request has been sent to your phone.</p>
               
               <div class="status">
@@ -56,9 +115,9 @@ const handler = async (req: Request): Promise<Response> => {
 
               <div class="detail-box">
                 <h2>Payment Details</h2>
-                <p><strong>Item:</strong> ${itemName}</p>
-                <p><strong>Phone Number:</strong> ${phone}</p>
-                <p class="amount">Amount: Sh ${totalAmount}</p>
+                <p><strong>Item:</strong> ${safeItemName}</p>
+                <p><strong>Phone Number:</strong> ${safePhone}</p>
+                <p class="amount">Amount: Sh ${Number(totalAmount).toFixed(2)}</p>
               </div>
 
               <div class="detail-box">
@@ -83,7 +142,7 @@ const handler = async (req: Request): Promise<Response> => {
     const { data, error } = await resend.emails.send({
       from: "Payments <onboarding@resend.dev>",
       to: [email],
-      subject: `Payment Initiated - ${itemName}`,
+      subject: `Payment Initiated - ${safeItemName}`,
       html: emailHTML,
     });
 

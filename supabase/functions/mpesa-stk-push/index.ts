@@ -1,18 +1,43 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface STKPushRequest {
-  phoneNumber: string;
-  amount: number;
-  accountReference: string;
-  transactionDesc: string;
-  bookingData?: any;
-}
+// Input validation schemas
+const bookingDataSchema = z.object({
+  item_id: z.string().uuid("Invalid item ID"),
+  booking_type: z.enum(['trip', 'event', 'hotel', 'adventure_place', 'adventure', 'attraction']),
+  total_amount: z.number().positive().max(10000000, "Amount too large"),
+  booking_details: z.any(),
+  user_id: z.string().uuid().optional().nullable(),
+  is_guest_booking: z.boolean().optional(),
+  guest_name: z.string().min(1).max(100).optional(),
+  guest_email: z.string().email().max(255).optional().nullable(),
+  guest_phone: z.string().max(20).optional().nullable(),
+  visit_date: z.string().optional().nullable(),
+  slots_booked: z.number().int().positive().max(100).optional(),
+  host_id: z.string().uuid().optional().nullable(),
+  referral_tracking_id: z.string().uuid().optional().nullable(),
+  emailData: z.any().optional(),
+});
+
+const stkPushRequestSchema = z.object({
+  phoneNumber: z.string()
+    .min(9, "Phone number too short")
+    .max(15, "Phone number too long")
+    .regex(/^(\+?254|0)?[17]\d{8}$/, "Invalid Kenyan phone number format"),
+  amount: z.number()
+    .positive("Amount must be positive")
+    .min(1, "Minimum amount is 1")
+    .max(150000, "Maximum M-Pesa transaction is 150,000"), // M-Pesa transaction limit
+  accountReference: z.string().min(1).max(12),
+  transactionDesc: z.string().min(1).max(13),
+  bookingData: bookingDataSchema,
+});
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -20,13 +45,30 @@ serve(async (req) => {
   }
 
   try {
-    const { phoneNumber, amount, accountReference, transactionDesc, bookingData }: STKPushRequest = await req.json();
+    // Parse and validate input
+    const rawData = await req.json();
+    
+    let validatedData;
+    try {
+      validatedData = stkPushRequestSchema.parse(rawData);
+    } catch (validationError) {
+      if (validationError instanceof z.ZodError) {
+        console.error("Validation error:", validationError.errors);
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: "Invalid input", 
+            details: validationError.errors 
+          }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      throw validationError;
+    }
+
+    const { phoneNumber, amount, accountReference, transactionDesc, bookingData } = validatedData;
 
     console.log('STK Push request received:', { phoneNumber, amount, accountReference });
-
-    if (!bookingData) {
-      throw new Error('Booking data is required');
-    }
 
     const consumerKey = Deno.env.get('MPESA_CONSUMER_KEY');
     const consumerSecret = Deno.env.get('MPESA_CONSUMER_SECRET');
@@ -42,6 +84,43 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
+
+    // Verify item exists before proceeding
+    let tableName = 'trips';
+    if (bookingData.booking_type === 'hotel') {
+      tableName = 'hotels';
+    } else if (bookingData.booking_type === 'adventure' || bookingData.booking_type === 'adventure_place') {
+      tableName = 'adventure_places';
+    }
+
+    const { data: item, error: itemError } = await supabaseClient
+      .from(tableName)
+      .select('id, created_by, approval_status')
+      .eq('id', bookingData.item_id)
+      .single();
+
+    if (itemError || !item) {
+      console.error("Item not found:", bookingData.item_id, itemError);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: "Item not found or does not exist" 
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Verify item is approved
+    if (item.approval_status !== 'approved') {
+      console.error("Item not approved:", bookingData.item_id, item.approval_status);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: "Item is not available for booking" 
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Step 1: Get OAuth token
     const auth = btoa(`${consumerKey}:${consumerSecret}`);
@@ -176,7 +255,7 @@ serve(async (req) => {
       console.log('✅ Pending booking created:', booking.id);
     }
 
-    // Save to payments table for callback tracking (include booking_id)
+    // Save to payments table for callback tracking (include booking_id and host_id)
     const { error: dbError } = await supabaseClient.from('payments').insert({
       checkout_request_id: stkData.CheckoutRequestID,
       merchant_request_id: stkData.MerchantRequestID,
@@ -186,11 +265,12 @@ serve(async (req) => {
       transaction_desc: transactionDesc,
       booking_data: {
         ...bookingData,
-        booking_id: booking?.id, // Include the created booking ID
+        booking_id: booking?.id,
+        host_id: item.created_by, // Add host_id from the item
       },
       payment_status: 'pending',
       user_id: bookingData.user_id || null,
-      host_id: bookingData.host_id || null,
+      host_id: item.created_by, // Store host_id directly
     });
 
     if (dbError) {

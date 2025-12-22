@@ -13,6 +13,7 @@ interface ManualBookingSectionProps {
   itemType: 'trip' | 'event' | 'hotel' | 'adventure' | 'adventure_place';
   itemName: string;
   totalCapacity: number;
+  facilities?: Array<{ name: string; price: number }>;
   onBookingCreated: () => void;
 }
 
@@ -21,6 +22,7 @@ export const ManualBookingSection = ({
   itemType,
   itemName,
   totalCapacity,
+  facilities = [],
   onBookingCreated
 }: ManualBookingSectionProps) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -70,6 +72,7 @@ export const ManualBookingSection = ({
               itemType={itemType}
               itemName={itemName}
               totalCapacity={totalCapacity}
+              facilities={facilities}
               onBookingCreated={onBookingCreated}
             />
           </div>

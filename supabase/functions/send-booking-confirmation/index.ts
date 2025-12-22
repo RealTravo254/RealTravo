@@ -17,7 +17,7 @@ const bookingConfirmationSchema = z.object({
   guestName: z.string().min(1, "Guest name required").max(100, "Guest name too long"),
   bookingType: z.enum(['trip', 'event', 'hotel', 'adventure_place', 'adventure', 'attraction']),
   itemName: z.string().min(1, "Item name required").max(200, "Item name too long"),
-  totalAmount: z.number().positive("Amount must be positive").max(10000000, "Amount too large"),
+  totalAmount: z.number().min(0, "Amount cannot be negative").max(10000000, "Amount too large"),
   bookingDetails: z.any().optional(),
   visitDate: z.string().optional().nullable(),
   paymentStatus: z.string().optional(),
@@ -34,13 +34,22 @@ function escapeHtml(unsafe: string): string {
     .replace(/'/g, "&#039;");
 }
 
+// Format date helper
+function formatDate(dateStr: string): string {
+  try {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  } catch {
+    return dateStr;
+  }
+}
+
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Parse and validate input
     const rawData = await req.json();
     
     let validatedData;
@@ -59,13 +68,11 @@ const handler = async (req: Request): Promise<Response> => {
 
     const { bookingId, email, guestName, bookingType, itemName, totalAmount, bookingDetails, visitDate, paymentStatus } = validatedData;
 
-    // Initialize Supabase client to verify booking exists
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Verify booking exists and email matches
     const { data: booking, error: bookingError } = await supabaseClient
       .from('bookings')
       .select('id, guest_email, payment_status, total_amount')
@@ -80,7 +87,6 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Verify email matches the booking
     if (booking.guest_email && booking.guest_email.toLowerCase() !== email.toLowerCase()) {
       console.error("Email mismatch for booking:", bookingId);
       return new Response(
@@ -89,7 +95,6 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Escape all user-provided data for HTML
     const safeGuestName = escapeHtml(guestName);
     const safeItemName = escapeHtml(itemName);
     const safeBookingType = escapeHtml(bookingType);
@@ -98,34 +103,56 @@ const handler = async (req: Request): Promise<Response> => {
     const typeDisplay = safeBookingType.charAt(0).toUpperCase() + safeBookingType.slice(1);
     const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(bookingId)}`;
 
-    // Generate booking details HTML safely
+    // Generate detailed breakdown HTML
     let detailsHTML = '';
+    let facilitiesHTML = '';
+    let activitiesHTML = '';
+    
     if (bookingDetails) {
       const details = typeof bookingDetails === 'string' ? JSON.parse(bookingDetails) : bookingDetails;
       
+      // Guest count
       if (details.adults || details.children) {
         detailsHTML += `<p><strong>Guests:</strong> ${Number(details.adults) || 0} Adults, ${Number(details.children) || 0} Children</p>`;
       }
       if (details.rooms) {
         detailsHTML += `<p><strong>Rooms:</strong> ${Number(details.rooms) || 0}</p>`;
       }
+      
+      // Facilities with date ranges
       if (details.selectedFacilities && Array.isArray(details.selectedFacilities) && details.selectedFacilities.length > 0) {
-        const facilitiesNames = details.selectedFacilities
-          .map((f: any) => escapeHtml(typeof f === 'string' ? f : f.name || ''))
-          .filter(Boolean)
-          .join(', ');
-        if (facilitiesNames) {
-          detailsHTML += `<p><strong>Facilities:</strong> ${facilitiesNames}</p>`;
-        }
+        facilitiesHTML = `
+          <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0;">
+            <h3 style="color: #008080; font-size: 14px; margin-bottom: 10px; text-transform: uppercase;">Facilities Booked</h3>
+            <ul style="list-style: none; padding: 0; margin: 0;">
+              ${details.selectedFacilities.map((f: any) => {
+                const name = escapeHtml(typeof f === 'string' ? f : f.name || '');
+                const dateRange = f.startDate && f.endDate 
+                  ? ` <span style="color: #666;">(${formatDate(f.startDate)} - ${formatDate(f.endDate)})</span>`
+                  : '';
+                const price = f.price ? ` - KES ${Number(f.price).toLocaleString()}/day` : '';
+                return name ? `<li style="padding: 8px 0; border-bottom: 1px dashed #ddd;"><strong>${name}</strong>${dateRange}${price}</li>` : '';
+              }).filter(Boolean).join('')}
+            </ul>
+          </div>
+        `;
       }
+      
+      // Activities with number of people
       if (details.selectedActivities && Array.isArray(details.selectedActivities) && details.selectedActivities.length > 0) {
-        const activitiesNames = details.selectedActivities
-          .map((a: any) => escapeHtml(typeof a === 'string' ? a : a.name || ''))
-          .filter(Boolean)
-          .join(', ');
-        if (activitiesNames) {
-          detailsHTML += `<p><strong>Activities:</strong> ${activitiesNames}</p>`;
-        }
+        activitiesHTML = `
+          <div style="background: #fff5f0; padding: 15px; border-radius: 8px; margin: 15px 0;">
+            <h3 style="color: #FF7F50; font-size: 14px; margin-bottom: 10px; text-transform: uppercase;">Activities</h3>
+            <ul style="list-style: none; padding: 0; margin: 0;">
+              ${details.selectedActivities.map((a: any) => {
+                const name = escapeHtml(typeof a === 'string' ? a : a.name || '');
+                const people = a.numberOfPeople ? ` <span style="color: #666;">(${a.numberOfPeople} ${a.numberOfPeople === 1 ? 'person' : 'people'})</span>` : '';
+                const price = a.price ? ` - KES ${Number(a.price).toLocaleString()}/person` : '';
+                return name ? `<li style="padding: 8px 0; border-bottom: 1px dashed #ddd;"><strong>${name}</strong>${people}${price}</li>` : '';
+              }).filter(Boolean).join('')}
+            </ul>
+          </div>
+        `;
       }
     }
 
@@ -165,12 +192,15 @@ const handler = async (req: Request): Promise<Response> => {
                 <p><strong>Booking Type:</strong> ${typeDisplay}</p>
                 <p><strong>Guest Name:</strong> ${safeGuestName}</p>
                 <p><strong>Item:</strong> ${safeItemName}</p>
-                ${visitDate ? `<p><strong>Visit Date:</strong> ${escapeHtml(String(visitDate))}</p>` : ''}
+                ${visitDate ? `<p><strong>Visit Date:</strong> ${escapeHtml(formatDate(String(visitDate)))}</p>` : ''}
                 ${detailsHTML}
                 <hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">
-                <p class="amount">Total: Sh ${Number(totalAmount).toFixed(2)}</p>
+                <p class="amount">Total: KES ${Number(totalAmount).toLocaleString()}</p>
                 <span class="status-badge ${isPaid ? 'status-paid' : 'status-pending'}">${isPaid ? 'Payment Confirmed' : 'Payment Pending'}</span>
               </div>
+
+              ${facilitiesHTML}
+              ${activitiesHTML}
 
               ${isPaid ? `
               <div class="qr-code">

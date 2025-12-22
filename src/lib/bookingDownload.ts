@@ -1,5 +1,18 @@
 import { format } from "date-fns";
 
+export interface FacilityDetail {
+  name: string;
+  price: number;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface ActivityDetail {
+  name: string;
+  price: number;
+  numberOfPeople?: number;
+}
+
 export interface BookingDownloadData {
   bookingId: string;
   guestName: string;
@@ -13,8 +26,8 @@ export interface BookingDownloadData {
   children?: number;
   slotsBooked?: number;
   paymentStatus: string;
-  facilities?: Array<{ name: string; price: number }>;
-  activities?: Array<{ name: string; price: number; numberOfPeople?: number }>;
+  facilities?: FacilityDetail[];
+  activities?: ActivityDetail[];
 }
 
 export const generateQRCodeData = (booking: BookingDownloadData): string => {
@@ -28,22 +41,32 @@ export const generateQRCodeData = (booking: BookingDownloadData): string => {
 export const downloadBookingAsHTML = async (booking: BookingDownloadData, qrCodeDataUrl: string): Promise<void> => {
   const formatCurrency = (amount: number) => `KES ${amount.toLocaleString()}`;
   
+  // Enhanced facilities HTML with date ranges
   const facilitiesHTML = booking.facilities && booking.facilities.length > 0 
     ? `
       <div class="section">
         <h3>Facilities</h3>
         <ul>
-          ${booking.facilities.map(f => `<li>${f.name} - ${f.price === 0 ? 'Free' : formatCurrency(f.price)}</li>`).join('')}
+          ${booking.facilities.map(f => {
+            const dateRange = f.startDate && f.endDate 
+              ? ` (${format(new Date(f.startDate), 'MMM dd')} - ${format(new Date(f.endDate), 'MMM dd, yyyy')})`
+              : '';
+            return `<li><strong>${f.name}</strong>${dateRange} - ${f.price === 0 ? 'Free' : formatCurrency(f.price) + '/day'}</li>`;
+          }).join('')}
         </ul>
       </div>
     ` : '';
 
+  // Enhanced activities HTML with number of people
   const activitiesHTML = booking.activities && booking.activities.length > 0 
     ? `
       <div class="section">
         <h3>Activities</h3>
         <ul>
-          ${booking.activities.map(a => `<li>${a.name} - ${a.price === 0 ? 'Free' : formatCurrency(a.price)}${a.numberOfPeople ? ` (${a.numberOfPeople} people)` : ''}</li>`).join('')}
+          ${booking.activities.map(a => {
+            const people = a.numberOfPeople ? ` × ${a.numberOfPeople} ${a.numberOfPeople === 1 ? 'person' : 'people'}` : '';
+            return `<li><strong>${a.name}</strong>${people} - ${a.price === 0 ? 'Free' : formatCurrency(a.price) + '/person'}</li>`;
+          }).join('')}
         </ul>
       </div>
     ` : '';
@@ -115,13 +138,21 @@ export const downloadBookingAsHTML = async (booking: BookingDownloadData, qrCode
       background: #f8f9fa;
     }
     .qr-section img { 
-      width: 150px; 
-      height: 150px;
+      width: 180px; 
+      height: 180px;
       border: 4px solid white;
       border-radius: 8px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     }
     .qr-section p { margin-top: 12px; font-size: 12px; color: #666; }
+    .qr-section .qr-label { 
+      font-size: 10px; 
+      font-weight: bold; 
+      color: #008080; 
+      text-transform: uppercase; 
+      letter-spacing: 1px;
+      margin-top: 8px;
+    }
     .footer {
       padding: 20px 30px;
       text-align: center;
@@ -130,8 +161,9 @@ export const downloadBookingAsHTML = async (booking: BookingDownloadData, qrCode
       border-top: 1px solid #f0f0f0;
     }
     ul { list-style: none; }
-    ul li { padding: 8px 0; border-bottom: 1px dashed #eee; font-size: 14px; }
+    ul li { padding: 10px 0; border-bottom: 1px dashed #eee; font-size: 14px; }
     ul li:last-child { border-bottom: none; }
+    ul li strong { color: #333; }
     @media print {
       body { background: white; padding: 0; }
       .container { box-shadow: none; }
@@ -220,7 +252,8 @@ export const downloadBookingAsHTML = async (booking: BookingDownloadData, qrCode
 
     <div class="qr-section">
       <img src="${qrCodeDataUrl}" alt="Booking QR Code" />
-      <p>Scan this QR code at the venue</p>
+      <p class="qr-label">Check-in QR Code</p>
+      <p>Show this QR code at the venue for quick check-in</p>
     </div>
 
     <div class="footer">

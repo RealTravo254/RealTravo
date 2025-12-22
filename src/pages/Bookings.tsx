@@ -388,6 +388,42 @@ const Bookings = () => {
                                       {details?.children > 0 && <InfoRow label="Children" value={details?.children} />}
                                       <InfoRow label="Booking Date" value={format(parseISO(booking.created_at), 'PPP p')} />
                                       <InfoRow label="Booking ID" value={booking.id} isMono />
+                                      
+                                      {/* Facilities with date ranges */}
+                                      {details?.selectedFacilities && details.selectedFacilities.length > 0 && (
+                                        <div className="pt-2">
+                                          <span className="text-[9px] font-black text-[#857F3E] uppercase tracking-tight">Facilities</span>
+                                          <div className="mt-1 space-y-1">
+                                            {details.selectedFacilities.map((f: any, i: number) => (
+                                              <div key={i} className="text-xs text-slate-600 bg-[#F0E68C]/20 px-2 py-1 rounded">
+                                                <span className="font-bold">{f.name}</span>
+                                                {f.startDate && f.endDate && (
+                                                  <span className="text-slate-500 ml-1">
+                                                    ({format(new Date(f.startDate), 'MMM dd')} - {format(new Date(f.endDate), 'MMM dd')})
+                                                  </span>
+                                                )}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+                                      
+                                      {/* Activities with people count */}
+                                      {details?.selectedActivities && details.selectedActivities.length > 0 && (
+                                        <div className="pt-2">
+                                          <span className="text-[9px] font-black text-[#FF7F50] uppercase tracking-tight">Activities</span>
+                                          <div className="mt-1 space-y-1">
+                                            {details.selectedActivities.map((a: any, i: number) => (
+                                              <div key={i} className="text-xs text-slate-600 bg-[#FF7F50]/10 px-2 py-1 rounded">
+                                                <span className="font-bold">{a.name}</span>
+                                                {a.numberOfPeople && (
+                                                  <span className="text-slate-500 ml-1">× {a.numberOfPeople} people</span>
+                                                )}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
                                 </div>

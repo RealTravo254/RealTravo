@@ -1,5 +1,16 @@
 import { format } from "date-fns";
 
+// HTML escape function to prevent XSS attacks
+const escapeHtml = (unsafe: string | undefined | null): string => {
+  if (typeof unsafe !== 'string') return '';
+  return unsafe
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+};
+
 export interface FacilityDetail {
   name: string;
   price: number;
@@ -41,7 +52,7 @@ export const generateQRCodeData = (booking: BookingDownloadData): string => {
 export const downloadBookingAsHTML = async (booking: BookingDownloadData, qrCodeDataUrl: string): Promise<void> => {
   const formatCurrency = (amount: number) => `KES ${amount.toLocaleString()}`;
   
-  // Enhanced facilities HTML with date ranges
+  // Enhanced facilities HTML with date ranges - with XSS protection
   const facilitiesHTML = booking.facilities && booking.facilities.length > 0 
     ? `
       <div class="section">
@@ -51,13 +62,13 @@ export const downloadBookingAsHTML = async (booking: BookingDownloadData, qrCode
             const dateRange = f.startDate && f.endDate 
               ? ` (${format(new Date(f.startDate), 'MMM dd')} - ${format(new Date(f.endDate), 'MMM dd, yyyy')})`
               : '';
-            return `<li><strong>${f.name}</strong>${dateRange} - ${f.price === 0 ? 'Free' : formatCurrency(f.price) + '/day'}</li>`;
+            return `<li><strong>${escapeHtml(f.name)}</strong>${dateRange} - ${f.price === 0 ? 'Free' : formatCurrency(f.price) + '/day'}</li>`;
           }).join('')}
         </ul>
       </div>
     ` : '';
 
-  // Enhanced activities HTML with number of people
+  // Enhanced activities HTML with number of people - with XSS protection
   const activitiesHTML = booking.activities && booking.activities.length > 0 
     ? `
       <div class="section">
@@ -65,7 +76,7 @@ export const downloadBookingAsHTML = async (booking: BookingDownloadData, qrCode
         <ul>
           ${booking.activities.map(a => {
             const people = a.numberOfPeople ? ` × ${a.numberOfPeople} ${a.numberOfPeople === 1 ? 'person' : 'people'}` : '';
-            return `<li><strong>${a.name}</strong>${people} - ${a.price === 0 ? 'Free' : formatCurrency(a.price) + '/person'}</li>`;
+            return `<li><strong>${escapeHtml(a.name)}</strong>${people} - ${a.price === 0 ? 'Free' : formatCurrency(a.price) + '/person'}</li>`;
           }).join('')}
         </ul>
       </div>
@@ -187,16 +198,16 @@ export const downloadBookingAsHTML = async (booking: BookingDownloadData, qrCode
         <h3>Guest Information</h3>
         <div class="row">
           <label>Name</label>
-          <span>${booking.guestName}</span>
+          <span>${escapeHtml(booking.guestName)}</span>
         </div>
         <div class="row">
           <label>Email</label>
-          <span>${booking.guestEmail}</span>
+          <span>${escapeHtml(booking.guestEmail)}</span>
         </div>
         ${booking.guestPhone ? `
         <div class="row">
           <label>Phone</label>
-          <span>${booking.guestPhone}</span>
+          <span>${escapeHtml(booking.guestPhone)}</span>
         </div>
         ` : ''}
       </div>
@@ -205,11 +216,11 @@ export const downloadBookingAsHTML = async (booking: BookingDownloadData, qrCode
         <h3>Booking Details</h3>
         <div class="row">
           <label>Item Booked</label>
-          <span>${booking.itemName}</span>
+          <span>${escapeHtml(booking.itemName)}</span>
         </div>
         <div class="row">
           <label>Type</label>
-          <span>${booking.bookingType.charAt(0).toUpperCase() + booking.bookingType.slice(1)}</span>
+          <span>${escapeHtml(booking.bookingType.charAt(0).toUpperCase() + booking.bookingType.slice(1))}</span>
         </div>
         <div class="row">
           <label>Visit Date</label>
@@ -301,22 +312,26 @@ export const downloadAllBookingsAsPDF = async (data: AllBookingsExportData): Pro
   const bookingRows = data.bookings.map((booking, index) => `
     <tr>
       <td>${index + 1}</td>
-      <td><code>${booking.id?.slice(0, 8) || 'N/A'}...</code></td>
-      <td>${booking.guest_name_masked || 'Guest'}</td>
-      <td>${booking.guest_email_limited || 'N/A'}</td>
-      <td>${booking.guest_phone_limited || 'N/A'}</td>
+      <td><code>${escapeHtml(booking.id?.slice(0, 8) || 'N/A')}...</code></td>
+      <td>${escapeHtml(booking.guest_name_masked || 'Guest')}</td>
+      <td>${escapeHtml(booking.guest_email_limited || 'N/A')}</td>
+      <td>${escapeHtml(booking.guest_phone_limited || 'N/A')}</td>
       <td>${format(new Date(booking.created_at), 'PP')}</td>
       <td>${booking.slots_booked || 1}</td>
       <td>${formatCurrency(booking.total_amount)}</td>
-      <td><span class="status ${booking.payment_status}">${booking.payment_status || booking.status}</span></td>
+      <td><span class="status ${escapeHtml(booking.payment_status || '')}">${escapeHtml(booking.payment_status || booking.status)}</span></td>
     </tr>
   `).join('');
+
+  // Escape item name for title and header
+  const safeItemName = escapeHtml(data.itemName);
+  const safeItemType = escapeHtml(data.itemType.charAt(0).toUpperCase() + data.itemType.slice(1));
 
   const htmlContent = `
 <!DOCTYPE html>
 <html>
 <head>
-  <title>All Bookings - ${data.itemName}</title>
+  <title>All Bookings - ${safeItemName}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { 
@@ -409,8 +424,8 @@ export const downloadAllBookingsAsPDF = async (data: AllBookingsExportData): Pro
 <body>
   <div class="container">
     <div class="header">
-      <h1>${data.itemName}</h1>
-      <p>${data.itemType.charAt(0).toUpperCase() + data.itemType.slice(1)} • All Bookings Report</p>
+      <h1>${safeItemName}</h1>
+      <p>${safeItemType} • All Bookings Report</p>
     </div>
     
     <div class="summary">

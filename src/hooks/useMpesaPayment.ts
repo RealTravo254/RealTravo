@@ -165,14 +165,17 @@ export const useMpesaPayment = (options: MpesaPaymentOptions = {}) => {
     setErrorMessage('');
 
     try {
-      const accountReference = `BK${Date.now()}`;
+      // M-Pesa limits: accountReference max 12 chars, transactionDesc max 13 chars
+      const timestamp = Date.now().toString().slice(-10);
+      const accountReference = `BK${timestamp}`.slice(0, 12);
+      const transactionDesc = 'Payment'.slice(0, 13);
       
       const { data, error } = await supabase.functions.invoke('mpesa-stk-push', {
         body: {
           phoneNumber,
           amount,
           accountReference,
-          transactionDesc: `Payment for ${bookingData.emailData?.itemName || 'booking'}`,
+          transactionDesc,
           bookingData: {
             ...bookingData,
             payment_phone: phoneNumber,

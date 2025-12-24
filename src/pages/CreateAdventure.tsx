@@ -10,11 +10,13 @@ import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { MapPin, Mail, Navigation, Clock, X, Plus, Camera, CheckCircle2, Info, ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
+import { MapPin, Mail, Navigation, Clock, X, Plus, Camera, CheckCircle2, Info, ArrowLeft, ArrowRight, Loader2, DollarSign } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CountrySelector } from "@/components/creation/CountrySelector";
 import { PhoneInput } from "@/components/creation/PhoneInput";
 import { compressImages } from "@/lib/imageCompression";
+import { DynamicItemList, DynamicItem } from "@/components/creation/DynamicItemList";
+import { OperatingHoursSection } from "@/components/creation/OperatingHoursSection";
 
 const COLORS = {
   TEAL: "#008080",
@@ -25,7 +27,7 @@ const COLORS = {
   SOFT_GRAY: "#F8F9FA"
 };
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 6;
 
 const CreateAdventure = () => {
   const navigate = useNavigate();
@@ -55,6 +57,9 @@ const CreateAdventure = () => {
     Mon: false, Tue: false, Wed: false, Thu: false, Fri: false, Sat: false, Sun: false
   });
   
+  const [amenities, setAmenities] = useState<DynamicItem[]>([]);
+  const [facilities, setFacilities] = useState<DynamicItem[]>([]);
+  const [activities, setActivities] = useState<DynamicItem[]>([]);
   const [galleryImages, setGalleryImages] = useState<File[]>([]);
 
   useEffect(() => {
@@ -94,7 +99,6 @@ const CreateAdventure = () => {
 
   const removeImage = (index: number) => setGalleryImages(prev => prev.filter((_, i) => i !== index));
 
-  // Step validation
   const validateStep = (step: number): boolean => {
     switch (step) {
       case 1:
@@ -132,9 +136,10 @@ const CreateAdventure = () => {
         }
         return true;
       case 4:
-        // Operating days and pricing - optional validation
-        return true;
+        return true; // Operating hours optional
       case 5:
+        return true; // Amenities/facilities/activities optional
+      case 6:
         if (galleryImages.length === 0) {
           toast({ title: "Required", description: "At least one photo is required", variant: "destructive" });
           return false;
@@ -153,6 +158,15 @@ const CreateAdventure = () => {
 
   const handlePrevious = () => {
     setCurrentStep(prev => Math.max(prev - 1, 1));
+  };
+
+  const formatItemsForDB = (items: DynamicItem[]) => {
+    return items.map(item => ({
+      name: item.name,
+      price: item.priceType === "paid" ? parseFloat(item.price) || 0 : 0,
+      is_free: item.priceType === "free",
+      capacity: item.capacity ? parseInt(item.capacity) : null
+    }));
   };
 
   const handleSubmit = async () => {
@@ -191,6 +205,9 @@ const CreateAdventure = () => {
         gallery_images: uploadedUrls,
         entry_fee_type: formData.entranceFeeType,
         entry_fee: formData.entranceFeeType === "paid" ? parseFloat(formData.adultPrice) : 0,
+        amenities: formatItemsForDB(amenities),
+        facilities: formatItemsForDB(facilities),
+        activities: formatItemsForDB(activities),
         created_by: user.id,
         approval_status: "pending"
       }]);
@@ -392,23 +409,15 @@ const CreateAdventure = () => {
             </div>
 
             <div className="grid gap-8">
-              <div className="space-y-4">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Operating Days</Label>
-                <div className="flex flex-wrap gap-2">
-                  {Object.keys(workingDays).map((day) => (
-                    <button key={day} type="button"
-                      onClick={() => setWorkingDays({...workingDays, [day]: !workingDays[day as keyof typeof workingDays]})}
-                      className={`px-4 py-2 rounded-xl border text-[10px] font-black uppercase transition-all ${
-                        workingDays[day as keyof typeof workingDays]
-                        ? 'bg-[#008080] text-white border-[#008080] shadow-md'
-                        : 'bg-white text-slate-400 border-slate-100 hover:bg-slate-50'
-                      }`}
-                    >
-                      {day}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <OperatingHoursSection
+                openingHours={formData.openingHours}
+                closingHours={formData.closingHours}
+                workingDays={workingDays}
+                onOpeningChange={(v) => setFormData({...formData, openingHours: v})}
+                onClosingChange={(v) => setFormData({...formData, closingHours: v})}
+                onDaysChange={setWorkingDays}
+                accentColor={COLORS.TEAL}
+              />
 
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -433,29 +442,53 @@ const CreateAdventure = () => {
                   </div>
                 )}
               </div>
-
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Opening Time</Label>
-                  <Input type="time" value={formData.openingHours}
-                    onChange={(e) => setFormData({...formData, openingHours: e.target.value})}
-                    className="rounded-xl h-12 border-slate-100 font-bold"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Closing Time</Label>
-                  <Input type="time" value={formData.closingHours}
-                    onChange={(e) => setFormData({...formData, closingHours: e.target.value})}
-                    className="rounded-xl h-12 border-slate-100 font-bold"
-                  />
-                </div>
-              </div>
             </div>
           </Card>
         )}
 
-        {/* Step 5: Photos */}
+        {/* Step 5: Amenities, Facilities & Activities */}
         {currentStep === 5 && (
+          <Card className="bg-white rounded-[28px] p-8 shadow-sm border border-slate-100 animate-in fade-in slide-in-from-right-4">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 rounded-xl bg-[#008080]/10 text-[#008080]">
+                <DollarSign className="h-5 w-5" />
+              </div>
+              <h2 className="text-xl font-black uppercase tracking-tight" style={{ color: COLORS.TEAL }}>Amenities, Facilities & Activities</h2>
+            </div>
+            
+            <div className="space-y-8">
+              <DynamicItemList
+                items={amenities}
+                onChange={setAmenities}
+                label="Amenities"
+                placeholder="e.g. Parking, Restrooms, Picnic Area"
+                showCapacity={false}
+                accentColor={COLORS.TEAL}
+              />
+
+              <DynamicItemList
+                items={facilities}
+                onChange={setFacilities}
+                label="Facilities"
+                placeholder="e.g. Campsite, Viewing Deck"
+                showCapacity={true}
+                accentColor={COLORS.CORAL}
+              />
+
+              <DynamicItemList
+                items={activities}
+                onChange={setActivities}
+                label="Activities"
+                placeholder="e.g. Hiking, Bird Watching, Zip Lining"
+                showCapacity={false}
+                accentColor="#6366f1"
+              />
+            </div>
+          </Card>
+        )}
+
+        {/* Step 6: Photos */}
+        {currentStep === 6 && (
           <Card className="bg-white rounded-[28px] p-8 shadow-sm border border-slate-100 animate-in fade-in slide-in-from-right-4">
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2 rounded-xl bg-[#008080]/10 text-[#008080]">

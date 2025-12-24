@@ -10,11 +10,13 @@ import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { MapPin, Navigation, X, CheckCircle2, Plus, Camera, ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
+import { MapPin, Navigation, X, CheckCircle2, Plus, Camera, ArrowLeft, ArrowRight, Loader2, Clock, DollarSign } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CountrySelector } from "@/components/creation/CountrySelector";
 import { PhoneInput } from "@/components/creation/PhoneInput";
 import { compressImages } from "@/lib/imageCompression";
+import { DynamicItemList, DynamicItem } from "@/components/creation/DynamicItemList";
+import { OperatingHoursSection } from "@/components/creation/OperatingHoursSection";
 
 const COLORS = {
   TEAL: "#008080",
@@ -23,7 +25,7 @@ const COLORS = {
   SOFT_GRAY: "#F8F9FA"
 };
 
-const TOTAL_STEPS = 4;
+const TOTAL_STEPS = 6;
 
 const CreateHotel = () => {
   const navigate = useNavigate();
@@ -42,9 +44,18 @@ const CreateHotel = () => {
     phoneNumber: "",
     establishmentType: "hotel",
     latitude: null as number | null,
-    longitude: null as number | null
+    longitude: null as number | null,
+    openingHours: "",
+    closingHours: ""
   });
 
+  const [workingDays, setWorkingDays] = useState({
+    Mon: false, Tue: false, Wed: false, Thu: false, Fri: false, Sat: false, Sun: false
+  });
+
+  const [amenities, setAmenities] = useState<DynamicItem[]>([]);
+  const [facilities, setFacilities] = useState<DynamicItem[]>([]);
+  const [activities, setActivities] = useState<DynamicItem[]>([]);
   const [galleryImages, setGalleryImages] = useState<File[]>([]);
 
   useEffect(() => {
@@ -82,7 +93,6 @@ const CreateHotel = () => {
     }
   };
 
-  // Step validation
   const validateStep = (step: number): boolean => {
     switch (step) {
       case 1:
@@ -110,12 +120,16 @@ const CreateHotel = () => {
         }
         return true;
       case 3:
+        return true; // Operating hours optional
+      case 4:
+        return true; // Amenities/facilities/activities optional
+      case 5:
         if (galleryImages.length === 0) {
           toast({ title: "Required", description: "At least one photo is required", variant: "destructive" });
           return false;
         }
         return true;
-      case 4:
+      case 6:
         return true;
       default:
         return true;
@@ -130,6 +144,15 @@ const CreateHotel = () => {
 
   const handlePrevious = () => {
     setCurrentStep(prev => Math.max(prev - 1, 1));
+  };
+
+  const formatItemsForDB = (items: DynamicItem[]) => {
+    return items.map(item => ({
+      name: item.name,
+      price: item.priceType === "paid" ? parseFloat(item.price) || 0 : 0,
+      is_free: item.priceType === "free",
+      capacity: item.capacity ? parseInt(item.capacity) : null
+    }));
   };
 
   const handleSubmit = async () => {
@@ -147,6 +170,8 @@ const CreateHotel = () => {
         uploadedUrls.push(publicUrl);
       }
 
+      const selectedDays = Object.entries(workingDays).filter(([_, s]) => s).map(([d]) => d);
+
       const { error } = await supabase.from("hotels").insert([{
         name: formData.registrationName,
         registration_number: formData.registrationNumber,
@@ -161,6 +186,12 @@ const CreateHotel = () => {
         image_url: uploadedUrls[0],
         gallery_images: uploadedUrls,
         establishment_type: formData.establishmentType,
+        opening_hours: formData.openingHours,
+        closing_hours: formData.closingHours,
+        days_opened: selectedDays,
+        amenities: amenities.map(a => a.name),
+        facilities: formatItemsForDB(facilities),
+        activities: formatItemsForDB(activities),
         created_by: user.id,
         approval_status: "pending"
       }]);
@@ -325,8 +356,65 @@ const CreateHotel = () => {
           </Card>
         )}
 
-        {/* Step 3: Photos */}
+        {/* Step 3: Operating Hours */}
         {currentStep === 3 && (
+          <Card className="bg-white rounded-[28px] p-8 shadow-sm border-none animate-in fade-in slide-in-from-right-4">
+            <h2 className="text-xl font-black uppercase tracking-tight mb-6 flex items-center gap-2" style={{ color: COLORS.TEAL }}>
+              <Clock className="h-5 w-5" /> Operating Hours & Days
+            </h2>
+            
+            <OperatingHoursSection
+              openingHours={formData.openingHours}
+              closingHours={formData.closingHours}
+              workingDays={workingDays}
+              onOpeningChange={(v) => setFormData({...formData, openingHours: v})}
+              onClosingChange={(v) => setFormData({...formData, closingHours: v})}
+              onDaysChange={setWorkingDays}
+              accentColor={COLORS.TEAL}
+            />
+          </Card>
+        )}
+
+        {/* Step 4: Amenities, Facilities & Activities */}
+        {currentStep === 4 && (
+          <Card className="bg-white rounded-[28px] p-8 shadow-sm border-none animate-in fade-in slide-in-from-right-4">
+            <h2 className="text-xl font-black uppercase tracking-tight mb-6 flex items-center gap-2" style={{ color: COLORS.TEAL }}>
+              <DollarSign className="h-5 w-5" /> Amenities, Facilities & Activities
+            </h2>
+            
+            <div className="space-y-8">
+              <DynamicItemList
+                items={amenities}
+                onChange={setAmenities}
+                label="Amenities"
+                placeholder="e.g. Free WiFi, Pool, Gym"
+                showCapacity={false}
+                accentColor={COLORS.TEAL}
+              />
+
+              <DynamicItemList
+                items={facilities}
+                onChange={setFacilities}
+                label="Facilities"
+                placeholder="e.g. Conference Room, Restaurant"
+                showCapacity={true}
+                accentColor={COLORS.CORAL}
+              />
+
+              <DynamicItemList
+                items={activities}
+                onChange={setActivities}
+                label="Activities"
+                placeholder="e.g. Spa Treatment, City Tour"
+                showCapacity={false}
+                accentColor="#6366f1"
+              />
+            </div>
+          </Card>
+        )}
+
+        {/* Step 5: Photos */}
+        {currentStep === 5 && (
           <Card className="bg-white rounded-[28px] p-8 shadow-sm border-none animate-in fade-in slide-in-from-right-4">
             <h2 className="text-xl font-black uppercase tracking-tight mb-6 flex items-center gap-2" style={{ color: COLORS.TEAL }}>
               <Camera className="h-5 w-5" /> Gallery (Max 5) *
@@ -357,8 +445,8 @@ const CreateHotel = () => {
           </Card>
         )}
 
-        {/* Step 4: Description */}
-        {currentStep === 4 && (
+        {/* Step 6: Description */}
+        {currentStep === 6 && (
           <Card className="bg-white rounded-[28px] p-8 shadow-sm border-none animate-in fade-in slide-in-from-right-4">
             <h2 className="text-xl font-black uppercase tracking-tight mb-4" style={{ color: COLORS.TEAL }}>The Experience</h2>
             <Textarea 

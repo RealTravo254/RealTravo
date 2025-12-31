@@ -87,10 +87,10 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, hideIc
             </div>
             <div className="hidden sm:block">
               <span className="font-black text-lg uppercase tracking-tighter text-white block leading-none">
-                TripTrac
+                Realtravo
               </span>
               <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/70">
-                Explore Kenya
+                Click.Pack.Go!.
               </span>
             </div>
           </Link>

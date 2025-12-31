@@ -56,14 +56,14 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
       <div className="p-6 bg-[#008080] text-white">
         <div className="flex items-center gap-4">
           <div className="h-10 w-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 shadow-lg">
-            <span className="font-black text-xl">T</span>
+            <span className="font-black text-xl">R</span>
           </div>
           <div>
             <span className="font-black text-lg uppercase tracking-tighter leading-none block">
-              TripTrac
+              Realtravo
             </span>
             <p className="text-[9px] font-bold uppercase tracking-widest text-white/60 mt-1">
-              Premium Experiences
+              Click.Pack.Go!.
             </p>
           </div>
         </div>

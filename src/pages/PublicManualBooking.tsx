@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { format, eachDayOfInterval, parseISO } from "date-fns";
-import { Loader2, CheckCircle2, MapPin, Calendar, Users, Trash2, AlertTriangle, Check, X } from "lucide-react";
+import { Loader2, CheckCircle2, MapPin, Trash2, AlertTriangle, Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SelectedFacility {
@@ -37,7 +37,7 @@ const PublicManualBooking = () => {
   const [itemDetails, setItemDetails] = useState<ItemDetails | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [existingBookings, setExistingBookings] = useState<any[]>([]);
+  const [existingEntries, setExistingEntries] = useState<any[]>([]);
   const [conflictError, setConflictError] = useState<string | null>(null);
   const [dateRangeAvailable, setDateRangeAvailable] = useState<boolean | null>(null);
   const [checkingDateRange, setCheckingDateRange] = useState(false);
@@ -122,9 +122,7 @@ const PublicManualBooking = () => {
 
       if (data) {
         setItemDetails(data);
-        if (isFacilityBased) {
-          fetchExistingBookings();
-        }
+        fetchExistingEntries();
       } else {
         toast({ title: "Error", description: "Item not found", variant: "destructive" });
         navigate('/');
@@ -137,15 +135,23 @@ const PublicManualBooking = () => {
     }
   };
 
-  const fetchExistingBookings = async () => {
-    const { data } = await supabase
+  const fetchExistingEntries = async () => {
+    // Fetch from manual_entries table
+    const { data: entries } = await supabase
+      .from('manual_entries')
+      .select('entry_details,visit_date,slots_booked')
+      .eq('item_id', itemId)
+      .in('status', ['confirmed', 'pending']);
+    
+    // Also check bookings table for paid bookings
+    const { data: bookings } = await supabase
       .from('bookings')
-      .select('booking_details,visit_date')
+      .select('booking_details,visit_date,slots_booked')
       .eq('item_id', itemId)
       .in('status', ['confirmed', 'pending'])
-      .in('payment_status', ['paid', 'completed', 'pending']);
+      .in('payment_status', ['paid', 'completed']);
     
-    setExistingBookings(data || []);
+    setExistingEntries([...(entries || []), ...(bookings || [])]);
   };
 
   const checkDateRangeAvailability = useCallback(async (startDate: string, endDate: string) => {
@@ -195,17 +201,17 @@ const PublicManualBooking = () => {
     const newStart = new Date(startDate).getTime();
     const newEnd = new Date(endDate).getTime();
 
-    for (const booking of existingBookings) {
-      const details = booking.booking_details as any;
+    for (const entry of existingEntries) {
+      const details = (entry.entry_details || entry.booking_details) as any;
       const bookedFacilities = details?.selectedFacilities || details?.facilities || [];
       
       for (const bookedFacility of bookedFacilities) {
         if (bookedFacility.name === facilityName) {
-          const bookedStart = new Date(bookedFacility.startDate || booking.visit_date).getTime();
-          const bookedEnd = new Date(bookedFacility.endDate || booking.visit_date).getTime();
+          const bookedStart = new Date(bookedFacility.startDate || entry.visit_date).getTime();
+          const bookedEnd = new Date(bookedFacility.endDate || entry.visit_date).getTime();
           
           if (newStart <= bookedEnd && newEnd >= bookedStart) {
-            return `${facilityName} is already booked from ${format(new Date(bookedFacility.startDate || booking.visit_date), 'MMM d')} to ${format(new Date(bookedFacility.endDate || booking.visit_date), 'MMM d, yyyy')}`;
+            return `${facilityName} is already booked from ${format(new Date(bookedFacility.startDate || entry.visit_date), 'MMM d')} to ${format(new Date(bookedFacility.endDate || entry.visit_date), 'MMM d, yyyy')}`;
           }
         }
       }
@@ -276,20 +282,6 @@ const PublicManualBooking = () => {
     setConflictError(null);
   };
 
-  const calculateFacilityTotal = () => {
-    return selectedFacilities.reduce((total, f) => {
-      if (f.startDate && f.endDate) {
-        const start = new Date(f.startDate).getTime();
-        const end = new Date(f.endDate).getTime();
-        if (end >= start) {
-          const days = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
-          return total + (f.price * days);
-        }
-      }
-      return total;
-    }, 0);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!itemDetails) return;
@@ -340,60 +332,41 @@ const PublicManualBooking = () => {
     setIsSubmitting(true);
 
     try {
-      const bookingDetails: Record<string, any> = {
-        source: 'public_manual_form',
-        entered_by: 'guest',
-        notes: 'Entry via shared public form',
+      const entryDetails: Record<string, any> = {
+        source: 'public_form',
       };
 
-      let totalAmount = 0;
       let primaryVisitDate = formData.visitDate || null;
 
       if (isFacilityBased) {
-        bookingDetails.selectedFacilities = selectedFacilities.map(f => ({
+        entryDetails.selectedFacilities = selectedFacilities.map(f => ({
           name: f.name,
           price: f.price,
           startDate: f.startDate,
           endDate: f.endDate,
         }));
-        totalAmount = calculateFacilityTotal();
         const earliestDate = selectedFacilities.map(f => f.startDate).filter(Boolean).sort()[0];
         primaryVisitDate = earliestDate || null;
       }
 
-      const validBookingTypes = ['trip', 'event', 'hotel', 'adventure_place', 'adventure', 'attraction'];
-      const dbBookingType = itemType === 'adventure_place' ? 'adventure' : itemType;
-      const finalBookingType = validBookingTypes.includes(dbBookingType || '') ? dbBookingType : 'trip';
-
-      const { error } = await supabase.from('bookings').insert({
+      // Insert into manual_entries table
+      const { error } = await supabase.from('manual_entries').insert({
         item_id: itemId,
-        booking_type: finalBookingType,
+        item_type: itemType === 'adventure_place' ? 'adventure' : itemType,
         guest_name: formData.guestName.trim(),
-        guest_email: formData.guestContact.includes('@') ? formData.guestContact.trim() : null,
-        guest_phone: !formData.guestContact.includes('@') ? formData.guestContact.trim() : null,
+        guest_contact: formData.guestContact.trim(),
         slots_booked: isFacilityBased ? selectedFacilities.length : formData.slotsBooked,
         visit_date: primaryVisitDate,
-        total_amount: totalAmount,
-        status: 'pending', // Pending until host confirms
-        payment_status: 'pending',
-        payment_method: 'manual_entry',
-        is_guest_booking: true,
-        booking_details: bookingDetails
+        entry_details: entryDetails,
+        status: 'pending',
       });
 
-      if (error) {
-        if (error.message.includes('Sold out') || error.message.includes('capacity')) {
-          setConflictError('This date/facility is no longer available');
-        } else {
-          throw error;
-        }
-        return;
-      }
+      if (error) throw error;
 
       setSubmitted(true);
     } catch (error: any) {
-      console.error('Error creating booking:', error);
-      toast({ title: "Error", description: error.message || "Failed to submit booking", variant: "destructive" });
+      console.error('Error creating entry:', error);
+      toast({ title: "Error", description: error.message || "Failed to submit", variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
@@ -415,10 +388,10 @@ const PublicManualBooking = () => {
             <CheckCircle2 className="h-10 w-10 text-green-600" />
           </div>
           <h1 className="text-2xl font-black uppercase tracking-tight text-slate-900 mb-2">
-            Booking Submitted!
+            Entry Submitted!
           </h1>
           <p className="text-slate-500 mb-6">
-            Your booking request for <strong>{itemDetails?.name}</strong> has been submitted. 
+            Your entry for <strong>{itemDetails?.name}</strong> has been submitted. 
             The host will confirm your reservation soon.
           </p>
           <Button
@@ -429,7 +402,7 @@ const PublicManualBooking = () => {
             }}
             className="bg-[#008080] hover:bg-[#006666] text-white rounded-xl"
           >
-            Submit Another Booking
+            Submit Another Entry
           </Button>
         </div>
       </div>
@@ -466,10 +439,10 @@ const PublicManualBooking = () => {
       <div className="max-w-lg mx-auto p-6 -mt-6">
         <div className="bg-white rounded-3xl p-6 shadow-lg">
           <h2 className="text-lg font-black uppercase tracking-tight text-slate-900 mb-1">
-            Book Your Spot
+            Reserve Your Spot
           </h2>
           <p className="text-sm text-slate-500 mb-6">
-            Fill in your details to reserve your booking
+            Fill in your details to reserve
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -636,16 +609,6 @@ const PublicManualBooking = () => {
                     {dateRangeAvailable ? 'Dates available' : 'Dates not available'}
                   </div>
                 )}
-
-                {/* Total */}
-                {selectedFacilities.length > 0 && (
-                  <div className="bg-[#008080]/10 rounded-xl p-4 text-center">
-                    <p className="text-xs text-[#008080] font-bold uppercase">Estimated Total</p>
-                    <p className="text-2xl font-black text-[#008080]">
-                      KES {calculateFacilityTotal().toLocaleString()}
-                    </p>
-                  </div>
-                )}
               </div>
             )}
 
@@ -669,14 +632,14 @@ const PublicManualBooking = () => {
                   Submitting...
                 </>
               ) : (
-                'Submit Booking'
+                'Submit Entry'
               )}
             </Button>
           </form>
         </div>
 
         <p className="text-center text-xs text-slate-400 mt-6">
-          Your booking will be pending until confirmed by the host
+          Your entry will be pending until confirmed by the host
         </p>
       </div>
     </div>

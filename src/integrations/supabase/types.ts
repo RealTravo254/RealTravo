@@ -465,6 +465,51 @@ export type Database = {
         }
         Relationships: []
       }
+      manual_entries: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          entry_details: Json | null
+          guest_contact: string
+          guest_name: string
+          id: string
+          item_id: string
+          item_type: string
+          slots_booked: number
+          status: string
+          updated_at: string
+          visit_date: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          entry_details?: Json | null
+          guest_contact: string
+          guest_name: string
+          id?: string
+          item_id: string
+          item_type: string
+          slots_booked?: number
+          status?: string
+          updated_at?: string
+          visit_date?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          entry_details?: Json | null
+          guest_contact?: string
+          guest_name?: string
+          id?: string
+          item_id?: string
+          item_type?: string
+          slots_booked?: number
+          status?: string
+          updated_at?: string
+          visit_date?: string | null
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string | null

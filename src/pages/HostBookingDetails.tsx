@@ -9,7 +9,7 @@ import { format } from "date-fns";
 import { 
   Mail, Phone, Calendar, Users, DollarSign, 
   ArrowLeft, ChevronDown, ChevronUp, User, 
-  Ticket, Info, CheckCircle2, Download, Clock, XCircle, RefreshCw
+  Ticket, Info, CheckCircle2, Download, Clock, XCircle, RefreshCw, Trash2
 } from "lucide-react";
 import { BookingDownloadButton } from "@/components/booking/BookingDownloadButton";
 import { DownloadFormatDropdown } from "@/components/booking/DownloadFormatDropdown";
@@ -51,13 +51,26 @@ interface Booking {
   userPhone?: string;
 }
 
+interface ManualEntry {
+  id: string;
+  item_id: string;
+  item_type: string;
+  guest_name: string;
+  guest_contact: string;
+  slots_booked: number;
+  visit_date: string | null;
+  entry_details: any;
+  status: string;
+  created_at: string;
+}
+
 const HostBookingDetails = () => {
   const { itemType: type, id: itemId } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [pendingBookings, setPendingBookings] = useState<Booking[]>([]);
+  const [pendingEntries, setPendingEntries] = useState<ManualEntry[]>([]);
   const [itemName, setItemName] = useState("");
   const [itemCapacity, setItemCapacity] = useState(0);
   const [itemFacilities, setItemFacilities] = useState<Array<{ name: string; price: number }>>([]);
@@ -138,16 +151,17 @@ const HostBookingDetails = () => {
       .in("payment_status", ["paid", "completed"])
       .order("created_at", { ascending: false });
 
-    // Fetch pending bookings from shared form
-    const { data: pendingData } = await supabase
-      .from("bookings")
-      .select("id,user_id,guest_name,guest_email,guest_phone,total_amount,created_at,visit_date,slots_booked,status,payment_status,booking_type,is_guest_booking,booking_details")
+    // Fetch pending entries from manual_entries table
+    const { data: entriesData } = await supabase
+      .from("manual_entries")
+      .select("*")
       .eq("item_id", itemId)
       .eq("status", "pending")
-      .eq("payment_status", "pending")
       .order("created_at", { ascending: false });
 
-    const allBookingsToEnrich = [...(bookingsData || []), ...(pendingData || [])];
+    setPendingEntries(entriesData || []);
+
+    const allBookingsToEnrich = bookingsData || [];
 
     if (allBookingsToEnrich.length > 0) {
       // Batch fetch profiles for non-guest bookings
@@ -180,39 +194,51 @@ const HostBookingDetails = () => {
         return booking;
       };
 
-      setBookings((bookingsData || []).map(enrichBooking));
-      setPendingBookings((pendingData || []).map(enrichBooking));
+      setBookings(allBookingsToEnrich.map(enrichBooking));
     } else {
       setBookings([]);
-      setPendingBookings([]);
     }
     setLoading(false);
   }, [user, type, itemId, navigate]);
 
-  const confirmBooking = async (bookingId: string) => {
+  const confirmEntry = async (entryId: string) => {
     const { error } = await supabase
-      .from("bookings")
-      .update({ status: "confirmed", payment_status: "paid" })
-      .eq("id", bookingId);
+      .from("manual_entries")
+      .update({ status: "confirmed" })
+      .eq("id", entryId);
     
     if (error) {
-      toast({ title: "Error", description: "Failed to confirm booking", variant: "destructive" });
+      toast({ title: "Error", description: "Failed to confirm entry", variant: "destructive" });
     } else {
-      toast({ title: "Confirmed", description: "Booking has been confirmed" });
+      toast({ title: "Confirmed", description: "Entry has been confirmed" });
       fetchBookings();
     }
   };
 
-  const rejectBooking = async (bookingId: string) => {
+  const rejectEntry = async (entryId: string) => {
     const { error } = await supabase
-      .from("bookings")
+      .from("manual_entries")
       .update({ status: "cancelled" })
-      .eq("id", bookingId);
+      .eq("id", entryId);
     
     if (error) {
-      toast({ title: "Error", description: "Failed to reject booking", variant: "destructive" });
+      toast({ title: "Error", description: "Failed to reject entry", variant: "destructive" });
     } else {
-      toast({ title: "Rejected", description: "Booking has been rejected" });
+      toast({ title: "Rejected", description: "Entry has been rejected" });
+      fetchBookings();
+    }
+  };
+
+  const deleteEntry = async (entryId: string) => {
+    const { error } = await supabase
+      .from("manual_entries")
+      .delete()
+      .eq("id", entryId);
+    
+    if (error) {
+      toast({ title: "Error", description: "Failed to delete entry", variant: "destructive" });
+    } else {
+      toast({ title: "Deleted", description: "Entry has been removed" });
       fetchBookings();
     }
   };
@@ -287,53 +313,61 @@ const HostBookingDetails = () => {
           </div>
         </div>
 
-        {/* Pending Bookings from Shared Form */}
-        {pendingBookings.length > 0 && (
+        {/* Pending Entries from Shared Form */}
+        {pendingEntries.length > 0 && (
           <div className="mb-8">
             <div className="flex items-center gap-2 mb-4">
               <Clock className="h-5 w-5 text-amber-500" />
               <h2 className="text-sm font-black uppercase tracking-widest text-slate-700">
-                Pending Entries ({pendingBookings.length})
+                Pending Entries ({pendingEntries.length})
               </h2>
             </div>
             <div className="space-y-3">
-              {pendingBookings.map((booking) => {
-                const guest = getGuestInfo(booking);
-                return (
-                  <div key={booking.id} className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                      <div>
-                        <p className="font-bold text-slate-800">{guest.name || 'Unknown'}</p>
-                        <p className="text-sm text-slate-500">{guest.email || guest.phone}</p>
-                        {booking.visit_date && (
-                          <p className="text-xs text-slate-400 mt-1">
-                            Visit: {format(new Date(booking.visit_date), "MMM d, yyyy")}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          onClick={() => confirmBooking(booking.id)}
-                          className="bg-green-600 hover:bg-green-700 text-white rounded-xl gap-1"
-                        >
-                          <CheckCircle2 className="h-4 w-4" />
-                          Confirm
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => rejectBooking(booking.id)}
-                          className="border-red-300 text-red-600 hover:bg-red-50 rounded-xl gap-1"
-                        >
-                          <XCircle className="h-4 w-4" />
-                          Reject
-                        </Button>
-                      </div>
+              {pendingEntries.map((entry) => (
+                <div key={entry.id} className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                      <p className="font-bold text-slate-800">{entry.guest_name}</p>
+                      <p className="text-sm text-slate-500">{entry.guest_contact}</p>
+                      {entry.visit_date && (
+                        <p className="text-xs text-slate-400 mt-1">
+                          Visit: {format(new Date(entry.visit_date), "MMM d, yyyy")}
+                        </p>
+                      )}
+                      <p className="text-xs text-slate-400">
+                        People: {entry.slots_booked}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => confirmEntry(entry.id)}
+                        className="bg-green-600 hover:bg-green-700 text-white rounded-xl gap-1"
+                      >
+                        <CheckCircle2 className="h-4 w-4" />
+                        Confirm
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => rejectEntry(entry.id)}
+                        className="border-red-300 text-red-600 hover:bg-red-50 rounded-xl gap-1"
+                      >
+                        <XCircle className="h-4 w-4" />
+                        Reject
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => deleteEntry(entry.id)}
+                        className="text-slate-400 hover:text-red-600 rounded-xl"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
           </div>
         )}

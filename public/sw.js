@@ -1,256 +1,108 @@
-// Service Worker for Push Notifications, Image Caching, and Offline Support
+// 1. UPDATE THESE VERSIONS to force an app-wide update
+const STATIC_CACHE = 'realtravo-static-v6'; 
+const IMAGE_CACHE = 'realtravo-images-v6';
+const DATA_CACHE = 'realtravo-data-v6';
 
-const CACHE_NAME = 'triptrac-images-v3';
-const STATIC_CACHE_NAME = 'triptrac-static-v3';
-const DATA_CACHE_NAME = 'triptrac-data-v1';
-const IMAGE_CACHE_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days
+// 2. FILES TO DOWNLOAD IMMEDIATELY (The App Shell)
+const PRECACHE_ASSETS = [
+  '/',
+  '/index.html',
+  '/manifest.json',
+  '/fulllogo.png', // Updated to match your manifest
+  '/favicon.ico',
+  // Routes to ensure they work offline
+  '/bookings',
+  '/host-bookings',
+  '/qr-scanner',
+  '/account',
+  '/my-listing'
+];
 
-// Image URL patterns to cache
 const IMAGE_PATTERNS = [
   /supabase\.co\/storage\/v1\/object\/public\//,
   /images\.unsplash\.com/,
 ];
 
-// Static assets to pre-cache
-const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/favicon.ico',
-];
-
-// Pages to cache for offline access
-const OFFLINE_PAGES = [
-  '/bookings',
-  '/host-bookings',
-  '/qr-scanner',
-  '/account',
-  '/my-listing',
-];
-
-// API endpoints to cache for offline access
-const CACHEABLE_API_PATTERNS = [
-  /\/rest\/v1\/bookings/,
-  /\/rest\/v1\/profiles/,
-  /\/rest\/v1\/trips/,
-  /\/rest\/v1\/hotels/,
-  /\/rest\/v1\/adventure_places/,
-];
-
-// Check if URL should be cached
-function shouldCacheImage(url) {
-  return IMAGE_PATTERNS.some(pattern => pattern.test(url));
-}
-
-// Install event - cache static assets
-self.addEventListener('install', function(event) {
+// --- INSTALL: Download everything now ---
+self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(STATIC_CACHE_NAME).then(function(cache) {
-      return cache.addAll(STATIC_ASSETS);
+    caches.open(STATIC_CACHE).then((cache) => {
+      console.log('Realtravo: Precaching App Shell...');
+      return cache.addAll(PRECACHE_ASSETS);
     })
   );
   self.skipWaiting();
 });
 
-// Fetch event - intercept requests
-self.addEventListener('fetch', function(event) {
-  const url = event.request.url;
-  const requestUrl = new URL(url);
-  
-  // Handle image requests
-  if (event.request.destination === 'image' || shouldCacheImage(url)) {
-    event.respondWith(
-      caches.open(CACHE_NAME).then(function(cache) {
-        return cache.match(event.request).then(function(cachedResponse) {
-          if (cachedResponse) {
-            // Return cached response and update cache in background
-            event.waitUntil(
-              fetch(event.request).then(function(networkResponse) {
-                if (networkResponse.ok) {
-                  cache.put(event.request, networkResponse.clone());
-                }
-              }).catch(function() {
-                // Network failed, cached response is still valid
-              })
-            );
-            return cachedResponse;
+// --- ACTIVATE: Delete old versions automatically ---
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) => {
+      return Promise.all(
+        keys.map((key) => {
+          if (![STATIC_CACHE, IMAGE_CACHE, DATA_CACHE].includes(key)) {
+            console.log('Realtravo: Removing old cache:', key);
+            return caches.delete(key);
           }
-          
-          // Not in cache, fetch from network
-          return fetch(event.request).then(function(networkResponse) {
-            if (networkResponse.ok) {
-              cache.put(event.request, networkResponse.clone());
-            }
-            return networkResponse;
-          }).catch(function() {
-            // Return placeholder if offline and no cache
-            return new Response('', { status: 503 });
-          });
-        });
-      })
-    );
-    return;
-  }
+        })
+      );
+    })
+  );
+  self.clients.claim();
+});
 
-  // Handle navigation requests for offline pages
-  if (event.request.mode === 'navigate') {
-    event.respondWith(
-      fetch(event.request).catch(function() {
-        // Return cached index.html for offline navigation
-        return caches.match('/index.html').then(function(response) {
-          return response || new Response('Offline', { status: 503 });
-        });
-      })
-    );
-    return;
-  }
+// --- FETCH: Instant UI + Background Sync ---
+self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
 
-  // Handle API requests - network first, fallback to cache with enhanced caching for bookings data
-  if (requestUrl.pathname.includes('/rest/v1/') || requestUrl.pathname.includes('/functions/v1/')) {
-    const shouldCacheForOffline = CACHEABLE_API_PATTERNS.some(pattern => pattern.test(url));
-    
-    event.respondWith(
-      fetch(event.request).then(function(response) {
-        // Cache successful GET requests, especially for booking data
-        if (response.ok && event.request.method === 'GET') {
-          const responseClone = response.clone();
-          const cacheName = shouldCacheForOffline ? DATA_CACHE_NAME : STATIC_CACHE_NAME;
-          caches.open(cacheName).then(function(cache) {
-            cache.put(event.request, responseClone);
-          });
-        }
-        return response;
-      }).catch(function() {
-        // Return cached API response if offline - check both caches
-        return caches.open(DATA_CACHE_NAME).then(function(dataCache) {
-          return dataCache.match(event.request).then(function(cachedResponse) {
-            if (cachedResponse) {
-              // Add offline indicator header
-              const headers = new Headers(cachedResponse.headers);
-              headers.set('X-Offline-Cache', 'true');
-              return new Response(cachedResponse.body, {
-                status: cachedResponse.status,
-                statusText: cachedResponse.statusText,
-                headers: headers
-              });
-            }
-            // Fallback to static cache
-            return caches.match(event.request).then(function(staticCachedResponse) {
-              if (staticCachedResponse) {
-                return staticCachedResponse;
-              }
-              return new Response(JSON.stringify({ error: 'Offline', offline: true }), {
-                status: 503,
-                headers: { 'Content-Type': 'application/json' }
-              });
-            });
-          });
-        });
-      })
-    );
-    return;
-  }
-
-  // Default fetch behavior
   event.respondWith(
-    fetch(event.request).catch(function() {
-      return caches.match(event.request);
+    caches.match(event.request).then((cachedResponse) => {
+      const fetchPromise = fetch(event.request).then((networkResponse) => {
+        if (networkResponse && networkResponse.ok) {
+          const isImage = IMAGE_PATTERNS.some(p => p.test(url.href)) || event.request.destination === 'image';
+          const cacheName = isImage ? IMAGE_CACHE : (url.pathname.includes('/rest/v1/') ? DATA_CACHE : STATIC_CACHE);
+          
+          const responseClone = networkResponse.clone();
+          caches.open(cacheName).then((cache) => cache.put(event.request, responseClone));
+        }
+        return networkResponse;
+      }).catch(() => {
+        if (event.request.mode === 'navigate') {
+          return caches.match('/index.html');
+        }
+      });
+
+      return cachedResponse || fetchPromise;
     })
   );
 });
 
-// Push notification handler
-self.addEventListener('push', function(event) {
-  if (!event.data) {
-    return;
-  }
-
+// --- PUSH NOTIFICATIONS ---
+self.addEventListener('push', (event) => {
+  if (!event.data) return;
   const data = event.data.json();
-  
   const options = {
-    body: data.body || data.message || 'You have a new notification',
-    icon: '/favicon.ico',
+    body: data.body || 'New update from Realtravo',
+    icon: '/fulllogo.png',
     badge: '/favicon.ico',
     vibrate: [100, 50, 100],
-    data: {
-      dateOfArrival: Date.now(),
-      primaryKey: data.id || '1',
-      url: data.url || '/'
-    },
-    actions: [
-      {
-        action: 'explore',
-        title: 'View'
-      },
-      {
-        action: 'close',
-        title: 'Close'
-      }
-    ],
-    tag: data.tag || 'notification',
-    renotify: true
+    data: { url: data.url || '/' }
   };
-
-  event.waitUntil(
-    self.registration.showNotification(data.title || 'TripTrac', options)
-  );
+  event.waitUntil(self.registration.showNotification(data.title || 'Realtravo', options));
 });
 
-self.addEventListener('notificationclick', function(event) {
+self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-
-  if (event.action === 'close') {
-    return;
-  }
-
-  const urlToOpen = event.notification.data?.url || '/';
-
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
-      // Check if there's already a window open
-      for (let i = 0; i < clientList.length; i++) {
-        const client = clientList[i];
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      const url = event.notification.data.url;
+      for (const client of clientList) {
         if (client.url.includes(self.location.origin) && 'focus' in client) {
-          client.navigate(urlToOpen);
+          client.navigate(url);
           return client.focus();
         }
       }
-      // If no window is open, open a new one
-      if (clients.openWindow) {
-        return clients.openWindow(urlToOpen);
-      }
+      if (clients.openWindow) return clients.openWindow(url);
     })
   );
 });
-
-// Handle service worker activation
-self.addEventListener('activate', function(event) {
-  // Clean up old caches
-  event.waitUntil(
-    caches.keys().then(function(cacheNames) {
-      return Promise.all(
-        cacheNames.filter(function(cacheName) {
-          return cacheName !== CACHE_NAME && cacheName !== STATIC_CACHE_NAME;
-        }).map(function(cacheName) {
-          return caches.delete(cacheName);
-        })
-      );
-    }).then(function() {
-      return self.clients.claim();
-    })
-  );
-});
-
-// Handle background sync for offline scans
-self.addEventListener('sync', function(event) {
-  if (event.tag === 'sync-offline-scans') {
-    event.waitUntil(syncOfflineScans());
-  }
-});
-
-async function syncOfflineScans() {
-  // This will be handled by the app when it comes back online
-  const clients = await self.clients.matchAll();
-  clients.forEach(client => {
-    client.postMessage({ type: 'SYNC_OFFLINE_SCANS' });
-  });
-}

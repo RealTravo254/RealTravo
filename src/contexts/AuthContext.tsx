@@ -58,11 +58,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(session?.user ?? null);
         setLoading(false);
 
-        // Check if this is a new Google OAuth user who needs to complete profile
+        // Auto-complete profile for new Google OAuth users
         if (event === 'SIGNED_IN' && session?.user) {
           const isOAuth = session.user.app_metadata?.provider === 'google';
           if (isOAuth) {
-            // Defer profile check to avoid deadlock
+            // Defer profile update to avoid deadlock
             setTimeout(async () => {
               const { data: profile } = await supabase
                 .from('profiles')
@@ -70,9 +70,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 .eq('id', session.user.id)
                 .single();
               
-              // Only redirect if profile is incomplete and not already on complete-profile page
-              if (profile && !profile.profile_completed && !window.location.pathname.includes('complete-profile')) {
-                window.location.href = '/complete-profile';
+              // Auto-complete profile with Google data if not already completed
+              if (profile && !profile.profile_completed) {
+                const googleName = session.user.user_metadata?.full_name || 
+                                   session.user.user_metadata?.name || 
+                                   session.user.email?.split('@')[0] || 'User';
+                
+                await supabase
+                  .from('profiles')
+                  .update({
+                    name: googleName,
+                    email: session.user.email,
+                    profile_completed: true
+                  })
+                  .eq('id', session.user.id);
               }
             }, 100);
           }

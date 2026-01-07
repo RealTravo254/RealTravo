@@ -64,6 +64,7 @@ const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const QRScanner = lazy(() => import("./pages/QRScanner"));
 const PublicManualBooking = lazy(() => import("./pages/PublicManualBooking"));
+const CompleteProfile = lazy(() => import("./pages/CompleteProfile"));
 
 const queryClient = new QueryClient();
 
@@ -143,6 +144,7 @@ const App = () => {
                     <Route path="/privacy-policy" element={<PrivacyPolicy />} />
                     <Route path="/qr-scanner" element={<QRScanner />} />
                     <Route path="/book/:itemType/:itemId" element={<PublicManualBooking />} />
+                    <Route path="/complete-profile" element={<CompleteProfile />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </div>

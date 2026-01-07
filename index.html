@@ -6,10 +6,10 @@
     
     <meta name="google-site-verification" content="-gW4v5AAxn1KmeJkWDH03jKAa1jPsQXwxBSh9CYLkJw" />
 
-    <title>Real Travo | Explore Amazing Travel Experiences</title>
-    <meta name="description" content="Discover and book exciting trips, events, and hotels with Real Travo. Your gateway to unforgettable travel experiences and global adventures." />
-    <meta name="keywords" content="Real Travo, Realtravo, travel booking, book hotels, travel experiences, adventure trips, travel events, tourism" />
-    <meta name="author" content="Real Travo" />
+    <title>Realtravo - Click. Pack. Go!</title>
+    <meta name="description" content="Discover and book exciting trips, events, and hotels with Realtravo. Your gateway to unforgettable travel experiences and global adventures." />
+    <meta name="keywords" content="Realtravo, Real Travo, travel booking, book hotels, travel experiences, adventure trips, travel events, tourism" />
+    <meta name="author" content="Realtravo" />
     
     <link rel="canonical" href="https://realtravo.com/" />
 
@@ -17,25 +17,87 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Real Travo" />
+    <meta name="apple-mobile-web-app-title" content="Realtravo" />
     
+    <!-- Favicon in multiple sizes -->
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/fulllogo.png" />
+    <link rel="icon" type="image/png" sizes="96x96" href="/fulllogo.png" />
+    <link rel="icon" type="image/png" sizes="144x144" href="/fulllogo.png" />
     <link rel="apple-touch-icon" href="/fulllogo.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/fulllogo.png" />
 
     <meta name="theme-color" content="#008080" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#006666" media="(prefers-color-scheme: dark)" />
     
-    <meta property="og:title" content="Real Travo - Click.Pack.Go!" />
-    <meta property="og:description" content="Explore amazing travel experiences, hotels, and adventures with Real Travo." />
+    <meta property="og:title" content="Realtravo - Click. Pack. Go!" />
+    <meta property="og:description" content="Explore amazing travel experiences, hotels, and adventures with Realtravo." />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://realtravo.com/" />
-    <meta property="og:image" content="/fulllogo.png" />
+    <meta property="og:image" content="https://realtravo.com/fulllogo.png" />
+    <meta property="og:site_name" content="Realtravo" />
 
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Real Travo" />
-    <meta name="twitter:description" content="Explore Amazing Travel Experiences with Real Travo." />
-    <meta name="twitter:image" content="/fulllogo.png" />
+    <meta name="twitter:title" content="Realtravo" />
+    <meta name="twitter:description" content="Explore Amazing Travel Experiences with Realtravo." />
+    <meta name="twitter:image" content="https://realtravo.com/fulllogo.png" />
+    
+    <!-- JSON-LD Structured Data for SEO -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "Realtravo",
+      "alternateName": ["Real Travo", "RealTravo"],
+      "url": "https://realtravo.com/",
+      "description": "Discover and book exciting trips, events, and hotels. Your gateway to unforgettable travel experiences.",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://realtravo.com/?search={search_term_string}"
+        },
+        "query-input": "required name=search_term_string"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "Realtravo",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://realtravo.com/fulllogo.png"
+        }
+      }
+    }
+    </script>
+    
+    <!-- Organization Schema -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "Realtravo",
+      "url": "https://realtravo.com/",
+      "logo": "https://realtravo.com/fulllogo.png",
+      "sameAs": []
+    }
+    </script>
+    
+    <!-- SiteNavigationElement for Sitelinks -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SiteNavigationElement",
+      "name": ["About", "Contact", "Become a Host", "Trips & Events", "Hotels", "Adventures"],
+      "url": [
+        "https://realtravo.com/about",
+        "https://realtravo.com/contact",
+        "https://realtravo.com/become-host",
+        "https://realtravo.com/category/trips",
+        "https://realtravo.com/category/hotels",
+        "https://realtravo.com/category/adventures"
+      ]
+    }
+    </script>
     
     <link rel="preconnect" href="https://lmkxpzemfvmffxppxzky.supabase.co" crossorigin />
     <link rel="dns-prefetch" href="https://lmkxpzemfvmffxppxzky.supabase.co" />
@@ -52,7 +114,7 @@
   </head>
 
   <body>
-    <h1 style="display:none;">Real Travo</h1>
+    <h1 style="display:none;">Realtravo - Book Trips, Events, Hotels & Adventures</h1>
     
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>

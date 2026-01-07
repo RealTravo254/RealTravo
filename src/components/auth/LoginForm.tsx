@@ -51,7 +51,7 @@ export const LoginForm = () => {
   };
 
   const handleGoogleLogin = async () => {
-    const redirectUrl = `${window.location.origin}/`;
+    const redirectUrl = `${window.location.origin}/complete-profile`;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {

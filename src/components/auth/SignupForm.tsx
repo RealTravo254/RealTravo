@@ -199,7 +199,7 @@ export const SignupForm = () => {
   };
 
   const handleGoogleSignup = async () => {
-    const redirectUrl = `${window.location.origin}/`;
+    const redirectUrl = `${window.location.origin}/complete-profile`;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {

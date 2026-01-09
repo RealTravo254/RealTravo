@@ -150,7 +150,8 @@ const ListingCardComponent = ({
 
         {onSave && (
           <button 
-            onClick={handleSaveClick} 
+            onClick={handleSaveClick}
+            aria-label={isSaved ? "Remove from wishlist" : "Save to wishlist"}
             className={cn(
                 "absolute top-3 right-3 z-20 h-8 w-8 flex items-center justify-center rounded-full backdrop-blur-md transition-all", 
                 isSaved ? "bg-red-500" : "bg-black/20 hover:bg-black/40"
@@ -165,20 +166,20 @@ const ListingCardComponent = ({
       <div className="p-5 flex flex-col flex-1"> 
         <div className="flex justify-between items-start mb-2">
           <h3 className="font-black text-sm md:text-lg leading-tight uppercase tracking-tighter line-clamp-2" 
-              style={{ color: isUnavailable ? '#64748b' : COLORS.TEAL }}>
+              style={{ color: isUnavailable ? '#475569' : COLORS.TEAL }}>
             {name}
           </h3>
           {avgRating && (
             <div className="flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-slate-100 shadow-sm">
               <Star className="h-3 w-3 fill-[#FF7F50] text-[#FF7F50]" />
-              <span className="text-[11px] font-black" style={{ color: COLORS.TEAL }}>{avgRating.toFixed(1)}</span>
+              <span className="text-[11px] font-black" style={{ color: '#0d7377' }}>{avgRating.toFixed(1)}</span>
             </div>
           )}
         </div>
         
         <div className="flex items-center gap-1.5 mb-3">
             <MapPin className="h-3.5 w-3.5 flex-shrink-0" style={{ color: isUnavailable ? '#94a3b8' : COLORS.CORAL }} />
-            <p className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-wider line-clamp-1">
+            <p className="text-[10px] md:text-xs font-bold text-slate-600 uppercase tracking-wider line-clamp-1">
                 {locationString}
             </p>
         </div>
@@ -188,7 +189,7 @@ const ListingCardComponent = ({
             {activities.slice(0, 3).map((act, i) => (
               <span key={i} className={cn(
                 "text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-tighter",
-                isUnavailable ? "bg-slate-200 text-slate-400" : "bg-[#F0E68C]/20 text-[#857F3E]"
+                isUnavailable ? "bg-slate-200 text-slate-500" : "bg-[#F0E68C]/30 text-[#5c5829]"
               )}>
                 {typeof act === 'string' ? act : act.name}
               </span>
@@ -201,8 +202,8 @@ const ListingCardComponent = ({
             <div className="flex flex-col">
                 {!hidePrice && price !== undefined && (
                   <>
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Starts at</span>
-                    <span className={cn("text-base font-black", isUnavailable ? "text-slate-300 line-through" : "text-[#FF0000]")}>
+                    <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Starts at</span>
+                    <span className={cn("text-base font-black", isUnavailable ? "text-slate-500 line-through" : "text-[#FF0000]")}>
                         KSh {price.toLocaleString()}
                     </span>
                   </>
@@ -211,7 +212,7 @@ const ListingCardComponent = ({
 
             <div className="flex flex-col items-end">
                 {date && (
-                  <div className="flex items-center gap-1 text-slate-500">
+                  <div className="flex items-center gap-1 text-slate-600">
                       <Calendar className="h-3 w-3" />
                       <span className="text-[10px] font-black uppercase">
                           {new Date(date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
@@ -221,9 +222,9 @@ const ListingCardComponent = ({
                 
                 <div className="mt-1">
                   {isOutdated ? (
-                    <span className="text-[9px] font-black text-slate-400 uppercase">Event Passed</span>
+                    <span className="text-[9px] font-black text-slate-600 uppercase">Event Passed</span>
                   ) : isSoldOut ? (
-                    <span className="text-[9px] font-black text-red-500/80 uppercase">Sold Out</span>
+                    <span className="text-[9px] font-black text-red-600 uppercase">Sold Out</span>
                   ) : fewSlotsRemaining ? (
                     <span className="text-[9px] font-black text-red-500 uppercase animate-pulse flex items-center gap-1">
                         <Ticket className="h-2.5 w-2.5" />

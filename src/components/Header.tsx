@@ -89,7 +89,7 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, hideIc
               >
                 Realtravo
               </span>
-              <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">
+              <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-600">
                 Click.Pack.Go!.
               </span>
             </div>

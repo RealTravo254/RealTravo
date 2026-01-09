@@ -1,14 +1,9 @@
-import { useState, useEffect, useRef, lazy, Suspense, useMemo, useCallback, memo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback, memo } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Header } from "@/components/Header";
 // MobileBottomBar moved to PageLayout for persistence across all pages
 import { SearchBarWithSuggestions } from "@/components/SearchBarWithSuggestions";
 import { ListingCard } from "@/components/ListingCard";
-
-// Lazy load MapView to defer loading heavy mapbox-gl library
-const MapView = lazy(() => import("@/components/MapView").then(mod => ({
-  default: mod.MapView
-})));
 import { Card } from "@/components/ui/card";
 import { Calendar, Hotel, Tent, Compass, Map, Grid, MapPin, ChevronLeft, ChevronRight, Loader2, Navigation } from "lucide-react";
 import {
@@ -98,7 +93,6 @@ const Index = () => {
   const [nearbyPlacesHotels, setNearbyPlacesHotels] = useState<any[]>([]);
   const [loadingScrollable, setLoadingScrollable] = useState(true);
   const [loadingNearby, setLoadingNearby] = useState(true);
-  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
 
   // Collect all item IDs for ratings

@@ -107,8 +107,12 @@ export const Footer = ({
               <li><Link to="/saved" className={`text-gray-600 transition-colors ${TEAL_HOVER_CLASS}`}>Wishlist</Link></li>
               <li><Link to="/profile" className={`text-gray-600 transition-colors ${TEAL_HOVER_CLASS}`}>Profile</Link></li>
             </ul>
-            {!isInstalled && <Link to="/install">
-              </Link>}
+            {!isInstalled && (
+              <Link to="/install" className={`mt-3 inline-flex items-center gap-1 text-sm text-gray-600 transition-colors ${TEAL_HOVER_CLASS}`}>
+                <Download className="h-4 w-4" />
+                <span>Install App</span>
+              </Link>
+            )}
           </div>
 
           {/* Social Media and Email - UPDATED SECTION */}

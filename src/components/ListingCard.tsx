@@ -103,14 +103,14 @@ const ListingCardComponent = ({
     <Card 
       onClick={handleCardClick} 
       className={cn(
-        "group overflow-hidden transition-all duration-300 hover:shadow-2xl cursor-pointer border-slate-200 bg-slate-50 flex flex-col",
-        "rounded-[24px]",
+        "group overflow-hidden transition-all duration-300 hover:shadow-2xl cursor-pointer border-slate-200 flex flex-col",
+        "rounded-[24px] bg-[rgba(0,0,0,0.04)]", // Darkened background to reduce brightness
         compact ? "h-auto" : "h-full",
         isUnavailable && "opacity-90"
       )}
     >
       {/* Image Section */}
-      <div ref={imageContainerRef} className="relative overflow-hidden m-2 rounded-[20px] bg-slate-100" style={{ paddingBottom: '70%' }}>
+      <div ref={imageContainerRef} className="relative overflow-hidden m-2 rounded-[20px] bg-slate-200" style={{ paddingBottom: '70%' }}>
         {shouldLoadImage && (
           <img 
             src={optimizedImageUrl} 
@@ -181,7 +181,7 @@ const ListingCardComponent = ({
         
         <div className="flex items-center gap-1.5 mb-3">
             <MapPin className="h-3.5 w-3.5 flex-shrink-0" style={{ color: isUnavailable ? '#94a3b8' : COLORS.CORAL }} />
-            <p className="text-[10px] md:text-xs font-bold text-slate-600 uppercase tracking-wider line-clamp-1">
+            <p className="text-[10px] md:text-xs font-bold text-slate-700 uppercase tracking-wider line-clamp-1">
                 {locationString}
             </p>
         </div>
@@ -190,8 +190,8 @@ const ListingCardComponent = ({
           <div className="flex flex-wrap gap-1 mb-4">
             {activities.slice(0, 3).map((act, i) => (
               <span key={i} className={cn(
-                "text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-tighter",
-                isUnavailable ? "bg-slate-200 text-slate-500" : "bg-[#F0E68C]/30 text-[#5c5829]"
+                "text-[10px] font-bold px-2 py-0.5 rounded-md capitalize", // Small letters with Capitalize
+                isUnavailable ? "bg-slate-200 text-slate-500" : "bg-[#F0E68C]/40 text-[#5c5829]"
               )}>
                 {typeof act === 'string' ? act : act.name}
               </span>
@@ -200,7 +200,7 @@ const ListingCardComponent = ({
         )}
         
         {/* Bottom Metadata */}
-        <div className="mt-auto pt-4 border-t border-slate-100 flex items-center justify-between">
+        <div className="mt-auto pt-4 border-t border-slate-200/60 flex items-center justify-between">
             <div className="flex flex-col">
                 {!hidePrice && price !== undefined && (
                   <>
@@ -214,9 +214,9 @@ const ListingCardComponent = ({
 
             <div className="flex flex-col items-end">
                 {(date || isFlexibleDate) && (
-                  <div className="flex items-center gap-1 text-slate-600">
+                  <div className="flex items-center gap-1 text-slate-700">
                       <Calendar className="h-3 w-3" />
-                      <span className={`text-[10px] font-black uppercase ${isFlexibleDate ? 'text-emerald-600' : ''}`}>
+                      <span className={`text-[10px] font-black uppercase ${isFlexibleDate ? 'text-emerald-700' : ''}`}>
                           {isFlexibleDate ? 'Flexible' : new Date(date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
                       </span>
                   </div>
@@ -233,7 +233,7 @@ const ListingCardComponent = ({
                         Only {remainingTickets} left!
                     </span>
                   ) : (tracksAvailability && availableTickets > 0) && (
-                    <span className="text-[9px] font-black text-teal-600/70 uppercase">
+                    <span className="text-[9px] font-black text-teal-700 uppercase">
                         {remainingTickets} Slots available
                     </span>
                   )}

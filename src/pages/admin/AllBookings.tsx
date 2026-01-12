@@ -44,20 +44,42 @@ const AllBookings = () => {
     checkAdminStatus();
   }, [user]);
 
-  useEffect(() => {
-    if (searchQuery.trim()) {
-      const filtered = bookings.filter(booking => 
-        booking.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        booking.guest_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        booking.guest_email?.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      setFilteredBookings(filtered);
-      const exactMatch = bookings.find(b => b.id.toLowerCase() === searchQuery.toLowerCase());
-      if (exactMatch) setSelectedBooking(exactMatch);
-    } else {
-      setFilteredBookings(bookings);
+  const [hasSearched, setHasSearched] = useState(false);
+
+  // Search handler - only fetch when user performs search
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) {
+      setBookings([]);
+      setFilteredBookings([]);
+      setHasSearched(false);
+      return;
     }
-  }, [searchQuery, bookings]);
+    
+    setLoading(true);
+    setHasSearched(true);
+    try {
+      const searchPattern = `%${searchQuery}%`;
+      const { data: bookingsData, error } = await supabase
+        .from("bookings")
+        .select("*")
+        .in("payment_status", ["paid", "completed"])
+        .or(`id.ilike.${searchPattern},guest_name.ilike.${searchPattern},guest_email.ilike.${searchPattern},guest_phone.ilike.${searchPattern}`)
+        .order("created_at", { ascending: false })
+        .limit(20);
+
+      if (error) throw error;
+      setBookings(bookingsData || []);
+      setFilteredBookings(bookingsData || []);
+      const itemIds = [...new Set(bookingsData?.map(b => ({ id: b.item_id, type: b.booking_type })) || [])];
+      await fetchItemDetails(itemIds);
+      
+      // Auto-select exact match if found
+      const exactMatch = bookingsData?.find(b => b.id.toLowerCase() === searchQuery.toLowerCase());
+      if (exactMatch) setSelectedBooking(exactMatch);
+    } catch (error) {
+      toast({ title: "Error searching bookings", variant: "destructive" });
+    } finally { setLoading(false); }
+  };
 
   const checkAdminStatus = async () => {
     if (!user) { navigate("/auth"); return; }
@@ -69,25 +91,7 @@ const AllBookings = () => {
       return;
     }
     setIsAdmin(true);
-    fetchAllBookings();
-  };
-
-  const fetchAllBookings = async () => {
-    try {
-      const { data: bookingsData, error } = await supabase
-        .from("bookings")
-        .select("*")
-        .in("payment_status", ["paid", "completed"])
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      setBookings(bookingsData || []);
-      setFilteredBookings(bookingsData || []);
-      const itemIds = [...new Set(bookingsData?.map(b => ({ id: b.item_id, type: b.booking_type })) || [])];
-      await fetchItemDetails(itemIds);
-    } catch (error) {
-      toast({ title: "Error loading bookings", variant: "destructive" });
-    } finally { setLoading(false); }
+    setLoading(false); // Don't fetch all - empty by default
   };
 
   const fetchItemDetails = async (items: { id: string; type: string }[]) => {
@@ -143,19 +147,27 @@ const AllBookings = () => {
                 All Bookings
               </h1>
               <p className="text-white/60 text-xs font-bold uppercase tracking-widest mt-2">
-                System Overview • {bookings.length} Paid Records
+                {hasSearched ? `Found ${bookings.length} records` : "Search to view records"}
               </p>
             </div>
 
-            <div className="relative w-full md:w-96">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
-              <Input
-                placeholder="SEARCH ID, NAME OR EMAIL..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-white/10 border-white/20 text-white placeholder:text-white/30 rounded-2xl pl-11 h-14 font-bold text-sm tracking-tight focus:bg-white/20 transition-all"
-              />
-            </div>
+            <form onSubmit={(e) => { e.preventDefault(); handleSearch(); }} className="relative w-full md:w-96 flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
+                <Input
+                  placeholder="SEARCH ID, NAME, EMAIL OR PHONE..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="bg-white/10 border-white/20 text-white placeholder:text-white/30 rounded-2xl pl-11 h-14 font-bold text-sm tracking-tight focus:bg-white/20 transition-all"
+                />
+              </div>
+              <Button 
+                type="submit" 
+                className="h-14 px-6 rounded-2xl bg-white/20 hover:bg-white/30 text-white font-black uppercase tracking-widest text-[10px] border-none"
+              >
+                Search
+              </Button>
+            </form>
           </div>
         </div>
       </div>
@@ -306,8 +318,14 @@ const AllBookings = () => {
             ) : (
               <div className="h-[400px] border-2 border-dashed border-slate-200 rounded-[32px] flex flex-col items-center justify-center text-center p-8 bg-white/40">
                 <Search className="h-12 w-12 text-slate-200 mb-4" />
-                <h3 className="text-lg font-black uppercase tracking-tight text-slate-400">No Booking Selected</h3>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-2">Select a transaction from the list to view full internal details</p>
+                <h3 className="text-lg font-black uppercase tracking-tight text-slate-400">
+                  {hasSearched ? "No Booking Selected" : "Search to Begin"}
+                </h3>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-2">
+                  {hasSearched 
+                    ? "Select a transaction from the list to view full internal details" 
+                    : "Enter a booking ID, name, email or phone number to search"}
+                </p>
               </div>
             )}
           </div>

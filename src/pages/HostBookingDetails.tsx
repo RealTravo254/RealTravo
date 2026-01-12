@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { MobileBottomBar } from "@/components/MobileBottomBar";
@@ -9,8 +9,10 @@ import { format } from "date-fns";
 import { 
   Mail, Phone, Calendar, Users, DollarSign, 
   ArrowLeft, ChevronDown, ChevronUp, User, 
-  Ticket, Info, CheckCircle2, Download, Clock, XCircle, RefreshCw, Trash2
+  Ticket, Info, CheckCircle2, Download, Clock, XCircle, RefreshCw, Trash2,
+  Search, Eye
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { BookingDownloadButton } from "@/components/booking/BookingDownloadButton";
 import { DownloadFormatDropdown } from "@/components/booking/DownloadFormatDropdown";
 import {
@@ -46,6 +48,8 @@ interface Booking {
   booking_type: string;
   is_guest_booking: boolean;
   booking_details: any;
+  host_confirmed: boolean | null;
+  host_confirmed_at: string | null;
   userName?: string;
   userEmail?: string;
   userPhone?: string;
@@ -69,7 +73,8 @@ const HostBookingDetails = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [confirmedBookings, setConfirmedBookings] = useState<Booking[]>([]);
+  const [unconfirmedBookings, setUnconfirmedBookings] = useState<Booking[]>([]);
   const [pendingEntries, setPendingEntries] = useState<ManualEntry[]>([]);
   const [confirmedEntries, setConfirmedEntries] = useState<ManualEntry[]>([]);
   const [itemName, setItemName] = useState("");
@@ -80,6 +85,14 @@ const HostBookingDetails = () => {
   const [isFlexibleDate, setIsFlexibleDate] = useState(false);
   const [loading, setLoading] = useState(true);
   const [expandedBookings, setExpandedBookings] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState("");
+  
+  // Pagination state
+  const ITEMS_PER_PAGE = 20;
+  const [confirmedOffset, setConfirmedOffset] = useState(0);
+  const [unconfirmedOffset, setUnconfirmedOffset] = useState(0);
+  const [hasMoreConfirmed, setHasMoreConfirmed] = useState(true);
+  const [hasMoreUnconfirmed, setHasMoreUnconfirmed] = useState(true);
 
   const fetchBookings = useCallback(async () => {
     if (!user || !itemId) return;
@@ -154,13 +167,14 @@ const HostBookingDetails = () => {
       setIsFlexibleDate((item as any).is_flexible_date || (item as any).is_custom_date || false);
     }
 
-    // Fetch confirmed/paid bookings
+    // Fetch confirmed/paid bookings - split by host_confirmed
     const { data: bookingsData } = await supabase
       .from("bookings")
-      .select("id,user_id,guest_name,guest_email,guest_phone,total_amount,created_at,visit_date,slots_booked,status,payment_status,booking_type,is_guest_booking,booking_details")
+      .select("id,user_id,guest_name,guest_email,guest_phone,total_amount,created_at,visit_date,slots_booked,status,payment_status,booking_type,is_guest_booking,booking_details,host_confirmed,host_confirmed_at")
       .eq("item_id", itemId)
       .in("payment_status", ["paid", "completed"])
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(ITEMS_PER_PAGE);
 
     // Fetch pending entries from manual_entries table
     const { data: entriesData } = await supabase
@@ -214,12 +228,100 @@ const HostBookingDetails = () => {
         return booking;
       };
 
-      setBookings(allBookingsToEnrich.map(enrichBooking));
+      const enrichedBookings = allBookingsToEnrich.map(enrichBooking);
+      
+      // Split into confirmed and unconfirmed by host
+      const confirmed = enrichedBookings.filter(b => b.host_confirmed === true);
+      const unconfirmed = enrichedBookings.filter(b => !b.host_confirmed);
+      
+      setConfirmedBookings(confirmed);
+      setUnconfirmedBookings(unconfirmed);
+      setHasMoreConfirmed(enrichedBookings.length >= ITEMS_PER_PAGE);
+      setHasMoreUnconfirmed(enrichedBookings.length >= ITEMS_PER_PAGE);
     } else {
-      setBookings([]);
+      setConfirmedBookings([]);
+      setUnconfirmedBookings([]);
     }
     setLoading(false);
   }, [user, type, itemId, navigate]);
+
+  // Host confirms they've seen a booking
+  const confirmBooking = async (bookingId: string) => {
+    const { error } = await supabase
+      .from("bookings")
+      .update({ host_confirmed: true, host_confirmed_at: new Date().toISOString() })
+      .eq("id", bookingId);
+    
+    if (error) {
+      toast({ title: "Error", description: "Failed to confirm booking", variant: "destructive" });
+    } else {
+      toast({ title: "Confirmed", description: "Booking marked as seen" });
+      fetchBookings();
+    }
+  };
+
+  // Load more confirmed bookings
+  const loadMoreConfirmed = async () => {
+    const newOffset = confirmedOffset + ITEMS_PER_PAGE;
+    const { data } = await supabase
+      .from("bookings")
+      .select("id,user_id,guest_name,guest_email,guest_phone,total_amount,created_at,visit_date,slots_booked,status,payment_status,booking_type,is_guest_booking,booking_details,host_confirmed,host_confirmed_at")
+      .eq("item_id", itemId)
+      .eq("host_confirmed", true)
+      .in("payment_status", ["paid", "completed"])
+      .order("created_at", { ascending: false })
+      .range(newOffset, newOffset + ITEMS_PER_PAGE - 1);
+    
+    if (data && data.length > 0) {
+      setConfirmedBookings(prev => [...prev, ...data]);
+      setConfirmedOffset(newOffset);
+      setHasMoreConfirmed(data.length >= ITEMS_PER_PAGE);
+    } else {
+      setHasMoreConfirmed(false);
+    }
+  };
+
+  // Load more unconfirmed bookings
+  const loadMoreUnconfirmed = async () => {
+    const newOffset = unconfirmedOffset + ITEMS_PER_PAGE;
+    const { data } = await supabase
+      .from("bookings")
+      .select("id,user_id,guest_name,guest_email,guest_phone,total_amount,created_at,visit_date,slots_booked,status,payment_status,booking_type,is_guest_booking,booking_details,host_confirmed,host_confirmed_at")
+      .eq("item_id", itemId)
+      .or("host_confirmed.is.null,host_confirmed.eq.false")
+      .in("payment_status", ["paid", "completed"])
+      .order("created_at", { ascending: false })
+      .range(newOffset, newOffset + ITEMS_PER_PAGE - 1);
+    
+    if (data && data.length > 0) {
+      setUnconfirmedBookings(prev => [...prev, ...data]);
+      setUnconfirmedOffset(newOffset);
+      setHasMoreUnconfirmed(data.length >= ITEMS_PER_PAGE);
+    } else {
+      setHasMoreUnconfirmed(false);
+    }
+  };
+
+  // Filter bookings by search
+  const filteredConfirmedBookings = useMemo(() => {
+    if (!searchQuery.trim()) return confirmedBookings;
+    const query = searchQuery.toLowerCase();
+    return confirmedBookings.filter(b => 
+      b.id.toLowerCase().includes(query) ||
+      b.guest_name?.toLowerCase().includes(query) ||
+      (b as any).userName?.toLowerCase().includes(query)
+    );
+  }, [confirmedBookings, searchQuery]);
+
+  const filteredUnconfirmedBookings = useMemo(() => {
+    if (!searchQuery.trim()) return unconfirmedBookings;
+    const query = searchQuery.toLowerCase();
+    return unconfirmedBookings.filter(b => 
+      b.id.toLowerCase().includes(query) ||
+      b.guest_name?.toLowerCase().includes(query) ||
+      (b as any).userName?.toLowerCase().includes(query)
+    );
+  }, [unconfirmedBookings, searchQuery]);
 
   const confirmEntry = async (entryId: string) => {
     const { error } = await supabase
@@ -312,7 +414,7 @@ const HostBookingDetails = () => {
                 {itemName}
               </h1>
               <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">
-                Total Reservations: {bookings.length}
+                Total Reservations: {confirmedBookings.length + unconfirmedBookings.length}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -323,13 +425,24 @@ const HostBookingDetails = () => {
                   itemName={itemName} 
                 />
               )}
-              {bookings.length > 0 && (
+              {(confirmedBookings.length + unconfirmedBookings.length) > 0 && (
                 <DownloadFormatDropdown 
-                  bookings={bookings} 
+                  bookings={[...confirmedBookings, ...unconfirmedBookings]} 
                   itemName={itemName} 
                 />
               )}
             </div>
+          </div>
+          
+          {/* Search Bar for Host Bookings */}
+          <div className="relative mb-6">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
+              placeholder="Search by ID or guest name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-11 h-12 rounded-2xl border-slate-200 focus:border-[#008080] bg-white"
+            />
           </div>
         </div>
 
@@ -497,139 +610,94 @@ const HostBookingDetails = () => {
           />
         )}
 
-        {bookings.length === 0 ? (
-          <div className="bg-white rounded-[28px] p-12 text-center border border-slate-100 shadow-sm">
-            <Ticket className="h-12 w-12 text-slate-200 mx-auto mb-4" />
-            <p className="font-black uppercase tracking-widest text-slate-400 text-xs">No paid bookings found</p>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {bookings.map((booking) => {
-              const isExpanded = expandedBookings.has(booking.id);
-              const guest = getGuestInfo(booking);
-              const details = booking.booking_details as Record<string, any> | null;
-
-              return (
-                <div key={booking.id} className="bg-white rounded-[28px] overflow-hidden shadow-sm border border-slate-100 transition-all hover:shadow-md">
-                  <Collapsible open={isExpanded} onOpenChange={() => toggleExpanded(booking.id)}>
-                    <div className="p-7">
-                      <div className="flex flex-col md:flex-row justify-between gap-6">
-                        
-                        {/* Guest Main Info */}
-                        <div className="space-y-4 flex-1">
-                          <div className="flex items-center gap-2">
-                            <Badge className="bg-[#008080] text-white border-none text-[9px] font-black uppercase px-3 py-0.5 rounded-full">
-                              {booking.status}
-                            </Badge>
-                            <div className="flex items-center gap-1 text-[#857F3E] bg-[#F0E68C]/20 px-2 py-0.5 rounded-full">
-                              <CheckCircle2 className="h-3 w-3" />
-                              <span className="text-[9px] font-black uppercase">Paid</span>
-                            </div>
-                          </div>
-
-                          <div>
-                            <h3 className="text-2xl font-black uppercase tracking-tight text-slate-800 leading-none mb-1">
-                              {guest.name || 'Anonymous Guest'}
-                            </h3>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                              ID: {booking.id.slice(0, 8)}... 
-                              <span className="bg-slate-100 px-2 py-0.5 rounded italic lowercase">@{booking.booking_type}</span>
-                            </p>
-                          </div>
-
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <ContactItem icon={<Mail className="h-3 w-3" />} text={guest.email} />
-                            <ContactItem icon={<Phone className="h-3 w-3" />} text={guest.phone} />
-                            <ContactItem icon={<Calendar className="h-3 w-3" />} text={booking.visit_date ? format(new Date(booking.visit_date), 'dd MMM yyyy') : 'No Date'} />
-                            <ContactItem icon={<Users className="h-3 w-3" />} text={`${booking.slots_booked} Guests`} />
-                          </div>
-                        </div>
-
-                        {/* Price & Action */}
-                        <div className="flex flex-col md:items-end justify-between border-t md:border-t-0 pt-4 md:pt-0 border-slate-50 gap-4">
-                          <div className="text-left md:text-right">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Revenue</p>
-                            <div className="flex items-baseline gap-1">
-                              <span className="text-3xl font-black text-[#FF7F50]">KES {booking.total_amount.toLocaleString()}</span>
-                            </div>
-                          </div>
-
-                          <BookingDownloadButton
-                            booking={{
-                              bookingId: booking.id,
-                              guestName: guest.name || 'Guest',
-                              guestEmail: guest.email || '',
-                              itemName: itemName,
-                              bookingType: booking.booking_type,
-                              visitDate: booking.visit_date || booking.created_at,
-                              totalAmount: booking.total_amount,
-                              slotsBooked: booking.slots_booked || 1,
-                              paymentStatus: booking.payment_status,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <CollapsibleTrigger asChild>
-                      <Button variant="ghost" className="w-full rounded-none border-t border-slate-50 h-12 bg-slate-50/50 hover:bg-slate-50 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
-                        {isExpanded ? <><ChevronUp className="h-3 w-3 mr-2" /> Hide Detail</> : <><ChevronDown className="h-3 w-3 mr-2" /> View Details</>}
-                      </Button>
-                    </CollapsibleTrigger>
-
-                    <CollapsibleContent>
-                      <div className="p-8 bg-slate-50/30 border-t border-slate-50">
-                        <div className="grid md:grid-cols-3 gap-8">
-                          
-                          {/* Booking Summary */}
-                          <div className="space-y-4">
-                            <div className="flex items-center gap-2">
-                              <Info className="h-4 w-4 text-[#008080]" />
-                              <h4 className="font-black text-xs uppercase tracking-widest text-[#008080]">Breakdown</h4>
-                            </div>
-                            <div className="space-y-2">
-                              <DetailRow label="Booked On" value={format(new Date(booking.created_at), 'PPP')} />
-                              {details?.adults && <DetailRow label="Adults" value={details.adults} />}
-                              {details?.children > 0 && <DetailRow label="Children" value={details.children} />}
-                            </div>
-                          </div>
-
-                          {/* Facilities */}
-                          {details?.facilities?.length > 0 && (
-                            <div className="space-y-4">
-                              <h4 className="font-black text-xs uppercase tracking-widest text-[#857F3E]">Facilities</h4>
-                              <div className="flex flex-wrap gap-2">
-                                {details.facilities.map((f: any, idx: number) => (
-                                  <Badge key={idx} variant="outline" className="bg-white border-[#F0E68C] text-[#857F3E] text-[10px] font-bold uppercase rounded-xl">
-                                    {f.name}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Activities */}
-                          {details?.activities?.length > 0 && (
-                            <div className="space-y-4">
-                              <h4 className="font-black text-xs uppercase tracking-widest text-[#FF7F50]">Activities</h4>
-                              <div className="flex flex-wrap gap-2">
-                                {details.activities.map((a: any, idx: number) => (
-                                  <Badge key={idx} variant="outline" className="bg-white border-[#FF7F50]/30 text-[#FF7F50] text-[10px] font-bold uppercase rounded-xl">
-                                    {a.name}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </CollapsibleContent>
-                  </Collapsible>
-                </div>
-              );
-            })}
+        {/* UNCONFIRMED BOOKINGS - Host hasn't confirmed seeing these yet */}
+        {filteredUnconfirmedBookings.length > 0 && (
+          <div className="mb-10">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 rounded-xl bg-amber-50">
+                <Clock className="h-5 w-5 text-amber-600" />
+              </div>
+              <div>
+                <h2 className="text-lg font-black uppercase tracking-tight text-slate-900">
+                  New Bookings ({filteredUnconfirmedBookings.length})
+                </h2>
+                <p className="text-xs text-slate-500">Confirm you've seen these bookings</p>
+              </div>
+            </div>
+            <div className="space-y-4">
+              {filteredUnconfirmedBookings.map((booking) => (
+                <BookingCard
+                  key={booking.id}
+                  booking={booking}
+                  itemName={itemName}
+                  isExpanded={expandedBookings.has(booking.id)}
+                  onToggleExpand={() => toggleExpanded(booking.id)}
+                  getGuestInfo={getGuestInfo}
+                  onConfirm={() => confirmBooking(booking.id)}
+                  showConfirmButton={true}
+                />
+              ))}
+            </div>
+            {hasMoreUnconfirmed && !searchQuery && (
+              <Button 
+                onClick={loadMoreUnconfirmed}
+                variant="outline" 
+                className="w-full mt-4 rounded-2xl h-12 font-black uppercase tracking-widest text-[10px]"
+              >
+                Load Next 20
+              </Button>
+            )}
           </div>
         )}
+
+        {/* CONFIRMED BOOKINGS - Host has seen these */}
+        <div className="mb-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 rounded-xl bg-green-50">
+              <Eye className="h-5 w-5 text-green-600" />
+            </div>
+            <div>
+              <h2 className="text-lg font-black uppercase tracking-tight text-slate-900">
+                Confirmed Bookings ({filteredConfirmedBookings.length})
+              </h2>
+              <p className="text-xs text-slate-500">Bookings you've marked as seen</p>
+            </div>
+          </div>
+
+          {filteredConfirmedBookings.length === 0 && filteredUnconfirmedBookings.length === 0 ? (
+            <div className="bg-white rounded-[28px] p-12 text-center border border-slate-100 shadow-sm">
+              <Ticket className="h-12 w-12 text-slate-200 mx-auto mb-4" />
+              <p className="font-black uppercase tracking-widest text-slate-400 text-xs">No paid bookings found</p>
+            </div>
+          ) : filteredConfirmedBookings.length === 0 ? (
+            <div className="bg-white rounded-[28px] p-8 text-center border border-slate-100 shadow-sm">
+              <p className="font-bold text-slate-400 text-sm">No confirmed bookings yet</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {filteredConfirmedBookings.map((booking) => (
+                <BookingCard
+                  key={booking.id}
+                  booking={booking}
+                  itemName={itemName}
+                  isExpanded={expandedBookings.has(booking.id)}
+                  onToggleExpand={() => toggleExpanded(booking.id)}
+                  getGuestInfo={getGuestInfo}
+                  showConfirmButton={false}
+                />
+              ))}
+            </div>
+          )}
+          {hasMoreConfirmed && filteredConfirmedBookings.length >= ITEMS_PER_PAGE && !searchQuery && (
+            <Button 
+              onClick={loadMoreConfirmed}
+              variant="outline" 
+              className="w-full mt-4 rounded-2xl h-12 font-black uppercase tracking-widest text-[10px]"
+            >
+              Load Next 20
+            </Button>
+          )}
+        </div>
       </main>
       <MobileBottomBar />
     </div>
@@ -650,5 +718,104 @@ const DetailRow = ({ label, value }: { label: string, value: any }) => (
     <span className="text-xs font-bold text-slate-700">{value}</span>
   </div>
 );
+
+const BookingCard = ({ booking, itemName, isExpanded, onToggleExpand, getGuestInfo, onConfirm, showConfirmButton }: {
+  booking: any; itemName: string; isExpanded: boolean; onToggleExpand: () => void;
+  getGuestInfo: (b: any) => { name: string | null; email: string | null; phone: string | null };
+  onConfirm?: () => void; showConfirmButton: boolean;
+}) => {
+  const guest = getGuestInfo(booking);
+  const details = booking.booking_details as Record<string, any> | null;
+
+  return (
+    <div className={`bg-white rounded-[28px] overflow-hidden shadow-sm border transition-all hover:shadow-md ${showConfirmButton ? 'border-amber-200' : 'border-slate-100'}`}>
+      <Collapsible open={isExpanded} onOpenChange={onToggleExpand}>
+        <div className="p-6">
+          <div className="flex flex-col md:flex-row justify-between gap-4">
+            <div className="space-y-3 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge className="bg-[#008080] text-white border-none text-[9px] font-black uppercase px-3 py-0.5 rounded-full">
+                  {booking.status}
+                </Badge>
+                <div className="flex items-center gap-1 text-[#857F3E] bg-[#F0E68C]/20 px-2 py-0.5 rounded-full">
+                  <CheckCircle2 className="h-3 w-3" />
+                  <span className="text-[9px] font-black uppercase">Paid</span>
+                </div>
+                {showConfirmButton && (
+                  <Badge className="bg-amber-100 text-amber-700 border-none text-[9px] font-black uppercase">New</Badge>
+                )}
+              </div>
+              <div>
+                <h3 className="text-xl font-black uppercase tracking-tight text-slate-800 leading-none mb-1">
+                  {guest.name || 'Anonymous Guest'}
+                </h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                  ID: {booking.id.slice(0, 8)}...
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <ContactItem icon={<Mail className="h-3 w-3" />} text={guest.email} />
+                <ContactItem icon={<Phone className="h-3 w-3" />} text={guest.phone} />
+                <ContactItem icon={<Calendar className="h-3 w-3" />} text={booking.visit_date ? format(new Date(booking.visit_date), 'dd MMM yyyy') : 'No Date'} />
+                <ContactItem icon={<Users className="h-3 w-3" />} text={`${booking.slots_booked} Guests`} />
+              </div>
+            </div>
+            <div className="flex flex-col md:items-end gap-3">
+              <div className="text-left md:text-right">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Revenue</p>
+                <span className="text-2xl font-black text-[#FF7F50]">KES {booking.total_amount.toLocaleString()}</span>
+              </div>
+              {showConfirmButton && onConfirm && (
+                <Button onClick={onConfirm} size="sm" className="bg-green-600 hover:bg-green-700 text-white rounded-xl gap-1 text-[10px] font-black uppercase">
+                  <Eye className="h-3 w-3" /> Mark as Seen
+                </Button>
+              )}
+              <BookingDownloadButton
+                booking={{
+                  bookingId: booking.id, guestName: guest.name || 'Guest', guestEmail: guest.email || '',
+                  itemName, bookingType: booking.booking_type, visitDate: booking.visit_date || booking.created_at,
+                  totalAmount: booking.total_amount, slotsBooked: booking.slots_booked || 1, paymentStatus: booking.payment_status,
+                }}
+              />
+            </div>
+          </div>
+        </div>
+        <CollapsibleTrigger asChild>
+          <Button variant="ghost" className="w-full rounded-none border-t border-slate-50 h-10 bg-slate-50/50 hover:bg-slate-50 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+            {isExpanded ? <><ChevronUp className="h-3 w-3 mr-2" /> Hide</> : <><ChevronDown className="h-3 w-3 mr-2" /> Details</>}
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="p-6 bg-slate-50/30 border-t border-slate-50">
+            <div className="grid md:grid-cols-3 gap-6">
+              <div className="space-y-3">
+                <h4 className="font-black text-xs uppercase tracking-widest text-[#008080]">Breakdown</h4>
+                <DetailRow label="Booked On" value={format(new Date(booking.created_at), 'PPP')} />
+                {details?.adults && <DetailRow label="Adults" value={details.adults} />}
+                {details?.children > 0 && <DetailRow label="Children" value={details.children} />}
+              </div>
+              {details?.facilities?.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="font-black text-xs uppercase tracking-widest text-[#857F3E]">Facilities</h4>
+                  <div className="flex flex-wrap gap-1">{details.facilities.map((f: any, i: number) => (
+                    <Badge key={i} variant="outline" className="bg-white border-[#F0E68C] text-[#857F3E] text-[9px] rounded-xl">{f.name}</Badge>
+                  ))}</div>
+                </div>
+              )}
+              {details?.activities?.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="font-black text-xs uppercase tracking-widest text-[#FF7F50]">Activities</h4>
+                  <div className="flex flex-wrap gap-1">{details.activities.map((a: any, i: number) => (
+                    <Badge key={i} variant="outline" className="bg-white border-[#FF7F50]/30 text-[#FF7F50] text-[9px] rounded-xl">{a.name}</Badge>
+                  ))}</div>
+                </div>
+              )}
+            </div>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+    </div>
+  );
+};
 
 export default HostBookingDetails;

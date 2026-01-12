@@ -569,13 +569,13 @@ const Index = () => {
       result = sortedByRating;
     }
     
-    // For trips/events, prioritize flexible dates and available items (sold out last)
-    // On small screens, flexible date items come first
+    // For trips/events: filter out unavailable/expired, prioritize flexible dates
+    // HIDE: expired past-date items (unless flexible) and sold-out items
     if (isTripsOrEvents) {
       const today = new Date().toISOString().split('T')[0];
       const flexibleAndAvailable: any[] = [];
       const fixedDateAvailable: any[] = [];
-      const soldOutOrOutdated: any[] = [];
+      const soldOutItems: any[] = [];
       
       result.forEach(item => {
         const isOutdated = item.date && !item.is_flexible_date && item.date < today;
@@ -583,19 +583,24 @@ const Index = () => {
         const isSoldOut = item.available_tickets !== null && item.available_tickets !== undefined && 
           (item.available_tickets <= 0 || bookedCount >= item.available_tickets);
         
-        if (isOutdated || isSoldOut) {
-          soldOutOrOutdated.push(item);
+        // HIDE expired items completely (unless flexible date)
+        if (isOutdated) {
+          return; // Skip expired items
+        }
+        
+        // Show sold-out items at the end (they're still visible, just last)
+        if (isSoldOut) {
+          soldOutItems.push(item);
         } else if (item.is_flexible_date) {
-          // Flexible date items are prioritized
+          // Flexible date items are prioritized first
           flexibleAndAvailable.push(item);
         } else {
           fixedDateAvailable.push(item);
         }
       });
       
-      // On mobile (small screens), flexible items come first, then available, then sold out
-      // isLargeScreen is from useResponsiveLimit
-      return [...flexibleAndAvailable, ...fixedDateAvailable, ...soldOutOrOutdated];
+      // Flexible first, then available by date, then sold out at end
+      return [...flexibleAndAvailable, ...fixedDateAvailable, ...soldOutItems];
     }
     
     return result;

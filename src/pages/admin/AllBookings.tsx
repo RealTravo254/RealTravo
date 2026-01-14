@@ -189,8 +189,7 @@ const AllBookings = () => {
                   <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2" style={{ borderColor: COLORS.TEAL }}></div>
                 </div>
               )}
-              {!searching &&
-              {filteredBookings.map((booking) => (
+              {!searching && filteredBookings.map((booking) => (
                 <Card 
                   key={booking.id} 
                   onClick={() => setSelectedBooking(booking)}
@@ -228,7 +227,7 @@ const AllBookings = () => {
                 </Card>
               ))}
             </div>
-          </div>}
+          </div>
 
           {/* Details Section */}
           <div className="lg:sticky lg:top-24 h-fit">

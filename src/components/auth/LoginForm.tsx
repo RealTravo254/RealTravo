@@ -132,12 +132,12 @@ export const LoginForm = () => {
         </div>
       </div>
 
-      {/* Branded Google Button */}
       <Button
         type="button"
         variant="outline"
         onClick={handleGoogleLogin}
-        className="w-full flex items-center justify-center gap-2 border-[#e5e7eb] hover:bg-[#f8f9fa] transition-colors"
+        /* Applied Teal hover color using rgba-equivalent or tailwind utility */
+        className="w-full flex items-center justify-center gap-2 border-[#e5e7eb] transition-all duration-200 hover:bg-[#f8f9fa] hover:text-[rgba(13,148,136,1)]"
       >
         <svg
           viewBox="0 0 24 24"
@@ -161,7 +161,7 @@ export const LoginForm = () => {
             fill="#EA4335"
           />
         </svg>
-        <span>Continue with Google</span>
+        <span className="font-medium">Continue with Google</span>
       </Button>
 
       <div className="text-center text-sm text-muted-foreground">

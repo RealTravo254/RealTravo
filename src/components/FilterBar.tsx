@@ -1,261 +1,176 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { MapPin, Search, Loader2, X } from "lucide-react";
-import { format, startOfDay } from "date-fns";
-import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
+import { CalendarIcon, Search, XCircle } from "lucide-react";
+import { format } from "date-fns";
 
-interface LocationSuggestion {
-  location: string;
-  place?: string;
-  country: string;
-  type?: string;
-}
+const COLORS = {
+  TEAL: "#008080",
+  CORAL: "#FF7F50",
+  CORAL_LIGHT: "#FF9E7A",
+  KHAKI: "#F0E68C",
+  KHAKI_DARK: "#857F3E",
+  RED: "#FF0000",
+  SOFT_GRAY: "#F8F9FA",
+};
 
-export interface HomeFilterValues {
-  location: string;
+export interface FilterValues {
+  location?: string;
+  dateFrom?: Date;
+  dateTo?: Date;
   checkIn?: Date;
   checkOut?: Date;
 }
 
-interface HomeFilterBarProps {
-  onApplyFilters: (filters: HomeFilterValues) => void;
-  onClear: () => void;
+interface FilterBarProps {
+  type: "trips-events" | "hotels" | "adventure";
+  onApplyFilters: (filters: FilterValues) => void;
 }
 
-export const HomeFilterBar = ({ onApplyFilters, onClear }: HomeFilterBarProps) => {
-  const [location, setLocation] = useState("");
+export const FilterBar = ({ type, onApplyFilters }: FilterBarProps) => {
+  const [dateFrom, setDateFrom] = useState<Date>();
+  const [dateTo, setDateTo] = useState<Date>();
   const [checkIn, setCheckIn] = useState<Date>();
   const [checkOut, setCheckOut] = useState<Date>();
-  const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
-  const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [checkInOpen, setCheckInOpen] = useState(false);
-  const [checkOutOpen, setCheckOutOpen] = useState(false);
-  const locationRef = useRef<HTMLDivElement>(null);
-
-  const today = startOfDay(new Date());
-
-  const fetchLocations = useCallback(async (query: string = "") => {
-    setIsLoading(true);
-    try {
-      const searchTerm = query.toLowerCase();
-      
-      // Use public views to avoid exposing contact details
-      const [hotels, adventures] = await Promise.all([
-        supabase.from("public_hotels").select("location, place, country").limit(5),
-        supabase.from("public_adventure_places").select("location, place, country").limit(5)
-      ]);
-
-      let allResults = [...(hotels.data || []), ...(adventures.data || [])];
-
-      if (searchTerm) {
-        allResults = allResults.filter(item => 
-          item.location?.toLowerCase().includes(searchTerm) || 
-          item.place?.toLowerCase().includes(searchTerm) ||
-          item.country?.toLowerCase().includes(searchTerm)
-        );
-      }
-
-      const seen = new Set();
-      const uniqueResults = allResults.filter(item => {
-        const key = `${item.location}-${item.place}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-
-      setLocationSuggestions(uniqueResults as LocationSuggestion[]);
-    } catch (error) {
-      console.error("Error fetching locations:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (location.trim().length > 0) {
-      const timer = setTimeout(() => fetchLocations(location), 300);
-      return () => clearTimeout(timer);
-    }
-  }, [location, fetchLocations]);
-
-  const handleInputFocus = () => {
-    setCheckInOpen(false);
-    setCheckOutOpen(false);
-    setShowLocationSuggestions(true);
-    if (location.length === 0) {
-      fetchLocations();
-    }
-  };
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (locationRef.current && !locationRef.current.contains(event.target as Node)) {
-        setShowLocationSuggestions(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   const handleApply = () => {
-    onApplyFilters({ location: location.trim(), checkIn, checkOut });
-    setShowLocationSuggestions(false);
+    const validationError = validateFilters();
+    if (validationError) return alert(validationError);
+
+    const filters: FilterValues = {};
+
+    if (type === "trips-events") {
+      if (dateFrom) filters.dateFrom = dateFrom;
+      if (dateTo) filters.dateTo = dateTo;
+    } else if (type === "hotels") {
+      if (checkIn) filters.checkIn = checkIn;
+      if (checkOut) filters.checkOut = checkOut;
+    }
+
+    onApplyFilters(filters);
   };
 
   const handleClear = () => {
-    setLocation("");
+    setDateFrom(undefined);
+    setDateTo(undefined);
     setCheckIn(undefined);
     setCheckOut(undefined);
-    setLocationSuggestions([]);
-    onClear();
+    onApplyFilters({});
   };
 
-  const hasFilters = location || checkIn || checkOut;
+  const validateFilters = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dates = [dateFrom, dateTo, checkIn, checkOut];
+    if (dates.some((d) => d && d < today)) return "Dates cannot be in the past";
+    return null;
+  };
 
   return (
-    <div className="w-full bg-background border-b border-border px-2 py-4 md:px-4 md:py-8">
-      <div className="max-w-5xl mx-auto">
-        <div className="flex flex-row items-center bg-card border border-border shadow-sm rounded-full p-1.5 md:p-2 transition-all hover:shadow-md">
-          
-          {/* Location Section */}
-          <div ref={locationRef} className="relative flex-[1.5] md:flex-[2] min-w-0">
-            <div className="flex flex-col px-2 md:px-4 py-1">
-              <label className="text-[9px] md:text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Where</label>
-              <div className="flex items-center">
-                <Input
-                  placeholder="Destinations"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  onFocus={handleInputFocus}
-                  className="border-none shadow-none focus-visible:ring-0 h-6 md:h-7 p-0 text-xs md:text-sm bg-transparent placeholder:text-muted-foreground/60 truncate"
-                />
-                {isLoading ? (
-                  <Loader2 className="h-3 w-3 animate-spin text-muted-foreground flex-shrink-0" />
-                ) : location && (
-                  <button onClick={() => setLocation("")} className="hover:text-foreground text-muted-foreground/50 flex-shrink-0">
-                    <X className="h-3 w-3" />
-                  </button>
-                )}
-              </div>
+    <div className="bg-gradient-to-br from-white via-white to-slate-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 p-4 shadow-sm border-b border-slate-200 dark:border-slate-700 relative overflow-visible rounded-none">
+      {/* Decorative accent line at the top */}
+      <div
+        className="absolute top-0 left-0 w-full h-0.5"
+        style={{ background: `linear-gradient(90deg, ${COLORS.TEAL} 0%, ${COLORS.CORAL} 100%)` }}
+      />
+
+      <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-end gap-4">
+        {/* Date Controls */}
+        {type !== "adventure" && (
+          <>
+            <div className="flex-1">
+              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">
+                {type === "hotels" ? "Check-In" : "From Date"}
+              </Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left h-10 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold group px-3"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4 text-slate-400 group-hover:text-[#FF7F50]" />
+                    {type === "hotels"
+                      ? checkIn
+                        ? format(checkIn, "PPP")
+                        : <span className="text-slate-400">Select date</span>
+                      : dateFrom
+                        ? format(dateFrom, "PPP")
+                        : <span className="text-slate-400">Select date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 border-none shadow-2xl" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={type === "hotels" ? checkIn : dateFrom}
+                    onSelect={type === "hotels" ? setCheckIn : setDateFrom}
+                    disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
 
-            {/* Suggestions Dropdown */}
-            {showLocationSuggestions && (locationSuggestions.length > 0 || isLoading) && (
-              <div className="absolute left-0 w-[260px] md:w-[350px] top-[calc(100%+16px)] bg-popover border border-border rounded-2xl shadow-2xl z-[100] py-3 animate-in fade-in zoom-in-95 duration-200">
-                <p className="px-5 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                  {location.length > 0 ? "Suggestions" : "Popular Destinations"}
-                </p>
-                <div className="max-h-[300px] overflow-y-auto">
-                  {locationSuggestions.map((suggestion, index) => (
-                    <button
-                      key={index}
-                      onClick={() => {
-                        setLocation(suggestion.place || suggestion.location);
-                        setShowLocationSuggestions(false);
-                      }}
-                      className="w-full px-5 py-2.5 text-left hover:bg-accent transition-colors flex items-center gap-3 group/item"
-                    >
-                      <div className="bg-muted group-hover/item:bg-primary/10 p-2 rounded-lg transition-colors">
-                        <MapPin className="h-4 w-4 text-muted-foreground group-hover/item:text-primary" />
-                      </div>
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-sm font-semibold text-foreground truncate">
-                          {suggestion.place || suggestion.location}
-                        </span>
-                        <span className="text-xs text-muted-foreground truncate">
-                          {suggestion.country}
-                        </span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+            <div className="flex-1">
+              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">
+                {type === "hotels" ? "Check-Out" : "To Date"}
+              </Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left h-10 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold group px-3"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4 text-slate-400 group-hover:text-[#FF7F50]" />
+                    {type === "hotels"
+                      ? checkOut
+                        ? format(checkOut, "PPP")
+                        : <span className="text-slate-400">Select date</span>
+                      : dateTo
+                        ? format(dateTo, "PPP")
+                        : <span className="text-slate-400">Select date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 border-none shadow-2xl" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={type === "hotels" ? checkOut : dateTo}
+                    onSelect={type === "hotels" ? setCheckOut : setDateTo}
+                    disabled={(date) => {
+                      const baseDate = (type === "hotels" ? checkIn : dateFrom) || new Date();
+                      return date <= baseDate;
+                    }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          </>
+        )}
 
-          {/* Divider */}
-          <div className="w-px h-6 md:h-8 bg-border flex-shrink-0" />
-
-          {/* Check-in Section */}
-          <div className="flex-1 min-w-0">
-            <Popover open={checkInOpen} onOpenChange={setCheckInOpen}>
-              <PopoverTrigger asChild>
-                <button 
-                  onClick={() => setShowLocationSuggestions(false)}
-                  className="flex flex-col w-full px-2 md:px-4 py-1 text-left hover:bg-accent/50 transition-colors rounded-full md:rounded-none"
-                >
-                  <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-wider text-muted-foreground">From</span>
-                  <span className={cn("text-[11px] md:text-sm mt-0.5 truncate font-medium", !checkIn && "text-muted-foreground/60")}>
-                    {checkIn ? format(checkIn, "MMM dd") : "Add"}
-                  </span>
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 rounded-2xl shadow-xl border-border" align="center" sideOffset={10}>
-                <Calendar
-                  mode="single"
-                  selected={checkIn}
-                  onSelect={(date) => { setCheckIn(date); setCheckInOpen(false); }}
-                  disabled={(date) => date < today}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-
-          {/* Divider */}
-          <div className="w-px h-6 md:h-8 bg-border flex-shrink-0" />
-
-          {/* Check-out Section */}
-          <div className="flex-1 min-w-0">
-            <Popover open={checkOutOpen} onOpenChange={setCheckOutOpen}>
-              <PopoverTrigger asChild>
-                <button 
-                  onClick={() => setShowLocationSuggestions(false)}
-                  className="flex flex-col w-full px-2 md:px-4 py-1 text-left hover:bg-accent/50 transition-colors rounded-full md:rounded-none"
-                >
-                  <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-wider text-muted-foreground">To</span>
-                  <span className={cn("text-[11px] md:text-sm mt-0.5 truncate font-medium", !checkOut && "text-muted-foreground/60")}>
-                    {checkOut ? format(checkOut, "MMM dd") : "Add"}
-                  </span>
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 rounded-2xl shadow-xl border-border" align="center" sideOffset={10}>
-                <Calendar
-                  mode="single"
-                  selected={checkOut}
-                  onSelect={(date) => { setCheckOut(date); setCheckOutOpen(false); }}
-                  disabled={(date) => (checkIn ? date <= checkIn : date < today)}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-
-          {/* Actions Section */}
-          <div className="flex items-center pl-1 pr-1 gap-1">
-            {hasFilters && (
-              <Button 
-                onClick={handleClear} 
-                variant="ghost" 
-                className="hidden lg:flex h-10 px-3 text-xs font-bold text-muted-foreground rounded-full hover:bg-destructive/10 hover:text-destructive"
-              >
-                Clear
-              </Button>
-            )}
-            <Button 
-              onClick={handleApply} 
-              className="h-9 w-9 md:h-11 md:w-auto md:px-6 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold flex items-center justify-center shadow-sm shrink-0"
-              size="icon"
-            >
-              <Search className="h-4 w-4 stroke-[3px]" />
-              <span className="hidden md:inline ml-2">Search</span>
-            </Button>
-          </div>
+        {/* Action Buttons */}
+        <div className="flex gap-2">
+          <Button
+            onClick={handleApply}
+            className="h-10 px-6 rounded-lg text-[11px] font-black uppercase tracking-wider text-white shadow-sm transition-all active:scale-95 border-none"
+            style={{
+              background: `linear-gradient(135deg, ${COLORS.CORAL_LIGHT} 0%, ${COLORS.CORAL} 100%)`,
+            }}
+          >
+            <Search className="h-4 w-4 mr-2" />
+            Apply Filters
+          </Button>
+          
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleClear}
+            className="h-10 w-10 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-500"
+            title="Clear Filters"
+          >
+            <XCircle className="h-5 w-5" />
+          </Button>
         </div>
       </div>
     </div>

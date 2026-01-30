@@ -17,6 +17,7 @@ import { PhoneInput } from "@/components/creation/PhoneInput";
 import { compressImages } from "@/lib/imageCompression";
 import { DynamicItemList, DynamicItem } from "@/components/creation/DynamicItemList";
 import { OperatingHoursSection } from "@/components/creation/OperatingHoursSection";
+import { ReviewStep } from "@/components/creation/ReviewStep";
 
 const COLORS = {
   TEAL: "#008080",
@@ -25,7 +26,7 @@ const COLORS = {
   SOFT_GRAY: "#F8F9FA"
 };
 
-const TOTAL_STEPS = 6;
+const TOTAL_STEPS = 7;
 
 const CreateHotel = () => {
   const navigate = useNavigate();
@@ -57,12 +58,20 @@ const CreateHotel = () => {
   const [facilities, setFacilities] = useState<DynamicItem[]>([]);
   const [activities, setActivities] = useState<DynamicItem[]>([]);
   const [galleryImages, setGalleryImages] = useState<File[]>([]);
+  const [creatorProfile, setCreatorProfile] = useState({ name: "", email: "", phone: "" });
 
   useEffect(() => {
     const fetchUserProfile = async () => {
       if (user) {
-        const { data: profile } = await supabase.from('profiles').select('country').eq('id', user.id).single();
+        const { data: profile } = await supabase.from('profiles').select('country, name, email, phone_number').eq('id', user.id).single();
         if (profile?.country) setFormData(prev => ({ ...prev, country: profile.country }));
+        if (profile) {
+          setCreatorProfile({
+            name: profile.name || "",
+            email: profile.email || user.email || "",
+            phone: profile.phone_number || ""
+          });
+        }
       }
     };
     fetchUserProfile();
@@ -457,6 +466,34 @@ const CreateHotel = () => {
               onChange={(e) => setFormData({...formData, description: e.target.value})}
             />
           </Card>
+        )}
+
+        {/* Step 7: Review */}
+        {currentStep === 7 && (
+          <ReviewStep
+            type="hotel"
+            data={{
+              name: formData.registrationName,
+              registrationName: formData.registrationName,
+              registrationNumber: formData.registrationNumber,
+              place: formData.place,
+              country: formData.country,
+              description: formData.description,
+              email: formData.email,
+              phoneNumber: formData.phoneNumber,
+              openingHours: formData.openingHours,
+              closingHours: formData.closingHours,
+              workingDays: Object.entries(workingDays).filter(([_, v]) => v).map(([d]) => d),
+              amenities: amenities.map(a => ({ name: a.name })),
+              facilities: formatItemsForDB(facilities),
+              activities: formatItemsForDB(activities),
+              imageCount: galleryImages.length,
+            }}
+            creatorName={creatorProfile.name}
+            creatorEmail={creatorProfile.email}
+            creatorPhone={creatorProfile.phone}
+            accentColor={COLORS.TEAL}
+          />
         )}
 
         {/* Navigation Buttons */}

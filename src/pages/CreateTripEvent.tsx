@@ -17,6 +17,7 @@ import { PhoneInput } from "@/components/creation/PhoneInput";
 import { approvalStatusSchema } from "@/lib/validation";
 import { compressImages } from "@/lib/imageCompression";
 import { OperatingHoursSection } from "@/components/creation/OperatingHoursSection";
+import { ReviewStep } from "@/components/creation/ReviewStep";
 
 interface WorkingDays {
   Mon: boolean;
@@ -35,7 +36,7 @@ const COLORS = {
   SOFT_GRAY: "#F8F9FA"
 };
 
-const TOTAL_STEPS = 6;
+const TOTAL_STEPS = 7;
 
 const CreateTripEvent = () => {
   const navigate = useNavigate();
@@ -70,15 +71,23 @@ const CreateTripEvent = () => {
   });
   
   const [galleryImages, setGalleryImages] = useState<File[]>([]);
+  const [creatorProfile, setCreatorProfile] = useState({ name: "", email: "", phone: "" });
 
   useEffect(() => {
     const fetchUserProfile = async () => {
       if (user) {
-        const { data: profile } = await supabase.from('profiles').select('country, email').eq('id', user.id).single();
+        const { data: profile } = await supabase.from('profiles').select('country, email, name, phone_number').eq('id', user.id).single();
         if (profile?.country) {
           setFormData(prev => ({ ...prev, country: profile.country, email: profile.email || user.email || '' }));
         } else if (user.email) {
           setFormData(prev => ({ ...prev, email: user.email || '' }));
+        }
+        if (profile) {
+          setCreatorProfile({
+            name: profile.name || "",
+            email: profile.email || user.email || "",
+            phone: profile.phone_number || ""
+          });
         }
       }
     };
@@ -507,6 +516,37 @@ const CreateTripEvent = () => {
               placeholder="Tell travelers what makes this experience special..."
             />
           </Card>
+        )}
+
+        {/* Step 7: Review */}
+        {currentStep === 7 && (
+          <ReviewStep
+            type={formData.type as 'trip' | 'event'}
+            data={{
+              name: formData.name,
+              location: formData.location,
+              place: formData.place,
+              country: formData.country,
+              description: formData.description,
+              email: formData.email,
+              phoneNumber: formData.phone_number,
+              openingHours: formData.opening_hours,
+              closingHours: formData.closing_hours,
+              workingDays: formData.is_custom_date 
+                ? Object.entries(workingDays).filter(([_, v]) => v).map(([d]) => d)
+                : undefined,
+              date: formData.date,
+              isFlexibleDate: formData.is_custom_date,
+              priceAdult: formData.price,
+              priceChild: formData.price_child,
+              capacity: formData.available_tickets,
+              imageCount: galleryImages.length,
+            }}
+            creatorName={creatorProfile.name}
+            creatorEmail={creatorProfile.email}
+            creatorPhone={creatorProfile.phone}
+            accentColor={COLORS.TEAL}
+          />
         )}
 
         {/* Navigation Buttons */}

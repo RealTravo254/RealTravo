@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { PaymentStatusDialog } from "./PaymentStatusDialog";
 import { useMpesaPayment } from "@/hooks/useMpesaPayment";
+import { usePaystackPayment } from "@/hooks/usePaystackPayment";
 import { cn } from "@/lib/utils";
 import { useRealtimeItemAvailability } from "@/hooks/useRealtimeBookings";
 import { useFacilityRangeAvailability } from "@/hooks/useDateRangeAvailability";
@@ -237,11 +238,6 @@ export const MultiStepBooking = ({
             return;
         }
         
-        if (paymentMethod === 'card') {
-            alert("Card payment selected. Integration required.");
-            return;
-        }
-
         const bookingData = {
             item_id: itemId,
             booking_type: bookingType,
@@ -259,7 +255,7 @@ export const MultiStepBooking = ({
             guest_phone: formData.guest_phone || undefined,
             visit_date: formData.visit_date,
             slots_booked: formData.num_adults + formData.num_children,
-            payment_method: 'mpesa',
+            payment_method: paymentMethod,
             payment_phone: formData.mpesa_phone,
             host_id: hostId,
             emailData: {
@@ -267,7 +263,29 @@ export const MultiStepBooking = ({
             },
         };
 
-        await initiatePayment(formData.mpesa_phone, totalAmount, bookingData);
+        if (paymentMethod === 'mpesa') {
+            await initiatePayment(formData.mpesa_phone, totalAmount, bookingData);
+        } else if (paymentMethod === 'card') {
+            // Use Paystack for card payments
+            const { initiatePayment: initiateCardPayment } = usePaystackPayment({
+                onSuccess: (reference) => {
+                    console.log('✅ Card payment succeeded:', reference);
+                    setPaymentSucceeded(true);
+                    if (onPaymentSuccess) {
+                        onPaymentSuccess();
+                    }
+                },
+                onError: (error) => {
+                    console.log('❌ Card payment failed:', error);
+                }
+            });
+            
+            await initiateCardPayment(
+                formData.guest_email || user?.email || '',
+                totalAmount,
+                bookingData
+            );
+        }
     };
 
     const toggleFacility = (facility: Facility) => {

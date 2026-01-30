@@ -17,6 +17,9 @@ import { PhoneInput } from "@/components/creation/PhoneInput";
 import { compressImages } from "@/lib/imageCompression";
 import { DynamicItemList, DynamicItem } from "@/components/creation/DynamicItemList";
 import { OperatingHoursSection } from "@/components/creation/OperatingHoursSection";
+import { ReviewStep } from "@/components/creation/ReviewStep";
+
+const TOTAL_STEPS = 7;
 
 const COLORS = {
   TEAL: "#008080",
@@ -27,7 +30,7 @@ const COLORS = {
   SOFT_GRAY: "#F8F9FA"
 };
 
-const TOTAL_STEPS = 6;
+
 
 const CreateAdventure = () => {
   const navigate = useNavigate();
@@ -49,9 +52,12 @@ const CreateAdventure = () => {
     closingHours: "",
     entranceFeeType: "free",
     adultPrice: "0",
+    childPrice: "0",
     latitude: null as number | null,
     longitude: null as number | null
   });
+
+  const [creatorProfile, setCreatorProfile] = useState({ name: "", email: "", phone: "" });
   
   const [workingDays, setWorkingDays] = useState({
     Mon: false, Tue: false, Wed: false, Thu: false, Fri: false, Sat: false, Sun: false
@@ -65,8 +71,15 @@ const CreateAdventure = () => {
   useEffect(() => {
     const fetchUserProfile = async () => {
       if (user) {
-        const { data: profile } = await supabase.from('profiles').select('country').eq('id', user.id).single();
+        const { data: profile } = await supabase.from('profiles').select('country, name, email, phone_number').eq('id', user.id).single();
         if (profile?.country) setFormData(prev => ({ ...prev, country: profile.country }));
+        if (profile) {
+          setCreatorProfile({
+            name: profile.name || "",
+            email: profile.email || user.email || "",
+            phone: profile.phone_number || ""
+          });
+        }
       }
     };
     fetchUserProfile();
@@ -433,13 +446,22 @@ const CreateAdventure = () => {
                   </Select>
                 </div>
                 {formData.entranceFeeType === "paid" && (
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Adult Entry (KSh)</Label>
-                    <Input type="number" value={formData.adultPrice}
-                      onChange={(e) => setFormData({...formData, adultPrice: e.target.value})}
-                      className="rounded-xl h-12 border-slate-100 font-bold"
-                    />
-                  </div>
+                  <>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Adult Entry (KSh)</Label>
+                      <Input type="number" value={formData.adultPrice}
+                        onChange={(e) => setFormData({...formData, adultPrice: e.target.value})}
+                        className="rounded-xl h-12 border-slate-100 font-bold"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Child Entry (KSh)</Label>
+                      <Input type="number" value={formData.childPrice}
+                        onChange={(e) => setFormData({...formData, childPrice: e.target.value})}
+                        className="rounded-xl h-12 border-slate-100 font-bold"
+                      />
+                    </div>
+                  </>
                 )}
               </div>
             </div>
@@ -519,6 +541,38 @@ const CreateAdventure = () => {
             </div>
             <p className="text-xs text-slate-400 mt-4 text-center">Upload at least 1 photo to submit</p>
           </Card>
+        )}
+
+        {/* Step 7: Review */}
+        {currentStep === 7 && (
+          <ReviewStep
+            type="adventure"
+            data={{
+              name: formData.registrationName,
+              registrationName: formData.registrationName,
+              registrationNumber: formData.registrationNumber,
+              location: formData.locationName,
+              place: formData.place,
+              country: formData.country,
+              description: formData.description,
+              email: formData.email,
+              phoneNumber: formData.phoneNumber,
+              openingHours: formData.openingHours,
+              closingHours: formData.closingHours,
+              workingDays: Object.entries(workingDays).filter(([_, v]) => v).map(([d]) => d),
+              entranceFeeType: formData.entranceFeeType,
+              adultPrice: formData.adultPrice,
+              childPrice: formData.childPrice,
+              amenities: amenities.map(a => ({ name: a.name })),
+              facilities: formatItemsForDB(facilities),
+              activities: formatItemsForDB(activities),
+              imageCount: galleryImages.length,
+            }}
+            creatorName={creatorProfile.name}
+            creatorEmail={creatorProfile.email}
+            creatorPhone={creatorProfile.phone}
+            accentColor={COLORS.TEAL}
+          />
         )}
 
         {/* Navigation Buttons */}

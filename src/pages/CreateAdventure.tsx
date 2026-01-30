@@ -20,6 +20,7 @@ import { OperatingHoursSection } from "@/components/creation/OperatingHoursSecti
 import { ReviewStep } from "@/components/creation/ReviewStep";
 
 const TOTAL_STEPS = 7;
+
 const COLORS = {
   TEAL: "#008080",
   CORAL: "#FF7F50",
@@ -65,7 +66,7 @@ const CreateAdventure = () => {
   const [galleryImages, setGalleryImages] = useState<File[]>([]);
 
   const errorClass = (field: string) => 
-    errors[field] ? "border-red-500 bg-red-50 ring-1 ring-red-500" : "border-slate-100 bg-slate-50/50";
+    errors[field] ? "border-red-500 bg-red-50 ring-2 ring-red-500" : "border-slate-100 bg-slate-50/50";
 
   const validateStep = (step: number): boolean => {
     const newErrors: Record<string, boolean> = {};
@@ -100,16 +101,17 @@ const CreateAdventure = () => {
     }
 
     if (step === 5) {
-      // STRICT FACILITY CHECK: If name exists, capacity is MANDATORY
-      const incompleteFacility = facilities.some(f => 
+      // Logic: Facilities and Amenities are optional to START, 
+      // but IF a Facility is named, Capacity is MANDATORY.
+      const hasIncompleteFacility = facilities.some(f => 
         f.name.trim() !== "" && (!f.capacity || parseInt(f.capacity) <= 0)
       );
       
-      if (incompleteFacility) {
+      if (hasIncompleteFacility) {
         newErrors.facilities = true;
         toast({ 
           title: "Capacity Required", 
-          description: "Every listed facility must have a valid capacity number.", 
+          description: "Please enter a valid capacity for all named facilities.", 
           variant: "destructive" 
         });
       }
@@ -127,8 +129,29 @@ const CreateAdventure = () => {
     if (validateStep(currentStep)) {
       setErrors({});
       setCurrentStep(prev => Math.min(prev + 1, TOTAL_STEPS));
-    } else if (currentStep !== 5) {
-      toast({ title: "Required Fields", description: "Please fill all highlighted sections.", variant: "destructive" });
+    } else {
+      toast({ 
+        title: "Incomplete Details", 
+        description: "Please fill all required fields highlighted in red.", 
+        variant: "destructive" 
+      });
+    }
+  };
+
+  const getCurrentLocation = () => {
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setFormData(prev => ({ 
+            ...prev, 
+            latitude: position.coords.latitude, 
+            longitude: position.coords.longitude 
+          }));
+          setErrors(prev => ({ ...prev, gps: false }));
+          toast({ title: "Location captured successfully" });
+        },
+        () => toast({ title: "Error", description: "Could not capture GPS", variant: "destructive" })
+      );
     }
   };
 
@@ -174,7 +197,7 @@ const CreateAdventure = () => {
       }]);
 
       if (error) throw error;
-      toast({ title: "Success", description: "Listing submitted for review." });
+      toast({ title: "Submitted!", description: "Your adventure is under review." });
       navigate("/become-host");
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -187,11 +210,11 @@ const CreateAdventure = () => {
     <div className="min-h-screen bg-[#F8F9FA] pb-24">
       <Header />
       
-      <div className="relative h-[30vh] bg-slate-900">
+      <div className="relative h-[30vh] bg-slate-900 overflow-hidden">
         <img src="/images/category-campsite.webp" className="absolute inset-0 w-full h-full object-cover opacity-50" />
         <div className="absolute bottom-8 left-0 w-full px-8 container max-w-4xl mx-auto">
           <p className="text-[#FF7F50] font-black uppercase tracking-[0.2em] text-[10px] mb-2">Step {currentStep} of {TOTAL_STEPS}</p>
-          <h1 className="text-3xl md:text-5xl font-black uppercase text-white">Create <span style={{ color: COLORS.KHAKI }}>Adventure</span></h1>
+          <h1 className="text-3xl md:text-5xl font-black uppercase text-white tracking-tighter">Create <span style={{ color: COLORS.KHAKI }}>Adventure</span></h1>
         </div>
       </div>
 
@@ -202,41 +225,92 @@ const CreateAdventure = () => {
           ))}
         </div>
 
+        {/* Step 1: Registration */}
+        {currentStep === 1 && (
+          <Card className="bg-white rounded-[28px] p-8 shadow-sm border border-slate-100">
+            <h2 className="text-xl font-black uppercase mb-6 flex items-center gap-3" style={{ color: COLORS.TEAL }}><Info className="h-5 w-5" /> Registration</h2>
+            <div className="grid gap-6">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase text-slate-400">Registration Name *</Label>
+                <Input value={formData.registrationName} onChange={(e) => setFormData({...formData, registrationName: e.target.value})} className={errorClass('registrationName')} />
+              </div>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase text-slate-400">Reg Number *</Label>
+                  <Input value={formData.registrationNumber} onChange={(e) => setFormData({...formData, registrationNumber: e.target.value})} className={errorClass('registrationNumber')} />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase text-slate-400">Country *</Label>
+                  <div className={errors.country ? "rounded-xl ring-2 ring-red-500" : ""}>
+                    <CountrySelector value={formData.country} onChange={(v) => setFormData({...formData, country: v})} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* Step 2: Location */}
+        {currentStep === 2 && (
+          <Card className="bg-white rounded-[28px] p-8 shadow-sm border border-slate-100">
+            <h2 className="text-xl font-black uppercase mb-6 flex items-center gap-3" style={{ color: COLORS.TEAL }}><MapPin className="h-5 w-5" /> Location</h2>
+            <div className="grid gap-6">
+              <Input placeholder="Location Name" value={formData.locationName} onChange={(e) => setFormData({...formData, locationName: e.target.value})} className={errorClass('locationName')} />
+              <Input placeholder="City/Place" value={formData.place} onChange={(e) => setFormData({...formData, place: e.target.value})} className={errorClass('place')} />
+              
+              <div className={`p-6 rounded-2xl border-2 border-dashed ${errors.gps ? "border-red-500 bg-red-50" : "border-slate-100"}`}>
+                <Button onClick={getCurrentLocation} className="w-full h-12 text-white font-black uppercase tracking-widest" style={{ background: formData.latitude ? COLORS.TEAL : COLORS.CORAL }}>
+                  {formData.latitude ? "✓ GPS Captured" : "Capture Precise GPS *"}
+                </Button>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* Step 4: Pricing & Fees */}
         {currentStep === 4 && (
-          <Card className={`bg-white rounded-[28px] p-8 shadow-sm border ${errors.adultPrice || errors.childPrice ? 'border-red-500' : 'border-slate-100'}`}>
-            <h2 className="text-xl font-black uppercase mb-6 flex items-center gap-3" style={{ color: COLORS.TEAL }}><Clock className="h-5 w-5" /> Access & Pricing</h2>
+          <Card className="bg-white rounded-[28px] p-8 shadow-sm border border-slate-100">
+            <h2 className="text-xl font-black uppercase mb-6 flex items-center gap-3" style={{ color: COLORS.TEAL }}><Clock className="h-5 w-5" /> Schedule & Fees</h2>
             <OperatingHoursSection
               openingHours={formData.openingHours} closingHours={formData.closingHours} workingDays={workingDays}
               onOpeningChange={(v) => setFormData({...formData, openingHours: v})}
               onClosingChange={(v) => setFormData({...formData, closingHours: v})}
               onDaysChange={setWorkingDays} accentColor={COLORS.TEAL}
             />
-            <div className="mt-6 pt-6 border-t">
-              <Label className="text-[10px] font-black uppercase text-slate-400">Entry Type</Label>
+            <div className="mt-8 pt-6 border-t border-slate-100">
+              <Label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">Admission Type *</Label>
               <Select value={formData.entranceFeeType} onValueChange={(v) => setFormData({...formData, entranceFeeType: v})}>
                 <SelectTrigger className="rounded-xl h-12 font-bold mb-4"><SelectValue /></SelectTrigger>
                 <SelectContent className="bg-white"><SelectItem value="free">FREE</SelectItem><SelectItem value="paid">PAID</SelectItem></SelectContent>
               </Select>
+
               {formData.entranceFeeType === "paid" && (
-                <div className="grid grid-cols-2 gap-4">
-                  <Input type="number" placeholder="Adult Fee" value={formData.adultPrice} onChange={(e) => setFormData({...formData, adultPrice: e.target.value})} className={errorClass('adultPrice')} />
-                  <Input type="number" placeholder="Child Fee" value={formData.childPrice} onChange={(e) => setFormData({...formData, childPrice: e.target.value})} className={errorClass('childPrice')} />
+                <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-slate-400">Adult Price (KSh) *</Label>
+                    <Input type="number" value={formData.adultPrice} onChange={(e) => setFormData({...formData, adultPrice: e.target.value})} className={errorClass('adultPrice')} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-slate-400">Child Price (KSh) *</Label>
+                    <Input type="number" value={formData.childPrice} onChange={(e) => setFormData({...formData, childPrice: e.target.value})} className={errorClass('childPrice')} />
+                  </div>
                 </div>
               )}
             </div>
           </Card>
         )}
 
+        {/* Step 5: Facilities Guard */}
         {currentStep === 5 && (
-          <Card className={`bg-white rounded-[28px] p-8 shadow-sm border ${errors.facilities ? "border-red-500 bg-red-50/20" : "border-slate-100"}`}>
+          <Card className={`bg-white rounded-[28px] p-8 shadow-sm border transition-all ${errors.facilities ? "border-red-500 bg-red-50/10" : "border-slate-100"}`}>
             <h2 className="text-xl font-black uppercase mb-6 flex items-center gap-3" style={{ color: COLORS.TEAL }}><DollarSign className="h-5 w-5" /> Features</h2>
             <div className="space-y-8">
               <DynamicItemList items={amenities} onChange={setAmenities} label="Amenities (Optional)" accentColor={COLORS.TEAL} />
               
-              <div className={`p-4 rounded-xl border-2 border-dashed ${errors.facilities ? "border-red-400 bg-red-50" : "border-slate-100"}`}>
-                <div className="flex justify-between items-center mb-2">
-                  <Label className="text-xs font-black uppercase text-slate-600">Facilities</Label>
-                  <span className="text-[9px] font-black text-red-500 uppercase">Capacity Required if named *</span>
+              <div className={`p-5 rounded-2xl border-2 border-dashed ${errors.facilities ? "border-red-400 bg-red-50" : "border-slate-100"}`}>
+                <div className="flex flex-col mb-4">
+                  <Label className="text-sm font-black uppercase text-slate-600">Facilities</Label>
+                  <p className="text-[10px] font-bold text-red-500 uppercase tracking-tight">Capacity is mandatory for every facility listed!</p>
                 </div>
                 <DynamicItemList items={facilities} onChange={setFacilities} label="" showCapacity={true} accentColor={COLORS.CORAL} />
               </div>
@@ -251,10 +325,10 @@ const CreateAdventure = () => {
           <Button 
             onClick={currentStep < TOTAL_STEPS ? handleNext : handleSubmit} 
             disabled={loading}
-            className="flex-1 py-6 rounded-2xl font-black uppercase text-white"
+            className="flex-1 py-6 rounded-2xl font-black uppercase text-white shadow-lg"
             style={{ background: currentStep < TOTAL_STEPS ? COLORS.CORAL : COLORS.TEAL }}
           >
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : currentStep < TOTAL_STEPS ? "Next" : "Submit"}
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : currentStep < TOTAL_STEPS ? "Next" : "Submit Listing"}
           </Button>
         </div>
       </main>
@@ -263,4 +337,4 @@ const CreateAdventure = () => {
   );
 };
 
-export default CreateAdventure;2
+export default CreateAdventure;

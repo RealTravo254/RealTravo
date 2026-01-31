@@ -33,7 +33,6 @@ const AdventurePlaceDetail = () => {
   const { savedItems, handleSave: handleSaveItem } = useSavedItems();
   const isSaved = savedItems.has(id || "");
 
-  // Scroll logic for sticky behavior
   useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 60);
@@ -170,82 +169,110 @@ const AdventurePlaceDetail = () => {
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] pb-24">
-      {/* 1. DYNAMIC STICKY ACTION BAR */}
-      <div 
-        className={`fixed top-0 left-0 right-0 z-[100] transition-all duration-300 px-4 py-3 flex justify-between items-center ${
-          scrolled 
-            ? "bg-white/95 backdrop-blur-md shadow-sm border-b border-slate-100" 
+
+      {/*
+        1. STICKY ACTION BAR
+        ─────────────────────
+        • The outer <div> is full-width fixed so the backdrop-blur / border
+          spans edge-to-edge when scrolled (looks correct on every screen).
+        • The inner <div> is max-w-6xl + mx-auto + px-4 — the same
+          constraint used by <main> below — so the back-arrow and heart
+          buttons sit exactly above the Description card's left edge and
+          the Sidebar card's right edge on large screens.
+        • On mobile max-w-6xl is wider than the viewport so it has no
+          visible effect and the buttons stay flush-left / flush-right as before.
+      */}
+      <div
+        className={`fixed top-0 left-0 right-0 z-[100] transition-all duration-300 ${
+          scrolled
+            ? "bg-white/95 backdrop-blur-md shadow-sm border-b border-slate-100"
             : "bg-transparent"
         }`}
       >
-        <div className="flex items-center gap-4">
-          <Button 
-            onClick={() => navigate(-1)} 
-            className={`rounded-full transition-all duration-300 w-10 h-10 p-0 border-none ${
-              scrolled ? "bg-slate-100 text-slate-900 shadow-sm" : "bg-black/30 text-white backdrop-blur-md"
+        <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <Button
+              onClick={() => navigate(-1)}
+              className={`rounded-full transition-all duration-300 w-10 h-10 p-0 border-none ${
+                scrolled ? "bg-slate-100 text-slate-900 shadow-sm" : "bg-black/30 text-white backdrop-blur-md"
+              }`}
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+
+            {scrolled && (
+              <h2 className="text-sm font-black uppercase tracking-tighter text-slate-900 truncate max-w-[180px] md:max-w-md animate-in fade-in slide-in-from-left-2">
+                {place.name}
+              </h2>
+            )}
+          </div>
+
+          <Button
+            onClick={() => id && handleSaveItem(id, "adventure_place")}
+            className={`rounded-full transition-all duration-300 w-10 h-10 p-0 border-none shadow-lg ${
+              isSaved ? "bg-red-500" : scrolled ? "bg-slate-100 text-slate-900" : "bg-black/30 text-white backdrop-blur-md"
             }`}
           >
-            <ArrowLeft className="h-5 w-5" />
+            <Heart className={`h-5 w-5 ${isSaved ? "fill-white text-white" : scrolled ? "text-slate-900" : "text-white"}`} />
           </Button>
-          
-          {scrolled && (
-            <h2 className="text-sm font-black uppercase tracking-tighter text-slate-900 truncate max-w-[180px] md:max-w-md animate-in fade-in slide-in-from-left-2">
-              {place.name}
-            </h2>
-          )}
         </div>
-
-        <Button 
-          onClick={() => id && handleSaveItem(id, "adventure_place")} 
-          className={`rounded-full transition-all duration-300 w-10 h-10 p-0 border-none shadow-lg ${
-            isSaved ? "bg-red-500" : scrolled ? "bg-slate-100 text-slate-900" : "bg-black/30 text-white backdrop-blur-md"
-          }`}
-        >
-          <Heart className={`h-5 w-5 ${isSaved ? "fill-white text-white" : scrolled ? "text-slate-900" : "text-white"}`} />
-        </Button>
       </div>
 
-      {/* 2. HERO SECTION */}
-      <div className="relative w-full h-[45vh] md:h-[65vh] bg-slate-900 overflow-hidden">
-        <Carousel plugins={[Autoplay({ delay: 3500 })]} className="w-full h-full">
-          <CarouselContent className="h-full ml-0">
-            {allImages.length > 0 ? allImages.map((img, idx) => (
-              <CarouselItem key={idx} className="h-full pl-0 basis-full">
-                <img src={img} alt={place.name} className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent z-10" />
-              </CarouselItem>
-            )) : (
-              <div className="h-full w-full bg-slate-200 flex items-center justify-center text-slate-400 font-black uppercase text-xs">No Image</div>
-            )}
-          </CarouselContent>
-        </Carousel>
+      {/*
+        2. HERO / IMAGE GALLERY
+        ────────────────────────
+        • Wrapped in a container that is max-w-6xl + mx-auto + px-4 only
+          on lg+ screens (same as <main>), so the gallery's left and right
+          edges align perfectly with the two-column grid below.
+        • On mobile (< lg) none of those classes apply — the gallery stays
+          full-bleed exactly as it was.
+        • lg:rounded-b-3xl gives the bottom corners a nice curve on desktop
+          so it visually connects to the cards underneath.
+      */}
+      <div className="lg:max-w-6xl lg:mx-auto lg:px-4">
+        <div className="relative w-full h-[45vh] md:h-[65vh] bg-slate-900 overflow-hidden lg:rounded-b-3xl">
+          <Carousel plugins={[Autoplay({ delay: 3500 })]} className="w-full h-full">
+            <CarouselContent className="h-full ml-0">
+              {allImages.length > 0 ? allImages.map((img, idx) => (
+                <CarouselItem key={idx} className="h-full pl-0 basis-full">
+                  <img src={img} alt={place.name} className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent z-10" />
+                </CarouselItem>
+              )) : (
+                <div className="h-full w-full bg-slate-200 flex items-center justify-center text-slate-400 font-black uppercase text-xs">No Image</div>
+              )}
+            </CarouselContent>
+          </Carousel>
 
-        <div className="absolute bottom-6 left-0 w-full px-4 z-20">
-          <div className="bg-gradient-to-r from-black/70 via-black/50 to-transparent rounded-2xl p-4 max-w-xl">
-            <div className="flex flex-wrap gap-2 mb-2">
-                 <Badge className="bg-amber-400 text-black border-none px-2 py-0.5 text-[9px] font-black uppercase rounded-full flex items-center gap-1 shadow-lg">
-                   <Star className="h-3 w-3 fill-current" />
-                   {liveRating.avg > 0 ? liveRating.avg : "New"}
-                 </Badge>
-                 <Badge className={`${isOpenNow ? "bg-emerald-500" : "bg-red-500"} text-white border-none px-2 py-0.5 text-[9px] font-black uppercase rounded-full flex items-center gap-1`}>
-                   <Circle className={`h-2 w-2 fill-current ${isOpenNow ? "animate-pulse" : ""}`} />
-                   {isOpenNow ? "open" : "closed"}
-                 </Badge>
-            </div>
-            <h1 className="text-2xl font-black text-white uppercase tracking-tighter leading-none mb-2">{place.name}</h1>
-            <div className="flex items-center gap-1 text-white">
-              <MapPin className="h-3.5 w-3.5" />
-              <span className="text-xs font-bold uppercase truncate">
-                {[place.place, place.location, place.country].filter(Boolean).join(', ')}
-              </span>
+          <div className="absolute bottom-6 left-0 w-full px-4 z-20">
+            <div className="bg-gradient-to-r from-black/70 via-black/50 to-transparent rounded-2xl p-4 max-w-xl">
+              <div className="flex flex-wrap gap-2 mb-2">
+                <Badge className="bg-amber-400 text-black border-none px-2 py-0.5 text-[9px] font-black uppercase rounded-full flex items-center gap-1 shadow-lg">
+                  <Star className="h-3 w-3 fill-current" />
+                  {liveRating.avg > 0 ? liveRating.avg : "New"}
+                </Badge>
+                <Badge className={`${isOpenNow ? "bg-emerald-500" : "bg-red-500"} text-white border-none px-2 py-0.5 text-[9px] font-black uppercase rounded-full flex items-center gap-1`}>
+                  <Circle className={`h-2 w-2 fill-current ${isOpenNow ? "animate-pulse" : ""}`} />
+                  {isOpenNow ? "open" : "closed"}
+                </Badge>
+              </div>
+              <h1 className="text-2xl font-black text-white uppercase tracking-tighter leading-none mb-2">{place.name}</h1>
+              <div className="flex items-center gap-1 text-white">
+                <MapPin className="h-3.5 w-3.5" />
+                <span className="text-xs font-bold uppercase truncate">
+                  {[place.place, place.location, place.country].filter(Boolean).join(', ')}
+                </span>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
+      {/* 3. MAIN BODY */}
       <main className="container px-4 -mt-4 relative z-30 max-w-6xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-[1.8fr,1fr] gap-4">
           <div className="space-y-4">
+            {/* Description */}
             <section className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
               <h2 className="text-[11px] font-black uppercase tracking-widest mb-3 text-slate-400">Description</h2>
               {place.description ? (
@@ -273,28 +300,29 @@ const AdventurePlaceDetail = () => {
               <OperatingHoursInfo />
               <Button onClick={() => navigate(`/booking/adventure_place/${place.id}`)} className="w-full mt-6 py-7 rounded-2xl text-md font-black uppercase tracking-widest bg-gradient-to-r from-[#FF7F50] to-[#FF4E50] border-none shadow-lg transition-all active:scale-95">Book Now</Button>
               <div className="grid grid-cols-3 gap-3 mt-4">
-                <UtilityButton 
-                   icon={<Navigation className="h-5 w-5" />} 
-                   label="Map" 
-                   onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${place.name}, ${place.location}`)}`, "_blank")} 
+                <UtilityButton
+                   icon={<Navigation className="h-5 w-5" />}
+                   label="Map"
+                   onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${place.name}, ${place.location}`)}`, "_blank")}
                 />
-                <UtilityButton 
-                   icon={<Copy className="h-5 w-5" />} 
-                   label="Copy" 
+                <UtilityButton
+                   icon={<Copy className="h-5 w-5" />}
+                   label="Copy"
                    onClick={async () => {
                      const refLink = await generateReferralLink(id!, "adventure_place", id!);
                      await navigator.clipboard.writeText(refLink);
                      toast({ title: "Link Copied!" });
-                   }} 
+                   }}
                 />
-                <UtilityButton 
-                   icon={<Share2 className="h-5 w-5" />} 
-                   label="Share" 
-                   onClick={() => navigator.share && navigator.share({ title: place.name, url: window.location.href })} 
+                <UtilityButton
+                   icon={<Share2 className="h-5 w-5" />}
+                   label="Share"
+                   onClick={() => navigator.share && navigator.share({ title: place.name, url: window.location.href })}
                 />
               </div>
             </div>
 
+            {/* Amenities */}
             {place.amenities?.length > 0 && (
               <section className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
                 <div className="flex items-center gap-2 mb-4">
@@ -312,6 +340,7 @@ const AdventurePlaceDetail = () => {
               </section>
             )}
 
+            {/* Facilities & Pricing */}
             {place.facilities?.length > 0 && (
               <section className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
                 <div className="flex items-center gap-2 mb-4">
@@ -329,6 +358,7 @@ const AdventurePlaceDetail = () => {
               </section>
             )}
 
+            {/* Activities */}
             {place.activities?.length > 0 && (
               <section className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
                 <div className="flex items-center gap-2 mb-4">
@@ -362,26 +392,26 @@ const AdventurePlaceDetail = () => {
                 <OperatingHoursInfo />
 
                 <Button onClick={() => navigate(`/booking/adventure_place/${place.id}`)} className="w-full py-7 rounded-3xl text-lg font-black uppercase tracking-widest bg-gradient-to-r from-[#FF7F50] to-[#FF4E50] border-none shadow-xl transition-all active:scale-95">Reserve Now</Button>
-                
+
                 <div className="grid grid-cols-3 gap-3">
-                  <UtilityButton 
-                     icon={<Navigation className="h-5 w-5" />} 
-                     label="Map" 
-                     onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${place.name}, ${place.location}`)}`, "_blank")} 
+                  <UtilityButton
+                     icon={<Navigation className="h-5 w-5" />}
+                     label="Map"
+                     onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${place.name}, ${place.location}`)}`, "_blank")}
                   />
-                  <UtilityButton 
-                     icon={<Copy className="h-5 w-5" />} 
-                     label="Copy" 
+                  <UtilityButton
+                     icon={<Copy className="h-5 w-5" />}
+                     label="Copy"
                      onClick={async () => {
                        const refLink = await generateReferralLink(id!, "adventure_place", id!);
                        await navigator.clipboard.writeText(refLink);
                        toast({ title: "Link Copied!" });
-                     }} 
+                     }}
                   />
-                  <UtilityButton 
-                     icon={<Share2 className="h-5 w-5" />} 
-                     label="Share" 
-                     onClick={() => navigator.share && navigator.share({ title: place.name, url: window.location.href })} 
+                  <UtilityButton
+                     icon={<Share2 className="h-5 w-5" />}
+                     label="Share"
+                     onClick={() => navigator.share && navigator.share({ title: place.name, url: window.location.href })}
                   />
                 </div>
 
@@ -424,9 +454,9 @@ const AdventurePlaceDetail = () => {
 
 // Utility button matching the hotel style
 const UtilityButton = ({ icon, label, onClick }: { icon: React.ReactNode, label: string, onClick: () => void }) => (
-  <Button 
-    variant="ghost" 
-    onClick={onClick} 
+  <Button
+    variant="ghost"
+    onClick={onClick}
     className="flex-col h-auto py-4 bg-slate-50 text-slate-500 rounded-2xl border border-slate-100 hover:bg-slate-100 transition-colors flex-1"
   >
     <div className="mb-1">{icon}</div>

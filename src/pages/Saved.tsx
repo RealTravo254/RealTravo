@@ -72,11 +72,8 @@ const Saved = () => {
   }, [savedItems]);
 
   const fetchSavedItems = async (uid: string, fetchOffset: number) => {
-    if (fetchOffset === 0) {
-      setIsLoading(true);
-    } else {
-      setLoadingMore(true);
-    }
+    if (fetchOffset === 0) setIsLoading(true);
+    else setLoadingMore(true);
     
     const { data: savedData } = await supabase
       .from("saved_items")
@@ -168,8 +165,8 @@ const Saved = () => {
     <div className="min-h-screen bg-[#F8F9FA] pb-24">
       <Header />
       
-      <main className="container px-4 py-10 max-w-7xl mx-auto">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+      <main className="container px-4 py-10 max-w-[1600px] mx-auto">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12 lg:mb-16">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
                <div className="p-2 rounded-xl bg-[#008080]/10">
@@ -188,7 +185,7 @@ const Saved = () => {
                 <>
                   <Button
                     variant="outline"
-                    className="rounded-2xl border-slate-200 font-black uppercase text-[10px] tracking-widest h-11 px-6 hover:bg-white transition-all"
+                    className="rounded-2xl border-slate-200 font-black uppercase text-[10px] tracking-widest h-11 px-6 hover:bg-white"
                     onClick={() => setIsSelectionMode(true)}
                   >
                     Select
@@ -232,8 +229,7 @@ const Saved = () => {
         </div>
         
         {isLoading || authLoading ? (
-          /* RESPONSIVE SKELETON GRID */
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 justify-items-center">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-y-12 gap-x-8 justify-items-center">
             {[...Array(10)].map((_, i) => (
               <div key={i} className="space-y-4 w-full max-w-[380px]">
                 <Skeleton className="h-64 w-full rounded-[28px]" />
@@ -276,8 +272,12 @@ const Saved = () => {
           </div>
         ) : (
           <>
-            {/* UPDATED RESPONSIVE GRID: Columns adjust from 1 to 5 based on screen size */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-8 justify-items-center">
+            {/* THE RESPONSIVE GRID 
+                - gap-y-10: mobile vertical spacing
+                - lg:gap-x-12: massive horizontal spacing on big screens
+                - lg:gap-y-16: massive vertical spacing on big screens
+            */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-y-10 gap-x-6 md:gap-x-8 lg:gap-x-12 lg:gap-y-16 justify-items-center">
               {savedListings.map((item) => (
                 <div
                   key={item.id}
@@ -299,11 +299,10 @@ const Saved = () => {
                   )}
                   
                   {isSelectionMode && selectedItems.has(item.id) && (
-                      /* Highlight overlay - now matches card width perfectly */
                       <div className="absolute inset-0 bg-[#008080]/10 z-40 rounded-[32px] pointer-events-none border-2 border-[#008080]" />
                   )}
 
-                  <div className="w-full">
+                  <div className="w-full transform transition-transform duration-300 hover:-translate-y-2">
                     <ListingCard
                       id={item.id}
                       type={item.savedType.replace("_", " ").toUpperCase() as any}
@@ -321,7 +320,7 @@ const Saved = () => {
             </div>
             
             {hasMore && (
-              <div className="flex justify-center mt-12">
+              <div className="flex justify-center mt-16 lg:mt-24">
                 <Button
                   onClick={() => fetchSavedItems(userId!, offset)}
                   disabled={loadingMore}

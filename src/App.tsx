@@ -66,6 +66,7 @@ const QRScanner = lazy(() => import("./pages/QRScanner"));
 const PublicManualBooking = lazy(() => import("./pages/PublicManualBooking"));
 const CompleteProfile = lazy(() => import("./pages/CompleteProfile"));
 const BookingPage = lazy(() => import("./pages/BookingPage"));
+const PaymentVerify = lazy(() => import("./pages/PaymentVerify"));
 
 const queryClient = new QueryClient();
 
@@ -139,6 +140,7 @@ const App = () => {
                     <Route path="/verification-status" element={<VerificationStatus />} />
                     <Route path="/account" element={<Account />} />
                     <Route path="/payment" element={<Payment />} />
+                    <Route path="/payment/verify" element={<PaymentVerify />} />
                     <Route path="/payment-history" element={<PaymentHistory />} />
                     <Route path="/my-referrals" element={<MyReferrals />} />
                     <Route path="/install" element={<Install />} />

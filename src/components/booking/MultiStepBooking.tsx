@@ -143,6 +143,7 @@ export const MultiStepBooking = ({
 
     const [paymentMethod, setPaymentMethod] = useState<'mpesa' | 'card'>('mpesa');
     const [paymentSucceeded, setPaymentSucceeded] = useState(false);
+    const [isCardPaymentLoading, setIsCardPaymentLoading] = useState(false);
 
     const { paymentStatus, errorMessage, initiatePayment, resetPayment, isPaymentInProgress } = useMpesaPayment({
         onSuccess: (bookingId) => {
@@ -160,6 +161,24 @@ export const MultiStepBooking = ({
         onError: (error) => {
             console.log('❌ Payment failed:', error);
             setPaymentSucceeded(false);
+        },
+    });
+
+    const { 
+        initiatePayment: initiateCardPayment, 
+        isLoading: isPaystackLoading,
+        resetPayment: resetCardPayment 
+    } = usePaystackPayment({
+        onSuccess: (reference) => {
+            console.log('✅ Card payment succeeded:', reference);
+            setPaymentSucceeded(true);
+            if (onPaymentSuccess) {
+                onPaymentSuccess();
+            }
+        },
+        onError: (error) => {
+            console.log('❌ Card payment failed:', error);
+            setIsCardPaymentLoading(false);
         },
     });
 
@@ -269,20 +288,7 @@ export const MultiStepBooking = ({
         if (paymentMethod === 'mpesa') {
             await initiatePayment(formData.mpesa_phone, totalAmount, bookingData);
         } else if (paymentMethod === 'card') {
-            // Use Paystack for card payments
-            const { initiatePayment: initiateCardPayment } = usePaystackPayment({
-                onSuccess: (reference) => {
-                    console.log('✅ Card payment succeeded:', reference);
-                    setPaymentSucceeded(true);
-                    if (onPaymentSuccess) {
-                        onPaymentSuccess();
-                    }
-                },
-                onError: (error) => {
-                    console.log('❌ Card payment failed:', error);
-                }
-            });
-            
+            setIsCardPaymentLoading(true);
             await initiateCardPayment(
                 formData.guest_email || user?.email || '',
                 totalAmount,

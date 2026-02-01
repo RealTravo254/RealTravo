@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { MapPin, Navigation, X, CheckCircle2, Plus, Camera, ArrowLeft, ArrowRight, Loader2, Clock, DollarSign, FileText, Image } from "lucide-react";
+import { MapPin, Navigation, X, CheckCircle2, Plus, Camera, ArrowLeft, ArrowRight, Loader2, Clock, DollarSign, Image as ImageIcon } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CountrySelector } from "@/components/creation/CountrySelector";
 import { PhoneInput } from "@/components/creation/PhoneInput";
@@ -59,6 +59,7 @@ const CreateHotel = () => {
   const [facilities, setFacilities] = useState<DynamicItem[]>([]);
   const [activities, setActivities] = useState<DynamicItem[]>([]);
   const [galleryImages, setGalleryImages] = useState<File[]>([]);
+  const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
   const [creatorProfile, setCreatorProfile] = useState({ name: "", email: "", phone: "" });
 
   useEffect(() => {
@@ -83,12 +84,12 @@ const CreateHotel = () => {
 
   const validateStep = (step: number): boolean => {
     const newErrors: Record<string, boolean> = {};
-    
+
     if (step === 1) {
       if (!formData.registrationName.trim()) newErrors.registrationName = true;
       if (!formData.registrationNumber.trim()) newErrors.registrationNumber = true;
     }
-    
+
     if (step === 2) {
       if (!formData.country) newErrors.country = true;
       if (!formData.place.trim()) newErrors.place = true;
@@ -115,6 +116,7 @@ const CreateHotel = () => {
 
     if (step === 5) {
       if (galleryImages.length === 0) {
+        newErrors.galleryImages = true;
         toast({ title: "Photos Required", description: "At least one photo is required", variant: "destructive" });
         return false;
       }
@@ -126,7 +128,7 @@ const CreateHotel = () => {
 
     setErrors(newErrors);
     const hasErrors = Object.keys(newErrors).length > 0;
-    
+
     if (hasErrors) {
       toast({ title: "Missing Details", description: "Please fill all required fields highlighted in red.", variant: "destructive" });
       return false;
@@ -137,36 +139,110 @@ const CreateHotel = () => {
   const handleNext = () => {
     if (validateStep(currentStep)) {
       setCurrentStep(prev => Math.min(prev + 1, TOTAL_STEPS));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
   const handlePrevious = () => {
     setErrors({});
     setCurrentStep(prev => Math.max(prev - 1, 1));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    if (files.length > 0) {
-      setGalleryImages(prev => [...prev, ...files]);
+    if (files.length === 0) return;
+
+    // Add new files to existing ones
+    const newImages = [...galleryImages, ...files];
+    setGalleryImages(newImages);
+
+    // Create preview URLs
+    const newPreviewUrls = files.map(file => URL.createObjectURL(file));
+    setImagePreviewUrls(prev => [...prev, ...newPreviewUrls]);
+
+    // Clear error if images are now present
+    if (newImages.length > 0) {
+      setErrors(prev => ({ ...prev, galleryImages: false }));
     }
   };
 
   const removeImage = (index: number) => {
+    // Revoke the URL to free memory
+    URL.revokeObjectURL(imagePreviewUrls[index]);
+    
     setGalleryImages(prev => prev.filter((_, i) => i !== index));
+    setImagePreviewUrls(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async () => {
     if (!user) return navigate("/auth");
     if (!validateStep(currentStep)) return;
+    
     setLoading(true);
     
     try {
-      // Your submission logic here
-      toast({ title: "Success!", description: "Property listed successfully", variant: "default" });
-      navigate("/dashboard");
+      // Compress images
+      const compressedImages = await compressImages(galleryImages);
+      
+      // Upload images to storage
+      const imageUrls: string[] = [];
+      for (const image of compressedImages) {
+        const fileName = `${user.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.jpg`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('hotel-images')
+          .upload(fileName, image);
+        
+        if (uploadError) throw uploadError;
+        
+        const { data: { publicUrl } } = supabase.storage
+          .from('hotel-images')
+          .getPublicUrl(fileName);
+        
+        imageUrls.push(publicUrl);
+      }
+
+      // Prepare data for submission
+      const hotelData = {
+        user_id: user.id,
+        registration_name: formData.registrationName,
+        registration_number: formData.registrationNumber,
+        place: formData.place,
+        country: formData.country,
+        description: formData.description,
+        email: formData.email,
+        phone_number: formData.phoneNumber,
+        establishment_type: formData.establishmentType,
+        latitude: formData.latitude,
+        longitude: formData.longitude,
+        opening_hours: formData.openingHours,
+        closing_hours: formData.closingHours,
+        working_days: workingDays,
+        amenities: amenities.filter(a => a.name.trim() !== ""),
+        facilities: facilities.filter(f => f.name.trim() !== ""),
+        activities: activities.filter(a => a.name.trim() !== ""),
+        gallery_images: imageUrls,
+        status: 'pending'
+      };
+
+      const { error } = await supabase.from('hotels').insert([hotelData]);
+      
+      if (error) throw error;
+
+      toast({ 
+        title: "Success!", 
+        description: "Your hotel listing has been submitted for review.",
+        variant: "default"
+      });
+      
+      navigate('/my-listings');
     } catch (error) {
-      toast({ title: "Error", description: "Failed to submit property", variant: "destructive" });
+      console.error('Submission error:', error);
+      toast({ 
+        title: "Submission Failed", 
+        description: "There was an error submitting your listing. Please try again.",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
@@ -200,7 +276,7 @@ const CreateHotel = () => {
           ))}
         </div>
 
-        {/* Step 1 */}
+        {/* Step 1: Registration Details */}
         {currentStep === 1 && (
           <Card className="bg-white rounded-[28px] p-8 shadow-sm border-none">
             <h2 className="text-xl font-black uppercase tracking-tight mb-6 flex items-center gap-2" style={{ color: COLORS.TEAL }}>
@@ -250,7 +326,7 @@ const CreateHotel = () => {
           </Card>
         )}
 
-        {/* Step 2 */}
+        {/* Step 2: Location & Contact */}
         {currentStep === 2 && (
           <Card className="bg-white rounded-[28px] p-8 shadow-sm border-none">
             <h2 className="text-xl font-black uppercase tracking-tight mb-6 flex items-center gap-2" style={{ color: COLORS.TEAL }}>
@@ -285,7 +361,10 @@ const CreateHotel = () => {
                     type="button" 
                     onClick={() => {
                       navigator.geolocation.getCurrentPosition(
-                        (pos) => setFormData({...formData, latitude: pos.coords.latitude, longitude: pos.coords.longitude}),
+                        (pos) => {
+                          setFormData({...formData, latitude: pos.coords.latitude, longitude: pos.coords.longitude});
+                          setErrors(prev => ({ ...prev, latitude: false }));
+                        },
                         () => toast({ title: "Location Error", description: "Unable to get location. Please enable GPS.", variant: "destructive" })
                       );
                     }} 
@@ -314,10 +393,10 @@ const CreateHotel = () => {
           </Card>
         )}
 
-        {/* Step 3 */}
+        {/* Step 3: Operating Hours */}
         {currentStep === 3 && (
           <Card className={`bg-white rounded-[28px] p-8 shadow-sm border-none ${errors.workingDays || errors.openingHours ? "ring-2 ring-red-500" : ""}`}>
-             <h2 className="text-xl font-black uppercase tracking-tight mb-6 flex items-center gap-2" style={{ color: COLORS.TEAL }}>
+            <h2 className="text-xl font-black uppercase tracking-tight mb-6 flex items-center gap-2" style={{ color: COLORS.TEAL }}>
               <Clock className="h-5 w-5" /> Operating Hours *
             </h2>
             <OperatingHoursSection
@@ -340,121 +419,276 @@ const CreateHotel = () => {
             </h2>
             <div className="space-y-8">
               <DynamicItemList items={amenities} onChange={setAmenities} label="Amenities (Optional)" showPrice={false} accentColor={COLORS.TEAL} />
-              
+
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
                 <p className="text-[10px] font-bold text-orange-500 uppercase mb-4 underline">Note: Capacity is required for every facility added.</p>
                 <DynamicItemList 
-                    items={facilities} 
-                    onChange={setFacilities} 
-                    label="Facilities" 
-                    showCapacity={true} 
-                    accentColor={COLORS.CORAL} 
+                  items={facilities} 
+                  onChange={setFacilities} 
+                  label="Facilities" 
+                  showCapacity={true} 
+                  accentColor={COLORS.CORAL} 
                 />
               </div>
 
-              <DynamicItemList items={activities} onChange={setActivities} label="Activities" accentColor="#6366f1" />
+              <DynamicItemList items={activities} onChange={setActivities} label="Activities (Optional)" accentColor="#6366f1" />
             </div>
           </Card>
         )}
 
-        {/* Step 5: Gallery Images - THIS WAS MISSING! */}
+        {/* Step 5: Gallery Images */}
         {currentStep === 5 && (
-          <Card className="bg-white rounded-[28px] p-8 shadow-sm border-none">
+          <Card className={`bg-white rounded-[28px] p-8 shadow-sm border-none ${errors.galleryImages ? "ring-2 ring-red-500" : ""}`}>
             <h2 className="text-xl font-black uppercase tracking-tight mb-6 flex items-center gap-2" style={{ color: COLORS.TEAL }}>
               <Camera className="h-5 w-5" /> Property Photos *
             </h2>
+            
             <div className="space-y-6">
-              <div className={`p-6 rounded-[24px] border-2 border-dashed transition-colors ${galleryImages.length === 0 ? "border-red-300 bg-red-50" : "border-slate-200 bg-slate-50/50"}`}>
-                <div className="text-center">
-                  <Camera className="h-12 w-12 mx-auto mb-4" style={{ color: COLORS.CORAL }} />
-                  <h3 className="text-lg font-black uppercase mb-2" style={{ color: COLORS.CORAL }}>Upload Photos</h3>
-                  <p className="text-sm text-slate-500 mb-4">Add high-quality images of your property (at least 1 required)</p>
-                  <input
-                    type="file"
-                    multiple
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="hidden"
-                    id="gallery-upload"
-                  />
-                  <Button 
-                    type="button"
-                    onClick={() => document.getElementById('gallery-upload')?.click()}
-                    className="rounded-2xl px-8 h-12 font-black uppercase text-[11px] tracking-widest text-white"
-                    style={{ background: COLORS.CORAL }}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Choose Photos
-                  </Button>
+              {/* Upload Button */}
+              <div className={`p-6 rounded-[24px] border-2 border-dashed transition-colors ${errors.galleryImages ? "border-red-500 bg-red-50" : "border-slate-200 bg-slate-50/50"}`}>
+                <div className="flex flex-col items-center gap-4">
+                  <div className="p-4 rounded-full" style={{ backgroundColor: errors.galleryImages ? "#fee2e2" : `${COLORS.TEAL}15` }}>
+                    <ImageIcon className="h-8 w-8" style={{ color: errors.galleryImages ? "#ef4444" : COLORS.TEAL }} />
+                  </div>
+                  <div className="text-center">
+                    <h4 className="text-sm font-black uppercase tracking-widest mb-1" style={{ color: errors.galleryImages ? "#ef4444" : COLORS.TEAL }}>
+                      Upload Property Images *
+                    </h4>
+                    <p className="text-[10px] text-slate-400 font-bold">At least one photo is required. Add multiple photos to showcase your property.</p>
+                  </div>
+                  <label className="w-full">
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      multiple 
+                      className="hidden" 
+                      onChange={handleImageUpload}
+                    />
+                    <div 
+                      className="w-full rounded-2xl px-6 py-4 font-black uppercase text-[11px] tracking-widest text-white shadow-lg active:scale-95 transition-all cursor-pointer text-center"
+                      style={{ background: COLORS.CORAL }}
+                    >
+                      <Camera className="h-5 w-5 inline mr-2" />
+                      Choose Photos
+                    </div>
+                  </label>
                 </div>
               </div>
 
-              {/* Image Preview */}
+              {/* Image Preview Grid */}
               {galleryImages.length > 0 && (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {galleryImages.map((image, index) => (
-                    <div key={index} className="relative">
-                      <img
-                        src={URL.createObjectURL(image)}
-                        alt={`Preview ${index + 1}`}
-                        className="w-full h-32 object-cover rounded-2xl"
-                      />
-                      <Button
-                        type="button"
-                        onClick={() => removeImage(index)}
-                        className="absolute -top-2 -right-2 w-8 h-8 p-0 rounded-full bg-red-500 hover:bg-red-600"
-                      >
-                        <X className="h-4 w-4 text-white" />
-                      </Button>
-                    </div>
-                  ))}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                      Selected Photos ({galleryImages.length})
+                    </Label>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {imagePreviewUrls.map((url, index) => (
+                      <div key={index} className="relative group aspect-square rounded-2xl overflow-hidden bg-slate-100">
+                        <img 
+                          src={url} 
+                          alt={`Preview ${index + 1}`} 
+                          className="w-full h-full object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeImage(index)}
+                          className="absolute top-2 right-2 p-2 rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <p className="text-white text-[10px] font-bold">Photo {index + 1}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
           </Card>
         )}
 
-        {/* Step 6: Description - HEADER WAS MISSING! */}
+        {/* Step 6: Description */}
         {currentStep === 6 && (
           <Card className="bg-white rounded-[28px] p-8 shadow-sm border-none">
             <h2 className="text-xl font-black uppercase tracking-tight mb-6 flex items-center gap-2" style={{ color: COLORS.TEAL }}>
-              <FileText className="h-5 w-5" /> Property Description *
+              <CheckCircle2 className="h-5 w-5" /> Property Description *
             </h2>
             <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Description *</Label>
+              <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                Tell guests what makes your property special
+              </Label>
               <Textarea 
-                className={`rounded-[20px] min-h-[200px] mt-2 font-medium ${errorClass('description')}`}
-                placeholder="Tell guests what makes your property unique..."
+                className={`rounded-[20px] min-h-[200px] mt-2 font-medium resize-none ${errorClass('description')}`}
+                placeholder="Describe your property's unique features, amenities, nearby attractions, and what guests can expect during their stay..."
                 value={formData.description}
                 onChange={(e) => setFormData({...formData, description: e.target.value})}
               />
-              <p className="text-[10px] text-slate-400">Describe amenities, location highlights, and what guests can expect.</p>
+              <p className="text-[10px] text-slate-400 mt-2">
+                {formData.description.length} characters
+              </p>
             </div>
           </Card>
         )}
 
-        {/* Step 7: Review - THIS WAS COMPLETELY MISSING! */}
+        {/* Step 7: Review & Submit */}
         {currentStep === 7 && (
           <Card className="bg-white rounded-[28px] p-8 shadow-sm border-none">
             <h2 className="text-xl font-black uppercase tracking-tight mb-6 flex items-center gap-2" style={{ color: COLORS.TEAL }}>
-              <CheckCircle2 className="h-5 w-5" /> Review & Submit
+              <CheckCircle2 className="h-5 w-5" /> Review Your Listing
             </h2>
-            <ReviewStep
-              formData={formData}
-              workingDays={workingDays}
-              amenities={amenities}
-              facilities={facilities}
-              activities={activities}
-              galleryImages={galleryImages}
-              creatorProfile={creatorProfile}
-            />
+            
+            <div className="space-y-6">
+              {/* Registration Details */}
+              <div className="p-6 rounded-2xl bg-slate-50 border border-slate-100">
+                <h3 className="text-xs font-black uppercase tracking-widest text-slate-600 mb-4">Registration Details</h3>
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Business Name</p>
+                    <p className="text-sm font-bold">{formData.registrationName}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Registration Number</p>
+                    <p className="text-sm font-bold">{formData.registrationNumber}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Property Type</p>
+                    <p className="text-sm font-bold capitalize">{formData.establishmentType.replace('_', ' ')}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Location & Contact */}
+              <div className="p-6 rounded-2xl bg-slate-50 border border-slate-100">
+                <h3 className="text-xs font-black uppercase tracking-widest text-slate-600 mb-4">Location & Contact</h3>
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Location</p>
+                    <p className="text-sm font-bold">{formData.place}, {formData.country}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">GPS Coordinates</p>
+                    <p className="text-sm font-bold">{formData.latitude?.toFixed(6)}, {formData.longitude?.toFixed(6)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Contact</p>
+                    <p className="text-sm font-bold">{formData.email} • {formData.phoneNumber}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Operating Hours */}
+              <div className="p-6 rounded-2xl bg-slate-50 border border-slate-100">
+                <h3 className="text-xs font-black uppercase tracking-widest text-slate-600 mb-4">Operating Hours</h3>
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Hours</p>
+                    <p className="text-sm font-bold">{formData.openingHours} - {formData.closingHours}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Working Days</p>
+                    <p className="text-sm font-bold">
+                      {Object.entries(workingDays).filter(([_, v]) => v).map(([day]) => day).join(', ')}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Amenities, Facilities, Activities */}
+              {(amenities.filter(a => a.name.trim()).length > 0 || 
+                facilities.filter(f => f.name.trim()).length > 0 || 
+                activities.filter(a => a.name.trim()).length > 0) && (
+                <div className="p-6 rounded-2xl bg-slate-50 border border-slate-100">
+                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-600 mb-4">Features</h3>
+                  <div className="space-y-4">
+                    {amenities.filter(a => a.name.trim()).length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Amenities</p>
+                        <div className="flex flex-wrap gap-2">
+                          {amenities.filter(a => a.name.trim()).map((item, i) => (
+                            <span key={i} className="px-3 py-1 rounded-full text-xs font-bold bg-teal-100 text-teal-700">
+                              {item.name}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {facilities.filter(f => f.name.trim()).length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Facilities</p>
+                        <div className="flex flex-wrap gap-2">
+                          {facilities.filter(f => f.name.trim()).map((item, i) => (
+                            <span key={i} className="px-3 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-700">
+                              {item.name} (Capacity: {item.capacity})
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {activities.filter(a => a.name.trim()).length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Activities</p>
+                        <div className="flex flex-wrap gap-2">
+                          {activities.filter(a => a.name.trim()).map((item, i) => (
+                            <span key={i} className="px-3 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-700">
+                              {item.name}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Photos */}
+              <div className="p-6 rounded-2xl bg-slate-50 border border-slate-100">
+                <h3 className="text-xs font-black uppercase tracking-widest text-slate-600 mb-4">Property Photos ({galleryImages.length})</h3>
+                <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
+                  {imagePreviewUrls.slice(0, 8).map((url, i) => (
+                    <div key={i} className="aspect-square rounded-xl overflow-hidden">
+                      <img src={url} alt={`Preview ${i + 1}`} className="w-full h-full object-cover" />
+                    </div>
+                  ))}
+                  {galleryImages.length > 8 && (
+                    <div className="aspect-square rounded-xl bg-slate-200 flex items-center justify-center">
+                      <p className="text-sm font-bold text-slate-600">+{galleryImages.length - 8} more</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Description */}
+              <div className="p-6 rounded-2xl bg-slate-50 border border-slate-100">
+                <h3 className="text-xs font-black uppercase tracking-widest text-slate-600 mb-4">Description</h3>
+                <p className="text-sm leading-relaxed">{formData.description}</p>
+              </div>
+
+              {/* Edit Button */}
+              <div className="flex gap-3">
+                <Button 
+                  onClick={() => setCurrentStep(1)} 
+                  variant="outline"
+                  className="flex-1 py-6 rounded-2xl font-black uppercase text-sm"
+                >
+                  Edit Listing
+                </Button>
+              </div>
+            </div>
           </Card>
         )}
 
-        {/* Navigation */}
-        <div className="flex gap-4 mt-8">
+        {/* Navigation Buttons */}
+        <div className="flex gap-4 mt-8 mb-8">
           {currentStep > 1 && (
-            <Button onClick={handlePrevious} variant="outline" className="flex-1 py-6 rounded-2xl font-black uppercase text-sm">
+            <Button 
+              onClick={handlePrevious} 
+              variant="outline" 
+              className="flex-1 py-6 rounded-2xl font-black uppercase text-sm"
+              disabled={loading}
+            >
               <ArrowLeft className="h-4 w-4 mr-2" /> Previous
             </Button>
           )}
@@ -465,11 +699,23 @@ const CreateHotel = () => {
             disabled={loading}
           >
             {loading ? (
-              <Loader2 className="animate-spin h-4 w-4" />
-            ) : currentStep < TOTAL_STEPS ? (
-              <>Next <ArrowRight className="h-4 w-4 ml-2" /></>
+              <>
+                <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                Submitting...
+              </>
             ) : (
-              "Submit Property"
+              <>
+                {currentStep < TOTAL_STEPS ? (
+                  <>
+                    Next <ArrowRight className="h-4 w-4 ml-2" />
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    Submit for Review
+                  </>
+                )}
+              </>
             )}
           </Button>
         </div>

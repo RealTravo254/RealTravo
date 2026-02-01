@@ -44,19 +44,9 @@ const TripDetail = () => {
   const [bookingOpen, setBookingOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
-
   const { savedItems, handleSave: handleSaveItem } = useSavedItems();
   const isSaved = savedItems.has(id || "");
   const isMobile = useIsMobile();
-
-  useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 50);
-    };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -241,65 +231,28 @@ const TripDetail = () => {
       {/* Header - Desktop Only */}
       {!isMobile && <Header showSearchIcon={false} />}
 
-      {/*
-        1. STICKY TOP ACTION BAR
-        ─────────────────────────
-        • Outer div: full-width fixed strip — backdrop blur / border spans
-          edge-to-edge when scrolled.
-        • Inner div: max-w-6xl mx-auto px-4 — matches <main> below so the
-          back-arrow and heart buttons align with the content grid edges
-          on large screens. On mobile max-w-6xl exceeds the viewport so
-          it has no effect and buttons stay flush as before.
-      */}
-      <div 
-        className={`fixed top-0 left-0 right-0 z-[100] transition-all duration-300 ${
-          scrolled 
-            ? "bg-white/95 backdrop-blur-md shadow-sm border-b border-slate-100" 
-            : "bg-transparent"
-        }`}
-      >
-        <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <Button 
-              onClick={() => navigate(-1)} 
-              className={`rounded-full transition-all duration-300 w-10 h-10 p-0 border-none ${
-                scrolled ? "bg-slate-100 text-slate-900" : "bg-black/30 text-white backdrop-blur-md"
-              }`}
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            
-            {scrolled && (
-              <h2 className="text-sm font-black uppercase tracking-tighter text-slate-900 truncate max-w-[180px] md:max-w-md animate-in fade-in slide-in-from-left-2">
-                {trip.name}
-              </h2>
-            )}
-          </div>
+      {/* Action Bar - Below Header */}
+      <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+        <Button 
+          onClick={() => navigate(-1)} 
+          className="rounded-full w-10 h-10 p-0 border-none bg-slate-100 text-slate-900 hover:bg-slate-200 transition-all"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
 
-          <Button 
-            onClick={handleSave} 
-            className={`rounded-full transition-all duration-300 w-10 h-10 p-0 border-none shadow-lg ${
-              isSaved ? "bg-red-500" : scrolled ? "bg-slate-100 text-slate-900" : "bg-black/30 text-white backdrop-blur-md"
-            }`}
-          >
-            <Heart className={`h-5 w-5 ${isSaved ? "fill-white text-white" : scrolled ? "text-slate-900" : "text-white"}`} />
-          </Button>
-        </div>
+        <Button 
+          onClick={handleSave} 
+          className={`rounded-full w-10 h-10 p-0 border-none shadow-lg transition-all ${
+            isSaved ? "bg-red-500 hover:bg-red-600" : "bg-slate-100 text-slate-900 hover:bg-slate-200"
+          }`}
+        >
+          <Heart className={`h-5 w-5 ${isSaved ? "fill-white text-white" : "text-slate-900"}`} />
+        </Button>
       </div>
 
-      {/*
-        2. HERO / IMAGE GALLERY
-        ─────────────────────────
-        • On mobile: full-bleed, no max-width, no padding, no rounding —
-          identical to the original behaviour.
-        • On lg+: outer wrapper applies max-w-6xl mx-auto px-4 (same as
-          <main>) so the gallery left/right edges line up exactly with the
-          Overview card and the Sidebar booking card below.
-        • lg:rounded-b-3xl rounds the bottom corners on desktop so it
-          visually connects to the cards underneath.
-      */}
-      <div className="lg:max-w-6xl lg:mx-auto lg:px-4">
-        <div className="relative w-full overflow-hidden h-[55vh] md:h-[70vh] bg-slate-900 lg:rounded-b-3xl">
+      {/* HERO / IMAGE GALLERY */}
+      <div className="max-w-6xl mx-auto px-4">
+        <div className="relative w-full overflow-hidden h-[55vh] md:h-[70vh] bg-slate-900 rounded-3xl">
           <Carousel plugins={[Autoplay({ delay: 4000 })]} className="w-full h-full p-0">
             <CarouselContent className="h-full ml-0">
               {allImages.map((img, idx) => (

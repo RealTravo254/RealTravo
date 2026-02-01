@@ -17,6 +17,8 @@ import { generateReferralLink, trackReferralClick } from "@/lib/referralUtils";
 import { useBookingSubmit } from "@/hooks/useBookingSubmit";
 import { extractIdFromSlug } from "@/lib/slugUtils";
 import { useRealtimeItemAvailability } from "@/hooks/useRealtimeBookings";
+import { Header } from "@/components/Header";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const COLORS = {
   TEAL: "#008080",
@@ -58,6 +60,7 @@ const EventDetail = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -162,6 +165,8 @@ const EventDetail = () => {
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] pb-24">
+      {/* Header - Desktop Only */}
+      {!isMobile && <Header showSearchIcon={false} />}
 
       {/*
         1. STICKY TOP ACTION BAR

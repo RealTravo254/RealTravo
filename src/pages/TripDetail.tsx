@@ -18,6 +18,8 @@ import { generateReferralLink, trackReferralClick } from "@/lib/referralUtils";
 import { useBookingSubmit } from "@/hooks/useBookingSubmit";
 import { extractIdFromSlug } from "@/lib/slugUtils";
 import { useRealtimeItemAvailability } from "@/hooks/useRealtimeBookings";
+import { Header } from "@/components/Header";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const COLORS = {
   TEAL: "#008080",
@@ -46,6 +48,7 @@ const TripDetail = () => {
 
   const { savedItems, handleSave: handleSaveItem } = useSavedItems();
   const isSaved = savedItems.has(id || "");
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -235,6 +238,8 @@ const TripDetail = () => {
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] pb-24">
+      {/* Header - Desktop Only */}
+      {!isMobile && <Header showSearchIcon={false} />}
 
       {/*
         1. STICKY TOP ACTION BAR

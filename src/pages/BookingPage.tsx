@@ -190,6 +190,7 @@ const BookingPage = () => {
         facilities: item.facilities || [],
         activities: item.activities || [],
         totalCapacity: item.available_slots || 0,
+        workingDays: item.days_opened || [],
       };
     }
     
@@ -203,6 +204,7 @@ const BookingPage = () => {
         facilities: item.facilities || [],
         activities: item.activities || [],
         totalCapacity: item.available_rooms || 0,
+        workingDays: item.days_opened || [],
       };
     }
     

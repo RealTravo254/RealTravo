@@ -135,7 +135,7 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
           <p className="px-4 text-[9px] font-black text-[#008080] uppercase tracking-[0.2em] mb-2">Explore Categories</p>
           <NavItem icon={Trophy} label="Events & Sports" path="/category/events" />
           <NavItem icon={Map} label="Trips & Tours" path="/category/trips" />
-          <NavItem icon={Mountain} label="Adventure Places" path="/category/campsite" />
+          <NavItem icon={Mountain} label="Campsite & Experience" path="/category/campsite" />
           <NavItem icon={Building2} label="Accommodation" path="/category/accommodation" />
           <NavItem icon={Bed} label="Hotels & Stays" path="/category/hotels" />
 

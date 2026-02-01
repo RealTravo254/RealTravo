@@ -20,6 +20,8 @@ import { useBookingSubmit } from "@/hooks/useBookingSubmit";
 import { extractIdFromSlug } from "@/lib/slugUtils";
 import { useGeolocation, calculateDistance } from "@/hooks/useGeolocation";
 import { trackReferralClick, generateReferralLink } from "@/lib/referralUtils";
+import { Header } from "@/components/Header";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const HotelDetail = () => {
   const { slug } = useParams();
@@ -39,6 +41,7 @@ const HotelDetail = () => {
 
   const { savedItems, handleSave: handleSaveItem } = useSavedItems();
   const isSaved = savedItems.has(id || "");
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -194,6 +197,8 @@ const HotelDetail = () => {
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] pb-24">
+      {/* Header - Desktop Only */}
+      {!isMobile && <Header showSearchIcon={false} />}
 
       {/*
         1. STICKY ACTION BAR

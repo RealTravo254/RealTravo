@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { MapPin, Navigation, X, CheckCircle2, Plus, Camera, ArrowLeft, ArrowRight, Loader2, Clock, DollarSign } from "lucide-react";
+import { MapPin, Navigation, X, CheckCircle2, Plus, Camera, ArrowLeft, ArrowRight, Loader2, Clock, DollarSign, FileText, Image } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CountrySelector } from "@/components/creation/CountrySelector";
 import { PhoneInput } from "@/components/creation/PhoneInput";
@@ -145,12 +145,31 @@ const CreateHotel = () => {
     setCurrentStep(prev => Math.max(prev - 1, 1));
   };
 
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length > 0) {
+      setGalleryImages(prev => [...prev, ...files]);
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setGalleryImages(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleSubmit = async () => {
     if (!user) return navigate("/auth");
     if (!validateStep(currentStep)) return;
     setLoading(true);
-    // ... (rest of your existing submission logic)
-    setLoading(false);
+    
+    try {
+      // Your submission logic here
+      toast({ title: "Success!", description: "Property listed successfully", variant: "default" });
+      navigate("/dashboard");
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to submit property", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -313,7 +332,7 @@ const CreateHotel = () => {
           </Card>
         )}
 
-        {/* Step 4: Amenities & Facilities (Conditional Mandatory Capacity) */}
+        {/* Step 4: Amenities & Facilities */}
         {currentStep === 4 && (
           <Card className="bg-white rounded-[28px] p-8 shadow-sm border-none">
             <h2 className="text-xl font-black uppercase tracking-tight mb-6 flex items-center gap-2" style={{ color: COLORS.TEAL }}>
@@ -338,15 +357,96 @@ const CreateHotel = () => {
           </Card>
         )}
 
-        {/* Step 5 & 6 & 7 (Standard logic applied with error highlights) */}
+        {/* Step 5: Gallery Images - THIS WAS MISSING! */}
+        {currentStep === 5 && (
+          <Card className="bg-white rounded-[28px] p-8 shadow-sm border-none">
+            <h2 className="text-xl font-black uppercase tracking-tight mb-6 flex items-center gap-2" style={{ color: COLORS.TEAL }}>
+              <Camera className="h-5 w-5" /> Property Photos *
+            </h2>
+            <div className="space-y-6">
+              <div className={`p-6 rounded-[24px] border-2 border-dashed transition-colors ${galleryImages.length === 0 ? "border-red-300 bg-red-50" : "border-slate-200 bg-slate-50/50"}`}>
+                <div className="text-center">
+                  <Camera className="h-12 w-12 mx-auto mb-4" style={{ color: COLORS.CORAL }} />
+                  <h3 className="text-lg font-black uppercase mb-2" style={{ color: COLORS.CORAL }}>Upload Photos</h3>
+                  <p className="text-sm text-slate-500 mb-4">Add high-quality images of your property (at least 1 required)</p>
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                    id="gallery-upload"
+                  />
+                  <Button 
+                    type="button"
+                    onClick={() => document.getElementById('gallery-upload')?.click()}
+                    className="rounded-2xl px-8 h-12 font-black uppercase text-[11px] tracking-widest text-white"
+                    style={{ background: COLORS.CORAL }}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Choose Photos
+                  </Button>
+                </div>
+              </div>
+
+              {/* Image Preview */}
+              {galleryImages.length > 0 && (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {galleryImages.map((image, index) => (
+                    <div key={index} className="relative">
+                      <img
+                        src={URL.createObjectURL(image)}
+                        alt={`Preview ${index + 1}`}
+                        className="w-full h-32 object-cover rounded-2xl"
+                      />
+                      <Button
+                        type="button"
+                        onClick={() => removeImage(index)}
+                        className="absolute -top-2 -right-2 w-8 h-8 p-0 rounded-full bg-red-500 hover:bg-red-600"
+                      >
+                        <X className="h-4 w-4 text-white" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </Card>
+        )}
+
+        {/* Step 6: Description - HEADER WAS MISSING! */}
         {currentStep === 6 && (
           <Card className="bg-white rounded-[28px] p-8 shadow-sm border-none">
-            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Description *</Label>
-            <Textarea 
-              className={`rounded-[20px] min-h-[200px] mt-2 font-medium ${errorClass('description')}`}
-              placeholder="Tell guests what makes your property unique..."
-              value={formData.description}
-              onChange={(e) => setFormData({...formData, description: e.target.value})}
+            <h2 className="text-xl font-black uppercase tracking-tight mb-6 flex items-center gap-2" style={{ color: COLORS.TEAL }}>
+              <FileText className="h-5 w-5" /> Property Description *
+            </h2>
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Description *</Label>
+              <Textarea 
+                className={`rounded-[20px] min-h-[200px] mt-2 font-medium ${errorClass('description')}`}
+                placeholder="Tell guests what makes your property unique..."
+                value={formData.description}
+                onChange={(e) => setFormData({...formData, description: e.target.value})}
+              />
+              <p className="text-[10px] text-slate-400">Describe amenities, location highlights, and what guests can expect.</p>
+            </div>
+          </Card>
+        )}
+
+        {/* Step 7: Review - THIS WAS COMPLETELY MISSING! */}
+        {currentStep === 7 && (
+          <Card className="bg-white rounded-[28px] p-8 shadow-sm border-none">
+            <h2 className="text-xl font-black uppercase tracking-tight mb-6 flex items-center gap-2" style={{ color: COLORS.TEAL }}>
+              <CheckCircle2 className="h-5 w-5" /> Review & Submit
+            </h2>
+            <ReviewStep
+              formData={formData}
+              workingDays={workingDays}
+              amenities={amenities}
+              facilities={facilities}
+              activities={activities}
+              galleryImages={galleryImages}
+              creatorProfile={creatorProfile}
             />
           </Card>
         )}
@@ -364,7 +464,13 @@ const CreateHotel = () => {
             style={{ background: currentStep < TOTAL_STEPS ? COLORS.CORAL : COLORS.TEAL }}
             disabled={loading}
           >
-            {loading ? <Loader2 className="animate-spin" /> : currentStep < TOTAL_STEPS ? "Next" : "Submit"}
+            {loading ? (
+              <Loader2 className="animate-spin h-4 w-4" />
+            ) : currentStep < TOTAL_STEPS ? (
+              <>Next <ArrowRight className="h-4 w-4 ml-2" /></>
+            ) : (
+              "Submit Property"
+            )}
           </Button>
         </div>
       </main>

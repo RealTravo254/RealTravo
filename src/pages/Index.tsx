@@ -851,10 +851,10 @@ const Index = () => {
           </div>
         )}
                 
-        <div className={`w-full px-4 md:px-6 lg:px-8 ${isSearchFocused ? 'hidden' : ''}`}>
+        <div className={`w-full px-0 md:px-6 lg:px-8 ${isSearchFocused ? 'hidden' : ''}`}>
           {/* Top Destinations / My Location Toggle Bar */}
-          <section className="mb-2 md:mb-6">
-            <div className="mb-1.5 md:mb-3 mt-1 md:mt-0 px-0 mx-[10px] items-center justify-between flex flex-row my-[5px] gap-6">
+          <section className="mb-1 md:mb-6">
+            <div className="mb-1 md:mb-3 mt-1 md:mt-0 px-0 mx-0 md:mx-[10px] items-center justify-between flex flex-row my-[5px] gap-6">
               {/* Top Destinations Text */}
               <span
                 onClick={() => setListingViewMode('top_destinations')}
@@ -886,11 +886,11 @@ const Index = () => {
             </div>
           </section>
 
-          <div className="container mx-auto px-4 py-6">
+          <div className="container mx-auto px-0 md:px-4 py-6">
             
             {/* Campsite & Experience (Adventure Places) - First */}
             <section className="mb-2 md:mb-6">
-              <div className="mb-1.5 md:mb-3 flex items-center justify-between bg-gradient-to-r from-primary/10 to-transparent py-2 px-3 rounded-lg border-l-4 border-primary">
+              <div className="mb-1 md:mb-3 flex items-center justify-between bg-gradient-to-r from-primary/10 to-transparent py-2 px-3 rounded-lg border-l-4 border-primary mx-0 md:mx-0">
                 <h2 className="text-[0.9rem] sm:text-2xl font-bold whitespace-nowrap overflow-hidden text-ellipsis min-w-max text-primary">
                   Places to adventure
                 </h2>
@@ -909,7 +909,7 @@ const Index = () => {
                     </Button>
                   </>
                 )}
-                <div ref={featuredCampsitesRef} onScroll={handleScroll('featuredCampsites')} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={() => onTouchEnd(featuredCampsitesRef)} className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide pl-1 pr-8 md:pl-2 md:pr-12 scroll-smooth">
+                <div ref={featuredCampsitesRef} onScroll={handleScroll('featuredCampsites')} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={() => onTouchEnd(featuredCampsitesRef)} className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide pl-0 pr-8 md:pl-2 md:pr-12 scroll-smooth">
                   {loadingScrollable ? (
                     <div className="flex gap-4">
                       {[...Array(5)].map((_, i) => (
@@ -960,7 +960,7 @@ const Index = () => {
 
             {/* Hotels - Second */}
             <section className="mb-2 md:mb-6">
-              <div className="mb-1.5 md:mb-3 flex items-center justify-between bg-gradient-to-r from-[#008080]/10 to-transparent py-2 px-3 rounded-lg border-l-4 border-[#008080]">
+              <div className="mb-1 md:mb-3 flex items-center justify-between bg-gradient-to-r from-[#008080]/10 to-transparent py-2 px-3 rounded-lg border-l-4 border-[#008080] mx-0 md:mx-0">
                 <h2 className="text-[0.9rem] sm:text-2xl font-bold whitespace-nowrap overflow-hidden text-ellipsis min-w-max text-[#008080]">
                   Hotels and accommodations
                 </h2>
@@ -979,7 +979,7 @@ const Index = () => {
                     </Button>
                   </>
                 )}
-                <div ref={featuredHotelsRef} onScroll={handleScroll('featuredHotels')} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={() => onTouchEnd(featuredHotelsRef)} className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide pl-1 pr-8 md:pl-2 md:pr-12 scroll-smooth">
+                <div ref={featuredHotelsRef} onScroll={handleScroll('featuredHotels')} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={() => onTouchEnd(featuredHotelsRef)} className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide pl-0 pr-8 md:pl-2 md:pr-12 scroll-smooth">
                   {loadingScrollable ? (
                     <div className="flex gap-4">
                       {[...Array(5)].map((_, i) => (
@@ -1030,7 +1030,7 @@ const Index = () => {
 
             {/* Trips Section - Third */}
             <section className="mb-2 md:mb-6">
-              <div className="mb-1.5 md:mb-3 flex items-center justify-between bg-gradient-to-r from-[#FF0000]/10 to-transparent py-2 px-3 rounded-lg border-l-4 border-[#FF0000]">
+              <div className="mb-1 md:mb-3 flex items-center justify-between bg-gradient-to-r from-[#FF0000]/10 to-transparent py-2 px-3 rounded-lg border-l-4 border-[#FF0000] mx-0 md:mx-0">
                 <h2 className="text-[0.9rem] sm:text-2xl font-bold whitespace-nowrap overflow-hidden text-ellipsis min-w-max text-[#FF0000]">
                   Trips and tours
                 </h2>
@@ -1049,7 +1049,7 @@ const Index = () => {
                     </Button>
                   </>
                 )}
-                <div ref={featuredTripsRef} onScroll={handleScroll('featuredTrips')} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={() => onTouchEnd(featuredTripsRef)} className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide pl-1 pr-8 md:pl-2 md:pr-12 scroll-smooth">
+                <div ref={featuredTripsRef} onScroll={handleScroll('featuredTrips')} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={() => onTouchEnd(featuredTripsRef)} className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide pl-0 pr-8 md:pl-2 md:pr-12 scroll-smooth">
                   {loadingScrollable ? (
                     <div className="flex gap-4">
                       {[...Array(5)].map((_, i) => (
@@ -1104,7 +1104,7 @@ const Index = () => {
 
             {/* Events - Fourth */}
             <section className="mb-2 md:mb-6">
-              <div className="mb-1.5 md:mb-3 flex items-center justify-between bg-gradient-to-r from-[#FF7F50]/10 to-transparent py-2 px-3 rounded-lg border-l-4 border-[#FF7F50]">
+              <div className="mb-1 md:mb-3 flex items-center justify-between bg-gradient-to-r from-[#FF7F50]/10 to-transparent py-2 px-3 rounded-lg border-l-4 border-[#FF7F50] mx-0 md:mx-0">
                 <h2 className="text-[0.9rem] sm:text-2xl font-bold whitespace-nowrap overflow-hidden text-ellipsis min-w-max text-[#FF7F50]">
                   Sports and events
                 </h2>
@@ -1123,7 +1123,7 @@ const Index = () => {
                     </Button>
                   </>
                 )}
-                <div ref={featuredEventsRef} onScroll={handleScroll('featuredEvents')} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={() => onTouchEnd(featuredEventsRef)} className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide pl-1 pr-8 md:pl-2 md:pr-12 scroll-smooth">
+                <div ref={featuredEventsRef} onScroll={handleScroll('featuredEvents')} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={() => onTouchEnd(featuredEventsRef)} className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide pl-0 pr-8 md:pl-2 md:pr-12 scroll-smooth">
                   {loadingScrollable ? (
                     <div className="flex gap-4">
                       {[...Array(5)].map((_, i) => (
@@ -1177,7 +1177,7 @@ const Index = () => {
             {position && sortedNearbyPlaces.length > 0 && (
               <section className="mb-2 md:mb-6">
                 <hr className="border-t border-gray-200 my-1 md:my-4" />
-                <div className="mb-1.5 md:mb-3 flex items-center justify-between bg-gradient-to-r from-blue-500/10 to-transparent py-2 px-3 rounded-lg border-l-4 border-blue-500">
+                <div className="mb-1 md:mb-3 flex items-center justify-between bg-gradient-to-r from-blue-500/10 to-transparent py-2 px-3 rounded-lg border-l-4 border-blue-500 mx-0 md:mx-0">
                   <div className="flex items-center gap-2">
                     <MapPin className="h-4 w-4 md:h-5 md:w-5 text-blue-500" />
                     <h2 className="text-[0.9rem] sm:text-2xl font-bold whitespace-nowrap overflow-hidden text-ellipsis min-w-max text-blue-500">
@@ -1186,7 +1186,7 @@ const Index = () => {
                   </div>
                 </div>
                 <div className="relative">
-                  <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide pl-1 pr-8 md:pl-2 md:pr-12 scroll-smooth">
+                  <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide pl-0 pr-8 md:pl-2 md:pr-12 scroll-smooth">
                     {loadingNearby ? (
                       <div className="flex gap-4">
                         {[...Array(5)].map((_, i) => (

@@ -71,7 +71,7 @@ const AdminReviewDetail = () => {
       }
 
       if (tableName) {
-        const { data } = await supabase.from(tableName).select("*").eq("id", id).maybeSingle();
+        const { data } = await supabase.from(tableName as "trips" | "hotels" | "adventure_places").select("*").eq("id", id).maybeSingle();
         itemData = data;
       }
 

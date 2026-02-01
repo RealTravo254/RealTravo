@@ -512,6 +512,7 @@ const CreateAdventure = () => {
             type="adventure"
             data={{
               ...formData,
+              name: formData.locationName || formData.registrationName,
               workingDays: Object.entries(workingDays).filter(([_, v]) => v).map(([d]) => d),
               amenities: amenities.map(a => ({ name: a.name })),
               facilities: formatItemsForDB(facilities),

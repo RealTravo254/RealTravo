@@ -65,12 +65,14 @@ const Index = () => {
     attractions: any[];
     campsites: any[];
     events: any[];
+    accommodations: any[];
   }>({
     trips: [],
     hotels: [],
     attractions: [],
     campsites: [],
-    events: []
+    events: [],
+    accommodations: []
   });
   const [nearbyPlacesHotels, setNearbyPlacesHotels] = useState<any[]>([]);
   const [loadingScrollable, setLoadingScrollable] = useState(true);
@@ -132,6 +134,7 @@ const Index = () => {
   const featuredHotelsRef = useRef<HTMLDivElement>(null);
   const featuredAttractionsRef = useRef<HTMLDivElement>(null);
   const featuredTripsRef = useRef<HTMLDivElement>(null);
+  const featuredAccommodationsRef = useRef<HTMLDivElement>(null);
 
   // Scroll position tracking
   const [scrollPositions, setScrollPositions] = useState<Record<string, number>>({
@@ -140,7 +143,8 @@ const Index = () => {
     featuredCampsites: 0,
     featuredHotels: 0,
     featuredAttractions: 0,
-    featuredTrips: 0
+    featuredTrips: 0,
+    featuredAccommodations: 0
   });
 
   // Touch swipe tracking
@@ -199,7 +203,7 @@ const Index = () => {
     const today = new Date().toISOString().split('T')[0];
     
     try {
-      const [tripsData, hotelsData, campsitesData, eventsData] = await Promise.all([
+      const [tripsData, hotelsData, campsitesData, eventsData, accommodationsData] = await Promise.all([
         // Fetch trips with responsive limit
         supabase
           .from("trips")
@@ -213,7 +217,7 @@ const Index = () => {
           .limit(limit),
         supabase
           .from("hotels")
-          .select("id,name,location,place,country,image_url,activities,latitude,longitude,created_at")
+          .select("id,name,location,place,country,image_url,activities,latitude,longitude,created_at,establishment_type")
           .eq("approval_status", "approved")
           .eq("is_hidden", false)
           .order("created_at", { ascending: false })
@@ -236,6 +240,15 @@ const Index = () => {
           .eq("type", "event")
           .order("date", { ascending: true })
           .limit(limit),
+        // Fetch accommodation-only hotels
+        supabase
+          .from("hotels")
+          .select("id,name,location,place,country,image_url,activities,latitude,longitude,created_at,establishment_type")
+          .eq("approval_status", "approved")
+          .eq("is_hidden", false)
+          .eq("establishment_type", "accommodation_only")
+          .order("created_at", { ascending: false })
+          .limit(limit),
       ]);
       
       setScrollableRows({
@@ -243,7 +256,8 @@ const Index = () => {
         hotels: hotelsData.data || [],
         attractions: [],
         campsites: campsitesData.data || [],
-        events: eventsData.data || []
+        events: eventsData.data || [],
+        accommodations: accommodationsData.data || []
       });
 
       // Booking stats are now handled by useRealtimeBookings hook for real-time updates
@@ -449,12 +463,14 @@ const Index = () => {
     const cachedData = getCachedHomePageData();
     if (cachedData) {
       setListings(cachedData.listings || []);
-      setScrollableRows(cachedData.scrollableRows || {
-        trips: [],
-        hotels: [],
-        attractions: [],
-        campsites: [],
-        events: []
+      const cachedScrollable = cachedData.scrollableRows as any || {};
+      setScrollableRows({
+        trips: cachedScrollable.trips || [],
+        hotels: cachedScrollable.hotels || [],
+        attractions: cachedScrollable.attractions || [],
+        campsites: cachedScrollable.campsites || [],
+        events: cachedScrollable.events || [],
+        accommodations: cachedScrollable.accommodations || []
       });
       setNearbyPlacesHotels(cachedData.nearbyPlacesHotels || []);
       // Booking stats are now handled by useRealtimeBookings hook
@@ -523,7 +539,7 @@ const Index = () => {
     description: "Adventure camping spots"
   }, {
     icon: Hotel,
-    title: "Hotels & accommodation",
+    title: "Hotels",
     path: "/category/hotels",
     bgImage: "/images/category-hotels.webp",
     description: "Find comfortable stays"
@@ -540,6 +556,15 @@ const Index = () => {
     bgImage: "/images/category-events.webp",
     description: "Discover exciting events"
   }];
+  
+  // Separate accommodation category for the dedicated section
+  const accommodationCategory = {
+    icon: Hotel,
+    title: "Accommodation",
+    path: "/category/accommodation",
+    bgImage: "/images/category-hotels.webp",
+    description: "Rooms & stays only"
+  };
 
   // Handle My Location tap - request location and switch view mode
   const handleMyLocationTap = useCallback(() => {
@@ -624,6 +649,7 @@ const Index = () => {
   const displayHotels = useMemo(() => getDisplayItems(scrollableRows.hotels, sortedHotels, false), [scrollableRows.hotels, sortedHotels, getDisplayItems]);
   const displayTrips = useMemo(() => getDisplayItems(scrollableRows.trips, sortedTrips, true), [scrollableRows.trips, sortedTrips, getDisplayItems]);
   const displayEvents = useMemo(() => getDisplayItems(scrollableRows.events, sortedEvents, true), [scrollableRows.events, sortedEvents, getDisplayItems]);
+  const displayAccommodations = useMemo(() => getDisplayItems(scrollableRows.accommodations, scrollableRows.accommodations, false), [scrollableRows.accommodations, getDisplayItems]);
 
   return (
     <div className="min-h-screen bg-background pb-0 md:pb-0">
@@ -1025,6 +1051,65 @@ const Index = () => {
                 </div>
               </div>
             </section>
+
+            {/* Accommodation Only Section */}
+            {displayAccommodations.length > 0 && (
+              <>
+                <hr className="border-t border-gray-200 my-1 md:my-4" />
+                <section className="mb-2 md:mb-6">
+                  <div className="mb-1 md:mb-3 flex items-center justify-between bg-gradient-to-r from-purple-500/10 to-transparent py-2 px-3 rounded-lg border-l-4 border-purple-500 mx-0 md:mx-0">
+                    <h2 className="text-[0.9rem] sm:text-2xl font-bold whitespace-nowrap overflow-hidden text-ellipsis min-w-max text-purple-600">
+                      Accommodation Only
+                    </h2>
+                    <Link to="/category/accommodation" className="text-purple-600 text-xs md:text-sm font-bold hover:underline bg-purple-500/10 px-2 py-1 rounded-full">
+                      View All
+                    </Link>
+                  </div>
+                  <div className="relative">
+                    {displayAccommodations.length > 0 && (
+                      <>
+                        <Button variant="ghost" size="icon" aria-label="Scroll left" onClick={() => scrollSection(featuredAccommodationsRef, 'left')} className="absolute left-0 top-1/2 -translate-y-1/2 z-10 h-8 w-8 md:h-10 md:w-10 rounded-full bg-black/50 hover:bg-black/70 text-white">
+                          <ChevronLeft className="h-5 w-5 md:h-6 md:w-6" />
+                        </Button>
+                        <Button variant="ghost" size="icon" aria-label="Scroll right" onClick={() => scrollSection(featuredAccommodationsRef, 'right')} className="absolute right-0 top-1/2 -translate-y-1/2 z-10 h-8 w-8 md:h-10 md:w-10 rounded-full bg-black/50 hover:bg-black/70 text-white">
+                          <ChevronRight className="h-5 w-5 md:h-6 md:w-6" />
+                        </Button>
+                      </>
+                    )}
+                    <div ref={featuredAccommodationsRef} onScroll={handleScroll('featuredAccommodations')} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={() => onTouchEnd(featuredAccommodationsRef)} className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide pl-0 pr-8 md:pl-2 md:pr-12 scroll-smooth">
+                      {displayAccommodations.map((accommodation, index) => {
+                        const itemDistance = position && accommodation.latitude && accommodation.longitude ? calculateDistance(position.latitude, position.longitude, accommodation.latitude, accommodation.longitude) : undefined;
+                        const ratingData = ratings.get(accommodation.id);
+                        return (
+                          <div key={accommodation.id} className="flex-shrink-0 w-[75vw] sm:w-[320px] md:w-[380px]">
+                            <ListingCard 
+                              id={accommodation.id} 
+                              type="HOTEL" 
+                              name={accommodation.name} 
+                              imageUrl={accommodation.image_url} 
+                              location={accommodation.location} 
+                              country={accommodation.country} 
+                              price={0} 
+                              date="" 
+                              onSave={handleSave} 
+                              isSaved={savedItems.has(accommodation.id)} 
+                              hidePrice={true} 
+                              showBadge={true} 
+                              priority={index === 0} 
+                              activities={accommodation.activities} 
+                              distance={itemDistance} 
+                              avgRating={ratingData?.avgRating} 
+                              reviewCount={ratingData?.reviewCount} 
+                              place={accommodation.place} 
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </section>
+              </>
+            )}
 
             <hr className="border-t border-gray-200 my-1 md:my-4" />
 

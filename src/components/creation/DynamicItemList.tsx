@@ -20,6 +20,7 @@ interface DynamicItemListProps {
   showCapacity?: boolean;
   showPrice?: boolean;
   accentColor?: string;
+  highlightErrors?: boolean;
 }
 
 export const DynamicItemList = ({

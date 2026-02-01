@@ -30,11 +30,12 @@ const CategoryDetail = () => {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
 
   const categoryConfig: { [key: string]: any } = {
-    trips: { title: "Trips", tables: ["trips"], type: "TRIP", tripType: "trip" },
-    events: { title: "Events", tables: ["trips"], type: "EVENT", tripType: "event" },
-    hotels: { title: "Hotels", tables: ["hotels"], type: "HOTEL" },
-    adventure: { title: "Attractions", tables: ["attractions"], type: "ATTRACTION" },
-    campsite: { title: "Campsite & Experience", tables: ["adventure_places"], type: "ADVENTURE PLACE" }
+    trips: { title: "Trips", tables: ["trips"], type: "TRIP", tripType: "trip", filterType: "trips-events" },
+    events: { title: "Events", tables: ["trips"], type: "EVENT", tripType: "event", filterType: "trips-events" },
+    hotels: { title: "Hotels", tables: ["hotels"], type: "HOTEL", filterType: "hotels" },
+    adventure: { title: "Attractions", tables: ["attractions"], type: "ATTRACTION", filterType: "adventure" },
+    campsite: { title: "Campsite & Experience", tables: ["adventure_places"], type: "ADVENTURE PLACE", filterType: "adventure" },
+    accommodation: { title: "Accommodation", tables: ["hotels"], type: "HOTEL", filterType: "accommodation", establishmentType: "accommodation_only" }
   };
 
   const config = category ? categoryConfig[category] : null;
@@ -85,7 +86,7 @@ const CategoryDetail = () => {
           table === "trips"
             ? "id,name,location,place,country,image_url,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child"
             : table === "hotels"
-              ? "id,name,location,place,country,image_url,activities,latitude,longitude,created_at"
+              ? "id,name,location,place,country,image_url,activities,latitude,longitude,created_at,establishment_type"
               : table === "adventure_places"
                 ? "id,name,location,place,country,image_url,entry_fee,available_slots,activities,latitude,longitude,created_at"
                 : "*"
@@ -95,6 +96,11 @@ const CategoryDetail = () => {
       
       if (config.tripType) {
         query = query.eq("type", config.tripType);
+      }
+      
+      // Filter by establishment type for accommodation category
+      if (config.establishmentType && table === "hotels") {
+        query = query.eq("establishment_type", config.establishmentType);
       }
       
       const { data } = await query.range(offset, offset + limit - 1);
@@ -152,6 +158,22 @@ const CategoryDetail = () => {
         item.country?.toLowerCase().includes(loc)
       );
     }
+    // Filter by date range if provided
+    if (filters.dateFrom || filters.dateTo) {
+      result = result.filter(item => {
+        // For trips/events with specific dates
+        if (item.date) {
+          const itemDate = new Date(item.date);
+          if (filters.dateFrom && itemDate < filters.dateFrom) return false;
+          if (filters.dateTo && itemDate > filters.dateTo) return false;
+        }
+        // For flexible date items or items without dates, include them
+        if (item.is_flexible_date) return true;
+        // For hotels/adventure places, they're generally always available
+        if (!item.date) return true;
+        return true;
+      });
+    }
     return result;
   }, []);
 
@@ -186,7 +208,7 @@ const CategoryDetail = () => {
         <div className="bg-background/95 backdrop-blur-sm border-b relative z-40">
           <div className="container px-4 py-2">
             <FilterBar 
-              type={category === "hotels" ? "hotels" : category === "campsite" ? "adventure" : "trips-events"} 
+              type={config?.filterType || "trips-events"} 
               onApplyFilters={setActiveFilters}
             />
           </div>

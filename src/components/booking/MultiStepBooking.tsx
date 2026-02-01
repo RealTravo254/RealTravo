@@ -49,6 +49,8 @@ interface MultiStepBookingProps {
     slotLimitType?: 'inventory' | 'per_booking';
     // NEW: isFlexibleDate indicates if this is a flexible date trip
     isFlexibleDate?: boolean;
+    // NEW: workingDays for date validation
+    workingDays?: string[];
 }
 
 export interface BookingFormData {
@@ -85,6 +87,7 @@ export const MultiStepBooking = ({
     totalCapacity = 0,
     slotLimitType = 'inventory',
     isFlexibleDate = false,
+    workingDays = [],
 }: MultiStepBookingProps) => {
     const { user } = useAuth();
     
@@ -482,10 +485,30 @@ export const MultiStepBooking = ({
                                 type="date"
                                 value={formData.visit_date}
                                 min={new Date().toISOString().split('T')[0]} 
-                                onChange={(e) => setFormData({ ...formData, visit_date: e.target.value })}
+                                onChange={(e) => {
+                                    const selectedDate = e.target.value;
+                                    // Validate working days if provided
+                                    if (workingDays.length > 0 && selectedDate) {
+                                        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                                        const dayOfWeek = dayNames[new Date(selectedDate).getDay()];
+                                        const isWorkingDay = workingDays.some(d => 
+                                            d.toLowerCase().startsWith(dayOfWeek.toLowerCase()) ||
+                                            dayOfWeek.toLowerCase().startsWith(d.toLowerCase().substring(0, 3))
+                                        );
+                                        if (!isWorkingDay) {
+                                            return; // Don't update if not a working day
+                                        }
+                                    }
+                                    setFormData({ ...formData, visit_date: selectedDate });
+                                }}
                                 className="border-none bg-white rounded-xl h-12 font-medium focus:ring-[#008080] focus:ring-2"
                             />
                             {!formData.visit_date && <p className="text-xs text-red-500 mt-2 font-medium">Please select a date to proceed.</p>}
+                            {workingDays.length > 0 && (
+                                <p className="text-xs text-slate-400 mt-2 font-medium">
+                                    Open on: {workingDays.join(', ')}
+                                </p>
+                            )}
                         </div>
                     </div>
                 )}

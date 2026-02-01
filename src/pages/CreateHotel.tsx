@@ -206,6 +206,27 @@ const CreateHotel = () => {
                   placeholder="e.g. BN-12345"
                 />
               </div>
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Property Type *</Label>
+                <Select 
+                  value={formData.establishmentType} 
+                  onValueChange={(v) => setFormData({...formData, establishmentType: v})}
+                >
+                  <SelectTrigger className={`rounded-xl h-12 font-bold ${errorClass('establishmentType')}`}>
+                    <SelectValue placeholder="Select property type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="hotel">Hotel (Full Service)</SelectItem>
+                    <SelectItem value="accommodation_only">Accommodation Only (Rooms/Stays)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  {formData.establishmentType === "accommodation_only" 
+                    ? "Accommodation only focuses on room rentals without full hotel services."
+                    : "Full service hotel with amenities, restaurant, etc."
+                  }
+                </p>
+              </div>
             </div>
           </Card>
         )}

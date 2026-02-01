@@ -229,9 +229,9 @@ const Saved = () => {
         </div>
         
         {isLoading || authLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-y-12 gap-x-8 justify-items-center">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
             {[...Array(10)].map((_, i) => (
-              <div key={i} className="space-y-4 w-full max-w-[380px]">
+              <div key={i} className="space-y-4 w-full">
                 <Skeleton className="h-64 w-full rounded-[28px]" />
                 <Skeleton className="h-4 w-3/4" />
                 <Skeleton className="h-4 w-1/2" />
@@ -277,11 +277,11 @@ const Saved = () => {
                 - lg:gap-x-12: massive horizontal spacing on big screens
                 - lg:gap-y-16: massive vertical spacing on big screens
             */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-y-10 gap-x-6 md:gap-x-8 lg:gap-x-12 lg:gap-y-16 justify-items-center">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
               {savedListings.map((item) => (
                 <div
                   key={item.id}
-                  className={`relative transition-all duration-300 w-full max-w-[380px] flex flex-col items-center ${isSelectionMode ? 'cursor-pointer' : ''}`}
+                  className={`relative transition-all duration-300 w-full ${isSelectionMode ? 'cursor-pointer' : ''}`}
                   onClick={() => isSelectionMode && toggleItemSelection(item.id)}
                 >
                   {isSelectionMode && (

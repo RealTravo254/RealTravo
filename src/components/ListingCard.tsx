@@ -250,7 +250,7 @@ const ListingCardComponent = ({
                 {(date || isFlexibleDate) && (
                   <div className="flex items-center gap-1 text-slate-500">
                       <Calendar className="h-3 w-3" />
-                      <span className={`text-[10px] font-normal uppercase ${isFlexibleDate ? 'text-emerald-600' : ''}`}>
+                      <span className={`text-[10px] font-bold uppercase ${isFlexibleDate ? 'text-emerald-600' : ''}`}>
                           {isFlexibleDate ? 'Flexible' : new Date(date!).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
                       </span>
                   </div>
@@ -258,16 +258,16 @@ const ListingCardComponent = ({
                 
                 <div className="mt-1">
                   {isOutdated ? (
-                    <span className="text-[9px] font-normal text-slate-400 uppercase">Passed</span>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">Passed</span>
                   ) : isSoldOut ? (
-                    <span className="text-[9px] font-normal text-red-600 uppercase">Sold Out</span>
+                    <span className="text-[9px] font-bold text-red-600 uppercase">Sold Out</span>
                   ) : fewSlotsRemaining ? (
-                    <span className="text-[9px] font-normal text-red-500 uppercase flex items-center gap-1">
+                    <span className="text-[9px] font-bold text-red-500 uppercase flex items-center gap-1">
                         <Ticket className="h-2.5 w-2.5" />
                         {remainingTickets} left
                     </span>
                   ) : (tracksAvailability && availableTickets > 0) && (
-                    <span className="text-[9px] font-normal text-teal-600 uppercase">
+                    <span className="text-[9px] font-bold text-teal-600 uppercase">
                         {remainingTickets} Available
                     </span>
                   )}

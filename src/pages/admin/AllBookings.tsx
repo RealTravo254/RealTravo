@@ -28,7 +28,7 @@ const COLORS = {
 };
 
 const AllBookings = () => {
-  const { user } = useAuth();
+  const { user } = useAuth(); 
   const navigate = useNavigate();
   const { toast } = useToast();
   const [bookings, setBookings] = useState<any[]>([]);

@@ -28,6 +28,8 @@ serve(async (req) => {
       throw new Error("Reference is required");
     }
 
+    console.log("Verifying payment with reference:", reference);
+
     // Verify transaction with Paystack
     const verifyResponse = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
       headers: {
@@ -44,6 +46,8 @@ serve(async (req) => {
     const transaction = verifyData.data;
     const isSuccessful = transaction.status === "success";
 
+    console.log("Paystack verification result:", { status: transaction.status, isSuccessful });
+
     // Update payment record
     const { data: paymentData, error: fetchError } = await supabase
       .from("payments")
@@ -56,10 +60,11 @@ serve(async (req) => {
     }
 
     if (paymentData) {
+      // Update payment status - use 'completed' or 'failed' to match the check constraint
       await supabase
         .from("payments")
         .update({
-          payment_status: isSuccessful ? "paid" : "failed",
+          payment_status: isSuccessful ? "completed" : "failed",
           mpesa_receipt_number: transaction.reference,
           result_code: transaction.status,
           result_desc: transaction.gateway_response,
@@ -71,6 +76,8 @@ serve(async (req) => {
       if (isSuccessful && paymentData.booking_data) {
         const bookingData = paymentData.booking_data as any;
         
+        console.log("Creating booking with data:", bookingData);
+
         const { data: booking, error: bookingError } = await supabase
           .from("bookings")
           .insert([{
@@ -79,7 +86,7 @@ serve(async (req) => {
             booking_type: bookingData.booking_type,
             total_amount: bookingData.total_amount,
             status: "confirmed",
-            payment_status: "paid",
+            payment_status: "completed", // Use 'completed' to match the check constraint
             payment_method: "card",
             is_guest_booking: bookingData.is_guest_booking || false,
             guest_name: bookingData.guest_name,
@@ -95,9 +102,9 @@ serve(async (req) => {
         if (bookingError) {
           console.error("Error creating booking:", bookingError);
         } else {
-          console.log("Booking created:", booking?.id);
+          console.log("Booking created successfully:", booking?.id);
 
-          // Send confirmation email
+          // Send confirmation email to the user
           try {
             await supabase.functions.invoke("send-booking-confirmation", {
               body: {
@@ -111,8 +118,62 @@ serve(async (req) => {
                 visitDate: bookingData.visit_date,
               },
             });
+            console.log("Booking confirmation email sent");
           } catch (emailError) {
             console.error("Error sending confirmation email:", emailError);
+          }
+
+          // Send notification email to the host
+          try {
+            // Get host email from the item
+            let hostEmail = null;
+            let hostId = null;
+            
+            if (bookingData.booking_type === 'trip' || bookingData.booking_type === 'event') {
+              const { data: tripData } = await supabase
+                .from('trips')
+                .select('email, created_by')
+                .eq('id', bookingData.item_id)
+                .single();
+              hostEmail = tripData?.email;
+              hostId = tripData?.created_by;
+            } else if (bookingData.booking_type === 'hotel') {
+              const { data: hotelData } = await supabase
+                .from('hotels')
+                .select('email, created_by')
+                .eq('id', bookingData.item_id)
+                .single();
+              hostEmail = hotelData?.email;
+              hostId = hotelData?.created_by;
+            } else if (bookingData.booking_type === 'adventure_place' || bookingData.booking_type === 'adventure') {
+              const { data: adventureData } = await supabase
+                .from('adventure_places')
+                .select('email, created_by')
+                .eq('id', bookingData.item_id)
+                .single();
+              hostEmail = adventureData?.email;
+              hostId = adventureData?.created_by;
+            }
+
+            if (hostEmail) {
+              await supabase.functions.invoke("send-host-booking-notification", {
+                body: {
+                  bookingId: booking?.id,
+                  hostEmail: hostEmail,
+                  guestName: bookingData.guest_name,
+                  guestEmail: bookingData.guest_email,
+                  guestPhone: bookingData.guest_phone,
+                  bookingType: bookingData.booking_type,
+                  itemName: bookingData.emailData?.itemName || "Booking",
+                  totalAmount: bookingData.total_amount,
+                  bookingDetails: bookingData.booking_details,
+                  visitDate: bookingData.visit_date,
+                },
+              });
+              console.log("Host notification email sent to:", hostEmail);
+            }
+          } catch (hostEmailError) {
+            console.error("Error sending host notification email:", hostEmailError);
           }
         }
       }

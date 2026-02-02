@@ -27,7 +27,8 @@ interface ReviewStepProps {
     priceChild?: string;
     capacity?: string;
     // Amenities, facilities, activities
-    amenities?: Array<{ name: string }>;
+    // Amenities can be array of strings or objects with name property
+    amenities?: Array<{ name: string } | string>;
     facilities?: Array<{ name: string; price: number; capacity?: number | null; is_free?: boolean }>;
     activities?: Array<{ name: string; price: number; is_free?: boolean }>;
     // Images count
@@ -215,7 +216,7 @@ export const ReviewStep = ({ type, data, creatorName, creatorEmail, creatorPhone
                 key={i}
                 className="inline-flex px-3 py-1.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600"
               >
-                {amenity.name}
+                {typeof amenity === 'string' ? amenity : amenity.name}
               </span>
             ))}
           </div>

@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { getReferralTrackingId } from "@/lib/referralUtils";
 
-interface BookingData {
+export interface BookingData {
   itemId: string;
   itemName: string;
   bookingType: 'trip' | 'event' | 'hotel' | 'adventure_place' | 'attraction';
@@ -14,6 +14,15 @@ interface BookingData {
   guestPhone: string;
   bookingDetails: Record<string, any>;
   hostId?: string | null;
+}
+
+export interface BookingFormData {
+  visit_date: string;
+  num_adults: number;
+  num_children: number;
+  guest_name: string;
+  guest_email: string;
+  guest_phone: string;
 }
 
 export const useBookingSubmit = () => {

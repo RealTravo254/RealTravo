@@ -473,10 +473,15 @@ const BookingPage = () => {
 
   const total = calculateTotal();
   const requestedSlots = formData.num_adults + formData.num_children;
-  const insufficientSlots = props.slotLimitType === 'inventory' 
-    ? (props.totalCapacity > 0 && requestedSlots > remainingSlots)
-    : (props.totalCapacity > 0 && requestedSlots > props.totalCapacity);
-  const isGloballySoldOut = props.slotLimitType === 'inventory' && isSoldOut && props.totalCapacity > 0;
+  
+  // Adventure places don't track slots - they are always available
+  const isAdventurePlace = type === "adventure_place" || type === "adventure";
+  const insufficientSlots = isAdventurePlace ? false : (
+    props.slotLimitType === 'inventory' 
+      ? (props.totalCapacity > 0 && requestedSlots > remainingSlots)
+      : (props.totalCapacity > 0 && requestedSlots > props.totalCapacity)
+  );
+  const isGloballySoldOut = isAdventurePlace ? false : (props.slotLimitType === 'inventory' && isSoldOut && props.totalCapacity > 0);
 
   const stepTitles = [
     { num: dateStepNum, title: "When", subtitle: "Choose your date" },
@@ -536,7 +541,7 @@ const BookingPage = () => {
       {/* Booking Form */}
       <div className="container max-w-2xl mx-auto px-3 sm:px-4 py-4 sm:py-6 pb-24">
         <div className="bg-white rounded-2xl sm:rounded-[32px] shadow-xl border border-slate-100 overflow-hidden">
-          <div className="relative flex flex-col bg-white overflow-hidden max-h-[90vh] sm:max-h-[85vh]" 
+          <div className="relative flex flex-col bg-white" 
                style={{ 
                  background: `linear-gradient(135deg, ${COLORS.TEAL}08 0%, white 50%, ${COLORS.CORAL}08 100%)`
                }}>
@@ -614,7 +619,7 @@ const BookingPage = () => {
             </div>
 
             {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto px-4 sm:px-8 pb-4 sm:pb-6 space-y-6 sm:space-y-8">
+            <div className="px-4 sm:px-8 pb-4 sm:pb-6 space-y-6 sm:space-y-8">
               
               {/* Step 1: Visit Date */}
               {currentStep === dateStepNum && !props.skipDateSelection && (

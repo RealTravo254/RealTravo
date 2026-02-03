@@ -132,6 +132,7 @@ const BookingPage = () => {
     }
     
     if (type === "adventure_place" || type === "adventure") {
+      // Adventure places don't use slot-based capacity - they're always available
       return {
         ...baseProps,
         bookingType: "adventure_place",
@@ -140,7 +141,8 @@ const BookingPage = () => {
         entranceType: item.entry_fee_type || "paid",
         facilities: item.facilities || [],
         activities: item.activities || [],
-        totalCapacity: item.available_slots || 0,
+        totalCapacity: 0, // Set to 0 to bypass capacity checks
+        slotLimitType: 'per_booking' as const, // Use per_booking to skip inventory tracking
         workingDays: item.days_opened || [],
       };
     }

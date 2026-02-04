@@ -1,5 +1,20 @@
 import { Card } from "@/components/ui/card";
-import { CheckCircle2, MapPin, Clock, DollarSign, Phone, Mail, User, Calendar, Building, Users, Ticket } from "lucide-react";
+import { CheckCircle2, MapPin, Clock, DollarSign, Phone, Mail, User, Calendar, Building, Users, Ticket, Image as ImageIcon } from "lucide-react";
+
+interface FacilityWithImages {
+  name: string;
+  price: number;
+  capacity?: number | null;
+  is_free?: boolean;
+  images?: string[];
+}
+
+interface ActivityWithImages {
+  name: string;
+  price: number;
+  is_free?: boolean;
+  images?: string[];
+}
 
 interface ReviewStepProps {
   type: 'hotel' | 'adventure' | 'trip' | 'event';
@@ -27,10 +42,9 @@ interface ReviewStepProps {
     priceChild?: string;
     capacity?: string;
     // Amenities, facilities, activities
-    // Amenities can be array of strings or objects with name property
     amenities?: Array<{ name: string } | string>;
-    facilities?: Array<{ name: string; price: number; capacity?: number | null; is_free?: boolean }>;
-    activities?: Array<{ name: string; price: number; is_free?: boolean }>;
+    facilities?: FacilityWithImages[];
+    activities?: ActivityWithImages[];
     // Images count
     imageCount?: number;
   };
@@ -165,46 +179,110 @@ export const ReviewStep = ({ type, data, creatorName, creatorEmail, creatorPhone
         )}
       </Section>
 
-      {/* Activities */}
-      {data.activities && data.activities.length > 0 && (
-        <Section title={`Activities (${data.activities.length})`} icon={Users}>
-          <div className="col-span-2 flex flex-wrap gap-2">
-            {data.activities.map((activity, i) => (
-              <span 
+      {/* Facilities - Enhanced with images */}
+      {data.facilities && data.facilities.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-lg bg-amber-50">
+              <Building className="h-4 w-4 text-amber-600" />
+            </div>
+            <h4 className="text-xs font-black uppercase tracking-widest text-slate-500">
+              Facilities ({data.facilities.length})
+            </h4>
+          </div>
+          <div className="space-y-3">
+            {data.facilities.map((facility, i) => (
+              <div 
                 key={i}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold"
-                style={{ backgroundColor: `${accentColor}15`, color: accentColor }}
+                className="p-3 rounded-xl bg-amber-50/50 border border-amber-100"
               >
-                {activity.name}
-                {activity.price > 0 && !activity.is_free && (
-                  <span className="text-[10px] opacity-75">({formatPrice(activity.price)})</span>
+                <div className="flex items-start justify-between mb-2">
+                  <div>
+                    <p className="font-bold text-slate-700">{facility.name}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                        facility.is_free || facility.price === 0
+                          ? "bg-emerald-100 text-emerald-600"
+                          : "bg-amber-100 text-amber-600"
+                      }`}>
+                        {facility.is_free || facility.price === 0 ? "Free" : `KES ${facility.price.toLocaleString()}/night`}
+                      </span>
+                      {facility.capacity && (
+                        <span className="text-[10px] font-bold text-slate-500">
+                          • {facility.capacity} guests
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                {/* Facility Images */}
+                {facility.images && facility.images.length > 0 && (
+                  <div className="flex gap-2 mt-2 overflow-x-auto">
+                    {facility.images.map((img, imgIdx) => (
+                      <div key={imgIdx} className="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-slate-100">
+                        <img src={img} alt={`${facility.name} ${imgIdx + 1}`} className="w-full h-full object-cover" />
+                      </div>
+                    ))}
+                    <div className="flex items-center text-[10px] text-slate-400 font-bold ml-1">
+                      <ImageIcon className="h-3 w-3 mr-1" />
+                      {facility.images.length}
+                    </div>
+                  </div>
                 )}
-              </span>
+              </div>
             ))}
           </div>
-        </Section>
+        </div>
       )}
 
-      {/* Facilities */}
-      {data.facilities && data.facilities.length > 0 && (
-        <Section title={`Facilities (${data.facilities.length})`} icon={Building}>
-          <div className="col-span-2 flex flex-wrap gap-2">
-            {data.facilities.map((facility, i) => (
-              <span 
+      {/* Activities - Enhanced with images */}
+      {data.activities && data.activities.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-lg" style={{ backgroundColor: `${accentColor}15` }}>
+              <Users className="h-4 w-4" style={{ color: accentColor }} />
+            </div>
+            <h4 className="text-xs font-black uppercase tracking-widest text-slate-500">
+              Activities ({data.activities.length})
+            </h4>
+          </div>
+          <div className="space-y-3">
+            {data.activities.map((activity, i) => (
+              <div 
                 key={i}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold bg-amber-50 text-amber-700"
+                className="p-3 rounded-xl border border-slate-100"
+                style={{ backgroundColor: `${accentColor}08` }}
               >
-                {facility.name}
-                {facility.price > 0 && !facility.is_free && (
-                  <span className="text-[10px] opacity-75">({formatPrice(facility.price)})</span>
+                <div className="flex items-start justify-between mb-2">
+                  <div>
+                    <p className="font-bold text-slate-700">{activity.name}</p>
+                    <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full mt-1 inline-block ${
+                      activity.is_free || activity.price === 0
+                        ? "bg-emerald-100 text-emerald-600"
+                        : "bg-slate-100 text-slate-600"
+                    }`}>
+                      {activity.is_free || activity.price === 0 ? "Free" : `KES ${activity.price.toLocaleString()}/person`}
+                    </span>
+                  </div>
+                </div>
+                {/* Activity Images */}
+                {activity.images && activity.images.length > 0 && (
+                  <div className="flex gap-2 mt-2 overflow-x-auto">
+                    {activity.images.map((img, imgIdx) => (
+                      <div key={imgIdx} className="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-slate-100">
+                        <img src={img} alt={`${activity.name} ${imgIdx + 1}`} className="w-full h-full object-cover" />
+                      </div>
+                    ))}
+                    <div className="flex items-center text-[10px] text-slate-400 font-bold ml-1">
+                      <ImageIcon className="h-3 w-3 mr-1" />
+                      {activity.images.length}
+                    </div>
+                  </div>
                 )}
-                {facility.capacity && (
-                  <span className="text-[10px] opacity-75">• {facility.capacity} pax</span>
-                )}
-              </span>
+              </div>
             ))}
           </div>
-        </Section>
+        </div>
       )}
 
       {/* Amenities */}

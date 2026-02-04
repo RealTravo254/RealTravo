@@ -33,8 +33,8 @@ export const FacilityImageCard = ({
   const mainImage = hasImages ? facility.images[0] : null;
   
   const handleReserve = () => {
-    // Navigate to booking page with pre-selected facility
-    navigate(`/booking/${itemType}/${itemId}?facility=${encodeURIComponent(facility.name)}`);
+    // Navigate to booking page with pre-selected facility and skipToFacility flag
+    navigate(`/booking/${itemType}/${itemId}?facility=${encodeURIComponent(facility.name)}&skipToFacility=true`);
   };
 
   return (

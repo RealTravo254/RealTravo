@@ -530,8 +530,19 @@ const CreateAdventure = () => {
               name: formData.locationName || formData.registrationName,
               workingDays: Object.entries(workingDays).filter(([_, v]) => v).map(([d]) => d),
               amenities: amenities.filter(a => a.name.trim()).map(a => ({ name: a.name })),
-              facilities: formatItemsForDB(facilities.filter(f => f.name.trim())),
-              activities: formatItemsForDB(activities.filter(a => a.name.trim())),
+              facilities: facilities.filter(f => f.name.trim()).map(f => ({
+                name: f.name,
+                price: f.priceType === "paid" ? parseFloat(f.price) || 0 : 0,
+                is_free: f.priceType === "free",
+                capacity: f.capacity ? parseInt(f.capacity) : null,
+                images: f.tempImages ? f.tempImages.map(img => URL.createObjectURL(img)) : (f.images || [])
+              })),
+              activities: activities.filter(a => a.name.trim()).map(a => ({
+                name: a.name,
+                price: a.priceType === "paid" ? parseFloat(a.price) || 0 : 0,
+                is_free: a.priceType === "free",
+                images: a.tempImages ? a.tempImages.map(img => URL.createObjectURL(img)) : (a.images || [])
+              })),
               imageCount: galleryImages.length,
             }}
             creatorName={creatorProfile.name}

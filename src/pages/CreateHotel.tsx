@@ -576,12 +576,14 @@ const CreateHotel = () => {
                 name: f.name, 
                 price: typeof f.price === 'string' ? parseFloat(f.price) || 0 : (f.price || 0),
                 capacity: f.capacity ? parseInt(f.capacity) : null,
-                is_free: f.priceType === 'free'
+                is_free: f.priceType === 'free',
+                images: f.tempImages ? f.tempImages.map(img => URL.createObjectURL(img)) : (f.images || [])
               })),
               activities: activities.filter(a => a.name.trim()).map(a => ({ 
                 name: a.name, 
                 price: typeof a.price === 'string' ? parseFloat(a.price) || 0 : (a.price || 0),
-                is_free: a.priceType === 'free'
+                is_free: a.priceType === 'free',
+                images: a.tempImages ? a.tempImages.map(img => URL.createObjectURL(img)) : (a.images || [])
               })),
               imageCount: galleryImages.length,
             }}

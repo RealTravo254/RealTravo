@@ -50,6 +50,11 @@ const BookingPage = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   
+  // Check for pre-selected facility from URL params
+  const urlParams = new URLSearchParams(window.location.search);
+  const preSelectedFacility = urlParams.get('facility');
+  const skipToFacility = urlParams.get('skipToFacility') === 'true';
+  
   const [item, setItem] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -209,6 +214,22 @@ const BookingPage = () => {
       setCurrentStep(2);
     }
   }, [props?.skipDateSelection, props?.fixedDate]);
+
+  // Handle pre-selected facility from URL and skip to facility step
+  useEffect(() => {
+    if (skipToFacility && preSelectedFacility && item && props) {
+      const facility = props.facilities.find(f => f.name === preSelectedFacility);
+      if (facility) {
+        // Pre-select the facility
+        setFormData(prev => ({
+          ...prev,
+          selectedFacilities: [{ ...facility, startDate: "", endDate: "" }]
+        }));
+        // Skip date selection and guests, go directly to facilities step
+        // For facility booking, we'll set a flag to modify the flow
+      }
+    }
+  }, [skipToFacility, preSelectedFacility, item, props]);
 
   const fetchItem = async () => {
     if (!id || !type) return;
@@ -446,22 +467,51 @@ const BookingPage = () => {
   const hasFacilities = props.facilities.filter(f => f.price > 0).length > 0;
   const hasActivities = props.activities.filter(a => a.price > 0).length > 0;
   
-  const baseSteps = props.skipDateSelection ? 1 : 2;
-  const facilityStep = !props.skipFacilitiesAndActivities && hasFacilities ? 1 : 0;
-  const activityStep = !props.skipFacilitiesAndActivities && hasActivities ? 1 : 0;
-  const totalSteps = baseSteps + facilityStep + activityStep + 1;
+  // When skipToFacility is true, we modify the flow:
+  // Skip visit date and guests steps, go directly to facilities with date selection
+  const isFacilityOnlyBooking = skipToFacility && preSelectedFacility && hasFacilities;
   
-  const dateStepNum = props.skipDateSelection ? 0 : 1;
-  const guestsStepNum = props.skipDateSelection ? 1 : 2;
-  const facilitiesStepNum = !props.skipFacilitiesAndActivities && hasFacilities ? guestsStepNum + 1 : 0;
-  const activitiesStepNum = !props.skipFacilitiesAndActivities && hasActivities 
-    ? (facilitiesStepNum > 0 ? facilitiesStepNum + 1 : guestsStepNum + 1) 
-    : 0;
-  const summaryStepNum = totalSteps;
+  // For facility-only booking, the flow is: Facility (with dates) -> Guests (optional for entrance) -> Summary
+  // For normal booking: Date -> Guests -> Facilities -> Activities -> Summary
+  
+  let dateStepNum: number;
+  let guestsStepNum: number;
+  let facilitiesStepNum: number;
+  let activitiesStepNum: number;
+  let summaryStepNum: number;
+  let totalSteps: number;
+  
+  if (isFacilityOnlyBooking) {
+    // Facility-only flow: Facility (1) -> Guests (2, only if entrance fee) -> Summary (3 or 2)
+    dateStepNum = 0; // Skip date selection
+    facilitiesStepNum = 1; // Facilities first with date selection
+    guestsStepNum = props.entranceType !== 'free' ? 2 : 0; // Only show guests if there's an entrance fee
+    activitiesStepNum = hasActivities ? (guestsStepNum > 0 ? 3 : 2) : 0;
+    summaryStepNum = activitiesStepNum > 0 ? activitiesStepNum + 1 : (guestsStepNum > 0 ? guestsStepNum + 1 : facilitiesStepNum + 1);
+    totalSteps = summaryStepNum;
+  } else {
+    // Normal flow
+    const baseSteps = props.skipDateSelection ? 1 : 2;
+    const facilityStep = !props.skipFacilitiesAndActivities && hasFacilities ? 1 : 0;
+    const activityStep = !props.skipFacilitiesAndActivities && hasActivities ? 1 : 0;
+    totalSteps = baseSteps + facilityStep + activityStep + 1;
+    
+    dateStepNum = props.skipDateSelection ? 0 : 1;
+    guestsStepNum = props.skipDateSelection ? 1 : 2;
+    facilitiesStepNum = !props.skipFacilitiesAndActivities && hasFacilities ? guestsStepNum + 1 : 0;
+    activitiesStepNum = !props.skipFacilitiesAndActivities && hasActivities 
+      ? (facilitiesStepNum > 0 ? facilitiesStepNum + 1 : guestsStepNum + 1) 
+      : 0;
+    summaryStepNum = totalSteps;
+  }
 
   const handleNext = () => {
-    if (currentStep === dateStepNum && !formData.visit_date && !props.skipDateSelection) return;
-    if (currentStep === guestsStepNum && formData.num_adults === 0 && formData.num_children === 0) return;
+    if (currentStep === dateStepNum && !formData.visit_date && !props.skipDateSelection && !isFacilityOnlyBooking) return;
+    if (currentStep === guestsStepNum && guestsStepNum > 0) {
+      // For facility-only booking, guests are optional (entrance fee only)
+      // For normal booking, at least one guest is required
+      if (!isFacilityOnlyBooking && formData.num_adults === 0 && formData.num_children === 0) return;
+    }
     if (currentStep === facilitiesStepNum && facilitiesStepNum > 0 && formData.selectedFacilities.length > 0 && !areFacilityDatesValid()) {
       return;
     }
@@ -469,7 +519,7 @@ const BookingPage = () => {
   };
 
   const handlePrevious = () => {
-    const minStep = props.skipDateSelection ? guestsStepNum : dateStepNum;
+    const minStep = isFacilityOnlyBooking ? facilitiesStepNum : (props.skipDateSelection ? guestsStepNum : dateStepNum);
     setCurrentStep(Math.max(currentStep - 1, minStep));
   };
 
@@ -485,13 +535,21 @@ const BookingPage = () => {
   );
   const isGloballySoldOut = isAdventurePlace ? false : (props.slotLimitType === 'inventory' && isSoldOut && props.totalCapacity > 0);
 
-  const stepTitles = [
-    { num: dateStepNum, title: "When", subtitle: "Choose your date" },
-    { num: guestsStepNum, title: "Who", subtitle: "Select guests" },
-    { num: facilitiesStepNum, title: "Where", subtitle: "Pick facilities" },
-    { num: activitiesStepNum, title: "What", subtitle: "Add activities" },
-    { num: summaryStepNum, title: "Confirm", subtitle: "Review & pay" },
-  ].filter(s => s.num > 0);
+  // Build step titles based on the flow
+  const stepTitles = isFacilityOnlyBooking 
+    ? [
+        { num: facilitiesStepNum, title: "Reserve", subtitle: "Select dates" },
+        ...(guestsStepNum > 0 ? [{ num: guestsStepNum, title: "Visitors", subtitle: "Entrance fee" }] : []),
+        ...(activitiesStepNum > 0 ? [{ num: activitiesStepNum, title: "Activities", subtitle: "Add extras" }] : []),
+        { num: summaryStepNum, title: "Confirm", subtitle: "Review & pay" },
+      ]
+    : [
+        { num: dateStepNum, title: "When", subtitle: "Choose your date" },
+        { num: guestsStepNum, title: "Who", subtitle: "Select guests" },
+        { num: facilitiesStepNum, title: "Where", subtitle: "Pick facilities" },
+        { num: activitiesStepNum, title: "What", subtitle: "Add activities" },
+        { num: summaryStepNum, title: "Confirm", subtitle: "Review & pay" },
+      ].filter(s => s.num > 0);
 
   if (isProcessing || isCompleted) {
     return (
@@ -687,8 +745,8 @@ const BookingPage = () => {
                 </div>
               )}
 
-              {/* Step 2: Number of Guests */}
-              {currentStep === guestsStepNum && (
+              {/* Step 2: Number of Guests (or Visitors for entrance fee in facility-only mode) */}
+              {currentStep === guestsStepNum && guestsStepNum > 0 && (
                 <div className="space-y-4 sm:space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                   <div className="flex items-center gap-2 sm:gap-3">
                     <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg" 
@@ -697,11 +755,22 @@ const BookingPage = () => {
                     </div>
                     <div>
                       <h2 className="text-xl sm:text-2xl md:text-3xl font-black" style={{ color: COLORS.TEAL }}>
-                        Guest Count
+                        {isFacilityOnlyBooking ? "Entrance Fee" : "Guest Count"}
                       </h2>
-                      <p className="text-xs sm:text-sm text-slate-500">How many people are coming?</p>
+                      <p className="text-xs sm:text-sm text-slate-500">
+                        {isFacilityOnlyBooking 
+                          ? "Optional - only if you need entrance tickets" 
+                          : "How many people are coming?"}
+                      </p>
                     </div>
                   </div>
+
+                  {isFacilityOnlyBooking && (
+                    <div className="p-3 sm:p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs sm:text-sm">
+                      <p className="font-bold">Note: Entrance fee is separate from facility booking</p>
+                      <p className="mt-1 opacity-80">Skip this step if visitors will pay entrance separately at the gate.</p>
+                    </div>
+                  )}
 
                   {/* Mobile: Row layout, Desktop: Grid */}
                   <div className="flex flex-row gap-3 sm:grid sm:grid-cols-2 sm:gap-4">
@@ -772,10 +841,15 @@ const BookingPage = () => {
                       <p className="text-3xl sm:text-4xl font-black" style={{ color: COLORS.TEAL }}>
                         {formData.num_adults + formData.num_children}
                       </p>
-                      {(formData.num_adults === 0 && formData.num_children === 0) && (
+                      {!isFacilityOnlyBooking && (formData.num_adults === 0 && formData.num_children === 0) && (
                         <p className="text-xs sm:text-sm text-red-600 font-medium mt-2 flex items-center gap-1.5 sm:gap-2">
                           <AlertTriangle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                           At least one guest required
+                        </p>
+                      )}
+                      {isFacilityOnlyBooking && (formData.num_adults === 0 && formData.num_children === 0) && (
+                        <p className="text-xs sm:text-sm text-slate-500 font-medium mt-2">
+                          No entrance tickets selected - you can skip this step
                         </p>
                       )}
                       {insufficientSlots && (
@@ -1163,7 +1237,7 @@ const BookingPage = () => {
             {/* Fixed Footer Navigation */}
             <div className="flex-shrink-0 p-3 sm:p-6 bg-white border-t-2 border-slate-100">
               <div className="flex gap-2 sm:gap-3">
-                {currentStep > (props.skipDateSelection ? guestsStepNum : dateStepNum) && (
+                {currentStep > (isFacilityOnlyBooking ? facilitiesStepNum : (props.skipDateSelection ? guestsStepNum : dateStepNum)) && (
                   <Button
                     onClick={handlePrevious}
                     variant="outline"
@@ -1178,16 +1252,20 @@ const BookingPage = () => {
                   <Button
                     onClick={handleNext}
                     disabled={
-                      (currentStep === dateStepNum && !formData.visit_date && !props.skipDateSelection) ||
-                      (currentStep === guestsStepNum && (formData.num_adults === 0 && formData.num_children === 0)) ||
-                      (currentStep === guestsStepNum && insufficientSlots) ||
-                      (currentStep === facilitiesStepNum && formData.selectedFacilities.length > 0 && !areFacilityDatesValid()) ||
+                      (currentStep === dateStepNum && dateStepNum > 0 && !formData.visit_date && !props.skipDateSelection && !isFacilityOnlyBooking) ||
+                      (currentStep === guestsStepNum && guestsStepNum > 0 && !isFacilityOnlyBooking && (formData.num_adults === 0 && formData.num_children === 0)) ||
+                      (currentStep === guestsStepNum && guestsStepNum > 0 && insufficientSlots) ||
+                      (currentStep === facilitiesStepNum && facilitiesStepNum > 0 && formData.selectedFacilities.length > 0 && !areFacilityDatesValid()) ||
+                      (currentStep === facilitiesStepNum && facilitiesStepNum > 0 && isFacilityOnlyBooking && formData.selectedFacilities.length === 0) ||
                       isGloballySoldOut
                     }
                     className="flex-1 h-12 sm:h-16 rounded-xl sm:rounded-2xl font-bold text-sm sm:text-base text-white shadow-lg hover:shadow-xl hover:scale-[0.98] transition-all disabled:opacity-50"
                     style={{ backgroundColor: COLORS.TEAL }}
                   >
-                    Continue →
+                    {isFacilityOnlyBooking && currentStep === guestsStepNum && guestsStepNum > 0 
+                      ? (formData.num_adults === 0 && formData.num_children === 0 ? "Skip →" : "Continue →")
+                      : "Continue →"
+                    }
                   </Button>
                 ) : (
                   <Button

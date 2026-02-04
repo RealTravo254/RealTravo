@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Upload, X, Edit2, Save, Calendar, MapPin, Phone, Mail, DollarSign, Users, Clock, CheckCircle, XCircle, Pencil, Plus, Trash2, ArrowLeft } from "lucide-react";
+import { Loader2, Upload, X, Edit2, Save, Calendar, MapPin, Phone, Mail, DollarSign, Users, Clock, CheckCircle, XCircle, Pencil, Plus, Trash2, ArrowLeft, Image as ImageIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -19,16 +19,21 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { approvalStatusSchema } from "@/lib/validation";
 import { EmailVerification } from "@/components/creation/EmailVerification";
 import { compressImages } from "@/lib/imageCompression";
+import { FacilityActivityImageEditor } from "@/components/edit/FacilityActivityImageEditor";
 
-interface Facility {
+interface FacilityWithImages {
   name: string;
   price: number;
   capacity?: number;
+  images?: string[];
+  is_free?: boolean;
 }
 
-interface Activity {
+interface ActivityWithImages {
   name: string;
   price: number;
+  images?: string[];
+  is_free?: boolean;
 }
 
 interface Booking {
@@ -89,8 +94,8 @@ const EditListing = () => {
   const [entranceFee, setEntranceFee] = useState(0);
   const [entranceFeeChild, setEntranceFeeChild] = useState(0);
   const [amenities, setAmenities] = useState<string[]>([]);
-  const [facilities, setFacilities] = useState<Facility[]>([]);
-  const [activities, setActivities] = useState<Activity[]>([]);
+  const [facilities, setFacilities] = useState<FacilityWithImages[]>([]);
+  const [activities, setActivities] = useState<ActivityWithImages[]>([]);
 
   useEffect(() => {
     if (!user || !id || !type) {
@@ -320,10 +325,10 @@ const EditListing = () => {
   };
 
   const addFacility = () => {
-    setFacilities([...facilities, { name: "", price: 0, capacity: 1 }]);
+    setFacilities([...facilities, { name: "", price: 0, capacity: 1, images: [] }]);
   };
 
-  const updateFacility = (index: number, field: keyof Facility, value: string | number) => {
+  const updateFacility = (index: number, field: keyof FacilityWithImages, value: string | number | string[]) => {
     const updated = [...facilities];
     updated[index] = { ...updated[index], [field]: value };
     setFacilities(updated);
@@ -334,10 +339,10 @@ const EditListing = () => {
   };
 
   const addActivity = () => {
-    setActivities([...activities, { name: "", price: 0 }]);
+    setActivities([...activities, { name: "", price: 0, images: [] }]);
   };
 
-  const updateActivity = (index: number, field: keyof Activity, value: string | number) => {
+  const updateActivity = (index: number, field: keyof ActivityWithImages, value: string | number | string[]) => {
     const updated = [...activities];
     updated[index] = { ...updated[index], [field]: value };
     setActivities(updated);
@@ -1062,35 +1067,48 @@ const EditListing = () => {
             </div>
           )}
 
-          {/* Facilities */}
+          {/* Facilities with Images */}
           {(type === "hotel" || type === "adventure" || type === "attraction") && (
-            <div className="bg-card rounded-lg border p-4">
+            <div className="bg-card rounded-lg border p-4 md:col-span-2 lg:col-span-3">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="font-medium">Facilities</h3>
+                <div className="flex items-center gap-2">
+                  <ImageIcon className="h-4 w-4 text-[#FF7F50]" />
+                  <h3 className="font-medium">Facilities & Images</h3>
+                </div>
                 <EditButton field="facilities" onSave={() => handleSaveField("facilities")} />
               </div>
               {editMode.facilities ? (
-                <div className="space-y-2">
-                    {facilities.map((facility, idx) => (
-                      <div key={idx} className="flex gap-1">
-                        <Input placeholder="Name" value={facility.name} onChange={(e) => updateFacility(idx, "name", e.target.value)} className="h-8 text-sm flex-1" />
-                        <Input type="number" placeholder="Price" value={facility.price} onChange={(e) => updateFacility(idx, "price", parseFloat(e.target.value) || 0)} className="h-8 text-sm w-16" />
-                        <Input type="number" placeholder="Cap" value={facility.capacity || 1} onChange={(e) => updateFacility(idx, "capacity", parseInt(e.target.value) || 1)} className="h-8 text-sm w-14" />
-                      <Button size="icon" variant="destructive" className="h-8 w-8" onClick={() => removeFacility(idx)}>
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ))}
-                  <Button size="sm" variant="outline" onClick={addFacility} className="w-full">
-                    <Plus className="h-3 w-3 mr-1" /> Add
-                  </Button>
-                </div>
+                <FacilityActivityImageEditor
+                  type="facility"
+                  items={facilities}
+                  onChange={(items) => setFacilities(items as FacilityWithImages[])}
+                  userId={user?.id || ""}
+                  onSave={() => handleSaveField("facilities")}
+                  isSaving={saving}
+                  accentColor="#008080"
+                />
               ) : (
-                <div className="space-y-1">
+                <div className="space-y-3">
                   {facilities.length > 0 ? facilities.map((facility, idx) => (
-                    <div key={idx} className="flex justify-between text-sm">
-                      <span>{facility.name}</span>
-                      <span className="text-muted-foreground">{facility.price === 0 ? "Free" : `KSh ${facility.price}`}</span>
+                    <div key={idx} className="p-3 rounded-lg bg-muted/50 border border-border">
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="font-bold text-sm">{facility.name}</span>
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                          {facility.price === 0 ? "Free" : `KSh ${facility.price}`}
+                        </span>
+                      </div>
+                      {facility.images && facility.images.length > 0 && (
+                        <div className="flex gap-2 overflow-x-auto">
+                          {facility.images.map((img, imgIdx) => (
+                            <div key={imgIdx} className="w-12 h-12 flex-shrink-0 rounded-lg overflow-hidden">
+                              <img src={img} alt="" className="w-full h-full object-cover" />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {facility.capacity && (
+                        <p className="text-[10px] text-muted-foreground mt-1">Capacity: {facility.capacity}</p>
+                      )}
                     </div>
                   )) : <p className="text-sm text-muted-foreground">None</p>}
                 </div>
@@ -1098,34 +1116,45 @@ const EditListing = () => {
             </div>
           )}
 
-          {/* Activities */}
+          {/* Activities with Images */}
           {(type === "hotel" || type === "adventure" || type === "attraction") && (
-            <div className="bg-card rounded-lg border p-4">
+            <div className="bg-card rounded-lg border p-4 md:col-span-2 lg:col-span-3">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="font-medium">Activities</h3>
+                <div className="flex items-center gap-2">
+                  <ImageIcon className="h-4 w-4 text-[#008080]" />
+                  <h3 className="font-medium">Activities & Images</h3>
+                </div>
                 <EditButton field="activities" onSave={() => handleSaveField("activities")} />
               </div>
               {editMode.activities ? (
-                <div className="space-y-2">
-                  {activities.map((activity, idx) => (
-                    <div key={idx} className="flex gap-1">
-                      <Input placeholder="Name" value={activity.name} onChange={(e) => updateActivity(idx, "name", e.target.value)} className="h-8 text-sm flex-1" />
-                      <Input type="number" placeholder="Price" value={activity.price} onChange={(e) => updateActivity(idx, "price", parseFloat(e.target.value) || 0)} className="h-8 text-sm w-20" />
-                      <Button size="icon" variant="destructive" className="h-8 w-8" onClick={() => removeActivity(idx)}>
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ))}
-                  <Button size="sm" variant="outline" onClick={addActivity} className="w-full">
-                    <Plus className="h-3 w-3 mr-1" /> Add
-                  </Button>
-                </div>
+                <FacilityActivityImageEditor
+                  type="activity"
+                  items={activities}
+                  onChange={(items) => setActivities(items as ActivityWithImages[])}
+                  userId={user?.id || ""}
+                  onSave={() => handleSaveField("activities")}
+                  isSaving={saving}
+                  accentColor="#FF7F50"
+                />
               ) : (
-                <div className="space-y-1">
+                <div className="space-y-3">
                   {activities.length > 0 ? activities.map((activity, idx) => (
-                    <div key={idx} className="flex justify-between text-sm">
-                      <span>{activity.name}</span>
-                      <span className="text-muted-foreground">{activity.price === 0 ? "Free" : `KSh ${activity.price}`}</span>
+                    <div key={idx} className="p-3 rounded-lg bg-muted/50 border border-border">
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="font-bold text-sm">{activity.name}</span>
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-teal-100 text-teal-700">
+                          {activity.price === 0 ? "Free" : `KSh ${activity.price}`}
+                        </span>
+                      </div>
+                      {activity.images && activity.images.length > 0 && (
+                        <div className="flex gap-2 overflow-x-auto">
+                          {activity.images.map((img, imgIdx) => (
+                            <div key={imgIdx} className="w-12 h-12 flex-shrink-0 rounded-lg overflow-hidden">
+                              <img src={img} alt="" className="w-full h-full object-cover" />
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )) : <p className="text-sm text-muted-foreground">None</p>}
                 </div>

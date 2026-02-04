@@ -23,15 +23,15 @@ export const QuickNavigationBar = ({ hasFacilities, hasActivities, hasContact }:
   if (items.length === 0) return null;
 
   return (
-    <div className="flex md:hidden gap-3 overflow-x-auto scrollbar-hide py-2 px-1 -mx-1">
+    <div className="flex md:hidden gap-6 overflow-x-auto scrollbar-hide py-3 px-1 -mx-1">
       {items.map((item) => (
         <button
           key={item.id}
           onClick={() => scrollToSection(item.id)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl flex-shrink-0 transition-all active:scale-95 hover:bg-slate-800"
+          className="flex items-center gap-1.5 flex-shrink-0 transition-opacity active:opacity-60 hover:opacity-70"
         >
-          <item.icon className="h-4 w-4" />
-          <span className="text-xs font-black uppercase tracking-tight">{item.label}</span>
+          <item.icon className="h-4 w-4 text-slate-900" />
+          <span className="text-sm font-bold text-slate-900">{item.label}</span>
         </button>
       ))}
     </div>

@@ -20,8 +20,8 @@ export const AmenitiesSection = ({ amenities }: AmenitiesSectionProps) => {
           const amenityName = typeof amenity === 'string' ? amenity : amenity.name;
           return (
             <li key={idx} className="flex items-start gap-2">
-              <span className="text-slate-900 mt-1.5">•</span>
-              <span className="text-sm text-slate-900 capitalize">{amenityName}</span>
+              <span className="text-slate-900 font-bold mt-1.5">•</span>
+              <span className="text-sm text-slate-900 font-bold capitalize">{amenityName}</span>
             </li>
           );
         })}

@@ -1,10 +1,8 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Card } from "@/components/ui/card";
 import { Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-// Added Link for navigation
 import { Link } from "react-router-dom";
 
 interface ReviewSectionProps {
@@ -100,93 +98,96 @@ export function ReviewSection({ itemId, itemType }: ReviewSectionProps) {
   };
 
   return (
-    <Card className="overflow-hidden border-none bg-background shadow-lg rounded-xl">
-      <div className="p-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-          {/* LEFT SIDE: Database Summary Statistics */}
-          <div className="flex flex-col items-center md:items-start p-6 bg-secondary/30 rounded-2xl border border-secondary">
-            <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-2">
-              Average Rating
+    <section className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
+      <div className="flex items-center gap-2 mb-6">
+        <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
+        <h2 className="text-sm font-black uppercase tracking-widest text-slate-900">Reviews & Ratings</h2>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+        {/* LEFT SIDE: Database Summary Statistics */}
+        <div className="flex flex-col items-center md:items-start p-5 bg-slate-50 rounded-2xl border border-slate-100">
+          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+            Average Rating
+          </span>
+          <div className="flex items-baseline gap-2">
+            <span className="text-5xl font-black text-slate-900">
+              {averageRating > 0 ? averageRating.toFixed(1) : "0.0"}
             </span>
-            <div className="flex items-baseline gap-2">
-              <span className="text-6xl font-black text-foreground">
-                {averageRating > 0 ? averageRating.toFixed(1) : "0.0"}
-              </span>
-              <span className="text-xl text-muted-foreground font-semibold">/ 5</span>
-            </div>
-            
-            <div className="flex items-center gap-1 mt-4">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <Star
-                  key={star}
-                  className={`h-5 w-5 ${
-                    star <= Math.round(averageRating)
-                      ? "fill-yellow-400 text-yellow-400"
-                      : "fill-muted text-muted"
-                  }`}
-                />
-              ))}
-            </div>
-            <p className="mt-3 text-sm font-medium text-muted-foreground">
-              Based on {totalReviews} {totalReviews === 1 ? "review" : "reviews"}
+            <span className="text-lg text-slate-400 font-semibold">/ 5</span>
+          </div>
+          
+          <div className="flex items-center gap-1 mt-3">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <Star
+                key={star}
+                className={`h-5 w-5 ${
+                  star <= Math.round(averageRating)
+                    ? "fill-yellow-400 text-yellow-400"
+                    : "fill-slate-200 text-slate-200"
+                }`}
+              />
+            ))}
+          </div>
+          <p className="mt-3 text-xs font-bold text-slate-500">
+            Based on {totalReviews} {totalReviews === 1 ? "review" : "reviews"}
+          </p>
+        </div>
+
+        {/* RIGHT SIDE: User Rating Input Section */}
+        <div className="flex flex-col justify-center space-y-4">
+          <div>
+            <h3 className="text-base font-bold text-slate-900">
+              {userRating > 0 ? "Your Rating" : "Rate your experience"}
+            </h3>
+            <p className="text-sm text-slate-500">
+              Help others by rating this {itemType.replace("_", " ")}
             </p>
           </div>
 
-          {/* RIGHT SIDE: User Rating Input Section */}
-          <div className="flex flex-col justify-center space-y-4 px-2">
-            <div>
-              <h3 className="text-lg font-semibold">
-                {userRating > 0 ? "Your Rating" : "Rate your experience"}
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                Help others find this by rating your experience {itemType.replace("_", " ")}
+          {user ? (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 py-1">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    onClick={() => handleRating(star)}
+                    onMouseEnter={() => setHoveredStar(star)}
+                    onMouseLeave={() => setHoveredStar(0)}
+                    className="transition-all duration-200 hover:scale-125 focus:outline-none"
+                  >
+                    <Star
+                      className={`h-9 w-9 cursor-pointer transition-colors ${
+                        star <= (hoveredStar || userRating)
+                          ? "fill-yellow-400 text-yellow-400 drop-shadow-sm"
+                          : "text-slate-300"
+                      }`}
+                    />
+                  </button>
+                ))}
+              </div>
+              {userRating > 0 && (
+                <div className="inline-flex items-center px-3 py-1 rounded-full bg-green-50 text-green-700 text-xs font-bold uppercase tracking-wide border border-green-100">
+                  You rated this {userRating} {userRating === 1 ? "star" : "stars"}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="bg-slate-50 rounded-xl p-4 text-center border border-slate-100">
+              <p className="text-sm text-slate-600">
+                Please{" "}
+                <Link 
+                  to="/auth" 
+                  className="font-bold text-slate-900 underline hover:text-slate-700 transition-colors"
+                >
+                  log in
+                </Link>{" "}
+                to provide a rating.
               </p>
             </div>
-
-            {user ? (
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 py-2">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <button
-                      key={star}
-                      onClick={() => handleRating(star)}
-                      onMouseEnter={() => setHoveredStar(star)}
-                      onMouseLeave={() => setHoveredStar(0)}
-                      className="transition-all duration-200 hover:scale-125 focus:outline-none"
-                    >
-                      <Star
-                        className={`h-10 w-10 cursor-pointer transition-colors ${
-                          star <= (hoveredStar || userRating)
-                            ? "fill-yellow-400 text-yellow-400 drop-shadow-sm"
-                            : "text-muted border-muted"
-                        }`}
-                      />
-                    </button>
-                  ))}
-                </div>
-                {userRating > 0 && (
-                  <div className="inline-flex items-center px-3 py-1 rounded-full bg-green-100 text-green-700 text-xs font-bold uppercase tracking-wide">
-                    You rated this {userRating} {userRating === 1 ? "star" : "stars"}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="bg-muted/50 rounded-lg p-4 text-center border border-dashed">
-                <p className="text-sm text-muted-foreground">
-                  Please{" "}
-                  <Link 
-                    to="/auth" 
-                    className="font-semibold text-primary underline hover:text-primary/80 transition-colors"
-                  >
-                    log in
-                  </Link>{" "}
-                  to provide a rating.
-                </p>
-              </div>
-            )}
-          </div>
+          )}
         </div>
       </div>
-    </Card>
+    </section>
   );
 }

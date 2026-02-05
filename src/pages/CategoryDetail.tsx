@@ -1,7 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useParams } from "react-router-dom";
-import { Header } from "@/components/Header";
-import { MobileBottomBar } from "@/components/MobileBottomBar";
 import { SearchBarWithSuggestions } from "@/components/SearchBarWithSuggestions";
 import { ListingCard } from "@/components/ListingCard";
 import { FilterBar, FilterValues } from "@/components/FilterBar";
@@ -211,9 +209,6 @@ const CategoryDetail = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-10">
-      <div className="hidden md:block">
-        <Header onSearchClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} showSearchIcon={showSearchIcon} />
-      </div>
 
       <div ref={searchRef} className={cn("bg-white dark:bg-background border-b z-50 sticky top-0", isSearchFocused && "z-[600]")}>
         <div className="container px-4 py-3">
@@ -307,8 +302,6 @@ const CategoryDetail = () => {
           </div>
         )}
       </main>
-
-      <MobileBottomBar />
     </div>
   );
 };

@@ -1,7 +1,7 @@
 // 1. VERSIONING: Incremented to force an app-wide update
-const STATIC_CACHE = 'realtravo-static-v10'; 
-const IMAGE_CACHE = 'realtravo-images-v10';
-const DATA_CACHE = 'realtravo-data-v10';
+const STATIC_CACHE = 'realtravo-static-v11';
+const IMAGE_CACHE = 'realtravo-images-v11';
+const DATA_CACHE = 'realtravo-data-v11';
 
 // 2. PRECACHE LIST: The App Shell + All Routes
 const PRECACHE_ASSETS = [
@@ -10,17 +10,17 @@ const PRECACHE_ASSETS = [
   '/manifest.json',
   '/fulllogo.png',
   '/favicon.ico',
-  
+
   // Local Images (WebP for better performance)
   '/images/category-campsite.webp',
   '/images/category-hotels.webp',
   '/images/category-trips.webp',
   '/images/category-events.webp',
   '/images/hero-background.webp',
-  
+
   // Audio
   '/audio/notification.mp3',
-  
+
   // Routes
   '/auth',
   '/about',
@@ -98,38 +98,75 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// --- FETCH: Stale-While-Revalidate Strategy ---
+// --- FETCH: Safe SPA handling + caching ---
 self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
-
   // Skip non-GET requests (like POST for database updates)
   if (event.request.method !== 'GET') return;
 
+  const url = new URL(event.request.url);
+
+  // IMPORTANT: For SPA navigations, always go to network first.
+  // This prevents serving a stale cached HTML shell that can reference mismatched JS chunks
+  // (which can cause React hook dispatcher errors and a blank white screen).
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const responseClone = networkResponse.clone();
+            caches.open(STATIC_CACHE).then((cache) => cache.put('/index.html', responseClone));
+          }
+          return networkResponse;
+        })
+        .catch(() => caches.match('/index.html'))
+    );
+    return;
+  }
+
+  // For JS/CSS, use NetworkFirst to avoid mixing old/new builds.
+  if (
+    event.request.destination === 'script' ||
+    event.request.destination === 'style' ||
+    event.request.destination === 'worker'
+  ) {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const responseClone = networkResponse.clone();
+            caches.open(STATIC_CACHE).then((cache) => cache.put(event.request, responseClone));
+          }
+          return networkResponse;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Everything else: Stale-While-Revalidate
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
-      const fetchPromise = fetch(event.request).then((networkResponse) => {
-        // Only cache valid responses
-        if (networkResponse && networkResponse.status === 200) {
-          const isImage = IMAGE_PATTERNS.some(p => p.test(url.href)) || event.request.destination === 'image';
-          
-          let cacheName = STATIC_CACHE;
-          if (isImage) {
-            cacheName = IMAGE_CACHE;
-          } else if (url.pathname.includes('/rest/v1/')) {
-            cacheName = DATA_CACHE;
-          }
+      const fetchPromise = fetch(event.request)
+        .then((networkResponse) => {
+          // Only cache valid responses
+          if (networkResponse && networkResponse.status === 200) {
+            const isImage =
+              IMAGE_PATTERNS.some((p) => p.test(url.href)) ||
+              event.request.destination === 'image';
 
-          const responseClone = networkResponse.clone();
-          caches.open(cacheName).then((cache) => cache.put(event.request, responseClone));
-        }
-        return networkResponse;
-      }).catch(() => {
-        // OFFLINE FALLBACK: 
-        // If navigation fails (user is offline), return the cached index.html
-        if (event.request.mode === 'navigate') {
-          return caches.match('/index.html');
-        }
-      });
+            let cacheName = STATIC_CACHE;
+            if (isImage) {
+              cacheName = IMAGE_CACHE;
+            } else if (url.pathname.includes('/rest/v1/')) {
+              cacheName = DATA_CACHE;
+            }
+
+            const responseClone = networkResponse.clone();
+            caches.open(cacheName).then((cache) => cache.put(event.request, responseClone));
+          }
+          return networkResponse;
+        })
+        .catch(() => cachedResponse);
 
       return cachedResponse || fetchPromise;
     })

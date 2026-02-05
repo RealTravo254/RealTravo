@@ -60,35 +60,43 @@ export const FilterBar = ({ type = "trips-events", onApplyFilters }: FilterBarPr
       setIsSearching(true);
       try {
         let allSuggestions: LocationResult[] = [];
-        
-        // Dynamic table selection based on type
-        const tableMap: Record<string, string> = {
-          "trips-events": "trips",
-          "hotels": "hotels",
-          "accommodation": "hotels",
-          "adventure": "adventure_places"
-        };
+        const searchTerm = `%${locationQuery}%`;
 
-        let query = supabase
-          .from(tableMap[type])
-          .select("id, name, location, place, country")
-          .eq("approval_status", "approved");
-
-        if (type === "accommodation") {
-          query = query.eq("establishment_type", "accommodation_only");
-        }
-
-        const { data, error } = await query
-          .or(`name.ilike.%${locationQuery}%,location.ilike.%${locationQuery}%,place.ilike.%${locationQuery}%,country.ilike.%${locationQuery}%`)
-          .limit(10);
-
-        if (!error && data) {
-          allSuggestions = data.map(item => ({
-            id: item.id,
-            name: item.name,
-            location: item.location || item.place,
-            country: item.country
-          }));
+        // Fetch from appropriate table based on type
+        if (type === "trips-events") {
+          const { data, error } = await supabase
+            .from("trips")
+            .select("id, name, location, place, country")
+            .eq("approval_status", "approved")
+            .or(`name.ilike.${searchTerm},location.ilike.${searchTerm},place.ilike.${searchTerm},country.ilike.${searchTerm}`)
+            .limit(10);
+          if (!error && data) {
+            allSuggestions = data.map(item => ({ id: item.id, name: item.name, location: item.location || item.place, country: item.country }));
+          }
+        } else if (type === "hotels" || type === "accommodation") {
+          let query = supabase
+            .from("hotels")
+            .select("id, name, location, place, country")
+            .eq("approval_status", "approved")
+            .or(`name.ilike.${searchTerm},location.ilike.${searchTerm},place.ilike.${searchTerm},country.ilike.${searchTerm}`)
+            .limit(10);
+          if (type === "accommodation") {
+            query = query.eq("establishment_type", "accommodation_only");
+          }
+          const { data, error } = await query;
+          if (!error && data) {
+            allSuggestions = data.map(item => ({ id: item.id, name: item.name, location: item.location || item.place, country: item.country }));
+          }
+        } else if (type === "adventure") {
+          const { data, error } = await supabase
+            .from("adventure_places")
+            .select("id, name, location, place, country")
+            .eq("approval_status", "approved")
+            .or(`name.ilike.${searchTerm},location.ilike.${searchTerm},place.ilike.${searchTerm},country.ilike.${searchTerm}`)
+            .limit(10);
+          if (!error && data) {
+            allSuggestions = data.map(item => ({ id: item.id, name: item.name, location: item.location || item.place, country: item.country }));
+          }
         }
 
         const uniqueLocations = allSuggestions.reduce((acc, curr) => {

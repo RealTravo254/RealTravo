@@ -158,6 +158,16 @@ const QRScanner = () => {
         return;
       }
 
+      // Check if already checked in - prevent double entry
+      if (result.booking?.checked_in) {
+        setVerifiedBooking(result.booking as VerifiedBooking);
+        if (result.itemName) setItemName(result.itemName);
+        else if (result.booking?.item_name) setItemName(result.booking.item_name);
+        setCheckedIn(true); // Show checked-in state immediately
+        setVerificationStatus("valid");
+        return;
+      }
+
       setVerifiedBooking(result.booking as VerifiedBooking);
       if (result.itemName) setItemName(result.itemName);
       else if (result.booking?.item_name) setItemName(result.booking.item_name);

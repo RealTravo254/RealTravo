@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { Search, MapPin, Calendar as CalendarIcon, Loader2 } from "lucide-react";
-import { format, getDay } from "date-fns";
+import { Search, MapPin, Calendar as CalendarIcon, Loader2, X } from "lucide-react";
+import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -29,11 +29,8 @@ interface FilterBarProps {
 }
 
 export const FilterBar = ({ type = "trips-events", onApplyFilters }: FilterBarProps) => {
-  // 1. DATE STATE: Initialized with today's date
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
-  
-  // 2. LOCATION STATE
   const [locationQuery, setLocationQuery] = useState("");
   const [suggestions, setSuggestions] = useState<LocationResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -43,7 +40,6 @@ export const FilterBar = ({ type = "trips-events", onApplyFilters }: FilterBarPr
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Close dropdown when clicking outside the entire bar
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
@@ -54,7 +50,6 @@ export const FilterBar = ({ type = "trips-events", onApplyFilters }: FilterBarPr
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // 3. LOCATION FETCH LOGIC - queries appropriate tables based on category type
   useEffect(() => {
     const fetchLocations = async () => {
       if (!locationQuery.trim()) {
@@ -65,79 +60,37 @@ export const FilterBar = ({ type = "trips-events", onApplyFilters }: FilterBarPr
       setIsSearching(true);
       try {
         let allSuggestions: LocationResult[] = [];
-      const searchLower = locationQuery.toLowerCase();
-        if (type === "trips-events") {
-          // Query trips table for trips and events
-          const { data, error } = await supabase
-            .from("trips")
+        
+        // Dynamic table selection based on type
+        const tableMap: Record<string, string> = {
+          "trips-events": "trips",
+          "hotels": "hotels",
+          "accommodation": "hotels",
+          "adventure": "adventure_places"
+        };
+
+        let query = supabase
+          .from(tableMap[type])
           .select("id, name, location, place, country")
-            .eq("approval_status", "approved")
-          .or(`name.ilike.%${locationQuery}%,location.ilike.%${locationQuery}%,place.ilike.%${locationQuery}%,country.ilike.%${locationQuery}%`)
-            .limit(10);
+          .eq("approval_status", "approved");
 
-          if (!error && data) {
-            allSuggestions = data.map(item => ({
-              id: item.id,
-              name: item.name,
-              location: item.location || item.place,
-              country: item.country
-            }));
-          }
-        } else if (type === "hotels") {
-          // Query hotels table - includes both general hotels and accommodation only
-          const { data, error } = await supabase
-            .from("hotels")
-            .select("id, name, location, place, country")
-            .eq("approval_status", "approved")
-          .or(`name.ilike.%${locationQuery}%,location.ilike.%${locationQuery}%,place.ilike.%${locationQuery}%,country.ilike.%${locationQuery}%`)
-            .limit(10);
-
-          if (!error && data) {
-            allSuggestions = data.map(item => ({
-              id: item.id,
-              name: item.name,
-              location: item.location || item.place,
-              country: item.country
-            }));
-          }
-        } else if (type === "accommodation") {
-          // Query hotels table for accommodation_only type
-          const { data, error } = await supabase
-            .from("hotels")
-            .select("id, name, location, place, country")
-            .eq("approval_status", "approved")
-            .eq("establishment_type", "accommodation_only")
-          .or(`name.ilike.%${locationQuery}%,location.ilike.%${locationQuery}%,place.ilike.%${locationQuery}%,country.ilike.%${locationQuery}%`)
-            .limit(10);
-
-          if (!error && data) {
-            allSuggestions = data.map(item => ({
-              id: item.id,
-              name: item.name,
-              location: item.location || item.place,
-              country: item.country
-            }));
-          }
-        } else if (type === "adventure") {
-          // Query adventure_places table
-          const { data, error } = await supabase
-            .from("adventure_places")
-            .select("id, name, location, place, country")
-            .eq("approval_status", "approved")
-          .or(`name.ilike.%${locationQuery}%,location.ilike.%${locationQuery}%,place.ilike.%${locationQuery}%,country.ilike.%${locationQuery}%`)
-            .limit(10);
-
-          if (!error && data) {
-            allSuggestions = data.map(item => ({
-              id: item.id,
-              name: item.name,
-              location: item.location || item.place,
-              country: item.country
-            }));
-          }
+        if (type === "accommodation") {
+          query = query.eq("establishment_type", "accommodation_only");
         }
 
-        // Remove duplicate locations
+        const { data, error } = await query
+          .or(`name.ilike.%${locationQuery}%,location.ilike.%${locationQuery}%,place.ilike.%${locationQuery}%,country.ilike.%${locationQuery}%`)
+          .limit(10);
+
+        if (!error && data) {
+          allSuggestions = data.map(item => ({
+            id: item.id,
+            name: item.name,
+            location: item.location || item.place,
+            country: item.country
+          }));
+        }
+
         const uniqueLocations = allSuggestions.reduce((acc, curr) => {
           const key = `${curr.location}-${curr.country}`;
           if (!acc.find(item => `${item.location}-${item.country}` === key)) {
@@ -158,7 +111,6 @@ export const FilterBar = ({ type = "trips-events", onApplyFilters }: FilterBarPr
     return () => clearTimeout(debounceTimer);
   }, [locationQuery, type]);
 
-  // Apply filters when search button is clicked
   const handleApplyFilters = useCallback(() => {
     if (onApplyFilters) {
       onApplyFilters({
@@ -169,12 +121,11 @@ export const FilterBar = ({ type = "trips-events", onApplyFilters }: FilterBarPr
     }
   }, [locationQuery, dateFrom, dateTo, onApplyFilters]);
 
-  // Auto-apply when dates change
   useEffect(() => {
     if (dateFrom || dateTo) {
       handleApplyFilters();
     }
-  }, [dateFrom, dateTo]);
+  }, [dateFrom, dateTo, handleApplyFilters]);
 
   return (
     <div className="w-full max-w-4xl mx-auto px-4" ref={containerRef}>
@@ -185,28 +136,44 @@ export const FilterBar = ({ type = "trips-events", onApplyFilters }: FilterBarPr
           <label className="text-[9px] font-black uppercase text-slate-400 tracking-wider flex items-center gap-1">
             <MapPin className="h-2.5 w-2.5" /> Where
           </label>
-          <input 
-            type="text" 
-            placeholder="Destinations" 
-            value={locationQuery}
-            onFocus={() => setShowSuggestions(true)}
-            onChange={(e) => {
-              setLocationQuery(e.target.value);
-              setShowSuggestions(true);
-            }}
-            className="bg-transparent border-none p-0 text-sm md:text-base focus:ring-0 placeholder:text-slate-300 dark:placeholder:text-slate-500 font-bold outline-none text-slate-700 dark:text-slate-200 w-full"
-          />
+          <div className="flex items-center">
+            <input 
+              type="text" 
+              placeholder="Destinations" 
+              value={locationQuery}
+              onFocus={() => setShowSuggestions(true)}
+              onChange={(e) => {
+                setLocationQuery(e.target.value);
+                setShowSuggestions(true);
+              }}
+              className="bg-transparent border-none p-0 text-sm md:text-base focus:ring-0 placeholder:text-slate-300 dark:placeholder:text-slate-500 font-bold outline-none text-slate-700 dark:text-slate-200 w-full"
+            />
+            {locationQuery && (
+              <button onClick={() => setLocationQuery("")} className="ml-1">
+                <X className="h-3 w-3 text-slate-400" />
+              </button>
+            )}
+          </div>
 
-          {/* SUGGESTIONS DROPDOWN */}
+          {/* SUGGESTIONS DROPDOWN - FORCED SIZE */}
           {showSuggestions && (
-          <div className="absolute top-[115%] left-0 w-full md:w-[400px] bg-white dark:bg-slate-800 rounded-[24px] shadow-2xl border border-slate-50 dark:border-slate-700 z-[100] py-4 animate-in fade-in slide-in-from-top-1">
+            <div 
+              className={cn(
+                "absolute top-[120%] left-0 z-[100] py-4",
+                "bg-white dark:bg-slate-800 rounded-[24px] shadow-2xl border border-slate-50 dark:border-slate-700",
+                "animate-in fade-in slide-in-from-top-1",
+                "w-[320px] xs:w-[380px] sm:w-[450px] max-w-[calc(100vw-2rem)]" // Fixed widths with mobile safety
+              )}
+            >
               <p className="px-5 py-2 text-[9px] font-black text-slate-400 uppercase tracking-widest">
                 {isSearching ? "Searching..." : locationQuery ? "Top Matches" : "Start typing..."}
               </p>
               
-            <div className="flex flex-col max-h-[340px] overflow-y-auto">
+              <div className="flex flex-col max-h-[340px] overflow-y-auto">
                 {isSearching && (
-                  <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin text-teal-600" /></div>
+                  <div className="flex justify-center py-4">
+                    <Loader2 className="h-5 w-5 animate-spin text-teal-600" />
+                  </div>
                 )}
                 
                 {!isSearching && suggestions.map((dest) => (
@@ -217,14 +184,14 @@ export const FilterBar = ({ type = "trips-events", onApplyFilters }: FilterBarPr
                       setShowSuggestions(false);
                       handleApplyFilters();
                     }}
-                  className="flex items-center gap-4 px-5 py-4 hover:bg-slate-50 dark:hover:bg-slate-700 text-left group"
+                    className="flex items-center gap-4 px-5 py-4 hover:bg-slate-50 dark:hover:bg-slate-700 text-left group"
                   >
-                  <div className="bg-slate-100 dark:bg-slate-600 p-3 rounded-xl group-hover:bg-teal-50 dark:group-hover:bg-teal-900 transition-colors">
-                    <MapPin className="h-5 w-5 text-slate-500 dark:text-slate-300 group-hover:text-teal-600" />
+                    <div className="bg-slate-100 dark:bg-slate-600 p-3 rounded-xl group-hover:bg-teal-50 dark:group-hover:bg-teal-900 transition-colors">
+                      <MapPin className="h-5 w-5 text-slate-500 dark:text-slate-300 group-hover:text-teal-600" />
                     </div>
                     <div className="min-w-0">
-                    <p className="text-base font-bold text-slate-700 dark:text-slate-200 truncate">{dest.name}</p>
-                    <p className="text-sm text-slate-400 font-medium">{dest.location}, {dest.country}</p>
+                      <p className="text-base font-bold text-slate-700 dark:text-slate-200 truncate">{dest.name}</p>
+                      <p className="text-sm text-slate-400 font-medium">{dest.location}, {dest.country}</p>
                     </div>
                   </button>
                 ))}
@@ -246,7 +213,7 @@ export const FilterBar = ({ type = "trips-events", onApplyFilters }: FilterBarPr
               <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider flex items-center gap-1">
                 <CalendarIcon className="h-2.5 w-2.5" /> From
               </span>
-              <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
+              <span className="text-sm font-bold text-slate-700 dark:text-slate-200 whitespace-nowrap">
                 {dateFrom ? format(dateFrom, "MMM dd") : "Any date"}
               </span>
             </div>
@@ -272,7 +239,7 @@ export const FilterBar = ({ type = "trips-events", onApplyFilters }: FilterBarPr
               <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider flex items-center gap-1">
                 <CalendarIcon className="h-2.5 w-2.5" /> To
               </span>
-              <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
+              <span className="text-sm font-bold text-slate-700 dark:text-slate-200 whitespace-nowrap">
                 {dateTo ? format(dateTo, "MMM dd") : "Any date"}
               </span>
             </div>
@@ -289,10 +256,10 @@ export const FilterBar = ({ type = "trips-events", onApplyFilters }: FilterBarPr
           </PopoverContent>
         </Popover>
 
-        {/* SEARCH/APPLY BUTTON */}
+        {/* SEARCH BUTTON */}
         <button
           onClick={handleApplyFilters}
-          className="flex items-center justify-center text-white h-full px-8 rounded-r-2xl transition-all hover:brightness-110 active:scale-95"
+          className="flex items-center justify-center text-white h-full px-6 md:px-8 rounded-r-2xl transition-all hover:brightness-110 active:scale-95"
           style={{ background: `linear-gradient(135deg, ${COLORS.TEAL} 0%, #006666 100%)` }}
         >
           <Search className="w-5 h-5 stroke-[3px]" />

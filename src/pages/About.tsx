@@ -25,7 +25,7 @@ const About = () => {
               our platform makes it easy to explore, save, and book your perfect getaway.
             </p>
             <p className="font-semibold text-foreground">
-              Start exploring today and create memories that last a lifetime !
+              Start exploring today and create memories that last a lifetime!
             </p>
           </div>
         </Card>

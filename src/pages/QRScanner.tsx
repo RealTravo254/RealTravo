@@ -310,7 +310,7 @@ const QRScanner = () => {
                 <div className="flex justify-between items-end mb-8">
                     <div>
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Paid</p>
-                        <span className="text-2xl font-black" style={{ color: COLORS.RED }}>KSh {verifiedBooking.total_amount?.toLocaleString()}</span>
+                        <span className="text-2xl font-black" style={{ color: COLORS.RED }}>KSh {verifiedBooking.total_amount?.toLocaleString() ?? 'N/A'}</span>
                     </div>
                     <div className="text-right">
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Booking ID</p>

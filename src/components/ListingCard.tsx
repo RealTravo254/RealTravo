@@ -228,7 +228,7 @@ const ListingCardComponent = ({
         
         <div className="mt-auto pt-4 border-t border-slate-100 flex items-center justify-between">
             <div className="flex flex-col">
-                {!hidePrice && price !== undefined && (
+                {!hidePrice && price != null && (
                   <>
                     <span className="text-[9px] font-normal text-slate-400 uppercase tracking-widest">
                       {(type === 'ADVENTURE PLACE' || type === 'HOTEL' || type === 'ACCOMMODATION') ? 'Entry Fee' : 'Starts at'}

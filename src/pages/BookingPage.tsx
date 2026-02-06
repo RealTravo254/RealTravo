@@ -3,11 +3,12 @@ import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { MultiStepBooking, BookingFormData } from "@/components/booking/MultiStepBooking";
- import { usePaystackPayment } from "@/hooks/usePaystackPayment";
- import { useAuth } from "@/contexts/AuthContext";
- import { getReferralTrackingId } from "@/lib/referralUtils";
+import { usePaystackPopup } from "@/hooks/usePaystackPopup";
+import { useAuth } from "@/contexts/AuthContext";
+import { getReferralTrackingId } from "@/lib/referralUtils";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Loader2 } from "lucide-react";
+import { PaymentSuccessDialog } from "@/components/booking/PaymentSuccessDialog";
 
 const COLORS = {
   TEAL: "#008080",
@@ -20,7 +21,7 @@ const BookingPage = () => {
   const { type, id } = useParams<{ type: string; id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-   const { user } = useAuth();
+  const { user } = useAuth();
   
   const [item, setItem] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -28,12 +29,28 @@ const BookingPage = () => {
   const [isCompleted, setIsCompleted] = useState(false);
   const [searchParams] = useSearchParams();
   
-   const { initiatePayment, isLoading: isPaymentLoading } = usePaystackPayment({
-     onError: (error) => {
-       toast({ title: "Payment Error", description: error, variant: "destructive" });
-       setIsProcessing(false);
-     },
-   });
+  // Payment success dialog state
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [paymentReference, setPaymentReference] = useState('');
+  const [completedBookingData, setCompletedBookingData] = useState<any>(null);
+  
+  const { initiatePayment, isLoading: isPaymentLoading } = usePaystackPopup({
+    onSuccess: (reference, bookingData) => {
+      console.log('Payment success callback:', reference, bookingData);
+      setIsProcessing(false);
+      setIsCompleted(true);
+      setPaymentReference(reference);
+      setCompletedBookingData(bookingData);
+      setShowSuccessDialog(true);
+    },
+    onError: (error) => {
+      toast({ title: "Payment Error", description: error, variant: "destructive" });
+      setIsProcessing(false);
+    },
+    onClose: () => {
+      setIsProcessing(false);
+    },
+  });
 
   useEffect(() => {
     if (id && type) fetchItem();
@@ -137,44 +154,40 @@ const BookingPage = () => {
         visitDate = formData.selectedFacilities[0].startDate;
       }
       
-       // Prepare booking data for Paystack
-       const bookingData = {
-         item_id: item.id,
-         booking_type: bookingType,
-         total_amount: totalAmount,
-         booking_details: { 
-           ...formData, 
-           item_name: item.name,
-           is_facility_only: isFacilityOnly,
-           adults: formData.num_adults,
-           children: formData.num_children,
-           facilities: formData.selectedFacilities,
-           activities: formData.selectedActivities,
-         },
-         user_id: user?.id || null,
-         is_guest_booking: !user,
-         guest_name: formData.guest_name,
-         guest_email: formData.guest_email,
-         guest_phone: formData.guest_phone || "",
-         visit_date: visitDate,
-         slots_booked: slotsBooked,
-         host_id: item.created_by,
-         referral_tracking_id: getReferralTrackingId(),
-         emailData: {
-           itemName: item.name,
-         },
-       };
+      // Prepare booking data for Paystack
+      const bookingData = {
+        item_id: item.id,
+        booking_type: bookingType,
+        total_amount: totalAmount,
+        booking_details: { 
+          ...formData, 
+          item_name: item.name,
+          is_facility_only: isFacilityOnly,
+          adults: formData.num_adults,
+          children: formData.num_children,
+          facilities: formData.selectedFacilities,
+          activities: formData.selectedActivities,
+        },
+        user_id: user?.id || null,
+        is_guest_booking: !user,
+        guest_name: formData.guest_name,
+        guest_email: formData.guest_email,
+        guest_phone: formData.guest_phone || "",
+        visit_date: visitDate,
+        slots_booked: slotsBooked,
+        host_id: item.created_by,
+        referral_tracking_id: getReferralTrackingId(),
+        emailData: {
+          itemName: item.name,
+        },
+      };
       
-       // Initiate Paystack payment - will redirect to Paystack checkout
-       await initiatePayment(formData.guest_email, totalAmount, bookingData);
-       
-       // Note: The function will redirect to Paystack, so we don't set isCompleted here
-       // The payment verification happens on return via /payment/verify
+      // Initiate Paystack payment - opens popup
+      await initiatePayment(formData.guest_email, totalAmount, bookingData);
+      
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
-       setIsProcessing(false);
-    } finally {
-       // Don't set isProcessing to false here since we're redirecting
+      setIsProcessing(false);
     }
   };
 
@@ -192,14 +205,13 @@ const BookingPage = () => {
   const getMultiStepProps = () => {
     const baseProps = {
       onSubmit: handleBookingSubmit,
-      isProcessing,
+      isProcessing: isProcessing || isPaymentLoading,
       isCompleted,
       itemName: item.name,
       itemId: item.id,
       hostId: item.created_by || "",
       onPaymentSuccess: () => {
         setIsCompleted(true);
-        setTimeout(() => navigate(-1), 2000);
       },
       primaryColor: COLORS.TEAL,
       accentColor: COLORS.CORAL,
@@ -280,6 +292,14 @@ const BookingPage = () => {
           <MultiStepBooking {...getMultiStepProps()} />
         </div>
       </div>
+
+      {/* Payment Success Dialog */}
+      <PaymentSuccessDialog
+        open={showSuccessDialog}
+        onOpenChange={setShowSuccessDialog}
+        bookingData={completedBookingData}
+        reference={paymentReference}
+      />
     </div>
   );
 };

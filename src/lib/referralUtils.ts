@@ -120,76 +120,59 @@ export const trackReferralClick = async (
   try {
     console.log('[ReferralUtils] trackReferralClick called with:', { refSlug, itemId, itemType, referralType });
     
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    // Look up referrer by slugified email name
-    const { data: profiles, error: lookupError } = await supabase
-      .from("profiles")
-      .select("id, email, internal_referral_id_digits")
-      .not("email", "is", null);
-    
-    if (lookupError || !profiles) {
-      console.error("Error looking up referrer:", lookupError);
-      return null;
-    }
-    
-    // Find matching profile by slugifying each email
-    const referrerProfile = profiles.find(profile => {
-      if (!profile.email) return false;
-      const slugifiedEmail = profile.email.split('@')[0]
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-|-$/g, '');
-      return slugifiedEmail === refSlug;
-    });
-    
-    if (!referrerProfile || !referrerProfile.internal_referral_id_digits) {
-      console.log("No valid referrer found for slug:", refSlug);
-      return null;
-    }
-
-    console.log('[ReferralUtils] Found referrer:', referrerProfile.id);
-    
-    // Don't track if the referrer is clicking their own link
-    if (user?.id === referrerProfile.id) {
-      console.log('[ReferralUtils] Skipping - user is clicking their own link');
-      return null;
-    }
-
-    // Check if item_id is provided
+    // Check if item_id is provided first
     if (!itemId) {
       console.log('[ReferralUtils] Skipping - no item_id provided');
       return null;
     }
 
-    const { data, error } = await supabase
-      .from("referral_tracking")
-      .insert({
-        referrer_id: referrerProfile.id,
-        referred_user_id: user?.id || null,
-        referral_type: referralType,
-        item_id: itemId,
-        item_type: itemType,
-        status: "pending",
-      })
-      .select()
-      .single();
+    if (!refSlug) {
+      console.log('[ReferralUtils] Skipping - no refSlug provided');
+      return null;
+    }
+
+    // Check if we already have a tracking record for this in session
+    const existingTrackingId = sessionStorage.getItem("referral_tracking_id");
+    if (existingTrackingId) {
+      console.log('[ReferralUtils] Already have tracking ID in session:', existingTrackingId);
+      return { id: existingTrackingId };
+    }
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    // Use edge function to track referral (bypasses RLS for profile lookup)
+    const { data, error } = await supabase.functions.invoke('track-referral-click', {
+      body: {
+        refSlug,
+        itemId,
+        itemType: itemType || 'unknown',
+        referralType,
+        userId: user?.id || null,
+      },
+    });
 
     if (error) {
-      console.error('[ReferralUtils] Error inserting tracking:', error);
-      throw error;
+      console.error('[ReferralUtils] Error calling track-referral-click:', error);
+      return null;
+    }
+
+    if (!data?.success) {
+      console.log('[ReferralUtils] Tracking failed:', data?.error);
+      return null;
     }
     
     // Store tracking ID and internal digit ID in session storage
-    if (data) {
-      sessionStorage.setItem("referral_tracking_id", data.id);
-      sessionStorage.setItem("referral_internal_id", referrerProfile.internal_referral_id_digits);
-      console.log('[ReferralUtils] Stored tracking ID in session:', data.id);
+    if (data.data?.trackingId) {
+      sessionStorage.setItem("referral_tracking_id", data.data.trackingId);
+      if (data.data.internalReferralId) {
+        sessionStorage.setItem("referral_internal_id", data.data.internalReferralId);
+      }
+      console.log('[ReferralUtils] Successfully stored tracking ID in session:', data.data.trackingId);
     }
     
-    return data;
+    return { id: data.data?.trackingId };
   } catch (error) {
-    console.error("Error tracking referral:", error);
+    console.error("[ReferralUtils] Error tracking referral:", error);
     return null;
   }
 };

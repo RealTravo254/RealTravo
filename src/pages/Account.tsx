@@ -80,6 +80,7 @@ export default function Account() {
       { icon: CreditCard, label: "Payment Verification", path: "/admin/payment-verification", show: userRole === "admin" },
       { icon: Settings, label: "Referral Settings", path: "/admin/referral-settings", show: userRole === "admin" },
       { icon: CalendarCheck, label: "All Bookings", path: "/admin/all-bookings", show: userRole === "admin" },
+      { icon: Users, label: "Accounts Overview", path: "/admin/accounts", show: userRole === "admin" },
     ]}
   ];
 

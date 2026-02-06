@@ -6,6 +6,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { NavigationDrawer } from "./NavigationDrawer";
 import { Link, useNavigate } from "react-router-dom";
 import { NotificationBell } from "./NotificationBell";
+import { AccountSheet } from "./AccountSheet";
 
 export interface HeaderProps {
   onSearchClick?: () => void;
@@ -118,13 +119,24 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className }: Head
           
           <NotificationBell />
 
-          <button 
-            onClick={() => user ? navigate('/account') : navigate('/auth')}
-            className="hidden sm:flex h-10 px-4 rounded-xl items-center gap-2 transition-all font-semibold text-xs text-primary-foreground bg-primary hover:brightness-110"
-          >
-            <User className="h-4 w-4" />
-            <span>{user ? "Profile" : "Login"}</span>
-          </button>
+          {user ? (
+            <AccountSheet>
+              <button 
+                className="hidden sm:flex h-10 px-4 rounded-xl items-center gap-2 transition-all font-semibold text-xs text-primary-foreground bg-primary hover:brightness-110"
+              >
+                <User className="h-4 w-4" />
+                <span>Profile</span>
+              </button>
+            </AccountSheet>
+          ) : (
+            <button 
+              onClick={() => navigate('/auth')}
+              className="hidden sm:flex h-10 px-4 rounded-xl items-center gap-2 transition-all font-semibold text-xs text-primary-foreground bg-primary hover:brightness-110"
+            >
+              <User className="h-4 w-4" />
+              <span>Login</span>
+            </button>
+          )}
         </div>
       </div>
     </header>

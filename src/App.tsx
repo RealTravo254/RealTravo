@@ -64,6 +64,7 @@ const VerificationDetail = lazy(() => import("./pages/admin/VerificationDetail")
 const PaymentHistory = lazy(() => import("./pages/PaymentHistory"));
 const Install = lazy(() => import("./pages/Install"));
 const AllBookings = lazy(() => import("./pages/admin/AllBookings"));
+const AccountsOverview = lazy(() => import("./pages/admin/AccountsOverview"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const PublicManualBooking = lazy(() => import("./pages/PublicManualBooking"));
@@ -122,6 +123,7 @@ const App = () => {
                     <Route path="/admin/verification-detail/:id" element={<VerificationDetail />} />
                     <Route path="/admin/payment-verification" element={<AdminPaymentVerification />} />
                     <Route path="/admin/referral-settings" element={<AdminReferralSettings />} />
+                    <Route path="/admin/accounts" element={<Suspense fallback={<PageLoader />}><AccountsOverview /></Suspense>} />
                     <Route path="/become-host" element={<BecomeHost />} />
                     <Route path="/create-trip" element={<CreateTripEvent />} />
                     <Route path="/create-hotel" element={<CreateHotel />} />

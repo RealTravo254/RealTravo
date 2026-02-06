@@ -122,12 +122,16 @@ const QRScanner = () => {
     if (!authLoading && !user) navigate("/auth");
   }, [user, authLoading, navigate]);
 
+  // Pagination for arrived guests
+  const ARRIVED_PER_PAGE = 20;
+  const [arrivedOffset, setArrivedOffset] = useState(0);
+  const [hasMoreArrived, setHasMoreArrived] = useState(true);
+
   // Fetch arrived guests (checked-in bookings for host's items)
-  const fetchArrivedGuests = useCallback(async () => {
+  const fetchArrivedGuests = useCallback(async (loadMore = false) => {
     if (!user || !isOnline) return;
     setLoadingArrived(true);
     try {
-      // First get all items created by this user
       const [tripsRes, hotelsRes, adventuresRes] = await Promise.all([
         supabase.from("trips").select("id, name").eq("created_by", user.id),
         supabase.from("hotels").select("id, name").eq("created_by", user.id),
@@ -146,15 +150,16 @@ const QRScanner = () => {
         return;
       }
 
-      // Fetch checked-in bookings for today
       const today = format(new Date(), "yyyy-MM-dd");
+      const offset = loadMore ? arrivedOffset + ARRIVED_PER_PAGE : 0;
       const { data: bookings, error } = await supabase
         .from("bookings")
         .select("id, guest_name, guest_email, visit_date, slots_booked, checked_in_at, total_amount, item_id")
         .in("item_id", itemIds)
         .eq("checked_in", true)
         .eq("visit_date", today)
-        .order("checked_in_at", { ascending: false });
+        .order("checked_in_at", { ascending: false })
+        .range(offset, offset + ARRIVED_PER_PAGE - 1);
 
       if (error) throw error;
 
@@ -163,13 +168,20 @@ const QRScanner = () => {
         item_name: itemNameMap[b.item_id] || "Unknown"
       }));
       
-      setArrivedGuests(guests);
+      if (loadMore) {
+        setArrivedGuests(prev => [...prev, ...guests]);
+        setArrivedOffset(offset);
+      } else {
+        setArrivedGuests(guests);
+        setArrivedOffset(0);
+      }
+      setHasMoreArrived(guests.length >= ARRIVED_PER_PAGE);
     } catch (error) {
       console.error("Error fetching arrived guests:", error);
     } finally {
       setLoadingArrived(false);
     }
-  }, [user, isOnline]);
+  }, [user, isOnline, arrivedOffset]);
 
   // Fetch arrived guests when component mounts and after check-in
   useEffect(() => {
@@ -242,8 +254,13 @@ const QRScanner = () => {
         setVerifiedBooking(result.booking as VerifiedBooking);
         if (result.itemName) setItemName(result.itemName);
         else if (result.booking?.item_name) setItemName(result.booking.item_name);
-        setCheckedIn(true); // Show checked-in state immediately
+        setCheckedIn(true);
         setVerificationStatus("valid");
+        toast({ 
+          title: "Already Checked In", 
+          description: `This guest was already checked in at ${result.booking.checked_in_at ? format(new Date(result.booking.checked_in_at), "HH:mm") : "earlier"}`,
+          variant: "destructive" 
+        });
         return;
       }
 
@@ -498,6 +515,9 @@ const QRScanner = () => {
                             <p className="text-[10px] font-bold text-slate-400 mt-0.5">
                               {guest.guest_email}
                             </p>
+                            <p className="text-[9px] font-mono text-slate-400 mt-0.5">
+                              ID: {guest.id.slice(0,8)}
+                            </p>
                           </div>
                           <div className="flex items-center gap-1 px-2 py-1 bg-green-50 rounded-lg">
                             <CheckCircle className="h-3 w-3 text-green-500" />
@@ -531,6 +551,16 @@ const QRScanner = () => {
                         )}
                       </div>
                     ))}
+                    {hasMoreArrived && (
+                      <Button
+                        onClick={() => fetchArrivedGuests(true)}
+                        variant="outline"
+                        className="w-full rounded-2xl h-10 font-black uppercase tracking-widest text-[10px]"
+                        disabled={loadingArrived}
+                      >
+                        {loadingArrived ? "Loading..." : "Load More Guests"}
+                      </Button>
+                    )}
                   </div>
                 </ScrollArea>
               )}

@@ -20,7 +20,7 @@ export const MobileBottomBar = () => {
     { icon: Heart, label: "Saved", path: "/saved" },
   ];
 
-  const isProfileActive = location.pathname === "/account";
+  const isProfileActive = false; // Account is now a sheet, never a route
 
   return (
     <div className="md:hidden fixed bottom-0 left-0 right-0 z-[100] bg-white/80 backdrop-blur-xl border-t border-slate-100 pb-safe shadow-[0_-8px_30px_rgb(0,0,0,0.04)]">

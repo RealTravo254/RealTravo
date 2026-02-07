@@ -47,7 +47,7 @@ const VerifyEmail = lazy(() => import("./pages/VerifyEmail"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const HostVerification = lazy(() => import("./pages/HostVerification"));
 const VerificationStatus = lazy(() => import("./pages/VerificationStatus"));
-const Account = lazy(() => import("./pages/Account"));
+
 const Payment = lazy(() => import("./pages/Payment"));
 const MyReferrals = lazy(() => import("./pages/MyReferrals"));
 const PendingApprovalItems = lazy(() => import("./pages/admin/PendingApprovalItems"));
@@ -136,7 +136,7 @@ const App = () => {
                     <Route path="/forgot-password" element={<ForgotPassword />} />
                     <Route path="/host-verification" element={<HostVerification />} />
                     <Route path="/verification-status" element={<VerificationStatus />} />
-                    <Route path="/account" element={<Account />} />
+                    
                     <Route path="/payment" element={<Payment />} />
                     <Route path="/payment/verify" element={<PaymentVerify />} />
                     <Route path="/payment-history" element={<PaymentHistory />} />

@@ -8,12 +8,12 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { PageLayout } from "@/components/PageLayout";
 import { SmallScreenInstallBanner } from "@/components/SmallScreenInstallBanner";
 
-// Critical path pages - load eagerly
+// Only the Index page loads eagerly - everything else is lazy
 import Index from "./pages/Index";
-import Auth from "./pages/Auth";
-import NotFound from "./pages/NotFound";
 
-// Lazy load non-critical pages
+// Lazy load ALL other pages
+const Auth = lazy(() => import("./pages/Auth"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 const CategoryDetail = lazy(() => import("./pages/CategoryDetail"));
 const Saved = lazy(() => import("./pages/Saved"));
 const Bookings = lazy(() => import("./pages/Bookings"));
@@ -24,22 +24,19 @@ const TripDetail = lazy(() => import("./pages/TripDetail"));
 const EventDetail = lazy(() => import("./pages/EventDetail"));
 const HotelDetail = lazy(() => import("./pages/HotelDetail"));
 const AdventurePlaceDetail = lazy(() => import("./pages/AdventurePlaceDetail"));
-// Host & Admin pages - load eagerly for instant navigation
-import AdminDashboard from "./pages/AdminDashboard";
-import BecomeHost from "./pages/BecomeHost";
-import HostBookings from "./pages/HostBookings";
-import HostBookingDetails from "./pages/HostBookingDetails";
-import HostItemDetail from "./pages/HostItemDetail";
-import MyListing from "./pages/MyListing";
-import CreatorDashboard from "./pages/CreatorDashboard";
-import AdminReviewDetail from "./pages/AdminReviewDetail";
-import AdminBookings from "./pages/AdminBookings";
-import AdminVerification from "./pages/AdminVerification";
-import AdminReferralSettings from "./pages/AdminReferralSettings";
-import AdminPaymentVerification from "./pages/AdminPaymentVerification";
-import QRScanner from "./pages/QRScanner";
-
-// Lazy load other pages
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const BecomeHost = lazy(() => import("./pages/BecomeHost"));
+const HostBookings = lazy(() => import("./pages/HostBookings"));
+const HostBookingDetails = lazy(() => import("./pages/HostBookingDetails"));
+const HostItemDetail = lazy(() => import("./pages/HostItemDetail"));
+const MyListing = lazy(() => import("./pages/MyListing"));
+const CreatorDashboard = lazy(() => import("./pages/CreatorDashboard"));
+const AdminReviewDetail = lazy(() => import("./pages/AdminReviewDetail"));
+const AdminBookings = lazy(() => import("./pages/AdminBookings"));
+const AdminVerification = lazy(() => import("./pages/AdminVerification"));
+const AdminReferralSettings = lazy(() => import("./pages/AdminReferralSettings"));
+const AdminPaymentVerification = lazy(() => import("./pages/AdminPaymentVerification"));
+const QRScanner = lazy(() => import("./pages/QRScanner"));
 const CreateTripEvent = lazy(() => import("./pages/CreateTripEvent"));
 const CreateHotel = lazy(() => import("./pages/CreateHotel"));
 const CreateAdventure = lazy(() => import("./pages/CreateAdventure"));
@@ -75,7 +72,7 @@ const PaymentVerify = lazy(() => import("./pages/PaymentVerify"));
 const queryClient = new QueryClient();
 
 const PageLoader = () => (
-  <div className="min-h-screen flex items-center justify-center">
+  <div className="min-h-screen flex items-center justify-center bg-background">
     <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
   </div>
 );
@@ -88,11 +85,7 @@ const App = () => {
         <Sonner />
         <BrowserRouter>
           <AuthProvider>
-            {/* 1. Placed outside PageLayout so it is at the absolute top of the DOM. 
-              2. Make sure the component itself uses 'relative' class as shown below.
-            */}
             <SmallScreenInstallBanner />
-            
             <PageLayout>
               <Suspense fallback={<PageLoader />}>
                 <div className="w-full">
@@ -123,7 +116,7 @@ const App = () => {
                     <Route path="/admin/verification-detail/:id" element={<VerificationDetail />} />
                     <Route path="/admin/payment-verification" element={<AdminPaymentVerification />} />
                     <Route path="/admin/referral-settings" element={<AdminReferralSettings />} />
-                    <Route path="/admin/accounts" element={<Suspense fallback={<PageLoader />}><AccountsOverview /></Suspense>} />
+                    <Route path="/admin/accounts" element={<AccountsOverview />} />
                     <Route path="/become-host" element={<BecomeHost />} />
                     <Route path="/create-trip" element={<CreateTripEvent />} />
                     <Route path="/create-hotel" element={<CreateHotel />} />

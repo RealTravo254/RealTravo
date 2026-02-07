@@ -24,7 +24,7 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-    <link rel="preload" as="image" href="/images/hero-background.webp" fetchpriority="high" type="image/webp" />
+    <link rel="prefetch" as="image" href="/images/hero-background.webp" type="image/webp" />
     <link rel="preconnect" href="https://lmkxpzemfvmffxppxzky.supabase.co" crossorigin />
     <link rel="dns-prefetch" href="https://lmkxpzemfvmffxppxzky.supabase.co" />
 
@@ -86,8 +86,9 @@
     </script>
     
     <style>
-      body { margin: 0; font-family: system-ui, -apple-system, sans-serif; }
+      body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background-color: #ffffff; }
       #root { min-height: 100vh; }
+      @media (prefers-color-scheme: dark) { body { background-color: #1a2332; } }
     </style>
   </head>
 
@@ -105,15 +106,7 @@
 
     <div id="root"></div>
 
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js')
-            .then(registration => console.log('SW registered'))
-            .catch(err => console.log('SW registration failed: ', err));
-        });
-      }
-    </script>
+    <!-- SW registration handled in main.tsx after render -->
 
     <script type="module" src="/src/main.tsx"></script>
   </body>

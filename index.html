@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     
-    <meta name="theme-color" content="#008080" />
+    <meta name="theme-color" content="#f8f9fa" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Realtravo" />
@@ -19,7 +19,6 @@
     
     <link rel="canonical" href="https://realtravo.com/" />
 
-    <!-- Favicons -->
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
@@ -86,9 +85,30 @@
     </script>
     
     <style>
-      body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background-color: #ffffff; }
+      body { 
+        margin: 0; 
+        font-family: system-ui, -apple-system, sans-serif; 
+        /* Using a light grey so the white glass effect is visible */
+        background-color: #f4f7f6; 
+      }
+
       #root { min-height: 100vh; }
-      @media (prefers-color-scheme: dark) { body { background-color: #1a2332; } }
+
+      /* The modern glass class for your nav or cards */
+      .glass-effect {
+        background-color: rgba(255, 255, 255, 0.5); 
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+      }
+
+      @media (prefers-color-scheme: dark) { 
+        body { background-color: #1a2332; } 
+        .glass-effect {
+          background-color: rgba(26, 35, 50, 0.7); /* Darker glass for dark mode */
+          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+      }
     </style>
   </head>
 
@@ -100,13 +120,10 @@
         <a href="https://realtravo.com/category/trips">Trips & Events</a>
         <a href="https://realtravo.com/category/hotels">Hotels</a>
         <a href="https://realtravo.com/category/adventures">Adventures</a>
-        <a href="https://realtravo.com/category/auth">Login/Sign U1p</a>
-
+        <a href="https://realtravo.com/category/auth">Login/Sign Up</a>
     </nav>
 
     <div id="root"></div>
-
-    <!-- SW registration handled in main.tsx after render -->
 
     <script type="module" src="/src/main.tsx"></script>
   </body>

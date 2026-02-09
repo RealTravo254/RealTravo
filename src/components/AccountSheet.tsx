@@ -108,7 +108,6 @@ export const AccountSheet = ({ children }: AccountSheetProps) => {
         <div className="px-6 pt-5 pb-4 bg-white border-b border-slate-100 flex-shrink-0">
           <SheetHeader>
             <div className="flex items-baseline gap-2">
-              <p className="text-[10px] font-black text-[#FF7F50] uppercase tracking-[0.2em]">Settings</p>
               <span className="text-slate-300">/</span>
               <SheetTitle className="text-xl font-black uppercase tracking-tighter" style={{ color: COLORS.TEAL }}>
                 My Account

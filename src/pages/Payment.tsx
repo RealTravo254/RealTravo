@@ -301,7 +301,7 @@ export default function Payment() {
         <div className="flex flex-col gap-6 mb-10">
           <Button
             variant="ghost"
-            onClick={() => navigate("/account")}
+            onClick={() => navigate("/")}
             className="w-fit rounded-full bg-white shadow-sm border border-slate-100 hover:bg-slate-50 px-6"
           >
             <ArrowLeft className="h-4 w-4 mr-2" style={{ color: COLORS.TEAL }} />

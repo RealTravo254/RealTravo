@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useSafeBack } from "@/hooks/useSafeBack";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +29,7 @@ const HotelDetail = () => {
   const { slug } = useParams();
   const id = slug ? extractIdFromSlug(slug) : null;
   const navigate = useNavigate();
+  const goBack = useSafeBack();
   const { toast } = useToast();
   const { position, requestLocation } = useGeolocation();
   
@@ -172,7 +174,7 @@ const HotelDetail = () => {
           {/* Action Buttons - Overlaid on Gallery */}
           <div className="absolute top-4 left-4 right-4 z-50 flex justify-between items-center">
             <Button 
-              onClick={() => navigate(-1)} 
+              onClick={goBack}
               className="rounded-full w-10 h-10 p-0 border-none bg-white/90 backdrop-blur-sm text-slate-900 hover:bg-white shadow-lg transition-all"
             >
               <ArrowLeft className="h-5 w-5" />
@@ -233,7 +235,7 @@ const HotelDetail = () => {
           {/* Action Buttons - Overlaid on Gallery */}
           <div className="absolute top-6 left-6 right-6 z-50 flex justify-between items-center">
             <Button 
-              onClick={() => navigate(-1)} 
+              onClick={goBack} 
               className="rounded-full w-12 h-12 p-0 border-none bg-white/90 backdrop-blur-sm text-slate-900 hover:bg-white shadow-lg transition-all"
             >
               <ArrowLeft className="h-6 w-6" />
@@ -356,25 +358,7 @@ const HotelDetail = () => {
             {/* Amenities - Using new component */}
             <AmenitiesSection amenities={hotel.amenities || []} />
 
-            {/* Link Source Attribution - Accommodation Only */}
-            {isAccommodationOnly && hotel.link_source_name && (
-              <section className="bg-purple-50 rounded-3xl p-4 border border-purple-100">
-                <p className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-1">Source</p>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-purple-700">{hotel.link_source_name}</span>
-                  {hotel.link_source_url && (
-                    <a 
-                      href={hotel.link_source_url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-[10px] text-purple-500 underline hover:text-purple-700"
-                    >
-                      Visit Source →
-                    </a>
-                  )}
-                </div>
-              </section>
-            )}
+            {/* Link Source Attribution removed for accommodation only per requirement */}
 
             {/* Facilities & Pricing with Images */}
             {hotel.facilities?.length > 0 && (
@@ -602,19 +586,21 @@ const HotelDetail = () => {
           </div>
         )}
 
-        {/* Map Section */}
-        <DetailMapSection
-          currentItem={{
-            id: hotel.id,
-            name: hotel.name,
-            latitude: hotel.latitude,
-            longitude: hotel.longitude,
-            location: hotel.location,
-            country: hotel.country,
-            image_url: hotel.image_url,
-          }}
-          itemType="hotel"
-        />
+        {/* Map Section - Hidden for accommodation only */}
+        {!isAccommodationOnly && (
+          <DetailMapSection
+            currentItem={{
+              id: hotel.id,
+              name: hotel.name,
+              latitude: hotel.latitude,
+              longitude: hotel.longitude,
+              location: hotel.location,
+              country: hotel.country,
+              image_url: hotel.image_url,
+            }}
+            itemType="hotel"
+          />
+        )}
 
         {/* Similar Items */}
         <div className="mt-12">

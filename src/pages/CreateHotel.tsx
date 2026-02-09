@@ -109,9 +109,11 @@ const CreateHotel = () => {
     if (step === 2) {
       if (!formData.country) newErrors.country = true;
       if (!formData.place.trim()) newErrors.place = true;
-      if (!formData.latitude) newErrors.latitude = true;
-      if (!formData.email.trim()) newErrors.email = true;
-      if (!formData.phoneNumber.trim()) newErrors.phoneNumber = true;
+      if (!isAccommodationOnly) {
+        if (!formData.latitude) newErrors.latitude = true;
+        if (!formData.email.trim()) newErrors.email = true;
+        if (!formData.phoneNumber.trim()) newErrors.phoneNumber = true;
+      }
     }
 
     if (step === 3) {
@@ -384,49 +386,53 @@ const CreateHotel = () => {
                 </div>
               </div>
 
-              <div className={`p-4 rounded-[24px] border-2 transition-colors ${errors.latitude ? "border-red-500 bg-red-50" : "border-dashed border-slate-200 bg-slate-50/50"}`}>
-                <div className="flex flex-col gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="p-3 rounded-full" style={{ backgroundColor: errors.latitude ? "#fee2e2" : `${COLORS.CORAL}15` }}>
-                      <Navigation className="h-6 w-6" style={{ color: errors.latitude ? "#ef4444" : COLORS.CORAL }} />
+              {!isAccommodationOnly && (
+                <div className={`p-4 rounded-[24px] border-2 transition-colors ${errors.latitude ? "border-red-500 bg-red-50" : "border-dashed border-slate-200 bg-slate-50/50"}`}>
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="p-3 rounded-full" style={{ backgroundColor: errors.latitude ? "#fee2e2" : `${COLORS.CORAL}15` }}>
+                        <Navigation className="h-6 w-6" style={{ color: errors.latitude ? "#ef4444" : COLORS.CORAL }} />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="text-xs font-black uppercase tracking-widest" style={{ color: errors.latitude ? "#ef4444" : COLORS.CORAL }}>GPS Location *</h4>
+                        <p className="text-[10px] text-slate-400 font-bold">Tap the button to capture your current location</p>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <h4 className="text-xs font-black uppercase tracking-widest" style={{ color: errors.latitude ? "#ef4444" : COLORS.CORAL }}>GPS Location *</h4>
-                      <p className="text-[10px] text-slate-400 font-bold">Tap the button to capture your current location</p>
-                    </div>
+                    <Button 
+                      type="button" 
+                      onClick={() => {
+                        navigator.geolocation.getCurrentPosition(
+                          (pos) => {
+                            setFormData({...formData, latitude: pos.coords.latitude, longitude: pos.coords.longitude});
+                            setErrors(prev => ({ ...prev, latitude: false }));
+                          },
+                          () => toast({ title: "Location Error", description: "Unable to get location. Please enable GPS.", variant: "destructive" })
+                        );
+                      }} 
+                      className="w-full rounded-2xl px-6 h-14 font-black uppercase text-[11px] tracking-widest text-white shadow-lg active:scale-95 transition-all"
+                      style={{ background: formData.latitude ? COLORS.TEAL : COLORS.CORAL }}
+                    >
+                      <Navigation className="h-5 w-5 mr-3" />
+                      {formData.latitude ? '✓ Location Captured Successfully' : 'Tap to Capture GPS Location'}
+                    </Button>
                   </div>
-                  <Button 
-                    type="button" 
-                    onClick={() => {
-                      navigator.geolocation.getCurrentPosition(
-                        (pos) => {
-                          setFormData({...formData, latitude: pos.coords.latitude, longitude: pos.coords.longitude});
-                          setErrors(prev => ({ ...prev, latitude: false }));
-                        },
-                        () => toast({ title: "Location Error", description: "Unable to get location. Please enable GPS.", variant: "destructive" })
-                      );
-                    }} 
-                    className="w-full rounded-2xl px-6 h-14 font-black uppercase text-[11px] tracking-widest text-white shadow-lg active:scale-95 transition-all"
-                    style={{ background: formData.latitude ? COLORS.TEAL : COLORS.CORAL }}
-                  >
-                    <Navigation className="h-5 w-5 mr-3" />
-                    {formData.latitude ? '✓ Location Captured Successfully' : 'Tap to Capture GPS Location'}
-                  </Button>
                 </div>
-              </div>
+              )}
 
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Business Email *</Label>
-                  <Input className={`rounded-xl h-12 font-bold ${errorClass('email')}`} value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Phone Number *</Label>
-                  <div className={errors.phoneNumber ? "rounded-xl ring-2 ring-red-500" : ""}>
-                    <PhoneInput value={formData.phoneNumber} onChange={(v) => setFormData({...formData, phoneNumber: v})} country={formData.country} />
+              {!isAccommodationOnly && (
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Business Email *</Label>
+                    <Input className={`rounded-xl h-12 font-bold ${errorClass('email')}`} value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Phone Number *</Label>
+                    <div className={errors.phoneNumber ? "rounded-xl ring-2 ring-red-500" : ""}>
+                      <PhoneInput value={formData.phoneNumber} onChange={(v) => setFormData({...formData, phoneNumber: v})} country={formData.country} />
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           </Card>
         )}

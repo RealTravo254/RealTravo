@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useSafeBack } from "@/hooks/useSafeBack";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { MultiStepBooking, BookingFormData } from "@/components/booking/MultiStepBooking";
@@ -20,6 +21,7 @@ type BookingType = 'trip' | 'event' | 'hotel' | 'adventure_place' | 'attraction'
 const BookingPage = () => {
   const { type, id } = useParams<{ type: string; id: string }>();
   const navigate = useNavigate();
+  const goBack = useSafeBack();
   const { toast } = useToast();
   const { user } = useAuth();
   
@@ -272,7 +274,7 @@ const BookingPage = () => {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate(-1)}
+            onClick={goBack}
             className="rounded-full bg-slate-100 hover:bg-slate-200"
           >
             <ArrowLeft className="h-5 w-5" />

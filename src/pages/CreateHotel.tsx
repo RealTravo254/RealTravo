@@ -28,7 +28,7 @@ const COLORS = {
 };
 
 const TOTAL_STEPS = 7;
-const TOTAL_STEPS_ACCOMMODATION = 8; // Extra step for link source
+const TOTAL_STEPS_ACCOMMODATION = 7; // Same steps, link source removed
 
 const CreateHotel = () => {
   const navigate = useNavigate();
@@ -54,8 +54,6 @@ const CreateHotel = () => {
     openingHours: "",
     closingHours: "",
     generalBookingLink: "",
-    linkSourceName: "",
-    linkSourceUrl: "",
   });
 
   const isAccommodationOnly = formData.establishmentType === "accommodation_only";
@@ -253,8 +251,8 @@ const CreateHotel = () => {
         registration_number: formData.registrationNumber || null,
         approval_status: isAccommodationOnly ? 'approved' : 'pending',
         general_booking_link: isAccommodationOnly ? formData.generalBookingLink : null,
-        link_source_name: isAccommodationOnly ? formData.linkSourceName : null,
-        link_source_url: isAccommodationOnly ? formData.linkSourceUrl : null,
+        link_source_name: null,
+        link_source_url: null,
       };
 
       const { error } = await supabase.from('hotels').insert([hotelData]);
@@ -573,62 +571,39 @@ const CreateHotel = () => {
             <h2 className="text-xl font-black uppercase tracking-tight mb-6 flex items-center gap-2" style={{ color: COLORS.TEAL }}>
               <CheckCircle2 className="h-5 w-5" /> Property Description *
             </h2>
-            <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                Tell guests what makes your property special
-              </Label>
-              <Textarea 
-                className={`rounded-[20px] min-h-[200px] mt-2 font-medium resize-none ${errorClass('description')}`}
-                placeholder="Describe your property's unique features, amenities, nearby attractions, and what guests can expect during their stay..."
-                value={formData.description}
-                onChange={(e) => setFormData({...formData, description: e.target.value})}
-              />
-              <p className="text-[10px] text-slate-400 mt-2">
-                {formData.description.length} characters
-              </p>
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  Tell guests what makes your property special
+                </Label>
+                <Textarea 
+                  className={`rounded-[20px] min-h-[200px] mt-2 font-medium resize-none ${errorClass('description')}`}
+                  placeholder="Describe your property's unique features, amenities, nearby attractions, and what guests can expect during their stay..."
+                  value={formData.description}
+                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                />
+                <p className="text-[10px] text-slate-400 mt-2">
+                  {formData.description.length} characters
+                </p>
+              </div>
+
+              {isAccommodationOnly && (
+                <div className="space-y-2 pt-4 border-t border-slate-100">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">General Booking Link (External Website)</Label>
+                  <Input 
+                    className={`rounded-xl h-12 font-bold transition-all ${errorClass('generalBookingLink')}`}
+                    value={formData.generalBookingLink} 
+                    onChange={(e) => setFormData({...formData, generalBookingLink: e.target.value})}
+                    placeholder="https://booking.com/your-property"
+                  />
+                  <p className="text-[10px] text-slate-400">This link will be used for the main Reserve button on the detail page.</p>
+                </div>
+              )}
             </div>
           </Card>
         )}
 
-        {/* Step 7: Link Source (Accommodation Only) or Review */}
-        {isAccommodationOnly && currentStep === 7 && (
-          <Card className="bg-white rounded-[28px] p-8 shadow-sm border-none">
-            <h2 className="text-xl font-black uppercase tracking-tight mb-6 flex items-center gap-2" style={{ color: COLORS.TEAL }}>
-              <CheckCircle2 className="h-5 w-5" /> Booking Links & Source
-            </h2>
-            <div className="grid gap-6">
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">General Booking Link (External Website)</Label>
-                <Input 
-                  className={`rounded-xl h-12 font-bold transition-all ${errorClass('generalBookingLink')}`}
-                  value={formData.generalBookingLink} 
-                  onChange={(e) => setFormData({...formData, generalBookingLink: e.target.value})}
-                  placeholder="https://booking.com/your-property"
-                />
-                <p className="text-[10px] text-slate-400">This link will be used for the main Reserve button on the detail page.</p>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Link Source Name *</Label>
-                <Input 
-                  className={`rounded-xl h-12 font-bold transition-all ${errorClass('linkSourceName')}`}
-                  value={formData.linkSourceName} 
-                  onChange={(e) => setFormData({...formData, linkSourceName: e.target.value})}
-                  placeholder="e.g. Booking.com, Airbnb, Hotels.com"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Link Source URL</Label>
-                <Input 
-                  className="rounded-xl h-12 font-bold transition-all border-slate-100 bg-slate-50"
-                  value={formData.linkSourceUrl} 
-                  onChange={(e) => setFormData({...formData, linkSourceUrl: e.target.value})}
-                  placeholder="https://booking.com"
-                />
-                <p className="text-[10px] text-slate-400">The source website will be displayed as attribution on the listing detail page.</p>
-              </div>
-            </div>
-          </Card>
-        )}
+        {/* General Booking Link (Accommodation Only - shown in Description step) */}
 
         {/* Review & Submit (last step) */}
         {currentStep === totalSteps && (
@@ -665,8 +640,6 @@ const CreateHotel = () => {
               imageCount: galleryImages.length,
               ...(isAccommodationOnly && {
                 generalBookingLink: formData.generalBookingLink,
-                linkSourceName: formData.linkSourceName,
-                linkSourceUrl: formData.linkSourceUrl,
               })
             }}
             creatorName={creatorProfile.name}

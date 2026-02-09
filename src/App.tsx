@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { PageLayout } from "@/components/PageLayout";
 import { SmallScreenInstallBanner } from "@/components/SmallScreenInstallBanner";
+import { DetailPageSkeleton } from "@/components/detail/DetailPageSkeleton";
 
 // Only the Index page loads eagerly - everything else is lazy
 import Index from "./pages/Index";
@@ -105,11 +106,11 @@ const App = () => {
                     <Route path="/contact" element={<Contact />} />
                     <Route path="/about" element={<About />} />
                     <Route path="/category/:category" element={<CategoryDetail />} />
-                    <Route path="/trip/:slug" element={<TripDetail />} />
-                    <Route path="/event/:slug" element={<EventDetail />} />
-                    <Route path="/hotel/:slug" element={<HotelDetail />} />
-                    <Route path="/adventure/:slug" element={<AdventurePlaceDetail />} />
-                    <Route path="/attraction/:slug" element={<AdventurePlaceDetail />} />
+                    <Route path="/trip/:slug" element={<Suspense fallback={<DetailPageSkeleton />}><TripDetail /></Suspense>} />
+                    <Route path="/event/:slug" element={<Suspense fallback={<DetailPageSkeleton />}><EventDetail /></Suspense>} />
+                    <Route path="/hotel/:slug" element={<Suspense fallback={<DetailPageSkeleton />}><HotelDetail /></Suspense>} />
+                    <Route path="/adventure/:slug" element={<Suspense fallback={<DetailPageSkeleton />}><AdventurePlaceDetail /></Suspense>} />
+                    <Route path="/attraction/:slug" element={<Suspense fallback={<DetailPageSkeleton />}><AdventurePlaceDetail /></Suspense>} />
                     <Route path="/auth" element={<Auth />} />
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/profile/edit" element={<ProfileEdit />} />

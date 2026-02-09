@@ -65,8 +65,7 @@ const AdventurePlaceDetail = () => {
 
   useEffect(() => {
     if (id) {
-      fetchPlace();
-      fetchLiveRating();
+      Promise.all([fetchPlace(), fetchLiveRating()]);
     }
     const urlParams = new URLSearchParams(window.location.search);
     const refSlug = urlParams.get("ref");

@@ -120,27 +120,14 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className }: Head
           <NotificationBell />
 
           {user ? (
-            <>
-              {/* Desktop Profile Button */}
-              <AccountSheet>
-                <button 
-                  className="hidden sm:flex h-10 px-4 rounded-xl items-center gap-2 transition-all font-semibold text-xs text-primary-foreground bg-primary hover:brightness-110"
-                >
-                  <User className="h-4 w-4" />
-                  <span>Profile</span>
-                </button>
-              </AccountSheet>
-              
-              {/* Mobile Profile Icon Button */}
-              <AccountSheet>
-                <button 
-                  className="sm:hidden h-10 w-10 rounded-xl flex items-center justify-center transition-all duration-200 active:scale-90 text-primary-foreground bg-primary hover:brightness-110"
-                  aria-label="Profile"
-                >
-                  <User className="h-5 w-5" />
-                </button>
-              </AccountSheet>
-            </>
+            <AccountSheet>
+              <button 
+                className="hidden sm:flex h-10 px-4 rounded-xl items-center gap-2 transition-all font-semibold text-xs text-primary-foreground bg-primary hover:brightness-110"
+              >
+                <User className="h-4 w-4" />
+                <span>Profile</span>
+              </button>
+            </AccountSheet>
           ) : (
             <button 
               onClick={() => navigate('/auth')}

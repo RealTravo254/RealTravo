@@ -69,8 +69,8 @@ const HotelDetail = () => {
 
   useEffect(() => {
     if (id) {
-      fetchHotel();
-      fetchLiveRating();
+      // Fetch hotel and rating in parallel
+      Promise.all([fetchHotel(), fetchLiveRating()]);
     }
     const urlParams = new URLSearchParams(window.location.search);
     const refSlug = urlParams.get("ref");

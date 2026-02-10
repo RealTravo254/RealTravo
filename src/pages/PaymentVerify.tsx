@@ -108,7 +108,11 @@ const PaymentVerify = () => {
       <div className="bg-white rounded-[32px] shadow-xl border border-slate-100 p-8 max-w-md w-full text-center">
         {status === 'loading' && (
           <>
-            <Loader2 className="h-16 w-16 animate-spin mx-auto mb-6" style={{ color: COLORS.TEAL }} />
+            <div className="flex items-center justify-center gap-3 mb-6">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="w-3.5 h-3.5 rounded-full bg-primary animate-[teal-pulse_1.4s_ease-in-out_infinite]" style={{ animationDelay: `${i * 0.2}s` }} />
+              ))}
+            </div>
             <h1 className="text-2xl font-black uppercase tracking-tight mb-2" style={{ color: COLORS.TEAL }}>
               Verifying Payment
             </h1>

@@ -342,15 +342,20 @@ const EventDetail = () => {
               </div>
             )}
 
-            {/* Highlights */}
+            {/* Highlights / Activities */}
             {event.activities?.length > 0 && (
               <div className="bg-white rounded-[28px] p-7 shadow-sm border border-slate-100">
                 <h2 className="text-xl font-black uppercase tracking-tight mb-5" style={{ color: COLORS.TEAL }}>Highlights</h2>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-3">
                   {event.activities.map((act: any, i: number) => (
-                    <div key={i} className="flex items-center gap-2 bg-[#F0E68C]/20 px-4 py-2.5 rounded-2xl border border-[#F0E68C]/50">
+                    <div key={i} className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-[#F0E68C]/20 border border-[#F0E68C]/50">
                       <CheckCircle2 className="h-4 w-4 text-[#857F3E]" />
-                      <span className="text-[11px] font-black text-[#857F3E] uppercase tracking-wide">{act.name}</span>
+                      <div className="flex flex-col">
+                        <span className="text-[11px] font-black text-[#857F3E] uppercase tracking-wide">{act.name}</span>
+                        <span className="text-[10px] font-bold text-[#857F3E]/70">
+                          {act.price === 0 || act.is_free ? "Included" : `KSh ${Number(act.price).toLocaleString()}`}
+                        </span>
+                      </div>
                     </div>
                   ))}
                 </div>

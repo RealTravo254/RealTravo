@@ -147,16 +147,13 @@ export default function PaymentHistory() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F8F9FA]">
-        <Header />
-        <main className="container mx-auto px-4 py-8">
-          <div className="max-w-4xl mx-auto space-y-4">
-            <Skeleton className="h-10 w-48 rounded-full" />
-            {[1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-40 w-full rounded-[28px]" />
-            ))}
-          </div>
-        </main>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-6">
+        <div className="flex items-center gap-3">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="w-3.5 h-3.5 rounded-full bg-primary animate-[teal-pulse_1.4s_ease-in-out_infinite]" style={{ animationDelay: `${i * 0.2}s` }} />
+          ))}
+        </div>
+        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground">Loading details...</p>
       </div>
     );
   }

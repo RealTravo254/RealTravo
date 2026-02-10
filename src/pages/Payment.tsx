@@ -277,17 +277,13 @@ export default function Payment() {
 
   if (loading || verificationLoading) {
     return (
-      <div className="min-h-screen bg-[#F8F9FA]">
-        <Header />
-        <main className="container mx-auto px-4 py-8 space-y-6">
-          <Skeleton className="h-10 w-40 rounded-full" />
-          <Skeleton className="h-20 w-3/4 rounded-3xl" />
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <Skeleton key={i} className="h-40 rounded-[32px]" />
-            ))}
-          </div>
-        </main>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-6">
+        <div className="flex items-center gap-3">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="w-3.5 h-3.5 rounded-full bg-primary animate-[teal-pulse_1.4s_ease-in-out_infinite]" style={{ animationDelay: `${i * 0.2}s` }} />
+          ))}
+        </div>
+        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground">Loading details...</p>
       </div>
     );
   }

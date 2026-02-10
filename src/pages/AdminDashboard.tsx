@@ -122,8 +122,13 @@ const AdminDashboard = () => {
   };
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-[#F8F9FA]">
-       <div className="animate-spin rounded-full h-12 w-12 border-b-2" style={{ borderColor: COLORS.TEAL }}></div>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-6">
+      <div className="flex items-center gap-3">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="w-3.5 h-3.5 rounded-full bg-primary animate-[teal-pulse_1.4s_ease-in-out_infinite]" style={{ animationDelay: `${i * 0.2}s` }} />
+        ))}
+      </div>
+      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground">Loading details...</p>
     </div>
   );
 

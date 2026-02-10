@@ -1,7 +1,7 @@
 // 1. VERSIONING: Incremented to force an app-wide update
-const STATIC_CACHE = 'realtravo-static-v11';
-const IMAGE_CACHE = 'realtravo-images-v11';
-const DATA_CACHE = 'realtravo-data-v11';
+const STATIC_CACHE = 'realtravo-static-v12';
+const IMAGE_CACHE = 'realtravo-images-v12';
+const DATA_CACHE = 'realtravo-data-v12';
 
 // 2. PRECACHE LIST: The App Shell + All Routes
 const PRECACHE_ASSETS = [
@@ -20,48 +20,6 @@ const PRECACHE_ASSETS = [
 
   // Audio
   '/audio/notification.mp3',
-
-  // Routes
-  '/auth',
-  '/about',
-  '/contact',
-  '/saved',
-  '/bookings',
-  '/install',
-  '/terms-of-service',
-  '/privacy-policy',
-  '/qr-scanner',
-  '/profile',
-  '/profile/edit',
-  '/account',
-  '/my-referrals',
-  '/payment',
-  '/payment-history',
-  '/reset-password',
-  '/verify-email',
-  '/forgot-password',
-  '/become-host',
-  '/creator-dashboard',
-  '/my-listing',
-  '/host-verification',
-  '/verification-status',
-  '/create-trip',
-  '/create-hotel',
-  '/create-adventure',
-  '/create-attraction',
-  '/host/trips',
-  '/host/hotels',
-  '/host/experiences',
-  '/host-bookings',
-  '/admin',
-  '/admin/pending',
-  '/admin/approved',
-  '/admin/rejected',
-  '/admin/bookings',
-  '/admin/all-bookings',
-  '/admin/verification',
-  '/admin/payment-verification',
-  '/admin/referral-settings'
 ];
 
 const IMAGE_PATTERNS = [
@@ -74,7 +32,6 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(STATIC_CACHE).then((cache) => {
       console.log('Realtravo: Precaching Assets...');
-      // Use cache.addAll but catch individual failures to prevent install crash
       return cache.addAll(PRECACHE_ASSETS).catch(err => console.warn("Precache failed for some assets", err));
     })
   );
@@ -98,32 +55,58 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// --- FETCH: Safe SPA handling + caching ---
+// --- FETCH: Cache-first SPA with smart strategies ---
 self.addEventListener('fetch', (event) => {
-  // Skip non-GET requests (like POST for database updates)
+  // Skip non-GET requests
   if (event.request.method !== 'GET') return;
 
   const url = new URL(event.request.url);
 
-  // IMPORTANT: For SPA navigations, always go to network first.
-  // This prevents serving a stale cached HTML shell that can reference mismatched JS chunks
-  // (which can cause React hook dispatcher errors and a blank white screen).
+  // SPA navigations: Cache-first with network update in background
+  // This prevents blank screens and auto-refresh by serving cached HTML immediately
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request)
-        .then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            const responseClone = networkResponse.clone();
-            caches.open(STATIC_CACHE).then((cache) => cache.put('/index.html', responseClone));
-          }
-          return networkResponse;
-        })
-        .catch(() => caches.match('/index.html'))
+      caches.match('/index.html').then((cachedResponse) => {
+        // Always try to update in background
+        const networkFetch = fetch(event.request)
+          .then((networkResponse) => {
+            if (networkResponse && networkResponse.status === 200) {
+              const responseClone = networkResponse.clone();
+              caches.open(STATIC_CACHE).then((cache) => cache.put('/index.html', responseClone));
+            }
+            return networkResponse;
+          })
+          .catch(() => cachedResponse);
+
+        // Return cached immediately if available, otherwise wait for network
+        return cachedResponse || networkFetch;
+      })
     );
     return;
   }
 
-  // For JS/CSS, use NetworkFirst to avoid mixing old/new builds.
+  // For JS/CSS with hashed filenames (e.g., assets/index-abc123.js): Cache-first
+  // Vite uses content hashing, so cached versions are always valid
+  if (
+    (event.request.destination === 'script' || event.request.destination === 'style') &&
+    url.pathname.includes('/assets/')
+  ) {
+    event.respondWith(
+      caches.match(event.request).then((cachedResponse) => {
+        if (cachedResponse) return cachedResponse;
+        return fetch(event.request).then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const responseClone = networkResponse.clone();
+            caches.open(STATIC_CACHE).then((cache) => cache.put(event.request, responseClone));
+          }
+          return networkResponse;
+        });
+      })
+    );
+    return;
+  }
+
+  // For non-hashed JS/CSS/workers: Network-first to ensure freshness
   if (
     event.request.destination === 'script' ||
     event.request.destination === 'style' ||
@@ -143,26 +126,55 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Everything else: Stale-While-Revalidate
+  // Images: Cache-first (images don't change often)
+  const isImage =
+    IMAGE_PATTERNS.some((p) => p.test(url.href)) ||
+    event.request.destination === 'image';
+
+  if (isImage) {
+    event.respondWith(
+      caches.match(event.request).then((cachedResponse) => {
+        if (cachedResponse) return cachedResponse;
+        return fetch(event.request).then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const responseClone = networkResponse.clone();
+            caches.open(IMAGE_CACHE).then((cache) => cache.put(event.request, responseClone));
+          }
+          return networkResponse;
+        }).catch(() => cachedResponse);
+      })
+    );
+    return;
+  }
+
+  // Supabase API data: Stale-while-revalidate (serve cached, update in background)
+  if (url.pathname.includes('/rest/v1/')) {
+    event.respondWith(
+      caches.match(event.request).then((cachedResponse) => {
+        const fetchPromise = fetch(event.request)
+          .then((networkResponse) => {
+            if (networkResponse && networkResponse.status === 200) {
+              const responseClone = networkResponse.clone();
+              caches.open(DATA_CACHE).then((cache) => cache.put(event.request, responseClone));
+            }
+            return networkResponse;
+          })
+          .catch(() => cachedResponse);
+
+        return cachedResponse || fetchPromise;
+      })
+    );
+    return;
+  }
+
+  // Everything else: Cache-first with background refresh
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       const fetchPromise = fetch(event.request)
         .then((networkResponse) => {
-          // Only cache valid responses
           if (networkResponse && networkResponse.status === 200) {
-            const isImage =
-              IMAGE_PATTERNS.some((p) => p.test(url.href)) ||
-              event.request.destination === 'image';
-
-            let cacheName = STATIC_CACHE;
-            if (isImage) {
-              cacheName = IMAGE_CACHE;
-            } else if (url.pathname.includes('/rest/v1/')) {
-              cacheName = DATA_CACHE;
-            }
-
             const responseClone = networkResponse.clone();
-            caches.open(cacheName).then((cache) => cache.put(event.request, responseClone));
+            caches.open(STATIC_CACHE).then((cache) => cache.put(event.request, responseClone));
           }
           return networkResponse;
         })

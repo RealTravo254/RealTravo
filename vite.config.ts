@@ -82,8 +82,8 @@ export default defineConfig(({ mode }) => ({
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [/^\/api/, /^\/supabase/],
-        skipWaiting: true,
-        clientsClaim: true,
+        skipWaiting: false,
+        clientsClaim: false,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/lmkxpzemfvmffxppxzky\.supabase\.co\/rest\/v1\/.*/i,

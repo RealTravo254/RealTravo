@@ -8,6 +8,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { PageLayout } from "@/components/PageLayout";
 import { SmallScreenInstallBanner } from "@/components/SmallScreenInstallBanner";
 import { DetailPageSkeleton } from "@/components/detail/DetailPageSkeleton";
+import { TealLoader } from "@/components/ui/teal-loader";
 
 // Only the Index page loads eagerly - everything else is lazy
 import Index from "./pages/Index";
@@ -36,7 +37,6 @@ const AdminReviewDetail = lazy(() => import("./pages/AdminReviewDetail"));
 const AdminBookings = lazy(() => import("./pages/AdminBookings"));
 const AdminVerification = lazy(() => import("./pages/AdminVerification"));
 const AdminReferralSettings = lazy(() => import("./pages/AdminReferralSettings"));
-const AdminPaymentVerification = lazy(() => import("./pages/AdminPaymentVerification"));
 const QRScanner = lazy(() => import("./pages/QRScanner"));
 const CreateTripEvent = lazy(() => import("./pages/CreateTripEvent"));
 const CreateHotel = lazy(() => import("./pages/CreateHotel"));
@@ -61,7 +61,6 @@ const VerificationDetail = lazy(() => import("./pages/admin/VerificationDetail")
 const PaymentHistory = lazy(() => import("./pages/PaymentHistory"));
 const Install = lazy(() => import("./pages/Install"));
 const AllBookings = lazy(() => import("./pages/admin/AllBookings"));
-const AccountsOverview = lazy(() => import("./pages/admin/AccountsOverview"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const PublicManualBooking = lazy(() => import("./pages/PublicManualBooking"));
@@ -70,13 +69,17 @@ const BookingPage = lazy(() => import("./pages/BookingPage"));
 const PaymentVerify = lazy(() => import("./pages/PaymentVerify"));
 const MyReferrals = lazy(() => import("./pages/MyReferrals"));
 
-const queryClient = new QueryClient();
-
-const PageLoader = () => (
-  <div className="min-h-screen flex items-center justify-center bg-background">
-    <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-  </div>
-);
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes - prevent unnecessary re-fetches
+      gcTime: 10 * 60 * 1000, // 10 minutes garbage collection
+      refetchOnWindowFocus: false, // Don't refetch when switching tabs
+      refetchOnReconnect: false, // Don't refetch on reconnect
+      retry: 1,
+    },
+  },
+});
 
 const App = () => {
   useEffect(() => {
@@ -97,7 +100,7 @@ const App = () => {
           <AuthProvider>
             <SmallScreenInstallBanner />
             <PageLayout>
-              <Suspense fallback={<PageLoader />}>
+              <Suspense fallback={<TealLoader />}>
                 <div className="w-full">
                   <Routes>
                     <Route path="/" element={<Index />} />
@@ -124,9 +127,7 @@ const App = () => {
                     <Route path="/admin/verification" element={<AdminVerification />} />
                     <Route path="/admin/verification/list/:status" element={<VerificationList />} />
                     <Route path="/admin/verification-detail/:id" element={<VerificationDetail />} />
-                    <Route path="/admin/payment-verification" element={<AdminPaymentVerification />} />
                     <Route path="/admin/referral-settings" element={<AdminReferralSettings />} />
-                    <Route path="/admin/accounts" element={<AccountsOverview />} />
                     <Route path="/become-host" element={<BecomeHost />} />
                     <Route path="/create-trip" element={<CreateTripEvent />} />
                     <Route path="/create-hotel" element={<CreateHotel />} />

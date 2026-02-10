@@ -90,10 +90,14 @@ const Index = () => {
     return Array.from(ids);
   }, [listings, nearbyPlacesHotels, scrollableRows]);
 
-  // Collect trip and event IDs for real-time booking stats
+  // Collect trip and event IDs for real-time booking stats (including search results)
   const tripEventIds = useMemo(() => {
-    return [...scrollableRows.trips, ...scrollableRows.events].map(item => item.id);
-  }, [scrollableRows.trips, scrollableRows.events]);
+    const ids = [...scrollableRows.trips, ...scrollableRows.events].map(item => item.id);
+    listings.forEach(item => {
+      if (item.type === "TRIP" || item.type === "EVENT") ids.push(item.id);
+    });
+    return [...new Set(ids)];
+  }, [scrollableRows.trips, scrollableRows.events, listings]);
 
   // Real-time booking stats subscription - all users see updates instantly
   const { bookingStats } = useRealtimeBookings(tripEventIds);
@@ -200,10 +204,12 @@ const Index = () => {
   const fetchScrollableRows = useCallback(async (limit: number) => {
     setLoadingScrollable(true);
     const today = new Date().toISOString().split('T')[0];
+    // Fetch more items than needed so sortByRating can pick the top-rated ones
+    const fetchLimit = Math.max(limit * 3, 30);
     
     try {
       const [tripsData, hotelsData, campsitesData, eventsData, accommodationsData] = await Promise.all([
-        // Fetch trips with responsive limit
+        // Fetch trips
         supabase
           .from("trips")
           .select(
@@ -213,22 +219,20 @@ const Index = () => {
           .eq("is_hidden", false)
           .eq("type", "trip")
           .order("date", { ascending: true })
-          .limit(limit),
+          .limit(fetchLimit),
         supabase
           .from("hotels")
           .select("id,name,location,place,country,image_url,activities,latitude,longitude,created_at,establishment_type")
           .eq("approval_status", "approved")
           .eq("is_hidden", false)
-          .order("created_at", { ascending: false })
-          .limit(limit),
+          .limit(fetchLimit),
         supabase
           .from("adventure_places")
           .select("id,name,location,place,country,image_url,entry_fee,activities,latitude,longitude,created_at")
           .eq("approval_status", "approved")
           .eq("is_hidden", false)
-          .order("created_at", { ascending: false })
-          .limit(limit),
-        // Fetch events with responsive limit
+          .limit(fetchLimit),
+        // Fetch events
         supabase
           .from("trips")
           .select(
@@ -238,7 +242,7 @@ const Index = () => {
           .eq("is_hidden", false)
           .eq("type", "event")
           .order("date", { ascending: true })
-          .limit(limit),
+          .limit(fetchLimit),
         // Fetch accommodation-only hotels
         supabase
           .from("hotels")
@@ -246,8 +250,7 @@ const Index = () => {
           .eq("approval_status", "approved")
           .eq("is_hidden", false)
           .eq("establishment_type", "accommodation_only")
-          .order("created_at", { ascending: false })
-          .limit(limit),
+          .limit(fetchLimit),
       ]);
       
       setScrollableRows({
@@ -379,14 +382,37 @@ const Index = () => {
       }));
     };
     
-    const [events, hotels, adventures] = await Promise.all([
+    const fetchTrips = async () => {
+      let dbQuery = supabase
+        .from("trips")
+        .select(
+          "id,name,location,place,country,image_url,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child"
+        )
+        .eq("approval_status", "approved")
+        .eq("is_hidden", false)
+        .eq("type", "trip");
+        
+      if (query) {
+        const searchPattern = `%${query}%`;
+        dbQuery = dbQuery.or(`name.ilike.${searchPattern},location.ilike.${searchPattern},country.ilike.${searchPattern}`);
+      }
+      dbQuery = dbQuery.order('date', { ascending: true }).range(offset, offset + limit - 1);
+      const { data } = await dbQuery;
+      return (data || []).map((item: any) => ({
+        ...item,
+        type: "TRIP"
+      }));
+    };
+
+    const [events, trips, hotels, adventures] = await Promise.all([
       fetchEvents(), 
+      fetchTrips(),
       fetchTable("hotels", "HOTEL"), 
       fetchTable("adventure_places", "ADVENTURE PLACE")
     ]);
 
-    // Filter out events and trips from Featured For You section
-    let combined = [...hotels, ...adventures];
+    // Include all listing types for search results
+    let combined = [...hotels, ...adventures, ...trips, ...events];
 
     // Fetch booking statistics for events
     // Booking stats are now handled by useRealtimeBookings hook for real-time updates
@@ -838,6 +864,9 @@ const Index = () => {
                 {sortedListings.map((listing, index) => {
                   const itemDistance = position && listing.latitude && listing.longitude ? calculateDistance(position.latitude, position.longitude, listing.latitude, listing.longitude) : undefined;
                   const ratingData = ratings.get(listing.id);
+                  const isTripsOrEvents = listing.type === "TRIP" || listing.type === "EVENT";
+                  const today = new Date().toISOString().split('T')[0];
+                  const isOutdated = listing.date && !listing.is_flexible_date && listing.date < today;
                   return (
                     <div key={listing.id} className="w-full">
                       <ListingCard 
@@ -849,11 +878,13 @@ const Index = () => {
                         imageUrl={listing.image_url} 
                         price={listing.price || listing.entry_fee || 0} 
                         date={listing.date} 
-                        isCustomDate={listing.is_custom_date} 
+                        isCustomDate={listing.is_custom_date}
+                        isFlexibleDate={listing.is_flexible_date}
+                        isOutdated={isOutdated}
                         isSaved={savedItems.has(listing.id)} 
                         onSave={() => handleSave(listing.id, listing.type)} 
-                        availableTickets={listing.type === "TRIP" || listing.type === "EVENT" ? listing.available_tickets : undefined} 
-                        bookedTickets={listing.type === "TRIP" || listing.type === "EVENT" ? bookingStats[listing.id] || 0 : undefined} 
+                        availableTickets={isTripsOrEvents ? listing.available_tickets : undefined} 
+                        bookedTickets={isTripsOrEvents ? bookingStats[listing.id] || 0 : undefined} 
                         showBadge={true} 
                         priority={index < 4} 
                         hidePrice={listing.type === "HOTEL" || listing.type === "ADVENTURE PLACE"} 

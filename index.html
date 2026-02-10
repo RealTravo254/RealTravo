@@ -11,20 +11,13 @@
     <link rel="manifest" href="/manifest.json" />
 
     <meta name="google-site-verification" content="-gW4v5AAxn1KmeJkWDH03jKAa1jPsQXwxBSh9CYLkJw" />
-    <title>Realtravo - Click. Pack. Go!</title>
+    <title>Realtravo - Where Every Journey Begins with a Better Booking</title>
     <meta name="description" content="Discover and book exciting trips, events, and hotels with Realtravo. Your gateway to unforgettable travel experiences." />
     <meta name="keywords" content="Realtravo, Real Travo, travel booking, book hotels, travel experiences, adventure trips, become a host" />
-    <meta name="author" content="Realtravo" />
     
-    <link rel="canonical" href="https://realtravo.com/" />
-
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-    <link rel="prefetch" as="image" href="/images/hero-background.webp" type="image/webp" />
     <link rel="preconnect" href="https://lmkxpzemfvmffxppxzky.supabase.co" crossorigin />
-    <link rel="dns-prefetch" href="https://lmkxpzemfvmffxppxzky.supabase.co" />
 
     <meta property="og:title" content="Realtravo - Click. Pack. Go!" />
     <meta property="og:description" content="Explore amazing travel experiences, hotels, and adventures with Realtravo." />
@@ -32,98 +25,48 @@
     <meta property="og:url" content="https://realtravo.com/" />
     <meta property="og:image" content="https://realtravo.com/fulllogo.png" />
 
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "WebSite",
-      "name": "Realtravo",
-      "url": "https://realtravo.com/",
-      "potentialAction": {
-        "@type": "SearchAction",
-        "target": {
-          "@type": "EntryPoint",
-          "urlTemplate": "https://realtravo.com/?search={search_term_string}"
-        },
-        "query-input": "required name=search_term_string"
-      }
-    }
-    </script>
-    
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "SiteNavigationElement",
-      "name": "Main Navigation",
-      "hasPart": [
-        {
-          "@type": "WebPage",
-          "name": "Become a Host",
-          "description": "Start earning by hosting your own trips, events, or accommodations on Realtravo.",
-          "url": "https://realtravo.com/become-host"
-        },
-        {
-          "@type": "WebPage",
-          "name": "Trips & Events",
-          "description": "Browse curated group trips and local events across Kenya and beyond.",
-          "url": "https://realtravo.com/category/trips"
-        },
-        {
-          "@type": "WebPage",
-          "name": "Hotels & Stays",
-          "description": "Find the perfect accommodation with our premium hotel selections.",
-          "url": "https://realtravo.com/category/hotels"
-        },
-        {
-          "@type": "WebPage",
-          "name": "Adventures",
-          "description": "Book adrenaline-pumping activities and unique outdoor experiences.",
-          "url": "https://realtravo.com/category/adventures"
-        }
-      ]
-    }
-    </script>
-    
     <style>
-      body { 
-        margin: 0; 
-        font-family: system-ui, -apple-system, sans-serif; 
-        /* Using a light grey so the white glass effect is visible */
-        background-color: #f4f7f6; 
-      }
-
+      body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background-color: #f4f7f6; }
       #root { min-height: 100vh; }
-
-      /* The modern glass class for your nav or cards */
       .glass-effect {
         background-color: rgba(255, 255, 255, 0.5); 
         backdrop-filter: blur(12px);
         -webkit-backdrop-filter: blur(12px);
         border-bottom: 1px solid rgba(255, 255, 255, 0.2);
       }
-
       @media (prefers-color-scheme: dark) { 
         body { background-color: #1a2332; } 
-        .glass-effect {
-          background-color: rgba(26, 35, 50, 0.7); /* Darker glass for dark mode */
-          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
+        .glass-effect { background-color: rgba(26, 35, 50, 0.7); border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
+      }
+      /* Screen reader only class instead of display:none for better SEO accessibility */
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border-width: 0;
       }
     </style>
   </head>
 
   <body>
-    <h1 style="display:none;">Realtravo - Book Trips, Events, Hotels & Adventures</h1>
-    
-    <nav style="display:none;">
+    <header class="sr-only">
+      <h1>Realtravo - Book Trips, Events, Sports, Hotels & Adventures</h1>
+      <nav>
         <a href="https://realtravo.com/become-host">Become a Host</a>
-        <a href="https://realtravo.com/category/trips">Trips & Events</a>
+        <a href="https://realtravo.com/category/trips">Trips & Tours</a>
         <a href="https://realtravo.com/category/hotels">Hotels</a>
-        <a href="https://realtravo.com/category/adventures">Adventures</a>
-        <a href="https://realtravo.com/category/auth">Login/Sign Up</a>
-    </nav>
+        <a href="https://realtravo.com/category/adventures">Adventure Places</a>
+        <a href="https://realtravo.com/category/accommodations">Accommodation</a>
+        <a href="https://realtravo.com/category/events">Events & Sports</a>
+      </nav>
+    </header>
 
     <div id="root"></div>
-
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

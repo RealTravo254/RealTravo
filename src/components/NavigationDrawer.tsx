@@ -76,7 +76,7 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
               RealTravo
             </span>
             <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 mt-1">
-              Click.Pack.Go!.
+              Where Every Journey Begins with a Better Booking.
             </p>
           </div>
         </div>

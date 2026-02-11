@@ -93,9 +93,8 @@ const HostBookings = () => {
             {hostedItems.map(item => (
               <button key={item.id} onClick={() => navigate(`/host-bookings/${item.type}/${item.id}`)}
                 className="w-full bg-card hover:bg-muted/50 transition-all rounded-xl px-2 py-2 border border-border flex items-center gap-2 text-left">
-                <div className="h-12 w-12 rounded-lg overflow-hidden bg-muted shrink-0">
-                  {item.image_url ? <img src={item.image_url} alt="" className="w-full h-full object-cover" /> :
-                    <div className="flex items-center justify-center h-full text-muted-foreground">{getIcon(item.type)}</div>}
+                <div className="h-12 w-12 rounded-lg overflow-hidden bg-muted shrink-0 flex items-center justify-center text-muted-foreground">
+                  {getIcon(item.type)}
                 </div>
                 <div className="flex-1 min-w-0">
                   <Badge variant="secondary" className="text-[7px] px-1 py-0 h-3.5 mb-0.5">{item.type}</Badge>

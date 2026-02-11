@@ -5,8 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { 
-  ArrowLeft, Users, DollarSign, Wallet, TrendingUp, Award, Percent, 
-  Clock, CheckCircle, XCircle, AlertCircle, Receipt
+  ArrowLeft, DollarSign, Wallet, TrendingUp, Award, Percent, Receipt
 } from "lucide-react";
 import { useHostVerificationStatus } from "@/hooks/useHostVerificationStatus";
 import { WithdrawalDialog } from "@/components/referral/WithdrawalDialog";
@@ -23,7 +22,7 @@ export default function Payment() {
   const [stats, setStats] = useState({
     totalReferred: 0, totalBookings: 0, totalCommission: 0,
     hostEarnings: 0, bookingEarnings: 0, grossBalance: 0,
-    serviceFeeDeducted: 0, withdrawableBalance: 0, avgServiceFeeRate: 0,
+    serviceFeeDeducted: 0, referralDeducted: 0, withdrawableBalance: 0, avgServiceFeeRate: 0,
   });
 
   useEffect(() => {
@@ -33,43 +32,74 @@ export default function Payment() {
 
   const fetchData = async () => {
     try {
-      // Fetch host earnings
-      const { data: bookings } = await supabase.from("bookings")
-        .select("total_amount, item_id, booking_type, payment_status").eq("payment_status", "completed");
-      let hostBalance = 0;
-      if (bookings) {
-        const tableMap: Record<string, string> = { trip: "trips", hotel: "hotels", adventure: "adventure_places" };
-        for (const b of bookings) {
-          const t = tableMap[b.booking_type];
-          if (t) {
-            const { data: item } = await supabase.from(t as any).select("created_by").eq("id", b.item_id).single();
-            if ((item as any)?.created_by === user?.id) hostBalance += Number(b.total_amount);
+      // Fetch host earnings from completed bookings + settings
+      const [bookingsRes, settingsRes] = await Promise.all([
+        supabase.from("bookings")
+          .select("total_amount, item_id, booking_type, payment_status, service_fee_amount, referral_tracking_id")
+          .eq("payment_status", "completed"),
+        supabase.from("referral_settings").select("*").single(),
+      ]);
+
+      const bookings = bookingsRes.data || [];
+      const settings = settingsRes.data;
+      const tableMap: Record<string, string> = { trip: "trips", event: "trips", hotel: "hotels", adventure: "adventure_places", adventure_place: "adventure_places" };
+      
+      let grossHostEarnings = 0;
+      let totalServiceFee = 0;
+      let totalReferralDeducted = 0;
+
+      for (const b of bookings) {
+        const t = tableMap[b.booking_type];
+        if (t) {
+          const { data: item } = await supabase.from(t as any).select("created_by").eq("id", b.item_id).single();
+          if ((item as any)?.created_by === user?.id) {
+            const amount = Number(b.total_amount);
+            grossHostEarnings += amount;
+            
+            // Calculate service fee deduction
+            let serviceFeeRate = 20.0;
+            if (settings) {
+              if (b.booking_type === 'trip' || b.booking_type === 'event') serviceFeeRate = Number(settings.trip_service_fee);
+              else if (b.booking_type === 'hotel') serviceFeeRate = Number(settings.hotel_service_fee);
+              else if (b.booking_type === 'adventure' || b.booking_type === 'adventure_place') serviceFeeRate = Number(settings.adventure_place_service_fee);
+            }
+            const fee = (amount * serviceFeeRate) / 100;
+            totalServiceFee += fee;
+            
+            // Check if referral commission was deducted
+            if (b.referral_tracking_id) {
+              let commRate = 5.0;
+              if (settings) {
+                if (b.booking_type === 'trip' || b.booking_type === 'event') commRate = Number(settings.trip_commission_rate);
+                else if (b.booking_type === 'hotel') commRate = Number(settings.hotel_commission_rate);
+                else if (b.booking_type === 'adventure' || b.booking_type === 'adventure_place') commRate = Number(settings.adventure_place_commission_rate);
+              }
+              totalReferralDeducted += (fee * commRate) / 100;
+            }
           }
         }
       }
 
+      const netHostEarnings = grossHostEarnings - totalServiceFee;
+
       if (isVerifiedHost) {
-        const [refRes, comRes, setRes] = await Promise.all([
+        const [refRes, comRes] = await Promise.all([
           supabase.from("referral_tracking").select("referred_user_id").eq("referrer_id", user!.id),
           supabase.from("referral_commissions").select("commission_type,commission_amount,booking_amount,status,withdrawn_at").eq("referrer_id", user!.id),
-          supabase.from("referral_settings").select("platform_referral_commission_rate").single(),
         ]);
-        const refs = refRes.data || [], coms = comRes.data || [], settings = setRes.data;
+        const refs = refRes.data || [], coms = comRes.data || [];
         const unique = new Set(refs.map(r => r.referred_user_id).filter(Boolean));
-        const hostE = coms.filter(c => c.commission_type === 'host').reduce((s, c) => s + Number(c.commission_amount), 0);
         const bookE = coms.filter(c => c.commission_type === 'booking').reduce((s, c) => s + Number(c.commission_amount), 0);
-        const withdrawable = coms.filter(c => c.status === 'paid' && !c.withdrawn_at).reduce((s, c) => s + Number(c.commission_amount), 0);
-        const gross = coms.filter(c => c.status === 'paid').reduce((s, c) => s + Number(c.commission_amount), 0);
-        const totalBA = coms.filter(c => c.status === 'paid').reduce((s, c) => s + Number(c.booking_amount), 0);
+        const withdrawableCommissions = coms.filter(c => c.status === 'paid' && !c.withdrawn_at).reduce((s, c) => s + Number(c.commission_amount), 0);
         const rate = settings?.platform_referral_commission_rate || 5.0;
         setStats({
-          totalReferred: unique.size, totalBookings: coms.length, totalCommission: hostE + bookE,
-          hostEarnings: hostE, bookingEarnings: bookE, grossBalance: gross,
-          serviceFeeDeducted: Math.max(0, totalBA * (rate / 100) - gross),
-          withdrawableBalance: withdrawable + hostBalance, avgServiceFeeRate: rate,
+          totalReferred: unique.size, totalBookings: coms.length, totalCommission: bookE,
+          hostEarnings: grossHostEarnings, bookingEarnings: bookE, grossBalance: grossHostEarnings,
+          serviceFeeDeducted: totalServiceFee, referralDeducted: totalReferralDeducted,
+          withdrawableBalance: netHostEarnings + withdrawableCommissions, avgServiceFeeRate: rate,
         });
       } else {
-        setStats(prev => ({ ...prev, withdrawableBalance: hostBalance, grossBalance: hostBalance }));
+        setStats(prev => ({ ...prev, hostEarnings: grossHostEarnings, withdrawableBalance: netHostEarnings, grossBalance: grossHostEarnings, serviceFeeDeducted: totalServiceFee, referralDeducted: totalReferralDeducted }));
       }
       setLoading(false);
     } catch (e) { console.error(e); setLoading(false); }
@@ -116,14 +146,18 @@ export default function Payment() {
           </div>
         </div>
 
-        {/* Quick Actions */}
+        {/* Host Earnings Breakdown */}
+        <div className="mb-3">
+          <h2 className="text-sm font-black uppercase tracking-tight text-foreground">Earnings Breakdown</h2>
+          <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Host income after deductions</p>
+        </div>
         <div className="grid grid-cols-2 gap-2 mb-4">
-          <Button variant="outline" size="sm" onClick={() => navigate("/payment-history")} className="rounded-lg h-10 text-[9px] font-bold uppercase">
-            <Receipt className="h-3.5 w-3.5 mr-1.5" /> Payment History
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => navigate("/bookings")} className="rounded-lg h-10 text-[9px] font-bold uppercase">
-            <DollarSign className="h-3.5 w-3.5 mr-1.5" /> My Bookings
-          </Button>
+          <StatCard icon={<DollarSign className="h-4 w-4" />} label="Gross Earnings" value={`KES ${stats.hostEarnings.toLocaleString()}`} />
+          <StatCard icon={<Percent className="h-4 w-4" />} label="Service Fee" value={`- KES ${stats.serviceFeeDeducted.toLocaleString()}`} />
+          {stats.referralDeducted > 0 && (
+            <StatCard icon={<Award className="h-4 w-4" />} label="Referral Comm." value={`- KES ${Math.round(stats.referralDeducted).toLocaleString()}`} />
+          )}
+          <StatCard icon={<Wallet className="h-4 w-4" />} label="Net Earnings" value={`KES ${Math.max(0, stats.hostEarnings - stats.serviceFeeDeducted).toLocaleString()}`} />
         </div>
 
         {/* Referral Stats */}

@@ -91,7 +91,7 @@ export const WithdrawalDialog = ({
           action: 'withdraw',
           user_id: userId,
           amount: amount,
-          payout_type: 'commission',
+          payout_type: 'combined',
           payment_method: withdrawMethod,
           mpesa_number: withdrawMethod === "mpesa" ? formatMpesaNumber(mpesaNumber) : undefined,
           bank_code: withdrawMethod === "bank" ? bankCode : undefined,

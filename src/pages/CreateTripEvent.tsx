@@ -134,7 +134,6 @@ const CreateTripEvent = () => {
     
     if (step === 4) {
       if (!formData.phone_number) errors.push("phone_number");
-      if (!formData.map_link) errors.push("map_link");
     }
     
     if (step === 5) {
@@ -390,12 +389,12 @@ const CreateTripEvent = () => {
               </div>
             </div>
             <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">GPS Location *</Label>
-              <div className={`p-4 rounded-2xl border-2 transition-all ${validationErrors.includes("map_link") ? "border-red-500 bg-red-50" : "border-dashed border-slate-200 bg-slate-50/50"}`}>
+              <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">GPS Location (Optional)</Label>
+              <div className="p-4 rounded-2xl border-2 transition-all border-dashed border-slate-200 bg-slate-50/50">
                 <div className="flex flex-col gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="p-3 rounded-full" style={{ backgroundColor: validationErrors.includes("map_link") ? "#fee2e2" : `${COLORS.CORAL}15` }}>
-                      <Navigation className="h-6 w-6" style={{ color: validationErrors.includes("map_link") ? "#ef4444" : COLORS.CORAL }} />
+                    <div className="flex items-center gap-3">
+                     <div className="p-3 rounded-full" style={{ backgroundColor: `${COLORS.CORAL}15` }}>
+                      <Navigation className="h-6 w-6" style={{ color: COLORS.CORAL }} />
                     </div>
                     <div className="flex-1">
                       <p className="text-[10px] text-slate-400 font-bold">

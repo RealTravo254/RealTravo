@@ -51,8 +51,7 @@ const ROUTE_PARENTS: Record<string, string> = {
   "/category/": "/",
   // Other
   "/qr-scanner": "/become-host",
-  "/payment-history": "/profile",
-  "/my-referrals": "/profile",
+  "/payment-history": "/payment",
 };
 
 /**

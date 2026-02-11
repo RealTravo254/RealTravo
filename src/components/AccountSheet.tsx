@@ -12,7 +12,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
   ChevronRight, User, Briefcase, CreditCard, Shield, 
-  LogOut, UserCog, Users, Receipt, 
+  LogOut, UserCog, 
   CalendarCheck, Settings 
 } from "lucide-react";
 
@@ -83,9 +83,7 @@ export const AccountSheet = ({ children }: AccountSheetProps) => {
     ]},
     { section: "Personal", items: [
       { icon: User, label: "Edit Profile", path: "/profile/edit", show: true },
-      { icon: Users, label: "My Referrals", path: "/my-referrals", show: true },
-      { icon: CreditCard, label: "Payment Methods", path: "/payment", show: true },
-      { icon: Receipt, label: "Payment History", path: "/payment-history", show: true },
+      { icon: CreditCard, label: "Payments & Earnings", path: "/payment", show: true },
     ]},
     { section: "Admin Control", items: [
       { icon: Shield, label: "Admin Dashboard", path: "/admin", show: userRole === "admin" },

@@ -58,7 +58,7 @@ const CategoryHotels = lazy(() => import("./pages/host/CategoryHotels"));
 const CategoryExperiences = lazy(() => import("./pages/host/CategoryExperiences"));
 const VerificationList = lazy(() => import("./pages/admin/VerificationList"));
 const VerificationDetail = lazy(() => import("./pages/admin/VerificationDetail"));
-const PaymentHistory = lazy(() => import("./pages/PaymentHistory"));
+
 const Install = lazy(() => import("./pages/Install"));
 const AllBookings = lazy(() => import("./pages/admin/AllBookings"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
@@ -67,7 +67,7 @@ const PublicManualBooking = lazy(() => import("./pages/PublicManualBooking"));
 const CompleteProfile = lazy(() => import("./pages/CompleteProfile"));
 const BookingPage = lazy(() => import("./pages/BookingPage"));
 const PaymentVerify = lazy(() => import("./pages/PaymentVerify"));
-const MyReferrals = lazy(() => import("./pages/MyReferrals"));
+
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -150,8 +150,6 @@ const App = () => {
                     
                     <Route path="/payment" element={<Payment />} />
                     <Route path="/payment/verify" element={<PaymentVerify />} />
-                    <Route path="/payment-history" element={<PaymentHistory />} />
-                    <Route path="/my-referrals" element={<MyReferrals />} />
                     <Route path="/install" element={<Install />} />
                     <Route path="/host-bookings" element={<HostBookings />} />
                     <Route path="/host-bookings/:itemType/:id" element={<HostBookingDetails />} />

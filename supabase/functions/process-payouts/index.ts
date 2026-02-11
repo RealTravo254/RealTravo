@@ -212,16 +212,15 @@ serve(async (req) => {
           .eq('status', 'paid')
           .is('withdrawn_at', null);
 
-        availableBalance = (commissions || []).reduce((sum, c) => sum + Number(c.commission_amount), 0);
+        availableBalance = (commissions || []).reduce((sum: number, c: any) => sum + Number(c.commission_amount), 0);
       } else if (payout_type === 'host') {
-        // Check host earnings balance (bookings with payout_status = 'ready')
+        // Check host earnings balance
         const { data: bookings } = await supabase
           .from('bookings')
           .select('host_payout_amount, item_id')
           .eq('payout_status', 'ready')
           .gt('host_payout_amount', 0);
 
-        // Filter bookings where user is the host
         for (const booking of bookings || []) {
           const { data: trips } = await supabase.from('trips').select('id').eq('id', booking.item_id).eq('created_by', user_id);
           const { data: hotels } = await supabase.from('hotels').select('id').eq('id', booking.item_id).eq('created_by', user_id);
@@ -231,6 +230,47 @@ serve(async (req) => {
             availableBalance += Number(booking.host_payout_amount);
           }
         }
+      } else if (payout_type === 'combined') {
+        // Combined: host earnings (gross - service fee) + referral commissions
+        // 1. Calculate net host earnings
+        const { data: allBookings } = await supabase
+          .from('bookings')
+          .select('total_amount, item_id, booking_type, payment_status, service_fee_amount, referral_tracking_id')
+          .eq('payment_status', 'completed');
+
+        const { data: settings } = await supabase
+          .from('referral_settings')
+          .select('*')
+          .single();
+
+        let netHostEarnings = 0;
+        for (const b of allBookings || []) {
+          const tables: Record<string, string> = { trip: 'trips', event: 'trips', hotel: 'hotels', adventure: 'adventure_places', adventure_place: 'adventure_places' };
+          const tbl = tables[b.booking_type];
+          if (!tbl) continue;
+          const { data: item } = await supabase.from(tbl).select('created_by').eq('id', b.item_id).single();
+          if (item?.created_by === user_id) {
+            const amt = Number(b.total_amount);
+            let sfRate = 20.0;
+            if (settings) {
+              if (b.booking_type === 'trip' || b.booking_type === 'event') sfRate = Number(settings.trip_service_fee);
+              else if (b.booking_type === 'hotel') sfRate = Number(settings.hotel_service_fee);
+              else if (b.booking_type === 'adventure' || b.booking_type === 'adventure_place') sfRate = Number(settings.adventure_place_service_fee);
+            }
+            netHostEarnings += amt - (amt * sfRate / 100);
+          }
+        }
+
+        // 2. Referral commissions
+        const { data: commissions } = await supabase
+          .from('referral_commissions')
+          .select('commission_amount')
+          .eq('referrer_id', user_id)
+          .eq('status', 'paid')
+          .is('withdrawn_at', null);
+        const refBalance = (commissions || []).reduce((sum: number, c: any) => sum + Number(c.commission_amount), 0);
+
+        availableBalance = netHostEarnings + refBalance;
       }
 
       if (amount > availableBalance) {

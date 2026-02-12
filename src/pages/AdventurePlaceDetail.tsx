@@ -223,6 +223,10 @@ const AdventurePlaceDetail = () => {
                   <Star className="h-3 w-3 fill-current" />
                   {liveRating.avg > 0 ? liveRating.avg : "New"}
                 </Badge>
+                <Badge className={`${isOpenNow ? "bg-emerald-500" : "bg-red-500"} text-white border-none px-2 py-0.5 text-[9px] font-black uppercase rounded-full flex items-center gap-1`}>
+                  <Circle className={`h-2 w-2 fill-current ${isOpenNow ? "animate-pulse" : ""}`} />
+                  {isOpenNow ? "open" : "closed"}
+                </Badge>
               </div>
               <h1 className="text-2xl font-black text-white uppercase tracking-tighter leading-none mb-2">{place.name}</h1>
               <div className="flex items-center gap-1 text-white">

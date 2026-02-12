@@ -1,41 +1,48 @@
-import React from "react";
+import { useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Loader2, X } from "lucide-react";
 
-/**
- * UTILITY: Opens a link in a new tab securely.
- * Use this to avoid 'X-Frame-Options' errors and popup blockers.
- */
-export const openInNewTab = (url: string) => {
-  // 'noopener' and 'noreferrer' are security best practices
-  // they prevent the new page from accessing your window object.
-  const newWindow = window.open(url, "_blank", "noopener,noreferrer");
-  
-  // Optional: If the window opened, focus it
-  if (newWindow) newWindow.focus();
-};
+interface ExternalBookingDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  url: string;
+  title?: string;
+}
 
-export const DirectBookingButton = ({ url = "https://example.com/book" }) => {
+export const ExternalBookingDialog = ({ open, onOpenChange, url, title = "Reserve" }: ExternalBookingDialogProps) => {
+  const [loading, setLoading] = useState(true);
+
   return (
-    <div className="flex flex-col items-center gap-3">
-      {/* This button triggers the external site instantly. 
-          Because it is a direct result of a user click, 
-          the browser will NOT block it.
-      */}
-      <Button 
-        onClick={() => openInNewTab(url)}
-        size="lg"
-        className="font-bold px-8 h-12 rounded-full shadow-md hover:shadow-lg transition-all"
-      >
-        Book Now 
-        <ExternalLink className="ml-2 h-4 w-4" />
-      </Button>
-
-      <p className="text-[11px] text-muted-foreground uppercase tracking-widest font-medium">
-        Opens in a secure browser tab
-      </p>
-    </div>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl h-[85vh] p-0 overflow-hidden rounded-2xl">
+        <DialogHeader className="p-4 border-b flex flex-row items-center justify-between">
+          <DialogTitle className="font-black uppercase tracking-tight text-sm">{title}</DialogTitle>
+          <a 
+            href={url} 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="text-[10px] font-bold text-muted-foreground hover:text-foreground flex items-center gap-1"
+          >
+            <ExternalLink className="h-3 w-3" /> Open in browser
+          </a>
+        </DialogHeader>
+        <div className="flex-1 relative w-full h-full">
+          {loading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-muted/50 z-10">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          )}
+          <iframe
+            src={url}
+            className="w-full h-full border-none"
+            style={{ minHeight: "calc(85vh - 60px)" }}
+            onLoad={() => setLoading(false)}
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation-by-user-activation"
+            title={title}
+          />
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };
-
-export default DirectBookingButton;

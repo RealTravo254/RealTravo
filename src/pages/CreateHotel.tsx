@@ -28,8 +28,8 @@ const COLORS = {
   SOFT_GRAY: "#F8F9FA"
 };
 
-const TOTAL_STEPS = 7;
-const TOTAL_STEPS_ACCOMMODATION = 7; // Same steps, link source removed
+const TOTAL_STEPS = 9; // Increased to separate amenities, facilities, and activities
+const TOTAL_STEPS_ACCOMMODATION = 9;
 
 const CreateHotel = () => {
   const navigate = useNavigate();
@@ -123,16 +123,59 @@ const CreateHotel = () => {
       if (!hasDays) newErrors.workingDays = true;
     }
 
-    if (step === 4) {
-      // Facilities check: If name exists, capacity is mandatory
-      const invalidFacility = facilities.some(f => f.name.trim() !== "" && (!f.capacity || parseInt(f.capacity) <= 0));
+    // Step 4: Amenities - optional, no validation needed
+
+    if (step === 5) {
+      // Facilities validation: if any field is filled, all required fields must be filled
+      const invalidFacility = facilities.some(f => {
+        const hasName = f.name.trim() !== "";
+        const hasCapacity = f.capacity && parseInt(f.capacity) > 0;
+        const hasPrice = f.priceType === 'free' || (f.price && parseFloat(f.price.toString()) > 0);
+        const hasImages = f.tempImages && f.tempImages.length > 0;
+        const hasBookingLink = !isAccommodationOnly || (f.bookingLink && f.bookingLink.trim() !== "");
+        
+        // If name is filled, all other required fields must be filled
+        if (hasName) {
+          return !hasCapacity || !hasPrice || !hasImages || !hasBookingLink;
+        }
+        return false;
+      });
+
       if (invalidFacility) {
-        toast({ title: "Capacity Required", description: "Please provide capacity for all added facilities.", variant: "destructive" });
-        return false; 
+        toast({ 
+          title: "Incomplete Facility", 
+          description: `Each facility must have: name, capacity, price, photos${isAccommodationOnly ? ', and booking link' : ''}.`, 
+          variant: "destructive" 
+        });
+        return false;
       }
     }
 
-    if (step === 5) {
+    if (step === 6) {
+      // Activities validation: if any field is filled, all required fields must be filled
+      const invalidActivity = activities.some(a => {
+        const hasName = a.name.trim() !== "";
+        const hasPrice = a.priceType === 'free' || (a.price && parseFloat(a.price.toString()) > 0);
+        const hasImages = a.tempImages && a.tempImages.length > 0;
+        
+        // If name is filled, price and images must be filled
+        if (hasName) {
+          return !hasPrice || !hasImages;
+        }
+        return false;
+      });
+
+      if (invalidActivity) {
+        toast({ 
+          title: "Incomplete Activity", 
+          description: "Each activity must have: name, price, and at least one photo.", 
+          variant: "destructive" 
+        });
+        return false;
+      }
+    }
+
+    if (step === 7) {
       if (galleryImages.length === 0) {
         newErrors.galleryImages = true;
         toast({ title: "Photos Required", description: "At least one photo is required", variant: "destructive" });
@@ -140,7 +183,7 @@ const CreateHotel = () => {
       }
     }
 
-    if (step === 6) {
+    if (step === 8) {
       if (!formData.description.trim()) newErrors.description = true;
     }
 
@@ -171,22 +214,18 @@ const CreateHotel = () => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
-    // Add new files to existing ones
     const newImages = [...galleryImages, ...files];
     setGalleryImages(newImages);
 
-    // Create preview URLs
     const newPreviewUrls = files.map(file => URL.createObjectURL(file));
     setImagePreviewUrls(prev => [...prev, ...newPreviewUrls]);
 
-    // Clear error if images are now present
     if (newImages.length > 0) {
       setErrors(prev => ({ ...prev, galleryImages: false }));
     }
   };
 
   const removeImage = (index: number) => {
-    // Revoke the URL to free memory
     URL.revokeObjectURL(imagePreviewUrls[index]);
     
     setGalleryImages(prev => prev.filter((_, i) => i !== index));
@@ -200,10 +239,8 @@ const CreateHotel = () => {
     setLoading(true);
     
     try {
-      // Compress images
       const compressedImages = await compressImages(galleryImages);
       
-      // Upload images to storage
       const imageUrls: string[] = [];
       for (const image of compressedImages) {
         const fileName = `${user.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.jpg`;
@@ -220,16 +257,13 @@ const CreateHotel = () => {
         imageUrls.push(publicUrl);
       }
 
-      // Get the selected working days as an array
       const selectedDays = Object.entries(workingDays)
         .filter(([_, isSelected]) => isSelected)
         .map(([day]) => day);
 
-      // Upload facility and activity images
       const uploadedFacilities = await uploadItemImages(facilities, user.id);
       const uploadedActivities = await uploadItemImages(activities, user.id);
 
-      // Prepare data for submission
       const hotelData = {
         created_by: user.id,
         name: formData.registrationName,
@@ -455,48 +489,74 @@ const CreateHotel = () => {
           </Card>
         )}
 
-        {/* Step 4: Amenities & Facilities */}
+        {/* Step 4: Amenities (Separate) */}
         {currentStep === 4 && (
           <Card className="bg-white rounded-[28px] p-8 shadow-sm border-none">
             <h2 className="text-xl font-black uppercase tracking-tight mb-6 flex items-center gap-2" style={{ color: COLORS.TEAL }}>
-              <DollarSign className="h-5 w-5" /> Facilities & Activities
+              <CheckCircle2 className="h-5 w-5" /> Amenities (Optional)
             </h2>
-            <div className="space-y-8">
-              <DynamicItemList items={amenities} onChange={setAmenities} label="Amenities (Optional)" showPrice={false} accentColor={COLORS.TEAL} />
-
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                <p className="text-[10px] font-bold text-orange-500 uppercase mb-4 underline">
-                  Note: Capacity is required for every facility added. Add photos to showcase facilities.
-                  {isAccommodationOnly && " Each facility can have its own external booking link."}
-                </p>
-                <DynamicItemListWithImages 
-                  items={facilities} 
-                  onChange={setFacilities} 
-                  label="Facilities (with photos)" 
-                  showCapacity={true} 
-                  accentColor={COLORS.CORAL}
-                  maxImages={5}
-                  userId={user?.id}
-                  showBookingLink={isAccommodationOnly}
-                />
-              </div>
-
-              {!isAccommodationOnly && (
-                <DynamicItemListWithImages 
-                  items={activities} 
-                  onChange={setActivities} 
-                  label="Activities (with photos)" 
-                  accentColor="#6366f1"
-                  maxImages={5}
-                  userId={user?.id}
-                />
-              )}
-            </div>
+            <DynamicItemList 
+              items={amenities} 
+              onChange={setAmenities} 
+              label="Add amenities like WiFi, Parking, Pool, etc." 
+              showPrice={false} 
+              accentColor={COLORS.TEAL} 
+            />
           </Card>
         )}
 
-        {/* Step 5: Gallery Images */}
+        {/* Step 5: Facilities (Separate) */}
         {currentStep === 5 && (
+          <Card className="bg-white rounded-[28px] p-8 shadow-sm border-none">
+            <h2 className="text-xl font-black uppercase tracking-tight mb-6 flex items-center gap-2" style={{ color: COLORS.CORAL }}>
+              <DollarSign className="h-5 w-5" /> Facilities
+            </h2>
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 mb-4">
+              <p className="text-[10px] font-bold text-orange-500 uppercase mb-2">
+                ⚠️ REQUIRED: Name, Capacity, Price, and Photos must be filled for each facility.
+                {isAccommodationOnly && " Booking link is also required."}
+              </p>
+            </div>
+            <DynamicItemListWithImages 
+              items={facilities} 
+              onChange={setFacilities} 
+              label="Conference Rooms, Restaurants, Spa, etc." 
+              showCapacity={true} 
+              accentColor={COLORS.CORAL}
+              maxImages={5}
+              userId={user?.id}
+              showBookingLink={isAccommodationOnly}
+              defaultPriceType="paid"
+            />
+          </Card>
+        )}
+
+        {/* Step 6: Activities (Separate) */}
+        {currentStep === 6 && !isAccommodationOnly && (
+          <Card className="bg-white rounded-[28px] p-8 shadow-sm border-none">
+            <h2 className="text-xl font-black uppercase tracking-tight mb-6 flex items-center gap-2" style={{ color: "#6366f1" }}>
+              <Camera className="h-5 w-5" /> Activities & Experiences
+            </h2>
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 mb-4">
+              <p className="text-[10px] font-bold text-orange-500 uppercase mb-2">
+                ⚠️ REQUIRED: Name, Price, and Photos must be filled for each activity.
+              </p>
+            </div>
+            <DynamicItemListWithImages 
+              items={activities} 
+              onChange={setActivities} 
+              label="Tours, Sports, Entertainment, etc." 
+              accentColor="#6366f1"
+              maxImages={5}
+              userId={user?.id}
+              showPrice={true}
+              defaultPriceType="paid"
+            />
+          </Card>
+        )}
+
+        {/* Step 7: Gallery Images */}
+        {currentStep === 7 && (
           <Card className={`bg-white rounded-[28px] p-8 shadow-sm border-none ${errors.galleryImages ? "ring-2 ring-red-500" : ""}`}>
             <h2 className="text-xl font-black uppercase tracking-tight mb-6 flex items-center gap-2" style={{ color: COLORS.TEAL }}>
               <Camera className="h-5 w-5" /> Property Photos *
@@ -569,8 +629,8 @@ const CreateHotel = () => {
           </Card>
         )}
 
-        {/* Step 6: Description */}
-        {currentStep === 6 && (
+        {/* Step 8: Description */}
+        {currentStep === 8 && (
           <Card className="bg-white rounded-[28px] p-8 shadow-sm border-none">
             <h2 className="text-xl font-black uppercase tracking-tight mb-6 flex items-center gap-2" style={{ color: COLORS.TEAL }}>
               <CheckCircle2 className="h-5 w-5" /> Property Description *
@@ -607,9 +667,7 @@ const CreateHotel = () => {
           </Card>
         )}
 
-        {/* General Booking Link (Accommodation Only - shown in Description step) */}
-
-        {/* Review & Submit (last step) */}
+        {/* Step 9: Review & Submit */}
         {currentStep === totalSteps && (
           <ReviewStep
             type="hotel"

@@ -132,14 +132,15 @@ const CreateHotel = () => {
         // If name exists, check all required fields
         const hasCapacity = f.capacity && parseInt(f.capacity) > 0;
         const hasValidPrice = f.priceType === 'free' || (f.price && parseFloat(f.price as string) > 0);
+        const hasPhotos = (f.tempImages && f.tempImages.length > 0) || (f.images && f.images.length > 0);
         
-        return !hasCapacity || !hasValidPrice;
+        return !hasCapacity || !hasValidPrice || !hasPhotos;
       });
 
       if (incompleteFacilities.length > 0) {
         toast({ 
           title: "Incomplete Facilities", 
-          description: "Please fill capacity and price for all facilities with names.", 
+          description: "Please fill capacity, price, and add at least one photo for all facilities.", 
           variant: "destructive" 
         });
         return false;
@@ -152,14 +153,15 @@ const CreateHotel = () => {
         
         // If name exists, check required fields
         const hasValidPrice = a.priceType === 'free' || (a.price && parseFloat(a.price as string) > 0);
+        const hasPhotos = (a.tempImages && a.tempImages.length > 0) || (a.images && a.images.length > 0);
         
-        return !hasValidPrice;
+        return !hasValidPrice || !hasPhotos;
       });
 
       if (incompleteActivities.length > 0) {
         toast({ 
           title: "Incomplete Activities", 
-          description: "Please fill price for all activities with names.", 
+          description: "Please fill price and add at least one photo for all activities.", 
           variant: "destructive" 
         });
         return false;
@@ -500,7 +502,7 @@ const CreateHotel = () => {
 
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
                 <p className="text-[10px] font-bold text-orange-500 uppercase mb-4 underline">
-                  Note: For each facility, you must fill name, capacity, price/free status, and optionally add photos before moving to the next facility.
+                  Note: For each facility, you must fill name, capacity, price/free status, and AT LEAST ONE PHOTO before moving to the next facility.
                   {isAccommodationOnly && " Each facility can have its own external booking link."}
                 </p>
                 <DynamicItemListWithImages 
@@ -519,7 +521,7 @@ const CreateHotel = () => {
                 <>
                   <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
                     <p className="text-[10px] font-bold text-orange-500 uppercase mb-4 underline">
-                      Note: For each activity, you must fill name, price/free status, and optionally add photos before moving to the next activity.
+                      Note: For each activity, you must fill name, price/free status, and AT LEAST ONE PHOTO before moving to the next activity.
                     </p>
                     <DynamicItemListWithImages 
                       items={activities} 

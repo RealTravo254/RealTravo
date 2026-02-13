@@ -12,7 +12,7 @@ export const ImageGalleryModal = ({ images, name }: ImageGalleryModalProps) => {
   const [open, setOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
-  if (images.length <= 5) return null;
+  if (images.length <= 1) return null;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -58,7 +58,6 @@ export const ImageGalleryModal = ({ images, name }: ImageGalleryModalProps) => {
           </div>
         </div>
 
-        {/* Full-size image viewer */}
         {selectedImage && (
           <div 
             className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4"

@@ -22,9 +22,10 @@ import { Header } from "@/components/Header";
 import { ImageGalleryModal } from "@/components/detail/ImageGalleryModal";
 import { QuickNavigationBar } from "@/components/detail/QuickNavigationBar";
 import { AmenitiesSection } from "@/components/detail/AmenitiesSection";
+import { GeneralFacilitiesDisplay } from "@/components/detail/GeneralFacilitiesDisplay";
 import { DetailMapSection } from "@/components/detail/DetailMapSection";
 import { DetailPageSkeleton } from "@/components/detail/DetailPageSkeleton";
-import { ExternalBookingDialog } from "@/components/detail/ExternalBookingDialog";
+import { ExternalBookingButton } from "@/components/detail/ExternalBookingDialog";
 
 const HotelDetail = () => {
   const { slug } = useParams();
@@ -38,7 +39,7 @@ const HotelDetail = () => {
   const [loading, setLoading] = useState(true);
   const [isOpenNow, setIsOpenNow] = useState(false);
   const [liveRating, setLiveRating] = useState({ avg: 0, count: 0 });
-  const [showExternalBooking, setShowExternalBooking] = useState(false);
+  const [showExternalBooking, setShowExternalBooking] = useState(false); // kept for state but opens new tab now
 
   const isAccommodationOnly = hotel?.establishment_type === 'accommodation_only';
 
@@ -218,7 +219,10 @@ const HotelDetail = () => {
               ))}
             </CarouselContent>
           </Carousel>
-
+          {/* Mobile See All Gallery Button */}
+          {allImages.length > 1 && (
+            <ImageGalleryModal images={allImages} name={hotel.name} />
+          )}
           <div className="absolute bottom-6 left-0 w-full px-4 z-20">
             <div className="bg-gradient-to-r from-black/70 via-black/50 to-transparent rounded-2xl p-4 max-w-xl">
               <div className="flex flex-wrap gap-2 mb-2">
@@ -374,6 +378,9 @@ z
             {/* Amenities - Using new component */}
             <AmenitiesSection amenities={hotel.amenities || []} />
 
+            {/* General Facilities with Icons */}
+            <GeneralFacilitiesDisplay facilityIds={hotel.amenities || []} />
+
             {/* Link Source Attribution removed for accommodation only per requirement */}
 
             {/* Facilities & Pricing with Images */}
@@ -429,19 +436,21 @@ z
                     )}
                 </div>
               </div>
-              {/* Operating hours removed from mobile price card - now shown below description */}
-              <Button 
-                onClick={() => {
-                  if (isAccommodationOnly && hotel.general_booking_link) {
-                    setShowExternalBooking(true);
-                  } else {
-                    navigate(`/booking/hotel/${hotel.id}`);
-                  }
-                }} 
-                className="w-full py-7 rounded-2xl text-md font-black uppercase tracking-widest bg-gradient-to-r from-[#FF7F50] to-[#FF4E50] border-none shadow-lg transition-all active:scale-95"
-              >
-                {isAccommodationOnly ? "Reserve Now" : "Book Now"}
-              </Button>
+              {isAccommodationOnly && hotel.general_booking_link ? (
+                <ExternalBookingButton
+                  url={hotel.general_booking_link}
+                  className="w-full py-7 rounded-2xl text-md font-black uppercase tracking-widest bg-gradient-to-r from-[#FF7F50] to-[#FF4E50] border-none shadow-lg transition-all active:scale-95"
+                >
+                  Reserve Now
+                </ExternalBookingButton>
+              ) : (
+                <Button 
+                  onClick={() => navigate(`/booking/hotel/${hotel.id}`)}
+                  className="w-full py-7 rounded-2xl text-md font-black uppercase tracking-widest bg-gradient-to-r from-[#FF7F50] to-[#FF4E50] border-none shadow-lg transition-all active:scale-95"
+                >
+                  Book Now
+                </Button>
+              )}
               <div className="grid grid-cols-3 gap-3 mt-4">
                 <UtilityButton 
                    icon={<Navigation className="h-5 w-5" />} 
@@ -524,18 +533,21 @@ z
 
                 <OperatingHoursInfo />
 
-                <Button 
-                  onClick={() => {
-                    if (isAccommodationOnly && hotel.general_booking_link) {
-                      setShowExternalBooking(true);
-                    } else {
-                      navigate(`/booking/hotel/${hotel.id}`);
-                    }
-                  }} 
-                  className="w-full py-8 rounded-3xl text-lg font-black uppercase tracking-widest bg-gradient-to-r from-[#FF7F50] to-[#FF4E50] border-none shadow-xl hover:scale-[1.02] transition-transform active:scale-95"
-                >
-                  {isAccommodationOnly ? "Reserve Now" : "Reserve Now"}
-                </Button>
+                {isAccommodationOnly && hotel.general_booking_link ? (
+                  <ExternalBookingButton
+                    url={hotel.general_booking_link}
+                    className="w-full py-8 rounded-3xl text-lg font-black uppercase tracking-widest bg-gradient-to-r from-[#FF7F50] to-[#FF4E50] border-none shadow-xl hover:scale-[1.02] transition-transform active:scale-95"
+                  >
+                    Reserve Now
+                  </ExternalBookingButton>
+                ) : (
+                  <Button 
+                    onClick={() => navigate(`/booking/hotel/${hotel.id}`)}
+                    className="w-full py-8 rounded-3xl text-lg font-black uppercase tracking-widest bg-gradient-to-r from-[#FF7F50] to-[#FF4E50] border-none shadow-xl hover:scale-[1.02] transition-transform active:scale-95"
+                  >
+                    Reserve Now
+                  </Button>
+                )}
 
                 <div className="grid grid-cols-3 gap-3">
                   <UtilityButton 
@@ -625,15 +637,7 @@ z
         </div>
       </main>
 
-      {/* External Booking Dialog */}
-      {isAccommodationOnly && hotel.general_booking_link && (
-        <ExternalBookingDialog
-          open={showExternalBooking}
-          onOpenChange={setShowExternalBooking}
-          url={hotel.general_booking_link}
-          title={`Reserve — ${hotel.name}`}
-        />
-      )}
+      {/* External booking now opens in new tab with loading spinner */}
     </div>
   );
 };

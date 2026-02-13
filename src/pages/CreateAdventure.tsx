@@ -19,6 +19,7 @@ import { compressImages } from "@/lib/imageCompression";
 import { DynamicItemList, DynamicItem } from "@/components/creation/DynamicItemList";
 import { DynamicItemListWithImages, DynamicItemWithImages, uploadItemImages, formatItemsWithImagesForDB } from "@/components/creation/DynamicItemListWithImages";
 import { OperatingHoursSection } from "@/components/creation/OperatingHoursSection";
+import { GeneralFacilitiesSelector } from "@/components/creation/GeneralFacilitiesSelector";
 import { cn } from "@/lib/utils";
 
 const COLORS = { TEAL: "#008080", CORAL: "#FF7F50", CORAL_LIGHT: "#FF9E7A", KHAKI: "#F0E68C", KHAKI_DARK: "#857F3E", SOFT_GRAY: "#F8F9FA" };
@@ -33,13 +34,14 @@ const CreateAdventure = () => {
   
   const [formData, setFormData] = useState({
     registrationName: "", registrationNumber: "", locationName: "", place: "", country: "",
-    description: "", email: "", phoneNumber: "", openingHours: "", closingHours: "",
+    description: "", email: "", phoneNumber: "", openingHours: "00:00", closingHours: "23:59",
     entranceFeeType: "free", adultPrice: "0", childPrice: "0",
     latitude: null as number | null, longitude: null as number | null
   });
 
-  const [workingDays, setWorkingDays] = useState({ Mon: false, Tue: false, Wed: false, Thu: false, Fri: false, Sat: false, Sun: false });
+  const [workingDays, setWorkingDays] = useState({ Mon: true, Tue: true, Wed: true, Thu: true, Fri: true, Sat: true, Sun: true });
   const [amenities, setAmenities] = useState<DynamicItem[]>([]);
+  const [generalFacilities, setGeneralFacilities] = useState<string[]>([]);
   const [facilities, setFacilities] = useState<DynamicItemWithImages[]>([]);
   const [activities, setActivities] = useState<DynamicItemWithImages[]>([]);
   const [galleryImages, setGalleryImages] = useState<File[]>([]);
@@ -119,7 +121,7 @@ const CreateAdventure = () => {
         entry_fee_type: formData.entranceFeeType,
         entry_fee: formData.entranceFeeType === "paid" ? parseFloat(formData.adultPrice) : 0,
         child_entry_fee: formData.entranceFeeType === "paid" ? parseFloat(formData.childPrice) : 0,
-        amenities: amenities.map(a => a.name),
+        amenities: [...amenities.map(a => a.name), ...generalFacilities],
         facilities: formatItemsWithImagesForDB(uploadedFacilities), activities: formatItemsWithImagesForDB(uploadedActivities),
         created_by: user.id, approval_status: "pending"
       }]);
@@ -250,7 +252,8 @@ const CreateAdventure = () => {
             <h2 className="text-xl font-black uppercase tracking-tight" style={{ color: COLORS.TEAL }}>Amenities, Facilities & Activities</h2>
           </div>
           <div className="space-y-8">
-            <DynamicItemList items={amenities} onChange={setAmenities} label="Amenities" placeholder="e.g. Parking, Restrooms" showCapacity={false} showPrice={false} accentColor={COLORS.TEAL} />
+            <GeneralFacilitiesSelector selected={generalFacilities} onChange={setGeneralFacilities} accentColor={COLORS.TEAL} />
+            <DynamicItemList items={amenities} onChange={setAmenities} label="Additional Amenities" placeholder="e.g. Parking, Restrooms" showCapacity={false} showPrice={false} accentColor={COLORS.TEAL} />
             <DynamicItemListWithImages items={facilities} onChange={setFacilities} label="Facilities (with photos)" placeholder="e.g. Campsite" showCapacity={true} showPrice={true} accentColor={COLORS.CORAL} maxImages={5} userId={user?.id} showAmenities={true} />
             <DynamicItemListWithImages items={activities} onChange={setActivities} label="Activities (with photos)" placeholder="e.g. Hiking" showCapacity={false} showPrice={false} accentColor="#6366f1" maxImages={5} userId={user?.id} />
           </div>

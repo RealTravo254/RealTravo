@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import { Images, Calendar, CheckCircle2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { ExternalBookingDialog } from "./ExternalBookingDialog";
+import { ExternalBookingButton } from "./ExternalBookingDialog";
 import { FacilityAmenitiesDialog } from "./FacilityAmenitiesDialog";
 
 interface FacilityWithImages {
@@ -34,7 +34,6 @@ export const FacilityImageCard = ({
 }: FacilityImageCardProps) => {
   const navigate = useNavigate();
   const [showGallery, setShowGallery] = useState(false);
-  const [showExternalBooking, setShowExternalBooking] = useState(false);
   const [showAmenities, setShowAmenities] = useState(false);
   
   const hasImages = facility.images && facility.images.length > 0;
@@ -43,7 +42,8 @@ export const FacilityImageCard = ({
   
   const handleReserve = () => {
     if (useExternalLink && facility.bookingLink) {
-      setShowExternalBooking(true);
+      // Opens in new tab with loading spinner via ExternalBookingButton
+      window.open(facility.bookingLink, "_blank", "noopener,noreferrer");
     } else {
       navigate(`/booking/${itemType}/${itemId}?facility=${encodeURIComponent(facility.name)}&skipToFacility=true`);
     }
@@ -140,15 +140,7 @@ export const FacilityImageCard = ({
         </DialogContent>
       </Dialog>
 
-      {/* External Booking Iframe Dialog */}
-      {useExternalLink && facility.bookingLink && (
-        <ExternalBookingDialog
-          open={showExternalBooking}
-          onOpenChange={setShowExternalBooking}
-          url={facility.bookingLink}
-          title={`Reserve — ${facility.name}`}
-        />
-      )}
+      {/* External booking handled inline via ExternalBookingButton */}
 
       {/* Amenities Dialog */}
       {hasAmenities && (

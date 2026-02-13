@@ -269,10 +269,10 @@ const TripDetail = () => {
             </CarouselContent>
           </Carousel>
 
-          {/* See All Button - Desktop Only */}
-          <div className="hidden md:block">
+          {/* See All Button - All screens */}
+          {allImages.length > 1 && (
             <ImageGalleryModal images={allImages} name={trip.name} />
-          </div>
+          )}
           <div className="absolute bottom-6 left-0 z-40 w-full px-4 md:px-8 pointer-events-none">
             <div className="relative z-10 space-y-2 pointer-events-auto bg-gradient-to-r from-black/70 via-black/50 to-transparent rounded-2xl p-4 max-w-xl">
               <Button className="bg-[#FF7F50] border-none px-3 py-1 h-auto uppercase font-black tracking-[0.1em] text-[9px] rounded-full shadow-lg text-white">Scheduled Trip</Button>

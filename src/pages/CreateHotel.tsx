@@ -19,6 +19,7 @@ import { compressImages } from "@/lib/imageCompression";
 import { DynamicItemList, DynamicItem } from "@/components/creation/DynamicItemList";
 import { DynamicItemListWithImages, DynamicItemWithImages, uploadItemImages, formatItemsWithImagesForDB } from "@/components/creation/DynamicItemListWithImages";
 import { OperatingHoursSection } from "@/components/creation/OperatingHoursSection";
+import { GeneralFacilitiesSelector } from "@/components/creation/GeneralFacilitiesSelector";
 
 const COLORS = { TEAL: "#008080", CORAL: "#FF7F50", CORAL_LIGHT: "#FF9E7A", SOFT_GRAY: "#F8F9FA" };
 
@@ -35,13 +36,14 @@ const CreateHotel = () => {
     registrationName: "", registrationNumber: "", place: "", country: "",
     description: "", email: "", phoneNumber: "", establishmentType: "hotel",
     latitude: null as number | null, longitude: null as number | null,
-    openingHours: "", closingHours: "", generalBookingLink: "",
+    openingHours: "00:00", closingHours: "23:59", generalBookingLink: "",
   });
 
   const isAccommodationOnly = formData.establishmentType === "accommodation_only";
 
-  const [workingDays, setWorkingDays] = useState({ Mon: false, Tue: false, Wed: false, Thu: false, Fri: false, Sat: false, Sun: false });
+  const [workingDays, setWorkingDays] = useState({ Mon: true, Tue: true, Wed: true, Thu: true, Fri: true, Sat: true, Sun: true });
   const [amenities, setAmenities] = useState<DynamicItem[]>([]);
+  const [generalFacilities, setGeneralFacilities] = useState<string[]>([]);
   const [facilities, setFacilities] = useState<DynamicItemWithImages[]>([]);
   const [activities, setActivities] = useState<DynamicItemWithImages[]>([]);
   const [galleryImages, setGalleryImages] = useState<File[]>([]);
@@ -131,7 +133,7 @@ const CreateHotel = () => {
         phone_numbers: formData.phoneNumber ? [formData.phoneNumber] : [], establishment_type: formData.establishmentType,
         latitude: formData.latitude, longitude: formData.longitude, opening_hours: formData.openingHours,
         closing_hours: formData.closingHours, days_opened: selectedDays,
-        amenities: amenities.filter(a => a.name.trim()).map(a => a.name),
+        amenities: [...amenities.filter(a => a.name.trim()).map(a => a.name), ...generalFacilities],
         facilities: formatItemsWithImagesForDB(uploadedFacilities), activities: formatItemsWithImagesForDB(uploadedActivities),
         image_url: imageUrls[0] || '', gallery_images: imageUrls, registration_number: formData.registrationNumber || null,
         approval_status: isAccommodationOnly ? 'approved' : 'pending',
@@ -250,7 +252,8 @@ const CreateHotel = () => {
             <DollarSign className="h-5 w-5" /> Facilities & Activities
           </h2>
           <div className="space-y-8">
-            <DynamicItemList items={amenities} onChange={setAmenities} label="Amenities (Optional)" showPrice={false} accentColor={COLORS.TEAL} />
+            <GeneralFacilitiesSelector selected={generalFacilities} onChange={setGeneralFacilities} accentColor={COLORS.TEAL} />
+            <DynamicItemList items={amenities} onChange={setAmenities} label="Additional Amenities (Optional)" showPrice={false} accentColor={COLORS.TEAL} />
             <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
               <p className="text-[10px] font-bold text-orange-500 uppercase mb-4 underline">
                 Each facility must have name, capacity, price, amenities, and at least one photo.

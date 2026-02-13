@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2, Image as ImageIcon, X, Camera } from "lucide-react";
+import { FacilityAmenitiesInput } from "./FacilityAmenitiesInput";
 import { compressImages } from "@/lib/imageCompression";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -57,7 +58,7 @@ export const DynamicItemListWithImages = ({
     bookingLink: "",
     amenities: []
   });
-  const [newAmenity, setNewAmenity] = useState("");
+  const [, setNewAmenity] = useState("");
 
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -378,50 +379,10 @@ export const DynamicItemListWithImages = ({
         )}
 
         {showAmenities && (
-          <div className="space-y-2">
-            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-              Amenities for this facility *
-            </Label>
-            <div className="flex flex-wrap gap-1 mb-2">
-              {newItem.amenities?.map((a, ai) => (
-                <span key={ai} className="text-[10px] bg-emerald-500/10 text-emerald-700 px-2 py-1 rounded-full font-bold flex items-center gap-1">
-                  {a}
-                  <button type="button" onClick={() => setNewItem({ ...newItem, amenities: newItem.amenities?.filter((_, i) => i !== ai) })}>
-                    <X className="h-3 w-3" />
-                  </button>
-                </span>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <Input
-                value={newAmenity}
-                onChange={(e) => setNewAmenity(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && newAmenity.trim()) {
-                    e.preventDefault();
-                    setNewItem({ ...newItem, amenities: [...(newItem.amenities || []), newAmenity.trim()] });
-                    setNewAmenity("");
-                  }
-                }}
-                placeholder="e.g. WiFi, TV, AC..."
-                className="rounded-xl border-border bg-background h-9 font-bold text-sm flex-1"
-              />
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  if (newAmenity.trim()) {
-                    setNewItem({ ...newItem, amenities: [...(newItem.amenities || []), newAmenity.trim()] });
-                    setNewAmenity("");
-                  }
-                }}
-                className="h-9 rounded-xl text-[10px] font-black uppercase"
-              >
-                <Plus className="h-3 w-3 mr-1" /> Add
-              </Button>
-            </div>
-          </div>
+          <FacilityAmenitiesInput
+            amenities={newItem.amenities || []}
+            onChange={(amenities) => setNewItem({ ...newItem, amenities })}
+          />
         )}
 
         <div className="space-y-2">

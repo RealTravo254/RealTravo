@@ -20,6 +20,7 @@ import { useRealtimeItemAvailability } from "@/hooks/useRealtimeBookings";
 import { Header } from "@/components/Header";
 import { DetailMapSection } from "@/components/detail/DetailMapSection";
 import { DetailPageSkeleton } from "@/components/detail/DetailPageSkeleton";
+import { ImageGalleryModal } from "@/components/detail/ImageGalleryModal";
 
 const COLORS = {
   TEAL: "#008080",
@@ -192,7 +193,10 @@ const EventDetail = () => {
               ))}
             </CarouselContent>
           </Carousel>
-
+          {/* Mobile See All Gallery Button */}
+          {allImages.length > 1 && (
+            <ImageGalleryModal images={allImages} name={event.name} />
+          )}
           <div className="absolute bottom-6 left-0 z-40 w-full px-4 pointer-events-none">
             <div className="relative z-10 space-y-2 pointer-events-auto bg-gradient-to-r from-black/70 via-black/50 to-transparent rounded-2xl p-4 max-w-xl">
               <Button className="bg-[#FF7F50] hover:bg-[#FF7F50] border-none px-3 py-1 h-auto uppercase font-black tracking-[0.1em] text-[9px] rounded-full shadow-lg">Event</Button>

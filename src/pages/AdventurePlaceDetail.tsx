@@ -22,6 +22,7 @@ import { Header } from "@/components/Header";
 import { ImageGalleryModal } from "@/components/detail/ImageGalleryModal";
 import { QuickNavigationBar } from "@/components/detail/QuickNavigationBar";
 import { AmenitiesSection } from "@/components/detail/AmenitiesSection";
+import { GeneralFacilitiesDisplay } from "@/components/detail/GeneralFacilitiesDisplay";
 import { DetailMapSection } from "@/components/detail/DetailMapSection";
 import { DetailPageSkeleton } from "@/components/detail/DetailPageSkeleton";
 
@@ -215,7 +216,10 @@ const AdventurePlaceDetail = () => {
               )}
             </CarouselContent>
           </Carousel>
-
+          {/* Mobile See All Gallery Button */}
+          {allImages.length > 1 && (
+            <ImageGalleryModal images={allImages} name={place.name} />
+          )}
           <div className="absolute bottom-6 left-0 w-full px-4 z-20">
             <div className="bg-gradient-to-r from-black/70 via-black/50 to-transparent rounded-2xl p-4 max-w-xl">
               <div className="flex flex-wrap gap-2 mb-2">
@@ -363,6 +367,13 @@ const AdventurePlaceDetail = () => {
 
             {/* Amenities - Using new component */}
             <AmenitiesSection amenities={place.amenities || []} />
+
+            {/* General Facilities with Icons */}
+            <GeneralFacilitiesDisplay facilityIds={
+              Array.isArray(place.amenities) 
+                ? place.amenities.map((a: any) => typeof a === 'string' ? a : a.name || '') 
+                : []
+            } />
 
             {/* Facilities with Images */}
             {place.facilities?.length > 0 && (

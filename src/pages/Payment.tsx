@@ -42,41 +42,46 @@ export default function Payment() {
 
       const bookings = bookingsRes.data || [];
       const settings = settingsRes.data;
-      const tableMap: Record<string, string> = { trip: "trips", event: "trips", hotel: "hotels", adventure: "adventure_places", adventure_place: "adventure_places" };
       
+      // Batch fetch all item owners instead of N+1 queries
+      const itemIds = [...new Set(bookings.map(b => b.item_id))];
+      const [tripsRes, hotelsRes, adventuresRes] = await Promise.all([
+        supabase.from("trips").select("id, created_by").in("id", itemIds),
+        supabase.from("hotels").select("id, created_by").in("id", itemIds),
+        supabase.from("adventure_places").select("id, created_by").in("id", itemIds),
+      ]);
+      
+      const ownerMap = new Map<string, string>();
+      [...(tripsRes.data || []), ...(hotelsRes.data || []), ...(adventuresRes.data || [])].forEach(item => {
+        if (item.created_by) ownerMap.set(item.id, item.created_by);
+      });
+
       let grossHostEarnings = 0;
       let totalServiceFee = 0;
       let totalReferralDeducted = 0;
 
       for (const b of bookings) {
-        const t = tableMap[b.booking_type];
-        if (t) {
-          const { data: item } = await supabase.from(t as any).select("created_by").eq("id", b.item_id).single();
-          if ((item as any)?.created_by === user?.id) {
-            const amount = Number(b.total_amount);
-            grossHostEarnings += amount;
-            
-            // Calculate service fee deduction
-            let serviceFeeRate = 20.0;
+        if (ownerMap.get(b.item_id) === user?.id) {
+          const amount = Number(b.total_amount);
+          grossHostEarnings += amount;
+          
+          let serviceFeeRate = 20.0;
+          if (settings) {
+            if (b.booking_type === 'trip' || b.booking_type === 'event') serviceFeeRate = Number(settings.trip_service_fee);
+            else if (b.booking_type === 'hotel') serviceFeeRate = Number(settings.hotel_service_fee);
+            else if (b.booking_type === 'adventure' || b.booking_type === 'adventure_place') serviceFeeRate = Number(settings.adventure_place_service_fee);
+          }
+          const fee = (amount * serviceFeeRate) / 100;
+          totalServiceFee += fee;
+          
+          if (b.referral_tracking_id) {
+            let commRate = 5.0;
             if (settings) {
-              if (b.booking_type === 'trip' || b.booking_type === 'event') serviceFeeRate = Number(settings.trip_service_fee);
-              else if (b.booking_type === 'hotel') serviceFeeRate = Number(settings.hotel_service_fee);
-              else if (b.booking_type === 'adventure' || b.booking_type === 'adventure_place') serviceFeeRate = Number(settings.adventure_place_service_fee);
+              if (b.booking_type === 'trip' || b.booking_type === 'event') commRate = Number(settings.trip_commission_rate);
+              else if (b.booking_type === 'hotel') commRate = Number(settings.hotel_commission_rate);
+              else if (b.booking_type === 'adventure' || b.booking_type === 'adventure_place') commRate = Number(settings.adventure_place_commission_rate);
             }
-            const fee = (amount * serviceFeeRate) / 100;
-            totalServiceFee += fee;
-            
-            // Check if referral commission was deducted from service fee
-            if (b.referral_tracking_id) {
-              let commRate = 5.0;
-              if (settings) {
-                if (b.booking_type === 'trip' || b.booking_type === 'event') commRate = Number(settings.trip_commission_rate);
-                else if (b.booking_type === 'hotel') commRate = Number(settings.hotel_commission_rate);
-                else if (b.booking_type === 'adventure' || b.booking_type === 'adventure_place') commRate = Number(settings.adventure_place_commission_rate);
-              }
-              // Commission is calculated FROM service fee (not booking amount) - margin protection
-              totalReferralDeducted += (fee * commRate) / 100;
-            }
+            totalReferralDeducted += (fee * commRate) / 100;
           }
         }
       }

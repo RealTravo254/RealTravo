@@ -13,6 +13,7 @@ interface FacilityWithImages {
   capacity?: number;
   images?: string[];
   is_free?: boolean;
+  amenities?: string[];
 }
 
 interface ActivityWithImages {
@@ -20,6 +21,7 @@ interface ActivityWithImages {
   price: number;
   images?: string[];
   is_free?: boolean;
+  amenities?: string[];
 }
 
 interface FacilityActivityImageEditorProps {
@@ -215,6 +217,31 @@ export const FacilityActivityImageEditor = ({
                   )}
                 </div>
               </div>
+
+              {/* Facility-specific amenities */}
+              {type === "facility" && (
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                    Amenities (comma-separated)
+                  </Label>
+                  <Input
+                    value={(item as FacilityWithImages).amenities?.join(', ') || ''}
+                    onChange={(e) => {
+                      const amenities = e.target.value.split(',').map(a => a.trim()).filter(Boolean);
+                      updateItemField(index, "amenities", amenities);
+                    }}
+                    placeholder="e.g. WiFi, TV, Air conditioning"
+                    className="h-8 text-sm"
+                  />
+                  {(item as FacilityWithImages).amenities && (item as FacilityWithImages).amenities!.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {(item as FacilityWithImages).amenities!.map((a, ai) => (
+                        <span key={ai} className="text-[9px] bg-emerald-500/10 text-emerald-700 px-2 py-0.5 rounded-full font-bold">{a}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </div>

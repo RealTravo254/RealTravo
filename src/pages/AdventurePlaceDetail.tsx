@@ -21,7 +21,7 @@ import { trackReferralClick, generateReferralLink } from "@/lib/referralUtils";
 import { Header } from "@/components/Header";
 import { ImageGalleryModal } from "@/components/detail/ImageGalleryModal";
 import { QuickNavigationBar } from "@/components/detail/QuickNavigationBar";
-import { AmenitiesSection } from "@/components/detail/AmenitiesSection";
+// AmenitiesSection removed - using only GeneralFacilitiesDisplay with icons
 import { GeneralFacilitiesDisplay } from "@/components/detail/GeneralFacilitiesDisplay";
 import { DetailMapSection } from "@/components/detail/DetailMapSection";
 import { DetailPageSkeleton } from "@/components/detail/DetailPageSkeleton";
@@ -364,9 +364,6 @@ const AdventurePlaceDetail = () => {
             <div className="md:hidden">
               <OperatingHoursInfo />
             </div>
-
-            {/* Amenities - Using new component */}
-            <AmenitiesSection amenities={place.amenities || []} />
 
             {/* General Facilities with Icons */}
             <GeneralFacilitiesDisplay facilityIds={

@@ -21,6 +21,8 @@ import { approvalStatusSchema } from "@/lib/validation";
 import { EmailVerification } from "@/components/creation/EmailVerification";
 import { compressImages } from "@/lib/imageCompression";
 import { FacilityActivityImageEditor } from "@/components/edit/FacilityActivityImageEditor";
+import { GeneralFacilitiesSelector } from "@/components/creation/GeneralFacilitiesSelector";
+import { FacilityAmenitiesInput } from "@/components/creation/FacilityAmenitiesInput";
 
 interface FacilityWithImages {
   name: string;
@@ -28,6 +30,7 @@ interface FacilityWithImages {
   capacity?: number;
   images?: string[];
   is_free?: boolean;
+  amenities?: string[];
 }
 
 interface ActivityWithImages {
@@ -96,6 +99,7 @@ const EditListing = () => {
   const [entranceFee, setEntranceFee] = useState(0);
   const [entranceFeeChild, setEntranceFeeChild] = useState(0);
   const [amenities, setAmenities] = useState<string[]>([]);
+  const [generalFacilities, setGeneralFacilities] = useState<string[]>([]);
   const [facilities, setFacilities] = useState<FacilityWithImages[]>([]);
   const [activities, setActivities] = useState<ActivityWithImages[]>([]);
 
@@ -203,7 +207,8 @@ const EditListing = () => {
       }
 
       if (type === 'hotel') {
-        setAmenities(((data as any).amenities as string[]) || []);
+        // amenities stores general facility IDs (icon-based)
+        setGeneralFacilities(((data as any).amenities as string[]) || []);
       }
 
       if (type === 'adventure') {
@@ -212,9 +217,14 @@ const EditListing = () => {
         setEntranceFeeChild((data as any).child_entry_fee || 0);
         // Handle amenities - could be string[] or object array in jsonb
         const adventureAmenities = (data as any).amenities || [];
-        setAmenities(Array.isArray(adventureAmenities) 
+        const amenityStrings = Array.isArray(adventureAmenities) 
           ? adventureAmenities.map((a: any) => typeof a === 'string' ? a : a.name || '')
-          : []);
+          : [];
+        // Separate general facilities (matching AVAILABLE_FACILITIES ids) from text amenities
+        const { AVAILABLE_FACILITIES } = await import("@/components/creation/GeneralFacilitiesSelector");
+        const facilityIds = AVAILABLE_FACILITIES.map(f => f.id);
+        setGeneralFacilities(amenityStrings.filter((a: string) => facilityIds.includes(a)));
+        setAmenities(amenityStrings.filter((a: string) => !facilityIds.includes(a)));
       }
       
       if (type === 'attraction') {
@@ -463,7 +473,10 @@ const EditListing = () => {
           }
           break;
         case "amenities":
-          updateData.amenities = amenities.filter(Boolean);
+          updateData.amenities = [...generalFacilities, ...amenities.filter(Boolean)];
+          break;
+        case "generalFacilities":
+          updateData.amenities = [...generalFacilities, ...amenities.filter(Boolean)];
           break;
         case "facilities":
           updateData.facilities = facilities;
@@ -1055,36 +1068,24 @@ const EditListing = () => {
 
         {/* Amenities, Facilities, Activities - Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
-          {/* Amenities */}
+          {/* General Facilities (Icons) */}
           {(type === "hotel" || type === "adventure" || type === "attraction") && (
-            <div className="bg-card rounded-lg border p-4">
+            <div className="bg-card rounded-lg border p-4 md:col-span-2 lg:col-span-3">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="font-medium">Amenities</h3>
-                <EditButton field="amenities" onSave={() => handleSaveField("amenities")} />
+                <h3 className="font-medium">General Facilities (Icons)</h3>
+                <EditButton field="generalFacilities" onSave={() => handleSaveField("generalFacilities")} />
               </div>
-              {editMode.amenities ? (
-                <div className="space-y-2">
-                  {amenities.map((amenity, idx) => (
-                    <div key={idx} className="flex gap-2">
-                      <Input
-                        value={amenity}
-                        onChange={(e) => updateAmenity(idx, e.target.value)}
-                        placeholder="Amenity"
-                        className="h-8 text-sm"
-                      />
-                      <Button size="icon" variant="destructive" className="h-8 w-8" onClick={() => removeAmenity(idx)}>
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ))}
-                  <Button size="sm" variant="outline" onClick={addAmenity} className="w-full">
-                    <Plus className="h-3 w-3 mr-1" /> Add
-                  </Button>
-                </div>
+              {editMode.generalFacilities ? (
+                <GeneralFacilitiesSelector
+                  selected={generalFacilities}
+                  onChange={setGeneralFacilities}
+                  maxSelection={6}
+                  accentColor="#008080"
+                />
               ) : (
                 <div className="flex flex-wrap gap-1">
-                  {amenities.length > 0 ? amenities.map((amenity, idx) => (
-                    <Badge key={idx} variant="secondary" className="text-xs">{amenity}</Badge>
+                  {generalFacilities.length > 0 ? generalFacilities.map((id, idx) => (
+                    <Badge key={idx} variant="secondary" className="text-xs">{id.replace(/_/g, ' ')}</Badge>
                   )) : <p className="text-sm text-muted-foreground">None</p>}
                 </div>
               )}

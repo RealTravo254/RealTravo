@@ -100,8 +100,14 @@ export const WithdrawalDialog = ({
         },
       });
 
-      if (error || !data?.success) {
-        throw new Error(data?.error || error?.message || 'Withdrawal failed');
+      // supabase.functions.invoke sets error for non-2xx, but data may contain success:false on 2xx
+      if (error) {
+        // Try to extract message from the FunctionsHttpError response body
+        const errorBody = typeof error === 'object' && 'context' in error ? await (error as any).context?.json?.().catch(() => null) : null;
+        throw new Error(errorBody?.error || error?.message || 'Withdrawal failed');
+      }
+      if (!data?.success) {
+        throw new Error(data?.error || 'Withdrawal failed');
       }
 
       // Create success notification

@@ -27,6 +27,10 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Log callback source for audit
+  const sourceIP = req.headers.get('x-forwarded-for') || req.headers.get('cf-connecting-ip') || 'unknown';
+  console.log('Callback source IP:', sourceIP);
+
   const supabaseClient = createClient(
     Deno.env.get('SUPABASE_URL') ?? '',
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -35,11 +39,25 @@ Deno.serve(async (req) => {
   try {
     const rawBody = await req.text();
     console.log('Raw Request Body:', rawBody);
+
+    // Validate payload structure before processing
+    if (!rawBody || rawBody.length > 10000) {
+      console.error('Invalid callback payload size');
+      return new Response(JSON.stringify({ ResultCode: 0, ResultDesc: 'Accepted' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200,
+      });
+    }
     
     const callbackData = JSON.parse(rawBody);
     console.log('M-Pesa Callback Parsed Data:', JSON.stringify(callbackData, null, 2));
 
     const { Body } = callbackData;
+    if (!Body?.stkCallback) {
+      console.error('Invalid callback structure - missing stkCallback');
+      return new Response(JSON.stringify({ ResultCode: 0, ResultDesc: 'Accepted' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200,
+      });
+    }
     const { stkCallback } = Body;
 
     const checkoutRequestId = stkCallback.CheckoutRequestID;
@@ -47,7 +65,31 @@ Deno.serve(async (req) => {
     const resultCode = stkCallback.ResultCode.toString();
     const resultDesc = stkCallback.ResultDesc;
 
-    // Extract receipt number and amount from CallbackMetadata if payment successful
+    // SECURITY: Verify this checkout request exists in our payments table
+    // Only process callbacks for transactions we actually initiated
+    const { data: payment, error: fetchError } = await supabaseClient
+      .from('payments')
+      .select('*')
+      .eq('checkout_request_id', checkoutRequestId)
+      .single();
+
+    if (fetchError || !payment) {
+      console.error('SECURITY: Callback for unknown checkout_request_id:', checkoutRequestId, 'IP:', sourceIP);
+      // Return success to prevent M-Pesa retries, but don't process
+      return new Response(JSON.stringify({ ResultCode: 0, ResultDesc: 'Accepted' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200,
+      });
+    }
+
+    // SECURITY: Verify payment hasn't already been completed (prevent replay attacks)
+    if (payment.payment_status === 'completed') {
+      console.warn('SECURITY: Duplicate callback for already completed payment:', checkoutRequestId);
+      return new Response(JSON.stringify({ ResultCode: 0, ResultDesc: 'Accepted' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200,
+      });
+    }
+
+    // SECURITY: Verify amount matches if payment was successful
     let mpesaReceiptNumber = null;
     let paidAmount = null;
     let transactionDate = null;
@@ -72,18 +114,20 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Verify paid amount matches expected amount
+    if (resultCode === '0' && paidAmount !== null && Number(paidAmount) !== Number(payment.amount)) {
+      console.error('SECURITY: Amount mismatch! Expected:', payment.amount, 'Received:', paidAmount, 'IP:', sourceIP);
+      return new Response(JSON.stringify({ ResultCode: 0, ResultDesc: 'Accepted' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200,
+      });
+    }
+
     // Determine payment status: pending -> completed or failed
     const paymentStatus = resultCode === '0' ? 'completed' : 'failed';
     const bookingStatus = resultCode === '0' ? 'confirmed' : 'cancelled';
     const bookingPaymentStatus = resultCode === '0' ? 'completed' : 'failed';
 
-    // First, get the payment record to access booking_data
-    const { data: payment, error: fetchError } = await supabaseClient
-      .from('payments')
-      .select('*')
-      .eq('checkout_request_id', checkoutRequestId)
-      .single();
-
+    // Payment record already fetched above - no need for duplicate fetch
     if (fetchError) {
       console.error('Error fetching payment:', fetchError);
     }

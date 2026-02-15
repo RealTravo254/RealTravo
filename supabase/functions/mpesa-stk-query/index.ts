@@ -3,7 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 interface STKQueryRequest {
@@ -17,6 +17,14 @@ serve(async (req) => {
 
   try {
     const { checkoutRequestId }: STKQueryRequest = await req.json();
+    
+    if (!checkoutRequestId || typeof checkoutRequestId !== 'string' || checkoutRequestId.length > 100) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid checkoutRequestId' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
+
     console.log('STK Query request received for:', checkoutRequestId);
 
     const consumerKey = Deno.env.get('MPESA_CONSUMER_KEY');
@@ -32,11 +40,7 @@ serve(async (req) => {
     const auth = btoa(`${consumerKey}:${consumerSecret}`);
     const tokenResponse = await fetch(
       'https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials',
-      {
-        headers: {
-          'Authorization': `Basic ${auth}`,
-        },
-      }
+      { headers: { 'Authorization': `Basic ${auth}` } }
     );
 
     if (!tokenResponse.ok) {
@@ -44,22 +48,12 @@ serve(async (req) => {
     }
 
     const { access_token } = await tokenResponse.json();
-    console.log('OAuth token obtained for STK Query');
 
     // Step 2: Generate timestamp and password
     const timestamp = new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14);
     const password = btoa(`${shortcode}${passkey}${timestamp}`);
 
     // Step 3: Query STK Push status
-    const queryPayload = {
-      BusinessShortCode: shortcode,
-      Password: password,
-      Timestamp: timestamp,
-      CheckoutRequestID: checkoutRequestId,
-    };
-
-    console.log('Querying STK status:', { checkoutRequestId });
-
     const queryResponse = await fetch(
       'https://sandbox.safaricom.co.ke/mpesa/stkpushquery/v1/query',
       {
@@ -68,7 +62,12 @@ serve(async (req) => {
           'Authorization': `Bearer ${access_token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(queryPayload),
+        body: JSON.stringify({
+          BusinessShortCode: shortcode,
+          Password: password,
+          Timestamp: timestamp,
+          CheckoutRequestID: checkoutRequestId,
+        }),
       }
     );
 
@@ -77,55 +76,59 @@ serve(async (req) => {
 
     // Check if it's a rate limit error
     if (queryData.fault?.detail?.errorcode === 'policies.ratelimit.SpikeArrestViolation') {
-      console.log('Rate limit hit - will retry later');
       return new Response(
         JSON.stringify({
           success: false,
           resultCode: 'RATE_LIMIT',
           resultDesc: 'Rate limit exceeded, please try again in a moment',
-          responseDescription: 'Too many requests to M-Pesa API',
         }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 429,
-        }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 429 }
       );
     }
 
-    // Update database based on query result
+    // Update payments table directly instead of deleted mpesa_callback_log
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Transform query response to match callback structure
-    const syntheticPayload = {
-      Body: {
-        stkCallback: {
-          MerchantRequestID: 'QUERY',
-          CheckoutRequestID: checkoutRequestId,
-          ResultCode: queryData.ResultCode || '1032',
-          ResultDesc: queryData.ResultDesc || 'Request in progress',
-          CallbackMetadata: queryData.CallbackMetadata || null,
-        }
-      }
-    };
+    const resultCode = queryData.ResultCode?.toString() || '1032';
+    const paymentStatus = resultCode === '0' ? 'completed' : (resultCode === '1032' ? 'pending' : 'failed');
 
-    // Insert into callback log - trigger will handle everything
-    const { error: logError } = await supabaseClient
-      .from('mpesa_callback_log')
-      .insert({
-        checkout_request_id: checkoutRequestId,
-        merchant_request_id: 'QUERY',
-        result_code: (queryData.ResultCode || '1032').toString(),
-        result_desc: queryData.ResultDesc || 'Query result',
-        raw_payload: syntheticPayload,
-      });
+    const { error: updateError } = await supabaseClient
+      .from('payments')
+      .update({
+        payment_status: paymentStatus,
+        result_code: resultCode,
+        result_desc: queryData.ResultDesc || 'STK query result',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('checkout_request_id', checkoutRequestId);
 
-    if (logError) {
-      console.error('Error inserting query result to callback log:', logError);
+    if (updateError) {
+      console.error('Error updating payment from STK query:', updateError);
     } else {
-      console.log('Query result logged - trigger will process reconciliation');
+      console.log(`Payment updated to ${paymentStatus} for ${checkoutRequestId}`);
+    }
+
+    // If payment completed, also update the booking
+    if (paymentStatus === 'completed') {
+      const { data: payment } = await supabaseClient
+        .from('payments')
+        .select('booking_data')
+        .eq('checkout_request_id', checkoutRequestId)
+        .single();
+
+      if (payment?.booking_data?.booking_id) {
+        await supabaseClient
+          .from('bookings')
+          .update({
+            payment_status: 'completed',
+            status: 'confirmed',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', payment.booking_data.booking_id);
+      }
     }
 
     return new Response(
@@ -135,22 +138,13 @@ serve(async (req) => {
         resultDesc: queryData.ResultDesc,
         responseDescription: queryData.ResponseDescription,
       }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
   } catch (error) {
     console.error('Error in mpesa-stk-query function:', error);
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: error instanceof Error ? error.message : 'An error occurred',
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
-      }
+      JSON.stringify({ success: false, error: 'An error occurred while querying payment status' }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
 });

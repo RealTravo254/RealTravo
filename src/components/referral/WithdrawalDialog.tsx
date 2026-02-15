@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,7 +39,8 @@ export const WithdrawalDialog = ({
   const [detailsLoaded, setDetailsLoaded] = useState(false);
 
   // Pre-fill from saved withdrawal details
-  useState(() => {
+  useEffect(() => {
+    if (!userId || detailsLoaded) return;
     const loadDetails = async () => {
       const [bankRes, profileRes] = await Promise.all([
         supabase.from("bank_details").select("bank_name, account_number, account_holder_name").eq("user_id", userId).maybeSingle(),
@@ -56,7 +57,7 @@ export const WithdrawalDialog = ({
       setDetailsLoaded(true);
     };
     loadDetails();
-  });
+  }, [userId, detailsLoaded]);
 
   const resetForm = () => {
     setWithdrawAmount("");

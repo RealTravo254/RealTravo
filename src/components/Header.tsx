@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Menu, Heart, Ticket, Home, User, Search } from "lucide-react";
+import { Menu, Heart, Ticket, Home, User } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -33,7 +33,7 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
   // Skip rendering if this is a page-level Header (PageLayout already renders one)
   if (!__fromLayout) return null;
 
-  const mobileHeaderClasses = "sticky top-0 left-0 right-0 flex bg-background border-b border-border shadow-sm py-2";
+  const mobileHeaderClasses = "fixed top-0 left-0 right-0 flex bg-background border-b border-border shadow-sm py-2";
   const headerIconStyles = "h-10 w-10 rounded-xl flex items-center justify-center transition-all duration-200 active:scale-90 text-foreground hover:bg-muted";
 
   return (
@@ -65,11 +65,6 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
           ))}
         </nav>
         <div className="flex items-center gap-1 sm:gap-2">
-          {showSearchIcon && (
-            <button onClick={() => onSearchClick ? onSearchClick() : navigate('/')} className={headerIconStyles} aria-label="Search">
-              <Search className="h-5 w-5" />
-            </button>
-          )}
           <NotificationBell />
           {user ? (
             <AccountSheet>

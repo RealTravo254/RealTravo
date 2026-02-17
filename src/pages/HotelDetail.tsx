@@ -228,18 +228,17 @@ const HotelDetail = () => {
           <div className="absolute bottom-6 left-0 w-full px-4 z-20">
             <div className="bg-gradient-to-r from-black/70 via-black/50 to-transparent rounded-2xl p-4 max-w-xl">
               <div className="flex flex-wrap gap-2 mb-2">
-                   {isAccommodationOnly && (
-                     <Badge className="bg-purple-500 text-white border-none px-2 py-0.5 text-[9px] font-black uppercase rounded-full flex items-center gap-1 shadow-lg">
-                       Accommodation Faciities.
-                     </Badge>
-                   )}
-                   {!isAccommodationOnly && (
-                     <Badge className="bg-amber-400 text-black border-none px-2 py-0.5 text-[9px] font-black uppercase rounded-full flex items-center gap-1 shadow-lg">
-                       <Star className="h-3 w-3 fill-current" />
-                       {liveRating.avg > 0 ? liveRating.avg : "New"}
-                     </Badge>
-                   )}
-z
+                {isAccommodationOnly && (
+                  <Badge className="bg-purple-500 text-white border-none px-2 py-0.5 text-[9px] font-black uppercase rounded-full flex items-center gap-1 shadow-lg">
+                    Accommodation Faciities.
+                  </Badge>
+                )}
+                {!isAccommodationOnly && (
+                  <Badge className="bg-amber-400 text-black border-none px-2 py-0.5 text-[9px] font-black uppercase rounded-full flex items-center gap-1 shadow-lg">
+                    <Star className="h-3 w-3 fill-current" />
+                    {liveRating.avg > 0 ? liveRating.avg : "New"}
+                  </Badge>
+                )}
               </div>
               <h1 className="text-2xl font-black text-white uppercase tracking-tighter leading-none mb-2">{hotel.name}</h1>
               <div className="flex items-center gap-1 text-white">
@@ -380,8 +379,6 @@ z
             {/* General Facilities with Icons */}
             <GeneralFacilitiesDisplay facilityIds={hotel.amenities || []} />
 
-            {/* Link Source Attribution removed for accommodation only per requirement */}
-
             {/* Facilities & Pricing with Images */}
             {hotel.facilities?.length > 0 && (
               <div id="facilities-section">
@@ -424,15 +421,15 @@ z
                   )}
                 </div>
                 <div className="text-right">
-                    {!isAccommodationOnly && (
-                      <>
-                        <div className="flex items-center gap-1 text-amber-500 font-black text-lg">
-                            <Star className="h-4 w-4 fill-current" />
-                            <span>{liveRating.avg || "0"}</span>
-                        </div>
-                        <p className="text-[9px] font-black text-slate-400 uppercase">{liveRating.count} reviews</p>
-                      </>
-                    )}
+                  {!isAccommodationOnly && (
+                    <>
+                      <div className="flex items-center gap-1 text-amber-500 font-black text-lg">
+                        <Star className="h-4 w-4 fill-current" />
+                        <span>{liveRating.avg || "0"}</span>
+                      </div>
+                      <p className="text-[9px] font-black text-slate-400 uppercase">{liveRating.count} reviews</p>
+                    </>
+                  )}
                 </div>
               </div>
               {isAccommodationOnly && hotel.general_booking_link ? (
@@ -452,33 +449,33 @@ z
               )}
               <div className="grid grid-cols-3 gap-3 mt-4">
                 <UtilityButton 
-                   icon={<Navigation className="h-5 w-5" />} 
-                   label="Map" 
-                   onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${hotel.name}, ${hotel.location}`)}`, "_blank")} 
+                  icon={<Navigation className="h-5 w-5" />} 
+                  label="Map" 
+                  onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${hotel.name}, ${hotel.location}`)}`, "_blank")} 
                 />
                 <UtilityButton 
-                   icon={<Copy className="h-5 w-5" />} 
-                   label="Copy" 
-                   onClick={async () => {
-                     toast({ title: "Copying link..." });
-                     const refLink = await generateReferralLink(id!, "hotel", id!);
-                     await navigator.clipboard.writeText(refLink);
-                     toast({ title: "Link Copied!" });
-                   }} 
+                  icon={<Copy className="h-5 w-5" />} 
+                  label="Copy" 
+                  onClick={async () => {
+                    toast({ title: "Copying link..." });
+                    const refLink = await generateReferralLink(id!, "hotel", id!);
+                    await navigator.clipboard.writeText(refLink);
+                    toast({ title: "Link Copied!" });
+                  }} 
                 />
                 <UtilityButton 
-                   icon={<Share2 className="h-5 w-5" />} 
-                   label="Share" 
-                   onClick={async () => {
-                     toast({ title: "Preparing share..." });
-                     const refLink = await generateReferralLink(id!, "hotel", id!);
-                     if (navigator.share) {
-                       try { await navigator.share({ title: hotel.name, url: refLink }); } catch (e) {}
-                     } else {
-                       await navigator.clipboard.writeText(refLink);
-                       toast({ title: "Link Copied!" });
-                     }
-                   }} 
+                  icon={<Share2 className="h-5 w-5" />} 
+                  label="Share" 
+                  onClick={async () => {
+                    toast({ title: "Preparing share..." });
+                    const refLink = await generateReferralLink(id!, "hotel", id!);
+                    if (navigator.share) {
+                      try { await navigator.share({ title: hotel.name, url: refLink }); } catch (e) {}
+                    } else {
+                      await navigator.clipboard.writeText(refLink);
+                      toast({ title: "Link Copied!" });
+                    }
+                  }} 
                 />
               </div>
             </div>
@@ -512,96 +509,96 @@ z
           {/* Desktop Sidebar */}
           <div className="hidden lg:block">
             <div className="sticky top-24 bg-white rounded-[40px] p-8 shadow-2xl border border-slate-100 space-y-6">
-                <div className="text-center">
-                  <p className="text-xs font-black uppercase text-slate-400 mb-1">Starting from/Fee</p>
-                  {startingPrice > 0 ? (
-                    <div className="space-y-1">
-                      <h3 className="text-4xl font-black text-red-600">KSh {startingPrice.toLocaleString()}</h3>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase">per adult</p>
-                    </div>
-                  ) : (
-                    <h3 className="text-4xl font-black text-emerald-600 mb-2">Free Entry</h3>
-                  )}
-                  {!isAccommodationOnly && (
-                    <div className="flex items-center justify-center gap-1.5 text-amber-500 font-black mt-2">
-                      <Star className="h-4 w-4 fill-current" />
-                      <span className="text-lg">{liveRating.avg || "0"}</span>
-                    </div>
-                  )}
-                </div>
-
-                <OperatingHoursInfo />
-
-                {isAccommodationOnly && hotel.general_booking_link ? (
-                  <ExternalBookingButton
-                    url={hotel.general_booking_link}
-                    className="w-full py-8 rounded-3xl text-lg font-black uppercase tracking-widest bg-gradient-to-r from-[#FF7F50] to-[#FF4E50] border-none shadow-xl hover:scale-[1.02] transition-transform active:scale-95"
-                  >
-                    Reserve Now
-                  </ExternalBookingButton>
+              <div className="text-center">
+                <p className="text-xs font-black uppercase text-slate-400 mb-1">Starting from/Fee</p>
+                {startingPrice > 0 ? (
+                  <div className="space-y-1">
+                    <h3 className="text-4xl font-black text-red-600">KSh {startingPrice.toLocaleString()}</h3>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">per adult</p>
+                  </div>
                 ) : (
-                  <Button 
-                    onClick={() => navigate(`/booking/hotel/${hotel.id}`)}
-                    className="w-full py-8 rounded-3xl text-lg font-black uppercase tracking-widest bg-gradient-to-r from-[#FF7F50] to-[#FF4E50] border-none shadow-xl hover:scale-[1.02] transition-transform active:scale-95"
-                  >
-                    Reserve Now
-                  </Button>
+                  <h3 className="text-4xl font-black text-emerald-600 mb-2">Free Entry</h3>
                 )}
-
-                <div className="grid grid-cols-3 gap-3">
-                  <UtilityButton 
-                     icon={<Navigation className="h-5 w-5" />} 
-                     label="Map" 
-                     onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${hotel.name}, ${hotel.location}`)}`, "_blank")} 
-                  />
-                  <UtilityButton 
-                     icon={<Copy className="h-5 w-5" />} 
-                     label="Copy" 
-                     onClick={async () => {
-                       toast({ title: "Copying link..." });
-                       const link = await generateReferralLink(id!, "hotel", id!);
-                       await navigator.clipboard.writeText(link);
-                       toast({ title: "Copied!" });
-                     }} 
-                  />
-                  <UtilityButton 
-                     icon={<Share2 className="h-5 w-5" />} 
-                     label="Share" 
-                     onClick={async () => {
-                       toast({ title: "Preparing share..." });
-                       const refLink = await generateReferralLink(id!, "hotel", id!);
-                       if (navigator.share) {
-                         try { await navigator.share({ title: hotel.name, url: refLink }); } catch (e) {}
-                       } else {
-                         await navigator.clipboard.writeText(refLink);
-                         toast({ title: "Link Copied!" });
-                       }
-                     }} 
-                  />
-                </div>
-
-                {/* Contact Section */}
-                {(hotel.phone_numbers?.length > 0 || hotel.email) && (
-                  <div className="space-y-3 pt-4 border-t border-slate-100">
-                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contact</h3>
-                    {hotel.phone_numbers?.map((phone: string, idx: number) => (
-                      <a key={idx} href={`tel:${phone}`} className="flex items-center gap-3 text-slate-600 hover:text-[#008080] transition-colors">
-                        <div className="p-2 rounded-lg bg-slate-50">
-                          <Phone className="h-4 w-4 text-[#008080]" />
-                        </div>
-                        <span className="text-xs font-bold uppercase tracking-tight">{phone}</span>
-                      </a>
-                    ))}
-                    {hotel.email && (
-                      <a href={`mailto:${hotel.email}`} className="flex items-center gap-3 text-slate-600 hover:text-[#008080] transition-colors">
-                        <div className="p-2 rounded-lg bg-slate-50">
-                          <Mail className="h-4 w-4 text-[#008080]" />
-                        </div>
-                        <span className="text-xs font-bold tracking-tight">{hotel.email}</span>
-                      </a>
-                    )}
+                {!isAccommodationOnly && (
+                  <div className="flex items-center justify-center gap-1.5 text-amber-500 font-black mt-2">
+                    <Star className="h-4 w-4 fill-current" />
+                    <span className="text-lg">{liveRating.avg || "0"}</span>
                   </div>
                 )}
+              </div>
+
+              <OperatingHoursInfo />
+
+              {isAccommodationOnly && hotel.general_booking_link ? (
+                <ExternalBookingButton
+                  url={hotel.general_booking_link}
+                  className="w-full py-8 rounded-3xl text-lg font-black uppercase tracking-widest bg-gradient-to-r from-[#FF7F50] to-[#FF4E50] border-none shadow-xl hover:scale-[1.02] transition-transform active:scale-95"
+                >
+                  Reserve Now
+                </ExternalBookingButton>
+              ) : (
+                <Button 
+                  onClick={() => navigate(`/booking/hotel/${hotel.id}`)}
+                  className="w-full py-8 rounded-3xl text-lg font-black uppercase tracking-widest bg-gradient-to-r from-[#FF7F50] to-[#FF4E50] border-none shadow-xl hover:scale-[1.02] transition-transform active:scale-95"
+                >
+                  Reserve Now
+                </Button>
+              )}
+
+              <div className="grid grid-cols-3 gap-3">
+                <UtilityButton 
+                  icon={<Navigation className="h-5 w-5" />} 
+                  label="Map" 
+                  onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${hotel.name}, ${hotel.location}`)}`, "_blank")} 
+                />
+                <UtilityButton 
+                  icon={<Copy className="h-5 w-5" />} 
+                  label="Copy" 
+                  onClick={async () => {
+                    toast({ title: "Copying link..." });
+                    const link = await generateReferralLink(id!, "hotel", id!);
+                    await navigator.clipboard.writeText(link);
+                    toast({ title: "Copied!" });
+                  }} 
+                />
+                <UtilityButton 
+                  icon={<Share2 className="h-5 w-5" />} 
+                  label="Share" 
+                  onClick={async () => {
+                    toast({ title: "Preparing share..." });
+                    const refLink = await generateReferralLink(id!, "hotel", id!);
+                    if (navigator.share) {
+                      try { await navigator.share({ title: hotel.name, url: refLink }); } catch (e) {}
+                    } else {
+                      await navigator.clipboard.writeText(refLink);
+                      toast({ title: "Link Copied!" });
+                    }
+                  }} 
+                />
+              </div>
+
+              {/* Contact Section */}
+              {(hotel.phone_numbers?.length > 0 || hotel.email) && (
+                <div className="space-y-3 pt-4 border-t border-slate-100">
+                  <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contact</h3>
+                  {hotel.phone_numbers?.map((phone: string, idx: number) => (
+                    <a key={idx} href={`tel:${phone}`} className="flex items-center gap-3 text-slate-600 hover:text-[#008080] transition-colors">
+                      <div className="p-2 rounded-lg bg-slate-50">
+                        <Phone className="h-4 w-4 text-[#008080]" />
+                      </div>
+                      <span className="text-xs font-bold uppercase tracking-tight">{phone}</span>
+                    </a>
+                  ))}
+                  {hotel.email && (
+                    <a href={`mailto:${hotel.email}`} className="flex items-center gap-3 text-slate-600 hover:text-[#008080] transition-colors">
+                      <div className="p-2 rounded-lg bg-slate-50">
+                        <Mail className="h-4 w-4 text-[#008080]" />
+                      </div>
+                      <span className="text-xs font-bold tracking-tight">{hotel.email}</span>
+                    </a>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

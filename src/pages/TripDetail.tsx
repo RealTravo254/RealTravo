@@ -232,10 +232,9 @@ const TripDetail = () => {
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] pb-24">
-      {/* Header - Desktop Only */}
-      <div className="hidden md:block">
-          <Header />
-      </div>
+      {/* Header - All Screens */}
+      <Header showSearchIcon={false} />
+
       {/* HERO / IMAGE GALLERY */}
       <div className="max-w-6xl mx-auto md:px-4 md:pt-3">
         <div className="relative w-full overflow-hidden h-[55vh] md:h-[70vh] bg-slate-900 md:rounded-3xl">

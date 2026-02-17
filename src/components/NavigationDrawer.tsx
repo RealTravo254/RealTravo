@@ -75,9 +75,6 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
             >
               RealTravo
             </span>
-            <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 mt-1">
-              Where Every Journey Begins with a Better Booking.
-            </p>
           </div>
         </div>
       </div>
@@ -155,4 +152,7 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
       </div>
     </div>
   );
+  <p className="text-xs leading-relaxed text-slate-500">
+      <strong>Transparency:</strong> RealTravo may earn a commission for some accommodation bookings. This commission is paid by the property and <strong>is never added to your final booking cost</strong>. This allows us to keep our platform free for travelers.
+  </p>
 }; 

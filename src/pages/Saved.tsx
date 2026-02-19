@@ -42,18 +42,13 @@ const Saved = () => {
   useEffect(() => {
     const initializeData = async () => {
       if (authLoading) return;
-      try {
-        const uid = await getUserId();
-        if (!uid) {
-          setIsLoading(false);
-          return;
-        }
-        setUserId(uid);
-        await fetchSavedItems(uid, 0);
-      } catch (err) {
-        console.error("Initialization error:", err);
+      const uid = await getUserId();
+      if (!uid) {
         setIsLoading(false);
+        return;
       }
+      setUserId(uid);
+      fetchSavedItems(uid, 0);
     };
     initializeData();
   }, [authLoading]);
@@ -68,14 +63,14 @@ const Saved = () => {
     if (fetchOffset === 0) setIsLoading(true);
     else setLoadingMore(true);
     
-    const { data: savedData, error: savedError } = await supabase
+    const { data: savedData } = await supabase
       .from("saved_items")
       .select("item_id, item_type")
       .eq("user_id", uid)
       .range(fetchOffset, fetchOffset + ITEMS_PER_PAGE - 1)
       .order('created_at', { ascending: false });
 
-    if (savedError || !savedData || savedData.length === 0) {
+    if (!savedData || savedData.length === 0) {
       setHasMore(false);
       setIsLoading(false);
       setLoadingMore(false);
@@ -101,20 +96,20 @@ const Saved = () => {
     const itemMap = new Map<string, any>();
     (tripsRes.data || []).forEach((item: any) => {
       if (item.is_hidden) return;
-      itemMap.set(item.id, { ...item, type: "Trip" });
+      itemMap.set(item.id, { ...item, savedType: "trip" });
     });
     (hotelsRes.data || []).forEach((item: any) => {
       if (item.is_hidden) return;
-      itemMap.set(item.id, { ...item, type: "Hotel" });
+      itemMap.set(item.id, { ...item, savedType: "hotel" });
     });
     (adventuresRes.data || []).forEach((item: any) => {
       if (item.is_hidden) return;
-      itemMap.set(item.id, { ...item, type: "Adventure" });
+      itemMap.set(item.id, { ...item, savedType: "adventure_place" });
     });
 
     const items = savedData
       .map(saved => itemMap.get(saved.item_id))
-      .filter(item => item && typeof item.name === 'string'); // Safety check for React Error #306
+      .filter(item => item && item.name);
 
     if (fetchOffset === 0) {
       setSavedListings(items);
@@ -130,7 +125,9 @@ const Saved = () => {
     return items;
   };
 
-  const toggleItemSelection = (itemId: string) => {
+  const toggleItemSelection = (itemId: string, e: React.MouseEvent) => {
+    e.preventDefault(); // Stop Link from navigating
+    e.stopPropagation();
     setSelectedItems(prev => {
       const newSet = new Set(prev);
       if (newSet.has(itemId)) newSet.delete(itemId);
@@ -146,99 +143,83 @@ const Saved = () => {
       setSavedListings(prev => prev.filter(item => !selectedItems.has(item.id)));
       setSelectedItems(new Set());
       setIsSelectionMode(false);
-      toast({ title: "Collection Updated" });
+      toast({ title: "Updated", description: "Removed selected items." });
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#F4F7FA] pb-20 font-sans">
+    <div className="min-h-screen bg-[#F4F7FA] pb-24 font-sans">
       <Header />
       
       <div className="max-w-[1200px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 px-6 py-12">
-        
-        {/* Left Sidebar Info */}
+        {/* Sidebar */}
         <aside className="lg:col-span-4 space-y-6">
           <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-100">
-            <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center mb-6">
-              <MapPin className="text-slate-400 h-6 w-6" />
+            <h1 className="text-3xl font-bold tracking-tight text-slate-900 mb-2">Saved Places</h1>
+            <p className="text-slate-500 text-sm mb-6">Manage your curated travel list.</p>
+            <div className="flex flex-col gap-2">
+              <Button 
+                variant={isSelectionMode ? "default" : "outline"}
+                className={`rounded-2xl font-bold text-xs uppercase tracking-widest ${isSelectionMode ? 'bg-slate-900' : 'border-slate-100'}`}
+                onClick={() => {
+                  setIsSelectionMode(!isSelectionMode);
+                  setSelectedItems(new Set());
+                }}
+              >
+                {isSelectionMode ? "Cancel" : "Select Items"}
+              </Button>
+              {isSelectionMode && selectedItems.size > 0 && (
+                <Button variant="destructive" className="rounded-2xl text-xs font-bold uppercase" onClick={handleRemoveSelected}>
+                  Remove ({selectedItems.size})
+                </Button>
+              )}
             </div>
-            <h1 className="text-4xl font-bold tracking-tight text-slate-900 mb-2">Saved places</h1>
-            <p className="text-slate-500 text-sm leading-relaxed mb-6">
-              You have {savedListings.length} items in your collection.
-            </p>
-            <div className="h-[2px] w-12 bg-[#007AFF] mb-6" />
-            <button 
-               onClick={() => setIsSelectionMode(!isSelectionMode)}
-               className="text-sm font-semibold text-[#007AFF] hover:underline"
-            >
-              {isSelectionMode ? "Exit Management" : "Manage Collection"}
-            </button>
           </div>
         </aside>
 
-        {/* Main Content Area */}
-        <main className="lg:col-span-8 space-y-4">
-          <div className="bg-white/60 backdrop-blur-md sticky top-4 z-30 p-4 rounded-3xl border border-white flex justify-between items-center shadow-sm">
-             <div className="flex items-center gap-2">
-                <div className={`h-2 w-2 rounded-full ${isSelectionMode ? 'bg-orange-500' : 'bg-green-500'}`} />
-                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                    {isSelectionMode ? `Selecting (${selectedItems.size})` : 'Live Collection'}
-                </span>
-             </div>
-             {isSelectionMode && selectedItems.size > 0 && (
-               <Button onClick={handleRemoveSelected} size="sm" className="bg-slate-900 hover:bg-red-600 rounded-xl text-xs px-4">
-                 Delete Selected
-               </Button>
-             )}
-          </div>
-
+        {/* List Content */}
+        <main className="lg:col-span-8 space-y-3">
           {isLoading ? (
-            <div className="space-y-4">
-              {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-28 w-full rounded-[28px]" />)}
-            </div>
+            <Skeleton className="h-64 w-full rounded-[32px]" />
           ) : savedListings.length === 0 ? (
-            <div className="bg-white border-2 border-dashed border-slate-200 rounded-[40px] p-20 text-center text-slate-400">
-               No places found.
+            <div className="bg-white rounded-[40px] p-20 text-center text-slate-400 border border-slate-100">
+              No items in your collection.
             </div>
           ) : (
-            <div className="space-y-3">
-              {savedListings.map((item) => (
-                <div
-                  key={item.id}
-                  onClick={() => isSelectionMode && toggleItemSelection(item.id)}
-                  className={`group relative bg-white p-4 rounded-[28px] border transition-all duration-300 flex items-center gap-5 cursor-pointer hover:shadow-md ${
-                    selectedItems.has(item.id) ? "border-[#007AFF] bg-blue-50/30" : "border-slate-100"
-                  }`}
-                >
-                  {isSelectionMode && (
-                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
-                      selectedItems.has(item.id) ? "bg-[#007AFF] border-[#007AFF]" : "border-slate-200"
-                    }`}>
-                      {selectedItems.has(item.id) && <Check className="h-3 w-3 text-white" strokeWidth={4} />}
-                    </div>
-                  )}
-
-                  <div className="h-20 w-20 rounded-2xl overflow-hidden shrink-0 bg-slate-100">
-                    <img src={item.image_url || "/placeholder.svg"} alt="" className="h-full w-full object-cover" />
+            savedListings.map((item) => (
+              <Link
+                key={item.id}
+                to={`/${item.savedType === 'adventure_place' ? 'adventures' : item.savedType + 's'}/${item.id}`}
+                className={`group relative bg-white p-4 rounded-[28px] border transition-all flex items-center gap-5 ${
+                  selectedItems.has(item.id) ? "border-[#007AFF] bg-blue-50/20" : "border-slate-100 hover:shadow-md"
+                }`}
+              >
+                {isSelectionMode && (
+                  <div 
+                    onClick={(e) => toggleItemSelection(item.id, e)}
+                    className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 z-10 ${
+                    selectedItems.has(item.id) ? "bg-[#007AFF] border-[#007AFF]" : "border-slate-200 bg-white"
+                  }`}>
+                    {selectedItems.has(item.id) && <Check className="h-3 w-3 text-white" strokeWidth={4} />}
                   </div>
+                )}
 
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">{String(item.type)}</p>
-                    <h3 className="text-lg font-bold text-slate-800 truncate leading-none mb-2">{String(item.name)}</h3>
-                    <div className="flex items-center text-slate-400 text-xs">
-                      <MapPin size={12} className="mr-1" />
-                      <span className="truncate">{item.location}, {item.country}</span>
-                    </div>
+                <img src={item.image_url} className="h-20 w-20 rounded-2xl object-cover shrink-0" alt="" />
+
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-bold text-[#007AFF] uppercase mb-1">{item.savedType.replace('_', ' ')}</p>
+                  <h3 className="text-lg font-bold text-slate-800 truncate">{item.name}</h3>
+                  <div className="flex items-center text-slate-400 text-xs mt-1">
+                    <MapPin size={12} className="mr-1" />
+                    <span className="truncate">{item.location}</span>
                   </div>
-
-                  {!isSelectionMode && (
-                    <Link to={`/${String(item.type).toLowerCase()}s/${item.id}`} className="h-10 w-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-300 group-hover:bg-[#007AFF] group-hover:text-white transition-all">
-                      <ChevronRight size={18} />
-                    </Link>
-                  )}
                 </div>
-              ))}
-            </div>
+
+                <div className="h-10 w-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-300 group-hover:bg-[#007AFF] group-hover:text-white transition-all">
+                  <ChevronRight size={18} />
+                </div>
+              </Link>
+            ))
           )}
         </main>
       </div>

@@ -105,7 +105,7 @@ export const Footer = ({ className = "" }: { className?: string }) => {
             <div className="grid grid-cols-4 gap-2">
               {/* Note: Update placeholders like 'realtravo' or phone numbers with your actual details */}
               <SocialIcon href="https://wa.me/0758800117" color={BRAND_COLORS.WHATSAPP} icon={<WhatsAppIcon />} />
-              <SocialIcon href="https://instagram.com/realtravo" color={BRAND_COLORS.INSTAGRAM} icon={<Instagram className="h-5 w-5" />} />
+              <SocialIcon href="https://www.instagram.com/realtravo_/" color={BRAND_COLORS.INSTAGRAM} icon={<Instagram className="h-5 w-5" />} />
               <SocialIcon href="https://www.tiktok.com/@real_travo" color={BRAND_COLORS.TIKTOK} icon={<TikTokIcon />} />
               <SocialIcon href="https://youtube.com/@realtravo" color={BRAND_COLORS.YOUTUBE} icon={<YouTubeIcon />} />
               <SocialIcon href="https://www.facebook.com/profile.php?id=61588626561026" color={BRAND_COLORS.FACEBOOK} icon={<Facebook className="h-5 w-5 fill-current" />} />

@@ -39,7 +39,11 @@ const TikTokIcon = () => (
     <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.06-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.59-1.01V14.5c.03 2.1-.47 4.31-1.89 5.88-1.53 1.77-3.92 2.64-6.2 2.37-2.58-.23-4.9-2-5.74-4.46-.91-2.47-.41-5.46 1.34-7.42 1.44-1.68 3.73-2.53 5.93-2.25V12.7c-1.01-.15-2.15.09-2.88.85-.75.84-.81 2.14-.31 3.09.47 1.05 1.64 1.75 2.79 1.6 1.18-.1 2.22-1.14 2.25-2.32V.02z" />
   </svg>
 );
-
+const XIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932 6.064-6.932zm-1.292 19.494h2.039L6.486 3.24H4.298l13.311 17.407z" />
+  </svg>
+);
 const PinterestIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
     <path d="M12.289 2C6.617 2 2 6.617 2 12.289c0 4.305 2.605 7.977 6.34 9.542-.09-.806-.17-2.04.034-2.915.185-.79 1.197-5.076 1.197-5.076s-.306-.612-.306-1.515c0-1.42.823-2.48 1.848-2.48.87 0 1.29.654 1.29 1.44 0 .876-.558 2.185-.846 3.4-.24 1.013.51 1.84 1.508 1.84 1.81 0 3.204-1.907 3.204-4.662 0-2.438-1.753-4.144-4.256-4.144-2.898 0-4.6 2.174-4.6 4.42 0 .875.337 1.812.758 2.32.083.1.095.188.07.29-.077.322-.248.1.306-1.025.034-.145-.012-.27-.116-.395-1.036-1.246-1.28-2.316-1.28-3.75 0-3.056 2.22-5.862 6.4-5.862 3.36 0 5.97 2.395 5.97 5.594 0 3.34-2.105 6.03-5.024 6.03-.98 0-1.903-.51-2.217-1.11l-.604 2.3c-.218.84-.81 1.89-1.206 2.53 1.1.34 2.27.52 3.48.52 5.67 0 10.29-4.62 10.29-10.29C22.58 6.617 17.96 2 12.289 2z" />
@@ -104,6 +108,7 @@ export const Footer = ({ className = "" }: { className?: string }) => {
               <SocialIcon href="https://www.facebook.com/profile.php?id=61588626561026" color={BRAND_COLORS.FACEBOOK} icon={<Facebook className="h-5 w-5 fill-current" />} />
               <SocialIcon href="https://www.linkedin.com/in/real-travo-aa62b63b2/" color={BRAND_COLORS.LINKEDIN} icon={<Linkedin className="h-5 w-5 fill-current" />} />
               <SocialIcon href="https://www.pinterest.com/RealTravo01/" color={BRAND_COLORS.PINTEREST} icon={<PinterestIcon />} />
+              <SocialIcon href="https://x.com/RealTravo" color={BRAND_COLORS.X} icon={<XIcon />} />
             </div>
             
             <a href="mailto:support@realtravo.com" className="mt-2 flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-[#008080] transition-all">

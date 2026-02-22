@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, Users, ChevronDown, ChevronUp, WifiOff, CheckCircle2, XCircle, History, Loader2, CalendarClock, Download } from "lucide-react";
+import { Calendar, Users, ChevronDown, ChevronUp, WifiOff, History, Loader2, CalendarClock, XCircle } from "lucide-react";
 import { RescheduleBookingDialog } from "@/components/booking/RescheduleBookingDialog";
 import { BookingDownloadButton } from "@/components/booking/BookingDownloadButton";
 import { toast } from "sonner";
@@ -99,8 +99,10 @@ const Bookings = () => {
         .not("status", "eq", "cancelled")
         .order("created_at", { ascending: false })
         .range(fetchOffset, fetchOffset + ITEMS_PER_PAGE - 1);
+      
       if (error) throw error;
       const newBookings = confirmedBookings || [];
+      
       if (fetchOffset === 0) {
         setBookings(newBookings);
         bookingsCache.data = newBookings;
@@ -108,9 +110,11 @@ const Bookings = () => {
       } else {
         setBookings(prev => [...prev, ...newBookings]);
       }
+      
       setHasMore(newBookings.length >= ITEMS_PER_PAGE);
       setOffset(fetchOffset);
       hasFetched.current = true;
+      
       if (newBookings.length > 0) {
         cacheBookings(newBookings.map(b => ({ ...b, item_name: itemDetails[b.item_id]?.name })));
         await fetchItemDetailsBatch(fetchOffset === 0 ? newBookings : [...bookings, ...newBookings]);
@@ -126,11 +130,13 @@ const Bookings = () => {
     const tripIds = bookings.filter(b => b.booking_type === "trip" || b.booking_type === "event").map(b => b.item_id);
     const hotelIds = bookings.filter(b => b.booking_type === "hotel").map(b => b.item_id);
     const adventureIds = bookings.filter(b => b.booking_type === "adventure" || b.booking_type === "adventure_place").map(b => b.item_id);
+    
     const [tripsData, hotelsData, adventuresData] = await Promise.all([
       tripIds.length > 0 ? supabase.from("trips").select("id,name").in("id", tripIds) : { data: [] },
       hotelIds.length > 0 ? supabase.from("hotels").select("id,name").in("id", hotelIds) : { data: [] },
       adventureIds.length > 0 ? supabase.from("adventure_places").select("id,name").in("id", adventureIds) : { data: [] }
     ]);
+    
     (tripsData.data || []).forEach((t: any) => { details[t.id] = { name: t.name, type: "trip" }; });
     (hotelsData.data || []).forEach((h: any) => { details[h.id] = { name: h.name, type: "hotel" }; });
     (adventuresData.data || []).forEach((a: any) => { details[a.id] = { name: a.name, type: "adventure" }; });
@@ -171,125 +177,134 @@ const Bookings = () => {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen w-full bg-background">
         <main className="container px-4 py-6 animate-pulse space-y-3">
           <div className="h-6 bg-muted rounded w-32" />
-          {[1, 2, 3, 4].map(i => <div key={i} className="h-16 bg-card rounded-xl border border-border" />)}
+          {[1, 2, 3, 4].map(i => <div key={i} className="h-20 bg-card rounded-xl border border-border" />)}
         </main>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <main className="container px-3 py-4 max-w-3xl mx-auto">
-        <div className="mb-4">
-          <h1 className="text-lg font-black uppercase tracking-tight text-foreground">My Bookings</h1>
-          <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Verified Reservations</p>
+    <div className="min-h-screen w-full bg-background flex flex-col">
+      {/* Scrollable area with padding-bottom for mobile nav visibility */}
+      <main className="flex-1 container px-4 py-6 max-w-2xl mx-auto pb-24 md:pb-12">
+        <div className="mb-6">
+          <h1 className="text-xl font-black uppercase tracking-tight text-foreground">My Bookings</h1>
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Verified Reservations</p>
         </div>
 
         {!isOnline && (
-          <div className="mb-3 p-2 rounded-lg bg-yellow-50 border border-yellow-200 flex items-center gap-2">
-            <WifiOff className="h-3 w-3 text-yellow-600" />
-            <span className="text-[9px] font-bold uppercase text-yellow-700">Offline Mode</span>
+          <div className="mb-4 p-3 rounded-xl bg-yellow-50 border border-yellow-200 flex items-center gap-2">
+            <WifiOff className="h-3.5 w-3.5 text-yellow-600" />
+            <span className="text-[10px] font-bold uppercase text-yellow-700">Offline Mode • Showing cached data</span>
           </div>
         )}
 
         {bookings.length === 0 ? (
-          <div className="bg-card rounded-xl p-8 text-center border border-border">
-            <Calendar className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
-            <p className="text-xs font-bold text-muted-foreground uppercase">No active bookings</p>
+          <div className="bg-card rounded-2xl p-12 text-center border border-dashed border-border">
+            <Calendar className="h-10 w-10 text-muted-foreground/40 mx-auto mb-4" />
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">No active bookings found</p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-6">
             {Object.entries(groupedBookings).map(([groupName, groupBookings]) => {
               if (groupBookings.length === 0) return null;
               return (
-                <div key={groupName} className="space-y-1.5">
+                <div key={groupName} className="space-y-3">
                   <div className="flex items-center gap-2 px-1">
-                    <History className="h-3 w-3 text-muted-foreground" />
-                    <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">{groupName}</span>
+                    <History className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{groupName}</span>
                     <div className="h-px bg-border flex-1" />
                   </div>
-                  <div className="space-y-1.5">
+                  
+                  <div className="space-y-2">
                     {groupBookings.map(booking => {
                       const isExpanded = expandedBookings.has(booking.id);
                       const details = booking.booking_details as Record<string, any> | null;
                       return (
                         <Collapsible key={booking.id} open={isExpanded} onOpenChange={() => toggleExpanded(booking.id)}>
-                          <div className="bg-card rounded-xl border border-border overflow-hidden hover:shadow-sm transition-shadow">
-                            {/* Compact row */}
-                            <div className="flex items-center gap-2 px-3 py-2">
+                          <div className="bg-card rounded-2xl border border-border overflow-hidden transition-all duration-200 active:scale-[0.99]">
+                            {/* Summary Card */}
+                            <div className="flex items-center gap-3 px-4 py-3">
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1.5 mb-0.5">
-                                  <Badge variant="secondary" className="text-[8px] px-1.5 py-0 h-4 font-bold uppercase">{booking.booking_type}</Badge>
-                                  <Badge variant="outline" className="text-[8px] px-1.5 py-0 h-4 font-bold text-green-600 border-green-200 bg-green-50">Paid</Badge>
+                                <div className="flex items-center gap-2 mb-1">
+                                  <Badge variant="secondary" className="text-[8px] px-2 py-0 h-4 font-black uppercase tracking-tighter">{booking.booking_type}</Badge>
+                                  <Badge variant="outline" className="text-[8px] px-2 py-0 h-4 font-black text-emerald-600 border-emerald-200 bg-emerald-50 uppercase">Paid</Badge>
                                 </div>
-                                <p className="text-xs font-bold text-foreground truncate leading-tight">{getItemName(booking)}</p>
-                                <div className="flex items-center gap-2 mt-0.5">
+                                <p className="text-sm font-bold text-foreground truncate">{getItemName(booking)}</p>
+                                <div className="flex items-center gap-3 mt-1">
                                   {booking.visit_date && (
-                                    <span className="text-[9px] text-muted-foreground flex items-center gap-0.5">
-                                      <Calendar className="h-2.5 w-2.5" /> {format(new Date(booking.visit_date), 'dd MMM')}
+                                    <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
+                                      <Calendar className="h-3 w-3" /> {format(new Date(booking.visit_date), 'dd MMM yyyy')}
                                     </span>
                                   )}
-                                  <span className="text-[9px] text-muted-foreground flex items-center gap-0.5">
-                                    <Users className="h-2.5 w-2.5" /> {booking.slots_booked || 1}
+                                  <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
+                                    <Users className="h-3 w-3" /> {booking.slots_booked || 1} Guests
                                   </span>
                                 </div>
                               </div>
                               <div className="text-right shrink-0">
-                                <p className="text-sm font-black text-destructive">KSh {booking.total_amount.toLocaleString()}</p>
-                                <p className="text-[8px] text-muted-foreground">{format(parseISO(booking.created_at), 'MMM dd')}</p>
+                                <p className="text-sm font-black text-foreground">KSh {booking.total_amount.toLocaleString()}</p>
+                                <CollapsibleTrigger asChild>
+                                  <button className="mt-1 p-1.5 rounded-full bg-muted/50 hover:bg-muted transition-colors">
+                                    {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                  </button>
+                                </CollapsibleTrigger>
                               </div>
-                              <CollapsibleTrigger asChild>
-                                <button className="p-1 rounded-md hover:bg-muted">
-                                  {isExpanded ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
-                                </button>
-                              </CollapsibleTrigger>
                             </div>
+
                             <CollapsibleContent>
-                              <div className="px-3 pb-3 pt-1 border-t border-border space-y-2">
-                                <div className="grid grid-cols-2 gap-2 text-[10px]">
-                                  <div><span className="text-muted-foreground font-bold">Name:</span> <span className="font-medium">{booking.guest_name || 'N/A'}</span></div>
-                                  <div><span className="text-muted-foreground font-bold">Email:</span> <span className="font-medium truncate">{booking.guest_email || 'N/A'}</span></div>
-                                  <div><span className="text-muted-foreground font-bold">Adults:</span> <span className="font-medium">{details?.adults || 'N/A'}</span></div>
-                                  {details?.children > 0 && <div><span className="text-muted-foreground font-bold">Children:</span> <span className="font-medium">{details.children}</span></div>}
-                                  <div className="col-span-2"><span className="text-muted-foreground font-bold">ID:</span> <span className="font-mono text-[9px]">{booking.id.slice(0, 12)}</span></div>
-                                </div>
-                                {details?.selectedFacilities?.length > 0 && (
-                                  <div>
-                                    <span className="text-[9px] font-bold text-muted-foreground uppercase">Facilities</span>
-                                    <div className="flex flex-wrap gap-1 mt-0.5">
-                                      {details.selectedFacilities.map((f: any, i: number) => (
-                                        <span key={i} className="text-[9px] bg-muted px-1.5 py-0.5 rounded">{f.name}</span>
-                                      ))}
-                                    </div>
+                              <div className="px-4 pb-4 pt-2 border-t border-border/50 bg-muted/20 space-y-4">
+                                <div className="grid grid-cols-2 gap-y-3 gap-x-4">
+                                  <div className="space-y-0.5">
+                                    <p className="text-[9px] font-bold text-muted-foreground uppercase">Guest</p>
+                                    <p className="text-[11px] font-semibold">{booking.guest_name || 'N/A'}</p>
                                   </div>
-                                )}
+                                  <div className="space-y-0.5">
+                                    <p className="text-[9px] font-bold text-muted-foreground uppercase">Ref ID</p>
+                                    <p className="text-[11px] font-mono uppercase">{booking.id.slice(0, 8)}</p>
+                                  </div>
+                                  <div className="space-y-0.5">
+                                    <p className="text-[9px] font-bold text-muted-foreground uppercase">Adults</p>
+                                    <p className="text-[11px] font-semibold">{details?.adults || booking.slots_booked || 1}</p>
+                                  </div>
+                                  {details?.children > 0 && (
+                                    <div className="space-y-0.5">
+                                      <p className="text-[9px] font-bold text-muted-foreground uppercase">Children</p>
+                                      <p className="text-[11px] font-semibold">{details.children}</p>
+                                    </div>
+                                  )}
+                                </div>
+
                                 {details?.selectedActivities?.length > 0 && (
                                   <div>
-                                    <span className="text-[9px] font-bold text-muted-foreground uppercase">Activities</span>
-                                    <div className="flex flex-wrap gap-1 mt-0.5">
+                                    <p className="text-[9px] font-bold text-muted-foreground uppercase mb-1.5">Selected Activities</p>
+                                    <div className="flex flex-wrap gap-1.5">
                                       {details.selectedActivities.map((a: any, i: number) => (
-                                        <span key={i} className="text-[9px] bg-primary/10 text-primary px-1.5 py-0.5 rounded">{a.name}</span>
+                                        <span key={i} className="text-[9px] bg-primary/10 text-primary font-bold px-2 py-0.5 rounded-full">{a.name}</span>
                                       ))}
                                     </div>
                                   </div>
                                 )}
-                                <div className="flex gap-1.5 pt-1">
+
+                                <div className="flex flex-wrap gap-2 pt-2">
                                   <BookingDownloadButton booking={{
                                     bookingId: booking.id, guestName: booking.guest_name || 'Guest', guestEmail: booking.guest_email || '',
                                     itemName: getItemName(booking), bookingType: booking.booking_type, visitDate: booking.visit_date || booking.created_at,
                                     totalAmount: booking.total_amount, slotsBooked: booking.slots_booked || 1, adults: details?.adults, children: details?.children, paymentStatus: booking.payment_status,
                                   }} />
+                                  
                                   {canReschedule(booking) && (
-                                    <Button variant="outline" size="sm" onClick={() => setRescheduleBooking(booking)} className="h-7 text-[9px] font-bold rounded-lg px-2">
-                                      <CalendarClock className="h-3 w-3 mr-1" /> Reschedule
+                                    <Button variant="outline" size="sm" onClick={() => setRescheduleBooking(booking)} className="h-8 text-[10px] font-bold rounded-xl border-border bg-background">
+                                      <CalendarClock className="h-3 w-3 mr-1.5 text-primary" /> Reschedule
                                     </Button>
                                   )}
+                                  
                                   {canCancel(booking) && (
-                                    <Button variant="ghost" size="sm" onClick={() => { setBookingToCancel(booking); setShowCancelDialog(true); }} className="h-7 text-[9px] font-bold rounded-lg px-2 text-destructive hover:text-destructive">
-                                      <XCircle className="h-3 w-3 mr-1" /> Cancel
+                                    <Button variant="ghost" size="sm" onClick={() => { setBookingToCancel(booking); setShowCancelDialog(true); }} className="h-8 text-[10px] font-bold rounded-xl text-destructive hover:bg-destructive/5">
+                                      <XCircle className="h-3 w-3 mr-1.5" /> Cancel
                                     </Button>
                                   )}
                                 </div>
@@ -307,26 +322,35 @@ const Bookings = () => {
         )}
 
         {hasMore && bookings.length > 0 && (
-          <div className="flex justify-center mt-4">
-            <Button onClick={loadMore} disabled={loadingMore} size="sm" className="rounded-lg text-[9px] font-bold uppercase h-8 px-6">
-              {loadingMore ? <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Loading...</> : "Load More"}
+          <div className="flex justify-center mt-8">
+            <Button onClick={loadMore} disabled={loadingMore} variant="outline" className="rounded-2xl text-[10px] font-black uppercase h-10 px-8 border-2">
+              {loadingMore ? <><Loader2 className="h-3 w-3 mr-2 animate-spin" /> Fetching...</> : "View Older Bookings"}
             </Button>
           </div>
         )}
       </main>
 
+      {/* Dialogs */}
       {rescheduleBooking && (
-        <RescheduleBookingDialog booking={rescheduleBooking} open={!!rescheduleBooking} onOpenChange={open => !open && setRescheduleBooking(null)} onSuccess={fetchBookings} />
+        <RescheduleBookingDialog 
+          booking={rescheduleBooking} 
+          open={!!rescheduleBooking} 
+          onOpenChange={open => !open && setRescheduleBooking(null)} 
+          onSuccess={fetchBookings} 
+        />
       )}
+
       <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
-        <AlertDialogContent className="rounded-2xl border-none p-6">
+        <AlertDialogContent className="max-w-[90vw] md:max-w-lg rounded-3xl border-none p-6 shadow-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-lg font-black uppercase">Cancel Reservation?</AlertDialogTitle>
-            <p className="text-xs text-muted-foreground">This action cannot be undone. Cancellations within 48 hours may not be eligible for refund.</p>
+            <AlertDialogTitle className="text-xl font-black uppercase tracking-tight">Cancel Reservation?</AlertDialogTitle>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              This action cannot be undone. Per our policy, cancellations within 48 hours of the visit date are non-refundable.
+            </p>
           </AlertDialogHeader>
-          <AlertDialogFooter className="mt-4 gap-2">
-            <AlertDialogCancel className="rounded-lg text-xs font-bold">Keep</AlertDialogCancel>
-            <AlertDialogAction onClick={handleCancelBooking} className="rounded-lg bg-destructive hover:bg-destructive/90 text-xs font-bold px-6">Cancel Booking</AlertDialogAction>
+          <AlertDialogFooter className="mt-6 flex-col sm:flex-row gap-2">
+            <AlertDialogCancel className="rounded-2xl text-[10px] font-bold uppercase h-11">Go Back</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCancelBooking} className="rounded-2xl bg-destructive hover:bg-destructive/90 text-[10px] font-bold uppercase h-11">Confirm Cancellation</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

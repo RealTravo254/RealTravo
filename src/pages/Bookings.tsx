@@ -187,9 +187,9 @@ const Bookings = () => {
   }
 
   return (
-    <div className="min-h-screen w-full bg-background flex flex-col">
-      {/* Scrollable area with padding-bottom for mobile nav visibility */}
-      <main className="flex-1 container px-4 py-6 max-w-2xl mx-auto pb-24 md:pb-12">
+    <div className="min-h-screen w-full bg-background flex flex-col overflow-x-hidden">
+      {/* Scrollable area with touch-pan-y for better mobile scrolling */}
+      <main className="flex-1 container px-4 py-6 max-w-2xl mx-auto pb-32 md:pb-12 touch-pan-y overflow-y-auto">
         <div className="mb-6">
           <h1 className="text-xl font-black uppercase tracking-tight text-foreground">My Bookings</h1>
           <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Verified Reservations</p>
@@ -225,38 +225,38 @@ const Bookings = () => {
                       const details = booking.booking_details as Record<string, any> | null;
                       return (
                         <Collapsible key={booking.id} open={isExpanded} onOpenChange={() => toggleExpanded(booking.id)}>
-                          <div className="bg-card rounded-2xl border border-border overflow-hidden transition-all duration-200 active:scale-[0.99]">
-                            {/* Summary Card */}
-                            <div className="flex items-center gap-3 px-4 py-3">
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <Badge variant="secondary" className="text-[8px] px-2 py-0 h-4 font-black uppercase tracking-tighter">{booking.booking_type}</Badge>
-                                  <Badge variant="outline" className="text-[8px] px-2 py-0 h-4 font-black text-emerald-600 border-emerald-200 bg-emerald-50 uppercase">Paid</Badge>
-                                </div>
-                                <p className="text-sm font-bold text-foreground truncate">{getItemName(booking)}</p>
-                                <div className="flex items-center gap-3 mt-1">
-                                  {booking.visit_date && (
+                          <div className="bg-card rounded-2xl border border-border overflow-hidden transition-colors duration-200">
+                            {/* Improved Header as a full trigger area */}
+                            <CollapsibleTrigger asChild>
+                              <div className="flex items-center gap-3 px-4 py-4 cursor-pointer hover:bg-muted/30 active:bg-muted/50 transition-colors">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <Badge variant="secondary" className="text-[8px] px-2 py-0 h-4 font-black uppercase tracking-tighter">{booking.booking_type}</Badge>
+                                    <Badge variant="outline" className="text-[8px] px-2 py-0 h-4 font-black text-emerald-600 border-emerald-200 bg-emerald-50 uppercase">Paid</Badge>
+                                  </div>
+                                  <p className="text-sm font-bold text-foreground truncate">{getItemName(booking)}</p>
+                                  <div className="flex items-center gap-3 mt-1.5">
+                                    {booking.visit_date && (
+                                      <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
+                                        <Calendar className="h-3 w-3" /> {format(new Date(booking.visit_date), 'dd MMM yyyy')}
+                                      </span>
+                                    )}
                                     <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
-                                      <Calendar className="h-3 w-3" /> {format(new Date(booking.visit_date), 'dd MMM yyyy')}
+                                      <Users className="h-3 w-3" /> {booking.slots_booked || 1} Guests
                                     </span>
-                                  )}
-                                  <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
-                                    <Users className="h-3 w-3" /> {booking.slots_booked || 1} Guests
-                                  </span>
+                                  </div>
+                                </div>
+                                <div className="text-right shrink-0 flex flex-col items-end gap-1">
+                                  <p className="text-sm font-black text-foreground">KSh {booking.total_amount.toLocaleString()}</p>
+                                  <div className="p-1 rounded-full bg-muted/50">
+                                    {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                                  </div>
                                 </div>
                               </div>
-                              <div className="text-right shrink-0">
-                                <p className="text-sm font-black text-foreground">KSh {booking.total_amount.toLocaleString()}</p>
-                                <CollapsibleTrigger asChild>
-                                  <button className="mt-1 p-1.5 rounded-full bg-muted/50 hover:bg-muted transition-colors">
-                                    {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                                  </button>
-                                </CollapsibleTrigger>
-                              </div>
-                            </div>
+                            </CollapsibleTrigger>
 
                             <CollapsibleContent>
-                              <div className="px-4 pb-4 pt-2 border-t border-border/50 bg-muted/20 space-y-4">
+                              <div className="px-4 pb-4 pt-2 border-t border-border/50 bg-muted/10 space-y-4">
                                 <div className="grid grid-cols-2 gap-y-3 gap-x-4">
                                   <div className="space-y-0.5">
                                     <p className="text-[9px] font-bold text-muted-foreground uppercase">Guest</p>
@@ -297,13 +297,13 @@ const Bookings = () => {
                                   }} />
                                   
                                   {canReschedule(booking) && (
-                                    <Button variant="outline" size="sm" onClick={() => setRescheduleBooking(booking)} className="h-8 text-[10px] font-bold rounded-xl border-border bg-background">
+                                    <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); setRescheduleBooking(booking); }} className="h-8 text-[10px] font-bold rounded-xl border-border bg-background">
                                       <CalendarClock className="h-3 w-3 mr-1.5 text-primary" /> Reschedule
                                     </Button>
                                   )}
                                   
                                   {canCancel(booking) && (
-                                    <Button variant="ghost" size="sm" onClick={() => { setBookingToCancel(booking); setShowCancelDialog(true); }} className="h-8 text-[10px] font-bold rounded-xl text-destructive hover:bg-destructive/5">
+                                    <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setBookingToCancel(booking); setShowCancelDialog(true); }} className="h-8 text-[10px] font-bold rounded-xl text-destructive hover:bg-destructive/5">
                                       <XCircle className="h-3 w-3 mr-1.5" /> Cancel
                                     </Button>
                                   )}
@@ -341,16 +341,16 @@ const Bookings = () => {
       )}
 
       <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
-        <AlertDialogContent className="max-w-[90vw] md:max-w-lg rounded-3xl border-none p-6 shadow-2xl">
+        <AlertDialogContent className="max-w-[92vw] md:max-w-lg rounded-[2rem] border-none p-6 shadow-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-xl font-black uppercase tracking-tight">Cancel Reservation?</AlertDialogTitle>
-            <p className="text-xs text-muted-foreground leading-relaxed">
+            <div className="text-xs text-muted-foreground leading-relaxed">
               This action cannot be undone. Per our policy, cancellations within 48 hours of the visit date are non-refundable.
-            </p>
+            </div>
           </AlertDialogHeader>
-          <AlertDialogFooter className="mt-6 flex-col sm:flex-row gap-2">
-            <AlertDialogCancel className="rounded-2xl text-[10px] font-bold uppercase h-11">Go Back</AlertDialogCancel>
-            <AlertDialogAction onClick={handleCancelBooking} className="rounded-2xl bg-destructive hover:bg-destructive/90 text-[10px] font-bold uppercase h-11">Confirm Cancellation</AlertDialogAction>
+          <AlertDialogFooter className="mt-6 flex flex-col gap-2">
+            <AlertDialogAction onClick={handleCancelBooking} className="w-full rounded-2xl bg-destructive hover:bg-destructive/90 text-[10px] font-bold uppercase h-12 order-1 sm:order-2">Confirm Cancellation</AlertDialogAction>
+            <AlertDialogCancel className="w-full rounded-2xl text-[10px] font-bold uppercase h-12 order-2 sm:order-1">Go Back</AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

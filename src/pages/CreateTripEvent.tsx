@@ -21,24 +21,34 @@ import { OperatingHoursSection } from "@/components/creation/OperatingHoursSecti
 
 const COLORS = { TEAL: "#008080", CORAL: "#FF7F50", CORAL_LIGHT: "#FF9E7A", SOFT_GRAY: "#F8F9FA" };
 
-// Generate friendly ID from name + 4 random alphanumeric characters
-const generateFriendlyId = (name: string): string => {
-  // Clean the name: lowercase, remove special chars, replace spaces with hyphens
-  const cleanName = name
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, '') // Remove special characters
-    .replace(/\s+/g, '-') // Replace spaces with hyphens
-    .replace(/-+/g, '-') // Remove multiple hyphens
-    .substring(0, 30); // Limit length
-  
-  // Generate 4 random alphanumeric characters (mix of letters and numbers)
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let code = '';
-  for (let i = 0; i < 4; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
+/**
+ * Generates a proper UUID v4 for use as the database `id` (type: uuid).
+ */
+const generateUUID = (): string => {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
   }
-  
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
+/**
+ * Generates a human-friendly slug for display/URL purposes.
+ * Stored in a `slug` text column — NOT the `id` column.
+ */
+const generateFriendlySlug = (name: string): string => {
+  const cleanName = name
+    .toLowerCase().trim()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .substring(0, 30);
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let code = "";
+  for (let i = 0; i < 4; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
   return `${cleanName}-${code}`;
 };
 
@@ -124,19 +134,11 @@ const CreateTripEvent = () => {
 
     setLoading(true);
     try {
-      // Generate friendly ID based on experience name
-      const friendlyId = generateFriendlyId(formData.name);
-      
-      // Check if ID already exists (rare collision case)
-      const { data: existing } = await supabase
-        .from("trips")
-        .select("id")
-        .eq("id", friendlyId)
-        .single();
-      
-      // If collision, regenerate (very unlikely)
-      const finalId = existing ? generateFriendlyId(formData.name) : friendlyId;
-      
+      // FIX: Use a proper UUID v4 for the `id` column (type: uuid).
+      // The friendly slug is stored separately in a `slug` text column.
+      const dbId = generateUUID();
+      const friendlySlug = generateFriendlySlug(formData.name);
+
       const uploadedUrls: string[] = [];
       for (const file of galleryImages) {
         const fileName = `${user.id}/${Math.random()}.${file.name.split('.').pop()}`;
@@ -149,24 +151,38 @@ const CreateTripEvent = () => {
       const daysOpened = (Object.keys(workingDays) as (keyof WorkingDays)[]).filter(day => workingDays[day]);
 
       const { error } = await supabase.from("trips").insert([{
-        id: finalId, // Use the friendly ID
-        name: formData.name, description: formData.description, location: formData.location,
-        place: formData.place, country: formData.country,
+        id: dbId,
+        slug: friendlySlug,
+        name: formData.name,
+        description: formData.description,
+        location: formData.location,
+        place: formData.place,
+        country: formData.country,
         date: formData.is_custom_date ? new Date().toISOString().split('T')[0] : formData.date,
-        is_custom_date: formData.is_custom_date, is_flexible_date: formData.is_custom_date,
-        type: formData.type, image_url: uploadedUrls[0] || "", gallery_images: uploadedUrls,
-        price: parseFloat(formData.price), price_child: parseFloat(formData.price_child) || 0,
+        is_custom_date: formData.is_custom_date,
+        is_flexible_date: formData.is_custom_date,
+        type: formData.type,
+        image_url: uploadedUrls[0] || "",
+        gallery_images: uploadedUrls,
+        price: parseFloat(formData.price),
+        price_child: parseFloat(formData.price_child) || 0,
         available_tickets: parseInt(formData.available_tickets) || 0,
-        email: formData.email, phone_number: formData.phone_number, map_link: formData.map_link,
-        opening_hours: formData.opening_hours || null, closing_hours: formData.closing_hours || null,
+        email: formData.email,
+        phone_number: formData.phone_number,
+        map_link: formData.map_link,
+        opening_hours: formData.opening_hours || null,
+        closing_hours: formData.closing_hours || null,
         days_opened: daysOpened.length > 0 ? daysOpened : null,
-        created_by: user.id, approval_status: approvalStatusSchema.parse("pending")
+        created_by: user.id,
+        approval_status: approvalStatusSchema.parse("pending"),
       }]);
+
       if (error) throw error;
-      toast({ 
-        title: "Success!", 
-        description: `ID: ${finalId} - Submitted for approval.`,
-        duration: 5000
+
+      toast({
+        title: "Success!",
+        description: `Ref: ${friendlySlug} — Submitted for approval.`,
+        duration: 5000,
       });
       navigate("/become-host");
     } catch (error: any) {
@@ -259,7 +275,7 @@ const CreateTripEvent = () => {
             </div>
             <div className="p-4 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50">
               <Button type="button" onClick={getCurrentLocation} className="w-full h-14 rounded-2xl shadow-lg font-black uppercase text-[11px] tracking-widest text-white active:scale-95 transition-all" style={{ background: formData.map_link ? COLORS.TEAL : COLORS.CORAL }}>
-                <Navigation className="h-5 w-5 mr-3" />{formData.map_link ? '✓ Location Captured' : 'Tap to Capture GPS Location'}
+                <Navigation className="h-5 w-5 mr-3" />{formData.map_link ? 'Location Captured' : 'Tap to Capture GPS Location'}
               </Button>
             </div>
             {/* Gallery */}

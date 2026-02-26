@@ -1,76 +1,79 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useSafeBack } from "@/hooks/useSafeBack";
-import { MobileBottomBar } from "@/components/MobileBottomBar";
-import { Button } from "@/components/ui/button";
-import { MapPin, Share2, Heart, Calendar, Copy, CheckCircle2, ArrowLeft, Star, Phone, Mail, Clock, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/contexts/AuthContext";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { 
+  MapPin, Clock, ArrowLeft, 
+  Heart, Star, Circle, Calendar, Loader2, Share2, Copy, Navigation, AlertCircle, Phone, Mail
+} from "lucide-react";
 import { SimilarItems } from "@/components/SimilarItems";
+import { useToast } from "@/hooks/use-toast";
 import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
 import { ReviewSection } from "@/components/ReviewSection";
+import { FacilitiesGrid, ActivitiesGrid } from "@/components/detail/FacilityActivityCards";
 import { useSavedItems } from "@/hooks/useSavedItems";
-import { generateReferralLink, trackReferralClick } from "@/lib/referralUtils";
-import { useBookingSubmit, BookingFormData } from "@/hooks/useBookingSubmit";
 import { extractIdFromSlug } from "@/lib/slugUtils";
-import { useRealtimeItemAvailability } from "@/hooks/useRealtimeBookings";
+import { useGeolocation, calculateDistance } from "@/hooks/useGeolocation";
+import { trackReferralClick, generateReferralLink } from "@/lib/referralUtils";
 import { Header } from "@/components/Header";
+import { ImageGalleryModal } from "@/components/detail/ImageGalleryModal";
+import { QuickNavigationBar } from "@/components/detail/QuickNavigationBar";
+import { GeneralFacilitiesDisplay } from "@/components/detail/GeneralFacilitiesDisplay";
 import { DetailMapSection } from "@/components/detail/DetailMapSection";
 import { DetailPageSkeleton } from "@/components/detail/DetailPageSkeleton";
-import { ImageGalleryModal } from "@/components/detail/ImageGalleryModal";
 
-const COLORS = {
-  TEAL: "#008080",
-  CORAL: "#FF7F50",
-  CORAL_LIGHT: "#FF9E7A",
-  KHAKI: "#F0E68C",
-  KHAKI_DARK: "#857F3E",
-  RED: "#FF0000",
-  SOFT_GRAY: "#F8F9FA"
-};
-
-const ReviewHeader = ({ event }: { event: any }) => (
-  <div className="flex justify-between items-center mb-8">
-    <div>
-      <h2 className="text-xl font-black uppercase tracking-tight" style={{ color: COLORS.TEAL }}>Ratings</h2>
-      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Community Feedback</p>
-    </div>
-    {event.average_rating > 0 && (
-      <div className="flex items-center gap-2 bg-slate-50 px-4 py-2 rounded-2xl border border-slate-100">
-        <Star className="h-4 w-4 fill-[#FF7F50] text-[#FF7F50]" />
-        <span className="text-lg font-black" style={{ color: COLORS.TEAL }}>{event.average_rating.toFixed(1)}</span>
-      </div>
-    )}
-  </div>
-);
-
-const EventDetail = () => {
+const AdventurePlaceDetail = () => {
   const { slug } = useParams();
   const id = slug ? extractIdFromSlug(slug) : null;
   const navigate = useNavigate();
   const goBack = useSafeBack();
-  const { user } = useAuth();
   const { toast } = useToast();
+  const { position, requestLocation } = useGeolocation();
   
-  const [event, setEvent] = useState<any | null>(null);
+  const [place, setPlace] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showBooking, setShowBooking] = useState(false);
+  const [isOpenNow, setIsOpenNow] = useState(false);
+  const [liveRating, setLiveRating] = useState({ avg: 0, count: 0 });
   const [scrolled, setScrolled] = useState(false);
+
   const { savedItems, handleSave: handleSaveItem } = useSavedItems();
   const isSaved = savedItems.has(id || "");
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [isCompleted, setIsCompleted] = useState(false);
+
+  const distance = position && place?.latitude && place?.longitude
+    ? calculateDistance(position.latitude, position.longitude, place.latitude, place.longitude)
+    : undefined;
+
+  const getStartingPrice = () => {
+    if (!place) return 0;
+    const prices: number[] = [];
+    if (place.entry_fee) prices.push(Number(place.entry_fee));
+    const extractPrices = (arr: any[]) => {
+      if (!Array.isArray(arr)) return;
+      arr.forEach((item) => {
+        const p = typeof item === 'object' ? item.price : null;
+        if (p) prices.push(Number(p));
+      });
+    };
+    extractPrices(place.facilities);
+    extractPrices(place.activities);
+    return prices.length > 0 ? Math.min(...prices) : 0;
+  };
+
+  const startingPrice = getStartingPrice();
 
   useEffect(() => {
-    window.scrollTo(0, 0);
-    if (id) fetchEvent();
+    if (id) {
+      Promise.all([fetchPlace(), fetchLiveRating()]);
+    }
     const urlParams = new URLSearchParams(window.location.search);
     const refSlug = urlParams.get("ref");
-    if (refSlug && id) trackReferralClick(refSlug, id, "event", "booking");
-  }, [id]);
+    if (refSlug && id) trackReferralClick(refSlug, id, "adventure_place", "booking");
+    requestLocation();
+    window.scrollTo(0, 0);
+  }, [id, slug]);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 300);
@@ -78,95 +81,114 @@ const EventDetail = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const fetchEvent = async () => {
+  useEffect(() => {
+    if (!place) return;
+    const checkOpenStatus = () => {
+      const now = new Date();
+      const currentDay = now.toLocaleString('en-us', { weekday: 'long' }).toLowerCase();
+      if (place.opening_hours === "00:00" && place.closing_hours === "23:59") {
+        const days = Array.isArray(place.days_opened) 
+          ? place.days_opened.map((d: string) => d.toLowerCase()) 
+          : ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+        setIsOpenNow(days.includes(currentDay));
+        return;
+      }
+      const currentTime = now.getHours() * 60 + now.getMinutes();
+      const parseTime = (timeStr: string) => {
+        if (!timeStr) return 0;
+        const [time, modifier] = timeStr.split(' ');
+        let [hours, minutes] = time.split(':').map(Number);
+        if (modifier === 'PM' && hours < 12) hours += 12;
+        if (modifier === 'AM' && hours === 12) hours = 0;
+        return hours * 60 + minutes;
+      };
+      const openTime = parseTime(place.opening_hours || "08:00 AM");
+      const closeTime = parseTime(place.closing_hours || "06:00 PM");
+      const days = Array.isArray(place.days_opened) 
+        ? place.days_opened.map((d: string) => d.toLowerCase()) 
+        : ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+      setIsOpenNow(days.includes(currentDay) && currentTime >= openTime && currentTime <= closeTime);
+    };
+    checkOpenStatus();
+    const interval = setInterval(checkOpenStatus, 60000);
+    return () => clearInterval(interval);
+  }, [place]);
+
+  const fetchPlace = async () => {
     if (!id) return;
     try {
-      let { data, error } = await supabase
-        .from("trips")
-        .select("id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,price,price_child,available_tickets,description,activities,phone_number,email,created_by,type,opening_hours,closing_hours,days_opened,map_link,is_flexible_date")
+      // Step 1: exact match on id column (works for both UUID and legacy friendly IDs)
+      let { data } = await supabase
+        .from("adventure_places")
+        .select("*")
         .eq("id", id)
-        .eq("type", "event")
-        .single();
-      if (error && id.length === 8) {
-        const { data: prefixData, error: prefixError } = await supabase
-          .from("trips")
-          .select("id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,price,price_child,available_tickets,description,activities,phone_number,email,created_by,type,opening_hours,closing_hours,days_opened,map_link,is_flexible_date")
-          .ilike("id", `${id}%`)
-          .eq("type", "event")
-          .single();
-        if (!prefixError) { data = prefixData; error = null; }
+        .maybeSingle();
+
+      // Step 2: fallback to slug column (new listings store friendly slug separately)
+      if (!data) {
+        const res = await supabase
+          .from("adventure_places")
+          .select("*")
+          .eq("slug", id)
+          .maybeSingle();
+        if (res.data) data = res.data;
       }
-      if (error) throw error;
-      setEvent(data);
+
+      if (!data) throw new Error("Not found");
+      setPlace(data);
     } catch (error) {
-      toast({ title: "Event not found", variant: "destructive" });
+      toast({ title: "Place not found", variant: "destructive" });
+      navigate('/');
     } finally { setLoading(false); }
   };
 
-  const handleSave = () => id && handleSaveItem(id, "event");
-  const handleCopyLink = async () => {
-    if (!event) return;
-    toast({ title: "Copying link..." });
-    const refLink = await generateReferralLink(event.id, "event", event.id);
-    await navigator.clipboard.writeText(refLink);
-    toast({ title: "Link Copied!" });
-  };
-
-  const handleShare = async () => {
-    if (!event) return;
-    toast({ title: "Preparing share..." });
-    const refLink = await generateReferralLink(event.id, "event", event.id);
-    if (navigator.share) {
-      try { await navigator.share({ title: event.name, url: refLink }); } catch (e) {}
-    } else { 
-      await navigator.clipboard.writeText(refLink);
-      toast({ title: "Link Copied!" });
+  const fetchLiveRating = async () => {
+    if (!id) return;
+    const { data } = await supabase.from("reviews").select("rating").eq("item_id", id).eq("item_type", "adventure_place");
+    if (data && data.length > 0) {
+      const avg = data.reduce((acc, curr) => acc + curr.rating, 0) / data.length;
+      setLiveRating({ avg: parseFloat(avg.toFixed(1)), count: data.length });
     }
   };
 
-  const openInMaps = () => {
-    const query = encodeURIComponent(`${event?.name}, ${event?.location}`);
-    window.open(event?.map_link || `https://www.google.com/maps/search/?api=1&query=${query}`, "_blank");
-  };
-
-  const { submitBooking } = useBookingSubmit();
-
-  const handleBookingSubmit = async (data: BookingFormData) => {
-    if (!event) return;
-    setIsProcessing(true);
-    try {
-      const totalAmount = (data.num_adults * event.price) + (data.num_children * (event.price_child || 0));
-      await submitBooking({
-        itemId: event.id, itemName: event.name, bookingType: 'event', totalAmount,
-        slotsBooked: data.num_adults + data.num_children, visitDate: event.date,
-        guestName: data.guest_name, guestEmail: data.guest_email, guestPhone: data.guest_phone,
-        hostId: event.created_by, bookingDetails: { ...data, event_name: event.name }
-      });
-      setIsCompleted(true);
-      setShowBooking(false);
-    } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } finally { setIsProcessing(false); }
-  };
-
-  const { remainingSlots, isSoldOut } = useRealtimeItemAvailability(id || undefined, event?.available_tickets || 0);
-
   if (loading) return <DetailPageSkeleton />;
-  if (!event) return null;
+  if (!place) return null;
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const eventDate = event.date ? new Date(event.date) : null;
-  const isExpired = !event.is_custom_date && eventDate && eventDate < today;
-  const canBook = !isExpired && !isSoldOut;
-  const allImages = [event?.image_url, ...(event?.images || [])].filter(Boolean);
+  const facilityImages = (Array.isArray(place.facilities) ? place.facilities : [])
+    .flatMap((f: any) => (Array.isArray(f.images) ? f.images : []));
+  const activityImages = (Array.isArray(place.activities) ? place.activities : [])
+    .flatMap((a: any) => (Array.isArray(a.images) ? a.images : []));
+  const allImages = [place.image_url, ...(place.gallery_images || []), ...facilityImages, ...activityImages].filter(Boolean);
+
+  const is24Hours = place.opening_hours === "00:00" && place.closing_hours === "23:59";
+
+  const OperatingHoursInfo = () => (
+    <div className="space-y-3 bg-slate-50 p-4 rounded-2xl border border-dashed border-slate-200">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 text-slate-400">
+          <Clock className="h-4 w-4 text-teal-600" />
+          <span className="text-[10px] font-black uppercase tracking-tight">Working Hours</span>
+        </div>
+        <span className={`text-[10px] font-black uppercase ${isOpenNow ? "text-emerald-600" : "text-red-500"}`}>
+          {is24Hours ? "Open 24 Hours" : `${place.opening_hours || "08:00 AM"} - ${place.closing_hours || "06:00 PM"}`}
+        </span>
+      </div>
+      <div className="flex flex-col gap-1.5 pt-1 border-t border-slate-100">
+        <div className="flex items-center gap-2 text-slate-400">
+          <Calendar className="h-4 w-4 text-teal-600" />
+          <span className="text-[10px] font-black uppercase tracking-tight">Working Days</span>
+        </div>
+        <p className="text-[10px] font-normal leading-tight text-slate-500 lowercase italic">
+          {Array.isArray(place.days_opened) ? place.days_opened.join(", ") : "monday, tuesday, wednesday, thursday, friday, saturday, sunday"}
+        </p>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] pb-24">
-      {/* Header - All Screens */}
       <Header showSearchIcon={false} />
 
-      {/* Sticky Scroll Bar */}
       <div
         className="fixed top-0 left-0 right-0 z-[100] flex items-center justify-between px-4 py-3 bg-white/95 backdrop-blur-md border-b border-slate-100 shadow-sm transition-all duration-300"
         style={{
@@ -175,161 +197,114 @@ const EventDetail = () => {
           pointerEvents: scrolled ? "auto" : "none",
         }}
       >
-        <Button
-          onClick={goBack}
-          className="rounded-full w-9 h-9 p-0 border-none bg-slate-100 text-slate-900 hover:bg-slate-200 shadow-none transition-all flex-shrink-0"
-        >
+        <Button onClick={goBack} className="rounded-full w-9 h-9 p-0 border-none bg-slate-100 text-slate-900 hover:bg-slate-200 shadow-none transition-all flex-shrink-0">
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <span className="text-sm font-black uppercase tracking-tight text-slate-800 truncate mx-3 flex-1 text-center">
-          {event.name}
-        </span>
+        <span className="text-sm font-black uppercase tracking-tight text-slate-800 truncate mx-3 flex-1 text-center">{place.name}</span>
         <Button
-          onClick={handleSave}
-          className={`rounded-full w-9 h-9 p-0 border-none shadow-none transition-all flex-shrink-0 ${
-            isSaved ? "bg-red-500 hover:bg-red-600" : "bg-slate-100 text-slate-900 hover:bg-slate-200"
-          }`}
+          onClick={() => id && handleSaveItem(id, "adventure_place")}
+          className={`rounded-full w-9 h-9 p-0 border-none shadow-none transition-all flex-shrink-0 ${isSaved ? "bg-red-500 hover:bg-red-600" : "bg-slate-100 text-slate-900 hover:bg-slate-200"}`}
         >
           <Heart className={`h-4 w-4 ${isSaved ? "fill-white text-white" : "text-slate-900"}`} />
         </Button>
       </div>
 
-      {/* HERO / IMAGE GALLERY */}
       <div className="max-w-6xl mx-auto md:px-4 md:pt-3">
-        {/* Mobile Carousel View */}
-        <div className="relative w-full overflow-hidden h-[55vh] bg-slate-900 md:rounded-3xl md:hidden">
-          {/* Action Buttons - Overlaid on Gallery */}
+        <div className="relative w-full h-[45vh] bg-slate-900 overflow-hidden md:rounded-3xl md:hidden">
           <div className="absolute top-4 left-4 right-4 z-50 flex justify-between items-center">
-            <Button 
-              onClick={goBack} 
-              className="rounded-full w-10 h-10 p-0 border-none bg-white/90 backdrop-blur-sm text-slate-900 hover:bg-white shadow-lg transition-all"
-            >
+            <Button onClick={goBack} className="rounded-full w-10 h-10 p-0 border-none bg-white/90 backdrop-blur-sm text-slate-900 hover:bg-white shadow-lg transition-all">
               <ArrowLeft className="h-5 w-5" />
             </Button>
-
-            <Button 
-              onClick={handleSave} 
-              className={`rounded-full w-10 h-10 p-0 border-none shadow-lg backdrop-blur-sm transition-all ${
-                isSaved ? "bg-red-500 hover:bg-red-600" : "bg-white/90 text-slate-900 hover:bg-white"
-              }`}
+            <Button
+              onClick={() => id && handleSaveItem(id, "adventure_place")}
+              className={`rounded-full w-10 h-10 p-0 border-none shadow-lg backdrop-blur-sm transition-all ${isSaved ? "bg-red-500 hover:bg-red-600" : "bg-white/90 text-slate-900 hover:bg-white"}`}
             >
               <Heart className={`h-5 w-5 ${isSaved ? "fill-white text-white" : "text-slate-900"}`} />
             </Button>
           </div>
-          <Carousel plugins={[Autoplay({ delay: 4000 })]} className="w-full h-full">
+          <Carousel plugins={[Autoplay({ delay: 3500 })]} className="w-full h-full">
             <CarouselContent className="h-full ml-0">
-              {allImages.map((img, idx) => (
+              {allImages.length > 0 ? allImages.map((img, idx) => (
                 <CarouselItem key={idx} className="h-full pl-0 basis-full">
-                  <div className="relative h-full w-full">
-                    <img src={img} alt={`${event.name} - ${idx + 1}`} className="w-full h-full object-cover object-center" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent z-10" />
-                  </div>
+                  <img src={img} alt={`${place.name} - ${idx + 1}`} className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent z-10" />
                 </CarouselItem>
-              ))}
+              )) : (
+                <div className="h-full w-full bg-slate-200 flex items-center justify-center text-slate-400 font-black uppercase text-xs">No Image</div>
+              )}
             </CarouselContent>
           </Carousel>
-          {/* Mobile See All Gallery Button */}
-          {allImages.length > 1 && (
-            <ImageGalleryModal images={allImages} name={event.name} />
-          )}
-          <div className="absolute bottom-6 left-0 z-40 w-full px-4 pointer-events-none">
-            <div className="relative z-10 space-y-2 pointer-events-auto bg-gradient-to-r from-black/70 via-black/50 to-transparent rounded-2xl p-4 max-w-xl">
-              <Button className="bg-[#FF7F50] hover:bg-[#FF7F50] border-none px-3 py-1 h-auto uppercase font-black tracking-[0.1em] text-[9px] rounded-full shadow-lg">Event</Button>
-              <h1 className="text-2xl font-black uppercase tracking-tighter leading-none text-white drop-shadow-2xl">{event.name}</h1>
-              <div className="flex items-center gap-2 cursor-pointer group w-fit" onClick={openInMaps}>
-                  <MapPin className="h-4 w-4 text-white" />
-                  <span className="text-xs font-bold text-white uppercase tracking-wide">
-                    {[event.place, event.location, event.country].filter(Boolean).join(', ')}
-                  </span>
+          {allImages.length > 1 && <ImageGalleryModal images={allImages} name={place.name} />}
+          <div className="absolute bottom-6 left-0 w-full px-4 z-20">
+            <div className="bg-gradient-to-r from-black/70 via-black/50 to-transparent rounded-2xl p-4 max-w-xl">
+              <div className="flex flex-wrap gap-2 mb-2">
+                <Badge className="bg-amber-400 text-black border-none px-2 py-0.5 text-[9px] font-black uppercase rounded-full flex items-center gap-1 shadow-lg">
+                  <Star className="h-3 w-3 fill-current" />{liveRating.avg > 0 ? liveRating.avg : "New"}
+                </Badge>
+                <Badge className={`${isOpenNow ? "bg-emerald-500" : "bg-red-500"} text-white border-none px-2 py-0.5 text-[9px] font-black uppercase rounded-full flex items-center gap-1`}>
+                  <Circle className={`h-2 w-2 fill-current ${isOpenNow ? "animate-pulse" : ""}`} />
+                  {isOpenNow ? "open" : "closed"}
+                </Badge>
+              </div>
+              <h1 className="text-2xl font-black text-white uppercase tracking-tighter leading-none mb-2">{place.name}</h1>
+              <div className="flex items-center gap-1 text-white">
+                <MapPin className="h-3.5 w-3.5" />
+                <span className="text-xs font-bold uppercase truncate">{[place.place, place.location, place.country].filter(Boolean).join(', ')}</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Desktop Grid View */}
         <div className="hidden md:block relative">
-          {/* Action Buttons - Overlaid on Gallery */}
           <div className="absolute top-6 left-6 right-6 z-50 flex justify-between items-center">
-            <Button 
-              onClick={goBack} 
-              className="rounded-full w-12 h-12 p-0 border-none bg-white/90 backdrop-blur-sm text-slate-900 hover:bg-white shadow-lg transition-all"
-            >
+            <Button onClick={goBack} className="rounded-full w-12 h-12 p-0 border-none bg-white/90 backdrop-blur-sm text-slate-900 hover:bg-white shadow-lg transition-all">
               <ArrowLeft className="h-6 w-6" />
             </Button>
-
-            <Button 
-              onClick={handleSave} 
-              className={`rounded-full w-12 h-12 p-0 border-none shadow-lg backdrop-blur-sm transition-all ${
-                isSaved ? "bg-red-500 hover:bg-red-600" : "bg-white/90 text-slate-900 hover:bg-white"
-              }`}
+            <Button
+              onClick={() => id && handleSaveItem(id, "adventure_place")}
+              className={`rounded-full w-12 h-12 p-0 border-none shadow-lg backdrop-blur-sm transition-all ${isSaved ? "bg-red-500 hover:bg-red-600" : "bg-white/90 text-slate-900 hover:bg-white"}`}
             >
               <Heart className={`h-6 w-6 ${isSaved ? "fill-white text-white" : "text-slate-900"}`} />
             </Button>
           </div>
-
-          {/* Image Grid Layout */}
-          <div className="grid grid-cols-4 gap-2 h-[550px]">
+          <div className="grid grid-cols-4 gap-2 h-[500px]">
             {allImages.length > 0 ? (
               <>
-                {/* Main Large Image - Takes 2 columns and full height */}
                 <div className="col-span-2 row-span-2 rounded-3xl overflow-hidden relative group">
-                  <img 
-                    src={allImages[0]} 
-                    alt={event.name}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
+                  <img src={allImages[0]} alt={place.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-                  
-                  {/* Event Info Overlay */}
                   <div className="absolute bottom-6 left-6 right-6 z-20">
                     <div className="space-y-3">
-                      <Button className="bg-[#FF7F50] hover:bg-[#FF7F50] border-none px-4 py-1.5 h-auto uppercase font-black tracking-[0.1em] text-[10px] rounded-full shadow-lg">
-                        Experience
-                      </Button>
-                      <h1 className="text-3xl font-black uppercase tracking-tighter leading-none text-white drop-shadow-2xl">
-                        {event.name}
-                      </h1>
-                      <div className="flex items-center gap-2 cursor-pointer group/map w-fit" onClick={openInMaps}>
-                        <MapPin className="h-4 w-4 text-white" />
-                        <span className="text-sm font-bold text-white uppercase tracking-wide">
-                          {[event.place, event.location, event.country].filter(Boolean).join(', ')}
-                        </span>
+                      <div className="flex flex-wrap gap-2">
+                        <Badge className="bg-amber-400 text-black border-none px-3 py-1 text-[10px] font-black uppercase rounded-full flex items-center gap-1.5 shadow-lg">
+                          <Star className="h-3.5 w-3.5 fill-current" />{liveRating.avg > 0 ? liveRating.avg : ""}
+                        </Badge>
+                        <Badge className={`${isOpenNow ? "bg-emerald-500" : "bg-red-500"} text-white border-none px-3 py-1 text-[10px] font-black uppercase rounded-full flex items-center gap-1.5`}>
+                          <Circle className={`h-2.5 w-2.5 fill-current ${isOpenNow ? "animate-pulse" : ""}`} />
+                          {isOpenNow ? "open now" : ""}
+                        </Badge>
+                      </div>
+                      <h1 className="text-3xl font-black text-white uppercase tracking-tighter leading-none">{place.name}</h1>
+                      <div className="flex items-center gap-2 text-white">
+                        <MapPin className="h-4 w-4" />
+                        <span className="text-sm font-bold uppercase">{[place.place, place.location, place.country].filter(Boolean).join(', ')}</span>
                       </div>
                     </div>
                   </div>
                 </div>
-
-                {/* Top Right Image */}
                 {allImages[1] && (
                   <div className="col-span-2 rounded-3xl overflow-hidden relative group">
-                    <img 
-                      src={allImages[1]} 
-                      alt={`${event.name} - Gallery 2`}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                    />
+                    <img src={allImages[1]} alt={`${place.name} - Gallery 2`} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
                   </div>
                 )}
-
-                {/* Bottom Right - 3 Small Images */}
                 <div className="col-span-2 grid grid-cols-3 gap-2">
                   {allImages.slice(2, 5).map((img, idx) => (
                     <div key={idx} className="rounded-2xl overflow-hidden relative group">
-                      <img 
-                        src={img} 
-                        alt={`${event.name} - Gallery ${idx + 3}`}
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      />
-                      {idx === 2 && allImages.length > 5 && (
-                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-sm">
-                          <div className="text-center">
-                            <span className="text-white text-2xl font-black">+{allImages.length - 5}</span>
-                            <p className="text-white text-xs font-bold uppercase mt-1">More</p>
-                          </div>
-                        </div>
-                      )}
+                      <img src={img} alt={`${place.name} - Gallery ${idx + 3}`} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
                     </div>
                   ))}
                 </div>
+                <ImageGalleryModal images={allImages} name={place.name} />
               </>
             ) : (
               <div className="col-span-4 rounded-3xl bg-slate-200 flex items-center justify-center">
@@ -340,214 +315,173 @@ const EventDetail = () => {
         </div>
       </div>
 
-      {/* 3. MAIN BODY */}
-      <main className="container px-4 max-w-6xl mx-auto mt-6 relative z-50">
-        <div className="grid lg:grid-cols-[1.7fr,1fr] gap-6">
-          
-          <div className="space-y-6">
-            {/* About */}
-            <div className="bg-white rounded-[28px] p-7 shadow-sm border border-slate-100">
-              <h2 className="text-xl font-black uppercase tracking-tight mb-4" style={{ color: COLORS.TEAL }}>About this Event</h2>
-              <p className="text-slate-500 text-sm leading-relaxed whitespace-pre-line">{event.description}</p>
+      <div className="md:hidden container px-4 mt-4 max-w-6xl mx-auto">
+        <QuickNavigationBar 
+          hasFacilities={place.facilities?.length > 0} 
+          hasActivities={place.activities?.length > 0}
+          hasContact={place.phone_numbers?.length > 0 || !!place.email}
+        />
+      </div>
+
+      <main className="container px-4 mt-6 relative z-30 max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-[1.8fr,1fr] gap-4">
+          <div className="space-y-4">
+            <section className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
+              <h2 className="text-[11px] font-black uppercase tracking-widest mb-3 text-slate-400">About This Property</h2>
+              {place.description ? (
+                <p className="text-slate-500 text-sm leading-relaxed">{place.description}</p>
+              ) : (
+                <div className="flex items-center gap-2 text-slate-300 italic py-4"><AlertCircle className="h-4 w-4" /> Description coming soon</div>
+              )}
+            </section>
+
+            <div className="md:hidden"><OperatingHoursInfo /></div>
+
+            <GeneralFacilitiesDisplay facilityIds={
+              Array.isArray(place.amenities) 
+                ? place.amenities.map((a: any) => typeof a === 'string' ? a : a.name || '') 
+                : []
+            } />
+
+            {place.facilities?.length > 0 && (
+              <div id="facilities-section">
+                <FacilitiesGrid facilities={place.facilities} itemId={place.id} itemType="adventure_place" accentColor="#008080" />
+              </div>
+            )}
+
+            {place.activities?.length > 0 && (
+              <div id="activities-section">
+                <ActivitiesGrid activities={place.activities} itemId={place.id} itemType="adventure_place" accentColor="#FF7F50" />
+              </div>
+            )}
+
+            <div className="bg-white rounded-[32px] p-6 shadow-xl border border-slate-100 lg:hidden">
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Starting from</p>
+                  {place.entry_fee && place.entry_fee > 0 ? (
+                    <div className="space-y-1">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-3xl font-black text-red-600">KSh {Number(place.entry_fee).toLocaleString()}</span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">/ adult</span>
+                      </div>
+                      {place.child_entry_fee !== undefined && (
+                        <div className="text-sm font-bold text-slate-500">Child: KSh {Number(place.child_entry_fee || 0).toLocaleString()}</div>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-3xl font-black text-emerald-600">Free Entry</span>
+                  )}
+                </div>
+                <div className="text-right">
+                  <div className="flex items-center gap-1 text-amber-500 font-black text-lg">
+                    <Star className="h-4 w-4 fill-current" />
+                    <span>{liveRating.avg || "0"}</span>
+                  </div>
+                  <p className="text-[9px] font-black text-slate-400 uppercase">{liveRating.count} reviews</p>
+                </div>
+              </div>
+              <Button onClick={() => navigate(`/booking/adventure_place/${place.id}`)} className="w-full py-7 rounded-2xl text-md font-black uppercase tracking-widest bg-gradient-to-r from-[#FF7F50] to-[#FF4E50] border-none shadow-lg transition-all active:scale-95">Book Now</Button>
+              <div className="grid grid-cols-3 gap-3 mt-4">
+                <UtilityButton icon={<Navigation className="h-5 w-5" />} label="Map" onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${place.name}, ${place.location}`)}`, "_blank")} />
+                <UtilityButton icon={<Copy className="h-5 w-5" />} label="Copy" onClick={async () => { toast({ title: "Copying link..." }); const refLink = await generateReferralLink(id!, "adventure_place", id!); await navigator.clipboard.writeText(refLink); toast({ title: "Link Copied!" }); }} />
+                <UtilityButton icon={<Share2 className="h-5 w-5" />} label="Share" onClick={async () => { toast({ title: "Preparing share..." }); const refLink = await generateReferralLink(id!, "adventure_place", id!); if (navigator.share) { try { await navigator.share({ title: place.name, url: refLink }); } catch (e) {} } else { await navigator.clipboard.writeText(refLink); toast({ title: "Link Copied!" }); } }} />
+              </div>
             </div>
 
-            {/* Event Hours */}
-            {(event.opening_hours || event.days_opened?.length > 0) && (
-              <div className="bg-white rounded-[28px] p-7 shadow-sm border border-slate-100">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="p-2 rounded-xl bg-teal-50"><Clock className="h-5 w-5 text-[#008080]" /></div>
-                  <div>
-                    <h2 className="text-xl font-black uppercase tracking-tight" style={{ color: COLORS.TEAL }}>Event Hours</h2>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Event Hours</p>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  {(event.opening_hours || event.closing_hours) && (
-                    <div className="flex items-center justify-between bg-slate-50 p-4 rounded-2xl">
-                      <span className="text-[10px] font-black uppercase text-slate-400">Operating Hours</span>
-                      <span className="text-sm font-black text-slate-700">
-                        {event.opening_hours || "08:00"} - {event.closing_hours || "18:00"}
-                      </span>
-                    </div>
-                  )}
-                  {event.days_opened?.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {event.days_opened.map((day: string, i: number) => (
-                        <span key={i} className="px-4 py-2 rounded-xl bg-teal-50 text-[10px] font-black uppercase text-[#008080] border border-teal-100">
-                          {day}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Highlights / Activities */}
-            {event.activities?.length > 0 && (
-              <div className="bg-white rounded-[28px] p-7 shadow-sm border border-slate-100">
-                <h2 className="text-xl font-black uppercase tracking-tight mb-5" style={{ color: COLORS.TEAL }}>Highlights</h2>
-                <div className="flex flex-wrap gap-3">
-                  {event.activities.map((act: any, i: number) => (
-                    <div key={i} className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-[#F0E68C]/20 border border-[#F0E68C]/50">
-                      <CheckCircle2 className="h-4 w-4 text-[#857F3E]" />
-                      <div className="flex flex-col">
-                        <span className="text-[11px] font-black text-[#857F3E] uppercase tracking-wide">{act.name}</span>
-                        <span className="text-[10px] font-bold text-[#857F3E]/70">
-                          {act.price === 0 || act.is_free ? "Included" : `KSh ${Number(act.price).toLocaleString()}`}
-                        </span>
-                      </div>
-                    </div>
+            <div id="contact-section" className="lg:hidden">
+              {(place.phone_numbers?.length > 0 || place.email) && (
+                <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 space-y-3">
+                  <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Contact</h3>
+                  {place.phone_numbers?.map((phone: string, idx: number) => (
+                    <a key={idx} href={`tel:${phone}`} className="flex items-center gap-3 text-slate-600 hover:text-[#008080] transition-colors">
+                      <div className="p-2 rounded-lg bg-slate-50"><Phone className="h-4 w-4 text-[#008080]" /></div>
+                      <span className="text-xs font-bold uppercase tracking-tight">{phone}</span>
+                    </a>
                   ))}
+                  {place.email && (
+                    <a href={`mailto:${place.email}`} className="flex items-center gap-3 text-slate-600 hover:text-[#008080] transition-colors">
+                      <div className="p-2 rounded-lg bg-slate-50"><Mail className="h-4 w-4 text-[#008080]" /></div>
+                      <span className="text-xs font-bold tracking-tight">{place.email}</span>
+                    </a>
+                  )}
                 </div>
-              </div>
-            )}
-
-            {/* Reviews — desktop */}
-            <div className="hidden lg:block bg-white rounded-[28px] p-7 shadow-sm border border-slate-100">
-              <ReviewHeader event={event} />
-              <ReviewSection itemId={event.id} itemType="event" />
+              )}
             </div>
           </div>
 
-          {/* Sidebar */}
-          <div className="space-y-6">
-            <div className="bg-white rounded-[32px] p-8 shadow-2xl border border-slate-100 lg:sticky lg:top-24">
-              {/* Price + availability badge */}
-              <div className="flex justify-between items-end mb-8">
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Ticket Price</p>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-3xl font-black" style={{ color: COLORS.RED }}>KSh {event.price}</span>
-                    <span className="text-slate-400 text-[10px] font-bold uppercase tracking-tighter">/ adult</span>
-                  </div>
-                </div>
-                <div className="bg-slate-50 px-4 py-2 rounded-2xl border border-slate-100 flex items-center gap-2">
-                  <Clock className="h-4 w-4" style={{ color: COLORS.TEAL }} />
-                  <span className={`text-xs font-black uppercase ${isSoldOut ? "text-red-500" : "text-slate-600"}`}>
-                    {isSoldOut ? "FULL" : `${remainingSlots} Left`}
-                  </span>
-                </div>
-              </div>
-
-              {/* Availability bar */}
-              <div className="mb-8 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
-                    <Users className="h-3 w-3" /> Event Availability
-                  </span>
-                  <span className={`text-[10px] font-black uppercase ${remainingSlots < 5 ? 'text-red-500' : 'text-emerald-600'}`}>
-                    {isSoldOut ? "Sold Out" : `${remainingSlots} Slots Available`}
-                  </span>
-                </div>
-                <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
-                   <div 
-                    className={`h-full transition-all duration-500 ${remainingSlots < 5 ? 'bg-red-500' : 'bg-emerald-500'}`}
-                    style={{ width: `${Math.min((remainingSlots / (event.available_tickets || 50)) * 100, 100)}%` }}
-                   />
-                </div>
-              </div>
-
-              {/* Date + child price */}
-              <div className="space-y-4 mb-8">
-                <div className="flex justify-between text-xs font-bold uppercase tracking-tight">
-                  <span className="text-slate-400">Scheduled Date</span>
-                  <span className={isExpired ? "text-red-500" : "text-slate-700"}>
-                    {event.is_custom_date ? (
-                      <span className="text-emerald-600 font-black">AVAILABLE</span>
-                    ) : (
-                      <>
-                        {new Date(event.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                        {isExpired && <span className="ml-1">(Past)</span>}
-                      </>
+          <div className="hidden lg:block">
+            <div className="sticky top-24 bg-white rounded-[40px] p-8 shadow-2xl border border-slate-100 space-y-6">
+              <div className="text-center">
+                <p className="text-xs font-black uppercase text-slate-400 mb-1">Starting from/Entrtace Fee</p>
+                {place.entry_fee && place.entry_fee > 0 ? (
+                  <div className="space-y-1">
+                    <h3 className="text-4xl font-black text-red-600">KSh {Number(place.entry_fee).toLocaleString()}</h3>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">per adult</p>
+                    {place.child_entry_fee !== undefined && (
+                      <p className="text-sm font-bold text-slate-500">Child: KSh {Number(place.child_entry_fee || 0).toLocaleString()}</p>
                     )}
-                  </span>
-                </div>
-                <div className="flex justify-between text-xs font-bold uppercase tracking-tight">
-                  <span className="text-slate-400">Child (Under 12)</span>
-                  <span className="text-slate-700">KSh {event.price_child || 0}</span>
-                </div>
-              </div>
-
-              {/* CTA */}
-              <Button 
-                onClick={() => navigate(`/booking/event/${event.id}`)}
-                disabled={!canBook}
-                className="w-full py-8 rounded-2xl text-md font-black uppercase tracking-[0.2em] text-white shadow-xl transition-all active:scale-95 border-none"
-                style={{ 
-                    background: !canBook 
-                        ? "#cbd5e1" 
-                        : `linear-gradient(135deg, ${COLORS.CORAL_LIGHT} 0%, ${COLORS.CORAL} 100%)`,
-                    boxShadow: !canBook ? "none" : `0 12px 24px -8px ${COLORS.CORAL}88`
-                }}
-              >
-                {isSoldOut ? "Fully Booked" : isExpired ? "Event Expired" : "Reserve Spot"}
-              </Button>
-
-              {/* Utility buttons */}
-              <div className="grid grid-cols-3 gap-3 mt-8 mb-8">
-                <UtilityButton icon={<MapPin className="h-5 w-5" />} label="Map" onClick={openInMaps} />
-                <UtilityButton icon={<Copy className="h-5 w-5" />} label="Copy" onClick={handleCopyLink} />
-                <UtilityButton icon={<Share2 className="h-5 w-5" />} label="Share" onClick={handleShare} />
-              </div>
-
-              {/* Contact */}
-              <div className="space-y-4 pt-6 border-t border-slate-50">
-                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contact</h3>
-                {event.phone_number && (
-                  <a href={`tel:${event.phone_number}`} className="flex items-center gap-3 text-slate-600 hover:text-[#008080] transition-colors">
-                    <Phone className="h-4 w-4 text-[#008080]" />
-                    <span className="text-xs font-bold uppercase tracking-tight">{event.phone_number}</span>
-                  </a>
+                  </div>
+                ) : (
+                  <h3 className="text-4xl font-black text-emerald-600 mb-2">Free Entry</h3>
                 )}
-                {event.email && (
-                  <a href={`mailto:${event.email}`} className="flex items-center gap-3 text-slate-600 hover:text-[#008080] transition-colors">
-                    <Mail className="h-4 w-4 text-[#008080]" />
-                    <span className="text-xs font-bold uppercase tracking-tight truncate">{event.email}</span>
-                  </a>
-                )}
+                <div className="flex items-center justify-center gap-1.5 text-amber-500 font-black mt-2">
+                  <Star className="h-4 w-4 fill-current" />
+                  <span className="text-lg">{liveRating.avg || "0"}</span>
+                </div>
               </div>
-            </div>
 
-            {/* Reviews — mobile */}
-            <div className="lg:hidden bg-white rounded-[28px] p-7 shadow-sm border border-slate-100">
-              <ReviewHeader event={event} />
-              <ReviewSection itemId={event.id} itemType="event" />
+              <OperatingHoursInfo />
+
+              <Button onClick={() => navigate(`/booking/adventure_place/${place.id}`)} className="w-full py-7 rounded-3xl text-lg font-black uppercase tracking-widest bg-gradient-to-r from-[#FF7F50] to-[#FF4E50] border-none shadow-xl transition-all active:scale-95">Reserve Now</Button>
+
+              <div className="grid grid-cols-3 gap-3">
+                <UtilityButton icon={<Navigation className="h-5 w-5" />} label="Map" onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${place.name}, ${place.location}`)}`, "_blank")} />
+                <UtilityButton icon={<Copy className="h-5 w-5" />} label="Copy" onClick={async () => { toast({ title: "Copying link..." }); const refLink = await generateReferralLink(id!, "adventure_place", id!); await navigator.clipboard.writeText(refLink); toast({ title: "Link Copied!" }); }} />
+                <UtilityButton icon={<Share2 className="h-5 w-5" />} label="Share" onClick={async () => { toast({ title: "Preparing share..." }); const refLink = await generateReferralLink(id!, "adventure_place", id!); if (navigator.share) { try { await navigator.share({ title: place.name, url: refLink }); } catch (e) {} } else { await navigator.clipboard.writeText(refLink); toast({ title: "Link Copied!" }); } }} />
+              </div>
+
+              {(place.phone_numbers?.length > 0 || place.email) && (
+                <div className="space-y-3 pt-4 border-t border-slate-100">
+                  <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contact</h3>
+                  {place.phone_numbers?.map((phone: string, idx: number) => (
+                    <a key={idx} href={`tel:${phone}`} className="flex items-center gap-3 text-slate-600 hover:text-[#008080] transition-colors">
+                      <div className="p-2 rounded-lg bg-slate-50"><Phone className="h-4 w-4 text-[#008080]" /></div>
+                      <span className="text-xs font-bold uppercase tracking-tight">{phone}</span>
+                    </a>
+                  ))}
+                  {place.email && (
+                    <a href={`mailto:${place.email}`} className="flex items-center gap-3 text-slate-600 hover:text-[#008080] transition-colors">
+                      <div className="p-2 rounded-lg bg-slate-50"><Mail className="h-4 w-4 text-[#008080]" /></div>
+                      <span className="text-xs font-bold tracking-tight">{place.email}</span>
+                    </a>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Map Section */}
+        <div className="mt-12 bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
+          <ReviewSection itemId={place.id} itemType="adventure_place" />
+        </div>
+
         <DetailMapSection
-          currentItem={{
-            id: event.id,
-            name: event.name,
-            latitude: null,
-            longitude: null,
-            location: event.location,
-            country: event.country,
-            image_url: event.image_url,
-            price: event.price,
-          }}
-          itemType="event"
+          currentItem={{ id: place.id, name: place.name, latitude: place.latitude, longitude: place.longitude, location: place.location, country: place.country, image_url: place.image_url, entry_fee: place.entry_fee }}
+          itemType="adventure"
         />
 
-        {/* Similar Items */}
-        <div className="mt-16">
-           <SimilarItems currentItemId={event.id} itemType="trip" location={event.location} country={event.country} />
-        </div>
+        <SimilarItems currentItemId={place.id} itemType="adventure" country={place.country} />
       </main>
-
-      <MobileBottomBar />
     </div>
   );
 };
 
 const UtilityButton = ({ icon, label, onClick }: { icon: React.ReactNode, label: string, onClick: () => void }) => (
-  <Button variant="ghost" onClick={onClick} className="flex-col h-auto py-3 bg-[#F0E68C]/10 text-[#857F3E] rounded-2xl hover:bg-[#F0E68C]/30 transition-colors border border-[#F0E68C]/20">
+  <Button variant="ghost" onClick={onClick} className="flex-col h-auto py-4 bg-slate-50 text-slate-500 rounded-2xl border border-slate-100 hover:bg-slate-100 transition-colors flex-1">
     <div className="mb-1">{icon}</div>
     <span className="text-[10px] font-black uppercase tracking-tighter">{label}</span>
   </Button>
 );
 
-export default EventDetail;
+export default AdventurePlaceDetail;

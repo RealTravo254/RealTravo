@@ -36,7 +36,26 @@ const COLORS = {
 let _idCounter = 0;
 const makeId = () => `item-${Date.now()}-${++_idCounter}`;
 
-const generateFriendlyId = (name: string): string => {
+/**
+ * Generates a proper UUID v4 for use as the database `id` (type: uuid).
+ */
+const generateUUID = (): string => {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Polyfill fallback
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
+/**
+ * Generates a human-friendly slug for display/URL purposes.
+ * Stored in a `slug` text column — NOT the `id` column.
+ */
+const generateFriendlySlug = (name: string): string => {
   const cleanName = name
     .toLowerCase().trim()
     .replace(/[^a-z0-9\s-]/g, "")
@@ -205,7 +224,6 @@ const FacilityBuilder = ({
           item.saved ? "border-[#FF7F50]/30 bg-[#FF7F50]/5" : "border-slate-200 bg-white"
         )}>
           {item.saved ? (
-            /* ── Saved summary ── */
             <div className="p-4 flex items-center gap-4">
               <div className="flex gap-2 shrink-0">
                 {item.previewUrls.slice(0, 3).map((url, i) =>
@@ -241,9 +259,7 @@ const FacilityBuilder = ({
               </div>
             </div>
           ) : (
-            /* ── Edit form ── */
             <div className="p-4 space-y-4">
-              {/* Name + Price */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Name *</Label>
@@ -259,21 +275,18 @@ const FacilityBuilder = ({
                 </div>
               </div>
 
-              {/* Capacity */}
               <div className="space-y-1">
                 <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
                   Capacity * <span className="text-slate-300 normal-case font-normal">(number of people)</span>
                 </Label>
                 <Input
-                  type="number"
-                  min={1}
+                  type="number" min={1}
                   value={item.capacity}
                   onChange={(e) => update(item.id, { capacity: e.target.value.replace(/[^0-9]/g, "") })}
                   placeholder="e.g. 2"
                   className={cn("rounded-xl h-10 font-bold text-sm", showErrors && !item.capacity.trim() && "border-red-500 bg-red-50")} />
               </div>
 
-              {/* Amenities tag input */}
               <div className="space-y-1">
                 <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
                   Amenities * <span className="text-slate-300 normal-case font-normal">(separate with commas)</span>
@@ -291,7 +304,6 @@ const FacilityBuilder = ({
                 />
               </div>
 
-              {/* Booking link (accommodation only) */}
               {showBookingLink && (
                 <div className="space-y-1">
                   <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
@@ -306,7 +318,6 @@ const FacilityBuilder = ({
                 </div>
               )}
 
-              {/* Photos */}
               <div className="space-y-2">
                 <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
                   Photos <span className="text-slate-300 normal-case font-normal">(min 2, max 5)</span>
@@ -340,7 +351,6 @@ const FacilityBuilder = ({
                 </div>
               </div>
 
-              {/* Actions */}
               <div className="flex gap-3 pt-1">
                 <Button type="button" onClick={() => saveItem(item)}
                   className="flex-1 h-10 rounded-xl font-black uppercase text-[10px] tracking-widest text-white"
@@ -420,7 +430,6 @@ const ActivityBuilder = ({ items, onChange, showErrors, onValidationFail }: Acti
           item.saved ? "border-indigo-200 bg-indigo-50/30" : "border-slate-200 bg-white"
         )}>
           {item.saved ? (
-            /* ── Saved summary ── */
             <div className="p-4 flex items-center gap-4">
               <div className="flex gap-2 shrink-0">
                 {item.previewUrls.slice(0, 3).map((url, i) =>
@@ -449,7 +458,6 @@ const ActivityBuilder = ({ items, onChange, showErrors, onValidationFail }: Acti
               </div>
             </div>
           ) : (
-            /* ── Edit form ── */
             <div className="p-4 space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
@@ -465,7 +473,6 @@ const ActivityBuilder = ({ items, onChange, showErrors, onValidationFail }: Acti
                 </div>
               </div>
 
-              {/* Photos */}
               <div className="space-y-2">
                 <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
                   Photos <span className="text-slate-300 normal-case font-normal">(max 5)</span>
@@ -600,7 +607,6 @@ const CreateHotel = () => {
     if (!Object.values(workingDays).some((v) => v)) e.workingDays = true;
     if (galleryImages.length === 0) e.galleryImages = true;
     if (!formData.description.trim()) e.description = true;
-    // Accommodation only: general booking link required
     if (isAccommodationOnly && !formData.generalBookingLink.trim()) e.generalBookingLink = true;
 
     setErrors(e);
@@ -629,7 +635,6 @@ const CreateHotel = () => {
     if (!user) return navigate("/auth");
     if (!validateAll()) return;
 
-    // Check unsaved facilities
     if (facilities.some((f) => !f.saved)) {
       toast({ title: "Unsaved Facility", description: "Please save all facilities before submitting.", variant: "destructive" });
       return;
@@ -645,9 +650,10 @@ const CreateHotel = () => {
 
     setLoading(true);
     try {
-      const friendlyId = generateFriendlyId(formData.registrationName);
-      const { data: existing } = await supabase.from("hotels").select("id").eq("id", friendlyId).single();
-      const finalId = existing ? generateFriendlyId(formData.registrationName) : friendlyId;
+      // ✅ FIX: Generate a proper UUID v4 for the `id` column (type: uuid).
+      // The friendly slug is stored in a separate `slug` text column.
+      const dbId = generateUUID();
+      const friendlySlug = generateFriendlySlug(formData.registrationName);
 
       // Upload gallery
       const compressedImages = await compressImages(galleryImages);
@@ -678,7 +684,8 @@ const CreateHotel = () => {
       const selectedDays = Object.entries(workingDays).filter(([, v]) => v).map(([k]) => k);
 
       const { error } = await supabase.from("hotels").insert([{
-        id: finalId,
+        id: dbId,                          // ✅ valid UUID v4
+        slug: friendlySlug,                // ✅ human-readable reference (needs `slug text` column)
         created_by: user.id,
         name: formData.registrationName,
         location: formData.place,
@@ -708,8 +715,8 @@ const CreateHotel = () => {
       toast({
         title: "Success!",
         description: isAccommodationOnly
-          ? `Your accommodation listing (ID: ${finalId}) is now live.`
-          : `Your hotel listing (ID: ${finalId}) has been submitted for review.`,
+          ? `Your accommodation listing (Ref: ${friendlySlug}) is now live.`
+          : `Your hotel listing (Ref: ${friendlySlug}) has been submitted for review.`,
         duration: 5000,
       });
       navigate("/become-host");

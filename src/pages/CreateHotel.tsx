@@ -36,14 +36,10 @@ const COLORS = {
 let _idCounter = 0;
 const makeId = () => `item-${Date.now()}-${++_idCounter}`;
 
-/**
- * Generates a proper UUID v4 for use as the database `id` (type: uuid).
- */
 const generateUUID = (): string => {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
     return crypto.randomUUID();
   }
-  // Polyfill fallback
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
     const v = c === "x" ? r : (r & 0x3) | 0x8;
@@ -51,10 +47,6 @@ const generateUUID = (): string => {
   });
 };
 
-/**
- * Generates a human-friendly slug for display/URL purposes.
- * Stored in a `slug` text column — NOT the `id` column.
- */
 const generateFriendlySlug = (name: string): string => {
   const cleanName = name
     .toLowerCase().trim()
@@ -542,7 +534,10 @@ const CreateHotel = () => {
     registrationName: "", registrationNumber: "", place: "", country: "",
     description: "", email: "", phoneNumber: "", establishmentType: "hotel",
     latitude: null as number | null, longitude: null as number | null,
-    openingHours: "8:00 AM", closingHours: "5:00 PM", generalBookingLink: "",
+    // ✅ Default to 24h — OperatingHoursSection reads "00:00"/"23:59" and shows toggle as ON
+    openingHours: "00:00",
+    closingHours: "23:59",
+    generalBookingLink: "",
   });
 
   const isAccommodationOnly = formData.establishmentType === "accommodation_only";
@@ -650,16 +645,12 @@ const CreateHotel = () => {
 
     setLoading(true);
     try {
-      // ✅ FIX: Generate a proper UUID v4 for the `id` column (type: uuid).
-      // The friendly slug is stored in a separate `slug` text column.
       const dbId = generateUUID();
       const friendlySlug = generateFriendlySlug(formData.registrationName);
 
-      // Upload gallery
       const compressedImages = await compressImages(galleryImages);
       const galleryUrls = await Promise.all(compressedImages.map((c) => uploadFile(c.file, "gallery")));
 
-      // Upload facilities
       const facilitiesForDB = await Promise.all(
         facilities.map(async (fac) => ({
           name: fac.name,
@@ -671,7 +662,6 @@ const CreateHotel = () => {
         }))
       );
 
-      // Upload activities
       const savedActivities = activities.filter((a) => a.name.trim());
       const activitiesForDB = await Promise.all(
         savedActivities.map(async (act) => ({
@@ -684,8 +674,8 @@ const CreateHotel = () => {
       const selectedDays = Object.entries(workingDays).filter(([, v]) => v).map(([k]) => k);
 
       const { error } = await supabase.from("hotels").insert([{
-        id: dbId,                          // ✅ valid UUID v4
-        slug: friendlySlug,                // ✅ human-readable reference (needs `slug text` column)
+        id: dbId,
+        slug: friendlySlug,
         created_by: user.id,
         name: formData.registrationName,
         location: formData.place,
@@ -728,7 +718,6 @@ const CreateHotel = () => {
     }
   };
 
-  // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-[#F8F9FA] pb-24">
       <Header className="hidden md:block" />
@@ -857,11 +846,13 @@ const CreateHotel = () => {
             <Clock className="h-5 w-5" /> Operating Hours *
           </h2>
           <OperatingHoursSection
-            openingHours={formData.openingHours} closingHours={formData.closingHours}
+            openingHours={formData.openingHours}
+            closingHours={formData.closingHours}
             workingDays={workingDays}
             onOpeningChange={(v) => setFormData({ ...formData, openingHours: v })}
             onClosingChange={(v) => setFormData({ ...formData, closingHours: v })}
-            onDaysChange={setWorkingDays} accentColor={COLORS.TEAL}
+            onDaysChange={setWorkingDays}
+            accentColor={COLORS.TEAL}
           />
         </Card>
 

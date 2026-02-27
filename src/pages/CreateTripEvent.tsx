@@ -21,9 +21,6 @@ import { OperatingHoursSection } from "@/components/creation/OperatingHoursSecti
 
 const COLORS = { TEAL: "#008080", CORAL: "#FF7F50", CORAL_LIGHT: "#FF9E7A", SOFT_GRAY: "#F8F9FA" };
 
-/**
- * Generates a proper UUID v4 for use as the database `id` (type: uuid).
- */
 const generateUUID = (): string => {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
     return crypto.randomUUID();
@@ -35,10 +32,6 @@ const generateUUID = (): string => {
   });
 };
 
-/**
- * Generates a human-friendly slug for display/URL purposes.
- * Stored in a `slug` text column — NOT the `id` column.
- */
 const generateFriendlySlug = (name: string): string => {
   const cleanName = name
     .toLowerCase().trim()
@@ -71,7 +64,9 @@ const CreateTripEvent = () => {
     price: "0", price_child: "0", available_tickets: "0", email: "", phone_number: "",
     map_link: "", is_custom_date: false, type: "trip" as "trip" | "event",
     latitude: null as number | null, longitude: null as number | null,
-    opening_hours: "8:00 AM", closing_hours: "5:00 PM",
+    // ✅ Default to 24h — OperatingHoursSection reads "00:00"/"23:59" and shows toggle as ON
+    opening_hours: "00:00",
+    closing_hours: "23:59",
   });
 
   const [workingDays, setWorkingDays] = useState<WorkingDays>({ Mon: true, Tue: true, Wed: true, Thu: true, Fri: true, Sat: true, Sun: true });
@@ -134,8 +129,6 @@ const CreateTripEvent = () => {
 
     setLoading(true);
     try {
-      // FIX: Use a proper UUID v4 for the `id` column (type: uuid).
-      // The friendly slug is stored separately in a `slug` text column.
       const dbId = generateUUID();
       const friendlySlug = generateFriendlySlug(formData.name);
 
@@ -301,7 +294,15 @@ const CreateTripEvent = () => {
           {(formData.is_custom_date || formData.type === 'event') && (
             <Card className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100">
               <h2 className="text-xs font-black uppercase tracking-widest mb-6" style={{ color: COLORS.TEAL }}>Operating Hours *</h2>
-              <OperatingHoursSection openingHours={formData.opening_hours} closingHours={formData.closing_hours} workingDays={workingDays} onOpeningChange={(v) => setFormData({...formData, opening_hours: v})} onClosingChange={(v) => setFormData({...formData, closing_hours: v})} onDaysChange={setWorkingDays} accentColor={COLORS.TEAL} />
+              <OperatingHoursSection
+                openingHours={formData.opening_hours}
+                closingHours={formData.closing_hours}
+                workingDays={workingDays}
+                onOpeningChange={(v) => setFormData({...formData, opening_hours: v})}
+                onClosingChange={(v) => setFormData({...formData, closing_hours: v})}
+                onDaysChange={setWorkingDays}
+                accentColor={COLORS.TEAL}
+              />
             </Card>
           )}
 

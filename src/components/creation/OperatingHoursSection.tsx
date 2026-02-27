@@ -1,4 +1,3 @@
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -33,12 +32,10 @@ const parseAmPmTime = (timeStr: string): { time: string; period: "AM" | "PM" } |
   if (!timeStr) return null;
   if (timeStr === "00:00") return { time: "12:00", period: "AM" };
   if (timeStr === "23:59") return { time: "11:59", period: "PM" };
-  
-  // If already has AM/PM
+
   const match = timeStr.match(/^(\d{1,2}:\d{2})\s*(AM|PM)$/i);
   if (match) return { time: match[1], period: match[2].toUpperCase() as "AM" | "PM" };
-  
-  // Parse 24h format
+
   const parts = timeStr.split(":");
   if (parts.length === 2) {
     let h = parseInt(parts[0]);
@@ -55,6 +52,11 @@ const formatToStorageTime = (time: string, period: "AM" | "PM"): string => {
   return `${time} ${period}`;
 };
 
+// A value is considered "24 hours" if it matches either storage format
+const check24Hours = (opening: string, closing: string): boolean =>
+  (opening === "00:00" && closing === "23:59") ||
+  (opening === "12:00 AM" && closing === "11:59 PM");
+
 export const OperatingHoursSection = ({
   openingHours,
   closingHours,
@@ -64,44 +66,37 @@ export const OperatingHoursSection = ({
   onDaysChange,
   accentColor = "#008080"
 }: OperatingHoursSectionProps) => {
-  const is24Hours = openingHours === "00:00" && closingHours === "23:59";
+  const is24Hours = check24Hours(openingHours, closingHours);
 
-  const openParsed = parseAmPmTime(openingHours);
+  const openParsed  = parseAmPmTime(openingHours);
   const closeParsed = parseAmPmTime(closingHours);
 
-  const openTime = openParsed?.time || "8:00";
+  const openTime   = openParsed?.time   || "8:00";
   const openPeriod = openParsed?.period || "AM";
-  const closeTime = closeParsed?.time || "11:00";
+  const closeTime  = closeParsed?.time   || "11:00";
   const closePeriod = closeParsed?.period || "PM";
 
+  // Toggling ON always sets 00:00/23:59 automatically — no manual input needed
   const toggle24Hours = (checked: boolean) => {
     if (checked) {
       onOpeningChange("00:00");
       onClosingChange("23:59");
     } else {
+      // Restore a sensible default so the selects have a valid starting value
       onOpeningChange("8:00 AM");
       onClosingChange("11:00 PM");
     }
   };
 
-  const handleOpenTimeChange = (time: string) => {
-    onOpeningChange(formatToStorageTime(time, openPeriod));
-  };
-
-  const handleOpenPeriodChange = (period: "AM" | "PM") => {
-    onOpeningChange(formatToStorageTime(openTime, period));
-  };
-
-  const handleCloseTimeChange = (time: string) => {
-    onClosingChange(formatToStorageTime(time, closePeriod));
-  };
-
-  const handleClosePeriodChange = (period: "AM" | "PM") => {
-    onClosingChange(formatToStorageTime(closeTime, period));
-  };
+  const handleOpenTimeChange   = (time: string)            => onOpeningChange(formatToStorageTime(time, openPeriod));
+  const handleOpenPeriodChange = (period: "AM" | "PM")     => onOpeningChange(formatToStorageTime(openTime, period));
+  const handleCloseTimeChange  = (time: string)            => onClosingChange(formatToStorageTime(time, closePeriod));
+  const handleClosePeriodChange = (period: "AM" | "PM")    => onClosingChange(formatToStorageTime(closeTime, period));
 
   return (
     <div className="space-y-6">
+
+      {/* Operating Days */}
       <div className="space-y-4">
         <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Operating Days</Label>
         <div className="flex flex-wrap gap-2">
@@ -112,8 +107,8 @@ export const OperatingHoursSection = ({
               onClick={() => onDaysChange({ ...workingDays, [day]: !workingDays[day] })}
               className={`px-4 py-2 rounded-xl border text-[10px] font-black uppercase transition-all ${
                 workingDays[day]
-                  ? 'text-white border-transparent shadow-md'
-                  : 'bg-white text-slate-400 border-slate-100 hover:bg-slate-50'
+                  ? "text-white border-transparent shadow-md"
+                  : "bg-white text-slate-400 border-slate-100 hover:bg-slate-50"
               }`}
               style={workingDays[day] ? { backgroundColor: accentColor } : {}}
             >
@@ -123,15 +118,41 @@ export const OperatingHoursSection = ({
         </div>
       </div>
 
-      {/* 24 Hours Toggle */}
-      <div className="flex items-center justify-between p-3 rounded-xl bg-muted/50 border border-border">
+      {/* 24-Hour Toggle */}
+      <div
+        className="flex items-center justify-between p-4 rounded-2xl border-2 transition-all"
+        style={is24Hours ? { borderColor: accentColor, backgroundColor: `${accentColor}08` } : {}}
+      >
         <div>
-          <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Open 24 Hours</Label>
-          <p className="text-[10px] text-muted-foreground">Toggle on if open all day</p>
+          <Label
+            className="text-[10px] font-black uppercase tracking-widest"
+            style={{ color: is24Hours ? accentColor : undefined }}
+          >
+            Open 24 Hours
+          </Label>
+          <p className="text-[10px] text-slate-400 mt-0.5">
+            {is24Hours
+              ? "Hours automatically set to 12:00 AM – 11:59 PM"
+              : "Toggle on if this place never closes"}
+          </p>
         </div>
-        <Switch checked={is24Hours} onCheckedChange={toggle24Hours} />
+        <div className="flex items-center gap-3">
+          {is24Hours && (
+            <span
+              className="text-[10px] font-black px-2 py-1 rounded-lg"
+              style={{ color: accentColor, backgroundColor: `${accentColor}15` }}
+            >
+              24 / 7
+            </span>
+          )}
+          <Switch
+            checked={is24Hours}
+            onCheckedChange={toggle24Hours}
+          />
+        </div>
       </div>
 
+      {/* Time Selectors — hidden when 24h is active */}
       {!is24Hours && (
         <div className="grid md:grid-cols-2 gap-4">
           <div className="space-y-2">
@@ -158,6 +179,7 @@ export const OperatingHoursSection = ({
               </Select>
             </div>
           </div>
+
           <div className="space-y-2">
             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Closing Time</Label>
             <div className="flex gap-2">
@@ -184,6 +206,7 @@ export const OperatingHoursSection = ({
           </div>
         </div>
       )}
+
     </div>
   );
 };

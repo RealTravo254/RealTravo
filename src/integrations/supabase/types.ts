@@ -49,6 +49,7 @@ export type Database = {
           phone_numbers: string[] | null
           place: string
           registration_number: string | null
+          slug: string | null
         }
         Insert: {
           activities?: Json | null
@@ -84,6 +85,7 @@ export type Database = {
           phone_numbers?: string[] | null
           place: string
           registration_number?: string | null
+          slug?: string | null
         }
         Update: {
           activities?: Json | null
@@ -119,6 +121,7 @@ export type Database = {
           phone_numbers?: string[] | null
           place?: string
           registration_number?: string | null
+          slug?: string | null
         }
         Relationships: []
       }
@@ -387,6 +390,7 @@ export type Database = {
           phone_numbers: string[] | null
           place: string
           registration_number: string | null
+          slug: string | null
         }
         Insert: {
           activities?: Json | null
@@ -423,6 +427,7 @@ export type Database = {
           phone_numbers?: string[] | null
           place: string
           registration_number?: string | null
+          slug?: string | null
         }
         Update: {
           activities?: Json | null
@@ -459,6 +464,7 @@ export type Database = {
           phone_numbers?: string[] | null
           place?: string
           registration_number?: string | null
+          slug?: string | null
         }
         Relationships: []
       }
@@ -1161,6 +1167,7 @@ export type Database = {
           price: number
           price_child: number | null
           slot_limit_type: string
+          slug: string | null
           type: string | null
         }
         Insert: {
@@ -1193,6 +1200,7 @@ export type Database = {
           price: number
           price_child?: number | null
           slot_limit_type?: string
+          slug?: string | null
           type?: string | null
         }
         Update: {
@@ -1225,6 +1233,7 @@ export type Database = {
           price?: number
           price_child?: number | null
           slot_limit_type?: string
+          slug?: string | null
           type?: string | null
         }
         Relationships: []

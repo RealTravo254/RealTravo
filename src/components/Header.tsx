@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Menu, Heart, Ticket, Home, User } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,6 +15,25 @@ export interface HeaderProps {
   hideIcons?: boolean;
   __fromLayout?: boolean;
 }
+
+const LogoWithFallback = () => {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <div className="h-8 w-8 rounded-full shadow-sm border border-border bg-muted flex items-center justify-center overflow-hidden relative">
+      {!loaded && (
+        <span className="font-bold text-lg italic leading-none" style={{ background: "linear-gradient(to right, #1a365d, #2b6cb0, #4fd1c5)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>R</span>
+      )}
+      <img 
+        src="/fulllogo.png" 
+        alt="Logo" 
+        loading="eager" 
+        fetchPriority="high" 
+        className={`h-full w-full object-contain p-1 absolute inset-0 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+        onLoad={() => setLoaded(true)}
+      />
+    </div>
+  );
+};
 
 export const Header = ({ onSearchClick, showSearchIcon = true, className, __fromLayout }: HeaderProps) => {
   const navigate = useNavigate();
@@ -51,7 +70,7 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
             </SheetContent>
           </Sheet>
           <Link to="/" className="flex items-center gap-2 group ml-1">
-            <img src="/fulllogo.png" alt="Logo" loading="eager" fetchPriority="high" className="h-8 w-8 rounded-full shadow-sm object-contain bg-muted p-1 border border-border" />
+            <LogoWithFallback />
             <span className="font-bold text-lg tracking-tight italic leading-none" style={{ background: "linear-gradient(to right, #1a365d, #2b6cb0, #4fd1c5)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
               RealTravo
             </span>

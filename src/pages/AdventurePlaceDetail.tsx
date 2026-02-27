@@ -122,7 +122,7 @@ const AdventurePlaceDetail = () => {
         .from("adventure_places")
         .select("*")
         .eq("id", id)
-        .maybeSingle();
+        .maybeSingle() as { data: any };
 
       // Step 2: fallback to slug column (new listings store friendly slug separately)
       if (!data) {
@@ -130,7 +130,7 @@ const AdventurePlaceDetail = () => {
           .from("adventure_places")
           .select("*")
           .eq("slug", id)
-          .maybeSingle();
+          .maybeSingle() as { data: any };
         if (res.data) data = res.data;
       }
 

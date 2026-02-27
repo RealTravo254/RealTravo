@@ -131,12 +131,24 @@ const HotelDetail = () => {
   const fetchHotel = async () => {
     if (!id) return;
     try {
-      let { data, error } = await supabase
+      // Step 1: exact match on id
+      let { data } = await supabase
         .from("hotels")
         .select("*")
         .eq("id", id)
-        .single();
-      if (error) throw error;
+        .maybeSingle() as { data: any };
+
+      // Step 2: fallback to slug column
+      if (!data) {
+        const res = await supabase
+          .from("hotels")
+          .select("*")
+          .eq("slug", id)
+          .maybeSingle() as { data: any };
+        if (res.data) data = res.data;
+      }
+
+      if (!data) throw new Error("Not found");
       setHotel(data);
     } catch (error) {
       toast({ title: "Hotel not found", variant: "destructive" });

@@ -89,7 +89,7 @@ const EventDetail = () => {
         .select(SELECT_FIELDS)
         .eq("id", id)
         .eq("type", "event")
-        .maybeSingle();
+        .maybeSingle() as { data: any };
 
       // Step 2: fallback to slug column
       if (!data) {
@@ -98,7 +98,7 @@ const EventDetail = () => {
           .select(SELECT_FIELDS)
           .eq("slug", id)
           .eq("type", "event")
-          .maybeSingle();
+          .maybeSingle() as { data: any };
         if (res.data) data = res.data;
       }
 

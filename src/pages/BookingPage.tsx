@@ -290,7 +290,7 @@ const BookingPage = () => {
 
       {/* Full Page Booking Form */}
       <div className="container max-w-2xl mx-auto px-4 py-6 pb-24">
-        <div className="bg-white rounded-[32px] shadow-xl border border-slate-100 overflow-hidden">
+        <div className="bg-white rounded-[32px] shadow-xl border border-slate-100">
           <MultiStepBooking {...getMultiStepProps()} />
         </div>
       </div>

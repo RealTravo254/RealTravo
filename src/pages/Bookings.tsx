@@ -35,6 +35,14 @@ const Bookings = () => {
   const ITEMS_PER_PAGE = 20;
   const hasFetched = useRef(false);
 
+  const loadMore = () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    const nextOffset = offset + ITEMS_PER_PAGE;
+    setOffset(nextOffset);
+    fetchBookings(nextOffset);
+  };
+
   useEffect(() => { if (!authLoading && !user) navigate("/auth"); }, [user, authLoading, navigate]);
 
   useEffect(() => {
@@ -101,11 +109,11 @@ const Bookings = () => {
   }
 
   return (
-    /* FIXED INSET-0: This creates a layer that ignores parent layout bugs */
-    <div className="fixed inset-0 z-0 flex flex-col bg-background overflow-hidden">
+    /* Normal flow layout - works both standalone and inside Sheet popup */
+    <div className="flex flex-col min-h-screen bg-background">
       
-      {/* MAIN SCROLL CONTAINER: touch-pan-y is critical for mobile */}
-      <main className="flex-1 overflow-y-auto overflow-x-hidden touch-pan-y overscroll-contain px-4 pt-8 pb-32">
+      {/* MAIN SCROLL CONTAINER */}
+      <main className="flex-1 px-4 pt-8 pb-32">
         <div className="max-w-xl mx-auto w-full">
           
           <header className="mb-8">

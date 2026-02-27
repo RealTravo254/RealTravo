@@ -81,22 +81,27 @@ const EventDetail = () => {
   const fetchEvent = async () => {
     if (!id) return;
     try {
-      let { data, error } = await supabase
+      const SELECT = "id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,price,price_child,available_tickets,description,activities,phone_number,email,created_by,type,opening_hours,closing_hours,days_opened,map_link,is_flexible_date";
+      // Step 1: exact match on id
+      let { data } = await supabase
         .from("trips")
-        .select("id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,price,price_child,available_tickets,description,activities,phone_number,email,created_by,type,opening_hours,closing_hours,days_opened,map_link,is_flexible_date")
+        .select(SELECT)
         .eq("id", id)
         .eq("type", "event")
-        .single();
-      if (error && id.length === 8) {
-        const { data: prefixData, error: prefixError } = await supabase
+        .maybeSingle() as { data: any };
+
+      // Step 2: fallback to slug column
+      if (!data) {
+        const res = await supabase
           .from("trips")
-          .select("id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,price,price_child,available_tickets,description,activities,phone_number,email,created_by,type,opening_hours,closing_hours,days_opened,map_link,is_flexible_date")
-          .ilike("id", `${id}%`)
+          .select(SELECT)
+          .eq("slug", id)
           .eq("type", "event")
-          .single();
-        if (!prefixError) { data = prefixData; error = null; }
+          .maybeSingle() as { data: any };
+        if (res.data) data = res.data;
       }
-      if (error) throw error;
+
+      if (!data) throw new Error("Not found");
       setEvent(data);
     } catch (error) {
       toast({ title: "Event not found", variant: "destructive" });

@@ -34,18 +34,16 @@ const COLORS = {
   KHAKI_DARK: "#857F3E",
 };
 
+const HOURS_24_OPEN  = "12:00 AM";
+const HOURS_24_CLOSE = "11:59 PM";
+
 let _idCounter = 0;
 const makeId = () => `item-${Date.now()}-${++_idCounter}`;
 
-/**
- * Generates a proper UUID v4 using the browser's crypto API.
- * This is what gets stored in the database `id` column (type: uuid).
- */
 const generateUUID = (): string => {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
     return crypto.randomUUID();
   }
-  // Fallback polyfill for environments without crypto.randomUUID
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
     const v = c === "x" ? r : (r & 0x3) | 0x8;
@@ -53,10 +51,6 @@ const generateUUID = (): string => {
   });
 };
 
-/**
- * Generates a human-friendly slug used as a display/search identifier.
- * Stored in a separate `slug` column, NOT the `id` column.
- */
 const generateFriendlySlug = (name: string): string => {
   const cleanName = name
     .toLowerCase().trim()
@@ -501,6 +495,55 @@ const ActivityBuilder = ({ items, onChange, showErrors, onValidationFail }: Acti
   );
 };
 
+// ─── 24-Hour Toggle ───────────────────────────────────────────────────────────
+
+interface TwentyFourHourToggleProps {
+  enabled: boolean;
+  onToggle: (val: boolean) => void;
+}
+
+const TwentyFourHourToggle = ({ enabled, onToggle }: TwentyFourHourToggleProps) => (
+  <button
+    type="button"
+    onClick={() => onToggle(!enabled)}
+    className={cn(
+      "flex items-center gap-3 px-4 py-3 rounded-2xl border-2 w-full transition-all duration-200 select-none",
+      enabled
+        ? "border-[#008080] bg-[#008080]/5"
+        : "border-slate-200 bg-white hover:border-slate-300"
+    )}
+  >
+    {/* pill track */}
+    <div className={cn(
+      "relative w-11 h-6 rounded-full transition-colors duration-200 shrink-0",
+      enabled ? "bg-[#008080]" : "bg-slate-200"
+    )}>
+      <span className={cn(
+        "absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200",
+        enabled && "translate-x-5"
+      )} />
+    </div>
+
+    <div className="text-left">
+      <p className={cn(
+        "text-[11px] font-black uppercase tracking-widest leading-none",
+        enabled ? "text-[#008080]" : "text-slate-500"
+      )}>
+        Open 24 Hours
+      </p>
+      <p className="text-[10px] text-slate-400 mt-0.5 font-normal">
+        {enabled ? "Hours set to 12:00 AM – 11:59 PM automatically" : "Toggle on if this place never closes"}
+      </p>
+    </div>
+
+    {enabled && (
+      <span className="ml-auto text-[10px] font-black text-[#008080] bg-[#008080]/10 px-2 py-1 rounded-lg">
+        24/7
+      </span>
+    )}
+  </button>
+);
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 const CreateAdventure = () => {
@@ -511,10 +554,15 @@ const CreateAdventure = () => {
   const [loading, setLoading] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
 
+  // ── 24-hour mode — ON by default ──────────────────────────────────────────
+  const [is24Hours, setIs24Hours] = useState(true);
+
   const [formData, setFormData] = useState({
     registrationName: "", registrationNumber: "", locationName: "", place: "",
     country: "", description: "", email: "", phoneNumber: "",
-    openingHours: "8:00 AM", closingHours: "5:00 PM",
+    // Default to 24-hour window
+    openingHours: HOURS_24_OPEN,
+    closingHours: HOURS_24_CLOSE,
     entranceFeeType: "free", adultPrice: "0", childPrice: "0",
     latitude: null as number | null, longitude: null as number | null,
   });
@@ -533,6 +581,18 @@ const CreateAdventure = () => {
     (msg: string) => toast({ title: "Required", description: msg, variant: "destructive" }),
     [toast]
   );
+
+  // ── Sync hours whenever 24-hour toggle changes ────────────────────────────
+  const handle24HoursToggle = (val: boolean) => {
+    setIs24Hours(val);
+    if (val) {
+      setFormData((p) => ({
+        ...p,
+        openingHours: HOURS_24_OPEN,
+        closingHours: HOURS_24_CLOSE,
+      }));
+    }
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -615,15 +675,11 @@ const CreateAdventure = () => {
 
     setLoading(true);
     try {
-      // ✅ FIX: Use a proper UUID v4 for the database `id` column.
-      // The friendly slug is stored separately so it can be used for URLs/display.
       const dbId = generateUUID();
       const friendlySlug = generateFriendlySlug(formData.registrationName);
 
-      // Upload gallery
       const galleryUrls = await Promise.all(galleryImages.map((f) => uploadFile(f, "gallery")));
 
-      // Upload facilities
       const facilitiesForDB = await Promise.all(
         facilities.map(async (fac) => ({
           name: fac.name,
@@ -634,7 +690,6 @@ const CreateAdventure = () => {
         }))
       );
 
-      // Upload activities (only ones with a name)
       const savedActivities = activities.filter((a) => a.name.trim());
       const activitiesForDB = await Promise.all(
         savedActivities.map(async (act) => ({
@@ -647,8 +702,8 @@ const CreateAdventure = () => {
       const selectedDays = Object.entries(workingDays).filter(([, v]) => v).map(([k]) => k);
 
       const { error } = await supabase.from("adventure_places").insert([{
-        id: dbId,                          // ✅ valid UUID v4
-        slug: friendlySlug,                // ✅ friendly slug for URLs (requires a `slug` text column)
+        id: dbId,
+        slug: friendlySlug,
         name: formData.registrationName,
         registration_number: formData.registrationNumber,
         location: formData.locationName,
@@ -662,6 +717,7 @@ const CreateAdventure = () => {
         longitude: formData.longitude,
         opening_hours: formData.openingHours,
         closing_hours: formData.closingHours,
+        is_24_hours: is24Hours,           // ← store the flag too if your DB has this column
         days_opened: selectedDays,
         image_url: galleryUrls[0] ?? "",
         gallery_images: galleryUrls,
@@ -806,11 +862,37 @@ const CreateAdventure = () => {
             <h2 className="text-xl font-black uppercase tracking-tight" style={{ color: COLORS.TEAL }}>Access & Pricing</h2>
           </div>
           <div className="grid gap-8">
-            <OperatingHoursSection openingHours={formData.openingHours} closingHours={formData.closingHours}
-              workingDays={workingDays}
-              onOpeningChange={(v) => setFormData({ ...formData, openingHours: v })}
-              onClosingChange={(v) => setFormData({ ...formData, closingHours: v })}
-              onDaysChange={setWorkingDays} accentColor={COLORS.TEAL} />
+
+            {/* ── 24-Hour Toggle (sits above the hours section) ── */}
+            <TwentyFourHourToggle enabled={is24Hours} onToggle={handle24HoursToggle} />
+
+            {/* ── Operating Hours — hidden when 24-hour is active ── */}
+            {!is24Hours && (
+              <OperatingHoursSection
+                openingHours={formData.openingHours}
+                closingHours={formData.closingHours}
+                workingDays={workingDays}
+                onOpeningChange={(v) => setFormData({ ...formData, openingHours: v })}
+                onClosingChange={(v) => setFormData({ ...formData, closingHours: v })}
+                onDaysChange={setWorkingDays}
+                accentColor={COLORS.TEAL}
+              />
+            )}
+
+            {/* When 24h is on, still show the days selector (so they can mark closed days) */}
+            {is24Hours && (
+              <OperatingHoursSection
+                openingHours={HOURS_24_OPEN}
+                closingHours={HOURS_24_CLOSE}
+                workingDays={workingDays}
+                onOpeningChange={() => {}}   // no-op — hours are locked
+                onClosingChange={() => {}}
+                onDaysChange={setWorkingDays}
+                accentColor={COLORS.TEAL}
+                hideTimeInputs                // pass this prop if OperatingHoursSection supports it
+              />
+            )}
+
             <div className="grid md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Entrance Fee</Label>

@@ -5,7 +5,7 @@ import { MobileBottomBar } from "@/components/MobileBottomBar";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { getUserId } from "@/lib/sessionManager";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Trash2, Bookmark, MapPin, ChevronRight, Loader2, Check } from "lucide-react";
 import { createDetailPath } from "@/lib/slugUtils";
@@ -39,6 +39,8 @@ const Saved = () => {
   const [offset, setOffset] = useState(0);
   const { toast } = useToast();
   const hasFetched = useRef(false);
+  const location = useLocation();
+  const isEmbeddedInSheet = location.pathname !== "/saved";
 
   useEffect(() => {
     const initializeData = async () => {
@@ -154,37 +156,57 @@ const Saved = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F4F7FA] pb-24 font-sans">
-      <Header />
+    <div className={isEmbeddedInSheet ? "min-h-full bg-background" : "min-h-screen bg-[#F4F7FA] pb-24 font-sans"}>
+      {!isEmbeddedInSheet && <Header />}
       
-      <div className="max-w-[1200px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 px-6 py-12">
-        {/* Sidebar */}
-        <aside className="lg:col-span-4 space-y-6">
-          <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-100">
-            <h1 className="text-3xl font-bold tracking-tight text-slate-900 mb-2">Saved Places</h1>
-            <p className="text-slate-500 text-sm mb-6">Manage your curated travel list.</p>
-            <div className="flex flex-col gap-2">
+      <div className={isEmbeddedInSheet
+        ? "max-w-[1200px] mx-auto px-4 py-4"
+        : "max-w-[1200px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 px-6 py-12"
+      }>
+        {!isEmbeddedInSheet && (
+          <aside className="lg:col-span-4 space-y-6">
+            <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-100">
+              <h1 className="text-3xl font-bold tracking-tight text-slate-900 mb-2">Saved Places</h1>
+              <p className="text-slate-500 text-sm mb-6">Manage your curated travel list.</p>
+              <div className="flex flex-col gap-2">
+                <Button 
+                  variant={isSelectionMode ? "default" : "outline"}
+                  className={`rounded-2xl font-bold text-xs uppercase tracking-widest ${isSelectionMode ? 'bg-slate-900' : 'border-slate-100'}`}
+                  onClick={() => {
+                    setIsSelectionMode(!isSelectionMode);
+                    setSelectedItems(new Set());
+                  }}
+                >
+                  {isSelectionMode ? "Cancel" : "Select Items"}
+                </Button>
+                {isSelectionMode && selectedItems.size > 0 && (
+                  <Button variant="destructive" className="rounded-2xl text-xs font-bold uppercase" onClick={handleRemoveSelected}>
+                    Remove ({selectedItems.size})
+                  </Button>
+                )}
+              </div>
+            </div>
+          </aside>
+        )}
+
+        <main className={isEmbeddedInSheet ? "space-y-3" : "lg:col-span-8 space-y-3"}>
+          {isEmbeddedInSheet && (
+            <div className="mb-3 flex items-center justify-between rounded-2xl border border-border bg-card p-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-foreground">Saved Items</p>
               <Button 
                 variant={isSelectionMode ? "default" : "outline"}
-                className={`rounded-2xl font-bold text-xs uppercase tracking-widest ${isSelectionMode ? 'bg-slate-900' : 'border-slate-100'}`}
+                size="sm"
+                className="rounded-xl text-[10px] font-bold uppercase"
                 onClick={() => {
                   setIsSelectionMode(!isSelectionMode);
                   setSelectedItems(new Set());
                 }}
               >
-                {isSelectionMode ? "Cancel" : "Select Items"}
+                {isSelectionMode ? "Cancel" : "Select"}
               </Button>
-              {isSelectionMode && selectedItems.size > 0 && (
-                <Button variant="destructive" className="rounded-2xl text-xs font-bold uppercase" onClick={handleRemoveSelected}>
-                  Remove ({selectedItems.size})
-                </Button>
-              )}
             </div>
-          </div>
-        </aside>
+          )}
 
-        {/* List Content */}
-        <main className="lg:col-span-8 space-y-3">
           {isLoading ? (
             <Skeleton className="h-64 w-full rounded-[32px]" />
           ) : savedListings.length === 0 ? (
@@ -192,46 +214,76 @@ const Saved = () => {
               No items in your collection.
             </div>
           ) : (
-            savedListings.map((item) => (
-              <Link
-                key={item.id}
-                to={createDetailPath(item.savedType, item.id, item.name, item.location)}
-                className={`group relative bg-white p-4 rounded-[28px] border transition-all flex items-center gap-5 ${
-                  selectedItems.has(item.id) ? "border-[#007AFF] bg-blue-50/20" : "border-slate-100 hover:shadow-md"
-                }`}
-              >
-                {isSelectionMode && (
-                  <div 
-                    onClick={(e) => toggleItemSelection(item.id, e)}
-                    className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 z-10 ${
-                    selectedItems.has(item.id) ? "bg-[#007AFF] border-[#007AFF]" : "border-slate-200 bg-white"
-                  }`}>
-                    {selectedItems.has(item.id) && <Check className="h-3 w-3 text-white" strokeWidth={4} />}
+            savedListings.map((item) => {
+              const isSelected = selectedItems.has(item.id);
+              const cardClassName = `group relative bg-white p-4 rounded-[28px] border transition-all flex items-center gap-5 ${
+                isSelected ? "border-[#007AFF] bg-blue-50/20" : "border-slate-100 hover:shadow-md"
+              }`;
+
+              const cardInner = (
+                <>
+                  {isSelectionMode && (
+                    <div
+                      className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 z-10 ${
+                        isSelected ? "bg-[#007AFF] border-[#007AFF]" : "border-slate-200 bg-white"
+                      }`}
+                    >
+                      {isSelected && <Check className="h-3 w-3 text-white" strokeWidth={4} />}
+                    </div>
+                  )}
+
+                  <img src={item.image_url} className="h-20 w-20 rounded-2xl object-cover shrink-0" alt="" />
+
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-bold text-[#007AFF] uppercase mb-1">{item.savedType.replace('_', ' ')}</p>
+                    <h3 className="text-lg font-bold text-slate-800 truncate">{item.name}</h3>
+                    <div className="flex items-center text-slate-400 text-xs mt-1">
+                      <MapPin size={12} className="mr-1" />
+                      <span className="truncate">{item.location}</span>
+                    </div>
                   </div>
-                )}
 
-                <img src={item.image_url} className="h-20 w-20 rounded-2xl object-cover shrink-0" alt="" />
-
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] font-bold text-[#007AFF] uppercase mb-1">{item.savedType.replace('_', ' ')}</p>
-                  <h3 className="text-lg font-bold text-slate-800 truncate">{item.name}</h3>
-                  <div className="flex items-center text-slate-400 text-xs mt-1">
-                    <MapPin size={12} className="mr-1" />
-                    <span className="truncate">{item.location}</span>
+                  <div className="h-10 w-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-300 group-hover:bg-[#007AFF] group-hover:text-white transition-all">
+                    <ChevronRight size={18} />
                   </div>
-                </div>
+                </>
+              );
 
-                <div className="h-10 w-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-300 group-hover:bg-[#007AFF] group-hover:text-white transition-all">
-                  <ChevronRight size={18} />
-                </div>
-              </Link>
-            ))
+              return isSelectionMode ? (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={(e) => toggleItemSelection(item.id, e)}
+                  className={cardClassName + " w-full text-left"}
+                >
+                  {cardInner}
+                </button>
+              ) : (
+                <Link
+                  key={item.id}
+                  to={createDetailPath(item.savedType, item.id, item.name, item.location)}
+                  className={cardClassName}
+                >
+                  {cardInner}
+                </Link>
+              );
+            })
+          )}
+
+          {isSelectionMode && selectedItems.size > 0 && (
+            <Button variant="destructive" className="w-full rounded-xl text-xs font-bold uppercase" onClick={handleRemoveSelected}>
+              Remove ({selectedItems.size})
+            </Button>
           )}
         </main>
       </div>
 
-      <Footer />
-      <MobileBottomBar />
+      {!isEmbeddedInSheet && (
+        <>
+          <Footer />
+          <MobileBottomBar />
+        </>
+      )}
     </div>
   );
 };

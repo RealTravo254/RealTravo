@@ -22,6 +22,8 @@ export const MobileBottomBar = () => {
   const [bookingsOpen, setBookingsOpen] = useState(false);
   const [savedOpen, setSavedOpen] = useState(false);
 
+  const isAnySheetOpen = bookingsOpen || savedOpen;
+
   const handleNavClick = (path: string, e: React.MouseEvent) => {
     if (path === "/bookings") {
       e.preventDefault();
@@ -43,7 +45,7 @@ export const MobileBottomBar = () => {
   return (
     <>
       {/* ── Bottom Nav Bar ── */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-[110] bg-white/80 backdrop-blur-xl border-t border-slate-100 pb-safe shadow-[0_-8px_30px_rgb(0,0,0,0.04)]">
+      <div className={cn("md:hidden fixed bottom-0 left-0 right-0 z-[110] bg-white/80 backdrop-blur-xl border-t border-slate-100 pb-safe shadow-[0_-8px_30px_rgb(0,0,0,0.04)]", isAnySheetOpen && "hidden")}>
         <nav className="flex items-center justify-around h-20 px-6">
           {navItems.map((item) => {
             const isSheetPath =
@@ -150,10 +152,13 @@ export const MobileBottomBar = () => {
       </div>
 
       {/* ── Bookings Full-Page Sheet ── */}
-      <Sheet open={bookingsOpen} onOpenChange={setBookingsOpen}>
+      <Sheet open={bookingsOpen} onOpenChange={(open) => {
+        setBookingsOpen(open);
+        if (open) setSavedOpen(false);
+      }}>
         <SheetContent
           side="bottom"
-          className="h-[100dvh] rounded-none p-0 border-none flex flex-col z-[100] [&>button]:hidden"
+          className="h-[100dvh] rounded-none p-0 border-none flex flex-col z-[140] [&>button]:hidden"
         >
           {/* Header */}
           <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 bg-white sticky top-0 z-10">
@@ -168,7 +173,7 @@ export const MobileBottomBar = () => {
           </div>
 
           {/* Scrollable content — pb-24 clears the bottom nav */}
-          <div className="flex-1 overflow-y-auto pb-24 bg-white">
+          <div className="flex-1 overflow-y-auto overscroll-contain touch-pan-y pb-24 bg-white">
             <Suspense
               fallback={
                 <div className="flex items-center justify-center py-20">
@@ -183,10 +188,13 @@ export const MobileBottomBar = () => {
       </Sheet>
 
       {/* ── Saved Full-Page Sheet ── */}
-      <Sheet open={savedOpen} onOpenChange={setSavedOpen}>
+      <Sheet open={savedOpen} onOpenChange={(open) => {
+        setSavedOpen(open);
+        if (open) setBookingsOpen(false);
+      }}>
         <SheetContent
           side="bottom"
-          className="h-[100dvh] rounded-none p-0 border-none flex flex-col z-[100] [&>button]:hidden"
+          className="h-[100dvh] rounded-none p-0 border-none flex flex-col z-[140] [&>button]:hidden"
         >
           {/* Header */}
           <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 bg-white sticky top-0 z-10">
@@ -201,7 +209,7 @@ export const MobileBottomBar = () => {
           </div>
 
           {/* Scrollable content — pb-24 clears the bottom nav */}
-          <div className="flex-1 overflow-y-auto pb-24 bg-white">
+          <div className="flex-1 overflow-y-auto overscroll-contain touch-pan-y pb-24 bg-white">
             <Suspense
               fallback={
                 <div className="flex items-center justify-center py-20">

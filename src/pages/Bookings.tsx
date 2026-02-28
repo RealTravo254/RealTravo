@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar, Users, ChevronDown, ChevronUp, WifiOff, History, Loader2, CalendarClock, XCircle } from "lucide-react";
@@ -20,8 +20,10 @@ const CACHE_TTL = 5 * 60 * 1000;
 const Bookings = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const isOnline = useOnlineStatus();
   const { cachedBookings, cacheBookings } = useOfflineBookings();
+  const isEmbeddedInSheet = location.pathname !== "/bookings";
   const [bookings, setBookings] = useState<any[]>([]);
   const [itemDetails, setItemDetails] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
@@ -102,7 +104,7 @@ const Bookings = () => {
 
   if (authLoading || loading) {
     return (
-      <div className="fixed inset-0 bg-background flex items-center justify-center">
+      <div className={isEmbeddedInSheet ? "flex min-h-[40vh] items-center justify-center bg-background" : "fixed inset-0 bg-background flex items-center justify-center"}>
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
@@ -110,10 +112,10 @@ const Bookings = () => {
 
   return (
     /* Normal flow layout - works both standalone and inside Sheet popup */
-    <div className="flex flex-col min-h-screen bg-background">
+    <div className={isEmbeddedInSheet ? "flex min-h-full flex-col bg-background" : "flex min-h-screen flex-col bg-background"}>
       
       {/* MAIN SCROLL CONTAINER */}
-      <main className="flex-1 px-4 pt-8 pb-32">
+      <main className={isEmbeddedInSheet ? "flex-1 touch-pan-y px-4 pt-4 pb-8" : "flex-1 touch-pan-y px-4 pt-8 pb-32"}>
         <div className="max-w-xl mx-auto w-full">
           
           <header className="mb-8">

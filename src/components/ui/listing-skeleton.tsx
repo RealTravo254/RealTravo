@@ -11,60 +11,51 @@ interface ListingSkeletonProps {
 const ListingSkeletonComponent = ({ compact = false, className }: ListingSkeletonProps) => {
   return (
     <Card className={cn(
-      "overflow-hidden border-slate-200 bg-white flex flex-col",
-      "rounded-sm w-full max-w-full",
+      "relative flex flex-col overflow-hidden rounded-[32px] border border-border bg-card shadow-sm",
       compact ? "h-auto" : "h-full",
       className
     )}>
-      {/* Image Container - Matches flat edge design with 65% aspect ratio */}
-      <div className="relative overflow-hidden w-full rounded-t-sm bg-slate-100" style={{ paddingBottom: '65%' }}>
-        <Skeleton className="absolute inset-0 w-full h-full rounded-none" />
-        
-        {/* Category Badge - top-3 left-3 */}
-        <Skeleton className="absolute top-3 left-3 h-4 w-20 rounded-none" />
+      {/* Image Container - matches ListingCard 4/3 ratio */}
+      <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+        <Skeleton className="absolute inset-0 h-full w-full rounded-none" />
 
-        {/* Heart Button - top-3 right-3 */}
-        <Skeleton className="absolute top-3 right-3 h-8 w-8 rounded-none" />
+        {/* Category Badge */}
+        <Skeleton className="absolute top-4 left-4 h-6 w-24 rounded-full" />
+
+        {/* Heart Button */}
+        <Skeleton className="absolute top-4 right-4 h-10 w-10 rounded-full" />
       </div>
-      
-      {/* Content Section - Matches p-4 */}
-      <div className="p-4 flex flex-col flex-1"> 
-        {/* Title + Rating row */}
-        <div className="flex justify-between items-start mb-2">
-          <div className="space-y-1 w-3/4">
-            <Skeleton className="h-5 w-full rounded-none" />
-            <Skeleton className="h-4 w-2/3 rounded-none" />
-          </div>
-          {/* Rating Badge */}
-          <Skeleton className="h-6 w-14 rounded-none" />
-        </div>
-        
-        {/* Location Row with MapPin icon */}
-        <div className="flex items-center gap-1.5 mb-3">
-          <Skeleton className="h-3.5 w-3.5 rounded-none flex-shrink-0" />
-          <Skeleton className="h-3 w-28 rounded-none" />
+
+      {/* Content Section - matches ListingCard p-6 */}
+      <div className="flex flex-1 flex-col p-6">
+        {/* Title + subtitle */}
+        <div className="space-y-2">
+          <Skeleton className="h-6 w-11/12 rounded-md" />
+          <Skeleton className="h-6 w-8/12 rounded-md" />
         </div>
 
-        {/* Activities/Tags - matches gap-1 mb-4 */}
-        <div className="flex flex-wrap gap-1 mb-4">
-          <Skeleton className="h-5 w-14 rounded-none" />
-          <Skeleton className="h-5 w-18 rounded-none" />
-          <Skeleton className="h-5 w-12 rounded-none" />
+        {/* Location Row */}
+        <div className="mt-3 flex items-center gap-1.5">
+          <Skeleton className="h-3.5 w-3.5 rounded-sm flex-shrink-0" />
+          <Skeleton className="h-3 w-36 rounded-sm" />
         </div>
-        
-        {/* Footer: Price & Date - matches border-t border-slate-100 mt-auto pt-4 */}
-        <div className="mt-auto pt-4 border-t border-slate-100 flex items-center justify-between">
-          <div className="flex flex-col gap-1">
-            <Skeleton className="h-2 w-12 rounded-none" />
-            <Skeleton className="h-5 w-20 rounded-none" />
+
+        {/* Tags */}
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Skeleton className="h-6 w-16 rounded-lg" />
+          <Skeleton className="h-6 w-20 rounded-lg" />
+        </div>
+
+        {/* Footer */}
+        <div className="mt-auto flex items-end justify-between border-t border-border pt-5">
+          <div className="space-y-2">
+            <Skeleton className="h-2.5 w-16 rounded-sm" />
+            <Skeleton className="h-7 w-28 rounded-sm" />
           </div>
 
-          <div className="flex flex-col items-end gap-1">
-            <div className="flex items-center gap-1">
-              <Skeleton className="h-3 w-3 rounded-none" />
-              <Skeleton className="h-3 w-14 rounded-none" />
-            </div>
-            <Skeleton className="h-2 w-16 rounded-none" />
+          <div className="space-y-2 text-right">
+            <Skeleton className="h-6 w-20 rounded-full" />
+            <Skeleton className="h-3 w-16 rounded-sm" />
           </div>
         </div>
       </div>

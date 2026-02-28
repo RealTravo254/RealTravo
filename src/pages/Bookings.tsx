@@ -115,7 +115,11 @@ const Bookings = () => {
     <div className={isEmbeddedInSheet ? "flex min-h-full flex-col bg-background" : "flex min-h-screen flex-col bg-background"}>
       
       {/* MAIN SCROLL CONTAINER */}
-      <main className={isEmbeddedInSheet ? "flex-1 touch-pan-y px-4 pt-4 pb-8" : "flex-1 touch-pan-y px-4 pt-8 pb-32"}>
+      <main
+        className={isEmbeddedInSheet ? "flex-1 touch-pan-y px-4 pt-4 pb-8" : "flex-1 touch-pan-y px-4 pt-8 pb-32"}
+        onPointerDownCapture={(e) => e.stopPropagation()}
+        onClickCapture={(e) => e.stopPropagation()}
+      >
         <div className="max-w-xl mx-auto w-full">
           
           <header className="mb-8">

@@ -158,7 +158,7 @@ export const MobileBottomBar = () => {
       }}>
         <SheetContent
           side="bottom"
-          className="h-[100dvh] rounded-none p-0 border-none flex flex-col z-[140] [&>button]:hidden"
+          className="h-[100dvh] rounded-none p-0 border-none flex flex-col z-[260] [&>button]:hidden"
         >
           {/* Header */}
           <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 bg-white sticky top-0 z-10">
@@ -173,7 +173,11 @@ export const MobileBottomBar = () => {
           </div>
 
           {/* Scrollable content — pb-24 clears the bottom nav */}
-          <div className="flex-1 overflow-y-auto overscroll-contain touch-pan-y pb-24 bg-white">
+          <div
+            className="flex-1 overflow-y-auto overscroll-contain touch-pan-y pb-24 bg-white"
+            onPointerDownCapture={(e) => e.stopPropagation()}
+            onClickCapture={(e) => e.stopPropagation()}
+          >
             <Suspense
               fallback={
                 <div className="flex items-center justify-center py-20">
@@ -194,7 +198,7 @@ export const MobileBottomBar = () => {
       }}>
         <SheetContent
           side="bottom"
-          className="h-[100dvh] rounded-none p-0 border-none flex flex-col z-[140] [&>button]:hidden"
+          className="h-[100dvh] rounded-none p-0 border-none flex flex-col z-[260] [&>button]:hidden"
         >
           {/* Header */}
           <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 bg-white sticky top-0 z-10">
@@ -209,7 +213,11 @@ export const MobileBottomBar = () => {
           </div>
 
           {/* Scrollable content — pb-24 clears the bottom nav */}
-          <div className="flex-1 overflow-y-auto overscroll-contain touch-pan-y pb-24 bg-white">
+          <div
+            className="flex-1 overflow-y-auto overscroll-contain touch-pan-y pb-24 bg-white"
+            onPointerDownCapture={(e) => e.stopPropagation()}
+            onClickCapture={(e) => e.stopPropagation()}
+          >
             <Suspense
               fallback={
                 <div className="flex items-center justify-center py-20">

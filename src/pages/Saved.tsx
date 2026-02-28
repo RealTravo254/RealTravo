@@ -189,7 +189,11 @@ const Saved = () => {
           </aside>
         )}
 
-        <main className={isEmbeddedInSheet ? "space-y-3" : "lg:col-span-8 space-y-3"}>
+        <main
+          className={isEmbeddedInSheet ? "space-y-3" : "lg:col-span-8 space-y-3"}
+          onPointerDownCapture={(e) => e.stopPropagation()}
+          onClickCapture={(e) => e.stopPropagation()}
+        >
           {isEmbeddedInSheet && (
             <div className="mb-3 flex items-center justify-between rounded-2xl border border-border bg-card p-3">
               <p className="text-xs font-bold uppercase tracking-wider text-foreground">Saved Items</p>

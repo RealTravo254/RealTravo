@@ -4,15 +4,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, Users, ChevronDown, ChevronUp, WifiOff, History, Loader2, CalendarClock, XCircle } from "lucide-react";
+import { CalendarClock, ChevronDown, ChevronUp, Loader2, WifiOff } from "lucide-react";
 import { RescheduleBookingDialog } from "@/components/booking/RescheduleBookingDialog";
 import { BookingDownloadButton } from "@/components/booking/BookingDownloadButton";
-import { toast } from "sonner";
 import { format, isToday, isYesterday, parseISO } from "date-fns";
 import { useOfflineBookings } from "@/hooks/useOfflineBookings";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { 
+  Collapsible, 
+  CollapsibleContent, 
+  CollapsibleTrigger 
+} from "@/components/ui/collapsible";
 
 const bookingsCache = { data: null as any[] | null, timestamp: 0 };
 const CACHE_TTL = 5 * 60 * 1000;
@@ -22,30 +24,23 @@ const Bookings = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const isOnline = useOnlineStatus();
-  const { cachedBookings, cacheBookings } = useOfflineBookings();
+  const { cachedBookings } = useOfflineBookings();
   const isEmbeddedInSheet = location.pathname !== "/bookings";
+  
   const [bookings, setBookings] = useState<any[]>([]);
-  const [itemDetails, setItemDetails] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
   const [rescheduleBooking, setRescheduleBooking] = useState<any | null>(null);
-  const [showCancelDialog, setShowCancelDialog] = useState(false);
-  const [bookingToCancel, setBookingToCancel] = useState<any | null>(null);
-  const [expandedBookings, setExpandedBookings] = useState<Set<string>>(new Set());
+  const [expandedBookings, setExpandedBookings] = useState<Record<string, boolean>>({});
+  
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const ITEMS_PER_PAGE = 20;
   const hasFetched = useRef(false);
 
-  const loadMore = () => {
-    if (loadingMore || !hasMore) return;
-    setLoadingMore(true);
-    const nextOffset = offset + ITEMS_PER_PAGE;
-    setOffset(nextOffset);
-    fetchBookings(nextOffset);
-  };
-
-  useEffect(() => { if (!authLoading && !user) navigate("/auth"); }, [user, authLoading, navigate]);
+  useEffect(() => { 
+    if (!authLoading && !user) navigate("/auth"); 
+  }, [user, authLoading, navigate]);
 
   useEffect(() => {
     if (user && isOnline) {
@@ -81,8 +76,20 @@ const Bookings = () => {
         setBookings(prev => [...prev, ...(data || [])]);
       }
       setHasMore((data || []).length >= ITEMS_PER_PAGE);
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); setLoadingMore(false); }
+    } catch (e) { 
+      console.error(e); 
+    } finally { 
+      setLoading(false); 
+      setLoadingMore(false); 
+    }
+  };
+
+  const loadMore = () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    const nextOffset = offset + ITEMS_PER_PAGE;
+    setOffset(nextOffset);
+    fetchBookings(nextOffset);
   };
 
   const groupedBookings = useMemo(() => {
@@ -96,11 +103,13 @@ const Bookings = () => {
     return groups;
   }, [bookings]);
 
-  const toggleExpanded = (id: string) => setExpandedBookings(prev => {
-    const s = new Set(prev);
-    if (s.has(id)) s.delete(id); else s.add(id);
-    return s;
-  });
+  // Toggle function that ensures React detects the state change
+  const toggleBooking = (id: string) => {
+    setExpandedBookings(prev => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
+  };
 
   if (authLoading || loading) {
     return (
@@ -111,15 +120,8 @@ const Bookings = () => {
   }
 
   return (
-    /* Normal flow layout - works both standalone and inside Sheet popup */
     <div className={isEmbeddedInSheet ? "flex min-h-full flex-col bg-background" : "flex min-h-screen flex-col bg-background"}>
-      
-      {/* MAIN SCROLL CONTAINER */}
-      <main
-        className={isEmbeddedInSheet ? "flex-1 touch-pan-y px-4 pt-4 pb-8" : "flex-1 touch-pan-y px-4 pt-8 pb-32"}
-        onPointerDownCapture={(e) => e.stopPropagation()}
-        onClickCapture={(e) => e.stopPropagation()}
-      >
+      <main className={isEmbeddedInSheet ? "flex-1 px-4 pt-4 pb-8" : "flex-1 px-4 pt-8 pb-32"}>
         <div className="max-w-xl mx-auto w-full">
           
           <header className="mb-8">
@@ -151,15 +153,15 @@ const Bookings = () => {
                   </div>
 
                   <div className="space-y-3">
-                    {groupItems.map((b) => {
-                      const isOpen = expandedBookings.has(b.id);
-                      return (
-                        <div key={b.id} className="bg-card rounded-[24px] border border-border overflow-hidden">
-                          {/* We use a standard div for the header to avoid CollapsibleTrigger scroll hijacking */}
-                          <div 
-                            onClick={() => toggleExpanded(b.id)}
-                            className="p-4 flex items-center justify-between cursor-pointer active:bg-muted/50 transition-colors"
-                          >
+                    {groupItems.map((b) => (
+                      <Collapsible 
+                        key={b.id} 
+                        open={expandedBookings[b.id]} 
+                        onOpenChange={() => toggleBooking(b.id)}
+                        className="bg-card rounded-[24px] border border-border overflow-hidden"
+                      >
+                        <CollapsibleTrigger asChild>
+                          <div className="p-4 flex items-center justify-between cursor-pointer active:bg-muted/50 transition-colors">
                             <div className="min-w-0 flex-1">
                               <div className="flex gap-2 mb-1.5">
                                 <Badge variant="secondary" className="text-[8px] font-black uppercase h-4 px-1.5">
@@ -178,54 +180,55 @@ const Bookings = () => {
                             <div className="text-right shrink-0">
                               <p className="text-sm font-black text-foreground">KSh {b.total_amount.toLocaleString()}</p>
                               <div className="flex justify-end mt-1 text-muted-foreground">
-                                {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                                {expandedBookings[b.id] ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                               </div>
                             </div>
                           </div>
+                        </CollapsibleTrigger>
 
-                          {/* Expansion Content */}
-                          {isOpen && (
-                            <div className="border-t border-border/50 bg-muted/20 p-4 space-y-5 animate-in slide-in-from-top-2 duration-200">
-                              <div className="grid grid-cols-2 gap-4 text-[10px] font-bold uppercase">
-                                <div>
-                                  <p className="text-muted-foreground mb-1 tracking-widest">Guest</p>
-                                  <p className="text-foreground">{b.guest_name || 'N/A'}</p>
-                                </div>
-                                <div>
-                                  <p className="text-muted-foreground mb-1 tracking-widest">Date</p>
-                                  <p className="text-foreground">
-                                    {b.visit_date ? format(new Date(b.visit_date), 'dd MMM yyyy') : 'N/A'}
-                                  </p>
-                                </div>
-                                <div>
-                                  <p className="text-muted-foreground mb-1 tracking-widest">Guests</p>
-                                  <p className="text-foreground">{b.slots_booked || 1}</p>
-                                </div>
-                                <div>
-                                  <p className="text-muted-foreground mb-1 tracking-widest">Status</p>
-                                  <p className="text-emerald-600">Confirmed</p>
-                                </div>
-                              </div>
-
-                              <div className="flex flex-wrap gap-2 pt-2">
-                                <BookingDownloadButton booking={{...b, bookingId: b.id}} />
-                                
-                                {b.booking_type !== 'event' && (
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm" 
-                                    onClick={(e) => { e.stopPropagation(); setRescheduleBooking(b); }}
-                                    className="h-9 rounded-xl text-[9px] font-black uppercase border-2"
-                                  >
-                                    <CalendarClock size={14} className="mr-2" /> Reschedule
-                                  </Button>
-                                )}
-                              </div>
+                        <CollapsibleContent className="border-t border-border/50 bg-muted/20 p-4 space-y-5 animate-in slide-in-from-top-2 duration-200">
+                          <div className="grid grid-cols-2 gap-4 text-[10px] font-bold uppercase">
+                            <div>
+                              <p className="text-muted-foreground mb-1 tracking-widest">Guest</p>
+                              <p className="text-foreground">{b.guest_name || 'N/A'}</p>
                             </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                            <div>
+                              <p className="text-muted-foreground mb-1 tracking-widest">Date</p>
+                              <p className="text-foreground">
+                                {b.visit_date ? format(new Date(b.visit_date), 'dd MMM yyyy') : 'N/A'}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground mb-1 tracking-widest">Guests</p>
+                              <p className="text-foreground">{b.slots_booked || 1}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground mb-1 tracking-widest">Status</p>
+                              <p className="text-emerald-600">Confirmed</p>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap gap-2 pt-2">
+                            {/* The QR code is usually rendered inside this button's dialog/expansion */}
+                            <BookingDownloadButton booking={{...b, bookingId: b.id}} />
+                            
+                            {b.booking_type !== 'event' && (
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={(e) => { 
+                                  e.stopPropagation(); 
+                                  setRescheduleBooking(b); 
+                                }}
+                                className="h-9 rounded-xl text-[9px] font-black uppercase border-2"
+                              >
+                                <CalendarClock size={14} className="mr-2" /> Reschedule
+                              </Button>
+                            )}
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    ))}
                   </div>
                 </section>
               ))}
@@ -247,7 +250,6 @@ const Bookings = () => {
         </div>
       </main>
 
-      {/* Dialogs */}
       {rescheduleBooking && (
         <RescheduleBookingDialog 
           booking={rescheduleBooking} 

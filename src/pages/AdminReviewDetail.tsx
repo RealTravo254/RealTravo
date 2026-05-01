@@ -37,6 +37,7 @@ const AdminReviewDetail = () => {
   const [creator, setCreator] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isBanned, setIsBanned] = useState(false);
 
   useEffect(() => {
     checkAdminStatus();

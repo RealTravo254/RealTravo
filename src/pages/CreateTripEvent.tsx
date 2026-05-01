@@ -95,7 +95,8 @@ const CreateTripEvent = () => {
 
   const [workingDays, setWorkingDays] = useState<WorkingDays>({ Mon: true, Tue: true, Wed: true, Thu: true, Fri: true, Sat: true, Sun: true });
   const [galleryImages, setGalleryImages] = useState<File[]>([]);
-
+  const [eventCertificate, setEventCertificate] = useState<File | null>(null);
+  const [certificatePreview, setCertificatePreview] = useState<string | null>(null);
   useEffect(() => {
     const fetchUserProfile = async () => {
       if (user) {

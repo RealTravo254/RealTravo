@@ -11,7 +11,7 @@ import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Calendar, MapPin, DollarSign, Users, Navigation, ArrowLeft, Camera, CheckCircle2, X, Loader2, ChevronLeft, ChevronRight, Plus, Link2, Ticket } from "lucide-react";
+import { Calendar, MapPin, DollarSign, Users, Navigation, ArrowLeft, Camera, CheckCircle2, X, Loader2, ChevronLeft, ChevronRight, Plus, Link2, Ticket, FileImage } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CountrySelector } from "@/components/creation/CountrySelector";
 import { CountySelector } from "@/components/creation/CountySelector";

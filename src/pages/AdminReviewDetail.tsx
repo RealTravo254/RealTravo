@@ -88,6 +88,7 @@ const AdminReviewDetail = () => {
       if (itemData.created_by) {
         const { data: profile } = await supabase.from("profiles").select("*").eq("id", itemData.created_by).maybeSingle();
         setCreator(profile);
+        setIsBanned(profile?.is_banned || false);
       }
     } catch (error) {
       toast({ title: "Error loading item", variant: "destructive" });

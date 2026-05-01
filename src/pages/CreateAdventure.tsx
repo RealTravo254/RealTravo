@@ -677,6 +677,12 @@ const CreateAdventure = () => {
 
       const selectedDays = Object.entries(workingDays).filter(([, v]) => v).map(([k]) => k);
 
+      // Upload TRA license if provided
+      let traLicenseUrl: string | null = null;
+      if (traLicense) {
+        traLicenseUrl = await uploadFile(traLicense, "tra-license");
+      }
+
       const { error } = await supabase.from("adventure_places").insert([{
         id: friendlySlug, slug: friendlySlug,
         name: formData.registrationName, registration_number: formData.registrationNumber,
@@ -692,6 +698,7 @@ const CreateAdventure = () => {
         child_entry_fee: formData.entranceFeeType === "paid" ? parseFloat(formData.childPrice) || 0 : 0,
         amenities: generalFacilities, facilities: facilitiesForDB, activities: activitiesForDB,
         created_by: user.id, approval_status: "pending",
+        tra_license_url: traLicenseUrl,
       }]);
 
       if (error) throw error;

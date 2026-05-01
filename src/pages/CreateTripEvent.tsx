@@ -230,6 +230,7 @@ const CreateTripEvent = () => {
     if (!formData.phone_number) allErrors.push("phone_number");
     if (!formData.description.trim()) allErrors.push("description");
     if (galleryImages.length < 5) allErrors.push("gallery");
+    if (formData.type === 'event' && !eventCertificate) allErrors.push("event_certificate");
     if (formData.location_link && !formData.location_link.startsWith("https://")) allErrors.push("location_link");
 
     if (allErrors.length > 0) {

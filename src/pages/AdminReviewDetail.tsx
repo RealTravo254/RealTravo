@@ -418,6 +418,16 @@ const AdminReviewDetail = () => {
                     Reject Submission
                   </Button>
                 )}
+
+                {/* Ban/Unban User */}
+                <Button 
+                  variant="ghost"
+                  onClick={toggleBanUser}
+                  className={`w-full py-4 text-xs font-black uppercase tracking-widest rounded-2xl ${isBanned ? 'text-green-600 hover:bg-green-50 border border-green-200' : 'text-orange-500 hover:bg-orange-50 border border-orange-200'}`}
+                >
+                  <Ban className="mr-2 h-4 w-4" />
+                  {isBanned ? 'Unban User' : 'Ban User'}
+                </Button>
               </div>
             </div>
           </div>

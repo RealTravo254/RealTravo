@@ -276,7 +276,38 @@ const BecomeHost = () => {
                 </div>
               </div>
               <div className="mt-6 py-2.5 rounded-xl text-center text-xs font-bold uppercase tracking-widest border-2 border-slate-200 group-hover:border-[#008080] group-hover:text-[#008080] transition-colors">
-                Register →
+              Register →
+              </div>
+            </button>
+
+            {/* Event Card - No Verification Required */}
+            <button
+              onClick={() => handleHostTypeSelect('event')}
+              className="group relative bg-white rounded-[24px] overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 border border-slate-100 text-left p-6"
+            >
+              <div className="p-4 rounded-2xl bg-purple-50 w-fit mb-4 group-hover:bg-[#008080] transition-colors">
+                <CalendarDays className="h-8 w-8 text-purple-600 group-hover:text-white" />
+              </div>
+              <h3 className="text-xl font-black uppercase tracking-tight text-slate-900 mb-2">Host an Event</h3>
+              <p className="text-sm text-slate-500 mb-4 leading-relaxed">
+                Create and host events like sports, music, cultural gatherings and more. Certificate required.
+              </p>
+              <div className="space-y-2 text-xs text-slate-400">
+                <div className="flex items-center gap-2">
+                  <div className="h-1.5 w-1.5 rounded-full bg-green-400" />
+                  <span>No verification needed</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="h-1.5 w-1.5 rounded-full bg-yellow-400" />
+                  <span>Event certificate/permit required</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="h-1.5 w-1.5 rounded-full bg-red-400" />
+                  <span>Events only — no trips or hotels</span>
+                </div>
+              </div>
+              <div className="mt-6 py-2.5 rounded-xl text-center text-xs font-bold uppercase tracking-widest border-2 border-slate-200 group-hover:border-[#008080] group-hover:text-[#008080] transition-colors">
+                Create Event →
               </div>
             </button>
           </div>

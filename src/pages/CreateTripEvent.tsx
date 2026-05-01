@@ -111,7 +111,7 @@ const CreateTripEvent = () => {
   // Step validation
   const isStep1Complete = !!formData.name.trim() && !!formData.country && !!formData.place.trim() && !!formData.location.trim();
   const isStep2Complete = (formData.is_custom_date || !!formData.date) && (useTicketTypes ? ticketTypes.length > 0 : parseFloat(formData.price) >= 0) && parseInt(formData.available_tickets) > 0;
-  const isStep3Complete = !!formData.phone_number && galleryImages.length >= 5;
+  const isStep3Complete = !!formData.phone_number && galleryImages.length >= 5 && (formData.type !== 'event' || !!eventCertificate);
   const isStep4Complete = !!formData.description.trim();
 
   const steps = [

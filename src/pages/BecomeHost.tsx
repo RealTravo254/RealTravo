@@ -36,6 +36,7 @@ const BecomeHost = () => {
   const [hasCompany, setHasCompany] = useState(false);
   const [companyStatus, setCompanyStatus] = useState<string | null>(null);
   const [hostingCategory, setHostingCategory] = useState<HostingCategory>(null);
+  const [pendingAdventures, setPendingAdventures] = useState<any[]>([]);
 
   useEffect(() => {
     if (!user) {

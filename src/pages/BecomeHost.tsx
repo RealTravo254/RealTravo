@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import { Plane, Building, Tent, Plus, ArrowLeft, LayoutDashboard, Map, Building2, Users } from "lucide-react";
+import { Plane, Building, Tent, Plus, ArrowLeft, LayoutDashboard, Map, Building2, Users, CalendarDays, Clock, AlertCircle } from "lucide-react";
 
 const COLORS = {
   TEAL: "#008080",

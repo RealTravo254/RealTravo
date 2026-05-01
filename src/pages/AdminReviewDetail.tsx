@@ -117,6 +117,19 @@ const AdminReviewDetail = () => {
     }
   };
 
+  const toggleBanUser = async () => {
+    if (!item?.created_by) return;
+    const newBanStatus = !isBanned;
+    try {
+      const { error } = await supabase.from("profiles").update({ is_banned: newBanStatus }).eq("id", item.created_by);
+      if (error) throw error;
+      setIsBanned(newBanStatus);
+      toast({ title: newBanStatus ? "User Banned" : "User Unbanned", description: newBanStatus ? "This user has been banned from the platform." : "This user has been unbanned." });
+    } catch (error) {
+      toast({ title: "Failed to update ban status", variant: "destructive" });
+    }
+  };
+
   const openInMaps = () => {
     const query = encodeURIComponent(`${item?.name || item?.location_name}, ${item?.location || item?.place}`);
     const mapUrl = item?.map_link || item?.location_link || `https://www.google.com/maps/search/?api=1&query=${query}`;

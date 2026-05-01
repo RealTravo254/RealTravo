@@ -83,18 +83,17 @@ const BecomeHost = () => {
         const isGuideApproved = hasV && verification?.status === "approved" && verification?.hosting_category === "guide";
         const isCampsiteHost = hasV && verification?.hosting_category === "campsite";
         const isCompanyApproved = company && company.verification_status === "approved";
-        // If verified but no hosting_category set, treat as fully verified (legacy users)
         const isVerifiedNoCategory = hasV && verification?.status === "approved" && !verification?.hosting_category;
 
-        // If no verification at all and no company, show type selection
+        // If no verification at all and no company, show type selection (includes event option)
         if (!hasV && !company) {
           setShowTypeSelection(true);
           setLoading(false);
           return;
         }
 
-        // Pending verification
-        if (hasV && verification?.status === "pending") {
+        // Pending verification - but still allow showing the page for campsite hosts
+        if (hasV && verification?.status === "pending" && verification?.hosting_category !== "campsite") {
           navigate("/verification-status");
           return;
         }
@@ -107,14 +106,18 @@ const BecomeHost = () => {
           return;
         }
 
-        // Load content for approved hosts
+        // Load content for hosts
         const [trips, hotels, adventures] = await Promise.all([
-          supabase.from("trips").select("id,name,type").eq("created_by", user.id),
-          supabase.from("hotels").select("id,name").eq("created_by", user.id),
-          supabase.from("adventure_places").select("id,name").eq("created_by", user.id)
+          supabase.from("trips").select("id,name,type,approval_status").eq("created_by", user.id),
+          supabase.from("hotels").select("id,name,approval_status").eq("created_by", user.id),
+          supabase.from("adventure_places").select("id,name,approval_status").eq("created_by", user.id)
         ]);
 
         if (cancelled) return;
+
+        // Track pending adventures for "waiting for verification" display
+        const pendingAdv = adventures.data?.filter(a => a.approval_status === 'pending') || [];
+        setPendingAdventures(pendingAdv);
 
         const allContent = [
           ...(trips.data?.map(t => ({ ...t, contentType: t.type || "trip" })) || []),

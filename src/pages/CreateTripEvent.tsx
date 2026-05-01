@@ -601,6 +601,7 @@ const CreateTripEvent = () => {
 
           {/* ═══ STEP 3: Contact & Photos ═══ */}
           {currentStep === 3 && (
+            <>
             <Card className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100 space-y-6">
               <div className="flex items-center gap-3 mb-2">
                 <div className="p-2.5 rounded-xl" style={{ backgroundColor: `${COLORS.TEAL}15` }}>

@@ -141,6 +141,7 @@ const CreateTripEvent = () => {
     } else if (currentStep === 3) {
       if (!formData.phone_number) errors.push("phone_number");
       if (galleryImages.length < 5) errors.push("gallery");
+      if (formData.type === 'event' && !eventCertificate) errors.push("event_certificate");
     } else if (currentStep === 4) {
       if (!formData.description.trim()) errors.push("description");
     }

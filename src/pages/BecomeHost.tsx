@@ -141,15 +141,15 @@ const BecomeHost = () => {
     setHostType(type);
     
     if (type === 'guide') {
-      // Guide: needs basic verification, then can host flexible trips
       navigate("/host-verification?category=guide");
     } else if (type === 'campsite') {
-      // Campsite: no verification needed, redirect to create adventure place directly
       toast({ title: "Welcome!", description: "You can now create your adventure place listing." });
       navigate("/create-adventure");
     } else if (type === 'company') {
-      // Company: redirect to company registration
       navigate("/host-verification?category=company");
+    } else if (type === 'event') {
+      // Events don't need verification - go directly to create event
+      navigate("/create-event");
     }
   };
 

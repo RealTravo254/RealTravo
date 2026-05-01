@@ -52,6 +52,7 @@ export type Database = {
           registration_number: string | null
           rejection_reason: string | null
           slug: string | null
+          tra_license_url: string | null
         }
         Insert: {
           activities?: Json | null
@@ -90,6 +91,7 @@ export type Database = {
           registration_number?: string | null
           rejection_reason?: string | null
           slug?: string | null
+          tra_license_url?: string | null
         }
         Update: {
           activities?: Json | null
@@ -128,6 +130,7 @@ export type Database = {
           registration_number?: string | null
           rejection_reason?: string | null
           slug?: string | null
+          tra_license_url?: string | null
         }
         Relationships: []
       }
@@ -304,6 +307,7 @@ export type Database = {
           registration_name: string | null
           registration_number: string
           rejection_reason: string | null
+          tra_license_url: string | null
           updated_at: string
           user_id: string
           verification_status: string
@@ -321,6 +325,7 @@ export type Database = {
           registration_name?: string | null
           registration_number: string
           rejection_reason?: string | null
+          tra_license_url?: string | null
           updated_at?: string
           user_id: string
           verification_status?: string
@@ -338,6 +343,7 @@ export type Database = {
           registration_name?: string | null
           registration_number?: string
           rejection_reason?: string | null
+          tra_license_url?: string | null
           updated_at?: string
           user_id?: string
           verification_status?: string
@@ -468,6 +474,7 @@ export type Database = {
           registration_number: string | null
           rejection_reason: string | null
           slug: string | null
+          tra_license_url: string | null
         }
         Insert: {
           activities?: Json | null
@@ -507,6 +514,7 @@ export type Database = {
           registration_number?: string | null
           rejection_reason?: string | null
           slug?: string | null
+          tra_license_url?: string | null
         }
         Update: {
           activities?: Json | null
@@ -546,6 +554,7 @@ export type Database = {
           registration_number?: string | null
           rejection_reason?: string | null
           slug?: string | null
+          tra_license_url?: string | null
         }
         Relationships: []
       }
@@ -823,6 +832,7 @@ export type Database = {
           gender: Database["public"]["Enums"]["gender_type"] | null
           id: string
           internal_referral_id_digits: string | null
+          is_banned: boolean | null
           name: string
           phone_number: string | null
           phone_verified: boolean | null
@@ -839,6 +849,7 @@ export type Database = {
           gender?: Database["public"]["Enums"]["gender_type"] | null
           id: string
           internal_referral_id_digits?: string | null
+          is_banned?: boolean | null
           name: string
           phone_number?: string | null
           phone_verified?: boolean | null
@@ -855,6 +866,7 @@ export type Database = {
           gender?: Database["public"]["Enums"]["gender_type"] | null
           id?: string
           internal_referral_id_digits?: string | null
+          is_banned?: boolean | null
           name?: string
           phone_number?: string | null
           phone_verified?: boolean | null
@@ -1234,6 +1246,7 @@ export type Database = {
           description: string | null
           email: string | null
           event_category: string | null
+          event_certificate_url: string | null
           exclusions: string[] | null
           flexible_end_date: string | null
           gallery_images: string[] | null
@@ -1275,6 +1288,7 @@ export type Database = {
           description?: string | null
           email?: string | null
           event_category?: string | null
+          event_certificate_url?: string | null
           exclusions?: string[] | null
           flexible_end_date?: string | null
           gallery_images?: string[] | null
@@ -1316,6 +1330,7 @@ export type Database = {
           description?: string | null
           email?: string | null
           event_category?: string | null
+          event_certificate_url?: string | null
           exclusions?: string[] | null
           flexible_end_date?: string | null
           gallery_images?: string[] | null

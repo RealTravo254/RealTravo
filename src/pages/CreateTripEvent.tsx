@@ -698,6 +698,7 @@ const CreateTripEvent = () => {
                 )}
               </Card>
             )}
+            </>
           )}
 
           {/* ═══ STEP 4: Schedule & Description ═══ */}

@@ -10,7 +10,8 @@ import { useToast } from "@/hooks/use-toast";
 import { 
   MapPin, Mail, Phone, Calendar, User, Eye, Clock, 
   ArrowLeft, CheckCircle2, XCircle, ShieldAlert, 
-  Users, Landmark, Tag, Globe, Info, Navigation
+  Users, Landmark, Tag, Globe, Info, Navigation,
+  Ban, FileImage
 } from "lucide-react";
 import { approvalStatusSchema } from "@/lib/validation";
 import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";

@@ -753,6 +753,36 @@ const CreateAdventure = () => {
                   </div>
                 </div>
               </div>
+
+              {/* TRA License Upload */}
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">TRA License (Image)</Label>
+                <p className="text-[10px] text-slate-400">Upload your Tourism Regulatory Authority license</p>
+                {traLicensePreview ? (
+                  <div className="relative rounded-2xl overflow-hidden border-2 border-[#008080]/30">
+                    <img src={traLicensePreview} alt="TRA License" className="w-full h-40 object-cover" />
+                    <button type="button" onClick={() => { setTraLicense(null); setTraLicensePreview(null); }}
+                      className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full shadow-lg">
+                      <X className="h-3 w-3" />
+                    </button>
+                    <div className="absolute bottom-2 left-2 bg-green-500 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase flex items-center gap-1">
+                      <CheckCircle2 className="h-3 w-3" /> License Uploaded
+                    </div>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center h-28 rounded-2xl border-2 border-dashed border-slate-200 cursor-pointer hover:border-[#008080] hover:bg-[#008080]/5 transition-all">
+                    <Camera className="h-6 w-6 text-slate-400 mb-1" />
+                    <span className="text-[10px] font-bold uppercase text-slate-400">Upload TRA License</span>
+                    <input type="file" className="hidden" accept="image/*" onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setTraLicense(file);
+                        setTraLicensePreview(URL.createObjectURL(file));
+                      }
+                    }} />
+                  </label>
+                )}
+              </div>
             </div>
           </Card>
         )}

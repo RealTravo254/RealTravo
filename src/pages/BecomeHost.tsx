@@ -354,7 +354,27 @@ const BecomeHost = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Fixed Trips - visible for companies or legacy verified users */}
+          {/* Pending Adventures - Waiting for Verification */}
+          {pendingAdventures.length > 0 && (
+            <div className="md:col-span-3 space-y-3">
+              {pendingAdventures.map(adv => (
+                <div key={adv.id} className="bg-amber-50 border border-amber-200 rounded-[24px] p-6 flex items-center gap-4">
+                  <div className="p-3 rounded-2xl bg-amber-100">
+                    <Clock className="h-6 w-6 text-amber-600" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-black text-sm uppercase tracking-tight text-amber-800">{adv.name}</h3>
+                    <p className="text-xs font-bold text-amber-600 uppercase tracking-widest">Waiting for admin verification</p>
+                  </div>
+                  <Badge className="bg-amber-200 text-amber-800 border-none font-black text-[10px] uppercase tracking-widest px-4">
+                    Pending
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Fixed Trips - visible for companies or legacy verified users (NOT for company-only verified) */}
           {((hasCompany && companyStatus === 'approved') || (verificationStatus === 'approved' && !hostingCategory)) && (
             <HostCategoryCard 
               title="Fixed Trips"
@@ -384,22 +404,17 @@ const BecomeHost = () => {
             />
           )}
 
-          {/* Events - visible for guides, campsites, companies, or legacy verified users */}
-          {((hasCompany && companyStatus === 'approved') || 
-            (hostingCategory === 'guide' && verificationStatus === 'approved') || 
-            hostingCategory === 'campsite' ||
-            (verificationStatus === 'approved' && !hostingCategory)) && (
-            <HostCategoryCard 
-              title="Events"
-              subtitle="Sports & Social Events"
-              image="/images/category-campsite.webp"
-              icon={<Users className="h-8 w-8" />}
-              count={myContent.filter(i => i.contentType === 'event').length}
-              onManage={() => navigate("/host/trips")}
-              onAdd={() => navigate("/create-event")}
-              accentColor={COLORS.KHAKI_DARK}
-            />
-          )}
+          {/* Events - visible for ALL users (no verification needed), plus verified hosts */}
+          <HostCategoryCard 
+            title="Events"
+            subtitle="Sports & Social Events"
+            image="/images/category-campsite.webp"
+            icon={<Users className="h-8 w-8" />}
+            count={myContent.filter(i => i.contentType === 'event').length}
+            onManage={() => navigate("/host/trips")}
+            onAdd={() => navigate("/create-event")}
+            accentColor={COLORS.KHAKI_DARK}
+          />
 
           {/* Adventure Places - only for campsite hosts who haven't created one yet, or legacy users */}
           {(hostingCategory === 'campsite' || (verificationStatus === 'approved' && !hostingCategory)) && 
@@ -408,6 +423,21 @@ const BecomeHost = () => {
             <HostCategoryCard 
               title="Adventure Places"
               subtitle="Campsites & Nature"
+              image="/images/category-campsite.webp"
+              icon={<Tent className="h-8 w-8" />}
+              count={myContent.filter(i => i.contentType === 'adventure').length}
+              onManage={() => navigate("/host/experiences")}
+              onAdd={() => navigate("/create-adventure")}
+              accentColor={COLORS.CORAL}
+            />
+          )}
+
+          {/* Show existing adventure places for campsite hosts */}
+          {(hostingCategory === 'campsite' || (verificationStatus === 'approved' && !hostingCategory)) && 
+           myContent.filter(i => i.contentType === 'adventure').length > 0 && (
+            <HostCategoryCard 
+              title="Adventure Places"
+              subtitle="Your Campsite"
               image="/images/category-campsite.webp"
               icon={<Tent className="h-8 w-8" />}
               count={myContent.filter(i => i.contentType === 'adventure').length}

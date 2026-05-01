@@ -20,7 +20,7 @@ const COLORS = {
   SOFT_GRAY: "#F8F9FA"
 };
 
-type HostType = 'guide' | 'campsite' | 'company';
+type HostType = 'guide' | 'campsite' | 'company' | 'event';
 type HostingCategory = 'guide' | 'campsite' | 'company' | null;
 
 const BecomeHost = () => {

@@ -61,6 +61,8 @@ interface ReviewStepProps {
     exclusions?: string[];
     ticketTypes?: { name: string; price: number }[];
     allowChildren?: boolean;
+    traLicensePreviewUrl?: string;
+    eventCertificatePreviewUrl?: string;
   };
   creatorName?: string;
   creatorEmail?: string;
@@ -472,6 +474,26 @@ export const ReviewStep = ({ type, data, creatorName, creatorEmail, creatorPhone
             <p className="text-sm font-semibold text-foreground">
               {data.imageCount} {data.imageCount === 1 ? 'image' : 'images'} uploaded
             </p>
+          </div>
+        </Card>
+      )}
+
+      {/* TRA License Preview */}
+      {data.traLicensePreviewUrl && (
+        <Card className="rounded-2xl border border-border/60 shadow-sm p-4">
+          <SectionHeader title="TRA License" icon={ImageIcon} colorClass="bg-amber-500/10 text-amber-600" />
+          <div className="rounded-xl overflow-hidden border border-border/40">
+            <img src={data.traLicensePreviewUrl} alt="TRA License" className="w-full h-40 object-cover" />
+          </div>
+        </Card>
+      )}
+
+      {/* Event Certificate Preview */}
+      {data.eventCertificatePreviewUrl && (
+        <Card className="rounded-2xl border border-border/60 shadow-sm p-4">
+          <SectionHeader title="Event Certificate / Permit" icon={ImageIcon} colorClass="bg-purple-500/10 text-purple-600" />
+          <div className="rounded-xl overflow-hidden border border-border/40">
+            <img src={data.eventCertificatePreviewUrl} alt="Event Certificate" className="w-full h-40 object-cover" />
           </div>
         </Card>
       )}

@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import { Plane, Building, Tent, Plus, ArrowLeft, LayoutDashboard, Map, Building2, Users } from "lucide-react";
+import { Plane, Building, Tent, Plus, ArrowLeft, LayoutDashboard, Map, Building2, Users, CalendarDays, Clock, AlertCircle } from "lucide-react";
 
 const COLORS = {
   TEAL: "#008080",
@@ -20,7 +20,7 @@ const COLORS = {
   SOFT_GRAY: "#F8F9FA"
 };
 
-type HostType = 'guide' | 'campsite' | 'company';
+type HostType = 'guide' | 'campsite' | 'company' | 'event';
 type HostingCategory = 'guide' | 'campsite' | 'company' | null;
 
 const BecomeHost = () => {
@@ -36,6 +36,7 @@ const BecomeHost = () => {
   const [hasCompany, setHasCompany] = useState(false);
   const [companyStatus, setCompanyStatus] = useState<string | null>(null);
   const [hostingCategory, setHostingCategory] = useState<HostingCategory>(null);
+  const [pendingAdventures, setPendingAdventures] = useState<any[]>([]);
 
   useEffect(() => {
     if (!user) {
@@ -82,18 +83,17 @@ const BecomeHost = () => {
         const isGuideApproved = hasV && verification?.status === "approved" && verification?.hosting_category === "guide";
         const isCampsiteHost = hasV && verification?.hosting_category === "campsite";
         const isCompanyApproved = company && company.verification_status === "approved";
-        // If verified but no hosting_category set, treat as fully verified (legacy users)
         const isVerifiedNoCategory = hasV && verification?.status === "approved" && !verification?.hosting_category;
 
-        // If no verification at all and no company, show type selection
+        // If no verification at all and no company, show type selection (includes event option)
         if (!hasV && !company) {
           setShowTypeSelection(true);
           setLoading(false);
           return;
         }
 
-        // Pending verification
-        if (hasV && verification?.status === "pending") {
+        // Pending verification - but still allow showing the page for campsite hosts
+        if (hasV && verification?.status === "pending" && verification?.hosting_category !== "campsite") {
           navigate("/verification-status");
           return;
         }
@@ -106,14 +106,18 @@ const BecomeHost = () => {
           return;
         }
 
-        // Load content for approved hosts
+        // Load content for hosts
         const [trips, hotels, adventures] = await Promise.all([
-          supabase.from("trips").select("id,name,type").eq("created_by", user.id),
-          supabase.from("hotels").select("id,name").eq("created_by", user.id),
-          supabase.from("adventure_places").select("id,name").eq("created_by", user.id)
+          supabase.from("trips").select("id,name,type,approval_status").eq("created_by", user.id),
+          supabase.from("hotels").select("id,name,approval_status").eq("created_by", user.id),
+          supabase.from("adventure_places").select("id,name,approval_status").eq("created_by", user.id)
         ]);
 
         if (cancelled) return;
+
+        // Track pending adventures for "waiting for verification" display
+        const pendingAdv = adventures.data?.filter(a => a.approval_status === 'pending') || [];
+        setPendingAdventures(pendingAdv);
 
         const allContent = [
           ...(trips.data?.map(t => ({ ...t, contentType: t.type || "trip" })) || []),
@@ -137,15 +141,15 @@ const BecomeHost = () => {
     setHostType(type);
     
     if (type === 'guide') {
-      // Guide: needs basic verification, then can host flexible trips
       navigate("/host-verification?category=guide");
     } else if (type === 'campsite') {
-      // Campsite: no verification needed, redirect to create adventure place directly
       toast({ title: "Welcome!", description: "You can now create your adventure place listing." });
       navigate("/create-adventure");
     } else if (type === 'company') {
-      // Company: redirect to company registration
       navigate("/host-verification?category=company");
+    } else if (type === 'event') {
+      // Events don't need verification - go directly to create event
+      navigate("/create-event");
     }
   };
 
@@ -272,7 +276,38 @@ const BecomeHost = () => {
                 </div>
               </div>
               <div className="mt-6 py-2.5 rounded-xl text-center text-xs font-bold uppercase tracking-widest border-2 border-slate-200 group-hover:border-[#008080] group-hover:text-[#008080] transition-colors">
-                Register →
+              Register →
+              </div>
+            </button>
+
+            {/* Event Card - No Verification Required */}
+            <button
+              onClick={() => handleHostTypeSelect('event')}
+              className="group relative bg-white rounded-[24px] overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 border border-slate-100 text-left p-6"
+            >
+              <div className="p-4 rounded-2xl bg-purple-50 w-fit mb-4 group-hover:bg-[#008080] transition-colors">
+                <CalendarDays className="h-8 w-8 text-purple-600 group-hover:text-white" />
+              </div>
+              <h3 className="text-xl font-black uppercase tracking-tight text-slate-900 mb-2">Host an Event</h3>
+              <p className="text-sm text-slate-500 mb-4 leading-relaxed">
+                Create and host events like sports, music, cultural gatherings and more. Certificate required.
+              </p>
+              <div className="space-y-2 text-xs text-slate-400">
+                <div className="flex items-center gap-2">
+                  <div className="h-1.5 w-1.5 rounded-full bg-green-400" />
+                  <span>No verification needed</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="h-1.5 w-1.5 rounded-full bg-yellow-400" />
+                  <span>Event certificate/permit required</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="h-1.5 w-1.5 rounded-full bg-red-400" />
+                  <span>Events only — no trips or hotels</span>
+                </div>
+              </div>
+              <div className="mt-6 py-2.5 rounded-xl text-center text-xs font-bold uppercase tracking-widest border-2 border-slate-200 group-hover:border-[#008080] group-hover:text-[#008080] transition-colors">
+                Create Event →
               </div>
             </button>
           </div>
@@ -319,7 +354,27 @@ const BecomeHost = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Fixed Trips - visible for companies or legacy verified users */}
+          {/* Pending Adventures - Waiting for Verification */}
+          {pendingAdventures.length > 0 && (
+            <div className="md:col-span-3 space-y-3">
+              {pendingAdventures.map(adv => (
+                <div key={adv.id} className="bg-amber-50 border border-amber-200 rounded-[24px] p-6 flex items-center gap-4">
+                  <div className="p-3 rounded-2xl bg-amber-100">
+                    <Clock className="h-6 w-6 text-amber-600" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-black text-sm uppercase tracking-tight text-amber-800">{adv.name}</h3>
+                    <p className="text-xs font-bold text-amber-600 uppercase tracking-widest">Waiting for admin verification</p>
+                  </div>
+                  <Badge className="bg-amber-200 text-amber-800 border-none font-black text-[10px] uppercase tracking-widest px-4">
+                    Pending
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Fixed Trips - visible for companies or legacy verified users (NOT for company-only verified) */}
           {((hasCompany && companyStatus === 'approved') || (verificationStatus === 'approved' && !hostingCategory)) && (
             <HostCategoryCard 
               title="Fixed Trips"
@@ -349,22 +404,17 @@ const BecomeHost = () => {
             />
           )}
 
-          {/* Events - visible for guides, campsites, companies, or legacy verified users */}
-          {((hasCompany && companyStatus === 'approved') || 
-            (hostingCategory === 'guide' && verificationStatus === 'approved') || 
-            hostingCategory === 'campsite' ||
-            (verificationStatus === 'approved' && !hostingCategory)) && (
-            <HostCategoryCard 
-              title="Events"
-              subtitle="Sports & Social Events"
-              image="/images/category-campsite.webp"
-              icon={<Users className="h-8 w-8" />}
-              count={myContent.filter(i => i.contentType === 'event').length}
-              onManage={() => navigate("/host/trips")}
-              onAdd={() => navigate("/create-event")}
-              accentColor={COLORS.KHAKI_DARK}
-            />
-          )}
+          {/* Events - visible for ALL users (no verification needed), plus verified hosts */}
+          <HostCategoryCard 
+            title="Events"
+            subtitle="Sports & Social Events"
+            image="/images/category-campsite.webp"
+            icon={<Users className="h-8 w-8" />}
+            count={myContent.filter(i => i.contentType === 'event').length}
+            onManage={() => navigate("/host/trips")}
+            onAdd={() => navigate("/create-event")}
+            accentColor={COLORS.KHAKI_DARK}
+          />
 
           {/* Adventure Places - only for campsite hosts who haven't created one yet, or legacy users */}
           {(hostingCategory === 'campsite' || (verificationStatus === 'approved' && !hostingCategory)) && 
@@ -373,6 +423,21 @@ const BecomeHost = () => {
             <HostCategoryCard 
               title="Adventure Places"
               subtitle="Campsites & Nature"
+              image="/images/category-campsite.webp"
+              icon={<Tent className="h-8 w-8" />}
+              count={myContent.filter(i => i.contentType === 'adventure').length}
+              onManage={() => navigate("/host/experiences")}
+              onAdd={() => navigate("/create-adventure")}
+              accentColor={COLORS.CORAL}
+            />
+          )}
+
+          {/* Show existing adventure places for campsite hosts */}
+          {(hostingCategory === 'campsite' || (verificationStatus === 'approved' && !hostingCategory)) && 
+           myContent.filter(i => i.contentType === 'adventure').length > 0 && (
+            <HostCategoryCard 
+              title="Adventure Places"
+              subtitle="Your Campsite"
               image="/images/category-campsite.webp"
               icon={<Tent className="h-8 w-8" />}
               count={myContent.filter(i => i.contentType === 'adventure').length}

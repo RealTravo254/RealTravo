@@ -11,7 +11,7 @@ import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Calendar, MapPin, DollarSign, Users, Navigation, ArrowLeft, Camera, CheckCircle2, X, Loader2, ChevronLeft, ChevronRight, Plus, Link2, Ticket } from "lucide-react";
+import { Calendar, MapPin, DollarSign, Users, Navigation, ArrowLeft, Camera, CheckCircle2, X, Loader2, ChevronLeft, ChevronRight, Plus, Link2, Ticket, FileImage } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CountrySelector } from "@/components/creation/CountrySelector";
 import { CountySelector } from "@/components/creation/CountySelector";
@@ -95,7 +95,8 @@ const CreateTripEvent = () => {
 
   const [workingDays, setWorkingDays] = useState<WorkingDays>({ Mon: true, Tue: true, Wed: true, Thu: true, Fri: true, Sat: true, Sun: true });
   const [galleryImages, setGalleryImages] = useState<File[]>([]);
-
+  const [eventCertificate, setEventCertificate] = useState<File | null>(null);
+  const [certificatePreview, setCertificatePreview] = useState<string | null>(null);
   useEffect(() => {
     const fetchUserProfile = async () => {
       if (user) {
@@ -110,7 +111,7 @@ const CreateTripEvent = () => {
   // Step validation
   const isStep1Complete = !!formData.name.trim() && !!formData.country && !!formData.place.trim() && !!formData.location.trim();
   const isStep2Complete = (formData.is_custom_date || !!formData.date) && (useTicketTypes ? ticketTypes.length > 0 : parseFloat(formData.price) >= 0) && parseInt(formData.available_tickets) > 0;
-  const isStep3Complete = !!formData.phone_number && galleryImages.length >= 5;
+  const isStep3Complete = !!formData.phone_number && galleryImages.length >= 5 && (formData.type !== 'event' || !!eventCertificate);
   const isStep4Complete = !!formData.description.trim();
 
   const steps = [
@@ -140,6 +141,7 @@ const CreateTripEvent = () => {
     } else if (currentStep === 3) {
       if (!formData.phone_number) errors.push("phone_number");
       if (galleryImages.length < 5) errors.push("gallery");
+      if (formData.type === 'event' && !eventCertificate) errors.push("event_certificate");
     } else if (currentStep === 4) {
       if (!formData.description.trim()) errors.push("description");
     }
@@ -228,6 +230,7 @@ const CreateTripEvent = () => {
     if (!formData.phone_number) allErrors.push("phone_number");
     if (!formData.description.trim()) allErrors.push("description");
     if (galleryImages.length < 5) allErrors.push("gallery");
+    if (formData.type === 'event' && !eventCertificate) allErrors.push("event_certificate");
     if (formData.location_link && !formData.location_link.startsWith("https://")) allErrors.push("location_link");
 
     if (allErrors.length > 0) {
@@ -257,6 +260,15 @@ const CreateTripEvent = () => {
         flexibleEndDate = endDate.toISOString().split('T')[0];
       }
 
+      // Upload event certificate if event
+      let eventCertificateUrl: string | null = null;
+      if (formData.type === 'event' && eventCertificate) {
+        const certFileName = `${user.id}/cert-${Math.random()}.${eventCertificate.name.split('.').pop()}`;
+        const { error: certUploadError } = await supabase.storage.from('user-content-images').upload(certFileName, eventCertificate);
+        if (certUploadError) throw certUploadError;
+        eventCertificateUrl = supabase.storage.from('user-content-images').getPublicUrl(certFileName).data.publicUrl;
+      }
+
       const { error } = await supabase.from("trips").insert([{
         id: friendlySlug, slug: friendlySlug,
         name: formData.name, description: formData.description, location: formData.location,
@@ -279,6 +291,7 @@ const CreateTripEvent = () => {
         allow_children: formData.allow_children,
         location_link: formData.location_link || null,
         activities: activityNames.length > 0 ? activityNames.map(name => ({ name, price: 0 })) : [],
+        event_certificate_url: eventCertificateUrl,
       } as any]);
 
       if (error) throw error;
@@ -588,6 +601,7 @@ const CreateTripEvent = () => {
 
           {/* ═══ STEP 3: Contact & Photos ═══ */}
           {currentStep === 3 && (
+            <>
             <Card className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100 space-y-6">
               <div className="flex items-center gap-3 mb-2">
                 <div className="p-2.5 rounded-xl" style={{ backgroundColor: `${COLORS.TEAL}15` }}>
@@ -645,6 +659,46 @@ const CreateTripEvent = () => {
                 </div>
               </div>
             </Card>
+
+            {/* Event Certificate Upload */}
+            {formData.type === 'event' && (
+              <Card className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100 space-y-4">
+                <h3 className="text-xs font-black uppercase tracking-widest flex items-center gap-2" style={{ color: COLORS.TEAL }}>
+                  <FileImage className="h-4 w-4" /> Event Certificate / Permit *
+                </h3>
+                <p className="text-[10px] text-slate-400 font-bold">Upload your event permit or certificate proving you are authorized to host this event</p>
+                
+                {certificatePreview ? (
+                  <div className="relative rounded-2xl overflow-hidden border-2 border-[#008080]/30">
+                    <img src={certificatePreview} alt="Event Certificate" className="w-full h-48 object-cover" />
+                    <button type="button" onClick={() => { setEventCertificate(null); setCertificatePreview(null); }}
+                      className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full shadow-lg">
+                      <X className="h-3 w-3" />
+                    </button>
+                    <div className="absolute bottom-2 left-2 bg-green-500 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase flex items-center gap-1">
+                      <CheckCircle2 className="h-3 w-3" /> Certificate Uploaded
+                    </div>
+                  </div>
+                ) : (
+                  <Label className={`flex flex-col items-center justify-center h-32 rounded-2xl border-2 border-dashed cursor-pointer transition-all ${validationErrors.includes("event_certificate") ? "border-red-400 bg-red-50" : "border-slate-200 hover:border-[#008080] hover:bg-[#008080]/5"}`}>
+                    <FileImage className={`h-8 w-8 mb-2 ${validationErrors.includes("event_certificate") ? "text-red-400" : "text-slate-400"}`} />
+                    <span className={`text-xs font-bold uppercase ${validationErrors.includes("event_certificate") ? "text-red-500" : "text-slate-400"}`}>Upload Certificate Image</span>
+                    <Input type="file" className="hidden" accept="image/*" onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setEventCertificate(file);
+                        setCertificatePreview(URL.createObjectURL(file));
+                        setValidationErrors(prev => prev.filter(err => err !== "event_certificate"));
+                      }
+                    }} />
+                  </Label>
+                )}
+                {validationErrors.includes("event_certificate") && (
+                  <p className="text-red-500 text-[10px] font-bold">⚠ Event certificate is required to host an event</p>
+                )}
+              </Card>
+            )}
+            </>
           )}
 
           {/* ═══ STEP 4: Schedule & Description ═══ */}
@@ -726,6 +780,7 @@ const CreateTripEvent = () => {
                 ticketTypes: useTicketTypes ? ticketTypes : [],
                 allowChildren: formData.allow_children,
                 activities: activityNames.map(name => ({ name, price: 0, images: [] as string[], previewUrls: [] as string[] })),
+                eventCertificatePreviewUrl: certificatePreview || undefined,
               }}
               creatorEmail={user?.email}
             />

@@ -10,7 +10,8 @@ import { useToast } from "@/hooks/use-toast";
 import { 
   MapPin, Mail, Phone, Calendar, User, Eye, Clock, 
   ArrowLeft, CheckCircle2, XCircle, ShieldAlert, 
-  Users, Landmark, Tag, Globe, Info, Navigation
+  Users, Landmark, Tag, Globe, Info, Navigation,
+  Ban, FileImage
 } from "lucide-react";
 import { approvalStatusSchema } from "@/lib/validation";
 import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
@@ -36,6 +37,7 @@ const AdminReviewDetail = () => {
   const [creator, setCreator] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isBanned, setIsBanned] = useState(false);
 
   useEffect(() => {
     checkAdminStatus();
@@ -86,6 +88,7 @@ const AdminReviewDetail = () => {
       if (itemData.created_by) {
         const { data: profile } = await supabase.from("profiles").select("*").eq("id", itemData.created_by).maybeSingle();
         setCreator(profile);
+        setIsBanned(profile?.is_banned || false);
       }
     } catch (error) {
       toast({ title: "Error loading item", variant: "destructive" });
@@ -111,6 +114,19 @@ const AdminReviewDetail = () => {
       navigate("/admin");
     } catch (error) {
       toast({ title: "Update failed", variant: "destructive" });
+    }
+  };
+
+  const toggleBanUser = async () => {
+    if (!item?.created_by) return;
+    const newBanStatus = !isBanned;
+    try {
+      const { error } = await supabase.from("profiles").update({ is_banned: newBanStatus }).eq("id", item.created_by);
+      if (error) throw error;
+      setIsBanned(newBanStatus);
+      toast({ title: newBanStatus ? "User Banned" : "User Unbanned", description: newBanStatus ? "This user has been banned from the platform." : "This user has been unbanned." });
+    } catch (error) {
+      toast({ title: "Failed to update ban status", variant: "destructive" });
     }
   };
 
@@ -283,6 +299,11 @@ const AdminReviewDetail = () => {
                   <div>
                     <p className="text-[10px] font-black text-slate-400 uppercase">Contact Name</p>
                     <p className="text-sm font-black uppercase">{creator?.name || "Unknown Host"}</p>
+                    {isBanned && (
+                      <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-red-100 text-red-600 text-[9px] font-black uppercase">
+                        <Ban className="h-3 w-3" /> Banned
+                      </span>
+                    )}
                   </div>
                   <div>
                     <p className="text-[10px] font-black text-slate-400 uppercase">Official Email</p>
@@ -301,6 +322,38 @@ const AdminReviewDetail = () => {
                 </div>
               </div>
             </div>
+
+            {/* Event Certificate */}
+            {item.event_certificate_url && (
+              <div className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100">
+                <h2 className="text-xs font-black uppercase tracking-[0.2em] mb-4 flex items-center gap-2" style={{ color: COLORS.TEAL }}>
+                  <FileImage className="h-4 w-4" /> Event Certificate / Permit
+                </h2>
+                <div className="rounded-2xl overflow-hidden border-2 border-slate-100">
+                  <img src={item.event_certificate_url} alt="Event Certificate" className="w-full h-64 object-contain bg-slate-50" />
+                </div>
+                <Button variant="link" className="mt-2 text-[10px] font-black uppercase text-[#008080]"
+                  onClick={() => window.open(item.event_certificate_url, "_blank")}>
+                  View Full Size →
+                </Button>
+              </div>
+            )}
+
+            {/* TRA License */}
+            {item.tra_license_url && (
+              <div className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100">
+                <h2 className="text-xs font-black uppercase tracking-[0.2em] mb-4 flex items-center gap-2" style={{ color: COLORS.TEAL }}>
+                  <FileImage className="h-4 w-4" /> TRA License
+                </h2>
+                <div className="rounded-2xl overflow-hidden border-2 border-slate-100">
+                  <img src={item.tra_license_url} alt="TRA License" className="w-full h-64 object-contain bg-slate-50" />
+                </div>
+                <Button variant="link" className="mt-2 text-[10px] font-black uppercase text-[#008080]"
+                  onClick={() => window.open(item.tra_license_url, "_blank")}>
+                  View Full Size →
+                </Button>
+              </div>
+            )}
           </div>
 
           <div className="space-y-6">
@@ -365,6 +418,16 @@ const AdminReviewDetail = () => {
                     Reject Submission
                   </Button>
                 )}
+
+                {/* Ban/Unban User */}
+                <Button 
+                  variant="ghost"
+                  onClick={toggleBanUser}
+                  className={`w-full py-4 text-xs font-black uppercase tracking-widest rounded-2xl ${isBanned ? 'text-green-600 hover:bg-green-50 border border-green-200' : 'text-orange-500 hover:bg-orange-50 border border-orange-200'}`}
+                >
+                  <Ban className="mr-2 h-4 w-4" />
+                  {isBanned ? 'Unban User' : 'Ban User'}
+                </Button>
               </div>
             </div>
           </div>

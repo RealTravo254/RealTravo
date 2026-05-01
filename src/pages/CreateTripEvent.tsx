@@ -260,6 +260,15 @@ const CreateTripEvent = () => {
         flexibleEndDate = endDate.toISOString().split('T')[0];
       }
 
+      // Upload event certificate if event
+      let eventCertificateUrl: string | null = null;
+      if (formData.type === 'event' && eventCertificate) {
+        const certFileName = `${user.id}/cert-${Math.random()}.${eventCertificate.name.split('.').pop()}`;
+        const { error: certUploadError } = await supabase.storage.from('user-content-images').upload(certFileName, eventCertificate);
+        if (certUploadError) throw certUploadError;
+        eventCertificateUrl = supabase.storage.from('user-content-images').getPublicUrl(certFileName).data.publicUrl;
+      }
+
       const { error } = await supabase.from("trips").insert([{
         id: friendlySlug, slug: friendlySlug,
         name: formData.name, description: formData.description, location: formData.location,
@@ -282,6 +291,7 @@ const CreateTripEvent = () => {
         allow_children: formData.allow_children,
         location_link: formData.location_link || null,
         activities: activityNames.length > 0 ? activityNames.map(name => ({ name, price: 0 })) : [],
+        event_certificate_url: eventCertificateUrl,
       } as any]);
 
       if (error) throw error;

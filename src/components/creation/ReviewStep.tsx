@@ -61,6 +61,8 @@ interface ReviewStepProps {
     exclusions?: string[];
     ticketTypes?: { name: string; price: number }[];
     allowChildren?: boolean;
+    traLicensePreviewUrl?: string;
+    eventCertificatePreviewUrl?: string;
   };
   creatorName?: string;
   creatorEmail?: string;

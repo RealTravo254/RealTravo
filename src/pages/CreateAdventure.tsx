@@ -501,6 +501,8 @@ const CreateAdventure = () => {
   const [activities, setActivities] = useState<ActivityItem[]>(() => [emptyActivity()]);
   const [galleryImages, setGalleryImages] = useState<File[]>([]);
   const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
+  const [traLicense, setTraLicense] = useState<File | null>(null);
+  const [traLicensePreview, setTraLicensePreview] = useState<string | null>(null);
 
   const onValidationFail = useCallback(
     (msg: string) => toast({ title: "Required", description: msg, variant: "destructive" }),

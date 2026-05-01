@@ -658,6 +658,45 @@ const CreateTripEvent = () => {
                 </div>
               </div>
             </Card>
+
+            {/* Event Certificate Upload */}
+            {formData.type === 'event' && (
+              <Card className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100 space-y-4">
+                <h3 className="text-xs font-black uppercase tracking-widest flex items-center gap-2" style={{ color: COLORS.TEAL }}>
+                  <FileImage className="h-4 w-4" /> Event Certificate / Permit *
+                </h3>
+                <p className="text-[10px] text-slate-400 font-bold">Upload your event permit or certificate proving you are authorized to host this event</p>
+                
+                {certificatePreview ? (
+                  <div className="relative rounded-2xl overflow-hidden border-2 border-[#008080]/30">
+                    <img src={certificatePreview} alt="Event Certificate" className="w-full h-48 object-cover" />
+                    <button type="button" onClick={() => { setEventCertificate(null); setCertificatePreview(null); }}
+                      className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full shadow-lg">
+                      <X className="h-3 w-3" />
+                    </button>
+                    <div className="absolute bottom-2 left-2 bg-green-500 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase flex items-center gap-1">
+                      <CheckCircle2 className="h-3 w-3" /> Certificate Uploaded
+                    </div>
+                  </div>
+                ) : (
+                  <Label className={`flex flex-col items-center justify-center h-32 rounded-2xl border-2 border-dashed cursor-pointer transition-all ${validationErrors.includes("event_certificate") ? "border-red-400 bg-red-50" : "border-slate-200 hover:border-[#008080] hover:bg-[#008080]/5"}`}>
+                    <FileImage className={`h-8 w-8 mb-2 ${validationErrors.includes("event_certificate") ? "text-red-400" : "text-slate-400"}`} />
+                    <span className={`text-xs font-bold uppercase ${validationErrors.includes("event_certificate") ? "text-red-500" : "text-slate-400"}`}>Upload Certificate Image</span>
+                    <Input type="file" className="hidden" accept="image/*" onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setEventCertificate(file);
+                        setCertificatePreview(URL.createObjectURL(file));
+                        setValidationErrors(prev => prev.filter(err => err !== "event_certificate"));
+                      }
+                    }} />
+                  </Label>
+                )}
+                {validationErrors.includes("event_certificate") && (
+                  <p className="text-red-500 text-[10px] font-bold">⚠ Event certificate is required to host an event</p>
+                )}
+              </Card>
+            )}
           )}
 
           {/* ═══ STEP 4: Schedule & Description ═══ */}

@@ -113,10 +113,16 @@ export default function PaymentHistory() {
                     </div>
                   </div>
                   <BookingDownloadButton booking={{
-                    bookingId: b.id, guestName: b.guest_name || 'Guest', guestEmail: b.guest_email || '',
-                    itemName: itemDetails[b.item_id]?.name || 'Booking', bookingType: b.booking_type,
-                    visitDate: b.visit_date || b.created_at, totalAmount: b.total_amount,
-                    slotsBooked: b.slots_booked || 1, paymentStatus: b.payment_status,
+                    bookingId: b.id,
+                    guestName: b.guest_name || 'Guest',
+                    guestEmail: b.guest_email || '',
+                    guestPhone: b.guest_phone || undefined,
+                    itemName: itemDetails[b.item_id]?.name || 'Booking',
+                    bookingType: b.booking_type,
+                    visitDate: b.visit_date || b.created_at,
+                    totalAmount: b.total_amount,
+                    slotsBooked: b.slots_booked || 1,
+                    paymentStatus: b.payment_status,
                   }} />
                 </div>
               ))}

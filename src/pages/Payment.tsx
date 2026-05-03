@@ -26,7 +26,7 @@ export default function Payment() {
   const [stats, setStats] = useState({
     totalReferred: 0, totalBookings: 0, totalCommission: 0,
     hostEarnings: 0, bookingEarnings: 0, grossBalance: 0,
-    serviceFeeDeducted: 0, referralDeducted: 0, withdrawableBalance: 0, avgServiceFeeRate: 0,
+    serviceFeeDeducted: 0, withdrawableBalance: 0,
   });
 
   // Commission history for timeline
@@ -64,31 +64,22 @@ export default function Payment() {
 
       let grossHostEarnings = 0;
       let totalServiceFee = 0;
-      let totalReferralDeducted = 0;
 
       for (const b of bookings) {
         if (ownerMap.get(b.item_id) === user?.id) {
           const amount = Number(b.total_amount);
           grossHostEarnings += amount;
-          
-          let serviceFeeRate = 20.0;
+
+          let serviceFeeRate = 0;
           if (settings) {
-            if (b.booking_type === 'trip' || b.booking_type === 'event') serviceFeeRate = Number(settings.trip_service_fee);
-            else if (b.booking_type === 'hotel') serviceFeeRate = Number(settings.hotel_service_fee);
-            else if (b.booking_type === 'adventure' || b.booking_type === 'adventure_place') serviceFeeRate = Number(settings.adventure_place_service_fee);
+            if (b.booking_type === 'trip') serviceFeeRate = Number(settings.trip_service_fee || 0);
+            else if (b.booking_type === 'event') serviceFeeRate = Number(settings.event_service_fee || 0);
+            else if (b.booking_type === 'hotel') serviceFeeRate = Number(settings.hotel_service_fee || 0);
+            else if (b.booking_type === 'adventure' || b.booking_type === 'adventure_place') serviceFeeRate = Number(settings.adventure_place_service_fee || 0);
+            else if (b.booking_type === 'attraction') serviceFeeRate = Number(settings.attraction_service_fee || 0);
           }
-          const fee = (amount * serviceFeeRate) / 100;
-          totalServiceFee += fee;
-          
-          if (b.referral_tracking_id) {
-            let commRate = 5.0;
-            if (settings) {
-              if (b.booking_type === 'trip' || b.booking_type === 'event') commRate = Number(settings.trip_commission_rate);
-              else if (b.booking_type === 'hotel') commRate = Number(settings.hotel_commission_rate);
-              else if (b.booking_type === 'adventure' || b.booking_type === 'adventure_place') commRate = Number(settings.adventure_place_commission_rate);
-            }
-            totalReferralDeducted += (fee * commRate) / 100;
-          }
+
+          totalServiceFee += (amount * serviceFeeRate) / 100;
         }
       }
 
@@ -107,16 +98,26 @@ export default function Payment() {
         const unique = new Set(refs.map(r => r.referred_user_id).filter(Boolean));
         const bookE = coms.filter(c => c.commission_type === 'booking').reduce((s, c) => s + Number(c.commission_amount), 0);
         const withdrawableCommissions = coms.filter(c => c.status === 'paid' && !c.withdrawn_at).reduce((s, c) => s + Number(c.commission_amount), 0);
-        
+
         setRecentCommissions(coms.slice(0, 5));
         setStats({
-          totalReferred: unique.size, totalBookings: coms.length, totalCommission: bookE,
-          hostEarnings: grossHostEarnings, bookingEarnings: bookE, grossBalance: grossHostEarnings,
-          serviceFeeDeducted: totalServiceFee, referralDeducted: totalReferralDeducted,
-          withdrawableBalance: netHostEarnings + withdrawableCommissions, avgServiceFeeRate: settings?.platform_referral_commission_rate || 5.0,
+          totalReferred: unique.size,
+          totalBookings: coms.length,
+          totalCommission: bookE,
+          hostEarnings: grossHostEarnings,
+          bookingEarnings: bookE,
+          grossBalance: grossHostEarnings,
+          serviceFeeDeducted: totalServiceFee,
+          withdrawableBalance: netHostEarnings + withdrawableCommissions,
         });
       } else {
-        setStats(prev => ({ ...prev, hostEarnings: grossHostEarnings, withdrawableBalance: netHostEarnings, grossBalance: grossHostEarnings, serviceFeeDeducted: totalServiceFee, referralDeducted: totalReferralDeducted }));
+        setStats(prev => ({
+          ...prev,
+          hostEarnings: grossHostEarnings,
+          withdrawableBalance: netHostEarnings,
+          grossBalance: grossHostEarnings,
+          serviceFeeDeducted: totalServiceFee,
+        }));
       }
       setLoading(false);
     } catch (e) { console.error(e); setLoading(false); }
@@ -213,9 +214,6 @@ export default function Payment() {
         <div className="grid grid-cols-2 gap-2 mb-4">
           <StatCard icon={<DollarSign className="h-4 w-4" />} label="Gross Earnings" value={formatPrice(stats.hostEarnings)} />
           <StatCard icon={<Percent className="h-4 w-4" />} label="Service Fee" value={`- ${formatPrice(stats.serviceFeeDeducted)}`} />
-          {stats.referralDeducted > 0 && (
-            <StatCard icon={<Award className="h-4 w-4" />} label="Referral Comm." value={`- ${formatPrice(Math.round(stats.referralDeducted))}`} />
-          )}
           <StatCard icon={<Wallet className="h-4 w-4" />} label="Net Earnings" value={formatPrice(Math.max(0, stats.hostEarnings - stats.serviceFeeDeducted))} />
         </div>
 

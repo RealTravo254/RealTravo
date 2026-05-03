@@ -26,7 +26,7 @@ export default function Payment() {
   const [stats, setStats] = useState({
     totalReferred: 0, totalBookings: 0, totalCommission: 0,
     hostEarnings: 0, bookingEarnings: 0, grossBalance: 0,
-    serviceFeeDeducted: 0, referralDeducted: 0, withdrawableBalance: 0, avgServiceFeeRate: 0,
+    serviceFeeDeducted: 0, withdrawableBalance: 0,
   });
 
   // Commission history for timeline

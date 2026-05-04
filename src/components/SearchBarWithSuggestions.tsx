@@ -10,7 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { KENYA_COUNTIES } from "@/lib/kenyaCounties";
 
 
-interface SearchBarProps {
+interface SearchBarProps { 
   value: string;
   onChange: (value: string) => void;
   onSubmit: () => void;

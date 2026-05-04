@@ -33,7 +33,7 @@ function formatDate(dateStr: string): string {
   } catch { return dateStr; }
 }
 
-function buildDetailsHTML(bookingDetails: any, guestName: string, guestEmail: string, guestPhone: string, bookingType: string, itemName: string, visitDate: string | null, totalAmount: number, bookingId: string, isPaid: boolean): string {
+function buildDetailsHTML(bookingDetails: any, guestName: string, guestEmail: string, guestPhone: string, bookingType: string, itemName: string, visitDate: string | null, totalAmount: number, bookingId: string, isPaid: boolean, hostInfo?: { name?: string; email?: string; phone?: string }): string {
   const details = typeof bookingDetails === 'string' ? JSON.parse(bookingDetails) : (bookingDetails || {});
   const safeGuestName = escapeHtml(guestName);
   const safeItemName = escapeHtml(itemName);
@@ -132,6 +132,11 @@ function buildDetailsHTML(bookingDetails: any, guestName: string, guestEmail: st
         <span class="status-badge ${isPaid ? 'status-paid' : 'status-pending'}">${isPaid ? 'Payment Confirmed' : 'Payment Pending'}</span>
       </div>
       ${ticketHTML}${facilitiesHTML}${activitiesHTML}
+      ${(hostInfo && (hostInfo.name || hostInfo.email || hostInfo.phone)) ? `<div class="detail-box"><h2>Host Contact</h2>
+        ${hostInfo.name ? `<div class="info-row"><span class="info-label">Host</span><span class="info-value">${escapeHtml(hostInfo.name)}</span></div>` : ''}
+        ${hostInfo.email ? `<div class="info-row"><span class="info-label">Email</span><span class="info-value">${escapeHtml(hostInfo.email)}</span></div>` : ''}
+        ${hostInfo.phone ? `<div class="info-row"><span class="info-label">Phone</span><span class="info-value">${escapeHtml(hostInfo.phone)}</span></div>` : ''}
+      </div>` : ''}
       ${isPaid ? `<div class="qr-code"><h3>Your Booking QR Code</h3><p>Show this at the venue for quick check-in:</p><img src="${qrCodeUrl}" alt="Booking QR Code" width="200" height="200" /></div>` : `<div class="detail-box"><h2>Payment Instructions</h2><p>To confirm your booking, please complete the payment process.</p></div>`}
       <p>Thank you for choosing us!</p>
     </div>
@@ -184,8 +189,27 @@ const handler = async (req: Request): Promise<Response> => {
     const isPaid = paymentStatus === 'paid' || paymentStatus === 'completed' || booking.payment_status === 'paid' || booking.payment_status === 'completed';
     const guestPhone = bookingDetails?.phone || booking.guest_phone || '';
 
+    // Resolve host contact info from item + profile
+    let hostInfo: { name?: string; email?: string; phone?: string } = {};
+    try {
+      let hostTable = 'trips';
+      if (booking.booking_type === 'hotel') hostTable = 'hotels';
+      else if (booking.booking_type === 'adventure' || booking.booking_type === 'adventure_place') hostTable = 'adventure_places';
+      const itemSelect = hostTable === 'trips' ? 'created_by,email,phone_number' : 'created_by,email,phone_numbers';
+      const { data: itemRow } = await supabaseClient.from(hostTable).select(itemSelect).eq('id', booking.item_id).single();
+      const itemPhone = itemRow ? ((itemRow as any).phone_number || ((itemRow as any).phone_numbers && (itemRow as any).phone_numbers[0])) : undefined;
+      if (itemRow?.created_by) {
+        const { data: hostProfile } = await supabaseClient.from('profiles').select('email,name,phone_number').eq('id', itemRow.created_by).single();
+        hostInfo = {
+          name: hostProfile?.name || undefined,
+          email: (itemRow as any).email || hostProfile?.email || undefined,
+          phone: itemPhone || hostProfile?.phone_number || undefined,
+        };
+      }
+    } catch (e) { console.error('Host info lookup failed:', e); }
+
     // Build and send guest email
-    const emailHTML = buildDetailsHTML(bookingDetails, guestName, recipientEmail, guestPhone, bookingType, itemName, visitDate || null, totalAmount, bookingId, isPaid);
+    const emailHTML = buildDetailsHTML(bookingDetails, guestName, recipientEmail, guestPhone, bookingType, itemName, visitDate || null, totalAmount, bookingId, isPaid, hostInfo);
 
     const { error: sendError } = await resend.emails.send({
       from: "Realtravo <noreply@realtravo.com>",

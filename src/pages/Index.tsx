@@ -573,12 +573,21 @@ const Index = () => {
                 </div>
               </div>
 
-              {/* Category cards — use <img> so browser preload scanner picks them up */}
+              {/* Category cards — all link to /explore for unified discovery */}
+              <div className="relative z-10 w-full flex items-center justify-between mt-2 mb-1">
+                <span className="text-white/80 text-[10px] md:text-xs font-bold uppercase tracking-widest">Browse Guides</span>
+                <button
+                  onClick={() => navigate('/explore')}
+                  className="text-white text-[10px] md:text-xs font-bold underline-offset-2 hover:underline"
+                >
+                  View All →
+                </button>
+              </div>
               <div className="relative z-10 w-full grid grid-cols-4 gap-2 md:gap-3">
                 {CATEGORIES.map((cat) => (
                   <div
                     key={cat.title}
-                    onClick={() => navigate(cat.path)}
+                    onClick={() => navigate('/explore')}
                     className="cursor-pointer rounded-lg relative w-full flex flex-col items-center justify-center gap-1 px-2 py-2 md:py-4 overflow-hidden"
                     style={{ height: 'clamp(60px, 8vw, 144px)' }}
                   >

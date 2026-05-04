@@ -29,6 +29,9 @@ export interface BookingDownloadData {
   guestName: string;
   guestEmail: string;
   guestPhone?: string;
+  hostName?: string;
+  hostEmail?: string;
+  hostPhone?: string;
   itemName: string;
   bookingType: string;
   visitDate: string;
@@ -211,6 +214,15 @@ export const downloadBookingAsHTML = async (booking: BookingDownloadData, qrCode
         </div>
         ` : ''}
       </div>
+
+      ${(booking.hostName || booking.hostEmail || booking.hostPhone) ? `
+      <div class="section">
+        <h3>Host Contact</h3>
+        ${booking.hostName ? `<div class="row"><label>Host</label><span>${escapeHtml(booking.hostName)}</span></div>` : ''}
+        ${booking.hostEmail ? `<div class="row"><label>Email</label><span>${escapeHtml(booking.hostEmail)}</span></div>` : ''}
+        ${booking.hostPhone ? `<div class="row"><label>Phone</label><span>${escapeHtml(booking.hostPhone)}</span></div>` : ''}
+      </div>
+      ` : ''}
 
       <div class="section">
         <h3>Booking Details</h3>

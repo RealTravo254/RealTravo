@@ -20,6 +20,9 @@ export interface BookingPDFData {
   guestName: string;
   guestEmail: string;
   guestPhone?: string;
+  hostName?: string;
+  hostEmail?: string;
+  hostPhone?: string;
   itemName: string;
   bookingType: string;
   visitDate: string;
@@ -122,6 +125,22 @@ export const downloadBookingAsPDF = async (
   doc.setFont("helvetica", "bold");
   doc.text(booking.paymentStatus.toUpperCase(), pageWidth - 14, yPos, { align: "right" });
   yPos += 12;
+
+  // Host Contact Section
+  if (booking.hostName || booking.hostEmail || booking.hostPhone) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(100, 100, 100);
+    doc.text("HOST CONTACT", 14, yPos);
+    doc.line(14, yPos + 3, pageWidth - 14, yPos + 3);
+    yPos += 12;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    if (booking.hostName) addRow("Host", booking.hostName);
+    if (booking.hostEmail) addRow("Host Email", booking.hostEmail);
+    if (booking.hostPhone) addRow("Host Phone", booking.hostPhone);
+    yPos += 4;
+  }
   
   // Facilities Section
   if (booking.facilities && booking.facilities.length > 0) {

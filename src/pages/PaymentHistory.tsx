@@ -17,7 +17,7 @@ interface Booking {
   guest_name: string | null; guest_email: string | null; guest_phone: string | null;
   slots_booked: number | null; visit_date: string | null; item_id: string;
 }
-interface ItemDetails { name: string; type: string; }
+interface ItemDetails { name: string; type: string; hostName?: string; hostEmail?: string; hostPhone?: string; }
 
 export default function PaymentHistory() {
   const { formatPrice } = useCurrency();
@@ -55,13 +55,30 @@ export default function PaymentHistory() {
     const hotelIds = bks.filter(b => b.booking_type === "hotel").map(b => b.item_id);
     const advIds = bks.filter(b => ["adventure", "adventure_place"].includes(b.booking_type)).map(b => b.item_id);
     const [t, h, a] = await Promise.all([
-      tripIds.length ? supabase.from("trips").select("id,name").in("id", tripIds) : { data: [] },
-      hotelIds.length ? supabase.from("hotels").select("id,name").in("id", hotelIds) : { data: [] },
-      advIds.length ? supabase.from("adventure_places").select("id,name").in("id", advIds) : { data: [] }
+      tripIds.length ? supabase.from("trips").select("id,name,created_by,email,phone_number").in("id", tripIds) : { data: [] },
+      hotelIds.length ? supabase.from("hotels").select("id,name,created_by,email,phone_numbers").in("id", hotelIds) : { data: [] },
+      advIds.length ? supabase.from("adventure_places").select("id,name,created_by,email,phone_numbers").in("id", advIds) : { data: [] }
     ]);
-    (t.data || []).forEach((x: any) => { details[x.id] = { name: x.name, type: "trip" }; });
-    (h.data || []).forEach((x: any) => { details[x.id] = { name: x.name, type: "hotel" }; });
-    (a.data || []).forEach((x: any) => { details[x.id] = { name: x.name, type: "adventure" }; });
+    const allItems: any[] = [...(t.data || []), ...(h.data || []), ...(a.data || [])];
+    const hostIds = Array.from(new Set(allItems.map(x => x.created_by).filter(Boolean)));
+    let hostsMap: Record<string, { name: string; email: string; phone: string | null }> = {};
+    if (hostIds.length) {
+      const { data: hostsData } = await supabase.from("profiles").select("id,name,email,phone_number").in("id", hostIds);
+      (hostsData || []).forEach((p: any) => { hostsMap[p.id] = { name: p.name, email: p.email, phone: p.phone_number }; });
+    }
+    const buildItem = (x: any, type: string): ItemDetails => {
+      const host = x.created_by ? hostsMap[x.created_by] : undefined;
+      const itemPhone = Array.isArray(x.phone_numbers) ? x.phone_numbers[0] : x.phone_number;
+      return {
+        name: x.name, type,
+        hostName: host?.name,
+        hostEmail: x.email || host?.email,
+        hostPhone: itemPhone || host?.phone || undefined,
+      };
+    };
+    (t.data || []).forEach((x: any) => { details[x.id] = buildItem(x, "trip"); });
+    (h.data || []).forEach((x: any) => { details[x.id] = buildItem(x, "hotel"); });
+    (a.data || []).forEach((x: any) => { details[x.id] = buildItem(x, "adventure"); });
     setItemDetails(details);
   };
 
@@ -117,6 +134,9 @@ export default function PaymentHistory() {
                     guestName: b.guest_name || 'Guest',
                     guestEmail: b.guest_email || '',
                     guestPhone: b.guest_phone || undefined,
+                    hostName: itemDetails[b.item_id]?.hostName,
+                    hostEmail: itemDetails[b.item_id]?.hostEmail,
+                    hostPhone: itemDetails[b.item_id]?.hostPhone,
                     itemName: itemDetails[b.item_id]?.name || 'Booking',
                     bookingType: b.booking_type,
                     visitDate: b.visit_date || b.created_at,

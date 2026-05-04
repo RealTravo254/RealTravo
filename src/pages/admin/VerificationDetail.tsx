@@ -35,7 +35,8 @@ const VerificationDetail = () => {
     front: string | null;
     back: string | null;
     selfie: string | null;
-  }>({ front: null, back: null, selfie: null });
+    tra: string | null;
+  }>({ front: null, back: null, selfie: null, tra: null });
 
   useEffect(() => {
     if (!user) {
@@ -112,16 +113,18 @@ const VerificationDetail = () => {
       if (data.rejection_reason) setRejectionReason(data.rejection_reason);
 
       // Generate signed URLs for private bucket access
-      const [frontUrl, backUrl, selfieUrl] = await Promise.all([
+      const [frontUrl, backUrl, selfieUrl, traUrl] = await Promise.all([
         getSignedUrl(data.document_front_url),
         getSignedUrl(data.document_back_url),
         getSignedUrl(data.selfie_url),
+        getSignedUrl(data.tra_license_url),
       ]);
       
       setSignedUrls({
         front: frontUrl,
         back: backUrl,
         selfie: selfieUrl,
+        tra: traUrl,
       });
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -244,6 +247,12 @@ const VerificationDetail = () => {
                   label="Verification Selfie" 
                   url={signedUrls.selfie || verification.selfie_url} 
                 />
+                {(signedUrls.tra || verification.tra_license_url) && (
+                  <DocumentPreview 
+                    label="TRA License (Regulation Proof)" 
+                    url={signedUrls.tra || verification.tra_license_url} 
+                  />
+                )}
               </div>
             </div>
           </div>

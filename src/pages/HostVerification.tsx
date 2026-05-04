@@ -36,6 +36,8 @@ const HostVerification = () => {
   const [documentFront, setDocumentFront] = useState<File | null>(null);
   const [documentBack, setDocumentBack] = useState<File | null>(null);
   const [selfie, setSelfie] = useState<File | null>(null);
+  const [traLicense, setTraLicense] = useState<File | null>(null);
+  const [traLicensePreview, setTraLicensePreview] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -136,6 +138,14 @@ const HostVerification = () => {
       });
       return;
     }
+    if (!traLicense) {
+      toast({
+        title: "TRA License Required",
+        description: "Please upload your TRA license image to prove regulation.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setIsLoading(true);
 
@@ -173,6 +183,7 @@ const HostVerification = () => {
         ? await uploadFile(documentBack, `${user!.id}/document_back_${Date.now()}`)
         : null;
       const selfieUrl = await uploadFile(selfie, `${user!.id}/selfie_${Date.now()}`);
+      const traUrl = await uploadFile(traLicense, `${user!.id}/tra_license_${Date.now()}`);
 
       const verificationData: Record<string, any> = {
         user_id: user!.id,
@@ -184,6 +195,7 @@ const HostVerification = () => {
         document_front_url: frontUrl,
         document_back_url: backUrl,
         selfie_url: selfieUrl,
+        tra_license_url: traUrl,
         status: "pending",
         rejection_reason: null,
         submitted_at: new Date().toISOString(),
@@ -433,7 +445,7 @@ const HostVerification = () => {
             )}
 
             {currentStep === 3 && (
-              <div className="space-y-4">
+              <div className="space-y-6">
                 <DocumentUploadWithCamera
                   documentType={documentType as any}
                   label="Selfie for Verification"
@@ -442,6 +454,46 @@ const HostVerification = () => {
                   onFileChange={setSelfie}
                   required
                 />
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">
+                    TRA License <span className="text-red-500">*</span>
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Upload an image of your TRA (Tanzania Revenue Authority) license to prove you are regulated to host.
+                  </p>
+                  {traLicensePreview ? (
+                    <div className="relative rounded-lg overflow-hidden border-2 border-dashed" style={{ borderColor: TEAL_COLOR }}>
+                      <img src={traLicensePreview} alt="TRA License" className="w-full h-48 object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => { setTraLicense(null); setTraLicensePreview(null); }}
+                        className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold shadow-lg"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="cursor-pointer block">
+                      <div className="h-32 flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-md transition-all" style={{ borderColor: TEAL_COLOR }}>
+                        <span className="text-xs font-medium" style={{ color: TEAL_COLOR }}>Click to upload TRA License</span>
+                        <span className="text-[10px] text-muted-foreground">Image of your tax/regulatory license</span>
+                      </div>
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            setTraLicense(file);
+                            setTraLicensePreview(URL.createObjectURL(file));
+                          }
+                        }}
+                      />
+                    </label>
+                  )}
+                </div>
               </div>
             )}
           </MultiStepForm>

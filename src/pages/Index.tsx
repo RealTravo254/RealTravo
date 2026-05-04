@@ -624,16 +624,7 @@ const Index = () => {
               </div>
 
               {/* Category cards */}
-              <div className="relative z-10 w-full flex items-center justify-between mt-2 mb-1">
-                <span className="text-white/80 text-[10px] md:text-xs font-bold uppercase tracking-widest">Browse Guides</span>
-                <button
-                  onClick={() => navigate("/explore")}
-                  className="text-white text-[10px] md:text-xs font-bold underline-offset-2 hover:underline"
-                >
-                  View All →
-                </button>
-              </div>
-              <div className="relative z-10 w-full grid grid-cols-4 gap-2 md:gap-3">
+              <div className="relative z-10 w-full grid grid-cols-4 gap-2 md:gap-3 mt-2">
                 {CATEGORIES.map((cat) => (
                   <div
                     key={cat.title}

@@ -190,7 +190,7 @@ const Explore = () => {
             onBlur={() => setIsSearchFocused(false)}
             onBack={() => { setIsSearchFocused(false); setSearchQuery(""); navigate(-1); }}
             showBackButton={true}
-            showEventCategories={true}
+            showEventCategories={false}
           />
         </div>
 

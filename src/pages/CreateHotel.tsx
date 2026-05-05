@@ -462,6 +462,10 @@ const CreateHotel = () => {
       toast({ title: "Missing Details", description: "Please complete all steps.", variant: "destructive" });
       return;
     }
+    if (!traLicense) {
+      toast({ title: "TRA License Required", description: "Please upload your TRA license image.", variant: "destructive" });
+      return;
+    }
     if (facilities.some((f) => !f.saved)) {
       toast({ title: "Unsaved Facility", description: "Save all facilities first.", variant: "destructive" });
       return;
@@ -492,6 +496,9 @@ const CreateHotel = () => {
 
       const selectedDays = Object.entries(workingDays).filter(([, v]) => v).map(([k]) => k);
 
+      // Upload TRA license (required)
+      const traLicenseUrl = traLicense ? await uploadFile(traLicense, "tra-license") : null;
+
       const { error } = await supabase.from("hotels").insert([{
         id: friendlySlug, slug: friendlySlug, created_by: user.id,
         name: formData.registrationName, location: formData.place, place: formData.place,
@@ -506,6 +513,7 @@ const CreateHotel = () => {
         registration_number: formData.registrationNumber || null,
         approval_status: isAccommodationOnly ? "approved" : "pending",
         general_booking_link: isAccommodationOnly ? formData.generalBookingLink : null,
+        tra_license_url: traLicenseUrl,
       }]);
 
       if (error) throw error;

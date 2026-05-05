@@ -44,7 +44,14 @@ const AdminBookings = () => {
     return "text-yellow-600 bg-yellow-50 border-yellow-200";
   };
 
-  if (loading || !isAdmin) return <div className="min-h-screen bg-background animate-pulse flex items-center justify-center"><p className="text-xs text-muted-foreground font-bold uppercase">Loading...</p></div>;
+  if (loading || !isAdmin) return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="flex flex-col items-center gap-3">
+        <div className="h-10 w-10 rounded-full border-4 border-muted border-t-primary animate-spin" />
+        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Loading…</p>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-background">

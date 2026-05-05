@@ -30,33 +30,121 @@ import { useRatings, sortByRating } from "@/hooks/useRatings";
 import { useRealtimeBookings } from "@/hooks/useRealtimeBookings";
 import { useResponsiveLimit } from "@/hooks/useResponsiveLimit";
 
-// ─── Memoized horizontal scroll section ─────────────────────────────────────
-interface ScrollSectionProps {
+// ── Page sizes ────────────────────────────────────────────────────────────────
+const MOBILE_PAGE_SIZE = 16;  // 2-col grid  → 8 rows
+const DESKTOP_PAGE_SIZE = 40; // 4-5-col grid → 8-10 rows
+
+// ── Shared pagination bar ─────────────────────────────────────────────────────
+interface PaginationBarProps {
+  page: number;
+  totalPages: number;
+  totalItems: number;
+  pageSize: number;
+  accentColor: string;
+  onPageChange: (p: number) => void;
+}
+
+const PaginationBar = memo(({
+  page, totalPages, totalItems, pageSize, accentColor, onPageChange,
+}: PaginationBarProps) => {
+  if (totalPages <= 1) return null;
+  const start = page * pageSize + 1;
+  const end   = Math.min((page + 1) * pageSize, totalItems);
+
+  return (
+    <div className="mt-6 flex flex-col items-center gap-2">
+      <div className="flex items-center gap-2">
+        {/* Prev */}
+        <button
+          onClick={() => onPageChange(page - 1)}
+          disabled={page === 0}
+          aria-label="Previous page"
+          className="h-9 w-9 rounded-full flex items-center justify-center border border-border bg-card text-foreground shadow-sm disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 transition-all"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+
+        {/* Pills */}
+        <div className="flex items-center gap-1.5">
+          {Array.from({ length: totalPages }).map((_, i) => {
+            const isEdge    = i === 0 || i === totalPages - 1;
+            const isNear    = Math.abs(i - page) <= 1;
+            const isEllipsis = !isEdge && !isNear;
+            if (isEllipsis) {
+              if (i === 1 || i === totalPages - 2)
+                return <span key={i} className="text-muted-foreground text-xs px-0.5">…</span>;
+              return null;
+            }
+            const active = i === page;
+            return (
+              <button
+                key={i}
+                onClick={() => onPageChange(i)}
+                aria-label={`Page ${i + 1}`}
+                aria-current={active ? "page" : undefined}
+                className={`min-w-[2rem] h-8 px-2.5 rounded-full text-xs font-bold transition-all active:scale-95 ${
+                  active
+                    ? "text-white shadow-md"
+                    : "bg-card border border-border text-foreground hover:opacity-80"
+                }`}
+                style={active ? { backgroundColor: accentColor } : undefined}
+              >
+                {i + 1}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Next */}
+        <button
+          onClick={() => onPageChange(page + 1)}
+          disabled={page >= totalPages - 1}
+          aria-label="Next page"
+          className="h-9 w-9 rounded-full flex items-center justify-center border border-border bg-card text-foreground shadow-sm disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 transition-all"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
+
+      <p className="text-[11px] text-muted-foreground">
+        Showing {start}–{end} of {totalItems}
+      </p>
+    </div>
+  );
+});
+PaginationBar.displayName = "PaginationBar";
+
+// ── GridSection — rows/columns on every screen, paginated ────────────────────
+interface GridSectionProps {
   title: string;
   viewAllPath: string;
   accentColor: string;
-  children: React.ReactNode;
-  scrollRef: React.RefObject<HTMLDivElement>;
-  onScroll: (e: React.UIEvent<HTMLDivElement>) => void;
-  hasItems: boolean;
+  /** Pre-rendered <ListingCard /> nodes */
+  items: React.ReactNode[];
   loading: boolean;
 }
 
-const ScrollSection = memo(({
-  title, viewAllPath, accentColor, children, scrollRef, onScroll, hasItems, loading,
-}: ScrollSectionProps) => {
-  const scroll = useCallback((dir: "left" | "right") => {
-    scrollRef.current?.scrollTo({
-      left: scrollRef.current.scrollLeft + (dir === "left" ? -320 : 320),
-      behavior: "smooth",
-    });
-  }, [scrollRef]);
+const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: GridSectionProps) => {
+  const [mobilePage, setMobilePage]   = useState(0);
+  const [desktopPage, setDesktopPage] = useState(0);
+
+  const mobileTotalPages  = Math.ceil(items.length / MOBILE_PAGE_SIZE);
+  const desktopTotalPages = Math.ceil(items.length / DESKTOP_PAGE_SIZE);
+
+  const mobileSlice  = items.slice(mobilePage  * MOBILE_PAGE_SIZE,  (mobilePage  + 1) * MOBILE_PAGE_SIZE);
+  const desktopSlice = items.slice(desktopPage * DESKTOP_PAGE_SIZE, (desktopPage + 1) * DESKTOP_PAGE_SIZE);
+
+  const goMobile  = (p: number) => { setMobilePage(p);  window.scrollTo({ top: 0, behavior: "smooth" }); };
+  const goDesktop = (p: number) => { setDesktopPage(p); window.scrollTo({ top: 0, behavior: "smooth" }); };
+
+  const skeletons = (n: number) => [...Array(n)].map((_, i) => <ListingSkeleton key={i} />);
 
   return (
-    <section className="mb-4 md:mb-8">
+    <section className="mb-6 md:mb-10">
+      {/* Section header */}
       <div
-        className="flex items-center justify-between mb-3 md:mb-4 rounded-none md:rounded-lg px-3 py-2 -mx-4 md:mx-0"
-        style={{ backgroundColor: `${accentColor}10` }}
+        className="flex items-center justify-between mb-3 md:mb-5 rounded-none md:rounded-xl px-3 py-2.5 -mx-4 md:mx-0"
+        style={{ backgroundColor: `${accentColor}12` }}
       >
         <h2
           className="text-base sm:text-xl md:text-2xl font-extrabold tracking-tight"
@@ -66,51 +154,56 @@ const ScrollSection = memo(({
         </h2>
         <Link
           to={viewAllPath}
-          className="text-xs md:text-sm font-semibold transition-colors shrink-0"
+          className="text-xs md:text-sm font-semibold hover:opacity-70 transition-opacity shrink-0"
           style={{ color: accentColor }}
         >
           View All →
         </Link>
       </div>
-      <div className="relative group">
-        {hasItems && (
+
+      {/* ── MOBILE: 2-column grid + pagination ── */}
+      <div className="md:hidden">
+        {loading ? (
+          <div className="grid grid-cols-2 gap-2.5">{skeletons(MOBILE_PAGE_SIZE)}</div>
+        ) : items.length > 0 ? (
           <>
-            <Button
-              variant="ghost" size="icon" aria-label="Scroll left"
-              onClick={() => scroll("left")}
-              className="absolute left-0 top-1/2 -translate-y-1/2 z-10 h-9 w-9 rounded-full bg-background/90 shadow-md border border-border text-foreground opacity-0 group-hover:opacity-100 transition-opacity hidden md:flex"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </Button>
-            <Button
-              variant="ghost" size="icon" aria-label="Scroll right"
-              onClick={() => scroll("right")}
-              className="absolute right-0 top-1/2 -translate-y-1/2 z-10 h-9 w-9 rounded-full bg-background/90 shadow-md border border-border text-foreground opacity-0 group-hover:opacity-100 transition-opacity hidden md:flex"
-            >
-              <ChevronRight className="h-5 w-5" />
-            </Button>
+            <div className="grid grid-cols-2 gap-2.5">{mobileSlice}</div>
+            <PaginationBar
+              page={mobilePage}
+              totalPages={mobileTotalPages}
+              totalItems={items.length}
+              pageSize={MOBILE_PAGE_SIZE}
+              accentColor={accentColor}
+              onPageChange={goMobile}
+            />
           </>
-        )}
-        <div
-          ref={scrollRef}
-          onScroll={onScroll}
-          className="flex gap-3 md:gap-4 overflow-x-auto pb-2 scrollbar-hide scroll-smooth snap-x snap-mandatory"
-        >
-          {loading || !hasItems ? (
-            [...Array(4)].map((_, i) => (
-              <div key={i} className="flex-shrink-0 w-[44vw] sm:w-[220px] md:w-[240px] snap-start">
-                <ListingSkeleton />
-              </div>
-            ))
-          ) : children}
-        </div>
+        ) : null}
+      </div>
+
+      {/* ── DESKTOP: 4-col (lg: 5-col) grid + pagination — NO side-scroll ── */}
+      <div className="hidden md:block">
+        {loading ? (
+          <div className="grid grid-cols-4 lg:grid-cols-5 gap-4">{skeletons(DESKTOP_PAGE_SIZE)}</div>
+        ) : items.length > 0 ? (
+          <>
+            <div className="grid grid-cols-4 lg:grid-cols-5 gap-4">{desktopSlice}</div>
+            <PaginationBar
+              page={desktopPage}
+              totalPages={desktopTotalPages}
+              totalItems={items.length}
+              pageSize={DESKTOP_PAGE_SIZE}
+              accentColor={accentColor}
+              onPageChange={goDesktop}
+            />
+          </>
+        ) : null}
       </div>
     </section>
   );
 });
-ScrollSection.displayName = "ScrollSection";
+GridSection.displayName = "GridSection";
 
-// ─── Category cards (hero) ────────────────────────────────────────────────────
+// ── Category cards (hero) ─────────────────────────────────────────────────────
 const CATEGORIES = [
   { icon: Tent,     title: "Adventures",   path: "/category/campsite", bgImage: "/images/category-adventures.jpg" },
   { icon: Calendar, title: "Trips",        path: "/category/trips",    bgImage: "/images/category-trips.jpg" },
@@ -118,16 +211,16 @@ const CATEGORIES = [
   { icon: MapPin,   title: "Guided Tours", path: "/category/guided",   bgImage: "/images/category-trips.jpg" },
 ];
 
-// ─── Quick navigation cards (above footer) ────────────────────────────────────
+// ── Quick-nav shortcuts ───────────────────────────────────────────────────────
 const QUICK_NAV = [
-  { icon: Calendar, title: "Trips",            path: "/category/trips",    color: "hsl(25, 90%, 50%)" },
+  { icon: Calendar, title: "Trips",            path: "/category/trips",    color: "hsl(25, 90%, 50%)"  },
   { icon: Trophy,   title: "Events & Sports",  path: "/category/events",   color: "hsl(340, 75%, 50%)" },
   { icon: Tent,     title: "Adventure Places", path: "/category/campsite", color: "hsl(142, 70%, 35%)" },
   { icon: Ticket,   title: "Bookings",         path: "/bookings",          color: "hsl(200, 70%, 45%)" },
   { icon: Heart,    title: "Saved",            path: "/saved",             color: "hsl(350, 80%, 55%)" },
 ];
 
-// ─── Main component ───────────────────────────────────────────────────────────
+// ── Main page ─────────────────────────────────────────────────────────────────
 const Index = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -142,9 +235,10 @@ const Index = () => {
   const [showLocationDialog, setShowLocationDialog] = useState(false);
   const { cardLimit } = useResponsiveLimit();
 
-  const [showSearchIcon, setShowSearchIcon] = useState(false);
+  const [showSearchIcon, setShowSearchIcon]   = useState(false);
   const [isIndexDrawerOpen, setIsIndexDrawerOpen] = useState(false);
-  const searchRef = useRef<HTMLDivElement>(null);
+  const searchRef  = useRef<HTMLDivElement>(null);
+  const countiesRef = useRef<HTMLDivElement>(null);
 
   const [scrollableRows, setScrollableRows] = useState<{
     trips: any[]; hotels: any[]; attractions: any[];
@@ -153,7 +247,7 @@ const Index = () => {
 
   const [nearbyPlacesHotels, setNearbyPlacesHotels] = useState<any[]>([]);
   const [loadingScrollable, setLoadingScrollable] = useState(true);
-  const [loadingNearby, setLoadingNearby] = useState(true);
+  const [loadingNearby, setLoadingNearby]         = useState(true);
   const [isSearchFocused, setIsSearchFocusedLocal] = useState(false);
   const { setSearchFocused } = useSearchFocus();
   const [countyCounts, setCountyCounts] = useState<Record<string, { adventures: number; guidedTrips: number }>>({});
@@ -163,92 +257,67 @@ const Index = () => {
     setSearchFocused(v);
   }, [setSearchFocused]);
 
-  // Collect all item IDs for ratings
+  // Collect all IDs for ratings
   const allItemIds = useMemo(() => {
     const ids = new Set<string>();
-    listings.forEach(item => ids.add(item.id));
-    nearbyPlacesHotels.forEach(item => ids.add(item.id));
-    scrollableRows.trips.forEach(item => ids.add(item.id));
-    scrollableRows.campsites.forEach(item => ids.add(item.id));
-    scrollableRows.events.forEach(item => ids.add(item.id));
-    scrollableRows.guidedTrips.forEach(item => ids.add(item.id));
+    listings.forEach(i => ids.add(i.id));
+    nearbyPlacesHotels.forEach(i => ids.add(i.id));
+    scrollableRows.trips.forEach(i => ids.add(i.id));
+    scrollableRows.campsites.forEach(i => ids.add(i.id));
+    scrollableRows.events.forEach(i => ids.add(i.id));
+    scrollableRows.guidedTrips.forEach(i => ids.add(i.id));
     return Array.from(ids);
   }, [listings, nearbyPlacesHotels, scrollableRows]);
 
   const tripEventIds = useMemo(() => {
-    const ids = [...scrollableRows.trips, ...scrollableRows.events, ...scrollableRows.guidedTrips]
-      .map(item => item.id);
-    listings.forEach(item => {
-      if (item.type === "TRIP" || item.type === "EVENT") ids.push(item.id);
-    });
+    const ids = [...scrollableRows.trips, ...scrollableRows.events, ...scrollableRows.guidedTrips].map(i => i.id);
+    listings.forEach(i => { if (i.type === "TRIP" || i.type === "EVENT") ids.push(i.id); });
     return [...new Set(ids)];
   }, [scrollableRows.trips, scrollableRows.events, scrollableRows.guidedTrips, listings]);
 
   const { bookingStats } = useRealtimeBookings(tripEventIds);
-  const { ratings } = useRatings(allItemIds);
+  const { ratings }      = useRatings(allItemIds);
 
   const sortedNearbyPlaces = useMemo(
     () => sortByRating(nearbyPlacesHotels, ratings, position, calculateDistance),
     [nearbyPlacesHotels, ratings, position],
   );
 
-  // ─── Browse Guides: all categories merged and sorted by weighted rating ──────
+  // Browse Guides — all categories merged, sorted by weighted rating
   const displayBrowseGuides = useMemo(() => {
     const today = new Date().toISOString().split("T")[0];
     const allItems = [
-      ...scrollableRows.trips.map(i => ({ ...i, _itemType: "TRIP" as const })),
-      ...scrollableRows.events.map(i => ({ ...i, _itemType: "EVENT" as const })),
-      ...scrollableRows.guidedTrips.map(i => ({ ...i, _itemType: "TRIP" as const })),
-      ...scrollableRows.campsites.map(i => ({ ...i, _itemType: "ADVENTURE PLACE" as const })),
+      ...scrollableRows.trips.map(i      => ({ ...i, _itemType: "TRIP"           as const })),
+      ...scrollableRows.events.map(i     => ({ ...i, _itemType: "EVENT"          as const })),
+      ...scrollableRows.guidedTrips.map(i => ({ ...i, _itemType: "TRIP"          as const })),
+      ...scrollableRows.campsites.map(i  => ({ ...i, _itemType: "ADVENTURE PLACE" as const })),
     ];
-
-    // Deduplicate by id
     const seen = new Set<string>();
-    const unique = allItems.filter(item => {
-      if (seen.has(item.id)) return false;
-      seen.add(item.id);
-      return true;
-    });
-
-    return unique
+    return allItems
       .filter(item => {
+        if (seen.has(item.id)) return false;
+        seen.add(item.id);
         if (item._itemType === "ADVENTURE PLACE") return true;
         if (item.date && !item.is_flexible_date && item.date < today) return false;
-        const bookedCount = bookingStats[item.id] || 0;
-        if (
-          !item.is_flexible_date &&
-          item.available_tickets != null &&
-          (item.available_tickets <= 0 || bookedCount >= item.available_tickets)
-        ) return false;
+        const booked = bookingStats[item.id] || 0;
+        if (!item.is_flexible_date && item.available_tickets != null &&
+            (item.available_tickets <= 0 || booked >= item.available_tickets)) return false;
         return true;
       })
       .sort((a, b) => {
         const ra = ratings.get(a.id);
         const rb = ratings.get(b.id);
-        const scoreA = ra ? ra.avgRating * Math.log1p(ra.reviewCount) : 0;
-        const scoreB = rb ? rb.avgRating * Math.log1p(rb.reviewCount) : 0;
-        return scoreB - scoreA;
+        const sa = ra ? ra.avgRating * Math.log1p(ra.reviewCount) : 0;
+        const sb = rb ? rb.avgRating * Math.log1p(rb.reviewCount) : 0;
+        return sb - sa;
       });
   }, [scrollableRows, bookingStats, ratings]);
 
-  // Scroll refs
-  const browseGuidesRef = useRef<HTMLDivElement>(null);
-  const countiesRef = useRef<HTMLDivElement>(null);
-
-  const [scrollPositions, setScrollPositions] = useState<Record<string, number>>({});
-
-  const handleScroll = useCallback(
-    (sectionName: string) => (e: React.UIEvent<HTMLDivElement>) => {
-      const target = e.target as HTMLDivElement;
-      setScrollPositions(prev => ({ ...prev, [sectionName]: target.scrollLeft }));
-    },
-    [],
-  );
-
-  // ─── Data fetching ────────────────────────────────────────────────────────
+  // ── Data fetching ─────────────────────────────────────────────────────────
   const fetchScrollableRows = useCallback(async (limit: number) => {
     setLoadingScrollable(true);
-    const fetchLimit = Math.max(limit * 3, 30);
+    // Fetch generously so pagination has enough data
+    const fetchLimit = Math.max(limit * 3, 60);
     try {
       const [tripsData, campsitesData, eventsData, guidedData] = await Promise.all([
         supabase
@@ -274,16 +343,16 @@ const Index = () => {
           .order("created_at", { ascending: false }).limit(fetchLimit),
       ]);
       setScrollableRows({
-        trips: tripsData.data || [],
-        hotels: [],
-        attractions: [],
-        campsites: campsitesData.data || [],
-        events: eventsData.data || [],
+        trips:          tripsData.data     || [],
+        hotels:         [],
+        attractions:    [],
+        campsites:      campsitesData.data || [],
+        events:         eventsData.data    || [],
         accommodations: [],
-        guidedTrips: guidedData.data || [],
+        guidedTrips:    guidedData.data    || [],
       });
-    } catch (error) {
-      console.error("Error fetching scrollable rows:", error);
+    } catch (err) {
+      console.error("Error fetching rows:", err);
     } finally {
       setLoadingScrollable(false);
     }
@@ -292,76 +361,62 @@ const Index = () => {
   const fetchNearbyPlacesAndHotels = useCallback(async () => {
     setLoadingNearby(true);
     if (!position) return;
-    const [placesData] = await Promise.all([
-      supabase
-        .from("adventure_places")
-        .select("id,name,location,place,country,image_url,entry_fee,activities,latitude,longitude,created_at,description")
-        .eq("approval_status", "approved").eq("is_hidden", false).limit(12),
-    ]);
-    const combined = [
-      ...(placesData.data || []).map(item => ({ ...item, type: "ADVENTURE PLACE", table: "adventure_places" })),
-    ];
-    const withDistance = combined
-      .map(item => {
-        const dist =
-          (item as any).latitude && (item as any).longitude && position
-            ? calculateDistance(position.latitude, position.longitude, (item as any).latitude, (item as any).longitude)
-            : undefined;
-        return { ...item, distance: dist };
-      })
+    const { data } = await supabase
+      .from("adventure_places")
+      .select("id,name,location,place,country,image_url,entry_fee,activities,latitude,longitude,created_at,description")
+      .eq("approval_status", "approved").eq("is_hidden", false).limit(50);
+    const withDist = (data || [])
+      .map(item => ({
+        ...item,
+        type: "ADVENTURE PLACE",
+        distance: (item as any).latitude && (item as any).longitude && position
+          ? calculateDistance(position.latitude, position.longitude, (item as any).latitude, (item as any).longitude)
+          : undefined,
+      }))
       .sort((a, b) => {
         if (a.distance !== undefined && b.distance !== undefined) return a.distance - b.distance;
-        if (a.distance !== undefined) return -1;
-        if (b.distance !== undefined) return 1;
-        return 0;
+        return a.distance !== undefined ? -1 : 1;
       });
-    const nearby = withDistance.slice(0, 12);
-    setNearbyPlacesHotels(nearby);
-    if (nearby.length > 0) setLoadingNearby(false);
+    setNearbyPlacesHotels(withDist);
+    if (withDist.length > 0) setLoadingNearby(false);
   }, [position]);
 
-  const fetchAllData = useCallback(async (query?: string, offset: number = 0, limit: number = 15) => {
+  const fetchAllData = useCallback(async (query?: string, offset = 0, limit = 15) => {
     setLoading(true);
     const today = new Date().toISOString().split("T")[0];
 
     const fetchEvents = async () => {
-      let dbQuery = supabase
-        .from("trips")
+      let q = supabase.from("trips")
         .select("id,name,location,place,country,image_url,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child,description")
         .eq("approval_status", "approved").eq("is_hidden", false).eq("type", "event")
         .or(`date.gte.${today},is_flexible_date.eq.true`);
-      if (query) { const p = `%${query}%`; dbQuery = dbQuery.or(`name.ilike.${p},location.ilike.${p},country.ilike.${p}`); }
-      dbQuery = dbQuery.order("date", { ascending: true }).range(offset, offset + limit - 1);
-      const { data } = await dbQuery;
-      return (data || []).map((item: any) => ({ ...item, type: "EVENT" }));
+      if (query) { const p = `%${query}%`; q = q.or(`name.ilike.${p},location.ilike.${p},country.ilike.${p}`); }
+      const { data } = await q.order("date", { ascending: true }).range(offset, offset + limit - 1);
+      return (data || []).map((i: any) => ({ ...i, type: "EVENT" }));
     };
 
     const fetchTable = async (table: "adventure_places", type: string) => {
-      let dbQuery = supabase
-        .from(table)
+      let q = supabase.from(table)
         .select("id,name,location,place,country,image_url,entry_fee,activities,latitude,longitude,created_at,description")
         .eq("approval_status", "approved").eq("is_hidden", false);
-      if (query) { const p = `%${query}%`; dbQuery = dbQuery.or(`name.ilike.${p},location.ilike.${p},country.ilike.${p}`); }
-      dbQuery = dbQuery.order("created_at", { ascending: false }).range(offset, offset + limit - 1);
-      const { data } = await dbQuery;
-      return (data || []).map((item: any) => ({ ...item, type }));
+      if (query) { const p = `%${query}%`; q = q.or(`name.ilike.${p},location.ilike.${p},country.ilike.${p}`); }
+      const { data } = await q.order("created_at", { ascending: false }).range(offset, offset + limit - 1);
+      return (data || []).map((i: any) => ({ ...i, type }));
     };
 
     const fetchTrips = async () => {
-      let dbQuery = supabase
-        .from("trips")
+      let q = supabase.from("trips")
         .select("id,name,location,place,country,image_url,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child,description")
         .eq("approval_status", "approved").eq("is_hidden", false).eq("type", "trip");
-      if (query) { const p = `%${query}%`; dbQuery = dbQuery.or(`name.ilike.${p},location.ilike.${p},country.ilike.${p}`); }
-      dbQuery = dbQuery.order("date", { ascending: true }).range(offset, offset + limit - 1);
-      const { data } = await dbQuery;
-      return (data || []).map((item: any) => ({ ...item, type: "TRIP" }));
+      if (query) { const p = `%${query}%`; q = q.or(`name.ilike.${p},location.ilike.${p},country.ilike.${p}`); }
+      const { data } = await q.order("date", { ascending: true }).range(offset, offset + limit - 1);
+      return (data || []).map((i: any) => ({ ...i, type: "TRIP" }));
     };
 
     const [events, trips, adventures] = await Promise.all([fetchEvents(), fetchTrips(), fetchTable("adventure_places", "ADVENTURE PLACE")]);
     const combined = [...adventures, ...trips, ...events].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     if (offset === 0) { setListings(combined); setHasMoreSearchResults(true); }
-    else { setListings(prev => [...prev, ...combined]); }
+    else              { setListings(prev => [...prev, ...combined]); }
     if (combined.length < limit) setHasMoreSearchResults(false);
     setLoading(false);
     return combined;
@@ -369,57 +424,47 @@ const Index = () => {
 
   const loadMoreSearchResults = useCallback(async () => {
     if (loading || !searchQuery || !hasMoreSearchResults) return;
-    const prevLength = listings.length;
+    const prev = listings.length;
     await fetchAllData(searchQuery, listings.length, 20);
-    if (listings.length === prevLength) setHasMoreSearchResults(false);
+    if (listings.length === prev) setHasMoreSearchResults(false);
   }, [loading, searchQuery, listings.length, hasMoreSearchResults, fetchAllData]);
 
-  // ─── Effects ──────────────────────────────────────────────────────────────
+  // ── Effects ───────────────────────────────────────────────────────────────
   useEffect(() => {
-    const handleInteraction = () => {
-      requestLocation();
-      window.removeEventListener("scroll", handleInteraction);
-      window.removeEventListener("click", handleInteraction);
-    };
-    window.addEventListener("scroll", handleInteraction, { once: true });
-    window.addEventListener("click", handleInteraction, { once: true });
-    return () => {
-      window.removeEventListener("scroll", handleInteraction);
-      window.removeEventListener("click", handleInteraction);
-    };
+    const on = () => { requestLocation(); window.removeEventListener("scroll", on); window.removeEventListener("click", on); };
+    window.addEventListener("scroll", on, { once: true });
+    window.addEventListener("click",  on, { once: true });
+    return () => { window.removeEventListener("scroll", on); window.removeEventListener("click", on); };
   }, [requestLocation]);
 
   useEffect(() => {
     if (!searchQuery || !hasMoreSearchResults) return;
-    const handleScrollEvent = () => {
-      if (loading || !hasMoreSearchResults) return;
-      if (document.documentElement.scrollTop + document.documentElement.clientHeight >= document.documentElement.scrollHeight - 500) {
+    const onScroll = () => {
+      if (!loading && hasMoreSearchResults &&
+          document.documentElement.scrollTop + document.documentElement.clientHeight >=
+          document.documentElement.scrollHeight - 500)
         loadMoreSearchResults();
-      }
     };
-    window.addEventListener("scroll", handleScrollEvent);
-    return () => window.removeEventListener("scroll", handleScrollEvent);
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
   }, [loading, searchQuery, hasMoreSearchResults, loadMoreSearchResults]);
 
   useEffect(() => {
-    const cachedData = getCachedHomePageData();
-    if (cachedData) {
-      setListings(cachedData.listings || []);
-      const c = cachedData.scrollableRows as any || {};
-      const cachedRows = {
+    const cached = getCachedHomePageData();
+    if (cached) {
+      setListings(cached.listings || []);
+      const c = (cached.scrollableRows as any) || {};
+      const rows = {
         trips: c.trips || [], hotels: c.hotels || [], attractions: c.attractions || [],
         campsites: c.campsites || [], events: c.events || [], accommodations: c.accommodations || [],
         guidedTrips: c.guidedTrips || [],
       };
-      setScrollableRows(cachedRows);
-      setNearbyPlacesHotels(cachedData.nearbyPlacesHotels || []);
+      setScrollableRows(rows);
+      setNearbyPlacesHotels(cached.nearbyPlacesHotels || []);
       setLoading(false); setLoadingScrollable(false); setLoadingNearby(false);
-      const cacheAge = Date.now() - (cachedData.cachedAt || 0);
-      const hasScrollableData = cachedRows.trips.length > 0 || cachedRows.campsites.length > 0 || cachedRows.events.length > 0;
-      if (cacheAge < 5 * 60 * 1000 && hasScrollableData) {
-        getUserId().then(setUserId);
-        return;
-      }
+      const age = Date.now() - (cached.cachedAt || 0);
+      const hasData = rows.trips.length > 0 || rows.campsites.length > 0 || rows.events.length > 0;
+      if (age < 5 * 60 * 1000 && hasData) { getUserId().then(setUserId); return; }
     }
     fetchAllData();
     fetchScrollableRows(cardLimit);
@@ -428,97 +473,126 @@ const Index = () => {
 
   useEffect(() => {
     const fetchCountyCounts = async () => {
-      const [adventuresRes, guidedRes] = await Promise.all([
+      const [adv, guided] = await Promise.all([
         supabase.from("adventure_places").select("place").eq("approval_status", "approved").eq("is_hidden", false),
         supabase.from("trips").select("place").eq("approval_status", "approved").eq("is_hidden", false)
           .eq("type", "trip").or("is_flexible_date.eq.true,is_custom_date.eq.true"),
       ]);
       const counts: Record<string, { adventures: number; guidedTrips: number }> = {};
       FEATURED_COUNTIES.forEach(c => { counts[c] = { adventures: 0, guidedTrips: 0 }; });
-      (adventuresRes.data || []).forEach((item: any) => { if (counts[item.place]) counts[item.place].adventures++; });
-      (guidedRes.data || []).forEach((item: any) => { if (counts[item.place]) counts[item.place].guidedTrips++; });
+      (adv.data    || []).forEach((i: any) => { if (counts[i.place]) counts[i.place].adventures++;  });
+      (guided.data || []).forEach((i: any) => { if (counts[i.place]) counts[i.place].guidedTrips++; });
       setCountyCounts(counts);
     };
     fetchCountyCounts();
   }, []);
 
   useEffect(() => {
-    const hasScrollableData = scrollableRows.trips.length > 0 || scrollableRows.campsites.length > 0 || scrollableRows.events.length > 0;
-    if (!loading && !loadingScrollable && listings.length > 0 && hasScrollableData) {
+    const hasData = scrollableRows.trips.length > 0 || scrollableRows.campsites.length > 0 || scrollableRows.events.length > 0;
+    if (!loading && !loadingScrollable && listings.length > 0 && hasData)
       setCachedHomePageData({ scrollableRows, listings, nearbyPlacesHotels });
-    }
   }, [loading, loadingScrollable, listings, scrollableRows, nearbyPlacesHotels]);
 
-  useEffect(() => {
-    if (position) fetchNearbyPlacesAndHotels();
-  }, [position, fetchNearbyPlacesAndHotels]);
+  useEffect(() => { if (position) fetchNearbyPlacesAndHotels(); }, [position, fetchNearbyPlacesAndHotels]);
 
   useEffect(() => {
-    const ctrl = () => {
-      if (window.scrollY > 0) {
-        setShowSearchIcon(true);
-      } else {
-        setShowSearchIcon(false);
-      }
-    };
+    const ctrl = () => setShowSearchIcon(window.scrollY > 0);
     window.addEventListener("scroll", ctrl, { passive: true });
     return () => window.removeEventListener("scroll", ctrl);
   }, []);
 
-  const handleSearchIconClick = () => { navigate("/explore"); };
-
-  // ─── Card renderer ────────────────────────────────────────────────────────
+  // ── Card renderer ─────────────────────────────────────────────────────────
   const renderCard = useCallback((
-    item: any,
-    type: string,
-    index: number,
+    item: any, type: string, index: number,
     opts: { hidePrice?: boolean; isTrip?: boolean; categoryColor?: string } = {},
   ) => {
-    const itemDistance =
-      position && item.latitude && item.longitude
-        ? calculateDistance(position.latitude, position.longitude, item.latitude, item.longitude)
-        : undefined;
-    const ratingData = ratings.get(item.id);
+    const dist = position && item.latitude && item.longitude
+      ? calculateDistance(position.latitude, position.longitude, item.latitude, item.longitude)
+      : undefined;
+    const rd = ratings.get(item.id);
     const today = new Date().toISOString().split("T")[0];
-    const isOutdated = item.date && !item.is_flexible_date && item.date < today;
     return (
-      <div key={item.id} className="flex-shrink-0 w-[44vw] sm:w-[220px] md:w-[240px] snap-start">
-        <ListingCard
-          id={item.id}
-          type={type as any}
-          name={item.name}
-          imageUrl={item.image_url}
-          location={item.location}
-          country={item.country}
-          price={item.price || item.entry_fee || 0}
-          date={item.date || ""}
-          isCustomDate={item.is_custom_date}
-          isFlexibleDate={item.is_flexible_date}
-          isOutdated={isOutdated}
-          isSaved={savedItems.has(item.id)}
-          onSave={handleSave}
-          hideSave={false}
-          hidePrice={opts.hidePrice ?? false}
-          showBadge={true}
-          priority={index === 0}
-          activities={item.activities}
-          distance={itemDistance}
-          avgRating={ratingData?.avgRating}
-          reviewCount={ratingData?.reviewCount}
-          place={item.place}
-          availableTickets={opts.isTrip ? item.available_tickets : undefined}
-          bookedTickets={opts.isTrip ? bookingStats[item.id] || 0 : undefined}
-          description={item.description}
-          categoryColor={opts.categoryColor}
-          galleryImages={item.gallery_images}
-          images={item.images}
-          openingHours={item.opening_hours}
-          closingHours={item.closing_hours}
-        />
-      </div>
+      <ListingCard
+        key={item.id}
+        id={item.id}
+        type={type as any}
+        name={item.name}
+        imageUrl={item.image_url}
+        location={item.location}
+        country={item.country}
+        price={item.price || item.entry_fee || 0}
+        date={item.date || ""}
+        isCustomDate={item.is_custom_date}
+        isFlexibleDate={item.is_flexible_date}
+        isOutdated={item.date && !item.is_flexible_date && item.date < today}
+        isSaved={savedItems.has(item.id)}
+        onSave={handleSave}
+        hideSave={false}
+        hidePrice={opts.hidePrice ?? false}
+        showBadge={true}
+        priority={index === 0}
+        activities={item.activities}
+        distance={dist}
+        avgRating={rd?.avgRating}
+        reviewCount={rd?.reviewCount}
+        place={item.place}
+        availableTickets={opts.isTrip ? item.available_tickets : undefined}
+        bookedTickets={opts.isTrip ? bookingStats[item.id] || 0 : undefined}
+        description={item.description}
+        categoryColor={opts.categoryColor}
+        galleryImages={item.gallery_images}
+        images={item.images}
+        openingHours={item.opening_hours}
+        closingHours={item.closing_hours}
+      />
     );
   }, [position, ratings, savedItems, handleSave, bookingStats]);
 
+  // ── Pre-build node arrays (memoized) ──────────────────────────────────────
+  const browseGuideNodes = useMemo(() =>
+    displayBrowseGuides.map((item, i) =>
+      renderCard(item, item._itemType, i, {
+        isTrip:    item._itemType !== "ADVENTURE PLACE",
+        hidePrice: item._itemType === "ADVENTURE PLACE",
+      }),
+    ),
+    [displayBrowseGuides, renderCard],
+  );
+
+  const nearbyNodes = useMemo(() =>
+    sortedNearbyPlaces.map((item, i) => {
+      const a = item as any;
+      const rd = ratings.get(item.id);
+      return (
+        <ListingCard
+          key={item.id}
+          id={item.id}
+          type={a.type || "ADVENTURE PLACE"}
+          name={item.name}
+          imageUrl={a.image_url}
+          location={a.location}
+          country={a.country}
+          price={a.entry_fee || 0}
+          date=""
+          isSaved={savedItems.has(item.id)}
+          onSave={handleSave}
+          hideSave={false}
+          hidePrice={true}
+          showBadge={true}
+          priority={i === 0}
+          activities={a.activities}
+          distance={a.distance}
+          avgRating={rd?.avgRating}
+          reviewCount={rd?.reviewCount}
+          place={a.place}
+          description={a.description}
+        />
+      );
+    }),
+    [sortedNearbyPlaces, ratings, savedItems, handleSave],
+  );
+
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background">
       <SEOHead
@@ -539,7 +613,7 @@ const Index = () => {
         }}
       />
 
-      {/* Fixed top bar */}
+      {/* Mobile top bar */}
       {!isSearchFocused && (
         <div
           className="fixed top-0 left-0 right-0 z-[100] md:hidden flex items-center justify-between px-4 pointer-events-none"
@@ -551,10 +625,7 @@ const Index = () => {
           >
             <Sheet open={isIndexDrawerOpen} onOpenChange={setIsIndexDrawerOpen}>
               <SheetTrigger asChild>
-                <button
-                  className="h-9 w-9 rounded-xl flex items-center justify-center text-white transition-all active:scale-95"
-                  aria-label="Open Menu"
-                >
+                <button className="h-9 w-9 rounded-xl flex items-center justify-center text-white transition-all active:scale-95" aria-label="Open Menu">
                   <Menu className="h-5 w-5 stroke-[2.5]" />
                 </button>
               </SheetTrigger>
@@ -567,7 +638,7 @@ const Index = () => {
           <div className="flex items-center gap-2 pointer-events-auto">
             {showSearchIcon && (
               <button
-                onClick={handleSearchIconClick}
+                onClick={() => navigate("/explore")}
                 className="h-9 w-9 rounded-xl flex items-center justify-center text-white transition-all active:scale-95"
                 style={{ backgroundColor: "rgba(0,0,0,0.65)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)" }}
                 aria-label="Search"
@@ -590,19 +661,12 @@ const Index = () => {
         <div ref={searchRef} className="w-full">
           <div className="md:container md:mx-auto md:px-6">
             <div className="relative w-full flex flex-col px-4 md:px-8 pt-8 md:pt-10 pb-5 md:pb-6 overflow-hidden">
-              <img
-                src="/images/hero-background.webp"
-                alt=""
-                aria-hidden="true"
-                fetchPriority="high"
-                loading="eager"
-                decoding="async"
-                className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none select-none"
-              />
+              <img src="/images/hero-background.webp" alt="" aria-hidden="true"
+                fetchPriority="high" loading="eager" decoding="async"
+                className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none select-none" />
               <div className="absolute inset-0 bg-black/25" />
               <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/30" />
 
-              {/* Tagline + title + search */}
               <div className="relative z-10 flex flex-col items-center w-full max-w-3xl mx-auto mb-4 md:mb-5">
                 <p className="text-white/70 text-xs md:text-sm font-semibold uppercase tracking-widest text-center mb-2">
                   {t("hero.tagline")}
@@ -616,31 +680,22 @@ const Index = () => {
                     onSubmit={() => navigate("/explore")}
                     onSuggestionSearch={() => navigate("/explore")}
                     onFocus={() => navigate("/explore")}
-                    onBlur={() => {}}
-                    onBack={() => {}}
-                    showBackButton={false}
+                    onBlur={() => {}} onBack={() => {}} showBackButton={false}
                   />
                 </div>
               </div>
 
-              {/* Category cards */}
+              {/* Hero category cards */}
               <div className="relative z-10 w-full grid grid-cols-4 gap-2 md:gap-3 mt-2">
-                {CATEGORIES.map((cat) => (
+                {CATEGORIES.map(cat => (
                   <div
                     key={cat.title}
                     onClick={() => navigate("/explore")}
                     className="cursor-pointer rounded-lg relative w-full flex flex-col items-center justify-center gap-1 px-2 py-2 md:py-4 overflow-hidden"
                     style={{ height: "clamp(60px, 8vw, 144px)" }}
                   >
-                    <img
-                      src={cat.bgImage}
-                      alt=""
-                      aria-hidden="true"
-                      fetchPriority="high"
-                      loading="eager"
-                      decoding="async"
-                      className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none select-none rounded-lg"
-                    />
+                    <img src={cat.bgImage} alt="" aria-hidden="true" fetchPriority="high" loading="eager" decoding="async"
+                      className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none select-none rounded-lg" />
                     <div className="absolute inset-0 rounded-lg bg-black/60" />
                     <cat.icon className="relative z-10 h-3 w-3 md:h-6 md:w-6 text-white shrink-0" />
                     <span className="relative z-10 text-white text-[10px] md:text-sm font-bold leading-none whitespace-nowrap">
@@ -656,29 +711,24 @@ const Index = () => {
 
       <main className="w-full">
         <div className={`w-full ${isSearchFocused ? "hidden" : ""}`}>
-          <div className="container mx-auto px-4 md:px-6 py-3 md:py-5 space-y-2 md:space-y-4">
+          <div className="container mx-auto px-4 md:px-6 py-3 md:py-5 space-y-2 md:space-y-6">
 
-            {/* Counties */}
-            <section className="mb-4 md:mb-8">
-              <div
-                ref={countiesRef}
-                className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide scroll-smooth snap-x snap-mandatory"
-              >
+            {/* Counties — horizontal scroll (navigation chips, not listing cards) */}
+            <section className="mb-4 md:mb-6">
+              <div ref={countiesRef} className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide scroll-smooth snap-x snap-mandatory">
                 {[...FEATURED_COUNTIES]
                   .sort((a, b) => {
-                    const totalA = (countyCounts[a]?.adventures || 0) + (countyCounts[a]?.guidedTrips || 0);
-                    const totalB = (countyCounts[b]?.adventures || 0) + (countyCounts[b]?.guidedTrips || 0);
-                    return totalB - totalA;
+                    const tA = (countyCounts[a]?.adventures || 0) + (countyCounts[a]?.guidedTrips || 0);
+                    const tB = (countyCounts[b]?.adventures || 0) + (countyCounts[b]?.guidedTrips || 0);
+                    return tB - tA;
                   })
                   .map((county, idx) => {
-                    const isVisible = idx < 4;
-                    const counts = countyCounts[county] || { adventures: 0, guidedTrips: 0 };
-                    const total = counts.adventures + counts.guidedTrips;
-                    const countsLoaded = Object.keys(countyCounts).length > 0;
-                    const displayCount = !countsLoaded ? null : total > 999 ? "999+" : String(total);
+                    const counts  = countyCounts[county] || { adventures: 0, guidedTrips: 0 };
+                    const total   = counts.adventures + counts.guidedTrips;
+                    const loaded  = Object.keys(countyCounts).length > 0;
+                    const display = !loaded ? null : total > 999 ? "999+" : String(total);
                     return (
-                      <div
-                        key={county}
+                      <div key={county}
                         onClick={() => navigate(`/county/${encodeURIComponent(county)}`)}
                         className="flex-shrink-0 w-[28vw] sm:w-[120px] md:w-[140px] snap-start cursor-pointer group"
                       >
@@ -687,18 +737,15 @@ const Index = () => {
                             src={COUNTY_IMAGES[county] || `/images/counties/${county.toLowerCase().replace(/['\s]/g, "-")}.jpg`}
                             alt={county}
                             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                            loading={isVisible ? "eager" : "lazy"}
-                            decoding="async"
+                            loading={idx < 4 ? "eager" : "lazy"} decoding="async"
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
                           <div className="absolute bottom-0 left-0 right-0 p-2">
                             <h3 className="text-white font-extrabold text-[10px] sm:text-xs leading-tight">{county}</h3>
                             <p className="text-white/70 text-[8px] font-bold mt-0.5 flex items-center gap-1">
-                              {displayCount === null ? (
-                                <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                              ) : (
-                                <>{displayCount} listings</>
-                              )}
+                              {display === null
+                                ? <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                                : <>{display} listings</>}
                             </p>
                           </div>
                         </div>
@@ -708,95 +755,36 @@ const Index = () => {
               </div>
             </section>
 
-            {/* ── Browse Guides — all categories mixed, sorted by rating ── */}
-            <ScrollSection
+            {/* ── Browse Guides — 2-col mobile · 4/5-col desktop, 16/40 per page ── */}
+            <GridSection
               title="Browse Guides"
               viewAllPath="/explore"
               accentColor="hsl(25, 90%, 50%)"
-              scrollRef={browseGuidesRef}
-              onScroll={handleScroll("browseGuides")}
-              hasItems={displayBrowseGuides.length > 0}
+              items={browseGuideNodes}
               loading={loadingScrollable}
-            >
-              {displayBrowseGuides.map((item, i) =>
-                renderCard(item, item._itemType, i, {
-                  isTrip: item._itemType !== "ADVENTURE PLACE",
-                  hidePrice: item._itemType === "ADVENTURE PLACE",
-                }),
-              )}
-            </ScrollSection>
+            />
 
-            {/* Nearest to you */}
-            {position && sortedNearbyPlaces.length > 0 && (
-              <section className="mb-4 md:mb-8">
-                <div className="flex items-center gap-2 mb-3 md:mb-4">
-                  <MapPin className="h-4 w-4 md:h-5 md:w-5 text-blue-500" />
-                  <h2 className="text-base sm:text-xl md:text-2xl font-extrabold tracking-tight text-blue-500">
-                    {t("sections.nearestToYou")}
-                  </h2>
-                </div>
-                <div className="flex gap-3 md:gap-4 overflow-x-auto pb-2 scrollbar-hide scroll-smooth snap-x snap-mandatory">
-                  {loadingNearby ? (
-                    [...Array(4)].map((_, i) => (
-                      <div key={i} className="flex-shrink-0 w-[44vw] sm:w-[220px] md:w-[240px] snap-start">
-                        <ListingSkeleton />
-                      </div>
-                    ))
-                  ) : sortedNearbyPlaces.slice(0, 8).map((item, index) => {
-                    const a = item as any;
-                    const dist =
-                      a.latitude && a.longitude && position
-                        ? calculateDistance(position.latitude, position.longitude, a.latitude, a.longitude)
-                        : undefined;
-                    const rd = ratings.get(item.id);
-                    return (
-                      <div key={item.id} className="flex-shrink-0 w-[44vw] sm:w-[220px] md:w-[240px] snap-start">
-                        <ListingCard
-                          id={item.id}
-                          type={a.type || "ADVENTURE PLACE"}
-                          name={item.name}
-                          imageUrl={a.image_url}
-                          location={a.location}
-                          country={a.country}
-                          price={a.entry_fee || 0}
-                          date=""
-                          isSaved={savedItems.has(item.id)}
-                          onSave={handleSave}
-                          hideSave={false}
-                          hidePrice={true}
-                          showBadge={true}
-                          priority={index === 0}
-                          activities={a.activities}
-                          distance={dist}
-                          avgRating={rd?.avgRating}
-                          reviewCount={rd?.reviewCount}
-                          place={a.place}
-                          description={a.description}
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
+            {/* ── Nearest to You — same grid ── */}
+            {position && (sortedNearbyPlaces.length > 0 || loadingNearby) && (
+              <GridSection
+                title={t("sections.nearestToYou")}
+                viewAllPath="/category/campsite"
+                accentColor="hsl(200, 70%, 45%)"
+                items={nearbyNodes}
+                loading={loadingNearby}
+              />
             )}
 
             {/* Quick Navigation */}
             <section className="mb-4 md:mb-8">
-              <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-3">
-                Quick Access
-              </h2>
+              <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-3">Quick Access</h2>
               <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-                {QUICK_NAV.map((nav) => (
-                  <button
-                    key={nav.title}
-                    onClick={() => navigate(nav.path)}
+                {QUICK_NAV.map(nav => (
+                  <button key={nav.title} onClick={() => navigate(nav.path)}
                     className="flex flex-col items-center gap-1.5 py-3 px-2 rounded-2xl bg-card border border-border hover:shadow-md transition-all active:scale-95"
                   >
-                    <div
-                      className="h-9 w-9 rounded-xl flex items-center justify-center"
-                      style={{ backgroundColor: `${nav.color}15` }}
-                    >
-                      <nav.icon className="h-4.5 w-4.5" style={{ color: nav.color, width: 18, height: 18 }} />
+                    <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${nav.color}15` }}>
+                      <nav.icon style={{ color: nav.color, width: 18, height: 18 }} />
                     </div>
                     <span className="text-[10px] font-bold text-foreground leading-tight text-center">{nav.title}</span>
                   </button>
@@ -813,28 +801,20 @@ const Index = () => {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
                       <Star className="h-4 w-4 text-yellow-300 fill-yellow-300" />
-                      <span className="text-primary-foreground/80 text-xs font-semibold uppercase tracking-widest">
-                        Partner with us
-                      </span>
+                      <span className="text-primary-foreground/80 text-xs font-semibold uppercase tracking-widest">Partner with us</span>
                     </div>
-                    <h3 className="text-primary-foreground text-xl md:text-2xl font-extrabold leading-tight mb-1">
-                      Become a Host
-                    </h3>
+                    <h3 className="text-primary-foreground text-xl md:text-2xl font-extrabold leading-tight mb-1">Become a Host</h3>
                     <p className="text-primary-foreground/75 text-sm md:text-base leading-relaxed max-w-md">
                       List your adventure spot or tour and reach thousands of travellers. It's free to get started.
                     </p>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-2 shrink-0">
-                    <button
-                      onClick={() => navigate("/become-host")}
-                      className="px-6 py-3 rounded-xl bg-white text-primary font-bold text-sm shadow-lg hover:bg-white/90 active:scale-95 transition-all whitespace-nowrap"
-                    >
+                    <button onClick={() => navigate("/become-host")}
+                      className="px-6 py-3 rounded-xl bg-white text-primary font-bold text-sm shadow-lg hover:bg-white/90 active:scale-95 transition-all whitespace-nowrap">
                       Get Started →
                     </button>
-                    <button
-                      onClick={() => navigate("/become-host#learn-more")}
-                      className="px-6 py-3 rounded-xl bg-white/15 text-primary-foreground font-semibold text-sm border border-white/25 hover:bg-white/25 active:scale-95 transition-all whitespace-nowrap"
-                    >
+                    <button onClick={() => navigate("/become-host#learn-more")}
+                      className="px-6 py-3 rounded-xl bg-white/15 text-primary-foreground font-semibold text-sm border border-white/25 hover:bg-white/25 active:scale-95 transition-all whitespace-nowrap">
                       Learn More
                     </button>
                   </div>
@@ -845,7 +825,7 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Location Permission Dialog */}
+        {/* Location permission dialog */}
         <AlertDialog open={showLocationDialog} onOpenChange={setShowLocationDialog}>
           <AlertDialogContent className="max-w-sm">
             <AlertDialogHeader>
@@ -855,21 +835,15 @@ const Index = () => {
                 </div>
               </div>
               <AlertDialogTitle className="text-center">{t("location.turnOn")}</AlertDialogTitle>
-              <AlertDialogDescription className="text-center">
-                {t("location.description")}
-              </AlertDialogDescription>
+              <AlertDialogDescription className="text-center">{t("location.description")}</AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter className="flex-col gap-2 sm:flex-col">
-              <AlertDialogAction
-                onClick={() => { setShowLocationDialog(false); forceRequestLocation(); }}
-                className="w-full bg-primary hover:bg-primary/90"
-              >
+              <AlertDialogAction onClick={() => { setShowLocationDialog(false); forceRequestLocation(); }}
+                className="w-full bg-primary hover:bg-primary/90">
                 {t("location.tryAgain")}
               </AlertDialogAction>
-              <AlertDialogAction
-                onClick={() => { setShowLocationDialog(false); }}
-                className="w-full bg-muted text-muted-foreground hover:bg-muted/80"
-              >
+              <AlertDialogAction onClick={() => setShowLocationDialog(false)}
+                className="w-full bg-muted text-muted-foreground hover:bg-muted/80">
                 {t("location.continueWithout")}
               </AlertDialogAction>
             </AlertDialogFooter>

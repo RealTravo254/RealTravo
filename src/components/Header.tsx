@@ -23,7 +23,6 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
   const { user } = useAuth();
   const { t } = useTranslation();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [hostPopoverOpen, setHostPopoverOpen] = useState(false);
   const [accountPopoverOpen, setAccountPopoverOpen] = useState(false);
   const [hasScrolled, setHasScrolled] = useState(false);
 
@@ -107,53 +106,13 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
             </button>
           )}
 
-          {/* Become Host — desktop only */}
-          <Popover open={hostPopoverOpen} onOpenChange={setHostPopoverOpen}>
-            <PopoverTrigger asChild>
-              <button className="hidden md:flex h-9 px-3 rounded-xl items-center gap-2 transition-all font-semibold text-xs text-white bg-white/20 hover:bg-white/30">
-                <Briefcase className="h-4 w-4" /><span>Become Host</span>
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-64 p-4" align="end">
-              {user ? (
-                <div className="space-y-3">
-                  <p className="text-sm font-semibold text-foreground">Start hosting today!</p>
-                  <p className="text-xs text-muted-foreground">
-                    List your property, trip, or experience and reach thousands of travelers.
-                  </p>
-                  <button
-                    onClick={() => { setHostPopoverOpen(false); navigate("/become-host"); }}
-                    className="w-full py-2.5 rounded-xl text-xs font-bold text-white transition-all active:scale-95"
-                    style={{ backgroundColor: "#008080" }}
-                  >
-                    Get Started →
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <p className="text-sm font-semibold text-foreground">Want to become a host?</p>
-                  <p className="text-xs text-muted-foreground">
-                    Sign up or log in to start listing your properties and experiences.
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => { setHostPopoverOpen(false); navigate("/auth"); }}
-                      className="flex-1 py-2.5 rounded-xl text-xs font-bold text-white transition-all active:scale-95"
-                      style={{ backgroundColor: "#008080" }}
-                    >
-                      Sign Up
-                    </button>
-                    <button
-                      onClick={() => { setHostPopoverOpen(false); navigate("/auth"); }}
-                      className="flex-1 py-2.5 rounded-xl text-xs font-bold border border-slate-200 text-foreground transition-all active:scale-95 hover:bg-slate-50"
-                    >
-                      Log In
-                    </button>
-                  </div>
-                </div>
-              )}
-            </PopoverContent>
-          </Popover>
+          {/* Become Host — desktop only, navigates directly */}
+          <button
+            onClick={() => navigate("/become-host")}
+            className="hidden md:flex h-9 px-3 rounded-xl items-center gap-2 transition-all font-semibold text-xs text-white bg-white/20 hover:bg-white/30 active:scale-95"
+          >
+            <Briefcase className="h-4 w-4" /><span>Become Host</span>
+          </button>
 
           {/* NotificationBell — desktop only */}
           <div className="hidden md:flex [&_button]:text-white [&_button]:h-9 [&_button]:w-9">

@@ -361,6 +361,8 @@ const CreateHotel = () => {
   const [activities, setActivities] = useState<ActivityItem[]>(() => [emptyActivity()]);
   const [galleryImages, setGalleryImages] = useState<File[]>([]);
   const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
+  const [traLicense, setTraLicense] = useState<File | null>(null);
+  const [traLicensePreview, setTraLicensePreview] = useState<string | null>(null);
 
   const onValidationFail = useCallback(
     (msg: string) => toast({ title: "Required", description: msg, variant: "destructive" }),
@@ -385,7 +387,7 @@ const CreateHotel = () => {
   const isStep2Complete = !!formData.place.trim() && (isAccommodationOnly || (!!formData.latitude && !!formData.email.trim() && !!formData.phoneNumber.trim()));
   const isStep3Complete = true;
   const isStep4Complete = facilities.every(f => f.saved);
-  const isStep5Complete = galleryImages.length >= 5 && !!formData.description.trim() && (!isAccommodationOnly || !!formData.generalBookingLink.trim());
+  const isStep5Complete = galleryImages.length >= 5 && !!formData.description.trim() && !!traLicense && (!isAccommodationOnly || !!formData.generalBookingLink.trim());
 
   const steps = [
     { name: STEP_NAMES[0], isComplete: isStep1Complete },

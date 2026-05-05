@@ -137,7 +137,21 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: G
   const goMobile  = (p: number) => { setMobilePage(p);  window.scrollTo({ top: 0, behavior: "smooth" }); };
   const goDesktop = (p: number) => { setDesktopPage(p); window.scrollTo({ top: 0, behavior: "smooth" }); };
 
-  const skeletons = (n: number) => [...Array(n)].map((_, i) => <ListingSkeleton key={i} />);
+  // Show skeletons whenever loading OR when there are no real items yet.
+  // Each skeleton gets the same sizing as a ListingCard so the grid never collapses.
+  const showSkeletonsMobile  = loading || items.length === 0;
+  const showSkeletonsDesktop = loading || items.length === 0;
+
+  const Skeletons = ({ count }: { count: number }) => (
+    <>
+      {[...Array(count)].map((_, i) => (
+        // Wrap in a div so the skeleton fills the grid cell exactly like a card
+        <div key={i} className="w-full h-full">
+          <ListingSkeleton />
+        </div>
+      ))}
+    </>
+  );
 
   return (
     <section className="mb-6 md:mb-10">
@@ -163,9 +177,12 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: G
 
       {/* ── MOBILE: 2-column grid + pagination ── */}
       <div className="md:hidden">
-        {loading ? (
-          <div className="grid grid-cols-2 gap-2.5">{skeletons(MOBILE_PAGE_SIZE)}</div>
-        ) : items.length > 0 ? (
+        {showSkeletonsMobile ? (
+          // Always render MOBILE_PAGE_SIZE skeleton slots — same grid, same gap
+          <div className="grid grid-cols-2 gap-2.5">
+            <Skeletons count={MOBILE_PAGE_SIZE} />
+          </div>
+        ) : (
           <>
             <div className="grid grid-cols-2 gap-2.5">{mobileSlice}</div>
             <PaginationBar
@@ -177,14 +194,17 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: G
               onPageChange={goMobile}
             />
           </>
-        ) : null}
+        )}
       </div>
 
       {/* ── DESKTOP: 4-col (lg: 5-col) grid + pagination — NO side-scroll ── */}
       <div className="hidden md:block">
-        {loading ? (
-          <div className="grid grid-cols-4 lg:grid-cols-5 gap-4">{skeletons(DESKTOP_PAGE_SIZE)}</div>
-        ) : items.length > 0 ? (
+        {showSkeletonsDesktop ? (
+          // Always render DESKTOP_PAGE_SIZE skeleton slots — same grid, same gap
+          <div className="grid grid-cols-4 lg:grid-cols-5 gap-4">
+            <Skeletons count={DESKTOP_PAGE_SIZE} />
+          </div>
+        ) : (
           <>
             <div className="grid grid-cols-4 lg:grid-cols-5 gap-4">{desktopSlice}</div>
             <PaginationBar
@@ -196,7 +216,7 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: G
               onPageChange={goDesktop}
             />
           </>
-        ) : null}
+        )}
       </div>
     </section>
   );

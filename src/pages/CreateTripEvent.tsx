@@ -97,6 +97,8 @@ const CreateTripEvent = () => {
   const [galleryImages, setGalleryImages] = useState<File[]>([]);
   const [eventCertificate, setEventCertificate] = useState<File | null>(null);
   const [certificatePreview, setCertificatePreview] = useState<string | null>(null);
+  const [traLicense, setTraLicense] = useState<File | null>(null);
+  const [traLicensePreview, setTraLicensePreview] = useState<string | null>(null);
   useEffect(() => {
     const fetchUserProfile = async () => {
       if (user) {
@@ -111,7 +113,7 @@ const CreateTripEvent = () => {
   // Step validation
   const isStep1Complete = !!formData.name.trim() && !!formData.country && !!formData.place.trim() && !!formData.location.trim();
   const isStep2Complete = (formData.is_custom_date || !!formData.date) && (useTicketTypes ? ticketTypes.length > 0 : parseFloat(formData.price) >= 0) && parseInt(formData.available_tickets) > 0;
-  const isStep3Complete = !!formData.phone_number && galleryImages.length >= 5 && (formData.type !== 'event' || !!eventCertificate);
+  const isStep3Complete = !!formData.phone_number && galleryImages.length >= 5 && (formData.type !== 'event' || !!eventCertificate) && !!traLicense;
   const isStep4Complete = !!formData.description.trim();
 
   const steps = [
@@ -142,6 +144,7 @@ const CreateTripEvent = () => {
       if (!formData.phone_number) errors.push("phone_number");
       if (galleryImages.length < 5) errors.push("gallery");
       if (formData.type === 'event' && !eventCertificate) errors.push("event_certificate");
+      if (!traLicense) errors.push("tra_license");
     } else if (currentStep === 4) {
       if (!formData.description.trim()) errors.push("description");
     }
@@ -231,6 +234,7 @@ const CreateTripEvent = () => {
     if (!formData.description.trim()) allErrors.push("description");
     if (galleryImages.length < 5) allErrors.push("gallery");
     if (formData.type === 'event' && !eventCertificate) allErrors.push("event_certificate");
+    if (!traLicense) allErrors.push("tra_license");
     if (formData.location_link && !formData.location_link.startsWith("https://")) allErrors.push("location_link");
 
     if (allErrors.length > 0) {
@@ -269,6 +273,15 @@ const CreateTripEvent = () => {
         eventCertificateUrl = supabase.storage.from('user-content-images').getPublicUrl(certFileName).data.publicUrl;
       }
 
+      // Upload TRA license (required for all hosts)
+      let traLicenseUrl: string | null = null;
+      if (traLicense) {
+        const traFileName = `${user.id}/tra-${Math.random()}.${traLicense.name.split('.').pop()}`;
+        const { error: traUploadError } = await supabase.storage.from('user-content-images').upload(traFileName, traLicense);
+        if (traUploadError) throw traUploadError;
+        traLicenseUrl = supabase.storage.from('user-content-images').getPublicUrl(traFileName).data.publicUrl;
+      }
+
       const { error } = await supabase.from("trips").insert([{
         id: friendlySlug, slug: friendlySlug,
         name: formData.name, description: formData.description, location: formData.location,
@@ -292,6 +305,7 @@ const CreateTripEvent = () => {
         location_link: formData.location_link || null,
         activities: activityNames.length > 0 ? activityNames.map(name => ({ name, price: 0 })) : [],
         event_certificate_url: eventCertificateUrl,
+        tra_license_url: traLicenseUrl,
       } as any]);
 
       if (error) throw error;

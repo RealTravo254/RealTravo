@@ -832,6 +832,7 @@ const CreateTripEvent = () => {
                 allowChildren: formData.allow_children,
                 activities: activityNames.map(name => ({ name, price: 0, images: [] as string[], previewUrls: [] as string[] })),
                 eventCertificatePreviewUrl: certificatePreview || undefined,
+                traLicensePreviewUrl: traLicensePreview || undefined,
               }}
               creatorEmail={user?.email}
             />

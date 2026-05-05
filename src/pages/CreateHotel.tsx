@@ -361,6 +361,8 @@ const CreateHotel = () => {
   const [activities, setActivities] = useState<ActivityItem[]>(() => [emptyActivity()]);
   const [galleryImages, setGalleryImages] = useState<File[]>([]);
   const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
+  const [traLicense, setTraLicense] = useState<File | null>(null);
+  const [traLicensePreview, setTraLicensePreview] = useState<string | null>(null);
 
   const onValidationFail = useCallback(
     (msg: string) => toast({ title: "Required", description: msg, variant: "destructive" }),
@@ -385,7 +387,7 @@ const CreateHotel = () => {
   const isStep2Complete = !!formData.place.trim() && (isAccommodationOnly || (!!formData.latitude && !!formData.email.trim() && !!formData.phoneNumber.trim()));
   const isStep3Complete = true;
   const isStep4Complete = facilities.every(f => f.saved);
-  const isStep5Complete = galleryImages.length >= 5 && !!formData.description.trim() && (!isAccommodationOnly || !!formData.generalBookingLink.trim());
+  const isStep5Complete = galleryImages.length >= 5 && !!formData.description.trim() && !!traLicense && (!isAccommodationOnly || !!formData.generalBookingLink.trim());
 
   const steps = [
     { name: STEP_NAMES[0], isComplete: isStep1Complete },
@@ -460,6 +462,10 @@ const CreateHotel = () => {
       toast({ title: "Missing Details", description: "Please complete all steps.", variant: "destructive" });
       return;
     }
+    if (!traLicense) {
+      toast({ title: "TRA License Required", description: "Please upload your TRA license image.", variant: "destructive" });
+      return;
+    }
     if (facilities.some((f) => !f.saved)) {
       toast({ title: "Unsaved Facility", description: "Save all facilities first.", variant: "destructive" });
       return;
@@ -490,6 +496,9 @@ const CreateHotel = () => {
 
       const selectedDays = Object.entries(workingDays).filter(([, v]) => v).map(([k]) => k);
 
+      // Upload TRA license (required)
+      const traLicenseUrl = traLicense ? await uploadFile(traLicense, "tra-license") : null;
+
       const { error } = await supabase.from("hotels").insert([{
         id: friendlySlug, slug: friendlySlug, created_by: user.id,
         name: formData.registrationName, location: formData.place, place: formData.place,
@@ -504,6 +513,7 @@ const CreateHotel = () => {
         registration_number: formData.registrationNumber || null,
         approval_status: isAccommodationOnly ? "approved" : "pending",
         general_booking_link: isAccommodationOnly ? formData.generalBookingLink : null,
+        tra_license_url: traLicenseUrl,
       }]);
 
       if (error) throw error;
@@ -749,6 +759,39 @@ const CreateHotel = () => {
                 </div>
               )}
             </Card>
+
+            {/* TRA License Upload (required) */}
+            <Card className={cn("bg-white rounded-[28px] p-8 shadow-sm border-none space-y-4", showErrors && !traLicense && "ring-2 ring-red-500")}>
+              <h2 className="text-xl font-black uppercase tracking-tight flex items-center gap-2" style={{ color: COLORS.TEAL }}>
+                <ImageIcon className="h-5 w-5" /> TRA License *
+              </h2>
+              <p className="text-[10px] text-slate-400 font-bold">Upload your Tourism Regulatory Authority (TRA) license image to prove you are a regulated host</p>
+              {traLicensePreview ? (
+                <div className="relative rounded-2xl overflow-hidden border-2 border-[#008080]/30">
+                  <img src={traLicensePreview} alt="TRA License" className="w-full h-48 object-cover" />
+                  <button type="button" onClick={() => { setTraLicense(null); setTraLicensePreview(null); }}
+                    className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full shadow-lg">
+                    <X className="h-3 w-3" />
+                  </button>
+                  <div className="absolute bottom-2 left-2 bg-green-500 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3" /> License Uploaded
+                  </div>
+                </div>
+              ) : (
+                <label className={cn("flex flex-col items-center justify-center h-32 rounded-2xl border-2 border-dashed cursor-pointer transition-all",
+                  showErrors && !traLicense ? "border-red-400 bg-red-50" : "border-slate-200 hover:border-[#008080] hover:bg-[#008080]/5")}>
+                  <ImageIcon className={cn("h-8 w-8 mb-2", showErrors && !traLicense ? "text-red-400" : "text-slate-400")} />
+                  <span className={cn("text-xs font-bold uppercase", showErrors && !traLicense ? "text-red-500" : "text-slate-400")}>Upload TRA License</span>
+                  <input type="file" className="hidden" accept="image/*" onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setTraLicense(file);
+                      setTraLicensePreview(URL.createObjectURL(file));
+                    }
+                  }} />
+                </label>
+              )}
+            </Card>
           </>
         )}
 
@@ -776,6 +819,7 @@ const CreateHotel = () => {
               })),
               latitude: formData.latitude, longitude: formData.longitude,
               galleryPreviewUrls: galleryPreviews,
+              traLicensePreviewUrl: traLicensePreview || undefined,
             }}
             creatorEmail={user?.email}
           />

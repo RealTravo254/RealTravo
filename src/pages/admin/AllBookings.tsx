@@ -123,7 +123,14 @@ const AllBookings = () => {
     setHostInfo(hosts);
   };
 
-  if (loading || !isAdmin) return <div className="min-h-screen bg-[#F8F9FA] animate-pulse" />;
+  if (loading || !isAdmin) return (
+    <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
+      <div className="flex flex-col items-center gap-3">
+        <div className="h-10 w-10 rounded-full border-4 border-slate-200 border-t-[#008080] animate-spin" />
+        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Loading…</p>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] pb-24">

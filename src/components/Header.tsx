@@ -36,7 +36,7 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
   useEffect(() => {
     const fetchUserProfile = async () => {
       if (!user) return;
-      const { error } = await supabase.from('profiles').select('name').eq('id', user.id).maybeSingle();
+      const { error } = await supabase.from("profiles").select("name").eq("id", user.id).maybeSingle();
       if (error) console.error("Error fetching profile:", error.message);
     };
     fetchUserProfile();
@@ -44,10 +44,13 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
 
   if (!__fromLayout) return null;
 
-  const headerIconStyles = "h-9 w-9 rounded-xl flex items-center justify-center transition-all duration-200 active:scale-90 text-white hover:bg-white/20";
+  const headerIconStyles =
+    "h-9 w-9 rounded-xl flex items-center justify-center transition-all duration-200 active:scale-90 text-white hover:bg-white/20";
 
   return (
-    <header className={`z-[100] items-center fixed top-0 left-0 right-0 flex py-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:bg-[#008080] transition-colors duration-300 ${className || ''}`}>
+    <header
+      className={`z-[100] items-center fixed top-0 left-0 right-0 flex py-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:bg-[#008080] transition-colors duration-300 ${className || ""}`}
+    >
       <div className="container mx-auto px-4 flex items-center justify-between h-full">
 
         {/* Left — hamburger + logo */}
@@ -58,24 +61,33 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
                 <Menu className="h-6 w-6 stroke-[2.5]" />
               </button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-full sm:w-72 p-0 h-screen border-none">
+
+            {/* 80 % of viewport width, capped at 320 px — matches Index.tsx */}
+            <SheetContent side="left" className="w-[80vw] max-w-sm p-0 h-screen border-none">
               <NavigationDrawer onClose={() => setIsDrawerOpen(false)} />
             </SheetContent>
           </Sheet>
+
           <Link to="/" className="flex items-center gap-2 group ml-1">
-            <span className="font-bold text-lg tracking-tight italic text-white hidden md:inline">RealTravo</span>
+            <span className="font-bold text-lg tracking-tight italic text-white hidden md:inline">
+              RealTravo
+            </span>
           </Link>
         </div>
 
         {/* Center nav — desktop only */}
         <nav className="hidden lg:flex items-center gap-6">
           {[
-            { to: "/", icon: <Home className="h-4 w-4" />, label: t('nav.home') },
-            { to: "/explore", icon: <Compass className="h-4 w-4" />, label: "Explore" },
-            { to: "/bookings", icon: <Ticket className="h-4 w-4" />, label: t('nav.bookings') },
-            { to: "/saved", icon: <Heart className="h-4 w-4" />, label: t('nav.wishlist') },
+            { to: "/",        icon: <Home    className="h-4 w-4" />, label: t("nav.home")     },
+            { to: "/explore", icon: <Compass className="h-4 w-4" />, label: "Explore"          },
+            { to: "/bookings",icon: <Ticket  className="h-4 w-4" />, label: t("nav.bookings") },
+            { to: "/saved",   icon: <Heart   className="h-4 w-4" />, label: t("nav.wishlist") },
           ].map(item => (
-            <Link key={item.to} to={item.to} className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-white/80 hover:text-white transition-colors">
+            <Link
+              key={item.to}
+              to={item.to}
+              className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-white/80 hover:text-white transition-colors"
+            >
               {item.icon}<span>{item.label}</span>
             </Link>
           ))}
@@ -87,7 +99,7 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
           {/* Search — only after scroll */}
           {showSearchIcon && hasScrolled && (
             <button
-              onClick={() => navigate('/explore')}
+              onClick={() => navigate("/explore")}
               className={`${headerIconStyles} animate-in fade-in zoom-in duration-300`}
               aria-label="Explore"
             >
@@ -106,25 +118,35 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
               {user ? (
                 <div className="space-y-3">
                   <p className="text-sm font-semibold text-foreground">Start hosting today!</p>
-                  <p className="text-xs text-muted-foreground">List your property, trip, or experience and reach thousands of travelers.</p>
-                  <button onClick={() => { setHostPopoverOpen(false); navigate('/become-host'); }}
+                  <p className="text-xs text-muted-foreground">
+                    List your property, trip, or experience and reach thousands of travelers.
+                  </p>
+                  <button
+                    onClick={() => { setHostPopoverOpen(false); navigate("/become-host"); }}
                     className="w-full py-2.5 rounded-xl text-xs font-bold text-white transition-all active:scale-95"
-                    style={{ backgroundColor: '#008080' }}>
+                    style={{ backgroundColor: "#008080" }}
+                  >
                     Get Started →
                   </button>
                 </div>
               ) : (
                 <div className="space-y-3">
                   <p className="text-sm font-semibold text-foreground">Want to become a host?</p>
-                  <p className="text-xs text-muted-foreground">Sign up or log in to start listing your properties and experiences.</p>
+                  <p className="text-xs text-muted-foreground">
+                    Sign up or log in to start listing your properties and experiences.
+                  </p>
                   <div className="flex gap-2">
-                    <button onClick={() => { setHostPopoverOpen(false); navigate('/auth'); }}
+                    <button
+                      onClick={() => { setHostPopoverOpen(false); navigate("/auth"); }}
                       className="flex-1 py-2.5 rounded-xl text-xs font-bold text-white transition-all active:scale-95"
-                      style={{ backgroundColor: '#008080' }}>
+                      style={{ backgroundColor: "#008080" }}
+                    >
                       Sign Up
                     </button>
-                    <button onClick={() => { setHostPopoverOpen(false); navigate('/auth'); }}
-                      className="flex-1 py-2.5 rounded-xl text-xs font-bold border border-slate-200 text-foreground transition-all active:scale-95 hover:bg-slate-50">
+                    <button
+                      onClick={() => { setHostPopoverOpen(false); navigate("/auth"); }}
+                      className="flex-1 py-2.5 rounded-xl text-xs font-bold border border-slate-200 text-foreground transition-all active:scale-95 hover:bg-slate-50"
+                    >
                       Log In
                     </button>
                   </div>
@@ -133,9 +155,7 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
             </PopoverContent>
           </Popover>
 
-          {/* NotificationBell — desktop only (md+).
-              On mobile it must live inside NavigationDrawer ONLY.
-              Do NOT render it here on small screens — it causes a duplicate. */}
+          {/* NotificationBell — desktop only */}
           <div className="hidden md:flex [&_button]:text-white [&_button]:h-9 [&_button]:w-9">
             <NotificationBell />
           </div>
@@ -144,28 +164,34 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
           {user ? (
             <AccountSheet>
               <button className="hidden md:flex h-9 px-4 rounded-xl items-center gap-2 transition-all font-semibold text-xs text-[#008080] bg-white hover:brightness-95">
-                <User className="h-4 w-4" /><span>{t('nav.profile')}</span>
+                <User className="h-4 w-4" /><span>{t("nav.profile")}</span>
               </button>
             </AccountSheet>
           ) : (
             <Popover open={accountPopoverOpen} onOpenChange={setAccountPopoverOpen}>
               <PopoverTrigger asChild>
                 <button className="hidden md:flex h-9 px-4 rounded-xl items-center gap-2 transition-all font-semibold text-xs text-[#008080] bg-white hover:brightness-95">
-                  <User className="h-4 w-4" /><span>{t('nav.login')}</span>
+                  <User className="h-4 w-4" /><span>{t("nav.login")}</span>
                 </button>
               </PopoverTrigger>
               <PopoverContent className="w-64 p-4" align="end">
                 <div className="space-y-3">
                   <p className="text-sm font-semibold text-foreground">Welcome to RealTravo!</p>
-                  <p className="text-xs text-muted-foreground">Log in or create an account to save items, book trips, and more.</p>
+                  <p className="text-xs text-muted-foreground">
+                    Log in or create an account to save items, book trips, and more.
+                  </p>
                   <div className="flex gap-2">
-                    <button onClick={() => { setAccountPopoverOpen(false); navigate('/auth'); }}
+                    <button
+                      onClick={() => { setAccountPopoverOpen(false); navigate("/auth"); }}
                       className="flex-1 py-2.5 rounded-xl text-xs font-bold text-white transition-all active:scale-95"
-                      style={{ backgroundColor: '#008080' }}>
+                      style={{ backgroundColor: "#008080" }}
+                    >
                       Sign Up
                     </button>
-                    <button onClick={() => { setAccountPopoverOpen(false); navigate('/auth'); }}
-                      className="flex-1 py-2.5 rounded-xl text-xs font-bold border border-slate-200 text-foreground transition-all active:scale-95 hover:bg-slate-50">
+                    <button
+                      onClick={() => { setAccountPopoverOpen(false); navigate("/auth"); }}
+                      className="flex-1 py-2.5 rounded-xl text-xs font-bold border border-slate-200 text-foreground transition-all active:scale-95 hover:bg-slate-50"
+                    >
                       Log In
                     </button>
                   </div>

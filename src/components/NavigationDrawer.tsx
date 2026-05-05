@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { 
   Home, Ticket, Heart, Phone, Info, LogIn, LogOut, User, 
-  FileText, Shield, ChevronRight, Trophy, Map, Mountain, Bed, Building2, Globe, Briefcase, Languages, DollarSign, X
+  FileText, Shield, ChevronRight, Trophy, Map, Mountain, Bed, Building2, Globe, Briefcase, Languages, DollarSign
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -37,7 +37,11 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
   useEffect(() => {
     const fetchUserData = async () => {
       if (!user) return;
-      const { data: profile } = await supabase.from("profiles").select("name, profile_picture_url").eq("id", user.id).single();
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("name, profile_picture_url")
+        .eq("id", user.id)
+        .single();
       if (profile) {
         setUserName(profile.name || "");
         setUserAvatar(profile.profile_picture_url || null);
@@ -63,7 +67,11 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
 
   const NavItem = ({ icon: Icon, label, path, isProtected = false }: any) => (
     <button
-      onClick={() => isProtected ? handleProtectedNavigation(path) : (window.location.href = path, onClose())}
+      onClick={() =>
+        isProtected
+          ? handleProtectedNavigation(path)
+          : (window.location.href = path, onClose())
+      }
       className="w-full flex items-center justify-between px-3 py-2 hover:bg-muted/60 transition-colors group"
     >
       <div className="flex items-center gap-2.5">
@@ -77,16 +85,18 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
   );
 
   return (
-    <div className="flex flex-col h-full bg-primary" style={{ paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
-      {/* Brand Header */}
+    <div
+      className="flex flex-col h-full bg-primary"
+      style={{
+        paddingTop: "env(safe-area-inset-top, 0px)",
+        paddingBottom: "env(safe-area-inset-bottom, 0px)",
+      }}
+    >
+      {/* Brand Header — no close button here; SheetContent provides one */}
       <div className="px-4 pt-4 pb-4 relative flex-shrink-0">
-        <button
-          onClick={onClose}
-          className="absolute top-3.5 right-3.5 h-6 w-6 rounded-full bg-primary-foreground/15 flex items-center justify-center hover:bg-primary-foreground/25 transition-colors"
-        >
-          <X className="h-3 w-3 text-primary-foreground" />
-        </button>
-        <p className="text-[9px] font-black uppercase tracking-[0.3em] text-primary-foreground/40 mb-0.5">Realtravo</p>
+        <p className="text-[9px] font-black uppercase tracking-[0.3em] text-primary-foreground/40 mb-0.5">
+          Realtravo
+        </p>
 
         {/* User info */}
         {user ? (
@@ -94,7 +104,12 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
             <div className="relative flex-shrink-0">
               <div className="h-10 w-10 rounded-xl bg-primary-foreground/20 flex items-center justify-center overflow-hidden border border-primary-foreground/20">
                 {userAvatar ? (
-                  <img src={userAvatar} alt={userName} className="h-full w-full object-cover" referrerPolicy="no-referrer" />
+                  <img
+                    src={userAvatar}
+                    alt={userName}
+                    className="h-full w-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
                 ) : (
                   <span className="text-xs font-black text-primary-foreground">{initials}</span>
                 )}
@@ -102,7 +117,9 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
               <div className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-green-400 border-[1.5px] border-primary" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-extrabold text-primary-foreground truncate leading-tight">{userName || t('drawer.traveler')}</p>
+              <p className="text-sm font-extrabold text-primary-foreground truncate leading-tight">
+                {userName || t("drawer.traveler")}
+              </p>
               <span className="inline-block mt-0.5 px-1.5 py-px rounded-full text-[9px] font-black uppercase tracking-wider bg-primary-foreground/15 text-primary-foreground/55">
                 Member
               </span>
@@ -145,25 +162,25 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
           {/* Main Menu */}
           <div>
             <p className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.22em] px-1 mb-1">
-              {t('drawer.mainMenu')}
+              {t("drawer.mainMenu")}
             </p>
             <div className="rounded-xl overflow-hidden border border-border bg-card divide-y divide-border/50">
-              <NavItem icon={Heart} label={t('nav.wishlist')} path="/saved" isProtected />
-              <NavItem icon={Ticket} label={t('nav.myBookings')} path="/bookings" isProtected />
-              <NavItem icon={Briefcase} label="Host" path="/become-host" isProtected />
+              <NavItem icon={Heart}    label={t("nav.wishlist")}   path="/saved"        isProtected />
+              <NavItem icon={Ticket}   label={t("nav.myBookings")} path="/bookings"     isProtected />
+              <NavItem icon={Briefcase} label="Host"               path="/become-host"  isProtected />
             </div>
           </div>
 
           {/* Support & Legal */}
           <div>
             <p className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.22em] px-1 mb-1">
-              {t('drawer.supportLegal')}
+              {t("drawer.supportLegal")}
             </p>
             <div className="rounded-xl overflow-hidden border border-border bg-card divide-y divide-border/50">
-              <NavItem icon={Phone} label={t('drawer.contact')} path="/contact" />
-              <NavItem icon={Info} label={t('drawer.about')} path="/about" />
-              <NavItem icon={FileText} label={t('drawer.terms')} path="/terms-of-service" />
-              <NavItem icon={Shield} label={t('drawer.privacy')} path="/privacy-policy" />
+              <NavItem icon={Phone}    label={t("drawer.contact")} path="/contact" />
+              <NavItem icon={Info}     label={t("drawer.about")}   path="/about" />
+              <NavItem icon={FileText} label={t("drawer.terms")}   path="/terms-of-service" />
+              <NavItem icon={Shield}   label={t("drawer.privacy")} path="/privacy-policy" />
             </div>
           </div>
 
@@ -180,7 +197,7 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
                     <Languages className="h-3 w-3 text-primary" />
                   </div>
                   <span className="text-xs font-medium text-foreground">
-                    {LANGUAGES.find(l => l.code === language)?.name || "English"}
+                    {LANGUAGES.find((l) => l.code === language)?.name || "English"}
                   </span>
                 </div>
                 <select
@@ -200,15 +217,15 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
                   <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
                     <DollarSign className="h-3 w-3 text-primary" />
                   </div>
-                  <span className="text-xs font-medium text-foreground">
-                    {currency}
-                  </span>
+                  <span className="text-xs font-medium text-foreground">{currency}</span>
                 </div>
                 <div className="flex gap-1">
                   <button
                     onClick={() => setCurrency("KES")}
                     className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all ${
-                      currency === "KES" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                      currency === "KES"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground"
                     }`}
                   >
                     KES
@@ -216,7 +233,9 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
                   <button
                     onClick={() => setCurrency("USD")}
                     className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all ${
-                      currency === "USD" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                      currency === "USD"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground"
                     }`}
                   >
                     USD

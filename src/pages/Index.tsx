@@ -649,7 +649,7 @@ const Index = () => {
                   <Menu className="h-5 w-5 stroke-[2.5]" />
                 </button>
               </SheetTrigger>
-              <SheetContent side="left" className="w-full sm:w-72 p-0 h-screen border-none">
+              <SheetContent side="left" className="w-[80vw] max-w-sm p-0 h-screen border-none">
                 <NavigationDrawer onClose={() => setIsIndexDrawerOpen(false)} />
               </SheetContent>
             </Sheet>

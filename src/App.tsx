@@ -20,6 +20,7 @@ import Index from "./pages/Index";
 
 // Lazy load ALL other pages
 const Auth = lazy(() => import("./pages/Auth"));
+const AuthCallback = lazy(() => import("./pages/AuthCallback"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const CategoryDetail = lazy(() => import("./pages/CategoryDetail"));
 const Saved = lazy(() => import("./pages/Saved"));
@@ -141,6 +142,7 @@ const App = () => {
                     <Route path="/adventure/:slug" element={<Suspense fallback={<TealLoader />}><AdventurePlaceDetail /></Suspense>} />
                     <Route path="/attraction/:slug" element={<Suspense fallback={<TealLoader />}><AdventurePlaceDetail /></Suspense>} />
                     <Route path="/auth" element={<Auth />} />
+                    <Route path="/auth/callback" element={<AuthCallback />} />
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/profile/edit" element={<ProfileEdit />} />
                     <Route path="/admin" element={<AdminDashboard />} />

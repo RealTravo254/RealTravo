@@ -1,35 +1,41 @@
-import { useEffect, useState } from "react";
-import { Header } from "@/components/Header";
-import { MobileBottomBar } from "@/components/MobileBottomBar";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Plane, Plus, ArrowLeft, LayoutDashboard, Map, Building2, Users, CalendarDays } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { Header } from "@/components/Header";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { MultiStepForm } from "@/components/creation/MultiStepForm";
+import { DocumentUploadWithCamera } from "@/components/verification/DocumentUploadWithCamera";
+import { CheckCircle2 } from "lucide-react";
 
-const COLORS = {
-  TEAL: "#008080",
-  CORAL: "#FF7F50",
-  KHAKI_DARK: "#857F3E",
-  SOFT_GRAY: "#F8F9FA"
-};
+const TEAL_COLOR = "#008080";
+const TEAL_HOVER_COLOR = "#005555";
 
-type HostType = 'guide' | 'company' | 'event';
-type HostingCategory = 'guide' | 'company' | null;
-
-const BecomeHost = () => {
+const HostVerification = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [myContent, setMyContent] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showTypeSelection, setShowTypeSelection] = useState(false);
-  const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
-  const [hasCompany, setHasCompany] = useState(false);
-  const [companyStatus, setCompanyStatus] = useState<string | null>(null);
-  const [hostingCategory, setHostingCategory] = useState<HostingCategory>(null);
+  const [currentStep, setCurrentStep] = useState(1);
+  const [isLoading, setIsLoading] = useState(false);
+  const [existingVerification, setExistingVerification] = useState<any>(null);
+  const [hostingCategory, setHostingCategory] = useState<string | null>(null);
+
+  const [legalName, setLegalName] = useState("");
+  const [streetAddress, setStreetAddress] = useState("");
+  const [city, setCity] = useState("");
+  const [postalCode, setPostalCode] = useState("");
+  const [registrationNumber, setRegistrationNumber] = useState("");
+  const [documentType, setDocumentType] = useState("");
+  const [documentFront, setDocumentFront] = useState<File | null>(null);
+  const [documentBack, setDocumentBack] = useState<File | null>(null);
+  const [selfie, setSelfie] = useState<File | null>(null);
+  const [traLicense, setTraLicense] = useState<File | null>(null);
+  const [traLicensePreview, setTraLicensePreview] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -37,254 +43,414 @@ const BecomeHost = () => {
       return;
     }
 
-    let cancelled = false;
+    const params = new URLSearchParams(window.location.search);
+    const category = params.get("category");
+    if (category) setHostingCategory(category);
 
-    const init = async () => {
-      try {
-        const { data: profileData } = await supabase.from('profiles').select('profile_completed').eq('id', user.id).single();
-        if (cancelled) return;
-        if (profileData && !profileData.profile_completed) {
-          navigate('/complete-profile');
-          return;
-        }
+    const fetchData = async () => {
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("name")
+        .eq("id", user.id)
+        .single();
 
-        const { data: verification, error: verificationError } = await supabase
-          .from("host_verifications")
-          .select("status, hosting_category")
-          .eq("user_id", user.id)
-          .single();
+      if (profileData?.name) setLegalName(profileData.name);
 
-        const { data: company } = await supabase
-          .from("companies")
-          .select("verification_status")
-          .eq("user_id", user.id)
-          .single();
+      const { data, error } = await supabase
+        .from("host_verifications")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
 
-        if (cancelled) return;
-
-        const hasV = verification && !verificationError;
-        setVerificationStatus(verification?.status || null);
-        setHostingCategory(verification?.hosting_category as HostingCategory || null);
-        setHasCompany(!!company);
-        setCompanyStatus(company?.verification_status || null);
-
-        if (!hasV && !company) {
-          setShowTypeSelection(true);
-          setLoading(false);
-          return;
-        }
-
-        if (hasV && verification?.status === "pending") {
-          navigate("/verification-status");
-          return;
-        }
-
-        if (hasV && verification?.status === "rejected") {
-          setShowTypeSelection(true);
-          setLoading(false);
-          return;
-        }
-
-        const [trips, hotels] = await Promise.all([
-          supabase.from("trips").select("id,name,type,approval_status").eq("created_by", user.id),
-          supabase.from("hotels").select("id,name,approval_status").eq("created_by", user.id),
-        ]);
-
-        if (cancelled) return;
-
-        const allContent = [
-          ...(trips.data?.map(t => ({ ...t, contentType: t.type || "trip" })) || []),
-          ...(hotels.data?.map(h => ({ ...h, contentType: "hotel" })) || []),
-        ];
-        setMyContent(allContent);
-        setShowTypeSelection(false);
-      } catch (error) {
-        console.error(error);
-      } finally {
-        if (!cancelled) setLoading(false);
+      if (data) {
+        setExistingVerification(data);
+        if (data.status === "approved") navigate("/become-host");
       }
     };
-    init();
 
-    return () => { cancelled = true; };
+    fetchData();
   }, [user, navigate]);
 
-  const handleHostTypeSelect = (type: HostType) => {
-    if (type === 'guide') navigate("/host-verification?category=guide");
-    else if (type === 'company') navigate("/host-verification?category=company");
-    else if (type === 'event') navigate("/create-event");
+  const uploadFile = async (file: File, path: string) => {
+    const { data, error } = await supabase.storage
+      .from("verification-documents")
+      .upload(path, file, { upsert: true });
+
+    if (error) throw error;
+
+    const { data: urlData } = supabase.storage
+      .from("verification-documents")
+      .getPublicUrl(path);
+
+    return urlData.publicUrl;
   };
 
-  if (loading) return (
-    <div className="min-h-screen bg-[#F8F9FA] flex flex-col items-center justify-center">
-      <div className="h-10 w-10 border-4 border-[#008080] border-t-transparent rounded-full animate-spin" />
-    </div>
-  );
+  const handleNext = () => {
+    if (currentStep === 1) {
+      if (!legalName || !streetAddress || !city || !documentType) {
+        toast({ title: "Missing Information", description: "Please fill in all required fields.", variant: "destructive" });
+        return;
+      }
+      if ((hostingCategory === 'guide' || hostingCategory === 'company') && !registrationNumber.trim()) {
+        toast({ title: "Missing Information", description: "Registration number is required.", variant: "destructive" });
+        return;
+      }
+    } else if (currentStep === 2) {
+      if (!documentFront || (documentType !== "passport" && !documentBack)) {
+        toast({ title: "Missing Documents", description: "Please upload all required documents.", variant: "destructive" });
+        return;
+      }
+    }
+    setCurrentStep(currentStep + 1);
+  };
 
-  // SELECTION VIEW
-  if (showTypeSelection) {
+  const handlePrev = () => setCurrentStep(currentStep - 1);
+
+  const handleSubmit = async () => {
+    if (!selfie) {
+      toast({ title: "Missing Selfie", description: "Please upload your selfie.", variant: "destructive" });
+      return;
+    }
+    if (!traLicense) {
+      toast({ title: "TRA License Required", description: "Please upload your TRA license image to prove regulation.", variant: "destructive" });
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const { data: existingProfile, error: profileCheckError } = await supabase
+        .from("profiles").select("id, name").eq("id", user!.id).maybeSingle();
+
+      if (profileCheckError) throw new Error("Failed to verify user profile.");
+
+      if (!existingProfile) {
+        const { error: createProfileError } = await supabase
+          .from("profiles").insert({ id: user!.id, name: legalName, email: user!.email || "" });
+        if (createProfileError) throw new Error("Failed to create user profile.");
+      } else if (existingProfile.name !== legalName) {
+        await supabase.from("profiles").update({ name: legalName }).eq("id", user!.id);
+      }
+
+      const frontUrl = await uploadFile(documentFront!, `${user!.id}/document_front_${Date.now()}`);
+      const backUrl = documentBack ? await uploadFile(documentBack, `${user!.id}/document_back_${Date.now()}`) : null;
+      const selfieUrl = await uploadFile(selfie, `${user!.id}/selfie_${Date.now()}`);
+      const traUrl = await uploadFile(traLicense, `${user!.id}/tra_license_${Date.now()}`);
+
+      const verificationData: Record<string, any> = {
+        user_id: user!.id, legal_name: legalName, street_address: streetAddress,
+        city, postal_code: postalCode || null, document_type: documentType,
+        document_front_url: frontUrl, document_back_url: backUrl, selfie_url: selfieUrl,
+        tra_license_url: traUrl, status: "pending", rejection_reason: null,
+        submitted_at: new Date().toISOString(), hosting_category: hostingCategory || null,
+        registration_number: registrationNumber.trim() || null,
+      };
+
+      const { data: existingVer } = await supabase
+        .from("host_verifications").select("id").eq("user_id", user!.id).maybeSingle();
+
+      let verificationError;
+      if (existingVer) {
+        const { error } = await supabase.from("host_verifications").update(verificationData as any).eq("user_id", user!.id);
+        verificationError = error;
+      } else {
+        const { error } = await supabase.from("host_verifications").insert(verificationData as any);
+        verificationError = error;
+      }
+
+      if (verificationError) throw verificationError;
+
+      toast({ title: "Submission Successful", description: "Your identity is currently under review." });
+      navigate("/verification-status");
+    } catch (error: any) {
+      toast({ title: "Submission Failed", description: error.message || "Failed to submit verification.", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getTealButtonStyle = () => ({
+    backgroundColor: TEAL_COLOR, borderColor: TEAL_COLOR, color: 'white', transition: 'background-color 0.15s',
+  });
+  const handleMouseEnter = (e: React.MouseEvent<HTMLButtonElement>) => { (e.currentTarget.style as any).backgroundColor = TEAL_HOVER_COLOR; };
+  const handleMouseLeave = (e: React.MouseEvent<HTMLButtonElement>) => { (e.currentTarget.style as any).backgroundColor = TEAL_COLOR; };
+
+  // ── PENDING STATE ─────────────────────────────────────────────────────────
+  if (existingVerification && existingVerification.status === "pending") {
     return (
-      <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
+      <div className="min-h-screen flex flex-col bg-[#F8F9FA]">
         <Header />
-        <main className="flex-1 container px-4 py-8 mx-auto mb-24">
-          <div className="flex items-center gap-3 mb-6">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/")} className="rounded-full bg-white shadow-sm border border-slate-100">
-              <ArrowLeft className="h-5 w-5 text-slate-600" />
+        <main className="flex-1 container px-4 py-8 flex items-center justify-center">
+          <Card className="max-w-2xl w-full p-8 text-center shadow-lg rounded-[24px]">
+            <CheckCircle2 className="h-16 w-16 mx-auto mb-4" style={{ color: TEAL_COLOR }} />
+            <h1 className="text-2xl font-black uppercase tracking-tight mb-4">Verification Pending</h1>
+            <p className="text-muted-foreground mb-6">
+              Your identity verification is currently under review. We will notify you of the result soon.
+            </p>
+            <Button onClick={() => navigate("/")} style={getTealButtonStyle()} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} className="px-8 rounded-xl">
+              Return to Home
             </Button>
-            <Badge className="bg-[#008080] text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
-              Become a Host
-            </Badge>
-          </div>
-
-          <h1 className="text-3xl md:text-4xl font-black uppercase tracking-tighter text-slate-900 mb-8">
-            How do you want to <span style={{ color: COLORS.CORAL }}>host?</span>
-          </h1>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <SelectionCard
-              icon={<Map className="h-8 w-8 text-blue-600" />}
-              title="Tour Guide"
-              desc="Host flexible trips and guided tours. Basic verification required."
-              onClick={() => handleHostTypeSelect('guide')}
-              bg="bg-blue-50"
-            />
-            <SelectionCard
-              icon={<Building2 className="h-8 w-8 text-orange-600" />}
-              title="Register Company"
-              desc="Host fixed-date trips and hotels. Company verification required."
-              onClick={() => handleHostTypeSelect('company')}
-              bg="bg-orange-50"
-            />
-            <SelectionCard
-              icon={<CalendarDays className="h-8 w-8 text-purple-600" />}
-              title="Host an Event"
-              desc="Create sports, music or cultural events. No verification needed."
-              onClick={() => handleHostTypeSelect('event')}
-              bg="bg-purple-50"
-            />
-          </div>
+          </Card>
         </main>
-        <MobileBottomBar />
       </div>
     );
   }
 
-  // DASHBOARD VIEW
+  // ── REJECTED STATE ────────────────────────────────────────────────────────
+  if (existingVerification && existingVerification.status === "rejected") {
+    return (
+      <div className="min-h-screen flex flex-col bg-[#F8F9FA]">
+        <Header />
+        <main className="flex-1 container px-4 py-8 flex items-center justify-center">
+          <Card className="max-w-2xl w-full p-8 shadow-lg rounded-[24px]">
+            <h1 className="text-2xl font-black uppercase tracking-tight mb-4 text-destructive">Verification Failed</h1>
+            <div className="bg-destructive/10 p-4 rounded-xl mb-6">
+              <p className="font-semibold mb-2">Rejection Reason:</p>
+              <p className="text-muted-foreground">{existingVerification.rejection_reason}</p>
+            </div>
+            <Button onClick={() => setExistingVerification(null)} className="w-full rounded-xl" style={getTealButtonStyle()} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+              Start Verification Process Again
+            </Button>
+          </Card>
+        </main>
+      </div>
+    );
+  }
+
+  // ── MAIN FORM ─────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
+    <div className="min-h-screen flex flex-col bg-[#F8F9FA] pb-0">
       <Header />
-      <main className="flex-1 container px-4 py-12 mx-auto mb-24">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
-          <div className="space-y-2">
-            <div className="flex items-center gap-3 mb-4">
-              <Button variant="ghost" size="icon" onClick={() => navigate("/")} className="rounded-full bg-white shadow-sm border border-slate-100">
-                <ArrowLeft className="h-5 w-5 text-slate-600" />
-              </Button>
-              <Badge className="bg-[#008080] text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
-                Host Dashboard
-              </Badge>
-            </div>
-            <h1 className="text-4xl font-black uppercase tracking-tighter leading-none text-slate-900">
-              Manage Your <span style={{ color: COLORS.CORAL }}>Inventory</span>
-            </h1>
-          </div>
-          <div className="bg-white p-4 rounded-[24px] shadow-sm border border-slate-100 flex items-center gap-3">
-            <LayoutDashboard className="h-5 w-5 text-[#857F3E]" />
-            <div>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Assets</p>
-              <p className="text-xl font-black text-slate-800">{myContent.length}</p>
-            </div>
-          </div>
-        </div>
+      <main className="flex-1 container px-4 py-8">
+        <div className="mx-auto">
+          <h1 className="text-2xl md:text-3xl font-black uppercase tracking-tight mb-2 text-center">
+            Verify Your Identity
+          </h1>
+          <p className="text-muted-foreground mb-8 text-center text-sm">
+            Complete the following steps to gain access to hosting features.
+          </p>
 
-        <div className="grid grid-cols-2 gap-4 md:gap-8">
-          {((hasCompany && companyStatus === 'approved') || (verificationStatus === 'approved' && !hostingCategory)) && (
-            <HostCategoryCard
-              title="Fixed Trips"
-              subtitle="Fixed-Date Tours"
-              image="/images/category-trips.webp"
-              icon={<Plane className="h-8 w-8" />}
-              count={myContent.filter(i => i.contentType === 'trip').length}
-              onManage={() => navigate("/host/trips")}
-              onAdd={() => navigate("/create-trip")}
-              accentColor={COLORS.TEAL}
-            />
-          )}
+          <MultiStepForm
+            currentStep={currentStep}
+            totalSteps={3}
+            title={
+              currentStep === 1 ? "Identity Details"
+              : currentStep === 2 ? "Document Uploads"
+              : "Liveness Check"
+            }
+            description={
+              currentStep === 1 ? "Provide your legal information"
+              : currentStep === 2 ? "Upload your government-issued documents"
+              : "Upload a selfie for verification"
+            }
+            onNext={handleNext}
+            onPrev={handlePrev}
+            onSubmit={handleSubmit}
+            nextDisabled={false}
+            isLoading={isLoading}
+          >
+            {/* ── STEP 1 : Identity Details ─────────────────────────────── */}
+            {currentStep === 1 && (
+              <div className="grid grid-cols-2 gap-3 md:gap-4">
+                {/* Legal Name — full width */}
+                <div className="col-span-2">
+                  <Label htmlFor="legalName" className="text-xs font-black uppercase tracking-widest text-slate-500 mb-1 block">
+                    Legal Name <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="legalName"
+                    value={legalName}
+                    onChange={(e) => setLegalName(e.target.value)}
+                    placeholder="Full legal name (must match ID)"
+                    className="rounded-xl border-slate-200 focus:border-[#008080] focus:ring-[#008080]"
+                    required
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-1">Auto-filled from your profile. Edit to match your ID.</p>
+                </div>
 
-          {((hostingCategory === 'guide' && verificationStatus === 'approved') ||
-            (hasCompany && companyStatus === 'approved') ||
-            (verificationStatus === 'approved' && !hostingCategory)) && (
-            <HostCategoryCard
-              title="Guided Tours"
-              subtitle="Flexible & Custom-Date Trips"
-              image="/images/category-trips.webp"
-              icon={<Map className="h-8 w-8" />}
-              count={myContent.filter(i => i.contentType === 'trip').length}
-              onManage={() => navigate("/host/trips")}
-              onAdd={() => navigate("/create-trip?flexible=true")}
-              accentColor={COLORS.TEAL}
-            />
-          )}
+                {/* Street Address — full width */}
+                <div className="col-span-2">
+                  <Label htmlFor="streetAddress" className="text-xs font-black uppercase tracking-widest text-slate-500 mb-1 block">
+                    Street Address <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="streetAddress"
+                    value={streetAddress}
+                    onChange={(e) => setStreetAddress(e.target.value)}
+                    placeholder="Enter your street address"
+                    className="rounded-xl border-slate-200 focus:border-[#008080] focus:ring-[#008080]"
+                    required
+                  />
+                </div>
 
-          <HostCategoryCard
-            title="Events"
-            subtitle="Sports & Social Events"
-            image="/images/category-campsite.webp"
-            icon={<Users className="h-8 w-8" />}
-            count={myContent.filter(i => i.contentType === 'event').length}
-            onManage={() => navigate("/host/trips")}
-            onAdd={() => navigate("/create-event")}
-            accentColor={COLORS.KHAKI_DARK}
-          />
+                {/* City — left col */}
+                <div>
+                  <Label htmlFor="city" className="text-xs font-black uppercase tracking-widest text-slate-500 mb-1 block">
+                    City <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="city"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    placeholder="City"
+                    className="rounded-xl border-slate-200 focus:border-[#008080] focus:ring-[#008080]"
+                    required
+                  />
+                </div>
+
+                {/* Postal Code — right col */}
+                <div>
+                  <Label htmlFor="postalCode" className="text-xs font-black uppercase tracking-widest text-slate-500 mb-1 block">
+                    Postal Code
+                  </Label>
+                  <Input
+                    id="postalCode"
+                    value={postalCode}
+                    onChange={(e) => setPostalCode(e.target.value)}
+                    placeholder="Postal code"
+                    className="rounded-xl border-slate-200 focus:border-[#008080] focus:ring-[#008080]"
+                  />
+                </div>
+
+                {/* Document Type — full width */}
+                <div className="col-span-2">
+                  <Label htmlFor="documentType" className="text-xs font-black uppercase tracking-widest text-slate-500 mb-1 block">
+                    Government Document Type <span className="text-red-500">*</span>
+                  </Label>
+                  <Select value={documentType} onValueChange={setDocumentType}>
+                    <SelectTrigger className="rounded-xl border-slate-200 focus:border-[#008080] focus:ring-[#008080]">
+                      <SelectValue placeholder="Select document type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="national_id">National ID</SelectItem>
+                      <SelectItem value="passport">Passport</SelectItem>
+                      <SelectItem value="driving_licence">Driving Licence</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Registration Number — full width, conditional */}
+                {(hostingCategory === 'guide' || hostingCategory === 'company') && (
+                  <div className="col-span-2">
+                    <Label htmlFor="registrationNumber" className="text-xs font-black uppercase tracking-widest text-slate-500 mb-1 block">
+                      Registration Number <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="registrationNumber"
+                      value={registrationNumber}
+                      onChange={(e) => setRegistrationNumber(e.target.value)}
+                      placeholder="e.g. BN-X12345 or guide license number"
+                      className="rounded-xl border-slate-200 focus:border-[#008080] focus:ring-[#008080]"
+                      required
+                    />
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      {hostingCategory === 'guide' ? 'Your tour guide license or registration number' : 'Your company registration number'}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── STEP 2 : Document Uploads ─────────────────────────────── */}
+            {currentStep === 2 && (
+              <div className="grid grid-cols-2 gap-4">
+                {/* Front — always shown, full width if passport (only one card), else left col */}
+                <div className={documentType === "passport" ? "col-span-2" : "col-span-2 md:col-span-1"}>
+                  <DocumentUploadWithCamera
+                    documentType={documentType as any}
+                    label={documentType === "passport" ? "Passport Photo Page" : "Front Side of Document"}
+                    side="front"
+                    file={documentFront}
+                    onFileChange={setDocumentFront}
+                    required
+                  />
+                </div>
+
+                {/* Back — right col, hidden for passport */}
+                {documentType !== "passport" && (
+                  <div className="col-span-2 md:col-span-1">
+                    <DocumentUploadWithCamera
+                      documentType={documentType as any}
+                      label="Back Side of Document"
+                      side="back"
+                      file={documentBack}
+                      onFileChange={setDocumentBack}
+                      required
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── STEP 3 : Liveness Check ───────────────────────────────── */}
+            {currentStep === 3 && (
+              <div className="grid grid-cols-2 gap-4">
+                {/* Selfie — left col */}
+                <div className="col-span-2 md:col-span-1">
+                  <DocumentUploadWithCamera
+                    documentType={documentType as any}
+                    label="Selfie for Verification"
+                    side="selfie"
+                    file={selfie}
+                    onFileChange={setSelfie}
+                    required
+                  />
+                </div>
+
+                {/* TRA License — right col */}
+                <div className="col-span-2 md:col-span-1">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-black uppercase tracking-widest text-slate-500 block">
+                      TRA License <span className="text-red-500">*</span>
+                    </Label>
+                    <p className="text-[10px] text-muted-foreground">
+                      Upload your TRA (Tanzania Revenue Authority) license to prove you are regulated to host.
+                    </p>
+                    {traLicensePreview ? (
+                      <div className="relative rounded-xl overflow-hidden border-2 border-dashed" style={{ borderColor: TEAL_COLOR }}>
+                        <img src={traLicensePreview} alt="TRA License" className="w-full h-48 object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => { setTraLicense(null); setTraLicensePreview(null); }}
+                          className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold shadow-lg"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="cursor-pointer block">
+                        <div
+                          className="h-32 flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl transition-all hover:bg-teal-50"
+                          style={{ borderColor: TEAL_COLOR }}
+                        >
+                          <span className="text-xs font-black uppercase tracking-wide" style={{ color: TEAL_COLOR }}>
+                            Upload TRA License
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">Image of your tax/regulatory license</span>
+                        </div>
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              setTraLicense(file);
+                              setTraLicensePreview(URL.createObjectURL(file));
+                            }
+                          }}
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </MultiStepForm>
         </div>
       </main>
-      <MobileBottomBar />
     </div>
   );
 };
 
-const SelectionCard = ({ icon, title, desc, onClick, bg }: any) => (
-  <button onClick={onClick} className="group bg-white rounded-[24px] p-6 shadow-lg border border-slate-100 text-left transition-all hover:shadow-xl">
-    <div className={`p-4 rounded-2xl w-fit mb-4 ${bg} group-hover:bg-[#008080] transition-colors`}>
-      <div className="group-hover:text-white transition-colors">{icon}</div>
-    </div>
-    <h3 className="text-xl font-black uppercase tracking-tight text-slate-900 mb-2">{title}</h3>
-    <p className="text-sm text-slate-500 leading-relaxed mb-6">{desc}</p>
-    <div className="py-2.5 rounded-xl text-center text-xs font-bold uppercase tracking-widest border-2 border-slate-200 group-hover:border-[#008080] group-hover:text-[#008080] transition-colors">
-      Get Started →
-    </div>
-  </button>
-);
-
-const HostCategoryCard = ({ title, subtitle, image, icon, count, onManage, onAdd, accentColor }: any) => (
-  <div className="group bg-white rounded-[24px] md:rounded-[32px] overflow-hidden shadow-xl border border-slate-100 flex flex-col h-[320px] md:h-[420px]">
-    <div className="relative h-1/2 overflow-hidden">
-      <img src={image} alt={title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent" />
-      <div className="absolute top-2 left-2 md:top-4 md:left-4">
-        <Badge className="bg-white/20 backdrop-blur-md text-white border-none text-[9px] md:text-[10px] font-black uppercase">{count} Listings</Badge>
-      </div>
-      <div className="absolute bottom-2 left-3 md:bottom-4 md:left-6">
-        <p className="text-[8px] md:text-[10px] font-black text-white/70 uppercase tracking-widest">{subtitle}</p>
-        <h2 className="text-base md:text-2xl font-black text-white uppercase tracking-tighter">{title}</h2>
-      </div>
-    </div>
-    <div className="p-4 md:p-8 flex flex-col justify-between flex-1">
-      <div className="flex items-start justify-between">
-        <div className="p-2 md:p-4 rounded-2xl mb-2 md:mb-4" style={{ backgroundColor: `${accentColor}15`, color: accentColor }}>
-          <div className="scale-75 md:scale-100 origin-top-left">{icon}</div>
-        </div>
-        <Button variant="ghost" onClick={onManage} className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 px-2 md:px-4">All →</Button>
-      </div>
-      <Button
-        onClick={onAdd}
-        className="w-full py-4 md:py-7 rounded-xl md:rounded-2xl text-[9px] md:text-[11px] font-black uppercase tracking-widest text-white transition-all active:scale-95 border-none"
-        style={{ background: `linear-gradient(135deg, ${accentColor} 0%, ${accentColor}dd 100%)` }}
-      >
-        <Plus className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2 stroke-[3px]" /> Add {title.split(' ')[0]}
-      </Button>
-    </div>
-  </div>
-);
-
-export default BecomeHost;
+export default HostVerification;

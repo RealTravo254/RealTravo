@@ -7,20 +7,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import { Plane, Tent, Plus, ArrowLeft, LayoutDashboard, Map, Building2, Users, CalendarDays, Clock } from "lucide-react";
+import { Plane, Plus, ArrowLeft, LayoutDashboard, Map, Building2, Users, CalendarDays } from "lucide-react";
 
 const COLORS = {
   TEAL: "#008080",
   CORAL: "#FF7F50",
-  CORAL_LIGHT: "#FF9E7A",
-  KHAKI: "#F0E68C",
   KHAKI_DARK: "#857F3E",
-  RED: "#FF0000",
   SOFT_GRAY: "#F8F9FA"
 };
 
-type HostType = 'guide' | 'campsite' | 'company' | 'event';
-type HostingCategory = 'guide' | 'campsite' | 'company' | null;
+type HostType = 'guide' | 'company' | 'event';
+type HostingCategory = 'guide' | 'company' | null;
 
 const BecomeHost = () => {
   const { user } = useAuth();
@@ -33,7 +30,6 @@ const BecomeHost = () => {
   const [hasCompany, setHasCompany] = useState(false);
   const [companyStatus, setCompanyStatus] = useState<string | null>(null);
   const [hostingCategory, setHostingCategory] = useState<HostingCategory>(null);
-  const [pendingAdventures, setPendingAdventures] = useState<any[]>([]);
 
   useEffect(() => {
     if (!user) {
@@ -78,33 +74,27 @@ const BecomeHost = () => {
           return;
         }
 
-        if (hasV && verification?.status === "pending" && verification?.hosting_category !== "campsite") {
+        if (hasV && verification?.status === "pending") {
           navigate("/verification-status");
           return;
         }
-        
+
         if (hasV && verification?.status === "rejected") {
-          // Allow rejected users back into selection (no forced re-verification)
           setShowTypeSelection(true);
           setLoading(false);
           return;
         }
 
-        const [trips, hotels, adventures] = await Promise.all([
+        const [trips, hotels] = await Promise.all([
           supabase.from("trips").select("id,name,type,approval_status").eq("created_by", user.id),
           supabase.from("hotels").select("id,name,approval_status").eq("created_by", user.id),
-          supabase.from("adventure_places").select("id,name,approval_status").eq("created_by", user.id)
         ]);
 
         if (cancelled) return;
 
-        const pendingAdv = adventures.data?.filter(a => a.approval_status === 'pending') || [];
-        setPendingAdventures(pendingAdv);
-
         const allContent = [
           ...(trips.data?.map(t => ({ ...t, contentType: t.type || "trip" })) || []),
           ...(hotels.data?.map(h => ({ ...h, contentType: "hotel" })) || []),
-          ...(adventures.data?.map(a => ({ ...a, contentType: "adventure" })) || [])
         ];
         setMyContent(allContent);
         setShowTypeSelection(false);
@@ -119,12 +109,9 @@ const BecomeHost = () => {
     return () => { cancelled = true; };
   }, [user, navigate]);
 
-  const handleHostTypeSelect = async (type: HostType) => {
+  const handleHostTypeSelect = (type: HostType) => {
     if (type === 'guide') navigate("/host-verification?category=guide");
-    else if (type === 'campsite') {
-      toast({ title: "Welcome!", description: "You can now create your adventure place listing." });
-      navigate("/create-adventure");
-    } else if (type === 'company') navigate("/host-verification?category=company");
+    else if (type === 'company') navigate("/host-verification?category=company");
     else if (type === 'event') navigate("/create-event");
   };
 
@@ -134,7 +121,7 @@ const BecomeHost = () => {
     </div>
   );
 
-  // SELECTION VIEW (Two rows, two columns)
+  // SELECTION VIEW
   if (showTypeSelection) {
     return (
       <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
@@ -154,28 +141,21 @@ const BecomeHost = () => {
           </h1>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <SelectionCard 
+            <SelectionCard
               icon={<Map className="h-8 w-8 text-blue-600" />}
               title="Tour Guide"
               desc="Host flexible trips and guided tours. Basic verification required."
               onClick={() => handleHostTypeSelect('guide')}
               bg="bg-blue-50"
             />
-            <SelectionCard 
-              icon={<Tent className="h-8 w-8 text-emerald-600" />}
-              title="Campsite / Adventure"
-              desc="List your campsite or nature spot. No verification needed."
-              onClick={() => handleHostTypeSelect('campsite')}
-              bg="bg-emerald-50"
-            />
-            <SelectionCard 
+            <SelectionCard
               icon={<Building2 className="h-8 w-8 text-orange-600" />}
               title="Register Company"
               desc="Host fixed-date trips and hotels. Company verification required."
               onClick={() => handleHostTypeSelect('company')}
               bg="bg-orange-50"
             />
-            <SelectionCard 
+            <SelectionCard
               icon={<CalendarDays className="h-8 w-8 text-purple-600" />}
               title="Host an Event"
               desc="Create sports, music or cultural events. No verification needed."
@@ -189,7 +169,7 @@ const BecomeHost = () => {
     );
   }
 
-  // DASHBOARD VIEW (Two Column Grid — 2 cols on ALL screen sizes)
+  // DASHBOARD VIEW
   return (
     <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
       <Header />
@@ -217,20 +197,9 @@ const BecomeHost = () => {
           </div>
         </div>
 
-        {/* ↓ Changed: grid-cols-2 on mobile, stays 2-col on md too */}
         <div className="grid grid-cols-2 gap-4 md:gap-8">
-          {pendingAdventures.map(adv => (
-            <div key={adv.id} className="col-span-2 bg-amber-50 border border-amber-200 rounded-[24px] p-6 flex items-center gap-4">
-              <Clock className="h-6 w-6 text-amber-600" />
-              <div className="flex-1">
-                <h3 className="font-black text-sm uppercase text-amber-800">{adv.name}</h3>
-                <p className="text-xs font-bold text-amber-600 uppercase">Waiting for admin verification</p>
-              </div>
-            </div>
-          ))}
-
           {((hasCompany && companyStatus === 'approved') || (verificationStatus === 'approved' && !hostingCategory)) && (
-            <HostCategoryCard 
+            <HostCategoryCard
               title="Fixed Trips"
               subtitle="Fixed-Date Tours"
               image="/images/category-trips.webp"
@@ -242,10 +211,10 @@ const BecomeHost = () => {
             />
           )}
 
-          {((hostingCategory === 'guide' && verificationStatus === 'approved') || 
+          {((hostingCategory === 'guide' && verificationStatus === 'approved') ||
             (hasCompany && companyStatus === 'approved') ||
             (verificationStatus === 'approved' && !hostingCategory)) && (
-            <HostCategoryCard 
+            <HostCategoryCard
               title="Guided Tours"
               subtitle="Flexible & Custom-Date Trips"
               image="/images/category-trips.webp"
@@ -257,7 +226,7 @@ const BecomeHost = () => {
             />
           )}
 
-          <HostCategoryCard 
+          <HostCategoryCard
             title="Events"
             subtitle="Sports & Social Events"
             image="/images/category-campsite.webp"
@@ -267,19 +236,6 @@ const BecomeHost = () => {
             onAdd={() => navigate("/create-event")}
             accentColor={COLORS.KHAKI_DARK}
           />
-
-          {(hostingCategory === 'campsite' || (verificationStatus === 'approved' && !hostingCategory)) && (
-            <HostCategoryCard 
-              title="Adventure Places"
-              subtitle="Campsites & Nature"
-              image="/images/category-campsite.webp"
-              icon={<Tent className="h-8 w-8" />}
-              count={myContent.filter(i => i.contentType === 'adventure').length}
-              onManage={() => navigate("/host/experiences")}
-              onAdd={() => navigate("/create-adventure")}
-              accentColor={COLORS.CORAL}
-            />
-          )}
         </div>
       </main>
       <MobileBottomBar />
@@ -316,12 +272,11 @@ const HostCategoryCard = ({ title, subtitle, image, icon, count, onManage, onAdd
     <div className="p-4 md:p-8 flex flex-col justify-between flex-1">
       <div className="flex items-start justify-between">
         <div className="p-2 md:p-4 rounded-2xl mb-2 md:mb-4" style={{ backgroundColor: `${accentColor}15`, color: accentColor }}>
-          {/* Scale icon down on mobile */}
           <div className="scale-75 md:scale-100 origin-top-left">{icon}</div>
         </div>
         <Button variant="ghost" onClick={onManage} className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 px-2 md:px-4">All →</Button>
       </div>
-      <Button 
+      <Button
         onClick={onAdd}
         className="w-full py-4 md:py-7 rounded-xl md:rounded-2xl text-[9px] md:text-[11px] font-black uppercase tracking-widest text-white transition-all active:scale-95 border-none"
         style={{ background: `linear-gradient(135deg, ${accentColor} 0%, ${accentColor}dd 100%)` }}

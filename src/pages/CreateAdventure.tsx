@@ -976,7 +976,6 @@ const CreateAdventure = () => {
                 name: a.name, price: parseFloat(a.price) || 0, images: a.previewUrls,
               })),
               galleryPreviewUrls: galleryPreviews,
-              traLicensePreviewUrl: traLicensePreview || undefined,
             }}
             creatorEmail={user?.email}
           />

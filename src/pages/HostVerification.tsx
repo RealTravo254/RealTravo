@@ -262,18 +262,7 @@ const BecomeHost = () => {
             accentColor={COLORS.KHAKI_DARK}
           />
 
-          {(hostingCategory === 'campsite' || (verificationStatus === 'approved' && !hostingCategory)) && (
-            <HostCategoryCard 
-              title="Adventure Places"
-              subtitle="Campsites & Nature"
-              image="/images/category-campsite.webp"
-              icon={<Tent className="h-8 w-8" />}
-              count={myContent.filter(i => i.contentType === 'adventure').length}
-              onManage={() => navigate("/host/experiences")}
-              onAdd={() => navigate("/create-adventure")}
-              accentColor={COLORS.CORAL}
-            />
-          )}
+
         </div>
       </main>
       <MobileBottomBar />

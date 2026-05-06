@@ -41,17 +41,13 @@ const ProfileEdit = () => {
     gender: "male" | "female" | "other" | "prefer_not_to_say" | "";
     date_of_birth: string;
     country: string;
-    phone_number: string;
   }>({
     name: "",
     gender: "",
     date_of_birth: "",
     country: "",
-    phone_number: ""
   });
-  
-  const [newPassword, setNewPassword] = useState("");
-  
+
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -78,56 +74,13 @@ const ProfileEdit = () => {
           gender: data.gender || "",
           date_of_birth: data.date_of_birth || "",
           country: data.country || "",
-          phone_number: data.phone_number || ""
         });
-        setOriginalPhone(data.phone_number || "");
       }
       setFetchingProfile(false);
     };
 
     fetchProfile();
   }, [user, navigate]);
-
-  const handleSendVerificationCode = async () => {
-    if (!profileData.phone_number || profileData.phone_number === originalPhone) {
-      toast({ title: "Error", description: "Please enter a new phone number.", variant: "destructive" });
-      return;
-    }
-    setSendingCode(true);
-    try {
-      const code = Math.floor(100000 + Math.random() * 900000).toString();
-      toast({ title: "Verification Code Sent", description: `Your code is: ${code}` });
-      sessionStorage.setItem("phone_verification_code", code);
-      sessionStorage.setItem("phone_to_verify", profileData.phone_number);
-      setShowVerification(true);
-    } catch (error) {
-      toast({ title: "Error", description: "Failed to send code.", variant: "destructive" });
-    } finally {
-      setSendingCode(false);
-    }
-  };
-
-  const handleVerifyCode = async () => {
-    setVerifyingCode(true);
-    try {
-      const storedCode = sessionStorage.getItem("phone_verification_code");
-      if (verificationCode !== storedCode) throw new Error("Invalid code.");
-      
-      const { error } = await supabase.from("profiles").update({ 
-        phone_number: profileData.phone_number,
-        phone_verified: true 
-      }).eq("id", user!.id);
-
-      if (error) throw error;
-      toast({ title: "Verified!" });
-      setShowVerification(false);
-      setOriginalPhone(profileData.phone_number);
-    } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } finally {
-      setVerifyingCode(false);
-    }
-  };
 
   const handleProfilePicUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

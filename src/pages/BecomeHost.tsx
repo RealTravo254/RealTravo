@@ -84,7 +84,9 @@ const BecomeHost = () => {
         }
         
         if (hasV && verification?.status === "rejected") {
-          navigate("/host-verification");
+          // Allow rejected users back into selection (no forced re-verification)
+          setShowTypeSelection(true);
+          setLoading(false);
           return;
         }
 

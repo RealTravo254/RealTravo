@@ -172,14 +172,14 @@ const VerificationStatus = () => {
                     <p className="text-sm font-medium text-slate-600 italic">"{verification.rejection_reason}"</p>
                   </div>
                   <Button 
-                    onClick={() => navigate("/host-verification")}
+                    onClick={() => navigate("/become-host")}
                     className="w-full py-8 rounded-2xl text-md font-black uppercase tracking-[0.2em] text-white shadow-xl transition-all active:scale-95 border-none"
                     style={{ 
                         background: `linear-gradient(135deg, ${COLORS.RED} 0%, #CC0000 100%)`,
                         boxShadow: `0 12px 24px -8px ${COLORS.RED}88`
                     }}
                   >
-                    Re-submit Documents
+                    Back to Become a Host
                   </Button>
                 </div>
               )}

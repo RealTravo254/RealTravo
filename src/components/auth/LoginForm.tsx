@@ -45,9 +45,21 @@ export const LoginForm = ({ onSwitchToSignup }: LoginFormProps) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-      if (error.message.toLowerCase().includes("email")) {
+      const msg = error.message.toLowerCase();
+      // If email not confirmed, force the user to verify via code first
+      if (msg.includes("email not confirmed") || msg.includes("not confirmed") || msg.includes("confirm")) {
+        toast({
+          title: "Verify your email first",
+          description: "Your account isn't verified yet. We'll send you a 6-digit code to confirm.",
+        });
+        setMode("otp-send");
+        setLoading(false);
+        await handleSendOtp();
+        return;
+      }
+      if (msg.includes("email")) {
         setErrors({ email: error.message });
-      } else if (error.message.toLowerCase().includes("password")) {
+      } else if (msg.includes("password")) {
         setErrors({ password: error.message });
       } else {
         toast({ title: "Login failed", description: error.message, variant: "destructive" });

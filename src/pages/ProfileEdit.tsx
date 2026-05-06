@@ -41,21 +41,13 @@ const ProfileEdit = () => {
     gender: "male" | "female" | "other" | "prefer_not_to_say" | "";
     date_of_birth: string;
     country: string;
-    phone_number: string;
   }>({
     name: "",
     gender: "",
     date_of_birth: "",
     country: "",
-    phone_number: ""
   });
-  
-  const [verificationCode, setVerificationCode] = useState("");
-  const [showVerification, setShowVerification] = useState(false);
-  const [sendingCode, setSendingCode] = useState(false);
-  const [verifyingCode, setVerifyingCode] = useState(false);
-  const [originalPhone, setOriginalPhone] = useState("");
-  
+
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -82,56 +74,13 @@ const ProfileEdit = () => {
           gender: data.gender || "",
           date_of_birth: data.date_of_birth || "",
           country: data.country || "",
-          phone_number: data.phone_number || ""
         });
-        setOriginalPhone(data.phone_number || "");
       }
       setFetchingProfile(false);
     };
 
     fetchProfile();
   }, [user, navigate]);
-
-  const handleSendVerificationCode = async () => {
-    if (!profileData.phone_number || profileData.phone_number === originalPhone) {
-      toast({ title: "Error", description: "Please enter a new phone number.", variant: "destructive" });
-      return;
-    }
-    setSendingCode(true);
-    try {
-      const code = Math.floor(100000 + Math.random() * 900000).toString();
-      toast({ title: "Verification Code Sent", description: `Your code is: ${code}` });
-      sessionStorage.setItem("phone_verification_code", code);
-      sessionStorage.setItem("phone_to_verify", profileData.phone_number);
-      setShowVerification(true);
-    } catch (error) {
-      toast({ title: "Error", description: "Failed to send code.", variant: "destructive" });
-    } finally {
-      setSendingCode(false);
-    }
-  };
-
-  const handleVerifyCode = async () => {
-    setVerifyingCode(true);
-    try {
-      const storedCode = sessionStorage.getItem("phone_verification_code");
-      if (verificationCode !== storedCode) throw new Error("Invalid code.");
-      
-      const { error } = await supabase.from("profiles").update({ 
-        phone_number: profileData.phone_number,
-        phone_verified: true 
-      }).eq("id", user!.id);
-
-      if (error) throw error;
-      toast({ title: "Verified!" });
-      setShowVerification(false);
-      setOriginalPhone(profileData.phone_number);
-    } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } finally {
-      setVerifyingCode(false);
-    }
-  };
 
   const handleProfilePicUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -159,10 +108,6 @@ const ProfileEdit = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (profileData.phone_number !== originalPhone && !showVerification) {
-      toast({ title: "Verify Phone", description: "Please verify your new phone number first.", variant: "destructive" });
-      return;
-    }
 
     setLoading(true);
     try {
@@ -306,56 +251,6 @@ const ProfileEdit = () => {
               </div>
             </div>
 
-            {/* Field: Phone */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                  <div className="bg-[#008080]/10 p-2.5 rounded-xl">
-                    <Phone className="h-5 w-5 text-[#008080]" />
-                  </div>
-                  <Label className="text-[10px] font-black text-[#008080] uppercase tracking-[0.2em]">Phone Identity</Label>
-              </div>
-              <div className="flex gap-3">
-                <Input
-                  type="tel"
-                  value={profileData.phone_number}
-                  onChange={(e) => setProfileData({ ...profileData, phone_number: e.target.value })}
-                  className="bg-slate-50 border-none rounded-2xl h-14 px-6 font-bold focus-visible:ring-1 focus-visible:ring-[#008080]"
-                />
-                {profileData.phone_number !== originalPhone && (
-                  <Button
-                    type="button"
-                    onClick={handleSendVerificationCode}
-                    disabled={sendingCode}
-                    className="h-14 px-6 rounded-2xl font-black uppercase text-[10px] tracking-widest text-white shadow-lg"
-                    style={{ background: COLORS.TEAL }}
-                  >
-                    {sendingCode ? "..." : "Verify"}
-                  </Button>
-                )}
-              </div>
-              
-              {showVerification && (
-                <div className="p-6 bg-[#F0E68C]/10 rounded-[24px] border border-[#F0E68C]/30 space-y-4 animate-in fade-in slide-in-from-top-2">
-                  <p className="text-[10px] font-black text-[#857F3E] uppercase tracking-widest">Enter Verification Code</p>
-                  <div className="flex gap-3">
-                    <Input
-                      value={verificationCode}
-                      onChange={(e) => setVerificationCode(e.target.value)}
-                      placeholder="6-Digit Code"
-                      className="bg-white border-none rounded-xl h-12 px-4 font-black tracking-widest text-center"
-                    />
-                    <Button
-                      type="button"
-                      onClick={handleVerifyCode}
-                      disabled={verifyingCode}
-                      className="h-12 px-6 rounded-xl font-black bg-[#857F3E] hover:bg-[#857F3E]/90 text-white"
-                    >
-                      {verifyingCode ? "..." : "Confirm"}
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
 
             {/* Password Change Section */}
             <div className="border-t border-slate-100 pt-8 space-y-4">

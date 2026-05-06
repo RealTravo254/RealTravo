@@ -763,9 +763,7 @@ const Index = () => {
                           <div className="absolute bottom-0 left-0 right-0 p-2">
                             <h3 className="text-white font-extrabold text-[10px] sm:text-xs leading-tight">{county}</h3>
                             <p className="text-white/70 text-[8px] font-bold mt-0.5 flex items-center gap-1">
-                              {display === null
-                                ? <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                                : <>{display} listings</>}
+                              {display !== null && <>{display} listings</>}
                             </p>
                           </div>
                         </div>

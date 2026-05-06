@@ -97,8 +97,6 @@ const CreateTripEvent = () => {
   const [galleryImages, setGalleryImages] = useState<File[]>([]);
   const [eventCertificate, setEventCertificate] = useState<File | null>(null);
   const [certificatePreview, setCertificatePreview] = useState<string | null>(null);
-  const [traLicense, setTraLicense] = useState<File | null>(null);
-  const [traLicensePreview, setTraLicensePreview] = useState<string | null>(null);
   useEffect(() => {
     const fetchUserProfile = async () => {
       if (user) {
@@ -113,7 +111,7 @@ const CreateTripEvent = () => {
   // Step validation
   const isStep1Complete = !!formData.name.trim() && !!formData.country && !!formData.place.trim() && !!formData.location.trim();
   const isStep2Complete = (formData.is_custom_date || !!formData.date) && (useTicketTypes ? ticketTypes.length > 0 : parseFloat(formData.price) >= 0) && parseInt(formData.available_tickets) > 0;
-  const isStep3Complete = !!formData.phone_number && galleryImages.length >= 5 && (formData.type !== 'event' || !!eventCertificate) && !!traLicense;
+  const isStep3Complete = !!formData.phone_number && galleryImages.length >= 5 && (formData.type !== 'event' || !!eventCertificate);
   const isStep4Complete = !!formData.description.trim();
 
   const steps = [
@@ -144,7 +142,6 @@ const CreateTripEvent = () => {
       if (!formData.phone_number) errors.push("phone_number");
       if (galleryImages.length < 5) errors.push("gallery");
       if (formData.type === 'event' && !eventCertificate) errors.push("event_certificate");
-      if (!traLicense) errors.push("tra_license");
     } else if (currentStep === 4) {
       if (!formData.description.trim()) errors.push("description");
     }
@@ -234,7 +231,6 @@ const CreateTripEvent = () => {
     if (!formData.description.trim()) allErrors.push("description");
     if (galleryImages.length < 5) allErrors.push("gallery");
     if (formData.type === 'event' && !eventCertificate) allErrors.push("event_certificate");
-    if (!traLicense) allErrors.push("tra_license");
     if (formData.location_link && !formData.location_link.startsWith("https://")) allErrors.push("location_link");
 
     if (allErrors.length > 0) {
@@ -273,15 +269,6 @@ const CreateTripEvent = () => {
         eventCertificateUrl = supabase.storage.from('user-content-images').getPublicUrl(certFileName).data.publicUrl;
       }
 
-      // Upload TRA license (required for all hosts)
-      let traLicenseUrl: string | null = null;
-      if (traLicense) {
-        const traFileName = `${user.id}/tra-${Math.random()}.${traLicense.name.split('.').pop()}`;
-        const { error: traUploadError } = await supabase.storage.from('user-content-images').upload(traFileName, traLicense);
-        if (traUploadError) throw traUploadError;
-        traLicenseUrl = supabase.storage.from('user-content-images').getPublicUrl(traFileName).data.publicUrl;
-      }
-
       const { error } = await supabase.from("trips").insert([{
         id: friendlySlug, slug: friendlySlug,
         name: formData.name, description: formData.description, location: formData.location,
@@ -305,7 +292,6 @@ const CreateTripEvent = () => {
         location_link: formData.location_link || null,
         activities: activityNames.length > 0 ? activityNames.map(name => ({ name, price: 0 })) : [],
         event_certificate_url: eventCertificateUrl,
-        tra_license_url: traLicenseUrl,
       } as any]);
 
       if (error) throw error;
@@ -713,42 +699,6 @@ const CreateTripEvent = () => {
               </Card>
             )}
 
-            {/* TRA License Upload (required for all hosts) */}
-            <Card className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100 space-y-4">
-              <h3 className="text-xs font-black uppercase tracking-widest flex items-center gap-2" style={{ color: COLORS.TEAL }}>
-                <FileImage className="h-4 w-4" /> TRA License *
-              </h3>
-              <p className="text-[10px] text-slate-400 font-bold">Upload your Tourism Regulatory Authority (TRA) license image to prove you are a regulated host</p>
-
-              {traLicensePreview ? (
-                <div className="relative rounded-2xl overflow-hidden border-2 border-[#008080]/30">
-                  <img src={traLicensePreview} alt="TRA License" className="w-full h-48 object-cover" />
-                  <button type="button" onClick={() => { setTraLicense(null); setTraLicensePreview(null); }}
-                    className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full shadow-lg">
-                    <X className="h-3 w-3" />
-                  </button>
-                  <div className="absolute bottom-2 left-2 bg-green-500 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase flex items-center gap-1">
-                    <CheckCircle2 className="h-3 w-3" /> License Uploaded
-                  </div>
-                </div>
-              ) : (
-                <Label className={`flex flex-col items-center justify-center h-32 rounded-2xl border-2 border-dashed cursor-pointer transition-all ${validationErrors.includes("tra_license") ? "border-red-400 bg-red-50" : "border-slate-200 hover:border-[#008080] hover:bg-[#008080]/5"}`}>
-                  <FileImage className={`h-8 w-8 mb-2 ${validationErrors.includes("tra_license") ? "text-red-400" : "text-slate-400"}`} />
-                  <span className={`text-xs font-bold uppercase ${validationErrors.includes("tra_license") ? "text-red-500" : "text-slate-400"}`}>Upload TRA License</span>
-                  <Input type="file" className="hidden" accept="image/*" onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      setTraLicense(file);
-                      setTraLicensePreview(URL.createObjectURL(file));
-                      setValidationErrors(prev => prev.filter(err => err !== "tra_license"));
-                    }
-                  }} />
-                </Label>
-              )}
-              {validationErrors.includes("tra_license") && (
-                <p className="text-red-500 text-[10px] font-bold">⚠ TRA license is required for all hosts</p>
-              )}
-            </Card>
             </>
           )}
 
@@ -832,7 +782,6 @@ const CreateTripEvent = () => {
                 allowChildren: formData.allow_children,
                 activities: activityNames.map(name => ({ name, price: 0, images: [] as string[], previewUrls: [] as string[] })),
                 eventCertificatePreviewUrl: certificatePreview || undefined,
-                traLicensePreviewUrl: traLicensePreview || undefined,
               }}
               creatorEmail={user?.email}
             />

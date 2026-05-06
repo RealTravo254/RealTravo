@@ -513,7 +513,20 @@ const CreateAdventure = () => {
       .then(({ data }) => {
         if (data?.country) setFormData((p) => ({ ...p, country: data.country }));
       });
-  }, [user]);
+
+    // Block verified companies from hosting adventure places / campsites
+    supabase.from("companies").select("verification_status").eq("user_id", user.id).maybeSingle()
+      .then(({ data }) => {
+        if (data && (data.verification_status === "approved" || data.verification_status === "verified")) {
+          toast({
+            title: "Not Allowed",
+            description: "Verified companies cannot host adventure places or campsites. Please host trips, hotels or events instead.",
+            variant: "destructive",
+          });
+          navigate("/become-host");
+        }
+      });
+  }, [user, navigate, toast]);
 
   // Step validation
   const isStep1Complete = !!formData.registrationName.trim() && !!formData.registrationNumber.trim() && !!formData.country;

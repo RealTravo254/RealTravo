@@ -125,7 +125,7 @@ const BecomeHost = () => {
   if (showTypeSelection) {
     return (
       <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
-        <Header />
+        <div className="block"><Header /></div>
         <main className="flex-1 container px-4 py-8 mx-auto mb-24">
           <div className="flex items-center gap-3 mb-6">
             <Button variant="ghost" size="icon" onClick={() => navigate("/")} className="rounded-full bg-white shadow-sm border border-slate-100">
@@ -172,7 +172,7 @@ const BecomeHost = () => {
   // DASHBOARD VIEW
   return (
     <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
-      <Header />
+      <div className="block"><Header /></div>
       <main className="flex-1 container px-4 py-12 mx-auto mb-24">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
           <div className="space-y-2">
@@ -197,7 +197,7 @@ const BecomeHost = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 md:gap-8">
+        <div className="grid grid-cols-2 md:grid-cols-1 gap-4 md:gap-4">
           {((hasCompany && companyStatus === 'approved') || (verificationStatus === 'approved' && !hostingCategory)) && (
             <HostCategoryCard
               title="Fixed Trips"
@@ -257,31 +257,34 @@ const SelectionCard = ({ icon, title, desc, onClick, bg }: any) => (
 );
 
 const HostCategoryCard = ({ title, subtitle, image, icon, count, onManage, onAdd, accentColor }: any) => (
-  <div className="group bg-white rounded-[24px] md:rounded-[32px] overflow-hidden shadow-xl border border-slate-100 flex flex-col h-[320px] md:h-[420px]">
-    <div className="relative h-1/2 overflow-hidden">
+  <div className="group bg-white rounded-[24px] overflow-hidden shadow-xl border border-slate-100 flex flex-col h-[320px] md:h-[160px] md:flex-row">
+    {/* Image panel — top half on mobile, fixed-width left panel on desktop */}
+    <div className="relative h-1/2 md:h-full md:w-56 md:shrink-0 overflow-hidden">
       <img src={image} alt={title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent" />
-      <div className="absolute top-2 left-2 md:top-4 md:left-4">
-        <Badge className="bg-white/20 backdrop-blur-md text-white border-none text-[9px] md:text-[10px] font-black uppercase">{count} Listings</Badge>
+      <div className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-black/80 via-black/30 to-transparent" />
+      <div className="absolute top-2 left-2 md:top-3 md:left-3">
+        <Badge className="bg-white/20 backdrop-blur-md text-white border-none text-[9px] font-black uppercase">{count} Listings</Badge>
       </div>
-      <div className="absolute bottom-2 left-3 md:bottom-4 md:left-6">
-        <p className="text-[8px] md:text-[10px] font-black text-white/70 uppercase tracking-widest">{subtitle}</p>
-        <h2 className="text-base md:text-2xl font-black text-white uppercase tracking-tighter">{title}</h2>
+      <div className="absolute bottom-2 left-3 md:bottom-3 md:left-3">
+        <p className="text-[8px] font-black text-white/70 uppercase tracking-widest">{subtitle}</p>
+        <h2 className="text-base md:text-lg font-black text-white uppercase tracking-tighter">{title}</h2>
       </div>
     </div>
-    <div className="p-4 md:p-8 flex flex-col justify-between flex-1">
-      <div className="flex items-start justify-between">
-        <div className="p-2 md:p-4 rounded-2xl mb-2 md:mb-4" style={{ backgroundColor: `${accentColor}15`, color: accentColor }}>
-          <div className="scale-75 md:scale-100 origin-top-left">{icon}</div>
+    {/* Content panel */}
+    <div className="p-4 md:px-6 md:py-4 flex flex-col justify-between flex-1">
+      {/* Mobile: icon + All button row; Desktop: same but inline */}
+      <div className="flex items-center justify-between">
+        <div className="p-2 rounded-xl" style={{ backgroundColor: `${accentColor}15`, color: accentColor }}>
+          <div className="scale-75 origin-center">{icon}</div>
         </div>
-        <Button variant="ghost" onClick={onManage} className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 px-2 md:px-4">All →</Button>
+        <Button variant="ghost" onClick={onManage} className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 px-2">All →</Button>
       </div>
       <Button
         onClick={onAdd}
-        className="w-full py-4 md:py-7 rounded-xl md:rounded-2xl text-[9px] md:text-[11px] font-black uppercase tracking-widest text-white transition-all active:scale-95 border-none"
+        className="w-full py-3 rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest text-white transition-all active:scale-95 border-none"
         style={{ background: `linear-gradient(135deg, ${accentColor} 0%, ${accentColor}dd 100%)` }}
       >
-        <Plus className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2 stroke-[3px]" /> Add {title.split(' ')[0]}
+        <Plus className="h-3 w-3 mr-1 stroke-[3px]" /> Add {title.split(' ')[0]}
       </Button>
     </div>
   </div>

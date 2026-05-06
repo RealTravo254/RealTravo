@@ -16,7 +16,7 @@ const Auth = () => {
   if (!loading && user) {
     navigate(returnTo);
   }
-
+ 
   if (loading) {
     return <div className="min-h-screen bg-background animate-pulse" />;
   }

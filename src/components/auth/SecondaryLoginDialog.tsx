@@ -15,7 +15,7 @@ interface SecondaryLoginDialogProps {
   itemType: 'hotel' | 'adventure' | 'adventure_place';
   itemName: string;
 }
-
+ 
 export const SecondaryLoginDialog = ({ 
   open, 
   onOpenChange, 

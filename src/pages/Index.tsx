@@ -31,8 +31,8 @@ import { useRealtimeBookings } from "@/hooks/useRealtimeBookings";
 import { useResponsiveLimit } from "@/hooks/useResponsiveLimit";
 
 // ── Page sizes ────────────────────────────────────────────────────────────────
-const MOBILE_PAGE_SIZE = 16;  // 2-col grid  → 8 rows
-const DESKTOP_PAGE_SIZE = 40; // 4-5-col grid → 8-10 rows
+const MOBILE_PAGE_SIZE = 16;
+const DESKTOP_PAGE_SIZE = 40;
 
 // ── Shared pagination bar ─────────────────────────────────────────────────────
 interface PaginationBarProps {
@@ -54,7 +54,6 @@ const PaginationBar = memo(({
   return (
     <div className="mt-6 flex flex-col items-center gap-2">
       <div className="flex items-center gap-2">
-        {/* Prev */}
         <button
           onClick={() => onPageChange(page - 1)}
           disabled={page === 0}
@@ -64,11 +63,10 @@ const PaginationBar = memo(({
           <ChevronLeft className="h-4 w-4" />
         </button>
 
-        {/* Pills */}
         <div className="flex items-center gap-1.5">
           {Array.from({ length: totalPages }).map((_, i) => {
-            const isEdge    = i === 0 || i === totalPages - 1;
-            const isNear    = Math.abs(i - page) <= 1;
+            const isEdge     = i === 0 || i === totalPages - 1;
+            const isNear     = Math.abs(i - page) <= 1;
             const isEllipsis = !isEdge && !isNear;
             if (isEllipsis) {
               if (i === 1 || i === totalPages - 2)
@@ -95,7 +93,6 @@ const PaginationBar = memo(({
           })}
         </div>
 
-        {/* Next */}
         <button
           onClick={() => onPageChange(page + 1)}
           disabled={page >= totalPages - 1}
@@ -114,12 +111,11 @@ const PaginationBar = memo(({
 });
 PaginationBar.displayName = "PaginationBar";
 
-// ── GridSection — rows/columns on every screen, paginated ────────────────────
+// ── GridSection ───────────────────────────────────────────────────────────────
 interface GridSectionProps {
   title: string;
   viewAllPath: string;
   accentColor: string;
-  /** Pre-rendered <ListingCard /> nodes */
   items: React.ReactNode[];
   loading: boolean;
 }
@@ -137,15 +133,12 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: G
   const goMobile  = (p: number) => { setMobilePage(p);  window.scrollTo({ top: 0, behavior: "smooth" }); };
   const goDesktop = (p: number) => { setDesktopPage(p); window.scrollTo({ top: 0, behavior: "smooth" }); };
 
-  // Show skeletons whenever loading OR when there are no real items yet.
-  // Each skeleton gets the same sizing as a ListingCard so the grid never collapses.
   const showSkeletonsMobile  = loading || items.length === 0;
   const showSkeletonsDesktop = loading || items.length === 0;
 
   const Skeletons = ({ count }: { count: number }) => (
     <>
       {[...Array(count)].map((_, i) => (
-        // Wrap in a div so the skeleton fills the grid cell exactly like a card
         <div key={i} className="w-full h-full">
           <ListingSkeleton />
         </div>
@@ -155,7 +148,6 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: G
 
   return (
     <section className="mb-6 md:mb-10">
-      {/* Section header */}
       <div
         className="flex items-center justify-between mb-3 md:mb-5 rounded-none md:rounded-xl px-3 py-2.5 -mx-4 md:mx-0"
         style={{ backgroundColor: `${accentColor}12` }}
@@ -175,10 +167,9 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: G
         </Link>
       </div>
 
-      {/* ── MOBILE: 2-column grid + pagination ── */}
+      {/* MOBILE */}
       <div className="md:hidden">
         {showSkeletonsMobile ? (
-          // Always render MOBILE_PAGE_SIZE skeleton slots — same grid, same gap
           <div className="grid grid-cols-2 gap-2.5">
             <Skeletons count={MOBILE_PAGE_SIZE} />
           </div>
@@ -197,10 +188,9 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: G
         )}
       </div>
 
-      {/* ── DESKTOP: 4-col (lg: 5-col) grid + pagination — NO side-scroll ── */}
+      {/* DESKTOP */}
       <div className="hidden md:block">
         {showSkeletonsDesktop ? (
-          // Always render DESKTOP_PAGE_SIZE skeleton slots — same grid, same gap
           <div className="grid grid-cols-4 lg:grid-cols-5 gap-4">
             <Skeletons count={DESKTOP_PAGE_SIZE} />
           </div>
@@ -223,7 +213,7 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: G
 });
 GridSection.displayName = "GridSection";
 
-// ── Category cards (hero) ─────────────────────────────────────────────────────
+// ── Category cards ────────────────────────────────────────────────────────────
 const CATEGORIES = [
   { icon: Tent,     title: "Adventures",   path: "/category/campsite", bgImage: "/images/category-adventures.jpg" },
   { icon: Calendar, title: "Trips",        path: "/category/trips",    bgImage: "/images/category-trips.jpg" },
@@ -255,9 +245,9 @@ const Index = () => {
   const [showLocationDialog, setShowLocationDialog] = useState(false);
   const { cardLimit } = useResponsiveLimit();
 
-  const [showSearchIcon, setShowSearchIcon]   = useState(false);
+  const [showSearchIcon, setShowSearchIcon]       = useState(false);
   const [isIndexDrawerOpen, setIsIndexDrawerOpen] = useState(false);
-  const searchRef  = useRef<HTMLDivElement>(null);
+  const searchRef   = useRef<HTMLDivElement>(null);
   const countiesRef = useRef<HTMLDivElement>(null);
 
   const [scrollableRows, setScrollableRows] = useState<{
@@ -266,11 +256,10 @@ const Index = () => {
   }>({ trips: [], hotels: [], attractions: [], campsites: [], events: [], accommodations: [], guidedTrips: [] });
 
   const [nearbyPlacesHotels, setNearbyPlacesHotels] = useState<any[]>([]);
-  const [loadingScrollable, setLoadingScrollable] = useState(true);
-  const [loadingNearby, setLoadingNearby]         = useState(true);
-  const [isSearchFocused, setIsSearchFocusedLocal] = useState(false);
+  const [loadingScrollable, setLoadingScrollable]   = useState(true);
+  const [loadingNearby, setLoadingNearby]           = useState(true);
+  const [isSearchFocused, setIsSearchFocusedLocal]  = useState(false);
   const { setSearchFocused } = useSearchFocus();
-  const [countyCounts, setCountyCounts] = useState<Record<string, { adventures: number; guidedTrips: number }>>({});
 
   const setIsSearchFocused = useCallback((v: boolean) => {
     setIsSearchFocusedLocal(v);
@@ -303,14 +292,13 @@ const Index = () => {
     [nearbyPlacesHotels, ratings, position],
   );
 
-  // Browse Guides — all categories merged, sorted by weighted rating
   const displayBrowseGuides = useMemo(() => {
     const today = new Date().toISOString().split("T")[0];
     const allItems = [
-      ...scrollableRows.trips.map(i      => ({ ...i, _itemType: "TRIP"           as const })),
-      ...scrollableRows.events.map(i     => ({ ...i, _itemType: "EVENT"          as const })),
-      ...scrollableRows.guidedTrips.map(i => ({ ...i, _itemType: "TRIP"          as const })),
-      ...scrollableRows.campsites.map(i  => ({ ...i, _itemType: "ADVENTURE PLACE" as const })),
+      ...scrollableRows.trips.map(i       => ({ ...i, _itemType: "TRIP"            as const })),
+      ...scrollableRows.events.map(i      => ({ ...i, _itemType: "EVENT"           as const })),
+      ...scrollableRows.guidedTrips.map(i => ({ ...i, _itemType: "TRIP"            as const })),
+      ...scrollableRows.campsites.map(i   => ({ ...i, _itemType: "ADVENTURE PLACE" as const })),
     ];
     const seen = new Set<string>();
     return allItems
@@ -333,10 +321,9 @@ const Index = () => {
       });
   }, [scrollableRows, bookingStats, ratings]);
 
-  // ── Data fetching ─────────────────────────────────────────────────────────
+  // ── Data fetching ──────────────────────────────────────────────────────────
   const fetchScrollableRows = useCallback(async (limit: number) => {
     setLoadingScrollable(true);
-    // Fetch generously so pagination has enough data
     const fetchLimit = Math.max(limit * 3, 60);
     try {
       const [tripsData, campsitesData, eventsData, guidedData] = await Promise.all([
@@ -449,7 +436,7 @@ const Index = () => {
     if (listings.length === prev) setHasMoreSearchResults(false);
   }, [loading, searchQuery, listings.length, hasMoreSearchResults, fetchAllData]);
 
-  // ── Effects ───────────────────────────────────────────────────────────────
+  // ── Effects ────────────────────────────────────────────────────────────────
   useEffect(() => {
     const on = () => { requestLocation(); window.removeEventListener("scroll", on); window.removeEventListener("click", on); };
     window.addEventListener("scroll", on, { once: true });
@@ -492,22 +479,6 @@ const Index = () => {
   }, [cardLimit, fetchScrollableRows, fetchAllData]);
 
   useEffect(() => {
-    const fetchCountyCounts = async () => {
-      const [adv, guided] = await Promise.all([
-        supabase.from("adventure_places").select("place").eq("approval_status", "approved").eq("is_hidden", false),
-        supabase.from("trips").select("place").eq("approval_status", "approved").eq("is_hidden", false)
-          .eq("type", "trip").or("is_flexible_date.eq.true,is_custom_date.eq.true"),
-      ]);
-      const counts: Record<string, { adventures: number; guidedTrips: number }> = {};
-      FEATURED_COUNTIES.forEach(c => { counts[c] = { adventures: 0, guidedTrips: 0 }; });
-      (adv.data    || []).forEach((i: any) => { if (counts[i.place]) counts[i.place].adventures++;  });
-      (guided.data || []).forEach((i: any) => { if (counts[i.place]) counts[i.place].guidedTrips++; });
-      setCountyCounts(counts);
-    };
-    fetchCountyCounts();
-  }, []);
-
-  useEffect(() => {
     const hasData = scrollableRows.trips.length > 0 || scrollableRows.campsites.length > 0 || scrollableRows.events.length > 0;
     if (!loading && !loadingScrollable && listings.length > 0 && hasData)
       setCachedHomePageData({ scrollableRows, listings, nearbyPlacesHotels });
@@ -521,7 +492,7 @@ const Index = () => {
     return () => window.removeEventListener("scroll", ctrl);
   }, []);
 
-  // ── Card renderer ─────────────────────────────────────────────────────────
+  // ── Card renderer ──────────────────────────────────────────────────────────
   const renderCard = useCallback((
     item: any, type: string, index: number,
     opts: { hidePrice?: boolean; isTrip?: boolean; categoryColor?: string } = {},
@@ -568,7 +539,7 @@ const Index = () => {
     );
   }, [position, ratings, savedItems, handleSave, bookingStats]);
 
-  // ── Pre-build node arrays (memoized) ──────────────────────────────────────
+  // ── Pre-build node arrays ──────────────────────────────────────────────────
   const browseGuideNodes = useMemo(() =>
     displayBrowseGuides.map((item, i) =>
       renderCard(item, item._itemType, i, {
@@ -612,7 +583,7 @@ const Index = () => {
     [sortedNearbyPlaces, ratings, savedItems, handleSave],
   );
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background">
       <SEOHead
@@ -733,47 +704,33 @@ const Index = () => {
         <div className={`w-full ${isSearchFocused ? "hidden" : ""}`}>
           <div className="container mx-auto px-4 md:px-6 py-3 md:py-5 space-y-2 md:space-y-6">
 
-            {/* Counties — horizontal scroll (navigation chips, not listing cards) */}
+            {/* Counties — horizontal scroll */}
             <section className="mb-4 md:mb-6">
               <div ref={countiesRef} className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide scroll-smooth snap-x snap-mandatory">
-                {[...FEATURED_COUNTIES]
-                  .sort((a, b) => {
-                    const tA = (countyCounts[a]?.adventures || 0) + (countyCounts[a]?.guidedTrips || 0);
-                    const tB = (countyCounts[b]?.adventures || 0) + (countyCounts[b]?.guidedTrips || 0);
-                    return tB - tA;
-                  })
-                  .map((county, idx) => {
-                    const counts  = countyCounts[county] || { adventures: 0, guidedTrips: 0 };
-                    const total   = counts.adventures + counts.guidedTrips;
-                    const loaded  = Object.keys(countyCounts).length > 0;
-                    const display = !loaded ? null : total > 999 ? "999+" : String(total);
-                    return (
-                      <div key={county}
-                        onClick={() => navigate(`/county/${encodeURIComponent(county)}`)}
-                        className="flex-shrink-0 w-[28vw] sm:w-[120px] md:w-[140px] snap-start cursor-pointer group"
-                      >
-                        <div className="relative overflow-hidden aspect-square bg-muted rounded-none">
-                          <img
-                            src={COUNTY_IMAGES[county] || `/images/counties/${county.toLowerCase().replace(/['\s]/g, "-")}.jpg`}
-                            alt={county}
-                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                            loading={idx < 4 ? "eager" : "lazy"} decoding="async"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-                          <div className="absolute bottom-0 left-0 right-0 p-2">
-                            <h3 className="text-white font-extrabold text-[10px] sm:text-xs leading-tight">{county}</h3>
-                            <p className="text-white/70 text-[8px] font-bold mt-0.5 flex items-center gap-1">
-                              {display !== null && <>{display} listings</>}
-                            </p>
-                          </div>
-                        </div>
+                {FEATURED_COUNTIES.map((county, idx) => (
+                  <div
+                    key={county}
+                    onClick={() => navigate(`/county/${encodeURIComponent(county)}`)}
+                    className="flex-shrink-0 w-[28vw] sm:w-[120px] md:w-[140px] snap-start cursor-pointer group"
+                  >
+                    <div className="relative overflow-hidden aspect-square bg-muted rounded-none">
+                      <img
+                        src={COUNTY_IMAGES[county] || `/images/counties/${county.toLowerCase().replace(/['\s]/g, "-")}.jpg`}
+                        alt={county}
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                        loading={idx < 4 ? "eager" : "lazy"} decoding="async"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                      <div className="absolute bottom-0 left-0 right-0 p-2">
+                        <h3 className="text-white font-extrabold text-[10px] sm:text-xs leading-tight">{county}</h3>
                       </div>
-                    );
-                  })}
+                    </div>
+                  </div>
+                ))}
               </div>
             </section>
 
-            {/* ── Browse Guides — 2-col mobile · 4/5-col desktop, 16/40 per page ── */}
+            {/* Browse Guides */}
             <GridSection
               title="Browse Guides"
               viewAllPath="/explore"
@@ -782,7 +739,7 @@ const Index = () => {
               loading={loadingScrollable}
             />
 
-            {/* ── Nearest to You — same grid ── */}
+            {/* Nearest to You */}
             {position && (sortedNearbyPlaces.length > 0 || loadingNearby) && (
               <GridSection
                 title={t("sections.nearestToYou")}

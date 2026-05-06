@@ -189,7 +189,7 @@ const BecomeHost = () => {
     );
   }
 
-  // DASHBOARD VIEW (Two Column Grid)
+  // DASHBOARD VIEW (Two Column Grid — 2 cols on ALL screen sizes)
   return (
     <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
       <Header />
@@ -217,9 +217,10 @@ const BecomeHost = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* ↓ Changed: grid-cols-2 on mobile, stays 2-col on md too */}
+        <div className="grid grid-cols-2 gap-4 md:gap-8">
           {pendingAdventures.map(adv => (
-            <div key={adv.id} className="md:col-span-2 bg-amber-50 border border-amber-200 rounded-[24px] p-6 flex items-center gap-4">
+            <div key={adv.id} className="col-span-2 bg-amber-50 border border-amber-200 rounded-[24px] p-6 flex items-center gap-4">
               <Clock className="h-6 w-6 text-amber-600" />
               <div className="flex-1">
                 <h3 className="font-black text-sm uppercase text-amber-800">{adv.name}</h3>
@@ -300,29 +301,32 @@ const SelectionCard = ({ icon, title, desc, onClick, bg }: any) => (
 );
 
 const HostCategoryCard = ({ title, subtitle, image, icon, count, onManage, onAdd, accentColor }: any) => (
-  <div className="group bg-white rounded-[32px] overflow-hidden shadow-xl border border-slate-100 flex flex-col h-[420px]">
+  <div className="group bg-white rounded-[24px] md:rounded-[32px] overflow-hidden shadow-xl border border-slate-100 flex flex-col h-[320px] md:h-[420px]">
     <div className="relative h-1/2 overflow-hidden">
       <img src={image} alt={title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent" />
-      <div className="absolute top-4 left-4">
-        <Badge className="bg-white/20 backdrop-blur-md text-white border-none text-[10px] font-black uppercase">{count} Listings</Badge>
+      <div className="absolute top-2 left-2 md:top-4 md:left-4">
+        <Badge className="bg-white/20 backdrop-blur-md text-white border-none text-[9px] md:text-[10px] font-black uppercase">{count} Listings</Badge>
       </div>
-      <div className="absolute bottom-4 left-6">
-        <p className="text-[10px] font-black text-white/70 uppercase tracking-widest">{subtitle}</p>
-        <h2 className="text-2xl font-black text-white uppercase tracking-tighter">{title}</h2>
+      <div className="absolute bottom-2 left-3 md:bottom-4 md:left-6">
+        <p className="text-[8px] md:text-[10px] font-black text-white/70 uppercase tracking-widest">{subtitle}</p>
+        <h2 className="text-base md:text-2xl font-black text-white uppercase tracking-tighter">{title}</h2>
       </div>
     </div>
-    <div className="p-8 flex flex-col justify-between flex-1">
+    <div className="p-4 md:p-8 flex flex-col justify-between flex-1">
       <div className="flex items-start justify-between">
-        <div className="p-4 rounded-2xl mb-4" style={{ backgroundColor: `${accentColor}15`, color: accentColor }}>{icon}</div>
-        <Button variant="ghost" onClick={onManage} className="text-[10px] font-black uppercase text-slate-400">View All →</Button>
+        <div className="p-2 md:p-4 rounded-2xl mb-2 md:mb-4" style={{ backgroundColor: `${accentColor}15`, color: accentColor }}>
+          {/* Scale icon down on mobile */}
+          <div className="scale-75 md:scale-100 origin-top-left">{icon}</div>
+        </div>
+        <Button variant="ghost" onClick={onManage} className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 px-2 md:px-4">All →</Button>
       </div>
       <Button 
         onClick={onAdd}
-        className="w-full py-7 rounded-2xl text-[11px] font-black uppercase tracking-widest text-white transition-all active:scale-95 border-none"
+        className="w-full py-4 md:py-7 rounded-xl md:rounded-2xl text-[9px] md:text-[11px] font-black uppercase tracking-widest text-white transition-all active:scale-95 border-none"
         style={{ background: `linear-gradient(135deg, ${accentColor} 0%, ${accentColor}dd 100%)` }}
       >
-        <Plus className="h-4 w-4 mr-2 stroke-[3px]" /> Add New {title.split(' ')[0]}
+        <Plus className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2 stroke-[3px]" /> Add {title.split(' ')[0]}
       </Button>
     </div>
   </div>

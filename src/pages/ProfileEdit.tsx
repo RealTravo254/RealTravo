@@ -50,11 +50,7 @@ const ProfileEdit = () => {
     phone_number: ""
   });
   
-  const [verificationCode, setVerificationCode] = useState("");
-  const [showVerification, setShowVerification] = useState(false);
-  const [sendingCode, setSendingCode] = useState(false);
-  const [verifyingCode, setVerifyingCode] = useState(false);
-  const [originalPhone, setOriginalPhone] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");

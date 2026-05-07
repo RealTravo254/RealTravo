@@ -339,6 +339,7 @@ const CreateHotel = () => {
   const goBack = useSafeBack("/become-host");
   const { toast } = useToast();
   const { user } = useAuth();
+  useBanCheck();
   const [loading, setLoading] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);

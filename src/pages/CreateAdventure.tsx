@@ -478,6 +478,7 @@ const CreateAdventure = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const { usdHint } = useCurrency();
+  useBanCheck();
   const [loading, setLoading] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);

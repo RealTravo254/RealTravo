@@ -59,6 +59,7 @@ const CreateTripEvent = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const { usdHint } = useCurrency();
+  useBanCheck();
   const [loading, setLoading] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [currentStep, setCurrentStep] = useState(1);

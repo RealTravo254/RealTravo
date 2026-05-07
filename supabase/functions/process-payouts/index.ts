@@ -48,13 +48,23 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const body = await req.json().catch(() => ({}));
     const { action } = body;
 
-    // Process scheduled payouts (48h before booking)
+    // Process scheduled payouts (48h before booking) - system/cron only
     if (action === 'process_scheduled' || !action) {
+      // Require internal secret for scheduled processing
+      const internalKey = req.headers.get('x-internal-key');
+      const expectedKey = Deno.env.get('INTERNAL_CRON_KEY') || supabaseServiceKey;
+      if (internalKey !== expectedKey) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized - internal endpoint' }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
       const now = new Date().toISOString();
       
       // Get all scheduled payouts that are due

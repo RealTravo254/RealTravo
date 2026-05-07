@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, CheckCircle2, XCircle, Clock, ShieldCheck, Mail, User, FileText, MapPin, Loader2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, XCircle, Clock, ShieldCheck, Mail, User, FileText, MapPin, Loader2, Ban } from "lucide-react";
 import { TealLoader } from "@/components/ui/teal-loader";
 
 const COLORS = {
@@ -38,6 +38,20 @@ const VerificationDetail = () => {
     selfie: string | null;
     tra: string | null;
   }>({ front: null, back: null, selfie: null, tra: null });
+  const [isBanned, setIsBanned] = useState(false);
+
+  const toggleBan = async () => {
+    if (!verification?.user_id) return;
+    const newStatus = !isBanned;
+    try {
+      const { error } = await supabase.from("profiles").update({ is_banned: newStatus }).eq("id", verification.user_id);
+      if (error) throw error;
+      setIsBanned(newStatus);
+      toast({ title: newStatus ? "User Banned" : "User Unbanned", description: newStatus ? "User can no longer host or create listings." : "User restored." });
+    } catch (e: any) {
+      toast({ title: "Failed", description: e.message, variant: "destructive" });
+    }
+  };
 
   useEffect(() => {
     if (!user) {

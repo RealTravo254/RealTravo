@@ -424,6 +424,21 @@ const CreateHotel = () => {
   };
 
   const handleNext = () => {
+    // Auto-save pending amenity inputs + mark facilities/activities saved if complete
+    setFacilities(prev => prev.map(f => {
+      if (f.saved) return f;
+      let next = { ...f };
+      if (f.amenityInput.trim()) {
+        const val = f.amenityInput.replace(/,/g, "").trim();
+        next = { ...next, amenities: [...next.amenities, val], amenityInput: "" };
+      }
+      if (next.name.trim() && next.amenities.length > 0 && next.capacity.trim() && next.price.trim() && next.images.length >= 2) {
+        next.saved = true;
+      }
+      return next;
+    }));
+    setActivities(prev => prev.map(a => (!a.saved && a.name.trim() ? { ...a, saved: true } : a)));
+
     if (!validateCurrentStep()) return;
     setShowErrors(false);
     setCurrentStep(prev => Math.min(prev + 1, 6));

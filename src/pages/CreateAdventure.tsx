@@ -583,13 +583,24 @@ const CreateAdventure = () => {
   };
 
   const handleNext = () => {
-    // Auto-save any pending amenity input in unsaved facilities
+    // Auto-save any pending amenity input + auto-mark facilities/activities as saved if minimally complete
     setFacilities(prev => prev.map(f => {
-      if (!f.saved && f.amenityInput.trim()) {
+      if (f.saved) return f;
+      let next = { ...f };
+      if (f.amenityInput.trim()) {
         const val = f.amenityInput.replace(/,/g, "").trim();
-        return { ...f, amenities: [...f.amenities, val], amenityInput: "" };
+        next = { ...next, amenities: [...next.amenities, val], amenityInput: "" };
       }
-      return f;
+      // Auto-save when minimum data present
+      if (next.name.trim() && next.amenities.length > 0 && next.capacity.trim() && next.images.length >= 2) {
+        next.saved = true;
+      }
+      return next;
+    }));
+    setActivities(prev => prev.map(a => {
+      if (a.saved) return a;
+      if (a.name.trim()) return { ...a, saved: true };
+      return a;
     }));
 
     if (!validateCurrentStep()) return;

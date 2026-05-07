@@ -178,7 +178,10 @@ const VerificationDetail = () => {
     } finally { setIsProcessing(false); }
   };
 
-  if (loading) return <div className="min-h-screen bg-[#F8F9FA] animate-pulse" />;
+  if (loading) {
+    const { TealLoader } = require("@/components/ui/teal-loader");
+    return <TealLoader text="Loading verification..." />;
+  }
   if (!verification) return null;
 
   return (

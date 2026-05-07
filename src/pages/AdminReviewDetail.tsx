@@ -136,7 +136,10 @@ const AdminReviewDetail = () => {
     window.open(mapUrl, "_blank");
   };
 
-  if (loading || !isAdmin || !item) return <div className="min-h-screen bg-[#F8F9FA] animate-pulse" />;
+  if (loading || !isAdmin || !item) {
+    const { TealLoader } = require("@/components/ui/teal-loader");
+    return <TealLoader text="Loading review details..." />;
+  }
 
   const displayImages = [
     item.image_url,

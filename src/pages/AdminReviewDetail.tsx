@@ -16,6 +16,7 @@ import {
 import { approvalStatusSchema } from "@/lib/validation";
 import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
+import { TealLoader } from "@/components/ui/teal-loader";
 
 const COLORS = {
   TEAL: "#008080",
@@ -136,7 +137,9 @@ const AdminReviewDetail = () => {
     window.open(mapUrl, "_blank");
   };
 
-  if (loading || !isAdmin || !item) return <div className="min-h-screen bg-[#F8F9FA] animate-pulse" />;
+  if (loading || !isAdmin || !item) {
+    return <TealLoader text="Loading review details..." />;
+  }
 
   const displayImages = [
     item.image_url,

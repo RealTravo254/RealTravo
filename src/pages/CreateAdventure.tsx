@@ -11,6 +11,7 @@ import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBanCheck } from "@/hooks/useBanCheck";
 import {
   MapPin, Navigation, Clock, X, Plus, Camera,
   CheckCircle2, Info, ArrowLeft, Loader2, DollarSign,
@@ -478,6 +479,7 @@ const CreateAdventure = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const { usdHint } = useCurrency();
+  useBanCheck();
   const [loading, setLoading] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
@@ -581,13 +583,24 @@ const CreateAdventure = () => {
   };
 
   const handleNext = () => {
-    // Auto-save any pending amenity input in unsaved facilities
+    // Auto-save any pending amenity input + auto-mark facilities/activities as saved if minimally complete
     setFacilities(prev => prev.map(f => {
-      if (!f.saved && f.amenityInput.trim()) {
+      if (f.saved) return f;
+      let next = { ...f };
+      if (f.amenityInput.trim()) {
         const val = f.amenityInput.replace(/,/g, "").trim();
-        return { ...f, amenities: [...f.amenities, val], amenityInput: "" };
+        next = { ...next, amenities: [...next.amenities, val], amenityInput: "" };
       }
-      return f;
+      // Auto-save when minimum data present
+      if (next.name.trim() && next.amenities.length > 0 && next.capacity.trim() && next.images.length >= 2) {
+        next.saved = true;
+      }
+      return next;
+    }));
+    setActivities(prev => prev.map(a => {
+      if (a.saved) return a;
+      if (a.name.trim()) return { ...a, saved: true };
+      return a;
     }));
 
     if (!validateCurrentStep()) return;

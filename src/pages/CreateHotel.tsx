@@ -11,6 +11,7 @@ import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBanCheck } from "@/hooks/useBanCheck";
 import {
   MapPin, Navigation, X, CheckCircle2, Plus, Camera,
   ArrowLeft, Loader2, Clock, DollarSign, Image as ImageIcon,
@@ -339,6 +340,7 @@ const CreateHotel = () => {
   const goBack = useSafeBack("/become-host");
   const { toast } = useToast();
   const { user } = useAuth();
+  useBanCheck();
   const [loading, setLoading] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -422,6 +424,21 @@ const CreateHotel = () => {
   };
 
   const handleNext = () => {
+    // Auto-save pending amenity inputs + mark facilities/activities saved if complete
+    setFacilities(prev => prev.map(f => {
+      if (f.saved) return f;
+      let next = { ...f };
+      if (f.amenityInput.trim()) {
+        const val = f.amenityInput.replace(/,/g, "").trim();
+        next = { ...next, amenities: [...next.amenities, val], amenityInput: "" };
+      }
+      if (next.name.trim() && next.amenities.length > 0 && next.capacity.trim() && next.price.trim() && next.images.length >= 2) {
+        next.saved = true;
+      }
+      return next;
+    }));
+    setActivities(prev => prev.map(a => (!a.saved && a.name.trim() ? { ...a, saved: true } : a)));
+
     if (!validateCurrentStep()) return;
     setShowErrors(false);
     setCurrentStep(prev => Math.min(prev + 1, 6));

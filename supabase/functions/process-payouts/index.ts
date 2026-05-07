@@ -191,10 +191,28 @@ serve(async (req) => {
 
     // Manual withdrawal request with M-Pesa or Bank
     if (action === 'withdraw') {
-      const { user_id, amount, payout_type, payment_method, mpesa_number, bank_code, account_number, account_name } = body;
+      // Require JWT - ignore user_id from body
+      const authHeader = req.headers.get('Authorization');
+      if (!authHeader?.startsWith('Bearer ')) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized' }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey);
+      const token = authHeader.replace('Bearer ', '');
+      const { data: claimsData, error: claimsErr } = await supabaseAuth.auth.getClaims(token);
+      if (claimsErr || !claimsData?.claims?.sub) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized - invalid token' }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      const user_id = claimsData.claims.sub as string;
+      const { amount, payout_type, payment_method, mpesa_number, bank_code, account_number, account_name } = body;
 
-      if (!user_id || !amount) {
-        throw new Error("user_id and amount are required");
+      if (!amount) {
+        throw new Error("amount is required");
       }
 
       if (!payment_method || !['mpesa', 'bank'].includes(payment_method)) {

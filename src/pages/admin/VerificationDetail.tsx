@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, CheckCircle2, XCircle, Clock, ShieldCheck, Mail, User, FileText, MapPin, Loader2 } from "lucide-react";
+import { TealLoader } from "@/components/ui/teal-loader";
 
 const COLORS = {
   TEAL: "#008080",
@@ -179,7 +180,6 @@ const VerificationDetail = () => {
   };
 
   if (loading) {
-    const { TealLoader } = require("@/components/ui/teal-loader");
     return <TealLoader text="Loading verification..." />;
   }
   if (!verification) return null;

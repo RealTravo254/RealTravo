@@ -16,6 +16,7 @@ import {
 import { approvalStatusSchema } from "@/lib/validation";
 import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
+import { TealLoader } from "@/components/ui/teal-loader";
 
 const COLORS = {
   TEAL: "#008080",
@@ -137,7 +138,6 @@ const AdminReviewDetail = () => {
   };
 
   if (loading || !isAdmin || !item) {
-    const { TealLoader } = require("@/components/ui/teal-loader");
     return <TealLoader text="Loading review details..." />;
   }
 

@@ -164,7 +164,6 @@ const AuthCallback = () => {
         id: userId,
         name: fullName,
         gender,
-        friendly_id: friendlyId,
       });
 
       if (error) throw error;

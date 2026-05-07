@@ -127,6 +127,12 @@ const VerificationDetail = () => {
       setVerification(data);
       if (data.rejection_reason) setRejectionReason(data.rejection_reason);
 
+      // Fetch ban status
+      if (data.user_id) {
+        const { data: profile } = await supabase.from("profiles").select("is_banned").eq("id", data.user_id).maybeSingle();
+        setIsBanned(profile?.is_banned || false);
+      }
+
       // Generate signed URLs for private bucket access
       const [frontUrl, backUrl, selfieUrl, traUrl] = await Promise.all([
         getSignedUrl(data.document_front_url),
@@ -349,6 +355,26 @@ const VerificationDetail = () => {
                   <p className="text-xs font-bold text-red-700">{verification.rejection_reason}</p>
                 </div>
               )}
+
+              {/* Ban / Unban control */}
+              <div className="mt-6 pt-6 border-t border-slate-100">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">User Access Control</p>
+                {isBanned && (
+                  <div className="mb-3 p-3 rounded-xl bg-red-50 border border-red-100 text-[10px] font-black uppercase text-red-600 tracking-widest flex items-center gap-2">
+                    <Ban className="h-3 w-3" /> User is currently banned
+                  </div>
+                )}
+                <Button
+                  onClick={toggleBan}
+                  variant={isBanned ? "outline" : "destructive"}
+                  className="w-full py-6 rounded-2xl text-xs font-black uppercase tracking-[0.2em]"
+                >
+                  <Ban className="h-4 w-4 mr-2" /> {isBanned ? "Unban User" : "Ban from Hosting"}
+                </Button>
+                <p className="text-[9px] text-slate-400 mt-2 leading-relaxed">
+                  Banned users cannot create listings or host any items on the platform.
+                </p>
+              </div>
             </div>
           </div>
         </div>

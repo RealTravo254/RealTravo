@@ -41,8 +41,13 @@ const BecomeHost = () => {
 
     const init = async () => {
       try {
-        const { data: profileData } = await supabase.from('profiles').select('profile_completed').eq('id', user.id).single();
+        const { data: profileData } = await supabase.from('profiles').select('profile_completed, is_banned').eq('id', user.id).single();
         if (cancelled) return;
+        if (profileData?.is_banned) {
+          toast({ title: "Account Banned", description: "You have been banned from hosting on this platform.", variant: "destructive" });
+          navigate('/');
+          return;
+        }
         if (profileData && !profileData.profile_completed) {
           navigate('/complete-profile');
           return;

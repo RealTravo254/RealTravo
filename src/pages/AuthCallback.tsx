@@ -163,7 +163,7 @@ const AuthCallback = () => {
       const { error } = await supabase.from("profiles").upsert([{
         id: userId,
         name: fullName,
-        gender,
+        gender: gender as "male" | "female" | "other" | "prefer_not_to_say",
       }]);
 
       if (error) throw error;

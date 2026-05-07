@@ -160,11 +160,11 @@ const AuthCallback = () => {
       const friendlyId = generateUserFriendlyId(userEmail);
 
       // Upsert the profile
-      const { error } = await supabase.from("profiles").upsert({
+      const { error } = await supabase.from("profiles").upsert([{
         id: userId,
         name: fullName,
         gender,
-      });
+      }]);
 
       if (error) throw error;
 

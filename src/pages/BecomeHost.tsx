@@ -7,7 +7,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import { Plane, Plus, ArrowLeft, LayoutDashboard, Map, Building2, Users, CalendarDays } from "lucide-react";
+import { 
+  Plane, 
+  Plus, 
+  ArrowLeft, 
+  LayoutDashboard, 
+  Map, 
+  Building2, 
+  Users, 
+  CalendarDays, 
+  Tent 
+} from "lucide-react";
 
 const COLORS = {
   TEAL: "#008080",
@@ -92,14 +102,14 @@ const BecomeHost = () => {
 
         const [trips, hotels] = await Promise.all([
           supabase.from("trips").select("id,name,type,approval_status").eq("created_by", user.id),
-          supabase.from("hotels").select("id,name,approval_status").eq("created_by", user.id),
+          supabase.from("hotels").select("id,name,approval_status, category").eq("created_by", user.id),
         ]);
 
         if (cancelled) return;
 
         const allContent = [
           ...(trips.data?.map(t => ({ ...t, contentType: t.type || "trip" })) || []),
-          ...(hotels.data?.map(h => ({ ...h, contentType: "hotel" })) || []),
+          ...(hotels.data?.map(h => ({ ...h, contentType: h.category === 'campsite' ? 'campsite' : 'hotel' })) || []),
         ];
         setMyContent(allContent);
         setShowTypeSelection(false);
@@ -126,7 +136,6 @@ const BecomeHost = () => {
     </div>
   );
 
-  // SELECTION VIEW
   if (showTypeSelection) {
     return (
       <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
@@ -174,7 +183,6 @@ const BecomeHost = () => {
     );
   }
 
-  // DASHBOARD VIEW
   return (
     <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
       <div className="block"><Header /></div>
@@ -202,7 +210,7 @@ const BecomeHost = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-1 gap-4 md:gap-4">
+        <div className="grid grid-cols-1 gap-6">
           {((hasCompany && companyStatus === 'approved') || (verificationStatus === 'approved' && !hostingCategory)) && (
             <HostCategoryCard
               title="Fixed Trips"
@@ -228,6 +236,19 @@ const BecomeHost = () => {
               onManage={() => navigate("/host/trips")}
               onAdd={() => navigate("/create-trip?flexible=true")}
               accentColor={COLORS.TEAL}
+            />
+          )}
+
+          {((hasCompany && companyStatus === 'approved') || (verificationStatus === 'approved')) && (
+            <HostCategoryCard
+              title="Adventure Places"
+              subtitle="Campsites & Nature Parks"
+              image="/images/category-campsite.webp"
+              icon={<Tent className="h-8 w-8" />}
+              count={myContent.filter(i => i.contentType === 'campsite').length}
+              onManage={() => navigate("/host/hotels")}
+              onAdd={() => navigate("/create-hotel?type=campsite")}
+              accentColor={COLORS.KHAKI_DARK}
             />
           )}
 
@@ -263,7 +284,6 @@ const SelectionCard = ({ icon, title, desc, onClick, bg }: any) => (
 
 const HostCategoryCard = ({ title, subtitle, image, icon, count, onManage, onAdd, accentColor }: any) => (
   <div className="group bg-white rounded-[24px] overflow-hidden shadow-xl border border-slate-100 flex flex-col h-[320px] md:h-[160px] md:flex-row">
-    {/* Image panel — top half on mobile, fixed-width left panel on desktop */}
     <div className="relative h-1/2 md:h-full md:w-56 md:shrink-0 overflow-hidden">
       <img src={image} alt={title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
       <div className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-black/80 via-black/30 to-transparent" />
@@ -275,9 +295,7 @@ const HostCategoryCard = ({ title, subtitle, image, icon, count, onManage, onAdd
         <h2 className="text-base md:text-lg font-black text-white uppercase tracking-tighter">{title}</h2>
       </div>
     </div>
-    {/* Content panel */}
     <div className="p-4 md:px-6 md:py-4 flex flex-col justify-between flex-1">
-      {/* Mobile: icon + All button row; Desktop: same but inline */}
       <div className="flex items-center justify-between">
         <div className="p-2 rounded-xl" style={{ backgroundColor: `${accentColor}15`, color: accentColor }}>
           <div className="scale-75 origin-center">{icon}</div>

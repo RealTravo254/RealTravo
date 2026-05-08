@@ -10,7 +10,7 @@ import { format } from "date-fns";
 import { BookingDownloadButton } from "@/components/booking/BookingDownloadButton";
 
 const ITEMS_PER_PAGE = 20;
-
+  
 interface Booking {
   id: string; booking_type: string; total_amount: number; booking_details: any;
   payment_status: string; status: string; created_at: string;

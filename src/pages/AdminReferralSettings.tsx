@@ -13,7 +13,7 @@ import { ArrowLeft, Settings, Info, Percent, ShieldCheck } from "lucide-react";
 
 const COLORS = {
   TEAL: "#008080",
-  CORAL: "#FF7F50",
+  CORAL: "#FF7F50", 
   CORAL_LIGHT: "#FF9E7A",
   KHAKI: "#F0E68C",
   KHAKI_DARK: "#857F3E",

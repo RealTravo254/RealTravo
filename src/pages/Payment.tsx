@@ -15,7 +15,7 @@ import { SEOHead } from "@/components/SEOHead";
 import { useCurrency } from "@/contexts/CurrencyContext";
 
 export default function Payment() {
-  const { formatPrice } = useCurrency();
+  const { formatPrice } = useCurrency(); 
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();

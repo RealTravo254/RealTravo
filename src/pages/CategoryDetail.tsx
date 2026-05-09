@@ -32,7 +32,7 @@ const CategoryDetail = () => {
   const [userId, setUserId] = useState<string | null>(null);
   const [selectedCounty, setSelectedCounty] = useState<string>(searchParams.get("county") || "All");
 
-  // County tabs only for campsite and guided (events removed)
+  // County tabs only for campsite and guided
   const showCountyTabs = category === "campsite" || category === "guided";
 
   const { position } = useGeolocation();
@@ -47,11 +47,12 @@ const CategoryDetail = () => {
     setSearchFocused(v);
   }, [setSearchFocused]);
 
+  // Events category intentionally removed
   const categoryConfig: { [key: string]: any } = {
-    trips:     { title: "Trips",                  tables: ["trips"],            type: "TRIP",           tripType: "trip",  filterType: "trips-events" },
-    adventure: { title: "Attractions",            tables: ["adventure_places"], type: "ATTRACTION",                        filterType: "adventure" },
-    campsite:  { title: "Campsite & Experience",  tables: ["adventure_places"], type: "ADVENTURE PLACE",                   filterType: "adventure" },
-    guided:    { title: "Guided Tours",           tables: ["trips"],            type: "TRIP",           tripType: "trip",  filterType: "trips-events", flexibleOnly: true },
+    trips:     { title: "Trips",               tables: ["trips"],            type: "TRIP",           tripType: "trip", filterType: "trips" },
+    adventure: { title: "Attractions",         tables: ["adventure_places"], type: "ADVENTURE PLACE",                  filterType: "adventure" },
+    campsite:  { title: "Campsite & Experience", tables: ["adventure_places"], type: "ADVENTURE PLACE",                filterType: "adventure" },
+    guided:    { title: "Guided Tours",        tables: ["trips"],            type: "TRIP",           tripType: "trip", filterType: "trips", flexibleOnly: true },
   };
 
   const config = category ? categoryConfig[category] : null;

@@ -643,7 +643,7 @@ const Index = () => {
 
       {/* Hero */}
       {!isSearchFocused && (
-        <div ref={searchRef} className="w-full" style={{ marginTop: headerHeight }}>
+        <div ref={searchRef} className="w-full" style={{ marginTop: `calc(${headerHeight}px + 2mm)` }}>
           <div className="md:container md:mx-auto md:px-6">
             <div className="relative w-full flex flex-col px-4 md:px-8 pt-8 md:pt-0 pb-5 md:pb-6 overflow-hidden">
               <img src="/images/hero-background.webp" alt="" aria-hidden="true"

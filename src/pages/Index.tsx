@@ -246,8 +246,20 @@ const Index = () => {
 
   const [showSearchIcon, setShowSearchIcon]       = useState(false);
   const [isIndexDrawerOpen, setIsIndexDrawerOpen] = useState(false);
+  const [headerHeight, setHeaderHeight]           = useState(0);
   const searchRef   = useRef<HTMLDivElement>(null);
   const countiesRef = useRef<HTMLDivElement>(null);
+
+  // Measure the fixed header height so the hero sits exactly below it
+  useEffect(() => {
+    const measure = () => {
+      const header = document.querySelector("header");
+      if (header) setHeaderHeight(header.getBoundingClientRect().height);
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
 
   const [scrollableRows, setScrollableRows] = useState<{
     trips: any[]; hotels: any[]; attractions: any[];
@@ -631,7 +643,7 @@ const Index = () => {
 
       {/* Hero */}
       {!isSearchFocused && (
-        <div ref={searchRef} className="w-full" style={{ marginTop: "58px" }}>
+        <div ref={searchRef} className="w-full" style={{ marginTop: headerHeight }}>
           <div className="md:container md:mx-auto md:px-6">
             <div className="relative w-full flex flex-col px-4 md:px-8 pt-8 md:pt-0 pb-5 md:pb-6 overflow-hidden">
               <img src="/images/hero-background.webp" alt="" aria-hidden="true"

@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import { Plane, Plus, ArrowLeft, LayoutDashboard, Map, Building2, Users, CalendarDays, Tent } from "lucide-react";
+import { Plane, Plus, ArrowLeft, LayoutDashboard, Map, Building2, Tent } from "lucide-react";
 
 const COLORS = {
   TEAL: "#008080",
@@ -16,7 +16,7 @@ const COLORS = {
   SOFT_GRAY: "#F8F9FA"
 };
 
-type HostType = 'guide' | 'company' | 'event' | 'adventure';
+type HostType = 'guide' | 'company' | 'adventure';
 type HostingCategory = 'guide' | 'company' | 'adventure' | null;
 
 const BecomeHost = () => {
@@ -41,13 +41,15 @@ const BecomeHost = () => {
 
     const init = async () => {
       try {
-        const { data: profileData } = await supabase.from('profiles').select('profile_completed, is_banned').eq('id', user.id).single();
+        const { data: profileData } = await supabase.from('profiles').select('profile_completed, is_banned').eq(user.id, user.id).single();
         if (cancelled) return;
+
         if (profileData?.is_banned) {
           toast({ title: "Account Banned", description: "You have been banned from hosting.", variant: "destructive" });
           navigate('/');
           return;
         }
+
         if (profileData && !profileData.profile_completed) {
           navigate('/complete-profile');
           return;
@@ -73,7 +75,6 @@ const BecomeHost = () => {
         setHasCompany(!!company);
         setCompanyStatus(company?.verification_status || null);
 
-        // Show selection screen if no verification exists yet
         if (!hasV && !company) {
           setShowTypeSelection(true);
           setLoading(false);
@@ -81,15 +82,15 @@ const BecomeHost = () => {
         }
 
         const [trips, hotels] = await Promise.all([
-          supabase.from("trips").select("id,name,type,approval_status").eq("created_by", user.id),
-          supabase.from("hotels").select("id,name,approval_status").eq("created_by", user.id),
+          supabase.from("trips").select("id,name,type").eq("created_by", user.id),
+          supabase.from("hotels").select("id,name,category").eq("created_by", user.id),
         ]);
 
         if (cancelled) return;
 
         const allContent = [
-          ...(trips.data?.map(t => ({ ...t, contentType: t.type || "trip" })) || []),
-          ...(hotels.data?.map(h => ({ ...h, contentType: "hotel" })) || []),
+          ...(trips.data?.map(t => ({ ...t, contentType: 'trip' })) || []),
+          ...(hotels.data?.map(h => ({ ...h, contentType: 'hotel' })) || []),
         ];
         setMyContent(allContent);
         setShowTypeSelection(false);
@@ -100,24 +101,19 @@ const BecomeHost = () => {
       }
     };
     init();
-
     return () => { cancelled = true; };
   }, [user, navigate]);
 
   const handleHostTypeSelect = (type: HostType) => {
-    if (type === 'guide') navigate("/host-verification?category=guide");
-    else if (type === 'company') navigate("/host-verification?category=company");
-    else if (type === 'event') navigate("/create-event");
-    else if (type === 'adventure') navigate("/host-verification?category=adventure");
+    navigate(`/host-verification?category=${type}`);
   };
 
   if (loading) return (
-    <div className="min-h-screen bg-[#F8F9FA] flex flex-col items-center justify-center">
+    <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
       <div className="h-10 w-10 border-4 border-[#008080] border-t-transparent rounded-full animate-spin" />
     </div>
   );
 
-  // SELECTION VIEW (Shown BEFORE Verification)
   if (showTypeSelection) {
     return (
       <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
@@ -128,34 +124,33 @@ const BecomeHost = () => {
               <ArrowLeft className="h-5 w-5 text-slate-600" />
             </Button>
             <Badge className="bg-[#008080] text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
-              Join Our Hosts
+              Become a Host
             </Badge>
           </div>
 
           <h1 className="text-3xl md:text-4xl font-black uppercase tracking-tighter text-slate-900 mb-8">
-            How do you want to <span style={{ color: COLORS.CORAL }}>start?</span>
+            Choose your <span style={{ color: COLORS.CORAL }}>Hosting Type</span>
           </h1>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <SelectionCard
               icon={<Tent className="h-8 w-8 text-emerald-600" />}
               title="Adventure Place"
-              desc="List your campsite or adventure park. Start listing before full verification."
+              desc="List your campsite, park, or private adventure destination."
               onClick={() => handleHostTypeSelect('adventure')}
               bg="bg-emerald-50"
             />
-            {/* The others remain as options for starting the verification process */}
             <SelectionCard
               icon={<Map className="h-8 w-8 text-blue-600" />}
               title="Tour Guide"
-              desc="Get verified to host flexible trips and guided tours."
+              desc="Host flexible trips and guided tours."
               onClick={() => handleHostTypeSelect('guide')}
               bg="bg-blue-50"
             />
             <SelectionCard
               icon={<Building2 className="h-8 w-8 text-orange-600" />}
               title="Register Company"
-              desc="Register as a company for fixed-date trips and hotels."
+              desc="Host fixed-date trips and hotels via your business."
               onClick={() => handleHostTypeSelect('company')}
               bg="bg-orange-50"
             />
@@ -166,25 +161,29 @@ const BecomeHost = () => {
     );
   }
 
-  // DASHBOARD VIEW (AFTER Verification)
   return (
     <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
       <Header />
       <main className="flex-1 container px-4 py-12 mx-auto mb-24">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
-          <div className="space-y-2">
-            <h1 className="text-4xl font-black uppercase tracking-tighter text-slate-900">
-              Manage Your <span style={{ color: COLORS.CORAL }}>Inventory</span>
-            </h1>
+          <h1 className="text-4xl font-black uppercase tracking-tighter text-slate-900">
+            Manage <span style={{ color: COLORS.CORAL }}>Inventory</span>
+          </h1>
+          <div className="bg-white p-4 rounded-[24px] shadow-sm border flex items-center gap-3">
+            <LayoutDashboard className="h-5 w-5 text-[#857F3E]" />
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Active Assets</p>
+              <p className="text-xl font-black text-slate-800">{myContent.length}</p>
+            </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* 1. Adventure Places: Visible only for Adventure Category Hosts */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Adventure Dashboard */}
           {hostingCategory === 'adventure' && (
             <HostCategoryCard
               title="Adventure Places"
-              subtitle="Manage your listed parks/camps"
+              subtitle="Campsites & Parks"
               image="/images/category-campsite.webp"
               icon={<Tent className="h-8 w-8" />}
               count={myContent.filter(i => i.contentType === 'hotel').length}
@@ -194,41 +193,17 @@ const BecomeHost = () => {
             />
           )}
 
-          {/* 2. Events: Visible to Adventure Hosts AND standard Verified Hosts */}
-          {(hostingCategory === 'adventure' || verificationStatus === 'approved') && (
-            <HostCategoryCard
-              title="Events"
-              subtitle="Host sports & socials"
-              image="/images/category-campsite.webp"
-              icon={<Users className="h-8 w-8" />}
-              count={myContent.filter(i => i.contentType === 'event').length}
-              onManage={() => navigate("/host/trips")}
-              onAdd={() => navigate("/create-event")}
-              accentColor={COLORS.KHAKI_DARK}
-            />
-          )}
-
-          {/* 3. Trips/Guides: Only visible to Non-Adventure verified hosts */}
-          {hostingCategory !== 'adventure' && verificationStatus === 'approved' && (
+          {/* Standard Host Dashboard */}
+          {hostingCategory !== 'adventure' && (verificationStatus === 'approved' || companyStatus === 'approved') && (
             <>
               <HostCategoryCard
-                title="Fixed Trips"
-                subtitle="Fixed-Date Tours"
-                image="/images/category-trips.webp"
-                icon={<Plane className="h-8 w-8" />}
-                count={myContent.filter(i => i.contentType === 'trip').length}
-                onManage={() => navigate("/host/trips")}
-                onAdd={() => navigate("/create-trip")}
-                accentColor={COLORS.TEAL}
-              />
-              <HostCategoryCard
-                title="Guided Tours"
-                subtitle="Flexible Trips"
+                title="Trips & Tours"
+                subtitle="Guided Experiences"
                 image="/images/category-trips.webp"
                 icon={<Map className="h-8 w-8" />}
                 count={myContent.filter(i => i.contentType === 'trip').length}
                 onManage={() => navigate("/host/trips")}
-                onAdd={() => navigate("/create-trip?flexible=true")}
+                onAdd={() => navigate("/create-trip")}
                 accentColor={COLORS.TEAL}
               />
             </>
@@ -240,17 +215,15 @@ const BecomeHost = () => {
   );
 };
 
-// ... SelectionCard and HostCategoryCard components remain exactly as they were in your snippet.
-
 const SelectionCard = ({ icon, title, desc, onClick, bg }: any) => (
-  <button onClick={onClick} className="group bg-white rounded-[24px] p-6 shadow-lg border border-slate-100 text-left transition-all hover:shadow-xl">
+  <button onClick={onClick} className="group bg-white rounded-[24px] p-6 shadow-lg border border-slate-100 text-left transition-all hover:shadow-xl hover:-translate-y-1">
     <div className={`p-4 rounded-2xl w-fit mb-4 ${bg} group-hover:bg-[#008080] transition-colors`}>
       <div className="group-hover:text-white transition-colors">{icon}</div>
     </div>
     <h3 className="text-xl font-black uppercase tracking-tight text-slate-900 mb-2">{title}</h3>
     <p className="text-sm text-slate-500 leading-relaxed mb-6">{desc}</p>
     <div className="py-2.5 rounded-xl text-center text-xs font-bold uppercase tracking-widest border-2 border-slate-200 group-hover:border-[#008080] group-hover:text-[#008080] transition-colors">
-      Get Started →
+      Start Application →
     </div>
   </button>
 );

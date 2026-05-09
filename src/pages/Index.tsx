@@ -217,14 +217,13 @@ GridSection.displayName = "GridSection";
 const CATEGORIES = [
   { icon: Tent,     title: "Adventures",   path: "/category/campsite", bgImage: "/images/category-adventures.jpg" },
   { icon: Calendar, title: "Trips",        path: "/category/trips",    bgImage: "/images/category-trips.jpg" },
-  { icon: Compass,  title: "Events",       path: "/category/events",   bgImage: "/images/category-events.jpg" },
-  { icon: MapPin,   title: "Guided Tours", path: "/category/guided",   bgImage: "/images/category-trips.jpg" },
+  { icon: Compass,  title: "Guided Tours", path: "/category/guided",   bgImage: "/images/category-trips.jpg" },
+  { icon: MapPin,   title: "Nearby",       path: "/category/campsite", bgImage: "/images/category-adventures.jpg" },
 ];
 
 // ── Quick-nav shortcuts ───────────────────────────────────────────────────────
 const QUICK_NAV = [
   { icon: Calendar, title: "Trips",            path: "/category/trips",    color: "hsl(25, 90%, 50%)"  },
-  { icon: Trophy,   title: "Events & Sports",  path: "/category/events",   color: "hsl(340, 75%, 50%)" },
   { icon: Tent,     title: "Adventure Places", path: "/category/campsite", color: "hsl(142, 70%, 35%)" },
   { icon: Ticket,   title: "Bookings",         path: "/bookings",          color: "hsl(200, 70%, 45%)" },
   { icon: Heart,    title: "Saved",            path: "/saved",             color: "hsl(350, 80%, 55%)" },
@@ -252,8 +251,8 @@ const Index = () => {
 
   const [scrollableRows, setScrollableRows] = useState<{
     trips: any[]; hotels: any[]; attractions: any[];
-    campsites: any[]; events: any[]; accommodations: any[]; guidedTrips: any[];
-  }>({ trips: [], hotels: [], attractions: [], campsites: [], events: [], accommodations: [], guidedTrips: [] });
+    campsites: any[]; accommodations: any[]; guidedTrips: any[];
+  }>({ trips: [], hotels: [], attractions: [], campsites: [], accommodations: [], guidedTrips: [] });
 
   const [nearbyPlacesHotels, setNearbyPlacesHotels] = useState<any[]>([]);
   const [loadingScrollable, setLoadingScrollable]   = useState(true);
@@ -273,18 +272,17 @@ const Index = () => {
     nearbyPlacesHotels.forEach(i => ids.add(i.id));
     scrollableRows.trips.forEach(i => ids.add(i.id));
     scrollableRows.campsites.forEach(i => ids.add(i.id));
-    scrollableRows.events.forEach(i => ids.add(i.id));
     scrollableRows.guidedTrips.forEach(i => ids.add(i.id));
     return Array.from(ids);
   }, [listings, nearbyPlacesHotels, scrollableRows]);
 
-  const tripEventIds = useMemo(() => {
-    const ids = [...scrollableRows.trips, ...scrollableRows.events, ...scrollableRows.guidedTrips].map(i => i.id);
-    listings.forEach(i => { if (i.type === "TRIP" || i.type === "EVENT") ids.push(i.id); });
+  const tripIds = useMemo(() => {
+    const ids = [...scrollableRows.trips, ...scrollableRows.guidedTrips].map(i => i.id);
+    listings.forEach(i => { if (i.type === "TRIP") ids.push(i.id); });
     return [...new Set(ids)];
-  }, [scrollableRows.trips, scrollableRows.events, scrollableRows.guidedTrips, listings]);
+  }, [scrollableRows.trips, scrollableRows.guidedTrips, listings]);
 
-  const { bookingStats } = useRealtimeBookings(tripEventIds);
+  const { bookingStats } = useRealtimeBookings(tripIds);
   const { ratings }      = useRatings(allItemIds);
 
   const sortedNearbyPlaces = useMemo(
@@ -296,7 +294,6 @@ const Index = () => {
     const today = new Date().toISOString().split("T")[0];
     const allItems = [
       ...scrollableRows.trips.map(i       => ({ ...i, _itemType: "TRIP"            as const })),
-      ...scrollableRows.events.map(i      => ({ ...i, _itemType: "EVENT"           as const })),
       ...scrollableRows.guidedTrips.map(i => ({ ...i, _itemType: "TRIP"            as const })),
       ...scrollableRows.campsites.map(i   => ({ ...i, _itemType: "ADVENTURE PLACE" as const })),
     ];
@@ -326,7 +323,7 @@ const Index = () => {
     setLoadingScrollable(true);
     const fetchLimit = Math.max(limit * 3, 60);
     try {
-      const [tripsData, campsitesData, eventsData, guidedData] = await Promise.all([
+      const [tripsData, campsitesData, guidedData] = await Promise.all([
         supabase
           .from("trips")
           .select("id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child,description,opening_hours,closing_hours")
@@ -341,11 +338,6 @@ const Index = () => {
           .from("trips")
           .select("id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child,description,opening_hours,closing_hours")
           .eq("approval_status", "approved").eq("is_hidden", false)
-          .eq("type", "event").order("date", { ascending: true }).limit(fetchLimit),
-        supabase
-          .from("trips")
-          .select("id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child,description,opening_hours,closing_hours")
-          .eq("approval_status", "approved").eq("is_hidden", false)
           .eq("type", "trip").or("is_flexible_date.eq.true,is_custom_date.eq.true")
           .order("created_at", { ascending: false }).limit(fetchLimit),
       ]);
@@ -354,7 +346,6 @@ const Index = () => {
         hotels:         [],
         attractions:    [],
         campsites:      campsitesData.data || [],
-        events:         eventsData.data    || [],
         accommodations: [],
         guidedTrips:    guidedData.data    || [],
       });
@@ -392,16 +383,6 @@ const Index = () => {
     setLoading(true);
     const today = new Date().toISOString().split("T")[0];
 
-    const fetchEvents = async () => {
-      let q = supabase.from("trips")
-        .select("id,name,location,place,country,image_url,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child,description")
-        .eq("approval_status", "approved").eq("is_hidden", false).eq("type", "event")
-        .or(`date.gte.${today},is_flexible_date.eq.true`);
-      if (query) { const p = `%${query}%`; q = q.or(`name.ilike.${p},location.ilike.${p},country.ilike.${p}`); }
-      const { data } = await q.order("date", { ascending: true }).range(offset, offset + limit - 1);
-      return (data || []).map((i: any) => ({ ...i, type: "EVENT" }));
-    };
-
     const fetchTable = async (table: "adventure_places", type: string) => {
       let q = supabase.from(table)
         .select("id,name,location,place,country,image_url,entry_fee,activities,latitude,longitude,created_at,description")
@@ -420,8 +401,8 @@ const Index = () => {
       return (data || []).map((i: any) => ({ ...i, type: "TRIP" }));
     };
 
-    const [events, trips, adventures] = await Promise.all([fetchEvents(), fetchTrips(), fetchTable("adventure_places", "ADVENTURE PLACE")]);
-    const combined = [...adventures, ...trips, ...events].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    const [trips, adventures] = await Promise.all([fetchTrips(), fetchTable("adventure_places", "ADVENTURE PLACE")]);
+    const combined = [...adventures, ...trips].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     if (offset === 0) { setListings(combined); setHasMoreSearchResults(true); }
     else              { setListings(prev => [...prev, ...combined]); }
     if (combined.length < limit) setHasMoreSearchResults(false);
@@ -463,14 +444,14 @@ const Index = () => {
       const c = (cached.scrollableRows as any) || {};
       const rows = {
         trips: c.trips || [], hotels: c.hotels || [], attractions: c.attractions || [],
-        campsites: c.campsites || [], events: c.events || [], accommodations: c.accommodations || [],
+        campsites: c.campsites || [], accommodations: c.accommodations || [],
         guidedTrips: c.guidedTrips || [],
       };
       setScrollableRows(rows);
       setNearbyPlacesHotels(cached.nearbyPlacesHotels || []);
       setLoading(false); setLoadingScrollable(false); setLoadingNearby(false);
       const age = Date.now() - (cached.cachedAt || 0);
-      const hasData = rows.trips.length > 0 || rows.campsites.length > 0 || rows.events.length > 0;
+      const hasData = rows.trips.length > 0 || rows.campsites.length > 0;
       if (age < 5 * 60 * 1000 && hasData) { getUserId().then(setUserId); return; }
     }
     fetchAllData();
@@ -479,7 +460,7 @@ const Index = () => {
   }, [cardLimit, fetchScrollableRows, fetchAllData]);
 
   useEffect(() => {
-    const hasData = scrollableRows.trips.length > 0 || scrollableRows.campsites.length > 0 || scrollableRows.events.length > 0;
+    const hasData = scrollableRows.trips.length > 0 || scrollableRows.campsites.length > 0;
     if (!loading && !loadingScrollable && listings.length > 0 && hasData)
       setCachedHomePageData({ scrollableRows, listings, nearbyPlacesHotels });
   }, [loading, loadingScrollable, listings, scrollableRows, nearbyPlacesHotels]);
@@ -681,7 +662,7 @@ const Index = () => {
                 {CATEGORIES.map(cat => (
                   <div
                     key={cat.title}
-                    onClick={() => navigate("/explore")}
+                    onClick={() => navigate(cat.path)}
                     className="cursor-pointer rounded-lg relative w-full flex flex-col items-center justify-center gap-1 px-2 py-2 md:py-4 overflow-hidden"
                     style={{ height: "clamp(60px, 8vw, 144px)" }}
                   >
@@ -753,7 +734,7 @@ const Index = () => {
             {/* Quick Navigation */}
             <section className="mb-4 md:mb-8">
               <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-3">Quick Access</h2>
-              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {QUICK_NAV.map(nav => (
                   <button key={nav.title} onClick={() => navigate(nav.path)}
                     className="flex flex-col items-center gap-1.5 py-3 px-2 rounded-2xl bg-card border border-border hover:shadow-md transition-all active:scale-95"

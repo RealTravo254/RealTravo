@@ -217,7 +217,7 @@ GridSection.displayName = "GridSection";
 const CATEGORIES = [
   { icon: Tent,     title: "Adventures",   path: "/category/campsite", bgImage: "/images/category-adventures.jpg" },
   { icon: Calendar, title: "Trips",        path: "/category/trips",    bgImage: "/images/category-trips.jpg" },
-  { icon: Compass,  title: "Guided Tours", path: "/category/guided",   bgImage: "/images/category-trips.jpg" },
+  { icon: Compass,  title: "Guided Tours", path: "/category/guided",   bgImage: "/images/category-nearby.jpg" },
 ];
 
 // ── Quick-nav shortcuts ───────────────────────────────────────────────────────
@@ -629,9 +629,9 @@ const Index = () => {
 
       {/* Hero */}
       {!isSearchFocused && (
-        <div ref={searchRef} className="w-full">
-          <div className="md:container md:mx-auto md:px-6">
-            <div className="relative w-full flex flex-col px-4 md:px-8 pt-8 md:pt-10 pb-5 md:pb-6 overflow-hidden">
+        <div ref={searchRef} className="w-full" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 56px)" }}>
+          <div className="md:container md:mx-auto md:px-6" style={{ paddingTop: 0 }}>
+            <div className="relative w-full flex flex-col px-4 md:px-8 pt-0 md:pt-10 pb-5 md:pb-6 overflow-hidden">
               <img src="/images/hero-background.webp" alt="" aria-hidden="true"
                 fetchPriority="high" loading="eager" decoding="async"
                 className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none select-none" />

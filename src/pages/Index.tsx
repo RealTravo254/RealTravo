@@ -631,9 +631,9 @@ const Index = () => {
 
       {/* Hero */}
       {!isSearchFocused && (
-        <div ref={searchRef} className="w-full md:pt-1">
+        <div ref={searchRef} className="w-full md:pt-[60px]">
           <div className="md:container md:mx-auto md:px-6">
-            <div className="relative w-full flex flex-col px-4 md:px-8 pt-8 md:pt-10 pb-5 md:pb-6 overflow-hidden">
+            <div className="relative w-full flex flex-col px-4 md:px-8 pt-8 md:pt-2 pb-5 md:pb-6 overflow-hidden">
               <img src="/images/hero-background.webp" alt="" aria-hidden="true"
                 fetchPriority="high" loading="eager" decoding="async"
                 className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none select-none" />

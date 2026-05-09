@@ -10,8 +10,8 @@ import { SearchBarWithSuggestions } from "@/components/SearchBarWithSuggestions"
 import { useSearchFocus } from "@/components/PageLayout";
 import { ListingCard } from "@/components/ListingCard";
 import {
-  Calendar, Tent, Compass, MapPin, ChevronLeft, ChevronRight,
-  Loader2, Navigation, Heart, Ticket, Trophy, Star, Search as SearchIcon,
+  Calendar, Tent, Compass, ChevronLeft, ChevronRight,
+  Loader2, Navigation, Heart, Ticket, Star, Search as SearchIcon,
 } from "lucide-react";
 import { FEATURED_COUNTIES, COUNTY_IMAGES } from "@/lib/kenyaCounties";
 import {
@@ -218,7 +218,6 @@ const CATEGORIES = [
   { icon: Tent,     title: "Adventures",   path: "/category/campsite", bgImage: "/images/category-adventures.jpg" },
   { icon: Calendar, title: "Trips",        path: "/category/trips",    bgImage: "/images/category-trips.jpg" },
   { icon: Compass,  title: "Guided Tours", path: "/category/guided",   bgImage: "/images/category-trips.jpg" },
-  { icon: MapPin,   title: "Nearby",       path: "/category/campsite", bgImage: "/images/category-adventures.jpg" },
 ];
 
 // ── Quick-nav shortcuts ───────────────────────────────────────────────────────
@@ -658,7 +657,7 @@ const Index = () => {
               </div>
 
               {/* Hero category cards */}
-              <div className="relative z-10 w-full grid grid-cols-4 gap-2 md:gap-3 mt-2">
+              <div className="relative z-10 w-full grid grid-cols-3 gap-2 md:gap-3 mt-2">
                 {CATEGORIES.map(cat => (
                   <div
                     key={cat.title}
@@ -668,7 +667,7 @@ const Index = () => {
                   >
                     <img src={cat.bgImage} alt="" aria-hidden="true" fetchPriority="high" loading="eager" decoding="async"
                       className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none select-none rounded-lg" />
-                    <div className="absolute inset-0 rounded-lg bg-black/60" />
+                    <div className="absolute inset-0 rounded-lg bg-black/35" />
                     <cat.icon className="relative z-10 h-3 w-3 md:h-6 md:w-6 text-white shrink-0" />
                     <span className="relative z-10 text-white text-[10px] md:text-sm font-bold leading-none whitespace-nowrap">
                       {cat.title}

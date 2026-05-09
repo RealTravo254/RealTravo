@@ -8,14 +8,34 @@ import { useNavigate } from "react-router-dom";
 import { createDetailPath } from "@/lib/slugUtils";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 
-const PriceText = ({ price, isUnavailable, type }: { price: number; isUnavailable: boolean; type: string }) => {
+// ── Price label logic ─────────────────────────────────────────────────────────
+// - Guided tours (flexible-date trips) → "/group"
+// - Hotels / Accommodations            → "/night"
+// - Everything else                    → "/person"
+const getPriceLabel = (type: string, isFlexibleDate: boolean, isTrip: boolean) => {
+  if (isFlexibleDate && isTrip) return "/group";
+  if (["HOTEL", "ACCOMMODATION"].includes(type)) return "/night";
+  return "/person";
+};
+
+const PriceText = ({
+  price,
+  isUnavailable,
+  type,
+  isFlexibleDate,
+  isTrip,
+}: {
+  price: number;
+  isUnavailable: boolean;
+  type: string;
+  isFlexibleDate: boolean;
+  isTrip: boolean;
+}) => {
   const { formatPrice } = useCurrency();
-  const label = ['HOTEL', 'ACCOMMODATION'].includes(type) ? '/night' : '/person';
+  const label = getPriceLabel(type, isFlexibleDate, isTrip);
+
   return (
-    <div className={cn(
-      "flex items-center gap-1",
-      isUnavailable && "opacity-50 line-through"
-    )}>
+    <div className={cn("flex items-center gap-1", isUnavailable && "opacity-50 line-through")}>
       <span className="text-xs font-bold text-slate-900 whitespace-nowrap">{formatPrice(price)}</span>
       <span className="text-[8px] text-slate-500 font-medium">{label}</span>
     </div>
@@ -95,14 +115,17 @@ const ListingCardComponent = ({
   const fewSlotsRemaining = tracksAvailability && remainingTickets > 0 && remainingTickets <= 10;
   const isUnavailable = isOutdated || isSoldOut;
 
+  // A flexible-date trip = Guided Tour
+  const isGuidedTour = isFlexibleDate && isTrip;
+
   const displayType = useMemo(() => {
-    if (isFlexibleDate && isTrip) return "Guided Tour";
+    if (isGuidedTour) return "Guided Tour";
     if (isEventOrSport) return "Event";
     if (type === "ADVENTURE PLACE") return "Adventure";
     if (type === "HOTEL") return "Hotel";
     if (type === "TRIP") return "Trip";
     return type.replace('_', ' ');
-  }, [isEventOrSport, type, isFlexibleDate, isTrip]);
+  }, [isEventOrSport, type, isGuidedTour]);
 
   const formattedName = useMemo(() => name.toLowerCase().replace(/\b\w/g, c => c.toUpperCase()), [name]);
   const locationString = useMemo(() => [place, location].filter(Boolean).join(', '), [place, location]);
@@ -305,9 +328,15 @@ const ListingCardComponent = ({
           <span className="text-[10px] font-medium truncate capitalize">{locationString.toLowerCase()}</span>
         </div>
 
-        {/* Price */}
+        {/* Price — guided tours show /group, hotels /night, everything else /person */}
         {!hidePrice && price != null && price > 0 && (
-          <PriceText price={price} isUnavailable={isUnavailable} type={type} />
+          <PriceText
+            price={price}
+            isUnavailable={isUnavailable}
+            type={type}
+            isFlexibleDate={isFlexibleDate}
+            isTrip={isTrip}
+          />
         )}
 
         {/* Date row */}

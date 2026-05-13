@@ -58,7 +58,6 @@ const CountyDetail = () => {
       const combined = [
         ...(adventuresRes.data || []).map((i: any) => ({ ...i, itemType: "ADVENTURE PLACE" })),
         ...(guidedRes.data || []).map((i: any) => ({ ...i, itemType: "TRIP" })),
-        ...(eventsRes.data || []).map((i: any) => ({ ...i, itemType: "EVENT" })),
         ...(fixedTripsRes.data || []).map((i: any) => ({ ...i, itemType: "FIXED TRIP" })),
       ];
       setItems(combined);
@@ -75,7 +74,6 @@ const CountyDetail = () => {
     let result = sorted;
     if (activeTab === "Adventure Places") result = result.filter(i => i.itemType === "ADVENTURE PLACE");
     else if (activeTab === "Guided Trips") result = result.filter(i => i.itemType === "TRIP");
-    else if (activeTab === "Events") result = result.filter(i => i.itemType === "EVENT");
     else if (activeTab === "Fixed Trips") result = result.filter(i => i.itemType === "FIXED TRIP");
     if (searchQuery) {
       const q = searchQuery.toLowerCase();

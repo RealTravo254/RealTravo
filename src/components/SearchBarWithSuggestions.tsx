@@ -24,12 +24,11 @@ interface SearchBarProps {
 interface SearchResult {
   id: string;
   name: string;
-  type: "trip" | "hotel" | "adventure" | "attraction";
+  type: "trip" | "adventure";
   location?: string;
   place?: string;
   country?: string;
   activities?: any;
-  facilities?: any;
   image_url?: string;
   matchedActivity?: string;
 }
@@ -81,10 +80,9 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
 
   const fetchLocationSuggestions = async () => {
     try {
-      const [tripsLoc, adventureLoc, hotelsLoc] = await Promise.all([
+      const [tripsLoc, adventureLoc] = await Promise.all([
         supabase.from("trips").select("location").eq("approval_status", "approved").eq("is_hidden", false).limit(50),
         supabase.from("adventure_places").select("location").eq("approval_status", "approved").eq("is_hidden", false).limit(50),
-        supabase.from("hotels").select("location").eq("approval_status", "approved").eq("is_hidden", false).limit(50),
       ]);
       const locationMap: Record<string, { count: number; type: string }> = {};
       const addLocations = (data: any[] | null, type: string) => {
@@ -98,7 +96,6 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
       };
       addLocations(tripsLoc.data, "trip");
       addLocations(adventureLoc.data, "adventure");
-      addLocations(hotelsLoc.data, "hotel");
       const sorted = Object.entries(locationMap)
         .map(([location, info]) => ({ location, count: info.count, type: info.type }))
         .sort((a, b) => b.count - a.count)
@@ -111,15 +108,13 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
 
   const fetchMostPopular = async () => {
     try {
-      const [tripsData, hotelsData, adventuresData] = await Promise.all([
-        supabase.from("trips").select("id, name, location, place, country, type").eq("approval_status", "approved").eq("is_hidden", false).eq("type", "trip").order("created_at", { ascending: false }).limit(3),
-        supabase.from("hotels").select("id, name, location, place, country").eq("approval_status", "approved").eq("is_hidden", false).order("created_at", { ascending: false }).limit(3),
-        supabase.from("adventure_places").select("id, name, location, place, country").eq("approval_status", "approved").eq("is_hidden", false).order("created_at", { ascending: false }).limit(3)
+      const [tripsData, adventuresData] = await Promise.all([
+        supabase.from("trips").select("id, name, location, place, country, type").eq("approval_status", "approved").eq("is_hidden", false).eq("type", "trip").order("created_at", { ascending: false }).limit(4),
+        supabase.from("adventure_places").select("id, name, location, place, country").eq("approval_status", "approved").eq("is_hidden", false).order("created_at", { ascending: false }).limit(4)
       ]);
 
       const popular: SearchResult[] = [
         ...(tripsData.data || []).map((item) => ({ ...item, type: "trip" as const })),
-        ...(hotelsData.data || []).map((item) => ({ ...item, type: "hotel" as const })),
         ...(adventuresData.data || []).map((item) => ({ ...item, type: "adventure" as const }))
       ];
       setMostPopular(popular.slice(0, 8));
@@ -156,15 +151,13 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
   const fetchSuggestions = async () => {
     const queryValue = value.trim().toLowerCase();
     try {
-      const [tripsData, hotelsData, adventuresData] = await Promise.all([
+      const [tripsData, adventuresData] = await Promise.all([
         supabase.from("trips").select("id, name, location, place, country, activities").eq("approval_status", "approved").eq("is_hidden", false).eq("type", "trip").limit(20),
-        supabase.from("hotels").select("id, name, location, place, country, activities, facilities").eq("approval_status", "approved").eq("is_hidden", false).limit(20),
-        supabase.from("adventure_places").select("id, name, location, place, country, activities, facilities").eq("approval_status", "approved").eq("is_hidden", false).limit(20)
+        supabase.from("adventure_places").select("id, name, location, place, country, activities").eq("approval_status", "approved").eq("is_hidden", false).limit(20)
       ]);
 
       let combined: SearchResult[] = [
         ...(tripsData.data || []).map((item) => ({ ...item, type: "trip" as const })),
-        ...(hotelsData.data || []).map((item) => ({ ...item, type: "hotel" as const })),
         ...(adventuresData.data || []).map((item) => ({ ...item, type: "adventure" as const }))
       ];
 
@@ -179,8 +172,7 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
             item.location?.toLowerCase().includes(queryValue) ||
             item.place?.toLowerCase().includes(queryValue) ||
             item.country?.toLowerCase().includes(queryValue) ||
-            item.matchedActivity ||
-            checkJsonArrayMatch(item.facilities, queryValue)
+            item.matchedActivity
           );
       }
       combined.sort((a, b) => a.name.localeCompare(b.name));
@@ -191,13 +183,6 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
       setIsSearching(false);
       setHasSearched(true);
     }
-  };
-
-  const checkJsonArrayMatch = (data: any, query: string): boolean => {
-    if (Array.isArray(data)) {
-      return data.some(item => (typeof item === 'string' ? item : item?.name)?.toLowerCase().includes(query));
-    }
-    return false;
   };
 
   const findMatchingActivity = (activities: any, query: string): string | undefined => {
@@ -245,7 +230,7 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
   };
 
   const getTypeLabel = (type: string) => {
-    const labels: Record<string, string> = { trip: "Trip", hotel: "Stay", adventure: "Campsite", attraction: "Sights" };
+    const labels: Record<string, string> = { trip: "Trip", adventure: "Campsite" };
     return labels[type] || type;
   };
 
@@ -263,7 +248,7 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
               <SearchIcon className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground z-10 group-focus-within:text-primary transition-colors" />
               <Input
                 type="text"
-                placeholder="Where to next? Search countries, experiences, stays..."
+                placeholder="Where to next? Search trips, adventures, campsites..."
                 value={value}
                 onChange={(e) => { onChange(e.target.value); setShowSuggestions(true); }}
                 onKeyDown={handleKeyPress}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Clock, TrendingUp, Home, Calendar, Search as SearchIcon, MapPin, Loader2, Sparkles, Map } from "lucide-react";
+import { Clock, TrendingUp, Home, Search as SearchIcon, MapPin, Loader2, Sparkles, Map } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getSessionId } from "@/lib/sessionManager";
 import { Input } from "@/components/ui/input";
@@ -19,20 +19,17 @@ interface SearchBarProps {
   onBlur?: () => void;
   onBack?: () => void;
   showBackButton?: boolean;
-  categoryType?: "events" | undefined;
-  showEventCategories?: boolean;
 }
 
 interface SearchResult {
   id: string;
   name: string;
-  type: "trip" | "hotel" | "adventure" | "attraction" | "event";
+  type: "trip" | "hotel" | "adventure" | "attraction";
   location?: string;
   place?: string;
   country?: string;
   activities?: any;
   facilities?: any;
-  date?: string;
   image_url?: string;
   matchedActivity?: string;
 }
@@ -51,14 +48,8 @@ interface LocationSuggestion {
   type: string;
 }
 
-const EVENT_CATEGORIES = [
-  "Music & Concerts", "Sports", "Festival", "Comedy", "Art & Culture",
-  "Food & Drink", "Networking", "Workshop", "Conference", "Charity",
-  "Nightlife", "Theater", "Outdoor", "Family"
-];
 
-
-export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchBarProps>(({ value, onChange, onSubmit, onSuggestionSearch, onFocus, onBlur, onBack, showBackButton = false, categoryType, showEventCategories = false }, _ref) => {
+export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchBarProps>(({ value, onChange, onSubmit, onSuggestionSearch, onFocus, onBlur, onBack, showBackButton = false }, _ref) => {
   const { user } = useAuth();
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestions, setSuggestions] = useState<SearchResult[]>([]);
@@ -120,16 +111,14 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
 
   const fetchMostPopular = async () => {
     try {
-      const [tripsData, eventsData, hotelsData, adventuresData] = await Promise.all([
-        supabase.from("trips").select("id, name, location, place, country, date, type").eq("approval_status", "approved").eq("is_hidden", false).eq("type", "trip").order("created_at", { ascending: false }).limit(3),
-        supabase.from("trips").select("id, name, location, place, country, date, type").eq("approval_status", "approved").eq("is_hidden", false).eq("type", "event").order("created_at", { ascending: false }).limit(3),
+      const [tripsData, hotelsData, adventuresData] = await Promise.all([
+        supabase.from("trips").select("id, name, location, place, country, type").eq("approval_status", "approved").eq("is_hidden", false).eq("type", "trip").order("created_at", { ascending: false }).limit(3),
         supabase.from("hotels").select("id, name, location, place, country").eq("approval_status", "approved").eq("is_hidden", false).order("created_at", { ascending: false }).limit(3),
         supabase.from("adventure_places").select("id, name, location, place, country").eq("approval_status", "approved").eq("is_hidden", false).order("created_at", { ascending: false }).limit(3)
       ]);
 
       const popular: SearchResult[] = [
         ...(tripsData.data || []).map((item) => ({ ...item, type: "trip" as const })),
-        ...(eventsData.data || []).map((item) => ({ ...item, type: "event" as const })),
         ...(hotelsData.data || []).map((item) => ({ ...item, type: "hotel" as const })),
         ...(adventuresData.data || []).map((item) => ({ ...item, type: "adventure" as const }))
       ];
@@ -167,16 +156,14 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
   const fetchSuggestions = async () => {
     const queryValue = value.trim().toLowerCase();
     try {
-      const [tripsData, eventsData, hotelsData, adventuresData] = await Promise.all([
-        supabase.from("trips").select("id, name, location, place, country, activities, date").eq("approval_status", "approved").eq("is_hidden", false).eq("type", "trip").limit(20),
-        supabase.from("trips").select("id, name, location, place, country, activities, date").eq("approval_status", "approved").eq("is_hidden", false).eq("type", "event").limit(20),
+      const [tripsData, hotelsData, adventuresData] = await Promise.all([
+        supabase.from("trips").select("id, name, location, place, country, activities").eq("approval_status", "approved").eq("is_hidden", false).eq("type", "trip").limit(20),
         supabase.from("hotels").select("id, name, location, place, country, activities, facilities").eq("approval_status", "approved").eq("is_hidden", false).limit(20),
         supabase.from("adventure_places").select("id, name, location, place, country, activities, facilities").eq("approval_status", "approved").eq("is_hidden", false).limit(20)
       ]);
 
       let combined: SearchResult[] = [
         ...(tripsData.data || []).map((item) => ({ ...item, type: "trip" as const })),
-        ...(eventsData.data || []).map((item) => ({ ...item, type: "event" as const })),
         ...(hotelsData.data || []).map((item) => ({ ...item, type: "hotel" as const })),
         ...(adventuresData.data || []).map((item) => ({ ...item, type: "adventure" as const }))
       ];
@@ -258,7 +245,7 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
   };
 
   const getTypeLabel = (type: string) => {
-    const labels: Record<string, string> = { trip: "Trip", event: "Experience", hotel: "Stay", adventure: "Campsite", attraction: "Sights" };
+    const labels: Record<string, string> = { trip: "Trip", hotel: "Stay", adventure: "Campsite", attraction: "Sights" };
     return labels[type] || type;
   };
 
@@ -297,29 +284,11 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
               className="absolute left-0 right-0 top-full mt-3 bg-card border border-border rounded-[32px] shadow-2xl max-h-[70vh] md:max-h-[500px] overflow-y-auto z-[9999] animate-in fade-in slide-in-from-top-2 duration-200"
               style={{ position: 'absolute' }}
             >
-              {/* History / Trending / Most Popular Section (Shown when input is empty) */}
+              {/* History / Trending / Most Popular (shown when input is empty) */}
               {!value.trim() && (
                 <div className="p-2 min-h-[100px]">
-                  {/* Location Suggestions OR Event Categories */}
-                  {showEventCategories ? (
-                    <div className="mb-4">
-                      <div className="flex items-center gap-2 px-5 py-3">
-                        <Calendar className="h-4 w-4 text-primary" />
-                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Event Categories</p>
-                      </div>
-                      <div className="flex flex-wrap gap-2 px-4">
-                        {EVENT_CATEGORIES.map((cat) => (
-                          <Badge
-                            key={cat}
-                            onClick={() => { onChange(cat); setShowSuggestions(false); onSubmit(); }}
-                            className="cursor-pointer bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 py-2 px-3 rounded-xl text-[10px] font-bold transition-colors"
-                          >
-                            {cat}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  ) : locationSuggestions.length > 0 ? (
+                  {/* Popular Locations */}
+                  {locationSuggestions.length > 0 && (
                     <div className="mb-4">
                       <div className="flex items-center gap-2 px-5 py-3">
                         <MapPin className="h-4 w-4 text-primary" />
@@ -337,12 +306,12 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
                         ))}
                       </div>
                     </div>
-                  ) : null}
+                  )}
 
-                  {/* Most Popular Section */}
+                  {/* Most Popular */}
                   {mostPopular.length > 0 && (
                     <div className="mb-4">
-                       <div className="flex items-center gap-2 px-5 py-3">
+                      <div className="flex items-center gap-2 px-5 py-3">
                         <Sparkles className="h-4 w-4 text-primary" />
                         <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Most Popular</p>
                       </div>
@@ -366,9 +335,10 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
                     </div>
                   )}
 
+                  {/* Recent History */}
                   {searchHistory.length > 0 && (
                     <div className="mb-4">
-                       <div className="flex items-center justify-between px-5 py-3">
+                      <div className="flex items-center justify-between px-5 py-3">
                         <div className="flex items-center gap-2">
                           <Clock className="h-4 w-4 text-primary" />
                           <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Recent</p>
@@ -377,7 +347,7 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
                       </div>
                       <div className="flex flex-wrap gap-2 px-4">
                         {searchHistory.map((item, i) => (
-                           <Badge 
+                          <Badge 
                             key={i} 
                             onClick={() => { onChange(item); saveToHistory(item); onSubmit(); setShowSuggestions(false); }} 
                             className="cursor-pointer bg-muted hover:bg-primary/10 text-muted-foreground border border-border py-2 px-4 rounded-xl text-xs font-bold transition-colors"
@@ -389,9 +359,10 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
                     </div>
                   )}
 
+                  {/* Trending Destinations */}
                   {trendingSearches.length > 0 && (
                     <div>
-                       <div className="flex items-center gap-2 px-5 py-3">
+                      <div className="flex items-center gap-2 px-5 py-3">
                         <TrendingUp className="h-4 w-4 text-secondary" />
                         <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Trending Destinations</p>
                       </div>
@@ -410,7 +381,7 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
                 </div>
               )}
 
-              {/* Result Suggestions (Shown when typing) */}
+              {/* Result Suggestions (shown when typing) */}
               {value.trim() && (
                 <div className="p-2">
                   {/* Loading State */}
@@ -461,14 +432,9 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
                         >
                           <div className="flex-1 flex flex-col justify-center min-w-0">
                             <div className="flex items-center gap-2 mb-1 flex-wrap">
-                               <span className="text-[9px] font-black bg-primary text-primary-foreground px-2 py-0.5 rounded-full uppercase tracking-widest">
+                              <span className="text-[9px] font-black bg-primary text-primary-foreground px-2 py-0.5 rounded-full uppercase tracking-widest">
                                 {getTypeLabel(result.type)}
                               </span>
-                              {result.date && (
-                                <span className="text-[9px] font-black text-secondary uppercase tracking-widest">
-                                  • {new Date(result.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
-                                </span>
-                              )}
                               {result.matchedActivity && (
                                 <span className="text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider bg-accent/15 text-accent border border-accent/20">
                                   🎯 {result.matchedActivity}
@@ -495,10 +461,10 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
 
                   {/* Not Available */}
                   {!isSearching && hasSearched && suggestions.length === 0 && KENYA_COUNTIES.filter(c => c.toLowerCase().includes(value.trim().toLowerCase())).length === 0 && (
-                     <div className="p-10 text-center">
-                       <p className="text-muted-foreground text-xs font-bold uppercase tracking-widest mb-2">Not Available</p>
-                       <p className="text-muted-foreground/50 text-[10px]">No results found for "{value}"</p>
-                     </div>
+                    <div className="p-10 text-center">
+                      <p className="text-muted-foreground text-xs font-bold uppercase tracking-widest mb-2">Not Available</p>
+                      <p className="text-muted-foreground/50 text-[10px]">No results found for "{value}"</p>
+                    </div>
                   )}
                 </div>
               )}

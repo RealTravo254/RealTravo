@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
-import { Header } from "@/components/Header";
+import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { SearchBarWithSuggestions } from "@/components/SearchBarWithSuggestions";
 import { useSearchFocus } from "@/components/PageLayout";
 import { ListingCard } from "@/components/ListingCard";
@@ -21,6 +20,7 @@ const ITEMS_PER_PAGE = 20;
 const CategoryDetail = () => {
   const { category } = useParams<{ category: string }>();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [items, setItems] = useState<any[]>([]);
   const [filteredItems, setFilteredItems] = useState<any[]>([]);
@@ -32,12 +32,9 @@ const CategoryDetail = () => {
   const [userId, setUserId] = useState<string | null>(null);
   const [selectedCounty, setSelectedCounty] = useState<string>(searchParams.get("county") || "All");
 
-  // County tabs only for campsite and guided
   const showCountyTabs = category === "campsite" || category === "guided";
 
   const { position } = useGeolocation();
-  const [showSearchIcon, setShowSearchIcon] = useState(false);
-  const searchRef = useRef<HTMLDivElement>(null);
   const [isSearchFocusedLocal, setIsSearchFocusedLocal] = useState(false);
   const { setSearchFocused } = useSearchFocus();
 
@@ -47,12 +44,11 @@ const CategoryDetail = () => {
     setSearchFocused(v);
   }, [setSearchFocused]);
 
-  // Events category intentionally removed
   const categoryConfig: { [key: string]: any } = {
-    trips:     { title: "Trips",               tables: ["trips"],            type: "TRIP",           tripType: "trip", filterType: "trips" },
-    adventure: { title: "Attractions",         tables: ["adventure_places"], type: "ADVENTURE PLACE",                  filterType: "adventure" },
-    campsite:  { title: "Campsite & Experience", tables: ["adventure_places"], type: "ADVENTURE PLACE",                filterType: "adventure" },
-    guided:    { title: "Guided Tours",        tables: ["trips"],            type: "TRIP",           tripType: "trip", filterType: "trips", flexibleOnly: true },
+    trips:     { title: "Trips",                 tables: ["trips"],            type: "TRIP",           tripType: "trip", filterType: "trips" },
+    adventure: { title: "Attractions",           tables: ["adventure_places"], type: "ADVENTURE PLACE",                  filterType: "adventure" },
+    campsite:  { title: "Campsite & Experience", tables: ["adventure_places"], type: "ADVENTURE PLACE",                  filterType: "adventure" },
+    guided:    { title: "Guided Tours",          tables: ["trips"],            type: "TRIP",           tripType: "trip", filterType: "trips", flexibleOnly: true },
   };
 
   const config = category ? categoryConfig[category] : null;
@@ -65,14 +61,6 @@ const CategoryDetail = () => {
     };
     initializeData();
   }, [category]);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      if (window.innerWidth >= 768) setShowSearchIcon(window.scrollY > 100);
-    };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
 
   const loadInitialData = async () => {
     setLoading(true);
@@ -99,7 +87,6 @@ const CategoryDetail = () => {
     setLoadingMore(false);
   };
 
-  // Only trips and guided need booking stats
   const tripIds = useMemo(() => {
     if (category !== "trips" && category !== "guided") return [];
     return items.map((item: any) => item.id);
@@ -123,13 +110,8 @@ const CategoryDetail = () => {
         .eq("approval_status", "approved")
         .eq("is_hidden", false);
 
-      if (config.tripType) {
-        query = query.eq("type", config.tripType);
-      }
-
-      if (config.flexibleOnly && table === "trips") {
-        query = query.or("is_flexible_date.eq.true,is_custom_date.eq.true");
-      }
+      if (config.tripType) query = query.eq("type", config.tripType);
+      if (config.flexibleOnly && table === "trips") query = query.or("is_flexible_date.eq.true,is_custom_date.eq.true");
 
       const { data } = await query.range(offset, offset + limit - 1);
 
@@ -138,7 +120,6 @@ const CategoryDetail = () => {
           let itemType = config.type;
           if (table === "trips") itemType = "TRIP";
           else if (table === "adventure_places") itemType = "ADVENTURE PLACE";
-
           return {
             ...item,
             table,
@@ -203,52 +184,34 @@ const CategoryDetail = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-10">
-      <Header
-        className="hidden md:flex"
-        showSearchIcon={showSearchIcon}
-        onSearchClick={() =>
-          searchRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
-        }
-      />
 
-      <div ref={searchRef} className={cn("bg-card border-b z-50 sticky top-0 md:relative", isSearchFocused && "z-[600]")}>
-        <div className="container px-4 py-3 flex items-center gap-3">
-          <button
-            onClick={() => window.history.back()}
-            className="md:hidden shrink-0 p-2 rounded-lg hover:bg-muted transition-colors"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <div className="flex-1">
-            <SearchBarWithSuggestions
-              value={searchQuery}
-              onChange={setSearchQuery}
-              onSubmit={() => setFilteredItems(applyFilters(sortedItems, searchQuery, selectedCounty))}
-              onFocus={() => setIsSearchFocused(true)}
-              onBlur={() => setIsSearchFocused(false)}
-              onBack={() => { setIsSearchFocused(false); setSearchQuery(""); }}
-              showBackButton={isSearchFocused}
-            />
-          </div>
+      {/* ── Teal sticky search header — matches Explore page exactly ── */}
+      <div className="sticky top-0 z-50 bg-primary shadow-md">
+        <div className="container mx-auto px-4 py-3">
+          <SearchBarWithSuggestions
+            value={searchQuery}
+            onChange={setSearchQuery}
+            onSubmit={() => setFilteredItems(applyFilters(sortedItems, searchQuery, selectedCounty))}
+            onFocus={() => setIsSearchFocused(true)}
+            onBlur={() => setIsSearchFocused(false)}
+            onBack={() => { setIsSearchFocused(false); setSearchQuery(""); navigate(-1); }}
+            showBackButton={true}
+          />
         </div>
-      </div>
 
-      {/* County filter tabs */}
-      {showCountyTabs && (
-        <div className={cn("sticky top-[52px] md:static bg-card border-b", isSearchFocused ? "z-0" : "z-40")}>
-          <div className="container px-4 py-2">
-            <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
+        {/* County filter tabs (inside the teal bar, below search) */}
+        {showCountyTabs && !isSearchFocused && (
+          <div className="container mx-auto px-4 pb-2">
+            <div className="flex gap-2 overflow-x-auto scrollbar-hide">
               {["All", ...KENYA_COUNTIES.filter(c => items.some(item => item.place === c))].map((county) => (
                 <button
                   key={county}
                   onClick={() => setSelectedCounty(county)}
                   className={cn(
-                    "px-3 py-1.5 rounded-full text-[10px] font-bold whitespace-nowrap transition-all shrink-0",
+                    "px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-all shrink-0",
                     selectedCounty === county
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "bg-muted text-muted-foreground hover:text-foreground"
+                      ? "bg-primary-foreground text-primary shadow-sm"
+                      : "bg-primary-foreground/20 text-primary-foreground/90 hover:bg-primary-foreground/30"
                   )}
                 >
                   {county}
@@ -256,8 +219,8 @@ const CategoryDetail = () => {
               ))}
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       <main className={cn("container px-4 py-6 transition-opacity duration-200", isSearchFocused && "pointer-events-none opacity-20")}>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
@@ -267,7 +230,6 @@ const CategoryDetail = () => {
             filteredItems.map(item => {
               const ratingData = ratings.get(item.id);
               const isTripsOrGuided = category === "trips" || category === "guided";
-
               return (
                 <div key={item.id} className="w-full">
                   <ListingCard
@@ -309,10 +271,7 @@ const CategoryDetail = () => {
               className="rounded-2xl font-black uppercase text-[10px] tracking-widest h-12 px-8 bg-primary"
             >
               {loadingMore ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Loading...
-                </>
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Loading...</>
               ) : (
                 "Load More"
               )}

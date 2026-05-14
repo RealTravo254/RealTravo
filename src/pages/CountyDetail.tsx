@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { SearchBarWithSuggestions } from "@/components/SearchBarWithSuggestions";
 import { useSearchFocus } from "@/components/PageLayout";
 import { ListingCard } from "@/components/ListingCard";
@@ -18,6 +18,7 @@ const ITEMS_PER_PAGE = 12;
 
 const CountyDetail = () => {
   const { county } = useParams<{ county: string }>();
+  const navigate = useNavigate();
   const decodedCounty = decodeURIComponent(county || "");
   const [searchQuery, setSearchQuery] = useState("");
   const [items, setItems] = useState<any[]>([]);
@@ -26,7 +27,6 @@ const CountyDetail = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const { savedItems, handleSave } = useSavedItems();
   const { position } = useGeolocation();
-  const searchRef = useRef<HTMLDivElement>(null);
   const [isSearchFocusedLocal, setIsSearchFocusedLocal] = useState(false);
   const { setSearchFocused } = useSearchFocus();
 
@@ -55,7 +55,7 @@ const CountyDetail = () => {
 
         const combined = [
           ...(adventuresRes.data || []).map((i: any) => ({ ...i, itemType: "ADVENTURE PLACE" })),
-          ...(guidedRes.data || []).map((i: any) => ({ ...i, itemType: "TRIP" })),
+          ...(guidedRes.data   || []).map((i: any) => ({ ...i, itemType: "TRIP" })),
           ...(fixedTripsRes.data || []).map((i: any) => ({ ...i, itemType: "FIXED TRIP" })),
         ];
         setItems(combined);
@@ -75,8 +75,8 @@ const CountyDetail = () => {
   const filtered = useMemo(() => {
     let result = sorted;
     if (activeTab === "Adventure Places") result = result.filter(i => i.itemType === "ADVENTURE PLACE");
-    else if (activeTab === "Guided Trips")  result = result.filter(i => i.itemType === "TRIP");
-    else if (activeTab === "Fixed Trips")   result = result.filter(i => i.itemType === "FIXED TRIP");
+    else if (activeTab === "Guided Trips") result = result.filter(i => i.itemType === "TRIP");
+    else if (activeTab === "Fixed Trips")  result = result.filter(i => i.itemType === "FIXED TRIP");
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter(i =>
@@ -115,8 +115,9 @@ const CountyDetail = () => {
               {showEllipsis && <span className="text-xs text-muted-foreground px-1">...</span>}
               <button
                 onClick={() => setCurrentPage(page)}
-                className={cn("h-8 w-8 rounded-full text-xs font-bold transition-all",
-                  currentPage === page ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
+                className={cn(
+                  "h-8 w-8 rounded-full text-xs font-bold transition-all",
+                  currentPage === page ? "bg-primary-foreground text-primary" : "text-primary-foreground/70 hover:bg-primary-foreground/20"
                 )}
               >
                 {page}
@@ -133,51 +134,42 @@ const CountyDetail = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-10">
-      {/* Search bar */}
-      <div ref={searchRef} className={cn("bg-card border-b z-50 sticky top-0", isSearchFocusedLocal && "z-[600]")}>
-        <div className="container px-4 py-3 flex items-center gap-3">
-          <button
-            onClick={() => window.history.back()}
-            className="md:hidden shrink-0 p-2 rounded-lg hover:bg-muted transition-colors"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <div className="flex-1">
-            <SearchBarWithSuggestions
-              value={searchQuery}
-              onChange={setSearchQuery}
-              onSubmit={() => {}}
-              onFocus={() => setIsSearchFocused(true)}
-              onBlur={() => setIsSearchFocused(false)}
-              onBack={() => { setIsSearchFocused(false); setSearchQuery(""); }}
-              showBackButton={isSearchFocusedLocal}
-            />
-          </div>
-        </div>
-      </div>
 
-      {/* Tab filters */}
-      <div className={cn("sticky top-[52px] md:static bg-card border-b", isSearchFocusedLocal ? "z-0" : "z-40")}>
-        <div className="container px-4 py-2">
-          <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
-            {TABS.map(tab => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={cn(
-                  "px-3 py-1.5 rounded-full text-[10px] font-bold whitespace-nowrap transition-all shrink-0",
-                  activeTab === tab
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "bg-muted text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
+      {/* ── Teal sticky search header — matches Explore page exactly ── */}
+      <div className="sticky top-0 z-50 bg-primary shadow-md">
+        <div className="container mx-auto px-4 py-3">
+          <SearchBarWithSuggestions
+            value={searchQuery}
+            onChange={setSearchQuery}
+            onSubmit={() => {}}
+            onFocus={() => setIsSearchFocused(true)}
+            onBlur={() => setIsSearchFocused(false)}
+            onBack={() => { setIsSearchFocused(false); setSearchQuery(""); navigate(-1); }}
+            showBackButton={true}
+          />
         </div>
+
+        {/* Tab filters — inside teal bar, below search */}
+        {!isSearchFocusedLocal && (
+          <div className="container mx-auto px-4 pb-2">
+            <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+              {TABS.map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={cn(
+                    "px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-all shrink-0",
+                    activeTab === tab
+                      ? "bg-primary-foreground text-primary shadow-sm"
+                      : "bg-primary-foreground/20 text-primary-foreground/90 hover:bg-primary-foreground/30"
+                  )}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <main className={cn("container px-4 py-6 transition-opacity duration-200", isSearchFocusedLocal && "pointer-events-none opacity-20")}>

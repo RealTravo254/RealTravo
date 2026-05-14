@@ -149,7 +149,9 @@ const ProfileEdit = () => {
     <div className="min-h-screen bg-[#F8F9FA] pb-28">
       <Header />
 
-      <main className="container max-w-2xl px-4 py-8 mx-auto">
+      {/* ── FIX: removed max-w-2xl so this container matches the Header's container width on large screens ── */}
+      <main className="container px-4 py-8 mx-auto">
+
         {/* Back + title */}
         <div className="flex items-center gap-4 mb-8">
           <button

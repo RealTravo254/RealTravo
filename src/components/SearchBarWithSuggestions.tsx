@@ -19,6 +19,7 @@ interface SearchBarProps {
   onBlur?: () => void;
   onBack?: () => void;
   showBackButton?: boolean;
+  showEventCategories?: boolean;
 }
 
 interface SearchResult {
@@ -239,11 +240,18 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
       <div className="w-full px-3 md:container md:mx-auto md:px-6 lg:px-8">
         <div ref={wrapperRef} className="relative w-full max-w-4xl mx-auto" style={{ isolation: 'isolate' }}>
           <div className="flex items-center gap-3">
+
+            {/* ── Home button — visible on ALL screen sizes when showBackButton is true ── */}
             {showBackButton && (
-              <Button variant="ghost" size="icon" onClick={onBack} className="rounded-full bg-card shadow-sm border border-border hover:bg-muted hover:text-primary md:hidden">
+              <button
+                onClick={() => navigate("/")}
+                aria-label="Go to Home"
+                className="shrink-0 h-10 w-10 md:h-12 md:w-12 rounded-full flex items-center justify-center bg-white/20 hover:bg-white/35 text-white transition-all active:scale-95"
+              >
                 <Home className="h-5 w-5" />
-              </Button>
+              </button>
             )}
+
             <div className="relative flex-1 group">
               <SearchIcon className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground z-10 group-focus-within:text-primary transition-colors" />
               <Input

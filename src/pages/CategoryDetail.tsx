@@ -183,7 +183,7 @@ const CategoryDetail = () => {
   if (!config) return <div className="p-10 text-center">Category not found</div>;
 
   return (
-    <div className="min-h-screen bg-background pb-20 md:pb-10">
+    <div className="bg-background">
 
       {/* ── Teal sticky search header — matches Explore page exactly ── */}
       <div className="sticky top-0 z-50 bg-primary shadow-md">

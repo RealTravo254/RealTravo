@@ -30,6 +30,7 @@ export const PageLayout = ({ children }: PageLayoutProps) => {
     pathname === "/" ||
     pathname === "/contact" ||
     pathname === "/about" ||
+    pathname === "/explore" ||
     pathname.startsWith("/category/") ||
     pathname.startsWith("/county/");
 

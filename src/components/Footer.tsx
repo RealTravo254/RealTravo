@@ -182,7 +182,7 @@ export const Footer = ({ className = "" }: { className?: string }) => {
             <ul className="space-y-3 text-sm font-medium">
               <li><Link to="/privacy-policy" className="text-slate-500 hover:text-[#008080] transition-colors">{t('footer.privacyPolicy')}</Link></li>
               <li><Link to="/terms-of-service" className="text-slate-500 hover:text-[#008080] transition-colors">{t('footer.termsOfService')}</Link></li>
-              <li><Link to="/trip-event-guide" className="text-slate-500 hover:text-[#008080] transition-colors">{t('footer.tripEventGuide')}</Link></li>
+              <li><Link to="/trip-guide" className="text-slate-500 hover:text-[#008080] transition-colors">{t('footer.tripEventGuide')}</Link></li>
               <li><Link to="/campsite-guide" className="text-slate-500 hover:text-[#008080] transition-colors">{t('footer.campsiteGuide')}</Link></li>
             </ul>
           </div>

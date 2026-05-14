@@ -27,7 +27,7 @@ export const PageLayout = ({ children }: PageLayoutProps) => {
   const [isSearchFocused, setSearchFocused] = useState(false);
 
   const shouldShowFooter =
-    pathname === "/" || pathname === "/contact" || pathname === "/about" || pathname.startsWith("/category/");
+    pathname === "/" || pathname === "/contact" || pathname === "/about";
 
   // Hide mobile bottom bar on detail pages and booking pages
   const isDetailPage =
@@ -38,11 +38,13 @@ export const PageLayout = ({ children }: PageLayoutProps) => {
     pathname === "/host-verification" || pathname.startsWith("/booking/") || isDetailPage ||
     pathname === "/auth" || pathname === "/reset-password" || pathname === "/forgot-password";
 
-  // Auth page renders its own header
+  // Auth page renders its own header; also hide on explore, category, county, and detail pages
   const shouldHideHeader =
     pathname === "/auth" || pathname === "/reset-password" || pathname === "/forgot-password" ||
     pathname === "/verify-email" || pathname === "/complete-profile" || pathname.startsWith("/booking/") ||
     pathname === "/explore" ||
+    pathname.startsWith("/category/") ||
+    pathname.startsWith("/county/") ||
     isDetailPage;
 
   // On mobile, only show header on index page
@@ -60,8 +62,9 @@ export const PageLayout = ({ children }: PageLayoutProps) => {
             <Header __fromLayout />
           </div>
         )}
-        {/* pt-14 on md+ for fixed header; on mobile header is not fixed so no top padding needed */}
-        <div className={`flex-1 w-full ${!shouldHideMobileBar ? 'pb-20' : 'pb-0'} md:pb-0 ${!shouldHideHeader && !hideHeaderForSearch ? (shouldHideHeaderOnMobile ? 'pt-0 md:pt-14' : 'pt-0 md:pt-14') : ''}`}>{children}</div>
+        <div className={`flex-1 w-full ${!shouldHideMobileBar ? 'pb-20' : 'pb-0'} md:pb-0 ${!shouldHideHeader && !hideHeaderForSearch ? (shouldHideHeaderOnMobile ? 'pt-0 md:pt-14' : 'pt-0 md:pt-14') : ''}`}>
+          {children}
+        </div>
         {shouldShowFooter && <Footer />}
         {!shouldHideMobileBar && <MobileBottomBar />}
       </div>

@@ -158,8 +158,9 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: G
         >
           {title}
         </h2>
+        {/* CHANGE 1: All "View All →" links now navigate to /explore */}
         <Link
-          to={viewAllPath}
+          to="/explore"
           className="text-xs md:text-sm font-semibold hover:opacity-70 transition-opacity shrink-0"
           style={{ color: accentColor }}
         >
@@ -214,12 +215,11 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: G
 GridSection.displayName = "GridSection";
 
 // ── Category cards ────────────────────────────────────────────────────────────
-// CHANGE 1: Guided Tours background → /images/nearby-trips.jpg
+// CHANGE 2: "Events" category card removed — now only 3 cards
 const CATEGORIES = [
   { icon: Tent,     title: "Adventures",   path: "/category/campsite", bgImage: "/images/category-adventures.jpg" },
-  { icon: Calendar, title: "Trips",        path: "/category/trips",    bgImage: "/images/category-trips.jpg" },
-  { icon: Compass,  title: "Events",       path: "/category/events",   bgImage: "/images/category-events.jpg" },
-  { icon: MapPin,   title: "Guided Tours", path: "/category/guided",   bgImage: "/images/nearby-trips.jpg" },
+  { icon: Calendar, title: "Trips",        path: "/category/trips",    bgImage: "/images/category-trips.jpg"      },
+  { icon: MapPin,   title: "Guided Tours", path: "/category/guided",   bgImage: "/images/nearby-trips.jpg"        },
 ];
 
 // ── Quick-nav shortcuts ───────────────────────────────────────────────────────
@@ -248,14 +248,12 @@ const Index = () => {
 
   const [showSearchIcon, setShowSearchIcon]       = useState(false);
   const [isIndexDrawerOpen, setIsIndexDrawerOpen] = useState(false);
-  // CHANGE 2: track desktop header height to push hero flush below it (desktop only)
   const [headerHeight, setHeaderHeight]           = useState(0);
   const searchRef   = useRef<HTMLDivElement>(null);
   const countiesRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const measure = () => {
-      // Only apply offset on md+ (≥768 px) — leave mobile completely unchanged
       if (window.innerWidth >= 768) {
         const header = document.querySelector("header");
         if (header) setHeaderHeight(header.getBoundingClientRect().height);
@@ -310,7 +308,6 @@ const Index = () => {
     [nearbyPlacesHotels, ratings, position],
   );
 
-  // CHANGE 3: Browse Guides shows ONLY adventure_places / campsites — trips and guided trips excluded
   const displayBrowseGuides = useMemo(() => {
     const seen = new Set<string>();
     return scrollableRows.campsites
@@ -547,7 +544,6 @@ const Index = () => {
   }, [position, ratings, savedItems, handleSave, bookingStats]);
 
   // ── Pre-build node arrays ──────────────────────────────────────────────────
-  // Browse Guides: adventure places / campsites ONLY
   const browseGuideNodes = useMemo(() =>
     displayBrowseGuides.map((item, i) =>
       renderCard(item, "ADVENTURE PLACE", i, { hidePrice: true }),
@@ -609,7 +605,7 @@ const Index = () => {
         }}
       />
 
-      {/* Mobile top bar — completely unchanged */}
+      {/* Mobile top bar — unchanged */}
       {!isSearchFocused && (
         <div
           className="fixed top-0 left-0 right-0 z-[100] md:hidden flex items-center justify-between px-4 pointer-events-none"
@@ -652,9 +648,7 @@ const Index = () => {
         </div>
       )}
 
-      {/* ── Hero ──
-          CHANGE 2: marginTop is set only on desktop (headerHeight > 0 only when window ≥ 768 px).
-          Mobile stays at 0 / untouched so nothing changes on small screens. */}
+      {/* ── Hero ── */}
       {!isSearchFocused && (
         <div
           ref={searchRef}
@@ -687,8 +681,8 @@ const Index = () => {
                 </div>
               </div>
 
-              {/* Hero category cards */}
-              <div className="relative z-10 w-full grid grid-cols-4 gap-2 md:gap-3 mt-2">
+              {/* Hero category cards — CHANGE 2: Events removed, now 3 cards */}
+              <div className="relative z-10 w-full grid grid-cols-3 gap-2 md:gap-3 mt-2">
                 {CATEGORIES.map(cat => (
                   <div
                     key={cat.title}
@@ -696,7 +690,6 @@ const Index = () => {
                     className="cursor-pointer rounded-lg relative w-full flex flex-col items-center justify-center gap-1 px-2 py-2 md:py-4 overflow-hidden"
                     style={{ height: "clamp(60px, 8vw, 144px)" }}
                   >
-                    {/* CHANGE 1 in effect: Guided Tours card uses nearby-trips.jpg via CATEGORIES array */}
                     <img src={cat.bgImage} alt="" aria-hidden="true" fetchPriority="high" loading="eager" decoding="async"
                       className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none select-none rounded-lg" />
                     <div className="absolute inset-0 rounded-lg bg-black/60" />
@@ -742,10 +735,10 @@ const Index = () => {
               </div>
             </section>
 
-            {/* Browse Guides — adventure places / campsites ONLY (CHANGE 3) */}
+            {/* Browse Guides */}
             <GridSection
               title="Browse Guides"
-              viewAllPath="/category/campsite"
+              viewAllPath="/explore"
               accentColor="hsl(25, 90%, 50%)"
               items={browseGuideNodes}
               loading={loadingScrollable}
@@ -755,7 +748,7 @@ const Index = () => {
             {position && (sortedNearbyPlaces.length > 0 || loadingNearby) && (
               <GridSection
                 title={t("sections.nearestToYou")}
-                viewAllPath="/category/campsite"
+                viewAllPath="/explore"
                 accentColor="hsl(200, 70%, 45%)"
                 items={nearbyNodes}
                 loading={loadingNearby}

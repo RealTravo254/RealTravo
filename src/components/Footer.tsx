@@ -162,9 +162,9 @@ export const Footer = ({ className = "" }: { className?: string }) => {
           <div className="flex flex-col gap-4">
             <h3 className="font-bold text-slate-900">{t('footer.explore')}</h3>
             <ul className="space-y-3 text-sm font-medium">
-              <li><Link to="/" className="text-slate-500 hover:text-[#008080] transition-colors">{t('footer.destinations')}</Link></li>
-              <li><Link to="/category/guided" className="text-slate-500 hover:text-[#008080] transition-colors">{t('footer.Guided tours')}</Link></li>
-              <li><Link to="/category/trips" className="text-slate-500 hover:text-[#008080] transition-colors">{t('footer.trips')}</Link></li>
+              <li><Link to="/" className="text-slate-500 hover:text-[#008080] transition-colors">{t('Destinations')}</Link></li>
+              <li><Link to="/category/guided" className="text-slate-500 hover:text-[#008080] transition-colors">{t('Guided tours')}</Link></li>
+              <li><Link to="/category/trips" className="text-slate-500 hover:text-[#008080] transition-colors">{t('Trips')}</Link></li>
             </ul>
           </div>
 

@@ -27,7 +27,11 @@ export const PageLayout = ({ children }: PageLayoutProps) => {
   const [isSearchFocused, setSearchFocused] = useState(false);
 
   const shouldShowFooter =
-    pathname === "/" || pathname === "/contact" || pathname === "/about";
+    pathname === "/" ||
+    pathname === "/contact" ||
+    pathname === "/about" ||
+    pathname.startsWith("/category/") ||
+    pathname.startsWith("/county/");
 
   // Hide mobile bottom bar on detail pages and booking pages
   const isDetailPage =

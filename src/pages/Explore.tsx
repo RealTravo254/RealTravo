@@ -120,6 +120,12 @@ const Explore = () => {
     else fetchAllData();
   };
 
+  const skeletonGrid = (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+      {[...Array(8)].map((_, i) => <ListingSkeleton key={i} />)}
+    </div>
+  );
+
   const renderPagination = () => {
     if (totalPages <= 1) return null;
     const pages: number[] = [];
@@ -228,15 +234,9 @@ const Explore = () => {
         </p>
 
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-            {[...Array(8)].map((_, i) => <ListingSkeleton key={i} />)}
-          </div>
+          skeletonGrid
         ) : paginatedListings.length === 0 ? (
-          <div className="text-center py-16">
-            <Compass className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-            <p className="text-muted-foreground text-sm font-medium">No results found</p>
-            <p className="text-muted-foreground/60 text-xs mt-1">Try a different search or filter</p>
-          </div>
+          skeletonGrid
         ) : (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3">
@@ -251,7 +251,7 @@ const Explore = () => {
                     name={listing.name} location={listing.location} country={listing.country}
                     imageUrl={listing.image_url} price={listing.price || listing.entry_fee || 0}
                     date={listing.date} isCustomDate={listing.is_custom_date}
-                     isFlexibleDate={Boolean(listing.is_flexible_date || listing.is_custom_date)} isOutdated={isOutdated}
+                    isFlexibleDate={Boolean(listing.is_flexible_date || listing.is_custom_date)} isOutdated={isOutdated}
                     isSaved={savedItems.has(listing.id)}
                     onSave={handleSave}
                     availableTickets={isTripsOrEvents ? listing.available_tickets : undefined}

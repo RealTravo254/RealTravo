@@ -3,7 +3,7 @@ import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { SearchBarWithSuggestions } from "@/components/SearchBarWithSuggestions";
 import { useSearchFocus } from "@/components/PageLayout";
 import { ListingCard } from "@/components/ListingCard";
-import { TealLoader } from "@/components/ui/teal-loader";
+import { ListingSkeleton } from "@/components/ui/listing-skeleton";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +16,8 @@ import { useRealtimeBookings } from "@/hooks/useRealtimeBookings";
 import { KENYA_COUNTIES } from "@/lib/kenyaCounties";
 
 const ITEMS_PER_PAGE = 20;
+const SKELETON_COUNT_MOBILE = 8;
+const SKELETON_COUNT_DESKTOP = 20;
 
 const CategoryDetail = () => {
   const { category } = useParams<{ category: string }>();
@@ -185,7 +187,7 @@ const CategoryDetail = () => {
   return (
     <div className="bg-background">
 
-      {/* ── Teal sticky search header — matches Explore page exactly ── */}
+      {/* ── Teal sticky search header ── */}
       <div className="sticky top-0 z-50 bg-primary shadow-md">
         <div className="container mx-auto px-4 py-3">
           <SearchBarWithSuggestions
@@ -199,7 +201,7 @@ const CategoryDetail = () => {
           />
         </div>
 
-        {/* County filter tabs (inside the teal bar, below search) */}
+        {/* County filter tabs */}
         {showCountyTabs && !isSearchFocused && (
           <div className="container mx-auto px-4 pb-2">
             <div className="flex gap-2 overflow-x-auto scrollbar-hide">
@@ -223,45 +225,71 @@ const CategoryDetail = () => {
       </div>
 
       <main className={cn("container px-4 py-6 transition-opacity duration-200", isSearchFocused && "pointer-events-none opacity-20")}>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
-          {loading ? (
-            <div className="col-span-full"><TealLoader text="Loading listings..." /></div>
-          ) : (
-            filteredItems.map(item => {
-              const ratingData = ratings.get(item.id);
-              const isTripsOrGuided = category === "trips" || category === "guided";
-              return (
-                <div key={item.id} className="w-full">
-                  <ListingCard
-                    id={item.id}
-                    type={item.itemType || config.type}
-                    name={item.name}
-                    imageUrl={item.image_url}
-                    location={item.location}
-                    country={item.country || ""}
-                    price={item.price || item.entry_fee}
-                    date={item.date}
-                    isCustomDate={item.is_custom_date}
-                    isFlexibleDate={Boolean(item.is_flexible_date || item.is_custom_date)}
-                    isOutdated={item.isOutdated}
-                    isSaved={savedItems.has(item.id)}
-                    onSave={handleSave}
-                    availableTickets={isTripsOrGuided ? item.available_tickets : undefined}
-                    bookedTickets={isTripsOrGuided ? bookingStats[item.id] || 0 : undefined}
-                    activities={item.activities}
-                    avgRating={ratingData?.avgRating}
-                    reviewCount={ratingData?.reviewCount}
-                    description={item.description}
-                    galleryImages={item.gallery_images}
-                    images={item.images}
-                    openingHours={item.opening_hours}
-                    closingHours={item.closing_hours}
-                  />
+
+        {loading ? (
+          <>
+            {/* Mobile skeletons */}
+            <div className="md:hidden grid grid-cols-2 gap-2.5">
+              {[...Array(SKELETON_COUNT_MOBILE)].map((_, i) => (
+                <div key={i} className="w-full">
+                  <ListingSkeleton />
                 </div>
-              );
-            })
-          )}
-        </div>
+              ))}
+            </div>
+            {/* Desktop skeletons */}
+            <div className="hidden md:grid grid-cols-4 lg:grid-cols-5 gap-4">
+              {[...Array(SKELETON_COUNT_DESKTOP)].map((_, i) => (
+                <div key={i} className="w-full">
+                  <ListingSkeleton />
+                </div>
+              ))}
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
+              {filteredItems.map(item => {
+                const ratingData = ratings.get(item.id);
+                const isTripsOrGuided = category === "trips" || category === "guided";
+                return (
+                  <div key={item.id} className="w-full">
+                    <ListingCard
+                      id={item.id}
+                      type={item.itemType || config.type}
+                      name={item.name}
+                      imageUrl={item.image_url}
+                      location={item.location}
+                      country={item.country || ""}
+                      price={item.price || item.entry_fee}
+                      date={item.date}
+                      isCustomDate={item.is_custom_date}
+                      isFlexibleDate={Boolean(item.is_flexible_date || item.is_custom_date)}
+                      isOutdated={item.isOutdated}
+                      isSaved={savedItems.has(item.id)}
+                      onSave={handleSave}
+                      availableTickets={isTripsOrGuided ? item.available_tickets : undefined}
+                      bookedTickets={isTripsOrGuided ? bookingStats[item.id] || 0 : undefined}
+                      activities={item.activities}
+                      avgRating={ratingData?.avgRating}
+                      reviewCount={ratingData?.reviewCount}
+                      description={item.description}
+                      galleryImages={item.gallery_images}
+                      images={item.images}
+                      openingHours={item.opening_hours}
+                      closingHours={item.closing_hours}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+
+            {filteredItems.length === 0 && (
+              <div className="text-center py-20 text-muted-foreground italic">
+                No items found matching your filters.
+              </div>
+            )}
+          </>
+        )}
 
         {!loading && hasMore && filteredItems.length > 0 && (
           <div className="flex justify-center mt-10">
@@ -276,12 +304,6 @@ const CategoryDetail = () => {
                 "Load More"
               )}
             </Button>
-          </div>
-        )}
-
-        {!loading && filteredItems.length === 0 && (
-          <div className="text-center py-20 text-muted-foreground italic">
-            No items found matching your filters.
           </div>
         )}
       </main>

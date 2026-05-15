@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { SearchBarWithSuggestions } from "@/components/SearchBarWithSuggestions";
 import { useSearchFocus } from "@/components/PageLayout";
 import { ListingCard } from "@/components/ListingCard";
-import { TealLoader } from "@/components/ui/teal-loader";
+import { ListingSkeleton } from "@/components/ui/listing-skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useSavedItems } from "@/hooks/useSavedItems";
@@ -15,6 +15,8 @@ import { Button } from "@/components/ui/button";
 const TABS = ["All", "Adventure Places", "Guided Trips", "Fixed Trips"] as const;
 type Tab = typeof TABS[number];
 const ITEMS_PER_PAGE = 12;
+const SKELETON_COUNT_MOBILE = 8;
+const SKELETON_COUNT_DESKTOP = 20;
 
 const CountyDetail = () => {
   const { county } = useParams<{ county: string }>();
@@ -117,7 +119,7 @@ const CountyDetail = () => {
                 onClick={() => setCurrentPage(page)}
                 className={cn(
                   "h-8 w-8 rounded-full text-xs font-bold transition-all",
-                  currentPage === page ? "bg-primary-foreground text-primary" : "text-primary-foreground/70 hover:bg-primary-foreground/20"
+                  currentPage === page ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted"
                 )}
               >
                 {page}
@@ -135,7 +137,7 @@ const CountyDetail = () => {
   return (
     <div className="bg-background">
 
-      {/* ── Teal sticky search header — matches Explore page exactly ── */}
+      {/* ── Teal sticky search header ── */}
       <div className="sticky top-0 z-50 bg-primary shadow-md">
         <div className="container mx-auto px-4 py-3">
           <SearchBarWithSuggestions
@@ -149,7 +151,7 @@ const CountyDetail = () => {
           />
         </div>
 
-        {/* Tab filters — inside teal bar, below search */}
+        {/* Tab filters */}
         {!isSearchFocusedLocal && (
           <div className="container mx-auto px-4 pb-2">
             <div className="flex gap-2 overflow-x-auto scrollbar-hide">
@@ -176,7 +178,24 @@ const CountyDetail = () => {
         <h1 className="text-lg font-extrabold mb-4">{decodedCounty} County</h1>
 
         {loading ? (
-          <TealLoader text="Loading..." />
+          <>
+            {/* Mobile skeletons */}
+            <div className="md:hidden grid grid-cols-2 gap-2.5">
+              {[...Array(SKELETON_COUNT_MOBILE)].map((_, i) => (
+                <div key={i} className="w-full">
+                  <ListingSkeleton />
+                </div>
+              ))}
+            </div>
+            {/* Desktop skeletons */}
+            <div className="hidden md:grid grid-cols-4 lg:grid-cols-5 gap-4">
+              {[...Array(SKELETON_COUNT_DESKTOP)].map((_, i) => (
+                <div key={i} className="w-full">
+                  <ListingSkeleton />
+                </div>
+              ))}
+            </div>
+          </>
         ) : filtered.length === 0 ? (
           <div className="text-center py-20 text-muted-foreground italic">No items found.</div>
         ) : (

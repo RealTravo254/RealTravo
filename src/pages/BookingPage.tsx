@@ -8,7 +8,7 @@ import { usePaystackPopup } from "@/hooks/usePaystackPopup";
 import { useAuth } from "@/contexts/AuthContext";
 import { getReferralTrackingId } from "@/lib/referralUtils";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, CreditCard } from "lucide-react";
 import { PaymentSuccessDialog } from "@/components/booking/PaymentSuccessDialog";
 
 const COLORS = {
@@ -64,7 +64,6 @@ const BookingPage = () => {
   // Launch Paystack into the container once it's ready
   useEffect(() => {
     if (showPaystackContainer) {
-      // Small delay to ensure the container div is rendered
       const timer = setTimeout(() => {
         launchPaystack('paystack-checkout-container');
       }, 300);
@@ -164,7 +163,6 @@ const BookingPage = () => {
           totalAmount = (formData.num_adults * item.price) + (formData.num_children * (item.price_child || 0));
         }
       } else if (type === "adventure_place" || type === "adventure") {
-        // In facility-only mode, don't charge entry fee
         if (!isFacilityOnly) {
           const entryFee = item.entry_fee || 0;
           totalAmount = (formData.num_adults + formData.num_children) * entryFee;
@@ -177,7 +175,6 @@ const BookingPage = () => {
           }
         });
       } else if (type === "hotel") {
-        // Hotels are always facility-based (rooms)
         formData.selectedActivities?.forEach(a => totalAmount += a.price * a.numberOfPeople);
         formData.selectedFacilities?.forEach(f => {
           if (f.startDate && f.endDate) {
@@ -187,18 +184,15 @@ const BookingPage = () => {
         });
       }
 
-      // Calculate slots booked - for facility-only mode, use facility count
       const slotsBooked = isFacilityOnly 
         ? formData.selectedFacilities?.length || 1
         : formData.num_adults + formData.num_children;
 
-      // Get visit date - for facility bookings, use the first facility's start date
       let visitDate = formData.visit_date || item.date;
       if (isFacilityOnly && formData.selectedFacilities?.length && formData.selectedFacilities[0].startDate) {
         visitDate = formData.selectedFacilities[0].startDate;
       }
       
-      // Prepare booking data for Paystack
       const bookingData = {
         item_id: item.id,
         booking_type: bookingType,
@@ -226,13 +220,20 @@ const BookingPage = () => {
         },
       };
       
-      // Initiate Paystack payment - opens popup
       await initiatePayment(formData.guest_email, totalAmount, bookingData);
       
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
       setIsProcessing(false);
     }
+  };
+
+  // Handle back from Paystack checkout — cancel and return to form
+  const handlePaystackBack = () => {
+    setIsProcessing(false);
+    setIsVerifying(false);
+    // Force page reload to reset Paystack state cleanly
+    window.location.reload();
   };
 
   if (loading) {
@@ -316,8 +317,9 @@ const BookingPage = () => {
 
   return (
     <div className="min-h-screen bg-[#F8F9FA]">
-      {/* Header - show during form and during payment processing */}
-      {!isCompleted && (
+
+      {/* ── Standard header: form view & verifying ── */}
+      {!isCompleted && !showPaystackContainer && (
         <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-lg border-b border-slate-100">
           <div className="container max-w-2xl mx-auto px-4 py-4 flex items-center gap-4">
             <Button
@@ -325,7 +327,6 @@ const BookingPage = () => {
               size="icon"
               onClick={() => {
                 if (isProcessing || isVerifying) {
-                  // If payment is in progress, allow going back (will cancel pending booking)
                   setIsProcessing(false);
                   setIsVerifying(false);
                 } else {
@@ -337,12 +338,41 @@ const BookingPage = () => {
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div className="flex-1 min-w-0">
-              <h1 className="text-lg font-black uppercase tracking-tight truncate" style={{ color: isVerifying || isProcessing ? COLORS.TEAL : COLORS.TEAL }}>
+              <h1 className="text-lg font-black uppercase tracking-tight truncate" style={{ color: COLORS.TEAL }}>
                 {isVerifying ? "Checkout" : `Book ${item.name}`}
               </h1>
               <p className="text-xs text-slate-500 truncate">
                 {isVerifying ? "Processing payment..." : `${item.location}, ${item.country}`}
               </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Paystack header: back to checkout ── */}
+      {showPaystackContainer && !isCompleted && (
+        <div className="sticky top-0 z-50 bg-white border-b border-slate-100 shadow-sm">
+          <div className="container max-w-2xl mx-auto px-4 py-4 flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handlePaystackBack}
+              className="rounded-full bg-slate-100 hover:bg-slate-200 shrink-0"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-lg font-black uppercase tracking-tight truncate" style={{ color: COLORS.TEAL }}>
+                Back to Checkout
+              </h1>
+              <p className="text-xs text-slate-500 truncate">
+                Complete payment for {item.name}
+              </p>
+            </div>
+            {/* Secure badge */}
+            <div className="flex items-center gap-1.5 shrink-0 bg-teal-50 text-teal-700 text-[11px] font-bold px-3 py-1.5 rounded-full">
+              <CreditCard className="h-3.5 w-3.5" />
+              Secure Pay
             </div>
           </div>
         </div>
@@ -372,15 +402,15 @@ const BookingPage = () => {
       {showPaystackContainer && !isCompleted && !isVerifying && (
         <div className="container max-w-2xl mx-auto px-4 py-6 pb-24">
           <div className="bg-white rounded-[32px] shadow-xl border border-slate-100 overflow-hidden">
-            <div className="p-6">
+            <div className="p-6 border-b border-slate-100">
               <h2 className="text-lg font-black uppercase tracking-tight mb-1" style={{ color: COLORS.TEAL }}>
                 Complete Payment
               </h2>
-              <p className="text-xs text-slate-500 mb-4">Enter your payment details below to complete your booking</p>
+              <p className="text-xs text-slate-500">Enter your payment details below to complete your booking</p>
             </div>
             <div 
               id="paystack-checkout-container" 
-              className="w-full min-h-[400px] border-t border-slate-100"
+              className="w-full min-h-[400px]"
             />
           </div>
         </div>

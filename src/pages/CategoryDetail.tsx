@@ -182,6 +182,10 @@ const CategoryDetail = () => {
     setFilteredItems(filtered);
   }, [sortedItems, searchQuery, selectedCounty, applyFilters]);
 
+  // Show skeleton when: actively loading OR no items yet and no active filter/search
+  const isFiltering = searchQuery.length > 0 || selectedCounty !== "All";
+  const showSkeleton = loading || (!loading && filteredItems.length === 0 && !isFiltering);
+
   if (!config) return <div className="p-10 text-center">Category not found</div>;
 
   return (
@@ -226,7 +230,7 @@ const CategoryDetail = () => {
 
       <main className={cn("container px-4 py-6 transition-opacity duration-200", isSearchFocused && "pointer-events-none opacity-20")}>
 
-        {loading ? (
+        {showSkeleton ? (
           <>
             {/* Mobile skeletons */}
             <div className="md:hidden grid grid-cols-2 gap-2.5">
@@ -283,7 +287,8 @@ const CategoryDetail = () => {
               })}
             </div>
 
-            {filteredItems.length === 0 && (
+            {/* Only show empty state when user is actively filtering/searching */}
+            {filteredItems.length === 0 && isFiltering && (
               <div className="text-center py-20 text-muted-foreground italic">
                 No items found matching your filters.
               </div>
@@ -291,7 +296,7 @@ const CategoryDetail = () => {
           </>
         )}
 
-        {!loading && hasMore && filteredItems.length > 0 && (
+        {!showSkeleton && hasMore && filteredItems.length > 0 && (
           <div className="flex justify-center mt-10">
             <Button
               onClick={loadMore}

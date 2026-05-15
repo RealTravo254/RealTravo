@@ -97,6 +97,10 @@ const CountyDetail = () => {
 
   useEffect(() => { setCurrentPage(1); }, [activeTab, searchQuery]);
 
+  // Show skeleton when: actively loading OR no items yet and no active filter/search
+  const isFiltering = searchQuery.length > 0 || activeTab !== "All";
+  const showSkeleton = loading || (!loading && filtered.length === 0 && !isFiltering);
+
   const renderPagination = () => {
     if (totalPages <= 1) return null;
     const pages: number[] = [];
@@ -177,7 +181,7 @@ const CountyDetail = () => {
       <main className={cn("container px-4 py-6 transition-opacity duration-200", isSearchFocusedLocal && "pointer-events-none opacity-20")}>
         <h1 className="text-lg font-extrabold mb-4">{decodedCounty} County</h1>
 
-        {loading ? (
+        {showSkeleton ? (
           <>
             {/* Mobile skeletons */}
             <div className="md:hidden grid grid-cols-2 gap-2.5">
@@ -196,7 +200,7 @@ const CountyDetail = () => {
               ))}
             </div>
           </>
-        ) : filtered.length === 0 ? (
+        ) : filtered.length === 0 && isFiltering ? (
           <div className="text-center py-20 text-muted-foreground italic">No items found.</div>
         ) : (
           <>

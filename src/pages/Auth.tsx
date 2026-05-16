@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { LoginForm } from "@/components/auth/LoginForm";
@@ -13,12 +13,20 @@ const Auth = () => {
   const location = useLocation();
   const returnTo = (location.state as any)?.returnTo || "/";
 
-  if (!loading && user) {
-    navigate(returnTo);
-  }
+  // Safely handle navigation after rendering finishes
+  useEffect(() => {
+    if (!loading && user) {
+      navigate(returnTo, { replace: true });
+    }
+  }, [user, loading, navigate, returnTo]);
  
   if (loading) {
     return <div className="min-h-screen bg-background animate-pulse" />;
+  }
+
+  // If the user is logged in, show an empty state temporarily while the useEffect redirects
+  if (user) {
+    return null;
   }
 
   return (

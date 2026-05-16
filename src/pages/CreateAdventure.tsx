@@ -13,9 +13,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBanCheck } from "@/hooks/useBanCheck";
 import {
-  MapPin, Navigation, Clock, X, Plus, Camera,
-  CheckCircle2, Info, ArrowLeft, Loader2, DollarSign,
-  ChevronLeft, ChevronRight,
+  MapPin, Navigation, Clock, X, Plus, Camera, CheckCircle2, Info, ArrowLeft, Loader2,
+  DollarSign, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -32,447 +31,327 @@ import { cn } from "@/lib/utils";
 import { useCurrency } from "@/contexts/CurrencyContext";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-
-const COLORS = {
-  TEAL: "#008080",
-  CORAL: "#FF7F50",
-  KHAKI: "#F0E68C",
-  KHAKI_DARK: "#857F3E",
-};
-
+const COLORS = { TEAL: "#008080", CORAL: "#FF7F50", KHAKI: "#F0E68C", KHAKI_DARK: "#857F3E" };
 let _idCounter = 0;
 const makeId = () => `item-${Date.now()}-${++_idCounter}`;
-
 const generateFriendlySlug = (name: string): string => {
-  const cleanName = name
-    .toLowerCase().trim()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .substring(0, 30);
+  const cleanName = name.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-").substring(0, 30);
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  let code = "";
-  for (let i = 0; i < 4; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
+  let code = ""; for (let i = 0; i < 4; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
   return `${cleanName}-${code}`;
 };
-
-const safeObjectUrl = (file: File): string => {
-  try { return URL.createObjectURL(file); } catch { return ""; }
-};
+const safeObjectUrl = (file: File): string => { try { return URL.createObjectURL(file); } catch { return ""; } };
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+interface FacilityItem { id: string; name: string; amenities: string[]; amenityInput: string; price: string; capacity: string; images: File[]; previewUrls: string[]; saved: boolean; }
+interface ActivityItem { id: string; name: string; price: string; images: File[]; previewUrls: string[]; saved: boolean; }
+const emptyFacility = (): FacilityItem => ({ id: makeId(), name: "", amenities: [], amenityInput: "", price: "", capacity: "", images: [], previewUrls: [], saved: false });
+const emptyActivity = (): ActivityItem => ({ id: makeId(), name: "", price: "", images: [], previewUrls: [], saved: false });
 
-interface FacilityItem {
-  id: string;
-  name: string;
-  amenities: string[];
-  amenityInput: string;
-  price: string;
-  capacity: string;
-  images: File[];
-  previewUrls: string[];
-  saved: boolean;
-}
+const STEP_NAMES = ["Registration", "Location", "Contact & About", "Access & Pricing", "Facilities", "Gallery", "Review"];
 
-interface ActivityItem {
-  id: string;
-  name: string;
-  price: string;
-  images: File[];
-  previewUrls: string[];
-  saved: boolean;
-}
+// ─── Shared UI Atoms ──────────────────────────────────────────────────────────
+const FieldLabel = ({ children, required }: { children: React.ReactNode; required?: boolean }) => (
+  <label className="block text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-1.5">
+    {children}{required && <span className="text-red-400 ml-0.5">*</span>}
+  </label>
+);
 
-const emptyFacility = (): FacilityItem => ({
-  id: makeId(), name: "", amenities: [], amenityInput: "",
-  price: "", capacity: "", images: [], previewUrls: [], saved: false,
-});
+const StyledInput = ({ className = "", isInvalid = false, ...props }: React.ComponentProps<typeof Input> & { isInvalid?: boolean }) => (
+  <Input className={`h-11 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-800 placeholder:text-slate-400 placeholder:font-normal focus:ring-2 focus:ring-[#008080]/20 focus:border-[#008080] transition-all ${isInvalid ? "border-red-400 ring-2 ring-red-100 bg-red-50" : ""} ${className}`} {...props} />
+);
 
-const emptyActivity = (): ActivityItem => ({
-  id: makeId(), name: "", price: "", images: [], previewUrls: [], saved: false,
-});
+const SectionCard = ({ title, subtitle, icon: Icon, children, accent = COLORS.TEAL }: { title?: string; subtitle?: string; icon?: any; children: React.ReactNode; accent?: string }) => (
+  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+    {title && (
+      <div className="px-8 py-5 border-b border-slate-100 flex items-center gap-3">
+        {Icon && <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${accent}12` }}><Icon className="h-4 w-4" style={{ color: accent }} /></div>}
+        <div>
+          <h3 className="text-sm font-bold text-slate-800">{title}</h3>
+          {subtitle && <p className="text-[11px] text-slate-400 mt-0.5">{subtitle}</p>}
+        </div>
+      </div>
+    )}
+    <div className="px-8 py-6">{children}</div>
+  </div>
+);
 
-// ─── Amenity tag input ────────────────────────────────────────────────────────
-
-interface AmenityTagInputProps {
-  tags: string[];
-  input: string;
-  onInputChange: (v: string) => void;
-  onAdd: () => void;
-  onRemove: (i: number) => void;
-  hasError: boolean;
-}
-
-const AmenityTagInput = ({ tags, input, onInputChange, onAdd, onRemove, hasError }: AmenityTagInputProps) => {
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "," || e.key === "Enter" || e.key === ".") {
-      e.preventDefault();
-      onAdd();
-    }
-    if (e.key === "Backspace" && !input && tags.length > 0) {
-      onRemove(tags.length - 1);
-    }
-  };
-
-  return (
-    <div className={cn(
-      "min-h-[42px] flex flex-wrap gap-1.5 items-center px-3 py-2 rounded-xl border-2 bg-white transition-colors",
-      hasError ? "border-red-500 bg-red-50" : "border-slate-200 focus-within:border-[#008080]"
-    )}>
-      {tags.map((tag, i) => (
-        <span key={i} className="inline-flex items-center gap-1 bg-[#008080]/10 text-[#008080] text-[11px] font-black rounded-lg px-2 py-0.5">
-          {tag}
-          <button type="button" onClick={() => onRemove(i)} className="hover:text-red-500 transition-colors">
-            <X className="h-2.5 w-2.5" />
-          </button>
-        </span>
-      ))}
-      <input
-        value={input}
-        onChange={(e) => onInputChange(e.target.value)}
-        onKeyDown={handleKeyDown}
-        onBlur={onAdd}
-        placeholder={tags.length === 0 ? "Type amenity, press comma or Enter..." : "Add more..."}
-        className="flex-1 min-w-[120px] text-sm font-bold outline-none bg-transparent placeholder:text-slate-300 placeholder:font-normal"
-      />
+// ─── Kenya Flag Phone Wrapper ─────────────────────────────────────────────────
+const KenyaPhoneWrapper = ({ children, isInvalid }: { children: React.ReactNode; isInvalid?: boolean }) => (
+  <div className={`flex items-center gap-2 h-11 rounded-xl border bg-white px-3 transition-all ${isInvalid ? "border-red-400 ring-2 ring-red-100" : "border-slate-200 focus-within:ring-2 focus-within:ring-[#008080]/20 focus-within:border-[#008080]"}`}>
+    <div className="flex items-center gap-1.5 shrink-0 pr-2 border-r border-slate-200">
+      <svg width="22" height="15" viewBox="0 0 22 15" fill="none" xmlns="http://www.w3.org/2000/svg" className="rounded-sm">
+        <rect width="22" height="5" fill="#006600" />
+        <rect y="5" width="22" height="5" fill="#BB0000" />
+        <rect y="10" width="22" height="5" fill="#006600" />
+        <rect y="4" width="22" height="7" fill="#000000" />
+        <rect y="5" width="22" height="5" fill="#BB0000" />
+        <rect y="4" width="22" height="1" fill="white" />
+        <rect y="10" width="22" height="1" fill="white" />
+        <ellipse cx="11" cy="7.5" rx="2.5" ry="4" fill="white" />
+        <ellipse cx="11" cy="7.5" rx="1.8" ry="3.2" fill="#BB0000" />
+        <line x1="11" y1="3.5" x2="11" y2="11.5" stroke="white" strokeWidth="0.5" />
+      </svg>
+      <span className="text-xs font-bold text-slate-600">+254</span>
     </div>
-  );
-};
+    <div className="flex-1 [&_input]:border-none [&_input]:bg-transparent [&_input]:shadow-none [&_input]:h-full [&_input]:px-0 [&_input]:focus:ring-0 [&_*]:border-none">
+      {children}
+    </div>
+  </div>
+);
+
+// ─── Image Gallery Grid ───────────────────────────────────────────────────────
+const ImageGalleryGrid = ({ images, previews, onRemove, onAdd, isInvalid, slots = 5 }: {
+  images: File[]; previews: string[]; onRemove: (i: number) => void;
+  onAdd: (files: FileList | null) => void; isInvalid?: boolean; slots?: number;
+}) => (
+  <div className={`grid gap-3 p-4 rounded-xl border-2 border-dashed transition-all ${isInvalid ? "border-red-400 bg-red-50/30" : "border-slate-200 bg-slate-50/40"}`}
+    style={{ gridTemplateColumns: `repeat(${slots}, minmax(0, 1fr))` }}>
+    {Array.from({ length: slots }).map((_, i) => {
+      const url = previews[i];
+      if (url) return (
+        <div key={i} className="relative group aspect-square rounded-xl overflow-hidden border border-slate-200 shadow-sm">
+          <img src={url} className="w-full h-full object-cover" alt={`Photo ${i + 1}`} />
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
+            <button type="button" onClick={() => onRemove(i)} className="opacity-0 group-hover:opacity-100 bg-red-500 text-white rounded-full p-1 shadow-lg transition-all scale-75 group-hover:scale-100"><X className="h-3 w-3" /></button>
+          </div>
+          <div className="absolute bottom-1 left-1 bg-black/60 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md">{i === 0 ? "Cover" : `#${i + 1}`}</div>
+        </div>
+      );
+      return (
+        <label key={i} className={`aspect-square rounded-xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all hover:bg-slate-100 ${isInvalid ? "border-red-300 bg-red-50" : "border-slate-200 hover:border-slate-300"}`}>
+          <Camera className={`h-5 w-5 mb-1 ${isInvalid ? "text-red-400" : "text-slate-300"}`} />
+          <span className={`text-[9px] font-bold uppercase ${isInvalid ? "text-red-400" : "text-slate-300"}`}>{i === 0 ? "Cover" : `#${i + 1}`}</span>
+          <input type="file" multiple className="hidden" accept="image/*" onChange={(e) => onAdd(e.target.files)} />
+        </label>
+      );
+    })}
+  </div>
+);
+
+// ─── Amenity Tag Input ────────────────────────────────────────────────────────
+const AmenityTagInput = ({ tags, input, onInputChange, onAdd, onRemove, hasError }: { tags: string[]; input: string; onInputChange: (v: string) => void; onAdd: () => void; onRemove: (i: number) => void; hasError: boolean; }) => (
+  <div className={cn("min-h-[44px] flex flex-wrap gap-1.5 items-center px-3 py-2 rounded-xl border bg-white transition-all", hasError ? "border-red-400 ring-2 ring-red-100" : "border-slate-200 focus-within:ring-2 focus-within:ring-[#008080]/20 focus-within:border-[#008080]")}>
+    {tags.map((tag, i) => (
+      <span key={i} className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[11px] font-bold" style={{ background: `${COLORS.TEAL}10`, color: COLORS.TEAL }}>
+        {tag}<button type="button" onClick={() => onRemove(i)} className="hover:text-red-500 transition-colors"><X className="h-2.5 w-2.5" /></button>
+      </span>
+    ))}
+    <input value={input} onChange={(e) => onInputChange(e.target.value)}
+      onKeyDown={(e) => { if (e.key === "," || e.key === "Enter" || e.key === ".") { e.preventDefault(); onAdd(); } if (e.key === "Backspace" && !input && tags.length > 0) onRemove(tags.length - 1); }}
+      onBlur={onAdd} placeholder={tags.length === 0 ? "Type amenity, press comma..." : "Add more..."}
+      className="flex-1 min-w-[120px] text-sm font-medium outline-none bg-transparent placeholder:text-slate-300 placeholder:font-normal" />
+  </div>
+);
 
 // ─── Facility Builder ─────────────────────────────────────────────────────────
-
-interface FacilityBuilderProps {
-  items: FacilityItem[];
-  onChange: (items: FacilityItem[]) => void;
-  showErrors: boolean;
-  onValidationFail: (msg: string) => void;
-}
-
-const FacilityBuilder = ({ items, onChange, showErrors, onValidationFail }: FacilityBuilderProps) => {
+const FacilityBuilder = ({ items, onChange, showErrors, onValidationFail }: { items: FacilityItem[]; onChange: (items: FacilityItem[]) => void; showErrors: boolean; onValidationFail: (msg: string) => void; }) => {
   const { usdHint } = useCurrency();
-  const update = (id: string, patch: Partial<FacilityItem>) =>
-    onChange(items.map((f) => (f.id === id ? { ...f, ...patch } : f)));
-
+  const update = (id: string, patch: Partial<FacilityItem>) => onChange(items.map((f) => f.id === id ? { ...f, ...patch } : f));
   const addItem = () => onChange([...items, emptyFacility()]);
   const removeItem = (id: string) => onChange(items.filter((f) => f.id !== id));
-
-  const addAmenityTag = (item: FacilityItem) => {
-    const val = item.amenityInput.replace(/,/g, "").trim();
-    if (!val) return;
-    update(item.id, { amenities: [...item.amenities, val], amenityInput: "" });
-  };
-
-  const removeAmenityTag = (item: FacilityItem, idx: number) => {
-    update(item.id, { amenities: item.amenities.filter((_, i) => i !== idx) });
-  };
+  const addAmenityTag = (item: FacilityItem) => { const val = item.amenityInput.replace(/,/g, "").trim(); if (!val) return; update(item.id, { amenities: [...item.amenities, val], amenityInput: "" }); };
+  const removeAmenityTag = (item: FacilityItem, idx: number) => update(item.id, { amenities: item.amenities.filter((_, i) => i !== idx) });
 
   const handleImages = async (id: string, fileList: FileList | null, existing: File[]) => {
     if (!fileList || fileList.length === 0) return;
-    const slots = 5 - existing.length;
-    if (slots <= 0) return;
+    const slots = 5 - existing.length; if (slots <= 0) return;
     const incoming = Array.from(fileList).slice(0, slots);
     let merged: File[];
-    try {
-      const compressed = await compressImages(incoming);
-      merged = [...existing, ...compressed.map((c) => c.file)].slice(0, 5);
-    } catch {
-      merged = [...existing, ...incoming].slice(0, 5);
-    }
+    try { const compressed = await compressImages(incoming); merged = [...existing, ...compressed.map((c) => c.file)].slice(0, 5); }
+    catch { merged = [...existing, ...incoming].slice(0, 5); }
     update(id, { images: merged, previewUrls: merged.map(safeObjectUrl) });
   };
-
-  const removeImage = (id: string, idx: number, existing: File[]) => {
-    const updated = existing.filter((_, i) => i !== idx);
-    update(id, { images: updated, previewUrls: updated.map(safeObjectUrl) });
-  };
-
+  const removeImage = (id: string, idx: number, existing: File[]) => { const updated = existing.filter((_, i) => i !== idx); update(id, { images: updated, previewUrls: updated.map(safeObjectUrl) }); };
   const saveItem = (f: FacilityItem) => {
-    if (!f.name.trim())           { onValidationFail("Please enter a facility name."); return; }
+    if (!f.name.trim()) { onValidationFail("Please enter a facility name."); return; }
     if (f.amenities.length === 0) { onValidationFail("Please add at least one amenity."); return; }
-    if (!f.capacity.trim())       { onValidationFail("Please enter the facility capacity."); return; }
-    if (f.images.length < 2)      { onValidationFail("Please add at least 2 photos for this facility."); return; }
+    if (!f.capacity.trim()) { onValidationFail("Please enter the facility capacity."); return; }
+    if (f.images.length < 2) { onValidationFail("Please add at least 2 photos for this facility."); return; }
     update(f.id, { saved: true });
   };
 
   return (
     <div className="space-y-4">
-      <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-        Facilities (with photos)
-      </Label>
-
+      <FieldLabel>Facilities (with photos)</FieldLabel>
       {items.map((item) => (
-        <div key={item.id} className={cn(
-          "rounded-2xl border-2 overflow-hidden transition-all",
-          item.saved ? "border-[#FF7F50]/30 bg-[#FF7F50]/5" : "border-slate-200 bg-white"
-        )}>
+        <div key={item.id} className={cn("rounded-xl border overflow-hidden transition-all", item.saved ? "border-[#FF7F50]/30 bg-[#FF7F50]/5" : "border-slate-200 bg-white")}>
           {item.saved ? (
             <div className="p-4 flex items-center gap-4">
               <div className="flex gap-2 shrink-0">
-                {item.previewUrls.slice(0, 3).map((url, i) =>
-                  url ? <img key={i} src={url} className="w-12 h-12 rounded-xl object-cover border border-slate-200" alt="" />
-                      : <div key={i} className="w-12 h-12 rounded-xl bg-slate-200" />
-                )}
-                {item.previewUrls.length > 3 && (
-                  <div className="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-xs font-black text-slate-500">
-                    +{item.previewUrls.length - 3}
-                  </div>
-                )}
+                {item.previewUrls.slice(0, 3).map((url, i) => url ? <img key={i} src={url} className="w-12 h-12 rounded-xl object-cover border border-slate-200" alt="" /> : <div key={i} className="w-12 h-12 rounded-xl bg-slate-200" />)}
+                {item.previewUrls.length > 3 && <div className="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-xs font-bold text-slate-500">+{item.previewUrls.length - 3}</div>}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-black text-sm text-slate-800 truncate">{item.name}</p>
+                <p className="font-bold text-sm text-slate-800 truncate">{item.name}</p>
                 <p className="text-[11px] text-slate-500 truncate">{item.amenities.join(", ")}</p>
                 <div className="flex gap-3 mt-0.5">
                   {item.capacity && <p className="text-[11px] text-slate-400">Capacity: {item.capacity}</p>}
-                  {item.price && <p className="text-[11px] font-bold text-[#FF7F50]">KSh {item.price} <span className="text-blue-500">{usdHint(parseFloat(item.price))}</span></p>}
+                  {item.price && <p className="text-[11px] font-semibold" style={{ color: COLORS.CORAL }}>KSh {item.price} <span className="text-blue-500">{usdHint(parseFloat(item.price))}</span></p>}
                 </div>
               </div>
               <div className="flex gap-2 shrink-0">
-                <button type="button" onClick={() => update(item.id, { saved: false })}
-                  className="text-[10px] font-black uppercase tracking-widest text-[#FF7F50] border border-[#FF7F50]/30 rounded-lg px-3 py-1.5 hover:bg-[#FF7F50]/10 transition-colors">
-                  Edit
-                </button>
-                <button type="button" onClick={() => removeItem(item.id)}
-                  className="text-[10px] font-black uppercase tracking-widest text-red-500 border border-red-200 rounded-lg px-3 py-1.5 hover:bg-red-50 transition-colors">
-                  Remove
-                </button>
+                <button type="button" onClick={() => update(item.id, { saved: false })} className="text-[11px] font-bold uppercase tracking-wide border rounded-lg px-3 py-1.5 hover:bg-orange-50 transition-colors" style={{ color: COLORS.CORAL, borderColor: `${COLORS.CORAL}40` }}>Edit</button>
+                <button type="button" onClick={() => removeItem(item.id)} className="text-[11px] font-bold uppercase tracking-wide text-red-500 border border-red-200 rounded-lg px-3 py-1.5 hover:bg-red-50 transition-colors">Remove</button>
               </div>
             </div>
           ) : (
-            <div className="p-4 space-y-4">
-              <div className="grid grid-cols-2 gap-3">
+            <div className="p-5 space-y-4">
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Name *</Label>
-                  <Input value={item.name} onChange={(e) => update(item.id, { name: e.target.value })}
-                    placeholder="e.g. Campsite A"
-                    className={cn("rounded-xl h-10 font-bold text-sm", showErrors && !item.name.trim() && "border-red-500 bg-red-50")} />
+                  <FieldLabel required>Name</FieldLabel>
+                  <StyledInput value={item.name} onChange={(e) => update(item.id, { name: e.target.value })} placeholder="e.g. Campsite A" isInvalid={showErrors && !item.name.trim()} />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Price (KSh)</Label>
-                  <Input type="number" value={item.price} onChange={(e) => update(item.id, { price: e.target.value })}
-                    placeholder="0" className="rounded-xl h-10 font-bold text-sm" />
-                  {item.price && parseFloat(item.price) > 0 && <p className="text-[9px] text-blue-500 font-bold mt-0.5">{usdHint(parseFloat(item.price))}</p>}
+                  <FieldLabel>Price (KSh)</FieldLabel>
+                  <StyledInput type="number" value={item.price} onChange={(e) => update(item.id, { price: e.target.value })} placeholder="0" />
+                  {item.price && parseFloat(item.price) > 0 && <p className="text-[9px] text-blue-500 font-semibold mt-0.5">{usdHint(parseFloat(item.price))}</p>}
+                </div>
+                <div className="space-y-1">
+                  <FieldLabel required>Capacity</FieldLabel>
+                  <StyledInput type="number" min={1} value={item.capacity} onChange={(e) => update(item.id, { capacity: e.target.value.replace(/[^0-9]/g, "") })} placeholder="e.g. 20" isInvalid={showErrors && !item.capacity.trim()} />
                 </div>
               </div>
               <div className="space-y-1">
-                <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                  Capacity * <span className="text-slate-300 normal-case font-normal">(number of people)</span>
-                </Label>
-                <Input type="number" min={1} value={item.capacity}
-                  onChange={(e) => update(item.id, { capacity: e.target.value.replace(/[^0-9]/g, "") })}
-                  placeholder="e.g. 20"
-                  className={cn("rounded-xl h-10 font-bold text-sm", showErrors && !item.capacity.trim() && "border-red-500 bg-red-50")} />
+                <FieldLabel required>Amenities {showErrors && item.amenities.length === 0 && <span className="text-red-400 text-[10px] normal-case font-normal">— at least one required</span>}</FieldLabel>
+                <AmenityTagInput tags={item.amenities} input={item.amenityInput} onInputChange={(v) => update(item.id, { amenityInput: v })} onAdd={() => addAmenityTag(item)} onRemove={(i) => removeAmenityTag(item, i)} hasError={showErrors && item.amenities.length === 0} />
               </div>
-              <div className="space-y-1">
-                <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                  Amenities * <span className="text-slate-300 normal-case font-normal">(separate with commas)</span>
-                  {showErrors && item.amenities.length === 0 && <span className="text-red-500 ml-2">— at least one required</span>}
-                </Label>
-                <AmenityTagInput tags={item.amenities} input={item.amenityInput}
-                  onInputChange={(v) => update(item.id, { amenityInput: v })}
-                  onAdd={() => addAmenityTag(item)}
-                  onRemove={(i) => removeAmenityTag(item, i)}
-                  hasError={showErrors && item.amenities.length === 0} />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                  Photos <span className="text-slate-300 normal-case font-normal">(min 2, max 5)</span>
-                  {showErrors && item.images.length < 2 && <span className="text-red-500 ml-2">— at least 2 required</span>}
-                </Label>
-                <div className={cn("flex flex-wrap gap-2 p-3 rounded-xl border-2",
-                  showErrors && item.images.length < 2 ? "border-red-400 bg-red-50" : "border-dashed border-slate-200")}>
-                  {item.previewUrls.map((url, i) =>
-                    url ? (
-                      <div key={i} className="relative w-16 h-16 rounded-xl overflow-hidden border border-slate-200 shrink-0">
-                        <img src={url} className="w-full h-full object-cover" alt="" />
-                        <button type="button" onClick={() => removeImage(item.id, i, item.images)}
-                          className="absolute top-0.5 right-0.5 bg-red-500 text-white rounded-full p-0.5 shadow">
-                          <X className="h-2.5 w-2.5" />
-                        </button>
-                      </div>
-                    ) : null
-                  )}
-                  {item.images.length < 5 && (
-                    <label className="w-16 h-16 rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center cursor-pointer hover:bg-slate-50 shrink-0">
-                      <Plus className="h-4 w-4 text-slate-400" />
-                      <span className="text-[8px] font-black uppercase text-slate-400 mt-0.5">Photo</span>
-                      <input type="file" multiple className="hidden" accept="image/*"
-                        onChange={(e) => handleImages(item.id, e.target.files, item.images)} />
-                    </label>
-                  )}
-                </div>
+              {/* Facility image grid — 5 slots */}
+              <div>
+                <FieldLabel>Photos (min 2, max 5) {showErrors && item.images.length < 2 && <span className="text-red-400 text-[10px] normal-case font-normal">— at least 2 required</span>}</FieldLabel>
+                <ImageGalleryGrid images={item.images} previews={item.previewUrls} onRemove={(i) => removeImage(item.id, i, item.images)} onAdd={(files) => handleImages(item.id, files, item.images)} isInvalid={showErrors && item.images.length < 2} slots={5} />
               </div>
               <div className="flex gap-3 pt-1">
-                <Button type="button" onClick={() => saveItem(item)}
-                  className="flex-1 h-10 rounded-xl font-black uppercase text-[10px] tracking-widest text-white"
-                  style={{ background: `linear-gradient(135deg, ${COLORS.CORAL} 0%, #e06040 100%)` }}>
-                  Save Facility
-                </Button>
-                {items.length > 1 && (
-                  <Button type="button" onClick={() => removeItem(item.id)} variant="ghost"
-                    className="h-10 px-4 rounded-xl text-red-400 hover:text-red-600 hover:bg-red-50">
-                    <X className="h-4 w-4" />
-                  </Button>
-                )}
+                <button type="button" onClick={() => saveItem(item)} className="flex-1 h-10 rounded-xl text-white text-[12px] font-bold hover:opacity-90 transition-all" style={{ background: `linear-gradient(135deg, ${COLORS.CORAL}, #e06040)` }}>Save Facility</button>
+                {items.length > 1 && <button type="button" onClick={() => removeItem(item.id)} className="h-10 px-4 rounded-xl text-red-400 hover:text-red-600 hover:bg-red-50 transition-all"><X className="h-4 w-4" /></button>}
               </div>
             </div>
           )}
         </div>
       ))}
-
-      <Button type="button" onClick={addItem} variant="outline"
-        className="w-full h-11 rounded-xl font-black uppercase text-[10px] tracking-widest border-dashed border-2 border-slate-200 text-slate-400 hover:border-[#FF7F50] hover:text-[#FF7F50]">
-        <Plus className="h-4 w-4 mr-2" /> Add Facility
-      </Button>
+      <button type="button" onClick={addItem} className="w-full h-11 rounded-xl text-[11px] font-bold uppercase tracking-wide border-2 border-dashed border-slate-200 text-slate-400 hover:border-[#FF7F50] hover:text-[#FF7F50] transition-all flex items-center justify-center gap-2">
+        <Plus className="h-4 w-4" /> Add Facility
+      </button>
     </div>
   );
 };
 
 // ─── Activity Builder ─────────────────────────────────────────────────────────
-
-interface ActivityBuilderProps {
-  items: ActivityItem[];
-  onChange: (items: ActivityItem[]) => void;
-  showErrors: boolean;
-  onValidationFail: (msg: string) => void;
-}
-
-const ActivityBuilder = ({ items, onChange, showErrors, onValidationFail }: ActivityBuilderProps) => {
+const ActivityBuilder = ({ items, onChange, showErrors, onValidationFail }: { items: ActivityItem[]; onChange: (items: ActivityItem[]) => void; showErrors: boolean; onValidationFail: (msg: string) => void; }) => {
   const { usdHint } = useCurrency();
-  const update = (id: string, patch: Partial<ActivityItem>) =>
-    onChange(items.map((a) => (a.id === id ? { ...a, ...patch } : a)));
-
+  const update = (id: string, patch: Partial<ActivityItem>) => onChange(items.map((a) => a.id === id ? { ...a, ...patch } : a));
   const addItem = () => onChange([...items, emptyActivity()]);
   const removeItem = (id: string) => onChange(items.filter((a) => a.id !== id));
-
   const handleImages = async (id: string, fileList: FileList | null, existing: File[]) => {
     if (!fileList || fileList.length === 0) return;
-    const slots = 5 - existing.length;
-    if (slots <= 0) return;
+    const slots = 5 - existing.length; if (slots <= 0) return;
     const incoming = Array.from(fileList).slice(0, slots);
     let merged: File[];
-    try {
-      const compressed = await compressImages(incoming);
-      merged = [...existing, ...compressed.map((c) => c.file)].slice(0, 5);
-    } catch {
-      merged = [...existing, ...incoming].slice(0, 5);
-    }
+    try { const compressed = await compressImages(incoming); merged = [...existing, ...compressed.map((c) => c.file)].slice(0, 5); }
+    catch { merged = [...existing, ...incoming].slice(0, 5); }
     update(id, { images: merged, previewUrls: merged.map(safeObjectUrl) });
   };
-
-  const removeImage = (id: string, idx: number, existing: File[]) => {
-    const updated = existing.filter((_, i) => i !== idx);
-    update(id, { images: updated, previewUrls: updated.map(safeObjectUrl) });
-  };
-
-  const saveItem = (a: ActivityItem) => {
-    if (!a.name.trim()) { onValidationFail("Please enter an activity name."); return; }
-    update(a.id, { saved: true });
-  };
+  const removeImage = (id: string, idx: number, existing: File[]) => { const updated = existing.filter((_, i) => i !== idx); update(id, { images: updated, previewUrls: updated.map(safeObjectUrl) }); };
+  const saveItem = (a: ActivityItem) => { if (!a.name.trim()) { onValidationFail("Please enter an activity name."); return; } update(a.id, { saved: true }); };
 
   return (
     <div className="space-y-4">
-      <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-        Activities (with photos)
-      </Label>
-
+      <FieldLabel>Activities (with photos)</FieldLabel>
       {items.map((item) => (
-        <div key={item.id} className={cn(
-          "rounded-2xl border-2 overflow-hidden transition-all",
-          item.saved ? "border-indigo-200 bg-indigo-50/30" : "border-slate-200 bg-white"
-        )}>
+        <div key={item.id} className={cn("rounded-xl border overflow-hidden transition-all", item.saved ? "border-indigo-200 bg-indigo-50/30" : "border-slate-200 bg-white")}>
           {item.saved ? (
             <div className="p-4 flex items-center gap-4">
               <div className="flex gap-2 shrink-0">
-                {item.previewUrls.slice(0, 3).map((url, i) =>
-                  url ? <img key={i} src={url} className="w-12 h-12 rounded-xl object-cover border border-slate-200" alt="" />
-                      : <div key={i} className="w-12 h-12 rounded-xl bg-slate-200" />
-                )}
+                {item.previewUrls.slice(0, 3).map((url, i) => url ? <img key={i} src={url} className="w-12 h-12 rounded-xl object-cover border border-slate-200" alt="" /> : null)}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-black text-sm text-slate-800 truncate">{item.name}</p>
-                {item.price && <p className="text-[11px] font-bold text-indigo-500">KSh {item.price} <span className="text-blue-500">{usdHint(parseFloat(item.price))}</span></p>}
+                <p className="font-bold text-sm text-slate-800 truncate">{item.name}</p>
+                {item.price && <p className="text-[11px] font-semibold text-indigo-500">KSh {item.price} <span className="text-blue-500">{usdHint(parseFloat(item.price))}</span></p>}
               </div>
               <div className="flex gap-2 shrink-0">
-                <button type="button" onClick={() => update(item.id, { saved: false })}
-                  className="text-[10px] font-black uppercase tracking-widest text-indigo-500 border border-indigo-200 rounded-lg px-3 py-1.5 hover:bg-indigo-50 transition-colors">
-                  Edit
-                </button>
-                <button type="button" onClick={() => removeItem(item.id)}
-                  className="text-[10px] font-black uppercase tracking-widest text-red-500 border border-red-200 rounded-lg px-3 py-1.5 hover:bg-red-50 transition-colors">
-                  Remove
-                </button>
+                <button type="button" onClick={() => update(item.id, { saved: false })} className="text-[11px] font-bold uppercase tracking-wide text-indigo-500 border border-indigo-200 rounded-lg px-3 py-1.5 hover:bg-indigo-50 transition-colors">Edit</button>
+                <button type="button" onClick={() => removeItem(item.id)} className="text-[11px] font-bold uppercase tracking-wide text-red-500 border border-red-200 rounded-lg px-3 py-1.5 hover:bg-red-50 transition-colors">Remove</button>
               </div>
             </div>
           ) : (
-            <div className="p-4 space-y-4">
+            <div className="p-5 space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Activity Name *</Label>
-                  <Input value={item.name} onChange={(e) => update(item.id, { name: e.target.value })}
-                    placeholder="e.g. Hiking"
-                    className={cn("rounded-xl h-10 font-bold text-sm", showErrors && !item.name.trim() && "border-red-500 bg-red-50")} />
+                  <FieldLabel required>Activity Name</FieldLabel>
+                  <StyledInput value={item.name} onChange={(e) => update(item.id, { name: e.target.value })} placeholder="e.g. Hiking" isInvalid={showErrors && !item.name.trim()} />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Price (KSh)</Label>
-                  <Input type="number" value={item.price} onChange={(e) => update(item.id, { price: e.target.value })}
-                    placeholder="0" className="rounded-xl h-10 font-bold text-sm" />
-                  {item.price && parseFloat(item.price) > 0 && <p className="text-[9px] text-blue-500 font-bold mt-0.5">{usdHint(parseFloat(item.price))}</p>}
+                  <FieldLabel>Price (KSh)</FieldLabel>
+                  <StyledInput type="number" value={item.price} onChange={(e) => update(item.id, { price: e.target.value })} placeholder="0" />
+                  {item.price && parseFloat(item.price) > 0 && <p className="text-[9px] text-blue-500 font-semibold mt-0.5">{usdHint(parseFloat(item.price))}</p>}
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Photos <span className="text-slate-300 normal-case font-normal">(max 5)</span></Label>
-                <div className="flex flex-wrap gap-2 p-3 rounded-xl border-2 border-dashed border-slate-200">
-                  {item.previewUrls.map((url, i) =>
-                    url ? (
-                      <div key={i} className="relative w-16 h-16 rounded-xl overflow-hidden border border-slate-200 shrink-0">
-                        <img src={url} className="w-full h-full object-cover" alt="" />
-                        <button type="button" onClick={() => removeImage(item.id, i, item.images)}
-                          className="absolute top-0.5 right-0.5 bg-red-500 text-white rounded-full p-0.5 shadow">
-                          <X className="h-2.5 w-2.5" />
-                        </button>
-                      </div>
-                    ) : null
-                  )}
-                  {item.images.length < 5 && (
-                    <label className="w-16 h-16 rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center cursor-pointer hover:bg-slate-50 shrink-0">
-                      <Plus className="h-4 w-4 text-slate-400" />
-                      <span className="text-[8px] font-black uppercase text-slate-400 mt-0.5">Photo</span>
-                      <input type="file" multiple className="hidden" accept="image/*"
-                        onChange={(e) => handleImages(item.id, e.target.files, item.images)} />
-                    </label>
-                  )}
-                </div>
+              {/* Activity image grid — 5 slots */}
+              <div>
+                <FieldLabel>Photos (max 5)</FieldLabel>
+                <ImageGalleryGrid images={item.images} previews={item.previewUrls} onRemove={(i) => removeImage(item.id, i, item.images)} onAdd={(files) => handleImages(item.id, files, item.images)} slots={5} />
               </div>
               <div className="flex gap-3 pt-1">
-                <Button type="button" onClick={() => saveItem(item)}
-                  className="flex-1 h-10 rounded-xl font-black uppercase text-[10px] tracking-widest text-white"
-                  style={{ background: "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)" }}>
-                  Save Activity
-                </Button>
-                {items.length > 1 && (
-                  <Button type="button" onClick={() => removeItem(item.id)} variant="ghost"
-                    className="h-10 px-4 rounded-xl text-red-400 hover:text-red-600 hover:bg-red-50">
-                    <X className="h-4 w-4" />
-                  </Button>
-                )}
+                <button type="button" onClick={() => saveItem(item)} className="flex-1 h-10 rounded-xl text-white text-[12px] font-bold hover:opacity-90 transition-all" style={{ background: "linear-gradient(135deg, #6366f1, #4f46e5)" }}>Save Activity</button>
+                {items.length > 1 && <button type="button" onClick={() => removeItem(item.id)} className="h-10 px-4 rounded-xl text-red-400 hover:text-red-600 hover:bg-red-50 transition-all"><X className="h-4 w-4" /></button>}
               </div>
             </div>
           )}
         </div>
       ))}
-
-      <Button type="button" onClick={addItem} variant="outline"
-        className="w-full h-11 rounded-xl font-black uppercase text-[10px] tracking-widest border-dashed border-2 border-slate-200 text-slate-400 hover:border-indigo-400 hover:text-indigo-400">
-        <Plus className="h-4 w-4 mr-2" /> Add Activity
-      </Button>
+      <button type="button" onClick={addItem} className="w-full h-11 rounded-xl text-[11px] font-bold uppercase tracking-wide border-2 border-dashed border-slate-200 text-slate-400 hover:border-indigo-400 hover:text-indigo-400 transition-all flex items-center justify-center gap-2">
+        <Plus className="h-4 w-4" /> Add Activity
+      </button>
     </div>
   );
 };
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
+// ─── Step Sidebar ─────────────────────────────────────────────────────────────
+const StepSidebar = ({ steps, currentStep, onStepClick }: { steps: any[]; currentStep: number; onStepClick?: (i: number) => void; }) => (
+  <aside className="hidden lg:flex flex-col w-72 shrink-0 sticky top-24 self-start">
+    <div className="rounded-2xl overflow-hidden mb-6 relative h-44">
+      <img src="/images/category-campsite.webp" className="w-full h-full object-cover" alt="" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+      <div className="absolute bottom-4 left-5 right-5">
+        <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: COLORS.KHAKI }}>Adventure Place</span>
+        <h2 className="text-white text-xl font-black uppercase tracking-tight leading-tight mt-0.5">Create Adventure</h2>
+      </div>
+    </div>
+    <nav className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+      <div className="px-5 py-4 border-b border-slate-100">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Your progress</p>
+      </div>
+      <ul className="p-3 space-y-1">
+        {steps.map((step, i) => {
+          const num = i + 1;
+          const isActive = currentStep === num;
+          const isDone = step.isComplete && currentStep > num;
+          const isPast = currentStep > num;
+          return (
+            <li key={i}>
+              <button type="button" onClick={() => isPast && onStepClick?.(num)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all ${isActive ? "bg-[#008080] text-white shadow-md" : isPast ? "hover:bg-slate-50 cursor-pointer" : "cursor-default"}`}>
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-black shrink-0 ${isActive ? "bg-white text-[#008080]" : isDone ? "bg-emerald-100 text-emerald-600" : "bg-slate-100 text-slate-400"}`}>
+                  {isDone ? <CheckCircle2 className="h-3.5 w-3.5" /> : num}
+                </div>
+                <div className="min-w-0">
+                  <p className={`text-[12px] font-bold truncate ${isActive ? "text-white" : isDone ? "text-emerald-700" : "text-slate-500"}`}>{step.name}</p>
+                  {isActive && <p className="text-[10px] text-white/70 mt-0.5">Current step</p>}
+                </div>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+    <div className="mt-4 bg-slate-50 rounded-2xl p-5 border border-slate-100">
+      <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1">Need help?</p>
+      <p className="text-xs text-slate-400 leading-relaxed">Fill each step carefully. Your listing will be reviewed before going live.</p>
+    </div>
+  </aside>
+);
 
-const STEP_NAMES = ["Registration", "Location", "Contact & About", "Access & Pricing", "Facilities", "Gallery", "Review"];
-
+// ─── Main Component ───────────────────────────────────────────────────────────
 const CreateAdventure = () => {
   const navigate = useNavigate();
   const goBack = useSafeBack("/become-host");
@@ -493,48 +372,32 @@ const CreateAdventure = () => {
     locationLink: "",
   });
   const [locationMode, setLocationMode] = useState<'link' | 'gps' | null>(null);
-
-  const [workingDays, setWorkingDays] = useState({
-    Mon: true, Tue: true, Wed: true, Thu: true, Fri: true, Sat: true, Sun: true,
-  });
-
+  const [workingDays, setWorkingDays] = useState({ Mon: true, Tue: true, Wed: true, Thu: true, Fri: true, Sat: true, Sun: true });
   const [generalFacilities, setGeneralFacilities] = useState<string[]>([]);
   const [facilities, setFacilities] = useState<FacilityItem[]>(() => [emptyFacility()]);
   const [activities, setActivities] = useState<ActivityItem[]>(() => [emptyActivity()]);
   const [galleryImages, setGalleryImages] = useState<File[]>([]);
   const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
 
-  const onValidationFail = useCallback(
-    (msg: string) => toast({ title: "Required", description: msg, variant: "destructive" }),
-    [toast]
-  );
+  const onValidationFail = useCallback((msg: string) => toast({ title: "Required", description: msg, variant: "destructive" }), [toast]);
 
   useEffect(() => {
     if (!user) return;
-    supabase.from("profiles").select("country").eq("id", user.id).single()
-      .then(({ data }) => {
-        if (data?.country) setFormData((p) => ({ ...p, country: data.country }));
-      });
-
-    // Block verified companies from hosting adventure places / campsites
-    supabase.from("companies").select("verification_status").eq("user_id", user.id).maybeSingle()
-      .then(({ data }) => {
-        if (data && (data.verification_status === "approved" || data.verification_status === "verified")) {
-          toast({
-            title: "Not Allowed",
-            description: "Verified companies cannot host adventure places or campsites. Please host trips, hotels or events instead.",
-            variant: "destructive",
-          });
-          navigate("/become-host");
-        }
-      });
+    supabase.from("profiles").select("country").eq("id", user.id).single().then(({ data }) => {
+      if (data?.country) setFormData((p) => ({ ...p, country: data.country }));
+    });
+    supabase.from("companies").select("verification_status").eq("user_id", user.id).maybeSingle().then(({ data }) => {
+      if (data && (data.verification_status === "approved" || data.verification_status === "verified")) {
+        toast({ title: "Not Allowed", description: "Verified companies cannot host adventure places. Please host trips, hotels or events instead.", variant: "destructive" });
+        navigate("/become-host");
+      }
+    });
   }, [user, navigate, toast]);
 
-  // Step validation
   const isStep1Complete = !!formData.registrationName.trim() && !!formData.registrationNumber.trim() && !!formData.country;
   const isStep2Complete = !!formData.locationName.trim() && !!formData.place.trim() && (!!formData.latitude || !!formData.locationLink.trim());
   const isStep3Complete = !!formData.description.trim();
-  const isStep4Complete = true; // Operating hours have defaults
+  const isStep4Complete = true;
   const isStep5Complete = facilities.every(f => f.saved);
   const isStep6Complete = galleryImages.length >= 5;
 
@@ -548,112 +411,52 @@ const CreateAdventure = () => {
     { name: STEP_NAMES[6], isComplete: isStep1Complete && isStep2Complete && isStep3Complete && isStep6Complete },
   ];
 
+  const isMissing = (v: any) => { if (!showErrors) return false; if (typeof v === "string") return !v.trim(); return v === null || v === undefined; };
+
   const validateCurrentStep = (): boolean => {
-    if (currentStep === 1) {
-      if (!formData.registrationName.trim() || !formData.registrationNumber.trim() || !formData.country) {
-        setShowErrors(true);
-        toast({ title: "Complete this step", description: "Fill all required fields", variant: "destructive" });
-        return false;
-      }
-    } else if (currentStep === 2) {
-      if (!formData.locationName.trim() || !formData.place.trim() || (!formData.latitude && !formData.locationLink.trim())) {
-        setShowErrors(true);
-        toast({ title: "Complete this step", description: "Fill location and provide a link or GPS", variant: "destructive" });
-        return false;
-      }
-    } else if (currentStep === 3) {
-      if (!formData.description.trim()) {
-        setShowErrors(true);
-        toast({ title: "Complete this step", description: "Description is required", variant: "destructive" });
-        return false;
-      }
-    } else if (currentStep === 5) {
-      if (facilities.some(f => !f.saved)) {
-        toast({ title: "Unsaved Facility", description: "Please save all facilities", variant: "destructive" });
-        return false;
-      }
-    } else if (currentStep === 6) {
-      if (galleryImages.length < 5) {
-        setShowErrors(true);
-        toast({ title: "Photos Required", description: `Upload ${5 - galleryImages.length} more photos`, variant: "destructive" });
-        return false;
-      }
-    }
+    if (currentStep === 1) { if (!formData.registrationName.trim() || !formData.registrationNumber.trim() || !formData.country) { setShowErrors(true); toast({ title: "Complete this step", description: "Fill all required fields", variant: "destructive" }); return false; } }
+    else if (currentStep === 2) { if (!formData.locationName.trim() || !formData.place.trim() || (!formData.latitude && !formData.locationLink.trim())) { setShowErrors(true); toast({ title: "Complete this step", description: "Fill location and provide a link or GPS", variant: "destructive" }); return false; } }
+    else if (currentStep === 3) { if (!formData.description.trim()) { setShowErrors(true); toast({ title: "Complete this step", description: "Description is required", variant: "destructive" }); return false; } }
+    else if (currentStep === 5) { if (facilities.some(f => !f.saved)) { toast({ title: "Unsaved Facility", description: "Please save all facilities", variant: "destructive" }); return false; } }
+    else if (currentStep === 6) { if (galleryImages.length < 5) { setShowErrors(true); toast({ title: "Photos Required", description: `Upload ${5 - galleryImages.length} more photos`, variant: "destructive" }); return false; } }
     return true;
   };
 
   const handleNext = () => {
-    // Auto-save any pending amenity input + auto-mark facilities/activities as saved if minimally complete
     setFacilities(prev => prev.map(f => {
       if (f.saved) return f;
       let next = { ...f };
-      if (f.amenityInput.trim()) {
-        const val = f.amenityInput.replace(/,/g, "").trim();
-        next = { ...next, amenities: [...next.amenities, val], amenityInput: "" };
-      }
-      // Auto-save when minimum data present
-      if (next.name.trim() && next.amenities.length > 0 && next.capacity.trim() && next.images.length >= 2) {
-        next.saved = true;
-      }
+      if (f.amenityInput.trim()) { const val = f.amenityInput.replace(/,/g, "").trim(); next = { ...next, amenities: [...next.amenities, val], amenityInput: "" }; }
+      if (next.name.trim() && next.amenities.length > 0 && next.capacity.trim() && next.images.length >= 2) next.saved = true;
       return next;
     }));
-    setActivities(prev => prev.map(a => {
-      if (a.saved) return a;
-      if (a.name.trim()) return { ...a, saved: true };
-      return a;
-    }));
-
+    setActivities(prev => prev.map(a => { if (a.saved) return a; if (a.name.trim()) return { ...a, saved: true }; return a; }));
     if (!validateCurrentStep()) return;
     setShowErrors(false);
     setCurrentStep(prev => Math.min(prev + 1, 7));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handlePrev = () => {
-    setShowErrors(false);
-    setCurrentStep(prev => Math.max(prev - 1, 1));
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const isMissing = (v: any) => {
-    if (!showErrors) return false;
-    if (typeof v === "string") return !v.trim();
-    return v === null || v === undefined;
-  };
+  const handlePrev = () => { setShowErrors(false); setCurrentStep(prev => Math.max(prev - 1, 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); };
 
   const getCurrentLocation = () => {
     if (!("geolocation" in navigator)) return;
     navigator.geolocation.getCurrentPosition(
-      ({ coords }) => {
-        setFormData((p) => ({ ...p, latitude: coords.latitude, longitude: coords.longitude }));
-        toast({ title: "Location captured", description: `${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}` });
-      },
+      ({ coords }) => { setFormData((p) => ({ ...p, latitude: coords.latitude, longitude: coords.longitude })); toast({ title: "Location captured", description: `${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}` }); },
       () => toast({ title: "GPS Error", description: "Could not get location.", variant: "destructive" })
     );
   };
 
   const handleGalleryUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    const slots = 5 - galleryImages.length;
-    if (slots <= 0) return;
+    const slots = 5 - galleryImages.length; if (slots <= 0) return;
     const incoming = Array.from(files).slice(0, slots);
     let merged: File[];
-    try {
-      const compressed = await compressImages(incoming);
-      merged = [...galleryImages, ...compressed.map((c) => c.file)].slice(0, 5);
-    } catch {
-      merged = [...galleryImages, ...incoming].slice(0, 5);
-    }
-    setGalleryImages(merged);
-    setGalleryPreviews(merged.map(safeObjectUrl));
+    try { const compressed = await compressImages(incoming); merged = [...galleryImages, ...compressed.map((c) => c.file)].slice(0, 5); }
+    catch { merged = [...galleryImages, ...incoming].slice(0, 5); }
+    setGalleryImages(merged); setGalleryPreviews(merged.map(safeObjectUrl));
   };
-
-  const removeGalleryImage = (idx: number) => {
-    const updated = galleryImages.filter((_, i) => i !== idx);
-    setGalleryImages(updated);
-    setGalleryPreviews(updated.map(safeObjectUrl));
-  };
-
+  const removeGalleryImage = (idx: number) => { const updated = galleryImages.filter((_, i) => i !== idx); setGalleryImages(updated); setGalleryPreviews(updated.map(safeObjectUrl)); };
   const uploadFile = async (file: File, prefix: string): Promise<string> => {
     const ext = file.name.split(".").pop() || "jpg";
     const path = `${user!.id}/${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
@@ -665,59 +468,32 @@ const CreateAdventure = () => {
   const handleSubmit = async () => {
     if (!user) { navigate("/auth"); return; }
     setShowErrors(true);
-
-    if (!formData.registrationName.trim() || !formData.registrationNumber.trim() ||
-        !formData.country || !formData.locationName.trim() || !formData.place.trim() ||
-        !formData.latitude || !formData.description.trim() || galleryImages.length < 5) {
-      toast({ title: "Action Required", description: "Please complete all steps.", variant: "destructive" });
-      return;
+    if (!formData.registrationName.trim() || !formData.registrationNumber.trim() || !formData.country || !formData.locationName.trim() || !formData.place.trim() || !formData.latitude || !formData.description.trim() || galleryImages.length < 5) {
+      toast({ title: "Action Required", description: "Please complete all steps.", variant: "destructive" }); return;
     }
-    if (facilities.some((f) => !f.saved)) {
-      toast({ title: "Unsaved Facility", description: "Please save all facilities.", variant: "destructive" });
-      return;
-    }
-
+    if (facilities.some((f) => !f.saved)) { toast({ title: "Unsaved Facility", description: "Please save all facilities.", variant: "destructive" }); return; }
     setLoading(true);
     try {
       const friendlySlug = generateFriendlySlug(formData.registrationName);
       const galleryUrls = await Promise.all(galleryImages.map((f) => uploadFile(f, "gallery")));
-
-      const facilitiesForDB = await Promise.all(
-        facilities.map(async (fac) => ({
-          name: fac.name, amenities: fac.amenities,
-          capacity: fac.capacity ? parseInt(fac.capacity, 10) || 0 : 0,
-          price: fac.price ? parseFloat(fac.price) || 0 : 0,
-          images: await Promise.all(fac.images.map((f) => uploadFile(f, "fac"))),
-        }))
-      );
-
+      const facilitiesForDB = await Promise.all(facilities.map(async (fac) => ({ name: fac.name, amenities: fac.amenities, capacity: fac.capacity ? parseInt(fac.capacity, 10) || 0 : 0, price: fac.price ? parseFloat(fac.price) || 0 : 0, images: await Promise.all(fac.images.map((f) => uploadFile(f, "fac"))) })));
       const savedActivities = activities.filter((a) => a.name.trim());
-      const activitiesForDB = await Promise.all(
-        savedActivities.map(async (act) => ({
-          name: act.name, price: act.price ? parseFloat(act.price) || 0 : 0,
-          images: await Promise.all(act.images.map((f) => uploadFile(f, "act"))),
-        }))
-      );
-
+      const activitiesForDB = await Promise.all(savedActivities.map(async (act) => ({ name: act.name, price: act.price ? parseFloat(act.price) || 0 : 0, images: await Promise.all(act.images.map((f) => uploadFile(f, "act"))) })));
       const selectedDays = Object.entries(workingDays).filter(([, v]) => v).map(([k]) => k);
-
       const { error } = await supabase.from("adventure_places").insert([{
-        id: friendlySlug, slug: friendlySlug,
-        name: formData.registrationName, registration_number: formData.registrationNumber,
-        location: formData.locationName, place: formData.place, country: formData.country,
-        description: formData.description, email: formData.email,
+        id: friendlySlug, slug: friendlySlug, name: formData.registrationName, registration_number: formData.registrationNumber,
+        location: formData.locationName, place: formData.place, country: formData.country, description: formData.description, email: formData.email,
         phone_numbers: formData.phoneNumber ? [formData.phoneNumber] : [],
         map_link: formData.latitude ? `https://www.google.com/maps?q=${formData.latitude},${formData.longitude}` : (formData.locationLink || ""),
         latitude: formData.latitude, longitude: formData.longitude,
-        opening_hours: formData.openingHours, closing_hours: formData.closingHours,
-        days_opened: selectedDays, image_url: galleryUrls[0] ?? "", gallery_images: galleryUrls,
+        opening_hours: formData.openingHours, closing_hours: formData.closingHours, days_opened: selectedDays,
+        image_url: galleryUrls[0] ?? "", gallery_images: galleryUrls,
         entry_fee_type: formData.entranceFeeType,
         entry_fee: formData.entranceFeeType === "paid" ? parseFloat(formData.adultPrice) || 0 : 0,
         child_entry_fee: formData.entranceFeeType === "paid" ? parseFloat(formData.childPrice) || 0 : 0,
         amenities: generalFacilities, facilities: facilitiesForDB, activities: activitiesForDB,
         created_by: user.id, approval_status: "pending",
       }]);
-
       if (error) throw error;
       toast({ title: "Experience Submitted", description: `Ref: ${friendlySlug} — Pending admin review.`, duration: 5000 });
       navigate("/become-host");
@@ -727,309 +503,250 @@ const CreateAdventure = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] pb-24">
+    <div className="min-h-screen bg-slate-50 pb-24">
       <Header />
 
-      {/* Hero */}
-      <div className="relative h-[25vh] w-full overflow-hidden bg-slate-900">
+      {/* Mobile Hero */}
+      <div className="lg:hidden relative h-36 overflow-hidden bg-slate-900">
         <img src="/images/category-campsite.webp" className="absolute inset-0 w-full h-full object-cover opacity-60" alt="" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#F8F9FA] via-transparent to-transparent" />
-        <Button onClick={goBack} className="absolute top-4 left-4 rounded-full bg-black/30 backdrop-blur-md text-white border-none w-10 h-10 p-0 z-50">
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div className="absolute bottom-8 left-0 w-full px-8 container mx-auto">
-          <h1 className="text-2xl md:text-4xl font-black uppercase tracking-tighter leading-none text-white drop-shadow-2xl">
-            Create <span style={{ color: COLORS.KHAKI }}>Adventure</span>
-          </h1>
-          <p className="text-white/70 text-xs font-bold mt-1">Step {currentStep} of {STEP_NAMES.length}</p>
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex flex-col justify-end p-5">
+          <Button onClick={goBack} className="absolute top-4 left-4 rounded-full bg-black/30 backdrop-blur-md text-white border-none w-10 h-10 p-0"><ArrowLeft className="h-4 w-4" /></Button>
+          <h1 className="text-xl font-black text-white uppercase tracking-tight">Create <span style={{ color: COLORS.KHAKI }}>Adventure</span></h1>
+          <p className="text-white/60 text-xs font-semibold mt-0.5">Step {currentStep} of {STEP_NAMES.length}</p>
         </div>
       </div>
 
-      <main className="container px-4 mx-auto -mt-6 relative z-50 space-y-6">
-        {/* Step Indicator */}
-        <CreateFormStepper steps={steps} currentStep={currentStep} />
+      <main className="max-w-screen-xl mx-auto px-4 lg:px-8 py-6 lg:py-10">
+        <div className="flex gap-8 items-start">
+          {/* ─── Sidebar ─── */}
+          <StepSidebar steps={steps} currentStep={currentStep} onStepClick={(n) => { setShowErrors(false); setCurrentStep(n); }} />
 
-        {/* ═══ STEP 1: Registration ═══ */}
-        {currentStep === 1 && (
-          <Card className="bg-white rounded-[28px] p-8 shadow-sm border border-slate-100">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 rounded-xl bg-[#008080]/10 text-[#008080]"><Info className="h-5 w-5" /></div>
-              <h2 className="text-xl font-black uppercase tracking-tight" style={{ color: COLORS.TEAL }}>Registration</h2>
-            </div>
-            <div className="grid gap-6">
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Registration Name *</Label>
-                <Input value={formData.registrationName} onChange={(e) => setFormData({ ...formData, registrationName: e.target.value })}
-                  placeholder="Official Government Name"
-                  className={cn("rounded-xl h-12 font-bold", isMissing(formData.registrationName) && "border-red-500 bg-red-50")} />
-              </div>
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Registration Number *</Label>
-                  <Input value={formData.registrationNumber} onChange={(e) => setFormData({ ...formData, registrationNumber: e.target.value })}
-                    placeholder="e.g. BN-X12345"
-                    className={cn("rounded-xl h-12 font-bold", isMissing(formData.registrationNumber) && "border-red-500 bg-red-50")} />
+          {/* ─── Main Content ─── */}
+          <div className="flex-1 min-w-0 space-y-5">
+            {/* Desktop page title */}
+            <div className="hidden lg:flex items-center justify-between mb-2">
+              <div className="flex items-center gap-3">
+                <button onClick={goBack} className="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-all shadow-sm">
+                  <ArrowLeft className="h-4 w-4 text-slate-600" />
+                </button>
+                <div>
+                  <h1 className="text-2xl font-black text-slate-900 tracking-tight">{STEP_NAMES[currentStep - 1]}</h1>
+                  <p className="text-sm text-slate-400 font-medium mt-0.5">Step {currentStep} of {STEP_NAMES.length}</p>
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Country *</Label>
-                  <div className={cn("rounded-xl", isMissing(formData.country) && "border-2 border-red-500 overflow-hidden")}>
-                    <CountrySelector value={formData.country} onChange={(v) => setFormData({ ...formData, country: v, place: v === "Other" ? "" : formData.place })} />
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-40 h-2 bg-slate-200 rounded-full overflow-hidden">
+                  <div className="h-full rounded-full transition-all duration-500" style={{ width: `${((currentStep - 1) / (STEP_NAMES.length - 1)) * 100}%`, background: COLORS.TEAL }} />
+                </div>
+                <span className="text-xs font-bold text-slate-400">{Math.round(((currentStep - 1) / (STEP_NAMES.length - 1)) * 100)}%</span>
+              </div>
+            </div>
+
+            {/* Mobile stepper */}
+            <div className="lg:hidden"><CreateFormStepper steps={steps} currentStep={currentStep} /></div>
+
+            {/* ══════ STEP 1: Registration ══════ */}
+            {currentStep === 1 && (
+              <SectionCard title="Registration Details" subtitle="Official government registration information" icon={Info}>
+                <div className="grid gap-5">
+                  <div>
+                    <FieldLabel required>Registration Name</FieldLabel>
+                    <StyledInput value={formData.registrationName} onChange={(e) => setFormData({ ...formData, registrationName: e.target.value })} placeholder="Official Government Name" isInvalid={isMissing(formData.registrationName)} />
+                  </div>
+                  <div className="grid lg:grid-cols-2 gap-4">
+                    <div>
+                      <FieldLabel required>Registration Number</FieldLabel>
+                      <StyledInput value={formData.registrationNumber} onChange={(e) => setFormData({ ...formData, registrationNumber: e.target.value })} placeholder="e.g. BN-X12345" isInvalid={isMissing(formData.registrationNumber)} />
+                    </div>
+                    <div>
+                      <FieldLabel required>Country</FieldLabel>
+                      <div className={cn("rounded-xl", isMissing(formData.country) && "ring-2 ring-red-300")}>
+                        <CountrySelector value={formData.country} onChange={(v) => setFormData({ ...formData, country: v, place: v === "Other" ? "" : formData.place })} />
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          </Card>
-        )}
+              </SectionCard>
+            )}
 
-        {/* ═══ STEP 2: Location ═══ */}
-        {currentStep === 2 && (
-          <Card className="bg-white rounded-[28px] p-8 shadow-sm border border-slate-100">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 rounded-xl bg-[#FF7F50]/10 text-[#FF7F50]"><MapPin className="h-5 w-5" /></div>
-              <h2 className="text-xl font-black uppercase tracking-tight" style={{ color: COLORS.TEAL }}>Location Details</h2>
-            </div>
-            <div className="grid gap-6">
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Location Name *</Label>
-                  <Input value={formData.locationName} onChange={(e) => setFormData({ ...formData, locationName: e.target.value })}
-                    placeholder="Area / Forest / Beach"
-                    className={cn("rounded-xl h-12 font-bold", isMissing(formData.locationName) && "border-red-500 bg-red-50")} />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">{formData.country === "Other" ? "Region / City *" : "County *"}</Label>
-                  <div className={cn("rounded-xl", isMissing(formData.place) && "border-2 border-red-500 overflow-hidden")}>
-                    {formData.country === "Other" ? (
-                      <Input value={formData.place} onChange={(e) => setFormData({ ...formData, place: e.target.value })}
-                        placeholder="e.g. Dar es Salaam"
-                        className={cn("rounded-xl h-12 font-bold", isMissing(formData.place) && "border-red-500 bg-red-50")} />
-                    ) : (
-                      <CountySelector value={formData.place} onChange={(v) => setFormData({ ...formData, place: v })} />
+            {/* ══════ STEP 2: Location ══════ */}
+            {currentStep === 2 && (
+              <SectionCard title="Location Details" subtitle="Where is your adventure place located?" icon={MapPin}>
+                <div className="grid gap-5">
+                  <div className="grid lg:grid-cols-2 gap-4">
+                    <div>
+                      <FieldLabel required>Location Name</FieldLabel>
+                      <StyledInput value={formData.locationName} onChange={(e) => setFormData({ ...formData, locationName: e.target.value })} placeholder="Area / Forest / Beach" isInvalid={isMissing(formData.locationName)} />
+                    </div>
+                    <div>
+                      <FieldLabel required>{formData.country === "Other" ? "Region / City" : "County"}</FieldLabel>
+                      <div className={cn("rounded-xl", isMissing(formData.place) && "ring-2 ring-red-300")}>
+                        {formData.country === "Other"
+                          ? <StyledInput value={formData.place} onChange={(e) => setFormData({ ...formData, place: e.target.value })} placeholder="e.g. Dar es Salaam" isInvalid={isMissing(formData.place)} />
+                          : <CountySelector value={formData.place} onChange={(v) => setFormData({ ...formData, place: v })} />
+                        }
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <FieldLabel required>Map Location</FieldLabel>
+                    <p className="text-[11px] text-slate-400 mb-3">Paste a map link or capture your GPS coordinates</p>
+                    <div className="flex gap-3 mb-4">
+                      {[{ mode: 'link', label: 'Paste Map Link', icon: Link2 }, { mode: 'gps', label: 'Use My GPS', icon: Navigation }].map(({ mode, label, icon: Icon }) => (
+                        <button key={mode} type="button" onClick={() => setLocationMode(mode as any)}
+                          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[12px] font-bold transition-all ${locationMode === mode ? 'text-white shadow-md' : 'bg-slate-50 border border-slate-200 text-slate-500 hover:bg-slate-100'}`}
+                          style={locationMode === mode ? { background: COLORS.TEAL } : {}}>
+                          <Icon className="h-3.5 w-3.5" /> {label}
+                        </button>
+                      ))}
+                    </div>
+                    {locationMode === 'link' && (
+                      <StyledInput value={formData.locationLink} onChange={(e) => setFormData({ ...formData, locationLink: e.target.value })} placeholder="https://maps.google.com/..." />
+                    )}
+                    {locationMode === 'gps' && (
+                      <button type="button" onClick={getCurrentLocation}
+                        className="flex items-center gap-2.5 px-6 py-3 rounded-xl text-white text-sm font-bold transition-all active:scale-[0.98] shadow-md hover:opacity-90"
+                        style={{ background: formData.latitude ? "#16a34a" : COLORS.KHAKI_DARK }}>
+                        {formData.latitude ? <><CheckCircle2 className="h-4 w-4" /> Location Captured — {formData.latitude?.toFixed(4)}, {formData.longitude?.toFixed(4)}</> : <><Navigation className="h-4 w-4" /> Tap to Capture GPS Location</>}
+                      </button>
                     )}
                   </div>
                 </div>
-              </div>
-              <div className="space-y-3">
-                <p className="text-[10px] text-slate-400 font-bold">Choose one: paste a map link OR capture GPS</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <button type="button" onClick={() => setLocationMode('link')}
-                    className={cn("p-3 rounded-2xl text-center font-black text-xs uppercase tracking-tight transition-all", locationMode === 'link' ? 'bg-[#008080] text-white shadow-lg' : 'bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100')}>
-                    Paste Link
-                  </button>
-                  <button type="button" onClick={() => setLocationMode('gps')}
-                    className={cn("p-3 rounded-2xl text-center font-black text-xs uppercase tracking-tight transition-all", locationMode === 'gps' ? 'bg-[#008080] text-white shadow-lg' : 'bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100')}>
-                    Use GPS
-                  </button>
-                </div>
-                {locationMode === 'link' && (
-                  <Input value={formData.locationLink} onChange={(e) => setFormData({...formData, locationLink: e.target.value})}
-                    placeholder="https://maps.google.com/..." className="rounded-xl h-12 font-bold" />
-                )}
-                {locationMode === 'gps' && (
-                  <Button type="button" onClick={getCurrentLocation}
-                    className="w-full text-white rounded-2xl px-6 h-14 font-black uppercase text-[11px] tracking-widest shadow-lg active:scale-95 transition-all"
-                    style={{ background: formData.latitude ? COLORS.TEAL : COLORS.KHAKI_DARK }}>
-                    <Navigation className="h-5 w-5 mr-3" />
-                    {formData.latitude ? "✓ Location Captured" : "Tap to Auto-Capture GPS"}
-                  </Button>
-                )}
-              </div>
-            </div>
-          </Card>
-        )}
-
-        {/* ═══ STEP 3: Contact & About ═══ */}
-        {currentStep === 3 && (
-          <Card className="bg-white rounded-[28px] p-8 shadow-sm border border-slate-100">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2.5 rounded-xl" style={{ backgroundColor: `${COLORS.TEAL}15` }}>
-                <CheckCircle2 className="h-5 w-5" style={{ color: COLORS.TEAL }} />
-              </div>
-              <h2 className="text-lg font-black uppercase tracking-tight" style={{ color: COLORS.TEAL }}>Contact & About</h2>
-            </div>
-            <div className="space-y-6">
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="space-y-2 bg-slate-50/80 rounded-2xl p-4">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
-                    <span className="h-1.5 w-1.5 rounded-full bg-[#008080]" /> Business Email
-                  </Label>
-                  <Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="contact@business.com" className="rounded-xl h-12 font-bold border-none bg-white shadow-sm" />
-                </div>
-                <div className="space-y-2 bg-slate-50/80 rounded-2xl p-4">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
-                    <span className="h-1.5 w-1.5 rounded-full bg-[#FF7F50]" /> WhatsApp / Phone
-                  </Label>
-                  <PhoneInput value={formData.phoneNumber} onChange={(v) => setFormData({ ...formData, phoneNumber: v })} country={formData.country} />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Description *</Label>
-                <Textarea value={formData.description} onChange={(e) => {
-                    const words = e.target.value.trim().split(/\s+/);
-                    if (e.target.value.trim() === "" || words.length <= 20) {
-                      setFormData({ ...formData, description: e.target.value });
-                    }
-                  }}
-                  placeholder="Describe in 20 words or less..." rows={5}
-                  className={cn("rounded-2xl font-bold resize-none", isMissing(formData.description) && "border-red-500 bg-red-50")} />
-                <p className="text-xs text-muted-foreground mt-1">
-                  {formData.description.trim() ? formData.description.trim().split(/\s+/).length : 0}/20 words
-                </p>
-              </div>
-            </div>
-          </Card>
-        )}
-
-        {/* ═══ STEP 4: Access & Pricing ═══ */}
-        {currentStep === 4 && (
-          <Card className="bg-white rounded-[28px] p-8 shadow-sm border border-slate-100">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 rounded-xl bg-[#FF7F50]/10 text-[#FF7F50]"><Clock className="h-5 w-5" /></div>
-              <h2 className="text-xl font-black uppercase tracking-tight" style={{ color: COLORS.TEAL }}>Access & Pricing</h2>
-            </div>
-            <div className="grid gap-8">
-              <OperatingHoursSection
-                openingHours={formData.openingHours} closingHours={formData.closingHours}
-                workingDays={workingDays}
-                onOpeningChange={(v) => setFormData({ ...formData, openingHours: v })}
-                onClosingChange={(v) => setFormData({ ...formData, closingHours: v })}
-                onDaysChange={setWorkingDays} accentColor={COLORS.TEAL}
-              />
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Entrance Fee</Label>
-                  <Select value={formData.entranceFeeType} onValueChange={(v) => setFormData({ ...formData, entranceFeeType: v })}>
-                    <SelectTrigger className="rounded-xl h-12 font-bold border-slate-100"><SelectValue /></SelectTrigger>
-                    <SelectContent className="bg-white rounded-xl font-bold">
-                      <SelectItem value="free">FREE ACCESS</SelectItem>
-                      <SelectItem value="paid">PAID ADMISSION</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                {formData.entranceFeeType === "paid" && (<>
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Adult Entry (KSh)</Label>
-                    <Input type="number" value={formData.adultPrice} onChange={(e) => setFormData({ ...formData, adultPrice: e.target.value })} className="rounded-xl h-12 font-bold" />
-                    {parseFloat(formData.adultPrice) > 0 && <p className="text-[9px] text-blue-500 font-bold mt-0.5">{usdHint(parseFloat(formData.adultPrice))}</p>}
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Child Entry (KSh)</Label>
-                    <Input type="number" min="0" value={formData.childPrice} onChange={(e) => setFormData({ ...formData, childPrice: e.target.value })} className="rounded-xl h-12 font-bold" />
-                    <p className="text-[9px] text-muted-foreground">Set to 0 if not applicable for children</p>
-                    {parseFloat(formData.childPrice) > 0 && <p className="text-[9px] text-blue-500 font-bold mt-0.5">{usdHint(parseFloat(formData.childPrice))}</p>}
-                  </div>
-                </>)}
-              </div>
-            </div>
-          </Card>
-        )}
-
-        {/* ═══ STEP 5: Amenities, Facilities & Activities ═══ */}
-        {currentStep === 5 && (
-          <Card className="bg-white rounded-[28px] p-8 shadow-sm border border-slate-100">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 rounded-xl bg-[#008080]/10 text-[#008080]"><DollarSign className="h-5 w-5" /></div>
-              <h2 className="text-xl font-black uppercase tracking-tight" style={{ color: COLORS.TEAL }}>Amenities, Facilities & Activities</h2>
-            </div>
-            <div className="space-y-8">
-              <GeneralFacilitiesSelector selected={generalFacilities} onChange={setGeneralFacilities} accentColor={COLORS.TEAL} />
-              <FacilityBuilder items={facilities} onChange={setFacilities} showErrors={showErrors} onValidationFail={onValidationFail} />
-              <ActivityBuilder items={activities} onChange={setActivities} showErrors={showErrors} onValidationFail={onValidationFail} />
-            </div>
-          </Card>
-        )}
-
-        {/* ═══ STEP 6: Gallery ═══ */}
-        {currentStep === 6 && (
-          <Card className="bg-white rounded-[28px] p-8 shadow-sm border border-slate-100">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 rounded-xl bg-[#008080]/10 text-[#008080]"><Camera className="h-5 w-5" /></div>
-              <h2 className="text-xl font-black uppercase tracking-tight" style={{ color: COLORS.TEAL }}>
-                Gallery (Min 5) * — {galleryImages.length}/5
-              </h2>
-            </div>
-            {galleryImages.length < 5 && showErrors && (
-              <div className="mb-4 px-4 py-3 bg-red-50 border border-red-300 rounded-2xl">
-                <p className="text-red-600 text-xs font-bold">⚠ Upload at least {5 - galleryImages.length} more photos</p>
-              </div>
+              </SectionCard>
             )}
-            <div className={cn("grid grid-cols-2 md:grid-cols-5 gap-4 p-4 rounded-2xl",
-              showErrors && galleryImages.length < 5 && "border-2 border-red-500 bg-red-50/20")}>
-              {galleryPreviews.map((url, index) =>
-                url ? (
-                  <div key={index} className="relative aspect-square rounded-[20px] overflow-hidden border-2 border-slate-100">
-                    <img src={url} className="w-full h-full object-cover" alt="" />
-                    <button type="button" onClick={() => removeGalleryImage(index)}
-                      className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full shadow-lg">
-                      <X className="h-3 w-3" />
-                    </button>
+
+            {/* ══════ STEP 3: Contact & About ══════ */}
+            {currentStep === 3 && (
+              <SectionCard title="Contact & About" subtitle="How visitors can reach you and your description" icon={CheckCircle2}>
+                <div className="space-y-5">
+                  <div className="grid lg:grid-cols-2 gap-5">
+                    <div>
+                      <FieldLabel>Business Email</FieldLabel>
+                      <StyledInput type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="contact@business.com" />
+                    </div>
+                    <div>
+                      <FieldLabel>WhatsApp / Phone</FieldLabel>
+                      <KenyaPhoneWrapper>
+                        <PhoneInput value={formData.phoneNumber} onChange={(v) => setFormData({ ...formData, phoneNumber: v })} country={formData.country} />
+                      </KenyaPhoneWrapper>
+                    </div>
                   </div>
-                ) : null
+                  <div>
+                    <FieldLabel required>Description (max 20 words)</FieldLabel>
+                    <Textarea
+                      value={formData.description}
+                      onChange={(e) => { const words = e.target.value.trim().split(/\s+/); if (e.target.value.trim() === "" || words.length <= 20) setFormData({ ...formData, description: e.target.value }); }}
+                      placeholder="Describe your adventure place in 20 words or less..."
+                      rows={4}
+                      className={cn("rounded-xl border text-sm font-medium resize-none transition-all", isMissing(formData.description) ? "border-red-400 ring-2 ring-red-100 bg-red-50" : "border-slate-200 focus:ring-2 focus:ring-[#008080]/20 focus:border-[#008080]")}
+                    />
+                    <p className="text-[10px] text-slate-400 mt-1">{formData.description.trim() ? formData.description.trim().split(/\s+/).length : 0}/20 words</p>
+                  </div>
+                </div>
+              </SectionCard>
+            )}
+
+            {/* ══════ STEP 4: Access & Pricing ══════ */}
+            {currentStep === 4 && (
+              <SectionCard title="Access & Pricing" subtitle="Operating hours and entrance fees" icon={Clock}>
+                <div className="space-y-8">
+                  <OperatingHoursSection
+                    openingHours={formData.openingHours} closingHours={formData.closingHours}
+                    workingDays={workingDays}
+                    onOpeningChange={(v) => setFormData({ ...formData, openingHours: v })}
+                    onClosingChange={(v) => setFormData({ ...formData, closingHours: v })}
+                    onDaysChange={setWorkingDays} accentColor={COLORS.TEAL}
+                  />
+                  <div className="grid lg:grid-cols-3 gap-4">
+                    <div>
+                      <FieldLabel>Entrance Fee</FieldLabel>
+                      <Select value={formData.entranceFeeType} onValueChange={(v) => setFormData({ ...formData, entranceFeeType: v })}>
+                        <SelectTrigger className="rounded-xl h-11 font-semibold border-slate-200"><SelectValue /></SelectTrigger>
+                        <SelectContent className="bg-white rounded-xl"><SelectItem value="free">Free Access</SelectItem><SelectItem value="paid">Paid Admission</SelectItem></SelectContent>
+                      </Select>
+                    </div>
+                    {formData.entranceFeeType === "paid" && (<>
+                      <div>
+                        <FieldLabel>Adult Entry (KSh)</FieldLabel>
+                        <StyledInput type="number" value={formData.adultPrice} onChange={(e) => setFormData({ ...formData, adultPrice: e.target.value })} />
+                        {parseFloat(formData.adultPrice) > 0 && <p className="text-[9px] text-blue-500 font-semibold mt-1">{usdHint(parseFloat(formData.adultPrice))}</p>}
+                      </div>
+                      <div>
+                        <FieldLabel>Child Entry (KSh)</FieldLabel>
+                        <StyledInput type="number" min="0" value={formData.childPrice} onChange={(e) => setFormData({ ...formData, childPrice: e.target.value })} />
+                        {parseFloat(formData.childPrice) > 0 && <p className="text-[9px] text-blue-500 font-semibold mt-1">{usdHint(parseFloat(formData.childPrice))}</p>}
+                      </div>
+                    </>)}
+                  </div>
+                </div>
+              </SectionCard>
+            )}
+
+            {/* ══════ STEP 5: Facilities ══════ */}
+            {currentStep === 5 && (
+              <SectionCard title="Amenities, Facilities & Activities" subtitle="What can visitors enjoy at your adventure place?" icon={DollarSign}>
+                <div className="space-y-8">
+                  <GeneralFacilitiesSelector selected={generalFacilities} onChange={setGeneralFacilities} accentColor={COLORS.TEAL} />
+                  <FacilityBuilder items={facilities} onChange={setFacilities} showErrors={showErrors} onValidationFail={onValidationFail} />
+                  <ActivityBuilder items={activities} onChange={setActivities} showErrors={showErrors} onValidationFail={onValidationFail} />
+                </div>
+              </SectionCard>
+            )}
+
+            {/* ══════ STEP 6: Gallery ══════ */}
+            {currentStep === 6 && (
+              <SectionCard title={`Photo Gallery — ${galleryImages.length}/5 uploaded`} subtitle={galleryImages.length < 5 ? `You need ${5 - galleryImages.length} more photos to continue` : "All 5 photos ready ✓"} icon={Camera}>
+                {galleryImages.length < 5 && showErrors && (
+                  <div className="mb-4 flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-xl">
+                    <span className="text-red-500">⚠</span>
+                    <p className="text-red-600 text-xs font-semibold">Upload at least {5 - galleryImages.length} more photos</p>
+                  </div>
+                )}
+                <ImageGalleryGrid images={galleryImages} previews={galleryPreviews} onRemove={removeGalleryImage} onAdd={handleGalleryUpload} isInvalid={showErrors && galleryImages.length < 5} slots={5} />
+                <p className="text-[10px] text-slate-400 mt-3 font-medium">First photo becomes your cover image. Use landscape photos for best results.</p>
+              </SectionCard>
+            )}
+
+            {/* ══════ STEP 7: Review ══════ */}
+            {currentStep === 7 && (
+              <ReviewStep
+                type="adventure"
+                accentColor={COLORS.TEAL}
+                data={{
+                  name: formData.registrationName, registrationName: formData.registrationName, registrationNumber: formData.registrationNumber,
+                  locationName: formData.locationName, place: formData.place, country: formData.country,
+                  description: formData.description, email: formData.email, phoneNumber: formData.phoneNumber,
+                  openingHours: formData.openingHours, closingHours: formData.closingHours,
+                  workingDays: Object.entries(workingDays).filter(([, v]) => v).map(([k]) => k),
+                  entranceFeeType: formData.entranceFeeType, adultPrice: formData.adultPrice, childPrice: formData.childPrice,
+                  latitude: formData.latitude, longitude: formData.longitude, generalFacilities,
+                  facilities: facilities.filter(f => f.saved).map(f => ({ name: f.name, price: parseFloat(f.price) || 0, capacity: parseInt(f.capacity) || null, amenities: f.amenities, images: f.previewUrls })),
+                  activities: activities.filter(a => a.saved && a.name.trim()).map(a => ({ name: a.name, price: parseFloat(a.price) || 0, images: a.previewUrls })),
+                  galleryPreviewUrls: galleryPreviews,
+                }}
+                creatorEmail={user?.email}
+              />
+            )}
+
+            {/* ─── Navigation ─── */}
+            <div className="flex gap-3 pt-2">
+              {currentStep > 1 && (
+                <button type="button" onClick={handlePrev} className="flex items-center gap-2 px-6 py-3.5 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm">
+                  <ChevronLeft className="h-4 w-4" /> Back
+                </button>
               )}
-              {galleryImages.length < 5 && (
-                <label className="aspect-square rounded-[20px] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center cursor-pointer hover:bg-slate-50">
-                  <Plus className="h-6 w-6 text-slate-400" />
-                  <span className="text-[9px] font-black uppercase text-slate-400 mt-1">Add Photo</span>
-                  <input type="file" multiple className="hidden" accept="image/*" onChange={(e) => handleGalleryUpload(e.target.files)} />
-                </label>
+              {currentStep < 7 ? (
+                <button type="button" onClick={handleNext} className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-white text-sm font-bold shadow-lg hover:opacity-90 transition-all active:scale-[0.99]" style={{ background: `linear-gradient(135deg, ${COLORS.TEAL}, #005f5f)` }}>
+                  Continue to {STEP_NAMES[currentStep]} <ChevronRight className="h-4 w-4" />
+                </button>
+              ) : (
+                <button type="button" onClick={handleSubmit} disabled={loading} className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-white text-sm font-bold shadow-lg hover:opacity-90 transition-all active:scale-[0.99] disabled:opacity-60" style={{ background: `linear-gradient(135deg, ${COLORS.CORAL}, #e06040)` }}>
+                  {loading ? <><Loader2 className="h-4 w-4 animate-spin" /> Submitting...</> : <><CheckCircle2 className="h-4 w-4" /> Submit for Approval</>}
+                </button>
               )}
             </div>
-          </Card>
-        )}
-
-        {/* ═══ STEP 7: Review ═══ */}
-        {currentStep === 7 && (
-          <ReviewStep
-            type="adventure"
-            accentColor={COLORS.TEAL}
-            data={{
-              name: formData.registrationName, registrationName: formData.registrationName,
-              registrationNumber: formData.registrationNumber,
-              locationName: formData.locationName, place: formData.place, country: formData.country,
-              description: formData.description, email: formData.email, phoneNumber: formData.phoneNumber,
-              openingHours: formData.openingHours, closingHours: formData.closingHours,
-              workingDays: Object.entries(workingDays).filter(([, v]) => v).map(([k]) => k),
-              entranceFeeType: formData.entranceFeeType,
-              adultPrice: formData.adultPrice, childPrice: formData.childPrice,
-              latitude: formData.latitude, longitude: formData.longitude,
-              generalFacilities,
-              facilities: facilities.filter(f => f.saved).map(f => ({
-                name: f.name, price: parseFloat(f.price) || 0,
-                capacity: parseInt(f.capacity) || null, amenities: f.amenities, images: f.previewUrls,
-              })),
-              activities: activities.filter(a => a.saved && a.name.trim()).map(a => ({
-                name: a.name, price: parseFloat(a.price) || 0, images: a.previewUrls,
-              })),
-              galleryPreviewUrls: galleryPreviews,
-            }}
-            creatorEmail={user?.email}
-          />
-        )}
-
-        {/* ═══ Navigation Buttons ═══ */}
-        <div className="flex gap-3 pt-2 mb-8">
-          {currentStep > 1 && (
-            <Button type="button" variant="outline" onClick={handlePrev}
-              className="flex-1 py-6 rounded-2xl font-black uppercase text-[11px] tracking-widest">
-              <ChevronLeft className="h-4 w-4 mr-2" /> Back
-            </Button>
-          )}
-          {currentStep < 7 ? (
-            <Button type="button" onClick={handleNext}
-              className="flex-[2] py-6 rounded-2xl font-black uppercase text-[11px] tracking-widest text-white shadow-xl active:scale-95 transition-all"
-              style={{ background: `linear-gradient(135deg, ${COLORS.TEAL} 0%, #006666 100%)` }}>
-              Continue <ChevronRight className="h-4 w-4 ml-2" />
-            </Button>
-          ) : (
-            <Button type="button" onClick={handleSubmit} disabled={loading}
-              className="flex-[2] py-6 rounded-2xl font-black uppercase text-[11px] tracking-widest text-white shadow-xl active:scale-95 transition-all"
-              style={{ background: `linear-gradient(135deg, ${COLORS.CORAL} 0%, #e06040 100%)` }}>
-              {loading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Submitting...</> : <><CheckCircle2 className="h-4 w-4 mr-2" /> Submit for Approval</>}
-            </Button>
-          )}
+          </div>
         </div>
-
       </main>
       <MobileBottomBar />
     </div>

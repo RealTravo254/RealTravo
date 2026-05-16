@@ -12,7 +12,10 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBanCheck } from "@/hooks/useBanCheck";
-import { Calendar, MapPin, DollarSign, Users, Navigation, ArrowLeft, Camera, CheckCircle2, X, Loader2, ChevronLeft, ChevronRight, Plus, Link2, Ticket, FileImage } from "lucide-react";
+import {
+  Calendar, MapPin, DollarSign, Users, Navigation, ArrowLeft, Camera,
+  CheckCircle2, X, Loader2, ChevronLeft, ChevronRight, Plus, Link2, Ticket, FileImage
+} from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CountrySelector } from "@/components/creation/CountrySelector";
 import { CountySelector } from "@/components/creation/CountySelector";
@@ -34,16 +37,8 @@ const generateFriendlySlug = (name: string): string => {
   return `${cleanName}-${code}`;
 };
 
-const StyledInput = ({ className = "", isInvalid = false, ...props }: React.ComponentProps<typeof Input> & { isInvalid?: boolean }) => (
-  <Input className={`rounded-xl border-slate-100 bg-slate-50 focus:bg-white transition-all h-12 font-bold ${isInvalid ? "border-red-500 ring-1 ring-red-500" : ""} ${className}`} {...props} />
-);
-
 interface WorkingDays { Mon: boolean; Tue: boolean; Wed: boolean; Thu: boolean; Fri: boolean; Sat: boolean; Sun: boolean; }
-
-interface TicketType {
-  name: string;
-  price: number;
-}
+interface TicketType { name: string; price: number; }
 
 const EVENT_CATEGORIES = [
   "Roadtrips", "Music Events", "Children Events", "Pool Party", "Outdoor",
@@ -53,6 +48,172 @@ const EVENT_CATEGORIES = [
 
 const STEP_NAMES = ["Basic Info", "Date & Pricing", "Contact & Photos", "Schedule", "Review"];
 
+// ─── Styled Input ─────────────────────────────────────────────────────────────
+const StyledInput = ({ className = "", isInvalid = false, ...props }: React.ComponentProps<typeof Input> & { isInvalid?: boolean }) => (
+  <Input
+    className={`h-11 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-800 placeholder:text-slate-400 placeholder:font-normal focus:ring-2 focus:ring-[#008080]/20 focus:border-[#008080] transition-all ${isInvalid ? "border-red-400 ring-2 ring-red-100 bg-red-50" : ""} ${className}`}
+    {...props}
+  />
+);
+
+// ─── Field Label ──────────────────────────────────────────────────────────────
+const FieldLabel = ({ children, required }: { children: React.ReactNode; required?: boolean }) => (
+  <label className="block text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-1.5">
+    {children}{required && <span className="text-red-400 ml-0.5">*</span>}
+  </label>
+);
+
+// ─── Section Card ─────────────────────────────────────────────────────────────
+const SectionCard = ({ title, subtitle, icon: Icon, children, accent = COLORS.TEAL }: { title: string; subtitle?: string; icon?: any; children: React.ReactNode; accent?: string }) => (
+  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+    {title && (
+      <div className="px-8 py-5 border-b border-slate-100 flex items-center gap-3">
+        {Icon && (
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${accent}12` }}>
+            <Icon className="h-4 w-4" style={{ color: accent }} />
+          </div>
+        )}
+        <div>
+          <h3 className="text-sm font-bold text-slate-800">{title}</h3>
+          {subtitle && <p className="text-[11px] text-slate-400 mt-0.5">{subtitle}</p>}
+        </div>
+      </div>
+    )}
+    <div className="px-8 py-6">{children}</div>
+  </div>
+);
+
+// ─── Step Sidebar ─────────────────────────────────────────────────────────────
+const StepSidebar = ({ steps, currentStep, onStepClick, type }: { steps: any[]; currentStep: number; onStepClick?: (i: number) => void; type: string }) => (
+  <aside className="hidden lg:flex flex-col w-72 shrink-0 sticky top-24 self-start">
+    {/* Brand card */}
+    <div className="rounded-2xl overflow-hidden mb-6 relative h-44">
+      <img src="/images/category-trips.webp" className="w-full h-full object-cover" alt="" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+      <div className="absolute bottom-4 left-5 right-5">
+        <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: COLORS.CORAL }}>
+          {type === "event" ? "Event" : "Trip / Tour"}
+        </span>
+        <h2 className="text-white text-xl font-black uppercase tracking-tight leading-tight mt-0.5">Create Experience</h2>
+      </div>
+    </div>
+
+    {/* Steps list */}
+    <nav className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+      <div className="px-5 py-4 border-b border-slate-100">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Your progress</p>
+      </div>
+      <ul className="p-3 space-y-1">
+        {steps.map((step, i) => {
+          const num = i + 1;
+          const isActive = currentStep === num;
+          const isDone = step.isComplete && currentStep > num;
+          const isPast = currentStep > num;
+          return (
+            <li key={i}>
+              <button
+                type="button"
+                onClick={() => isPast && onStepClick?.(num)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all ${isActive ? "bg-[#008080] text-white shadow-md" : isPast ? "hover:bg-slate-50 cursor-pointer" : "cursor-default"}`}
+              >
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-black shrink-0 ${isActive ? "bg-white text-[#008080]" : isDone ? "bg-emerald-100 text-emerald-600" : "bg-slate-100 text-slate-400"}`}>
+                  {isDone ? <CheckCircle2 className="h-3.5 w-3.5" /> : num}
+                </div>
+                <div className="min-w-0">
+                  <p className={`text-[12px] font-bold truncate ${isActive ? "text-white" : isDone ? "text-emerald-700" : "text-slate-500"}`}>{step.name}</p>
+                  {isActive && <p className="text-[10px] text-white/70 mt-0.5">Current step</p>}
+                </div>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+
+    {/* Help card */}
+    <div className="mt-4 bg-slate-50 rounded-2xl p-5 border border-slate-100">
+      <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1">Need help?</p>
+      <p className="text-xs text-slate-400 leading-relaxed">Fill each step carefully. Your listing will be reviewed before going live.</p>
+    </div>
+  </aside>
+);
+
+// ─── Kenya Flag Phone Display ─────────────────────────────────────────────────
+const KenyaPhoneWrapper = ({ children, isInvalid }: { children: React.ReactNode; isInvalid?: boolean }) => (
+  <div className={`flex items-center gap-2 h-11 rounded-xl border bg-white px-3 transition-all ${isInvalid ? "border-red-400 ring-2 ring-red-100" : "border-slate-200 focus-within:ring-2 focus-within:ring-[#008080]/20 focus-within:border-[#008080]"}`}>
+    {/* Kenya flag SVG */}
+    <div className="flex items-center gap-1.5 shrink-0 pr-2 border-r border-slate-200">
+      <svg width="22" height="15" viewBox="0 0 22 15" fill="none" xmlns="http://www.w3.org/2000/svg" className="rounded-sm overflow-hidden">
+        <rect width="22" height="5" fill="#006600" />
+        <rect y="5" width="22" height="5" fill="#BB0000" />
+        <rect y="10" width="22" height="5" fill="#006600" />
+        <rect y="5" width="22" height="5" fill="#BB0000" />
+        {/* Black stripe */}
+        <rect y="4" width="22" height="7" fill="#000000" />
+        <rect y="5" width="22" height="5" fill="#BB0000" />
+        {/* White edge lines */}
+        <rect y="4" width="22" height="1" fill="white" />
+        <rect y="10" width="22" height="1" fill="white" />
+        {/* Maasai shield (simplified) */}
+        <ellipse cx="11" cy="7.5" rx="2.5" ry="4" fill="white" />
+        <ellipse cx="11" cy="7.5" rx="1.8" ry="3.2" fill="#BB0000" />
+        <line x1="11" y1="3.5" x2="11" y2="11.5" stroke="white" strokeWidth="0.5" />
+      </svg>
+      <span className="text-xs font-bold text-slate-600">+254</span>
+    </div>
+    <div className="flex-1 [&_input]:border-none [&_input]:bg-transparent [&_input]:shadow-none [&_input]:h-full [&_input]:px-0 [&_input]:focus:ring-0 [&_*]:border-none">
+      {children}
+    </div>
+  </div>
+);
+
+// ─── Image Gallery Grid ───────────────────────────────────────────────────────
+const ImageGalleryGrid = ({ images, onRemove, onAdd, isInvalid }: {
+  images: File[]; onRemove: (i: number) => void;
+  onAdd: (files: FileList | null) => void; isInvalid?: boolean;
+}) => {
+  const slots = 5;
+  return (
+    <div className={`grid grid-cols-5 gap-3 p-4 rounded-xl border-2 border-dashed transition-all ${isInvalid ? "border-red-400 bg-red-50/30" : "border-slate-200 bg-slate-50/40"}`}>
+      {Array.from({ length: slots }).map((_, i) => {
+        const file = images[i];
+        if (file) {
+          return (
+            <div key={i} className="relative group aspect-square rounded-xl overflow-hidden border border-slate-200 shadow-sm">
+              <img src={URL.createObjectURL(file)} className="w-full h-full object-cover" alt={`Photo ${i + 1}`} />
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
+                <button
+                  type="button"
+                  onClick={() => onRemove(i)}
+                  className="opacity-0 group-hover:opacity-100 bg-red-500 text-white rounded-full p-1 shadow-lg transition-all scale-75 group-hover:scale-100"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+              <div className="absolute bottom-1 left-1 bg-black/60 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md">
+                {i === 0 ? "Cover" : `#${i + 1}`}
+              </div>
+            </div>
+          );
+        }
+        return (
+          <label
+            key={i}
+            className={`aspect-square rounded-xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all hover:bg-slate-100 ${isInvalid ? "border-red-300 bg-red-50" : "border-slate-200 hover:border-slate-300"}`}
+          >
+            <Camera className={`h-5 w-5 mb-1 ${isInvalid ? "text-red-400" : "text-slate-300"}`} />
+            <span className={`text-[9px] font-bold uppercase tracking-wide ${isInvalid ? "text-red-400" : "text-slate-300"}`}>
+              {i === 0 ? "Cover" : `Photo ${i + 1}`}
+            </span>
+            <input type="file" multiple className="hidden" accept="image/*" onChange={(e) => onAdd(e.target.files)} />
+          </label>
+        );
+      })}
+    </div>
+  );
+};
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 const CreateTripEvent = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -65,11 +226,9 @@ const CreateTripEvent = () => {
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [currentStep, setCurrentStep] = useState(1);
 
-  // Auto-detect type from route
   const isEventRoute = location.pathname === "/create-event";
   const searchParams = new URLSearchParams(location.search);
   const isFlexibleFromRoute = searchParams.get("flexible") === "true";
-  
 
   const [formData, setFormData] = useState({
     name: "", description: "", location: "", place: "", country: "", date: "",
@@ -77,16 +236,13 @@ const CreateTripEvent = () => {
     map_link: "", is_custom_date: isFlexibleFromRoute, type: (isEventRoute ? "event" : "trip") as "trip" | "event",
     latitude: null as number | null, longitude: null as number | null,
     opening_hours: "00:00", closing_hours: "23:59", flexible_duration_months: "3",
-    event_category: "" as string,
-    location_link: "",
-    allow_children: true,
+    event_category: "" as string, location_link: "", allow_children: true,
   });
 
   const [ticketTypes, setTicketTypes] = useState<TicketType[]>([]);
   const [newTicketName, setNewTicketName] = useState("");
   const [newTicketPrice, setNewTicketPrice] = useState("");
   const [useTicketTypes, setUseTicketTypes] = useState(false);
-
   const [inclusions, setInclusions] = useState<string[]>([]);
   const [exclusions, setExclusions] = useState<string[]>([]);
   const [newInclusion, setNewInclusion] = useState("");
@@ -94,11 +250,11 @@ const CreateTripEvent = () => {
   const [activityNames, setActivityNames] = useState<string[]>([]);
   const [newActivityName, setNewActivityName] = useState("");
   const [locationMode, setLocationMode] = useState<'link' | 'gps' | null>(null);
-
   const [workingDays, setWorkingDays] = useState<WorkingDays>({ Mon: true, Tue: true, Wed: true, Thu: true, Fri: true, Sat: true, Sun: true });
   const [galleryImages, setGalleryImages] = useState<File[]>([]);
   const [eventCertificate, setEventCertificate] = useState<File | null>(null);
   const [certificatePreview, setCertificatePreview] = useState<string | null>(null);
+
   useEffect(() => {
     const fetchUserProfile = async () => {
       if (user) {
@@ -110,7 +266,6 @@ const CreateTripEvent = () => {
     fetchUserProfile();
   }, [user]);
 
-  // Step validation
   const isStep1Complete = !!formData.name.trim() && !!formData.country && !!formData.place.trim() && !!formData.location.trim();
   const isStep2Complete = (formData.is_custom_date || !!formData.date) && (useTicketTypes ? ticketTypes.length > 0 : parseFloat(formData.price) >= 0) && parseInt(formData.available_tickets) > 0;
   const isStep3Complete = !!formData.phone_number && galleryImages.length >= 5 && (formData.type !== 'event' || !!eventCertificate);
@@ -134,11 +289,8 @@ const CreateTripEvent = () => {
       if (formData.location_link && !formData.location_link.startsWith("https://")) errors.push("location_link");
     } else if (currentStep === 2) {
       if (!formData.is_custom_date && !formData.date) errors.push("date");
-      if (useTicketTypes) {
-        if (ticketTypes.length === 0) errors.push("ticket_types");
-      } else {
-        if (!formData.price || parseFloat(formData.price) < 0) errors.push("price");
-      }
+      if (useTicketTypes) { if (ticketTypes.length === 0) errors.push("ticket_types"); }
+      else { if (!formData.price || parseFloat(formData.price) < 0) errors.push("price"); }
       if (!formData.available_tickets || parseInt(formData.available_tickets) <= 0) errors.push("available_tickets");
     } else if (currentStep === 3) {
       if (!formData.phone_number) errors.push("phone_number");
@@ -151,11 +303,9 @@ const CreateTripEvent = () => {
   };
 
   const handleNext = () => {
-    // Auto-save any pending text in inclusion/exclusion/activity inputs
     if (newInclusion.trim()) { setInclusions(prev => [...prev, newInclusion.trim()]); setNewInclusion(""); }
     if (newExclusion.trim()) { setExclusions(prev => [...prev, newExclusion.trim()]); setNewExclusion(""); }
     if (newActivityName.trim()) { setActivityNames(prev => [...prev, newActivityName.trim()]); setNewActivityName(""); }
-
     const errors = validateCurrentStep();
     setValidationErrors(errors);
     if (errors.length > 0) {
@@ -208,8 +358,7 @@ const CreateTripEvent = () => {
       return;
     }
     setTicketTypes([...ticketTypes, { name: newTicketName.trim(), price: parseFloat(newTicketPrice) }]);
-    setNewTicketName("");
-    setNewTicketPrice("");
+    setNewTicketName(""); setNewTicketPrice("");
     setValidationErrors(prev => prev.filter(e => e !== "ticket_types"));
   };
 
@@ -223,24 +372,19 @@ const CreateTripEvent = () => {
     if (!formData.place.trim()) allErrors.push("place");
     if (!formData.location.trim()) allErrors.push("location");
     if (!formData.is_custom_date && !formData.date) allErrors.push("date");
-    if (useTicketTypes) {
-      if (ticketTypes.length === 0) allErrors.push("ticket_types");
-    } else {
-      if (!formData.price || parseFloat(formData.price) < 0) allErrors.push("price");
-    }
+    if (useTicketTypes) { if (ticketTypes.length === 0) allErrors.push("ticket_types"); }
+    else { if (!formData.price || parseFloat(formData.price) < 0) allErrors.push("price"); }
     if (!formData.available_tickets || parseInt(formData.available_tickets) <= 0) allErrors.push("available_tickets");
     if (!formData.phone_number) allErrors.push("phone_number");
     if (!formData.description.trim()) allErrors.push("description");
     if (galleryImages.length < 5) allErrors.push("gallery");
     if (formData.type === 'event' && !eventCertificate) allErrors.push("event_certificate");
     if (formData.location_link && !formData.location_link.startsWith("https://")) allErrors.push("location_link");
-
     if (allErrors.length > 0) {
       setValidationErrors(allErrors);
       toast({ title: "Missing Fields", description: "Please complete all steps.", variant: "destructive" });
       return;
     }
-
     setLoading(true);
     try {
       const friendlySlug = generateFriendlySlug(formData.name);
@@ -252,7 +396,6 @@ const CreateTripEvent = () => {
         const { data: { publicUrl } } = supabase.storage.from('user-content-images').getPublicUrl(fileName);
         uploadedUrls.push(publicUrl);
       }
-
       const daysOpened = (Object.keys(workingDays) as (keyof WorkingDays)[]).filter(day => workingDays[day]);
       let flexibleEndDate: string | null = null;
       if (formData.is_custom_date) {
@@ -261,8 +404,6 @@ const CreateTripEvent = () => {
         endDate.setMonth(endDate.getMonth() + months);
         flexibleEndDate = endDate.toISOString().split('T')[0];
       }
-
-      // Upload event certificate if event
       let eventCertificateUrl: string | null = null;
       if (formData.type === 'event' && eventCertificate) {
         const certFileName = `${user.id}/cert-${Math.random()}.${eventCertificate.name.split('.').pop()}`;
@@ -270,7 +411,6 @@ const CreateTripEvent = () => {
         if (certUploadError) throw certUploadError;
         eventCertificateUrl = supabase.storage.from('user-content-images').getPublicUrl(certFileName).data.publicUrl;
       }
-
       const { error } = await supabase.from("trips").insert([{
         id: friendlySlug, slug: friendlySlug,
         name: formData.name, description: formData.description, location: formData.location,
@@ -295,7 +435,6 @@ const CreateTripEvent = () => {
         activities: activityNames.length > 0 ? activityNames.map(name => ({ name, price: 0 })) : [],
         event_certificate_url: eventCertificateUrl,
       } as any]);
-
       if (error) throw error;
       toast({ title: "Success!", description: `Ref: ${friendlySlug} — Submitted for approval.`, duration: 5000 });
       navigate("/become-host");
@@ -305,511 +444,556 @@ const CreateTripEvent = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] pb-24">
+    <div className="min-h-screen bg-slate-50 pb-24">
       <Header />
-      <main className="container px-4 py-8 mx-auto">
-        {/* Hero */}
-        <div className="relative rounded-[40px] overflow-hidden mb-6 shadow-2xl h-[160px] md:h-[220px]">
-          <img src="/images/category-trips.webp" className="w-full h-full object-cover" alt="Header" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-6">
-            <Button onClick={goBack} className="absolute top-4 left-4 rounded-full bg-white/20 backdrop-blur-md border-none w-10 h-10 p-0 text-white"><ArrowLeft className="h-5 w-5" /></Button>
-            <h1 className="text-2xl md:text-4xl font-black text-white uppercase tracking-tighter">
-              Create <span style={{ color: COLORS.TEAL }}>Experience</span>
-            </h1>
-            <p className="text-white/70 text-xs font-bold mt-1">Step {currentStep} of {STEP_NAMES.length}</p>
-          </div>
+
+      {/* Mobile Hero (shown only on mobile) */}
+      <div className="lg:hidden relative h-36 overflow-hidden">
+        <img src="/images/category-trips.webp" className="w-full h-full object-cover" alt="" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-5">
+          <Button onClick={goBack} className="absolute top-4 left-4 rounded-full bg-white/20 backdrop-blur-md border-none w-10 h-10 p-0 text-white">
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <h1 className="text-xl font-black text-white uppercase tracking-tight">Create <span style={{ color: COLORS.TEAL }}>Experience</span></h1>
+          <p className="text-white/60 text-xs font-semibold mt-0.5">Step {currentStep} of {STEP_NAMES.length}</p>
         </div>
+      </div>
 
-        {/* Step Indicator */}
-        <CreateFormStepper steps={steps} currentStep={currentStep} />
+      <main className="max-w-screen-xl mx-auto px-4 lg:px-8 py-6 lg:py-10">
+        <div className="flex gap-8 items-start">
+          {/* ─── Sidebar ─── */}
+          <StepSidebar
+            steps={steps}
+            currentStep={currentStep}
+            onStepClick={(n) => { setValidationErrors([]); setCurrentStep(n); }}
+            type={formData.type}
+          />
 
-        <div className="space-y-6">
-          {/* ═══ STEP 1: Basic Info ═══ */}
-          {currentStep === 1 && (
-            <>
-              <Card className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100">
-                <h2 className="text-xs font-black uppercase tracking-widest mb-4" style={{ color: COLORS.TEAL }}>
-                  {formData.type === "event" ? "Creating an Event" : "Creating a Trip / Tour"}
-                </h2>
-                <p className="text-sm text-slate-500">
-                  {formData.type === "event" ? "Fixed date single sessions or matches" : "Flexible or fixed multi-day adventures"}
-                </p>
-              </Card>
-
-              {/* Event Category Selector */}
-              {formData.type === "event" && (
-                <Card className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100 space-y-4">
-                  <h2 className="text-xs font-black uppercase tracking-widest" style={{ color: COLORS.TEAL }}>Event Category *</h2>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                    {EVENT_CATEGORIES.map((cat) => (
-                      <button key={cat} type="button" onClick={() => setFormData({...formData, event_category: cat})}
-                        className={`p-3 rounded-xl text-center transition-all font-bold text-xs uppercase tracking-tight ${formData.event_category === cat ? 'bg-[#008080] text-white shadow-lg' : 'bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100'}`}>
-                        {cat}
-                      </button>
-                    ))}
-                  </div>
-                  {formData.event_category === "Others" && (
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Specify Event Type</Label>
-                      <StyledInput value={formData.event_category === "Others" ? "" : formData.event_category} onChange={(e) => setFormData({...formData, event_category: e.target.value || "Others"})} placeholder="e.g. Yoga Retreat" />
-                    </div>
-                  )}
-                </Card>
-              )}
-              <Card className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100 space-y-6">
-                <h2 className="text-xs font-black uppercase tracking-widest" style={{ color: COLORS.TEAL }}>Experience Details</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2 md:col-span-2">
-                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Experience Name *</Label>
-                    <StyledInput isInvalid={validationErrors.includes("name")} value={formData.name} onChange={(e) => { setFormData({...formData, name: e.target.value}); if(e.target.value) setValidationErrors(prev => prev.filter(err => err !== "name")); }} placeholder="e.g. Hiking in the Clouds" />
-                    {validationErrors.includes("name") && <p className="text-red-500 text-[10px] font-bold">⚠ Experience name is required</p>}
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Country *</Label>
-                    <div className={validationErrors.includes("country") ? "rounded-xl ring-1 ring-red-500" : ""}><CountrySelector value={formData.country} onChange={(val) => { setFormData({...formData, country: val, place: val === "Other" ? "" : formData.place}); setValidationErrors(prev => prev.filter(err => err !== "country")); }} /></div>
-                    {validationErrors.includes("country") && <p className="text-red-500 text-[10px] font-bold">⚠ Country is required</p>}
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">{formData.country === "Other" ? "Region / City *" : "County *"}</Label>
-                    <div className={validationErrors.includes("place") ? "rounded-xl ring-1 ring-red-500" : ""}>
-                      {formData.country === "Other" ? (
-                        <StyledInput value={formData.place} onChange={(e) => { setFormData({...formData, place: e.target.value}); setValidationErrors(prev => prev.filter(err => err !== "place")); }} placeholder="e.g. Dar es Salaam" />
-                      ) : (
-                        <CountySelector value={formData.place} onChange={(val) => { setFormData({...formData, place: val}); setValidationErrors(prev => prev.filter(err => err !== "place")); }} />
-                      )}
-                    </div>
-                    {validationErrors.includes("place") && <p className="text-red-500 text-[10px] font-bold">⚠ {formData.country === "Other" ? "Region/City" : "County"} is required</p>}
-                  </div>
-                  <div className="space-y-2 md:col-span-2">
-                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Specific Location *</Label>
-                    <StyledInput isInvalid={validationErrors.includes("location")} value={formData.location} onChange={(e) => { setFormData({...formData, location: e.target.value}); if(e.target.value) setValidationErrors(prev => prev.filter(err => err !== "location")); }} placeholder="e.g. Nanyuki Main Gate" />
-                    {validationErrors.includes("location") && <p className="text-red-500 text-[10px] font-bold">⚠ Specific location is required</p>}
-                  </div>
+          {/* ─── Main Content ─── */}
+          <div className="flex-1 min-w-0 space-y-5">
+            {/* Desktop page title */}
+            <div className="hidden lg:flex items-center justify-between mb-2">
+              <div className="flex items-center gap-3">
+                <button onClick={goBack} className="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-all shadow-sm">
+                  <ArrowLeft className="h-4 w-4 text-slate-600" />
+                </button>
+                <div>
+                  <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+                    {STEP_NAMES[currentStep - 1]}
+                  </h1>
+                  <p className="text-sm text-slate-400 font-medium mt-0.5">Step {currentStep} of {STEP_NAMES.length}</p>
                 </div>
-              </Card>
-
-              {/* Access Location Section - Link OR GPS */}
-              <Card className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100 space-y-4">
-                <h2 className="text-xs font-black uppercase tracking-widest" style={{ color: COLORS.TEAL }}>Access Location</h2>
-                <p className="text-[10px] text-slate-400 font-bold">Choose one: paste a map link OR capture your GPS location</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <button type="button" onClick={() => setLocationMode('link')}
-                    className={`p-4 rounded-2xl text-center transition-all font-black text-xs uppercase tracking-tight ${locationMode === 'link' ? 'bg-[#008080] text-white shadow-lg' : 'bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100'}`}>
-                    <Link2 className="h-5 w-5 mx-auto mb-1" /> Paste Link
-                  </button>
-                  <button type="button" onClick={() => setLocationMode('gps')}
-                    className={`p-4 rounded-2xl text-center transition-all font-black text-xs uppercase tracking-tight ${locationMode === 'gps' ? 'bg-[#008080] text-white shadow-lg' : 'bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100'}`}>
-                    <Navigation className="h-5 w-5 mx-auto mb-1" /> Use GPS
-                  </button>
+              </div>
+              {/* Progress bar */}
+              <div className="flex items-center gap-3">
+                <div className="w-40 h-2 bg-slate-200 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{ width: `${((currentStep - 1) / (STEP_NAMES.length - 1)) * 100}%`, background: COLORS.TEAL }}
+                  />
                 </div>
-                {locationMode === 'link' && (
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
-                      <Link2 className="h-3 w-3" /> Location Link
-                    </Label>
-                    <StyledInput isInvalid={validationErrors.includes("location_link")} value={formData.location_link} onChange={(e) => { setFormData({...formData, location_link: e.target.value}); if(!e.target.value || e.target.value.startsWith("https://")) setValidationErrors(prev => prev.filter(err => err !== "location_link")); }} placeholder="https://maps.google.com/..." />
-                    {validationErrors.includes("location_link") && <p className="text-red-500 text-[10px] font-bold">⚠ Link must start with https://</p>}
-                  </div>
-                )}
-                {locationMode === 'gps' && (
-                  <div className="p-4 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50">
-                    <Button type="button" onClick={getCurrentLocation} className="w-full h-14 rounded-2xl shadow-lg font-black uppercase text-[11px] tracking-widest text-white active:scale-95 transition-all" style={{ background: formData.map_link ? COLORS.TEAL : COLORS.CORAL }}>
-                      <Navigation className="h-5 w-5 mr-3" />{formData.map_link ? '✓ Location Captured' : 'Tap to Capture GPS Location'}
-                    </Button>
-                  </div>
-                )}
-              </Card>
-            </>
-          )}
+                <span className="text-xs font-bold text-slate-400">{Math.round(((currentStep - 1) / (STEP_NAMES.length - 1)) * 100)}%</span>
+              </div>
+            </div>
 
-          {/* ═══ STEP 2: Date & Pricing ═══ */}
-          {currentStep === 2 && (
-            <>
-              <Card className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100 space-y-6">
-                <h2 className="text-xs font-black uppercase tracking-widest" style={{ color: COLORS.TEAL }}>Date Settings *</h2>
-                {formData.type === "trip" && (
-                  <div className="flex items-center space-x-3 bg-slate-50 p-4 rounded-2xl">
-                    <Checkbox id="custom_date" checked={formData.is_custom_date} onCheckedChange={(checked) => setFormData({...formData, is_custom_date: checked as boolean})} />
-                    <label htmlFor="custom_date" className="text-[11px] font-black uppercase tracking-tight text-slate-500 cursor-pointer">Flexible dates - Open availability</label>
-                  </div>
-                )}
-                {formData.is_custom_date && (
-                  <div className="space-y-3 bg-slate-50 p-4 rounded-2xl">
-                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Listing Duration *</Label>
-                    <p className="text-[10px] text-slate-400">Choose how long this flexible trip will be available. Max 12 months.</p>
-                    <div className="grid grid-cols-4 gap-2">
-                      {[1, 2, 3, 4, 5, 6, 9, 12].map((months) => (
-                        <button key={months} type="button" onClick={() => setFormData({...formData, flexible_duration_months: String(months)})}
-                          className={`p-3 rounded-xl text-center transition-all font-black text-xs uppercase tracking-tight ${formData.flexible_duration_months === String(months) ? 'bg-[#008080] text-white shadow-lg' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'}`}>
-                          {months} {months === 1 ? 'Month' : 'Months'}
+            {/* Mobile stepper */}
+            <div className="lg:hidden">
+              <CreateFormStepper steps={steps} currentStep={currentStep} />
+            </div>
+
+            {/* ══════════ STEP 1: Basic Info ══════════ */}
+            {currentStep === 1 && (
+              <div className="space-y-5">
+                {/* Type badge */}
+                <div className="flex items-center gap-3 px-5 py-3 bg-white rounded-xl border border-slate-100 shadow-sm">
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS.TEAL }} />
+                  <span className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
+                    {formData.type === "event" ? "Creating an Event — Fixed date session" : "Creating a Trip / Tour — Multi-day adventure"}
+                  </span>
+                </div>
+
+                {/* Event Category */}
+                {formData.type === "event" && (
+                  <SectionCard title="Event Category" subtitle="Select the best category for your event" icon={Ticket}>
+                    <div className="grid grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+                      {EVENT_CATEGORIES.map((cat) => (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => setFormData({ ...formData, event_category: cat })}
+                          className={`px-3 py-2.5 rounded-xl text-[11px] font-bold text-center transition-all ${formData.event_category === cat ? 'text-white shadow-md' : 'bg-slate-50 border border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-100'}`}
+                          style={formData.event_category === cat ? { background: COLORS.TEAL } : {}}
+                        >
+                          {cat}
                         </button>
                       ))}
                     </div>
-                  </div>
+                  </SectionCard>
                 )}
-                {!formData.is_custom_date && (
-                  <>
-                    <div className="relative"><Calendar className="absolute left-4 top-3.5 h-4 w-4 text-slate-400" /><StyledInput isInvalid={validationErrors.includes("date")} type="date" className="pl-11" min={new Date().toISOString().split('T')[0]} value={formData.date} onChange={(e) => { setFormData({...formData, date: e.target.value}); if(e.target.value) setValidationErrors(prev => prev.filter(err => err !== "date")); }} /></div>
-                    {validationErrors.includes("date") && <p className="text-red-500 text-[10px] font-bold">⚠ Please select a date</p>}
-                  </>
-                )}
-              </Card>
 
-              {/* Ticket Types / Pricing */}
-              <Card className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100 space-y-6">
-                <h2 className="text-xs font-black uppercase tracking-widest" style={{ color: COLORS.TEAL }}>Pricing & Tickets</h2>
-                
-                {/* Toggle: Across Price vs Custom Ticket Types */}
-                {formData.type === "event" && (
-                  <div className="flex items-center space-x-3 bg-slate-50 p-4 rounded-2xl">
-                    <Checkbox id="use_ticket_types" checked={useTicketTypes} onCheckedChange={(checked) => setUseTicketTypes(checked as boolean)} />
-                    <label htmlFor="use_ticket_types" className="text-[11px] font-black uppercase tracking-tight text-slate-500 cursor-pointer">
-                      Use custom ticket types (VIP, VVIP, Regular, etc.)
+                {/* Experience Details */}
+                <SectionCard title="Experience Details" icon={MapPin}>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-6 gap-y-5">
+                    {/* Name — full width */}
+                    <div className="lg:col-span-2">
+                      <FieldLabel required>Experience Name</FieldLabel>
+                      <StyledInput
+                        isInvalid={validationErrors.includes("name")}
+                        value={formData.name}
+                        onChange={(e) => { setFormData({ ...formData, name: e.target.value }); if (e.target.value) setValidationErrors(prev => prev.filter(err => err !== "name")); }}
+                        placeholder="e.g. Hiking in the Clouds"
+                      />
+                      {validationErrors.includes("name") && <p className="text-red-500 text-[10px] font-semibold mt-1">⚠ Experience name is required</p>}
+                    </div>
+
+                    {/* Country */}
+                    <div>
+                      <FieldLabel required>Country</FieldLabel>
+                      <div className={validationErrors.includes("country") ? "rounded-xl ring-2 ring-red-300" : ""}>
+                        <CountrySelector value={formData.country} onChange={(val) => { setFormData({ ...formData, country: val, place: val === "Other" ? "" : formData.place }); setValidationErrors(prev => prev.filter(err => err !== "country")); }} />
+                      </div>
+                      {validationErrors.includes("country") && <p className="text-red-500 text-[10px] font-semibold mt-1">⚠ Country is required</p>}
+                    </div>
+
+                    {/* County/Region */}
+                    <div>
+                      <FieldLabel required>{formData.country === "Other" ? "Region / City" : "County"}</FieldLabel>
+                      <div className={validationErrors.includes("place") ? "rounded-xl ring-2 ring-red-300" : ""}>
+                        {formData.country === "Other"
+                          ? <StyledInput value={formData.place} onChange={(e) => { setFormData({ ...formData, place: e.target.value }); setValidationErrors(prev => prev.filter(err => err !== "place")); }} placeholder="e.g. Dar es Salaam" />
+                          : <CountySelector value={formData.place} onChange={(val) => { setFormData({ ...formData, place: val }); setValidationErrors(prev => prev.filter(err => err !== "place")); }} />
+                        }
+                      </div>
+                      {validationErrors.includes("place") && <p className="text-red-500 text-[10px] font-semibold mt-1">⚠ {formData.country === "Other" ? "Region/City" : "County"} is required</p>}
+                    </div>
+
+                    {/* Specific Location — full width */}
+                    <div className="lg:col-span-2">
+                      <FieldLabel required>Specific Location</FieldLabel>
+                      <StyledInput
+                        isInvalid={validationErrors.includes("location")}
+                        value={formData.location}
+                        onChange={(e) => { setFormData({ ...formData, location: e.target.value }); if (e.target.value) setValidationErrors(prev => prev.filter(err => err !== "location")); }}
+                        placeholder="e.g. Nanyuki Main Gate"
+                      />
+                      {validationErrors.includes("location") && <p className="text-red-500 text-[10px] font-semibold mt-1">⚠ Specific location is required</p>}
+                    </div>
+                  </div>
+                </SectionCard>
+
+                {/* Access Location */}
+                <SectionCard title="Map Location" subtitle="Help guests find you — paste a link or use GPS" icon={Navigation}>
+                  <div className="flex gap-3 mb-5">
+                    {[
+                      { mode: 'link', icon: Link2, label: 'Paste Map Link' },
+                      { mode: 'gps', icon: Navigation, label: 'Use My GPS' },
+                    ].map(({ mode, icon: Icon, label }) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => setLocationMode(mode as any)}
+                        className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[12px] font-bold transition-all ${locationMode === mode ? 'text-white shadow-md' : 'bg-slate-50 border border-slate-200 text-slate-500 hover:bg-slate-100'}`}
+                        style={locationMode === mode ? { background: COLORS.TEAL } : {}}
+                      >
+                        <Icon className="h-3.5 w-3.5" /> {label}
+                      </button>
+                    ))}
+                  </div>
+                  {locationMode === 'link' && (
+                    <div>
+                      <FieldLabel>Location Link (must start with https://)</FieldLabel>
+                      <StyledInput
+                        isInvalid={validationErrors.includes("location_link")}
+                        value={formData.location_link}
+                        onChange={(e) => { setFormData({ ...formData, location_link: e.target.value }); if (!e.target.value || e.target.value.startsWith("https://")) setValidationErrors(prev => prev.filter(err => err !== "location_link")); }}
+                        placeholder="https://maps.google.com/..."
+                      />
+                      {validationErrors.includes("location_link") && <p className="text-red-500 text-[10px] font-semibold mt-1">⚠ Link must start with https://</p>}
+                    </div>
+                  )}
+                  {locationMode === 'gps' && (
+                    <button
+                      type="button"
+                      onClick={getCurrentLocation}
+                      className="flex items-center gap-2.5 px-6 py-3 rounded-xl text-white text-sm font-bold transition-all active:scale-[0.98] shadow-md hover:opacity-90"
+                      style={{ background: formData.map_link ? "#16a34a" : COLORS.CORAL }}
+                    >
+                      {formData.map_link ? <><CheckCircle2 className="h-4 w-4" /> Location Captured</> : <><Navigation className="h-4 w-4" /> Capture My Location</>}
+                    </button>
+                  )}
+                </SectionCard>
+              </div>
+            )}
+
+            {/* ══════════ STEP 2: Date & Pricing ══════════ */}
+            {currentStep === 2 && (
+              <div className="space-y-5">
+                {/* Date */}
+                <SectionCard title="Date Settings" icon={Calendar}>
+                  {formData.type === "trip" && (
+                    <label className="flex items-center gap-3 cursor-pointer mb-5 p-4 bg-slate-50 rounded-xl border border-slate-100 hover:bg-slate-100 transition-all">
+                      <Checkbox id="custom_date" checked={formData.is_custom_date} onCheckedChange={(checked) => setFormData({ ...formData, is_custom_date: checked as boolean })} />
+                      <div>
+                        <p className="text-sm font-bold text-slate-700">Flexible dates</p>
+                        <p className="text-xs text-slate-400">Open availability — guests choose their own date</p>
+                      </div>
                     </label>
-                  </div>
-                )}
-
-                {/* Allow Children Toggle */}
-                <div className="flex items-center space-x-3 bg-slate-50 p-4 rounded-2xl">
-                  <Checkbox id="allow_children" checked={formData.allow_children} onCheckedChange={(checked) => setFormData({...formData, allow_children: checked as boolean})} />
-                  <label htmlFor="allow_children" className="text-[11px] font-black uppercase tracking-tight text-slate-500 cursor-pointer">
-                    Allow children / child pricing
-                  </label>
-                </div>
-
-                {useTicketTypes ? (
-                  <div className="space-y-4">
-                    <p className="text-[10px] text-slate-400 font-bold uppercase">Add your ticket types with custom names and prices</p>
-                    
-                    {/* Add ticket type form */}
-                    <div className="flex gap-2 items-end">
-                      <div className="flex-1 space-y-1">
-                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Ticket Name</Label>
-                        <StyledInput value={newTicketName} onChange={(e) => setNewTicketName(e.target.value)} placeholder="e.g. VIP, Regular, VVIP" />
+                  )}
+                  {formData.is_custom_date ? (
+                    <div className="space-y-3">
+                      <FieldLabel>Listing Duration</FieldLabel>
+                      <p className="text-xs text-slate-400">How long will this flexible trip be available? (Max 12 months)</p>
+                      <div className="flex flex-wrap gap-2">
+                        {[1, 2, 3, 4, 5, 6, 9, 12].map((months) => (
+                          <button
+                            key={months}
+                            type="button"
+                            onClick={() => setFormData({ ...formData, flexible_duration_months: String(months) })}
+                            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${formData.flexible_duration_months === String(months) ? 'text-white shadow-md' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                            style={formData.flexible_duration_months === String(months) ? { background: COLORS.TEAL } : {}}
+                          >
+                            {months} {months === 1 ? 'Month' : 'Months'}
+                          </button>
+                        ))}
                       </div>
-                      <div className="w-32 space-y-1">
-                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Price (KSh)</Label>
-                        <StyledInput type="number" min="0" value={newTicketPrice} onChange={(e) => setNewTicketPrice(e.target.value)} placeholder="0" />
-                      </div>
-                      <Button type="button" onClick={addTicketType} className="rounded-xl h-12 px-4" style={{ background: COLORS.TEAL }}>
-                        <Plus className="h-4 w-4" />
-                      </Button>
                     </div>
-                    
-                    {validationErrors.includes("ticket_types") && <p className="text-red-500 text-[10px] font-bold">⚠ Add at least one ticket type</p>}
+                  ) : (
+                    <div>
+                      <FieldLabel required>Event / Trip Date</FieldLabel>
+                      <StyledInput
+                        isInvalid={validationErrors.includes("date")}
+                        type="date"
+                        min={new Date().toISOString().split('T')[0]}
+                        value={formData.date}
+                        onChange={(e) => { setFormData({ ...formData, date: e.target.value }); if (e.target.value) setValidationErrors(prev => prev.filter(err => err !== "date")); }}
+                        className="max-w-xs"
+                      />
+                      {validationErrors.includes("date") && <p className="text-red-500 text-[10px] font-semibold mt-1">⚠ Please select a date</p>}
+                    </div>
+                  )}
+                </SectionCard>
 
-                    {/* Ticket types list */}
-                    <div className="space-y-2">
-                      {ticketTypes.map((ticket, i) => (
-                        <div key={i} className="flex items-center justify-between px-4 py-3 rounded-2xl bg-[#008080]/5 border border-[#008080]/20">
-                          <div className="flex items-center gap-3">
-                            <Ticket className="h-4 w-4 text-[#008080]" />
-                            <div>
-                              <span className="text-sm font-black text-slate-800 uppercase tracking-tight">{ticket.name}</span>
-                              <span className="text-xs text-slate-500 ml-2">KSh {ticket.price.toLocaleString()}</span>
-                              {ticket.price > 0 && <span className="text-[9px] text-blue-500 font-bold ml-2">{usdHint(ticket.price)}</span>}
-                            </div>
-                          </div>
-                          <button type="button" onClick={() => removeTicketType(i)} className="text-red-400 hover:text-red-600"><X className="h-4 w-4" /></button>
+                {/* Pricing */}
+                <SectionCard title="Pricing & Tickets" icon={DollarSign}>
+                  <div className="space-y-5">
+                    {formData.type === "event" && (
+                      <label className="flex items-center gap-3 cursor-pointer p-4 bg-slate-50 rounded-xl border border-slate-100 hover:bg-slate-100 transition-all">
+                        <Checkbox id="use_ticket_types" checked={useTicketTypes} onCheckedChange={(checked) => setUseTicketTypes(checked as boolean)} />
+                        <div>
+                          <p className="text-sm font-bold text-slate-700">Custom ticket types</p>
+                          <p className="text-xs text-slate-400">VIP, VVIP, Regular, etc. with different prices</p>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Adult Price (KSh) *</Label>
-                      <div className="relative"><DollarSign className="absolute left-4 top-3.5 h-4 w-4 text-slate-400" /><StyledInput isInvalid={validationErrors.includes("price")} type="number" className="pl-11" value={formData.price} onChange={(e) => { setFormData({...formData, price: e.target.value}); if(e.target.value && parseFloat(e.target.value) >= 0) setValidationErrors(prev => prev.filter(err => err !== "price")); }} /></div>
-                      {parseFloat(formData.price) > 0 && <p className="text-[9px] text-blue-500 font-bold mt-0.5">{usdHint(parseFloat(formData.price))}</p>}
-                      {validationErrors.includes("price") && <p className="text-red-500 text-[10px] font-bold">⚠ Enter a valid price</p>}
-                    </div>
-                    {formData.allow_children && (
-                      <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Child Price (KSh)</Label>
-                        <div className="relative"><DollarSign className="absolute left-4 top-3.5 h-4 w-4 text-slate-400" /><StyledInput type="number" min="0" className="pl-11" value={formData.price_child} onChange={(e) => setFormData({...formData, price_child: e.target.value})} /></div>
-                        <p className="text-[9px] text-muted-foreground">Set to 0 if not applicable for children</p>
-                        {parseFloat(formData.price_child) > 0 && <p className="text-[9px] text-blue-500 font-bold mt-0.5">{usdHint(parseFloat(formData.price_child))}</p>}
+                      </label>
+                    )}
+
+                    <label className="flex items-center gap-3 cursor-pointer p-4 bg-slate-50 rounded-xl border border-slate-100 hover:bg-slate-100 transition-all">
+                      <Checkbox id="allow_children" checked={formData.allow_children} onCheckedChange={(checked) => setFormData({ ...formData, allow_children: checked as boolean })} />
+                      <div>
+                        <p className="text-sm font-bold text-slate-700">Allow children</p>
+                        <p className="text-xs text-slate-400">Enable child pricing for this experience</p>
+                      </div>
+                    </label>
+
+                    {useTicketTypes ? (
+                      <div className="space-y-4">
+                        <div className="flex gap-3 items-end">
+                          <div className="flex-1">
+                            <FieldLabel>Ticket Name</FieldLabel>
+                            <StyledInput value={newTicketName} onChange={(e) => setNewTicketName(e.target.value)} placeholder="e.g. VIP, Regular, VVIP" />
+                          </div>
+                          <div className="w-36">
+                            <FieldLabel>Price (KSh)</FieldLabel>
+                            <StyledInput type="number" min="0" value={newTicketPrice} onChange={(e) => setNewTicketPrice(e.target.value)} placeholder="0" />
+                          </div>
+                          <button type="button" onClick={addTicketType} className="h-11 px-4 rounded-xl text-white font-bold flex items-center gap-1.5 shrink-0 hover:opacity-90 transition-all" style={{ background: COLORS.TEAL }}>
+                            <Plus className="h-4 w-4" /> Add
+                          </button>
+                        </div>
+                        {validationErrors.includes("ticket_types") && <p className="text-red-500 text-[10px] font-semibold">⚠ Add at least one ticket type</p>}
+                        <div className="space-y-2">
+                          {ticketTypes.map((ticket, i) => (
+                            <div key={i} className="flex items-center justify-between px-4 py-3 rounded-xl bg-slate-50 border border-slate-200">
+                              <div className="flex items-center gap-2.5">
+                                <Ticket className="h-4 w-4 text-slate-400" />
+                                <span className="text-sm font-bold text-slate-800">{ticket.name}</span>
+                                <span className="text-xs text-slate-500">KSh {ticket.price.toLocaleString()}</span>
+                                {ticket.price > 0 && <span className="text-[10px] text-blue-500 font-semibold">{usdHint(ticket.price)}</span>}
+                              </div>
+                              <button type="button" onClick={() => removeTicketType(i)} className="text-red-400 hover:text-red-600 transition-colors">
+                                <X className="h-4 w-4" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                        <div>
+                          <FieldLabel required>Adult Price (KSh)</FieldLabel>
+                          <StyledInput isInvalid={validationErrors.includes("price")} type="number" value={formData.price} onChange={(e) => { setFormData({ ...formData, price: e.target.value }); if (e.target.value && parseFloat(e.target.value) >= 0) setValidationErrors(prev => prev.filter(err => err !== "price")); }} />
+                          {parseFloat(formData.price) > 0 && <p className="text-[10px] text-blue-500 font-semibold mt-1">{usdHint(parseFloat(formData.price))}</p>}
+                          {validationErrors.includes("price") && <p className="text-red-500 text-[10px] font-semibold mt-1">⚠ Enter a valid price</p>}
+                        </div>
+                        {formData.allow_children && (
+                          <div>
+                            <FieldLabel>Child Price (KSh)</FieldLabel>
+                            <StyledInput type="number" min="0" value={formData.price_child} onChange={(e) => setFormData({ ...formData, price_child: e.target.value })} />
+                            {parseFloat(formData.price_child) > 0 && <p className="text-[10px] text-blue-500 font-semibold mt-1">{usdHint(parseFloat(formData.price_child))}</p>}
+                          </div>
+                        )}
+                        <div>
+                          <FieldLabel required>Max Slots</FieldLabel>
+                          <StyledInput isInvalid={validationErrors.includes("available_tickets")} type="number" value={formData.available_tickets} onChange={(e) => { setFormData({ ...formData, available_tickets: e.target.value }); if (e.target.value && parseInt(e.target.value) > 0) setValidationErrors(prev => prev.filter(err => err !== "available_tickets")); }} />
+                          {validationErrors.includes("available_tickets") && <p className="text-red-500 text-[10px] font-semibold mt-1">⚠ Enter number of slots (min 1)</p>}
+                        </div>
                       </div>
                     )}
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Max Slots *</Label>
-                      <div className="relative"><Users className="absolute left-4 top-3.5 h-4 w-4 text-slate-400" /><StyledInput isInvalid={validationErrors.includes("available_tickets")} type="number" className="pl-11" value={formData.available_tickets} onChange={(e) => { setFormData({...formData, available_tickets: e.target.value}); if(e.target.value && parseInt(e.target.value) > 0) setValidationErrors(prev => prev.filter(err => err !== "available_tickets")); }} /></div>
-                      {validationErrors.includes("available_tickets") && <p className="text-red-500 text-[10px] font-bold">⚠ Enter number of slots (min 1)</p>}
-                    </div>
+                    {useTicketTypes && (
+                      <div>
+                        <FieldLabel required>Max Slots</FieldLabel>
+                        <StyledInput isInvalid={validationErrors.includes("available_tickets")} type="number" className="max-w-xs" value={formData.available_tickets} onChange={(e) => { setFormData({ ...formData, available_tickets: e.target.value }); if (e.target.value && parseInt(e.target.value) > 0) setValidationErrors(prev => prev.filter(err => err !== "available_tickets")); }} />
+                        {validationErrors.includes("available_tickets") && <p className="text-red-500 text-[10px] font-semibold mt-1">⚠ Enter number of slots (min 1)</p>}
+                      </div>
+                    )}
                   </div>
+                </SectionCard>
+
+                {/* Inclusions & Exclusions */}
+                {(!formData.is_custom_date || formData.type === "event") && (
+                  <SectionCard title="What's Included & Excluded" subtitle="Optional — helps guests know what to expect">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <div>
+                        <FieldLabel>✓ Inclusions</FieldLabel>
+                        <div className="flex gap-2 mb-3">
+                          <StyledInput value={newInclusion} onChange={(e) => { const val = e.target.value; if (val.endsWith(',') || val.endsWith('.')) { const item = val.slice(0, -1).trim(); if (item) { setInclusions([...inclusions, item]); setNewInclusion(""); } } else setNewInclusion(val); }} placeholder="Type, press comma to add" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (newInclusion.trim()) { setInclusions([...inclusions, newInclusion.trim()]); setNewInclusion(""); } } }} />
+                          <button type="button" onClick={() => { if (newInclusion.trim()) { setInclusions([...inclusions, newInclusion.trim()]); setNewInclusion(""); } }} className="px-4 rounded-xl text-white text-sm font-bold shrink-0" style={{ background: COLORS.TEAL }}>Add</button>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {inclusions.map((item, i) => (
+                            <span key={i} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 text-[11px] font-semibold border border-emerald-200">
+                              ✓ {item}<button type="button" onClick={() => setInclusions(inclusions.filter((_, idx) => idx !== i))}><X className="h-2.5 w-2.5 ml-0.5 hover:text-red-500" /></button>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <FieldLabel>✗ Exclusions</FieldLabel>
+                        <div className="flex gap-2 mb-3">
+                          <StyledInput value={newExclusion} onChange={(e) => { const val = e.target.value; if (val.endsWith(',') || val.endsWith('.')) { const item = val.slice(0, -1).trim(); if (item) { setExclusions([...exclusions, item]); setNewExclusion(""); } } else setNewExclusion(val); }} placeholder="Type, press comma to add" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (newExclusion.trim()) { setExclusions([...exclusions, newExclusion.trim()]); setNewExclusion(""); } } }} />
+                          <button type="button" onClick={() => { if (newExclusion.trim()) { setExclusions([...exclusions, newExclusion.trim()]); setNewExclusion(""); } }} className="px-4 rounded-xl bg-slate-600 hover:bg-slate-700 text-white text-sm font-bold shrink-0">Add</button>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {exclusions.map((item, i) => (
+                            <span key={i} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-50 text-red-600 text-[11px] font-semibold border border-red-200">
+                              ✗ {item}<button type="button" onClick={() => setExclusions(exclusions.filter((_, idx) => idx !== i))}><X className="h-2.5 w-2.5 ml-0.5 hover:text-red-800" /></button>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </SectionCard>
                 )}
-
-                {useTicketTypes && (
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Max Slots *</Label>
-                    <div className="relative"><Users className="absolute left-4 top-3.5 h-4 w-4 text-slate-400" /><StyledInput isInvalid={validationErrors.includes("available_tickets")} type="number" className="pl-11" value={formData.available_tickets} onChange={(e) => { setFormData({...formData, available_tickets: e.target.value}); if(e.target.value && parseInt(e.target.value) > 0) setValidationErrors(prev => prev.filter(err => err !== "available_tickets")); }} /></div>
-                    {validationErrors.includes("available_tickets") && <p className="text-red-500 text-[10px] font-bold">⚠ Enter number of slots (min 1)</p>}
-                  </div>
-                )}
-              </Card>
-
-              {/* Inclusions & Exclusions */}
-              {(!formData.is_custom_date || formData.type === "event") && (
-                <Card className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100 space-y-6">
-                  <h2 className="text-xs font-black uppercase tracking-widest" style={{ color: COLORS.TEAL }}>What's Included & Excluded</h2>
-                  
-                  <div className="space-y-3">
-                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">✓ Inclusions</Label>
-                    <div className="flex gap-2">
-                      <StyledInput value={newInclusion} onChange={(e) => {
-                        const val = e.target.value;
-                        if (val.endsWith(',') || val.endsWith('.')) {
-                          const item = val.slice(0, -1).trim();
-                          if (item) { setInclusions([...inclusions, item]); setNewInclusion(""); }
-                        } else { setNewInclusion(val); }
-                      }} placeholder="Type & press comma or fullstop to add" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (newInclusion.trim()) { setInclusions([...inclusions, newInclusion.trim()]); setNewInclusion(""); } } }} />
-                      <Button type="button" onClick={() => { if (newInclusion.trim()) { setInclusions([...inclusions, newInclusion.trim()]); setNewInclusion(""); } }} className="rounded-xl shrink-0" style={{ background: COLORS.TEAL }}>Add</Button>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {inclusions.map((item, i) => (
-                        <span key={i} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200">
-                          ✓ {item}
-                          <button type="button" onClick={() => setInclusions(inclusions.filter((_, idx) => idx !== i))} className="hover:text-red-500"><X className="h-3 w-3" /></button>
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">✗ Exclusions</Label>
-                    <div className="flex gap-2">
-                      <StyledInput value={newExclusion} onChange={(e) => {
-                        const val = e.target.value;
-                        if (val.endsWith(',') || val.endsWith('.')) {
-                          const item = val.slice(0, -1).trim();
-                          if (item) { setExclusions([...exclusions, item]); setNewExclusion(""); }
-                        } else { setNewExclusion(val); }
-                      }} placeholder="Type & press comma or fullstop to add" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (newExclusion.trim()) { setExclusions([...exclusions, newExclusion.trim()]); setNewExclusion(""); } } }} />
-                      <Button type="button" onClick={() => { if (newExclusion.trim()) { setExclusions([...exclusions, newExclusion.trim()]); setNewExclusion(""); } }} className="rounded-xl shrink-0 bg-slate-600 hover:bg-slate-700">Add</Button>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {exclusions.map((item, i) => (
-                        <span key={i} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-50 text-red-600 text-xs font-bold border border-red-200">
-                          ✗ {item}
-                          <button type="button" onClick={() => setExclusions(exclusions.filter((_, idx) => idx !== i))} className="hover:text-red-800"><X className="h-3 w-3" /></button>
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </Card>
-              )}
-            </>
-          )}
-
-          {/* ═══ STEP 3: Contact & Photos ═══ */}
-          {currentStep === 3 && (
-            <>
-            <Card className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100 space-y-6">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2.5 rounded-xl" style={{ backgroundColor: `${COLORS.TEAL}15` }}>
-                  <MapPin className="h-5 w-5" style={{ color: COLORS.TEAL }} />
-                </div>
-                <div>
-                  <h2 className="text-sm font-black uppercase tracking-tight" style={{ color: COLORS.TEAL }}>Contact Details</h2>
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">How guests can reach you</p>
-                </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2 bg-slate-50/80 rounded-2xl p-4">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
-                    <span className="h-1.5 w-1.5 rounded-full bg-[#008080]" /> Contact Email
-                  </Label>
-                  <StyledInput type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} placeholder="contact@example.com" />
-                </div>
-                <div className="space-y-2 bg-slate-50/80 rounded-2xl p-4">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
-                    <span className="h-1.5 w-1.5 rounded-full bg-[#FF7F50]" /> Contact Phone *
-                  </Label>
-                  <div className={validationErrors.includes("phone_number") ? "rounded-xl ring-1 ring-red-500" : ""}><PhoneInput value={formData.phone_number} onChange={(val) => { setFormData({...formData, phone_number: val}); if(val) setValidationErrors(prev => prev.filter(err => err !== "phone_number")); }} country={formData.country} placeholder="712345678" /></div>
-                  {validationErrors.includes("phone_number") && <p className="text-red-500 text-[10px] font-bold">⚠ Phone number is required</p>}
-                </div>
-              </div>
+            )}
 
-              {/* Gallery */}
-              <div className={`pt-6 border-t transition-all ${validationErrors.includes("gallery") ? "border-red-300" : "border-slate-100"}`}>
-                <h3 className={`text-xs font-black uppercase tracking-widest mb-2 ${validationErrors.includes("gallery") ? "text-red-500" : ""}`} style={validationErrors.includes("gallery") ? {} : { color: COLORS.TEAL }}>
-                  Photos * — {galleryImages.length}/5 uploaded
-                  {galleryImages.length < 5 && <span className="text-red-500 ml-1">— {5 - galleryImages.length} more needed</span>}
-                </h3>
-                {validationErrors.includes("gallery") && (
-                  <div className="mb-4 px-4 py-3 bg-red-50 border border-red-300 rounded-2xl flex items-center gap-2">
-                    <span className="text-red-500 text-lg">⚠</span>
-                    <p className="text-red-600 text-xs font-bold uppercase tracking-wide">
-                      You need exactly 5 photos. Please upload {5 - galleryImages.length} more.
-                    </p>
-                  </div>
-                )}
-                <div className={`grid grid-cols-2 md:grid-cols-5 gap-4 p-4 rounded-2xl transition-all ${validationErrors.includes("gallery") ? "ring-2 ring-red-400 bg-red-50/20" : "bg-slate-50/30"}`}>
-                  {galleryImages.map((file, index) => (
-                    <div key={index} className="relative aspect-square rounded-[20px] overflow-hidden border-2 border-slate-100">
-                      <img src={URL.createObjectURL(file)} className="w-full h-full object-cover" alt="Preview" />
-                      <button type="button" onClick={() => removeImage(index)} className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full shadow-lg"><X className="h-3 w-3" /></button>
+            {/* ══════════ STEP 3: Contact & Photos ══════════ */}
+            {currentStep === 3 && (
+              <div className="space-y-5">
+                <SectionCard title="Contact Details" subtitle="How guests can reach you" icon={MapPin}>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div>
+                      <FieldLabel>Contact Email</FieldLabel>
+                      <StyledInput type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="contact@example.com" />
                     </div>
-                  ))}
-                  {galleryImages.length < 5 && (
-                    <Label className={`aspect-square rounded-[20px] border-2 border-dashed flex flex-col items-center justify-center cursor-pointer hover:bg-white transition-all ${validationErrors.includes("gallery") ? "border-red-400 bg-red-50" : "border-slate-200 hover:bg-slate-50"}`}>
-                      <Camera className={`h-6 w-6 ${validationErrors.includes("gallery") ? "text-red-400" : "text-slate-400"}`} />
-                      <span className={`text-[9px] font-bold mt-1 uppercase tracking-wide ${validationErrors.includes("gallery") ? "text-red-400" : "text-slate-400"}`}>Add Photo</span>
-                      <Input type="file" multiple className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e.target.files)} />
-                    </Label>
+                    <div>
+                      <FieldLabel required>Contact Phone</FieldLabel>
+                      <KenyaPhoneWrapper isInvalid={validationErrors.includes("phone_number")}>
+                        <PhoneInput
+                          value={formData.phone_number}
+                          onChange={(val) => { setFormData({ ...formData, phone_number: val }); if (val) setValidationErrors(prev => prev.filter(err => err !== "phone_number")); }}
+                          country={formData.country}
+                          placeholder="712 345 678"
+                        />
+                      </KenyaPhoneWrapper>
+                      {validationErrors.includes("phone_number") && <p className="text-red-500 text-[10px] font-semibold mt-1">⚠ Phone number is required</p>}
+                    </div>
+                  </div>
+                </SectionCard>
+
+                {/* Gallery */}
+                <SectionCard
+                  title={`Photo Gallery — ${galleryImages.length}/5 uploaded`}
+                  subtitle={galleryImages.length < 5 ? `Upload ${5 - galleryImages.length} more photos to continue` : "All 5 photos uploaded ✓"}
+                  icon={Camera}
+                >
+                  {validationErrors.includes("gallery") && (
+                    <div className="mb-4 flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-xl">
+                      <span className="text-red-500">⚠</span>
+                      <p className="text-red-600 text-xs font-semibold">You need exactly 5 photos. Please upload {5 - galleryImages.length} more.</p>
+                    </div>
                   )}
-                </div>
+                  <ImageGalleryGrid
+                    images={galleryImages}
+                    onRemove={removeImage}
+                    onAdd={handleImageUpload}
+                    isInvalid={validationErrors.includes("gallery")}
+                  />
+                  <p className="text-[10px] text-slate-400 mt-3 font-medium">First photo becomes your cover image. Use landscape photos for best results.</p>
+                </SectionCard>
+
+                {/* Event Certificate */}
+                {formData.type === 'event' && (
+                  <SectionCard title="Event Certificate / Permit" subtitle="Prove you're authorized to host this event" icon={FileImage}>
+                    {certificatePreview ? (
+                      <div className="relative rounded-xl overflow-hidden border border-slate-200">
+                        <img src={certificatePreview} alt="Event Certificate" className="w-full h-48 object-cover" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-4">
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5 bg-green-500 text-white px-3 py-1 rounded-lg text-[11px] font-bold">
+                              <CheckCircle2 className="h-3 w-3" /> Certificate Uploaded
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => { setEventCertificate(null); setCertificatePreview(null); }}
+                              className="bg-red-500 text-white px-3 py-1 rounded-lg text-[11px] font-bold"
+                            >Remove</button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <label className={`flex flex-col items-center justify-center h-36 rounded-xl border-2 border-dashed cursor-pointer transition-all ${validationErrors.includes("event_certificate") ? "border-red-400 bg-red-50" : "border-slate-200 hover:border-[#008080] hover:bg-[#008080]/5"}`}>
+                        <FileImage className={`h-8 w-8 mb-2 ${validationErrors.includes("event_certificate") ? "text-red-400" : "text-slate-300"}`} />
+                        <span className={`text-xs font-bold ${validationErrors.includes("event_certificate") ? "text-red-500" : "text-slate-400"}`}>Click to upload certificate image</span>
+                        <span className="text-[10px] text-slate-300 mt-0.5">PNG, JPG up to 10MB</span>
+                        <input type="file" className="hidden" accept="image/*" onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) { setEventCertificate(file); setCertificatePreview(URL.createObjectURL(file)); setValidationErrors(prev => prev.filter(err => err !== "event_certificate")); }
+                        }} />
+                      </label>
+                    )}
+                    {validationErrors.includes("event_certificate") && <p className="text-red-500 text-[10px] font-semibold mt-2">⚠ Event certificate is required to host an event</p>}
+                  </SectionCard>
+                )}
               </div>
-            </Card>
+            )}
 
-            {/* Event Certificate Upload */}
-            {formData.type === 'event' && (
-              <Card className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100 space-y-4">
-                <h3 className="text-xs font-black uppercase tracking-widest flex items-center gap-2" style={{ color: COLORS.TEAL }}>
-                  <FileImage className="h-4 w-4" /> Event Certificate / Permit *
-                </h3>
-                <p className="text-[10px] text-slate-400 font-bold">Upload your event permit or certificate proving you are authorized to host this event</p>
-                
-                {certificatePreview ? (
-                  <div className="relative rounded-2xl overflow-hidden border-2 border-[#008080]/30">
-                    <img src={certificatePreview} alt="Event Certificate" className="w-full h-48 object-cover" />
-                    <button type="button" onClick={() => { setEventCertificate(null); setCertificatePreview(null); }}
-                      className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full shadow-lg">
-                      <X className="h-3 w-3" />
-                    </button>
-                    <div className="absolute bottom-2 left-2 bg-green-500 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase flex items-center gap-1">
-                      <CheckCircle2 className="h-3 w-3" /> Certificate Uploaded
-                    </div>
+            {/* ══════════ STEP 4: Schedule ══════════ */}
+            {currentStep === 4 && (
+              <div className="space-y-5">
+                <SectionCard title={formData.type === "event" ? "Event Hours" : "Operating Hours & Days"} icon={Calendar}>
+                  <OperatingHoursSection
+                    openingHours={formData.opening_hours}
+                    closingHours={formData.closing_hours}
+                    workingDays={workingDays}
+                    onOpeningChange={(v) => setFormData({ ...formData, opening_hours: v })}
+                    onClosingChange={(v) => setFormData({ ...formData, closing_hours: v })}
+                    onDaysChange={setWorkingDays}
+                    accentColor={COLORS.TEAL}
+                    hideDays={formData.type === "event"}
+                    hide24HourToggle={true}
+                  />
+                </SectionCard>
+
+                <SectionCard title="Experience Description">
+                  <FieldLabel required>Describe your experience (max 20 words)</FieldLabel>
+                  <Textarea
+                    className={`rounded-xl border min-h-[140px] text-sm font-medium resize-none transition-all ${validationErrors.includes("description") ? "border-red-400 ring-2 ring-red-100 bg-red-50" : "border-slate-200 focus:ring-2 focus:ring-[#008080]/20 focus:border-[#008080]"}`}
+                    value={formData.description}
+                    onChange={(e) => {
+                      const words = e.target.value.trim().split(/\s+/);
+                      if (e.target.value.trim() === "" || words.length <= 20) setFormData({ ...formData, description: e.target.value });
+                      if (e.target.value.trim()) setValidationErrors(prev => prev.filter(err => err !== "description"));
+                    }}
+                    placeholder="Describe your experience in 20 words or less..."
+                  />
+                  <div className="flex items-center justify-between mt-2">
+                    <p className="text-[10px] text-slate-400">{formData.description.trim() ? formData.description.trim().split(/\s+/).length : 0}/20 words</p>
+                    {validationErrors.includes("description") && <p className="text-red-500 text-[10px] font-semibold">⚠ Description is required</p>}
                   </div>
-                ) : (
-                  <Label className={`flex flex-col items-center justify-center h-32 rounded-2xl border-2 border-dashed cursor-pointer transition-all ${validationErrors.includes("event_certificate") ? "border-red-400 bg-red-50" : "border-slate-200 hover:border-[#008080] hover:bg-[#008080]/5"}`}>
-                    <FileImage className={`h-8 w-8 mb-2 ${validationErrors.includes("event_certificate") ? "text-red-400" : "text-slate-400"}`} />
-                    <span className={`text-xs font-bold uppercase ${validationErrors.includes("event_certificate") ? "text-red-500" : "text-slate-400"}`}>Upload Certificate Image</span>
-                    <Input type="file" className="hidden" accept="image/*" onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        setEventCertificate(file);
-                        setCertificatePreview(URL.createObjectURL(file));
-                        setValidationErrors(prev => prev.filter(err => err !== "event_certificate"));
-                      }
-                    }} />
-                  </Label>
-                )}
-                {validationErrors.includes("event_certificate") && (
-                  <p className="text-red-500 text-[10px] font-bold">⚠ Event certificate is required to host an event</p>
-                )}
-              </Card>
+                </SectionCard>
+
+                <SectionCard title="Activities" subtitle="Optional — activities guests can enjoy">
+                  <div className="flex gap-3 mb-4">
+                    <StyledInput
+                      value={newActivityName}
+                      onChange={(e) => setNewActivityName(e.target.value)}
+                      placeholder="e.g. Hiking, Swimming, Game Drive"
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (newActivityName.trim()) { setActivityNames([...activityNames, newActivityName.trim()]); setNewActivityName(""); } } }}
+                    />
+                    <button type="button" onClick={() => { if (newActivityName.trim()) { setActivityNames([...activityNames, newActivityName.trim()]); setNewActivityName(""); } }} className="px-4 rounded-xl text-white font-bold shrink-0 hover:opacity-90" style={{ background: COLORS.TEAL }}>
+                      <Plus className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {activityNames.map((name, i) => (
+                      <span key={i} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold border" style={{ background: `${COLORS.TEAL}10`, color: COLORS.TEAL, borderColor: `${COLORS.TEAL}25` }}>
+                        {name}<button type="button" onClick={() => setActivityNames(activityNames.filter((_, idx) => idx !== i))}><X className="h-2.5 w-2.5 ml-0.5 hover:text-red-500" /></button>
+                      </span>
+                    ))}
+                  </div>
+                </SectionCard>
+              </div>
             )}
 
-            </>
-          )}
-
-          {/* ═══ STEP 4: Schedule & Description ═══ */}
-          {currentStep === 4 && (
-            <>
-              <Card className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100">
-                <h2 className="text-xs font-black uppercase tracking-widest mb-6" style={{ color: COLORS.TEAL }}>
-                  {formData.type === "event" ? "Event Hours *" : "Operating Hours & Days *"}
-                </h2>
-                <OperatingHoursSection
-                  openingHours={formData.opening_hours}
-                  closingHours={formData.closing_hours}
-                  workingDays={workingDays}
-                  onOpeningChange={(v) => setFormData({...formData, opening_hours: v})}
-                  onClosingChange={(v) => setFormData({...formData, closing_hours: v})}
-                  onDaysChange={setWorkingDays}
-                  accentColor={COLORS.TEAL}
-                  hideDays={formData.type === "event"}
-                  hide24HourToggle={true}
-                />
-              </Card>
-
-              <Card className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100">
-                <Label className="text-xs font-black uppercase tracking-widest mb-4 block" style={{ color: COLORS.TEAL }}>Experience Description *</Label>
-                <Textarea className={`rounded-[24px] border-slate-100 bg-slate-50 p-6 min-h-[200px] focus:ring-[#008080] text-sm ${validationErrors.includes("description") ? "border-red-500 ring-1 ring-red-500" : ""}`} value={formData.description} onChange={(e) => {
-                  const words = e.target.value.trim().split(/\s+/);
-                  if (e.target.value.trim() === "" || words.length <= 20) {
-                    setFormData({...formData, description: e.target.value});
-                  }
-                  if (e.target.value.trim()) setValidationErrors(prev => prev.filter(err => err !== "description"));
-                }} placeholder="Describe in 20 words or less..." />
-                <p className="text-xs text-muted-foreground mt-1">
-                  {formData.description.trim() ? formData.description.trim().split(/\s+/).length : 0}/20 words
-                </p>
-                {validationErrors.includes("description") && <p className="text-red-500 text-[10px] font-bold mt-1">⚠ Description is required</p>}
-              </Card>
-
-              {/* Activities */}
-              <Card className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100 space-y-4">
-                <h2 className="text-xs font-black uppercase tracking-widest" style={{ color: COLORS.TEAL }}>Activities (Optional)</h2>
-                <p className="text-[10px] text-slate-400 font-bold">Add activities visitors can enjoy during this experience</p>
-                <div className="flex gap-2">
-                  <StyledInput value={newActivityName} onChange={(e) => setNewActivityName(e.target.value)} placeholder="e.g. Hiking, Swimming, Game Drive" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (newActivityName.trim()) { setActivityNames([...activityNames, newActivityName.trim()]); setNewActivityName(""); } } }} />
-                  <Button type="button" onClick={() => { if (newActivityName.trim()) { setActivityNames([...activityNames, newActivityName.trim()]); setNewActivityName(""); } }} className="rounded-xl shrink-0" style={{ background: COLORS.TEAL }}>
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {activityNames.map((name, i) => (
-                    <span key={i} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#008080]/10 text-[#008080] text-xs font-bold border border-[#008080]/20">
-                      {name}
-                      <button type="button" onClick={() => setActivityNames(activityNames.filter((_, idx) => idx !== i))} className="hover:text-red-500"><X className="h-3 w-3" /></button>
-                    </span>
-                  ))}
-                </div>
-              </Card>
-            </>
-          )}
-
-          {/* ═══ STEP 5: Review ═══ */}
-          {currentStep === 5 && (
-            <ReviewStep
-              type={formData.type as 'trip' | 'event'}
-              accentColor={COLORS.TEAL}
-              data={{
-                name: formData.name, location: formData.location, place: formData.place,
-                country: formData.country, description: formData.description,
-                email: formData.email, phoneNumber: formData.phone_number,
-                openingHours: formData.opening_hours, closingHours: formData.closing_hours,
-                workingDays: (Object.keys(workingDays) as (keyof typeof workingDays)[]).filter(day => workingDays[day]),
-                date: formData.date, isFlexibleDate: formData.is_custom_date,
-                flexibleDurationMonths: formData.flexible_duration_months,
-                priceAdult: formData.price, priceChild: formData.price_child,
-                capacity: formData.available_tickets, tripType: formData.type,
-                latitude: formData.latitude, longitude: formData.longitude, mapLink: formData.map_link,
-                galleryPreviewUrls: galleryImages.map(f => URL.createObjectURL(f)),
-                inclusions,
-                exclusions,
-                ticketTypes: useTicketTypes ? ticketTypes : [],
-                allowChildren: formData.allow_children,
-                activities: activityNames.map(name => ({ name, price: 0, images: [] as string[], previewUrls: [] as string[] })),
-                eventCertificatePreviewUrl: certificatePreview || undefined,
-              }}
-              creatorEmail={user?.email}
-            />
-          )}
-
-          {/* ═══ Navigation Buttons ═══ */}
-          <div className="flex gap-3 pt-2">
-            {currentStep > 1 && (
-              <Button type="button" variant="outline" onClick={handlePrev}
-                className="flex-1 py-6 rounded-2xl font-black uppercase text-[11px] tracking-widest">
-                <ChevronLeft className="h-4 w-4 mr-2" /> Back
-              </Button>
+            {/* ══════════ STEP 5: Review ══════════ */}
+            {currentStep === 5 && (
+              <ReviewStep
+                type={formData.type as 'trip' | 'event'}
+                accentColor={COLORS.TEAL}
+                data={{
+                  name: formData.name, location: formData.location, place: formData.place,
+                  country: formData.country, description: formData.description,
+                  email: formData.email, phoneNumber: formData.phone_number,
+                  openingHours: formData.opening_hours, closingHours: formData.closing_hours,
+                  workingDays: (Object.keys(workingDays) as (keyof typeof workingDays)[]).filter(day => workingDays[day]),
+                  date: formData.date, isFlexibleDate: formData.is_custom_date,
+                  flexibleDurationMonths: formData.flexible_duration_months,
+                  priceAdult: formData.price, priceChild: formData.price_child,
+                  capacity: formData.available_tickets, tripType: formData.type,
+                  latitude: formData.latitude, longitude: formData.longitude, mapLink: formData.map_link,
+                  galleryPreviewUrls: galleryImages.map(f => URL.createObjectURL(f)),
+                  inclusions, exclusions,
+                  ticketTypes: useTicketTypes ? ticketTypes : [],
+                  allowChildren: formData.allow_children,
+                  activities: activityNames.map(name => ({ name, price: 0, images: [] as string[], previewUrls: [] as string[] })),
+                  eventCertificatePreviewUrl: certificatePreview || undefined,
+                }}
+                creatorEmail={user?.email}
+              />
             )}
-            {currentStep < 5 ? (
-              <Button type="button" onClick={handleNext}
-                className="flex-[2] py-6 rounded-2xl font-black uppercase text-[11px] tracking-widest text-white shadow-xl active:scale-95 transition-all"
-                style={{ background: `linear-gradient(135deg, ${COLORS.TEAL} 0%, #006666 100%)` }}>
-                Continue <ChevronRight className="h-4 w-4 ml-2" />
-              </Button>
-            ) : (
-              <Button type="button" onClick={handleSubmit} disabled={loading}
-                className="flex-[2] py-6 rounded-2xl font-black uppercase text-[11px] tracking-widest text-white shadow-xl active:scale-95 transition-all"
-                style={{ background: `linear-gradient(135deg, ${COLORS.CORAL_LIGHT} 0%, ${COLORS.CORAL} 100%)` }}>
-                {loading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Submitting...</> : <><CheckCircle2 className="h-4 w-4 mr-2" /> Submit for Approval</>}
-              </Button>
-            )}
+
+            {/* ─── Navigation ─── */}
+            <div className="flex gap-3 pt-2">
+              {currentStep > 1 && (
+                <button
+                  type="button"
+                  onClick={handlePrev}
+                  className="flex items-center gap-2 px-6 py-3.5 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm"
+                >
+                  <ChevronLeft className="h-4 w-4" /> Back
+                </button>
+              )}
+              {currentStep < 5 ? (
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-white text-sm font-bold shadow-lg hover:opacity-90 transition-all active:scale-[0.99]"
+                  style={{ background: `linear-gradient(135deg, ${COLORS.TEAL}, #005f5f)` }}
+                >
+                  Continue to {STEP_NAMES[currentStep]} <ChevronRight className="h-4 w-4" />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={loading}
+                  className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-white text-sm font-bold shadow-lg hover:opacity-90 transition-all active:scale-[0.99] disabled:opacity-60"
+                  style={{ background: `linear-gradient(135deg, ${COLORS.CORAL_LIGHT}, ${COLORS.CORAL})` }}
+                >
+                  {loading ? <><Loader2 className="h-4 w-4 animate-spin" /> Submitting...</> : <><CheckCircle2 className="h-4 w-4" /> Submit for Approval</>}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </main>

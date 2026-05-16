@@ -282,4 +282,4 @@ const HostCategoryCard = ({ title, subtitle, image, icon, count, onManage, onAdd
   </div>
 );
 
-export default BecomeHost; 
+export default BecomeHost;

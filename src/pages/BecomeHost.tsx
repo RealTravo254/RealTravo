@@ -12,7 +12,7 @@ import { Plane, Plus, ArrowLeft, LayoutDashboard, Map, Building2, Tent } from "l
 const COLORS = {
   TEAL: "#008080",
   CORAL: "#FF7F50",
-  KHAKI_DARK: "#857F3E",
+  KHAKI_DARK: "#857F3E", 
   SOFT_GRAY: "#F8F9FA"
 };
 
@@ -70,11 +70,14 @@ const BecomeHost = () => {
         if (cancelled) return;
 
         const hasV = verification && !verificationError;
+        const currentCategory = verification?.hosting_category as HostingCategory || null;
+        
         setVerificationStatus(verification?.status || null);
-        setHostingCategory(verification?.hosting_category as HostingCategory || null);
+        setHostingCategory(currentCategory);
         setHasCompany(!!company);
         setCompanyStatus(company?.verification_status || null);
 
+        // If the user has no verification profile and no company, show them the onboarding options selection
         if (!hasV && !company) {
           setShowTypeSelection(true);
           setLoading(false);
@@ -179,7 +182,7 @@ const BecomeHost = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Adventure Dashboard */}
+          {/* Adventure Dashboard - Displays regardless of verification status */}
           {hostingCategory === 'adventure' && (
             <HostCategoryCard
               title="Adventure Places"
@@ -188,7 +191,7 @@ const BecomeHost = () => {
               icon={<Tent className="h-8 w-8" />}
               count={myContent.filter(i => i.contentType === 'hotel').length}
               onManage={() => navigate("/host/hotels")}
-              onAdd={() => navigate("/create-hotel")}
+              onAdd={() => navigate("/CreateAdventure")}
               accentColor={COLORS.KHAKI_DARK}
             />
           )}

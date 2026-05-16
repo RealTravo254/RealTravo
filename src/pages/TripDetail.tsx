@@ -566,7 +566,7 @@ const TripDetail = () => {
               <div className="text-[10px] font-bold text-slate-500">Child: {formatPrice(event.price_child || 0)}</div>
             )}
           </div>
-          <Button
+          <Button 
             onClick={() => navigateToBooking(`/booking/trip/${event.id}`)}
             disabled={!canBook}
             className="px-6 py-5 rounded-xl text-xs font-black uppercase tracking-widest text-white border-none"

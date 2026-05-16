@@ -5,8 +5,8 @@ import { useBookingNavigate } from "@/hooks/useBookingNavigate";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
-  MapPin, Clock, ArrowLeft, 
+import {
+  MapPin, Clock, ArrowLeft,
   Heart, Star, Circle, Calendar, Share2, Copy, Navigation, AlertCircle, Phone, Mail
 } from "lucide-react";
 
@@ -122,41 +122,23 @@ const AdventurePlaceDetail = () => {
     if (!rawSlug) return;
     try {
       let data: any = null;
-
-      // adventure_places uses text IDs (friendly slugs), so try multiple lookups
       const candidates = [...new Set([id, rawSlug].filter(Boolean))] as string[];
 
       for (const candidate of candidates) {
         if (data) break;
-
-        // Try as id (text field - could be friendly slug like "place-name-XXXX")
         const { data: byId } = await supabase
-          .from("adventure_places")
-          .select("*")
-          .eq("id", candidate)
-          .maybeSingle();
+          .from("adventure_places").select("*").eq("id", candidate).maybeSingle();
         if (byId) { data = byId; break; }
 
-        // Try as slug column
         const { data: bySlug } = await supabase
-          .from("adventure_places")
-          .select("*")
-          .eq("slug", candidate)
-          .maybeSingle();
+          .from("adventure_places").select("*").eq("slug", candidate).maybeSingle();
         if (bySlug) { data = bySlug; break; }
       }
 
-      // 5. Last resort: the URL slug may contain the text ID embedded
-      // e.g., URL is "place-name-location-place-name-XXXX" where actual id is "place-name-XXXX"
-      // Try partial match using ilike on id
       if (!data && rawSlug) {
         const { data: byPartial } = await supabase
-          .from("adventure_places")
-          .select("*")
-          .filter("id", "neq", "")
-          .limit(100);
+          .from("adventure_places").select("*").filter("id", "neq", "").limit(100);
         if (byPartial) {
-          // Find an item whose id is contained within the rawSlug
           data = byPartial.find(item => rawSlug.endsWith(item.id) || rawSlug.includes(item.id)) || null;
         }
       }
@@ -175,10 +157,8 @@ const AdventurePlaceDetail = () => {
     if (!id && !rawSlug) return;
     const lookupId = id || rawSlug!;
     const { data } = await supabase
-      .from("reviews")
-      .select("rating")
-      .eq("item_id", lookupId)
-      .eq("item_type", "adventure_place");
+      .from("reviews").select("rating")
+      .eq("item_id", lookupId).eq("item_type", "adventure_place");
     if (data && data.length > 0) {
       const avg = data.reduce((acc, curr) => acc + curr.rating, 0) / data.length;
       setLiveRating({ avg: parseFloat(avg.toFixed(1)), count: data.length });
@@ -199,37 +179,9 @@ const AdventurePlaceDetail = () => {
   const activityImages = (Array.isArray(place.activities) ? place.activities : [])
     .flatMap((a: any) => (Array.isArray(a.images) ? a.images : []));
   const allImagesRaw = [place.image_url, ...(place.gallery_images || []), ...facilityImages, ...activityImages].filter(Boolean);
-  // Limit gallery to 5 images initially on page load
   const allImages = allImagesRaw.slice(0, 5);
   const is24Hours = place.opening_hours === "00:00" && place.closing_hours === "23:59";
-
-  // Use the resolved place.id for navigation/links (not rawSlug)
   const resolvedId = place.id;
-
-  const OperatingHoursInfo = () => (
-    <div className="space-y-3 bg-slate-50 p-4 rounded-2xl border border-dashed border-slate-200">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-slate-400">
-          <Clock className="h-4 w-4 text-teal-600" />
-          <span className="text-[10px] font-black uppercase tracking-tight">Working Hours</span>
-        </div>
-        <span className={`text-[10px] font-black uppercase ${isOpenNow ? "text-emerald-600" : "text-red-500"}`}>
-          {is24Hours ? "Open 24 Hours" : `${place.opening_hours || "08:00 AM"} - ${place.closing_hours || "06:00 PM"}`}
-        </span>
-      </div>
-      <div className="flex flex-col gap-1.5 pt-1 border-t border-slate-100">
-        <div className="flex items-center gap-2 text-slate-400">
-          <Calendar className="h-4 w-4 text-teal-600" />
-          <span className="text-[10px] font-black uppercase tracking-tight">Working Days</span>
-        </div>
-        <p className="text-[10px] font-normal leading-tight text-slate-500 lowercase italic">
-          {Array.isArray(place.days_opened)
-            ? place.days_opened.join(", ")
-            : "monday, tuesday, wednesday, thursday, friday, saturday, sunday"}
-        </p>
-      </div>
-    </div>
-  );
 
   return (
     <div className="min-h-screen bg-background pb-24" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
@@ -241,10 +193,12 @@ const AdventurePlaceDetail = () => {
         onBack={goBack}
       />
 
+      {/* ── Image gallery: full bleed mobile, no border radius anywhere,
+              no gaps between images, desktop flush below header ── */}
       <div className="max-w-6xl mx-auto md:px-4 md:pt-3">
-        {/* Mobile Carousel */}
-        <div className="relative w-full h-[45vh] bg-slate-900 overflow-hidden md:rounded-3xl md:hidden">
-          {/* No floating buttons on mobile - nav bar handles back/save */}
+
+        {/* Mobile Carousel — full bleed, no border radius, no gap below header */}
+        <div className="relative w-full h-[45vw] min-h-[240px] max-h-[380px] bg-slate-900 overflow-hidden md:hidden">
           <Carousel plugins={[Autoplay({ delay: 3500 })]} className="w-full h-full">
             <CarouselContent className="h-full ml-0">
               {allImages.length > 0 ? allImages.map((img, idx) => (
@@ -276,13 +230,13 @@ const AdventurePlaceDetail = () => {
           </div>
         </div>
 
-        {/* Desktop Grid */}
+        {/* Desktop Grid — no border radius, no gaps */}
         <div className="hidden md:block relative">
-          {/* Floating buttons removed - DetailNavBar handles back/save on desktop */}
-          <div className="grid grid-cols-4 gap-2 h-[500px]">
+          <div className="grid grid-cols-4 gap-0 h-[500px]">
             {allImages.length > 0 ? (
               <>
-                <div className="col-span-2 row-span-2 rounded-3xl overflow-hidden relative group">
+                {/* Main large image */}
+                <div className="col-span-2 row-span-2 overflow-hidden relative group">
                   <img src={allImages[0]} alt={place.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
                   <div className="absolute bottom-4 left-4 right-4 z-20 space-y-1.5">
@@ -298,14 +252,18 @@ const AdventurePlaceDetail = () => {
                     </div>
                   </div>
                 </div>
+
+                {/* Top-right */}
                 {allImages[1] && (
-                  <div className="col-span-2 rounded-3xl overflow-hidden relative group">
+                  <div className="col-span-2 overflow-hidden relative group">
                     <img src={allImages[1]} alt={`${place.name} - 2`} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
                   </div>
                 )}
-                <div className="col-span-2 grid grid-cols-3 gap-2">
+
+                {/* Bottom-right three — no gaps */}
+                <div className="col-span-2 grid grid-cols-3 gap-0">
                   {allImages.slice(2, 5).map((img, idx) => (
-                    <div key={idx} className="rounded-2xl overflow-hidden relative group">
+                    <div key={idx} className="overflow-hidden relative group">
                       <img src={img} alt={`${place.name} - ${idx + 3}`} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
                       {idx === 2 && allImages.length > 5 && (
                         <div className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-sm cursor-pointer">
@@ -321,7 +279,7 @@ const AdventurePlaceDetail = () => {
                 <ImageGalleryModal images={allImages} name={place.name} />
               </>
             ) : (
-              <div className="col-span-4 rounded-3xl bg-slate-200 flex items-center justify-center">
+              <div className="col-span-4 bg-slate-200 flex items-center justify-center">
                 <p className="text-slate-400 font-black uppercase text-sm">No Images Available</p>
               </div>
             )}
@@ -329,6 +287,7 @@ const AdventurePlaceDetail = () => {
         </div>
       </div>
 
+      {/* Quick nav — mobile only */}
       <div className="md:hidden container px-4 mt-4 max-w-6xl mx-auto">
         <QuickNavigationBar
           hasFacilities={place.facilities?.length > 0}
@@ -337,14 +296,14 @@ const AdventurePlaceDetail = () => {
         />
       </div>
 
-      <main className="container px-4 mt-6 relative z-30 max-w-6xl mx-auto">
+      {/* ── Main content — NO z-index on main to prevent overlay on mobile ── */}
+      <main className="container px-4 mt-6 max-w-6xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-[1.8fr,1fr] gap-6">
+
+          {/* Left column */}
           <div className="space-y-6">
-            {/* About This Activity - icon list style like reference */}
             <section className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
               <h2 className="text-lg font-black text-slate-900 mb-4">About this property</h2>
-              
-              {/* Icon list items */}
               <div className="space-y-4">
                 {is24Hours ? (
                   <div className="flex items-start gap-3">
@@ -426,7 +385,6 @@ const AdventurePlaceDetail = () => {
                 )}
               </div>
 
-              {/* Description */}
               {place.description && (
                 <div className="mt-5 pt-5 border-t border-slate-100">
                   <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{place.description}</p>
@@ -434,7 +392,7 @@ const AdventurePlaceDetail = () => {
               )}
             </section>
 
-            {/* General amenities - above booking card on mobile */}
+            {/* General amenities — mobile above booking card */}
             <div className="lg:hidden">
               <GeneralFacilitiesDisplay facilityIds={
                 Array.isArray(place.amenities)
@@ -443,12 +401,12 @@ const AdventurePlaceDetail = () => {
               } />
             </div>
 
-            {/* Mobile booking card */}
+            {/* Mobile booking card — flows in document, no z-index overlap */}
             <div className="bg-white rounded-2xl p-5 shadow-lg border border-slate-100 lg:hidden">
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <p className="text-xs text-slate-500 mb-0.5">From</p>
-                {place.entry_fee && place.entry_fee > 0 ? (
+                  {place.entry_fee && place.entry_fee > 0 ? (
                     <div>
                       <span className="text-2xl font-black text-slate-900">{formatPrice(Number(place.entry_fee))}</span>
                       <span className="text-xs text-slate-500 ml-1">per adult</span>
@@ -505,7 +463,7 @@ const AdventurePlaceDetail = () => {
               </div>
             </div>
 
-            {/* Desktop only general facilities */}
+            {/* Desktop general facilities */}
             <div className="hidden lg:block">
               <GeneralFacilitiesDisplay facilityIds={
                 Array.isArray(place.amenities)
@@ -547,7 +505,7 @@ const AdventurePlaceDetail = () => {
             </div>
           </div>
 
-          {/* Desktop sidebar */}
+          {/* Desktop sidebar — sticky, lg+ only */}
           <div className="hidden lg:block">
             <div className="sticky top-24 bg-white rounded-2xl p-6 shadow-lg border border-slate-200 space-y-5">
               <div>
@@ -572,8 +530,6 @@ const AdventurePlaceDetail = () => {
                 Check availability
               </Button>
 
-
-              {/* Rating */}
               <div className="flex items-center gap-2 pt-3 border-t border-slate-100">
                 <Star className="h-5 w-5 fill-slate-800 text-slate-800" />
                 <span className="text-lg font-black text-slate-900">{liveRating.avg || "0"}</span>
@@ -601,7 +557,7 @@ const AdventurePlaceDetail = () => {
                   onClick={async () => {
                     const link = getShareLink(resolvedId, "adventure_place", place.name, place.location);
                     if (navigator.share) {
-                      try { await navigator.share({ title: place.name, url: link }); } catch (e) {} 
+                      try { await navigator.share({ title: place.name, url: link }); } catch (e) {}
                     } else {
                       await navigator.clipboard.writeText(link);
                       toast({ title: "Link Copied!" });
@@ -648,14 +604,15 @@ const AdventurePlaceDetail = () => {
           }}
           itemType="adventure"
         />
-
-        
       </main>
+
       <Footer />
 
-      {/* Fixed bottom reserve bar on mobile */}
-      <div className="fixed bottom-0 left-0 right-0 z-[100] md:hidden bg-white border-t border-slate-200 shadow-[0_-4px_20px_rgb(0,0,0,0.08)]"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+      {/* Fixed bottom reserve bar — mobile only */}
+      <div
+        className="fixed bottom-0 left-0 right-0 z-[100] md:hidden bg-white border-t border-slate-200 shadow-[0_-4px_20px_rgb(0,0,0,0.08)]"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      >
         <div className="flex items-center justify-between px-4 py-3">
           <div>
             {place.entry_fee && place.entry_fee > 0 ? (
@@ -692,4 +649,4 @@ const UtilityButton = ({ icon, label, onClick }: { icon: React.ReactNode; label:
   </Button>
 );
 
-export default AdventurePlaceDetail; 
+export default AdventurePlaceDetail;

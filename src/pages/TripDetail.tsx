@@ -99,21 +99,16 @@ const TripDetail = () => {
 
       const findMatch = (rows: any[] | null | undefined, field: "id" | "slug") => {
         if (!rows?.length) return null;
-
         for (const candidate of candidates) {
           const match = rows.find((row) => row?.[field] === candidate);
           if (match) return match;
         }
-
         return rows[0] || null;
       };
 
       const fetchByField = async (field: "id" | "slug", type?: string) => {
         let query: any = supabase.from("trips").select(SELECT_FIELDS).in(field, candidates);
-        if (type) {
-          query = query.eq("type", type);
-        }
-
+        if (type) query = query.eq("type", type);
         const { data } = await query;
         return findMatch(data, field);
       };
@@ -144,7 +139,7 @@ const TripDetail = () => {
     const link = getShareLink(event.id, "trip", event.name, event.location);
     if (navigator.share) {
       try { await navigator.share({ title: event.name, url: link }); } catch (e) {}
-    } else { 
+    } else {
       await navigator.clipboard.writeText(link);
       toast({ title: "Link Copied!" });
     }
@@ -197,16 +192,22 @@ const TripDetail = () => {
         onBack={goBack}
       />
 
+      {/* ── Image gallery: flush to edges on mobile, no gap, no border radius
+              On desktop: sits immediately below the sticky header with no overlap ── */}
       <div className="max-w-6xl mx-auto md:px-4 md:pt-3">
-        {/* Mobile Carousel */}
-        <div className="relative w-full overflow-hidden h-[55vh] bg-slate-900 md:rounded-3xl md:hidden">
-          {/* No floating buttons on mobile - nav bar handles back/save */}
+
+        {/* Mobile Carousel — full bleed, no border radius, no gap */}
+        <div className="relative w-full overflow-hidden h-[55vw] min-h-[260px] max-h-[420px] bg-slate-900 md:hidden">
           <Carousel plugins={[Autoplay({ delay: 4000 })]} className="w-full h-full">
             <CarouselContent className="h-full ml-0">
               {allImages.map((img, idx) => (
                 <CarouselItem key={idx} className="h-full pl-0 basis-full">
                   <div className="relative h-full w-full">
-                    <img src={img} alt={`${event.name} - ${idx + 1}`} className="w-full h-full object-cover object-center" />
+                    <img
+                      src={img}
+                      alt={`${event.name} - ${idx + 1}`}
+                      className="w-full h-full object-cover object-center"
+                    />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent z-10" />
                   </div>
                 </CarouselItem>
@@ -226,14 +227,18 @@ const TripDetail = () => {
           </div>
         </div>
 
-        {/* Desktop Grid */}
+        {/* Desktop Grid — no border radius, no gaps between images, flush below header */}
         <div className="hidden md:block relative">
-          {/* Floating buttons removed - DetailNavBar handles back/save on desktop */}
-          <div className="grid grid-cols-4 gap-2 h-[550px]">
+          <div className="grid grid-cols-4 gap-0 h-[550px]">
             {allImages.length > 0 ? (
               <>
-                <div className="col-span-2 row-span-2 rounded-3xl overflow-hidden relative group">
-                  <img src={allImages[0]} alt={event.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                {/* Main large image */}
+                <div className="col-span-2 row-span-2 overflow-hidden relative group">
+                  <img
+                    src={allImages[0]}
+                    alt={event.name}
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
                   <div className="absolute bottom-6 left-6 right-6 z-20">
                     <div className="space-y-3">
@@ -246,15 +251,27 @@ const TripDetail = () => {
                     </div>
                   </div>
                 </div>
+
+                {/* Top-right image */}
                 {allImages[1] && (
-                  <div className="col-span-2 rounded-3xl overflow-hidden relative group">
-                    <img src={allImages[1]} alt={`${event.name} - Gallery 2`} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                  <div className="col-span-2 overflow-hidden relative group">
+                    <img
+                      src={allImages[1]}
+                      alt={`${event.name} - Gallery 2`}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
                   </div>
                 )}
-                <div className="col-span-2 grid grid-cols-3 gap-2">
+
+                {/* Bottom-right three images — no gaps */}
+                <div className="col-span-2 grid grid-cols-3 gap-0">
                   {allImages.slice(2, 5).map((img, idx) => (
-                    <div key={idx} className="rounded-2xl overflow-hidden relative group">
-                      <img src={img} alt={`${event.name} - Gallery ${idx + 3}`} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                    <div key={idx} className="overflow-hidden relative group">
+                      <img
+                        src={img}
+                        alt={`${event.name} - Gallery ${idx + 3}`}
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
                       {idx === 2 && allImages.length > 5 && (
                         <div className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-sm">
                           <div className="text-center">
@@ -268,16 +285,20 @@ const TripDetail = () => {
                 </div>
               </>
             ) : (
-              <div className="col-span-4 rounded-3xl bg-slate-200 flex items-center justify-center">
+              <div className="col-span-4 bg-slate-200 flex items-center justify-center">
                 <p className="text-slate-400 font-black uppercase text-sm">No Images Available</p>
               </div>
             )}
           </div>
+          <ImageGalleryModal images={allImages} name={event.name} />
         </div>
       </div>
 
-      <main className="container px-4 max-w-6xl mx-auto mt-6 relative z-50">
+      {/* ── Main content — z-index kept low to prevent overlay on mobile ── */}
+      <main className="container px-4 max-w-6xl mx-auto mt-6">
         <div className="grid lg:grid-cols-[1.7fr,1fr] gap-6">
+
+          {/* Left column */}
           <div className="space-y-6">
             <div className="bg-white rounded-[28px] p-7 shadow-sm border border-slate-100">
               <h2 className="text-xl font-black uppercase tracking-tight mb-4" style={{ color: COLORS.TEAL }}>About this Trip</h2>
@@ -287,8 +308,6 @@ const TripDetail = () => {
                 <p className="text-muted-foreground text-sm italic">No description provided.</p>
               )}
             </div>
-
-            {/* Hours & Available Days - moved into price card */}
 
             {event.activities?.length > 0 && (
               <div className="bg-white rounded-[28px] p-7 shadow-sm border border-slate-100">
@@ -307,7 +326,7 @@ const TripDetail = () => {
               </div>
             )}
 
-            {/* Inclusions & Exclusions - desktop only (mobile shows below price card) */}
+            {/* Inclusions & Exclusions — desktop only */}
             {((event.inclusions && event.inclusions.length > 0) || (event.exclusions && event.exclusions.length > 0)) && (
               <div className="hidden lg:block bg-white rounded-[28px] p-7 shadow-sm border border-slate-100">
                 <h2 className="text-xl font-black uppercase tracking-tight mb-5" style={{ color: COLORS.TEAL }}>Package Details</h2>
@@ -348,6 +367,9 @@ const TripDetail = () => {
             </div>
           </div>
 
+          {/* Right column — price card
+              FIX: removed position:relative / z-index from main, price card only
+              gets sticky on lg+. On mobile it flows naturally in the document. */}
           <div className="space-y-6">
             <div className="bg-white rounded-[32px] p-8 shadow-2xl border border-slate-100 lg:sticky lg:top-24">
               <div className="flex justify-between items-end mb-8">
@@ -360,17 +382,23 @@ const TripDetail = () => {
                 </div>
                 <div className="bg-slate-50 px-4 py-2 rounded-2xl border border-slate-100 flex items-center gap-2">
                   <Clock className="h-4 w-4" style={{ color: COLORS.TEAL }} />
-                  <span className={`text-xs font-black uppercase ${isSoldOut ? "text-red-500" : "text-slate-600"}`}>{isSoldOut ? "FULL" : `${remainingSlots} Left`}</span>
+                  <span className={`text-xs font-black uppercase ${isSoldOut ? "text-red-500" : "text-slate-600"}`}>
+                    {isSoldOut ? "FULL" : `${remainingSlots} Left`}
+                  </span>
                 </div>
               </div>
 
-              {/* Operating Hours & Days inside price card */}
+              {/* Operating Hours & Days */}
               {(event.opening_hours || event.closing_hours || (event.is_flexible_date && event.days_opened?.length > 0)) && (
                 <div className="mb-6 p-4 bg-slate-50 rounded-2xl border border-slate-100">
                   {(event.opening_hours || event.closing_hours) && (
                     <div className="flex justify-between items-center mb-2">
-                      <span className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-1"><Clock className="h-3 w-3" /> Hours</span>
-                      <span className="text-xs font-black text-slate-700">{event.opening_hours || "08:00"} - {event.closing_hours || "18:00"}</span>
+                      <span className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-1">
+                        <Clock className="h-3 w-3" /> Hours
+                      </span>
+                      <span className="text-xs font-black text-slate-700">
+                        {event.opening_hours || "08:00"} - {event.closing_hours || "18:00"}
+                      </span>
                     </div>
                   )}
                   {event.is_flexible_date && event.days_opened?.length > 0 && (
@@ -388,11 +416,18 @@ const TripDetail = () => {
 
               <div className="mb-8 p-4 bg-slate-50 rounded-2xl border border-slate-100">
                 <div className="flex justify-between items-center mb-2">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1"><Users className="h-3 w-3" /> Availability</span>
-                  <span className={`text-[10px] font-black uppercase ${remainingSlots < 5 ? 'text-red-500' : 'text-emerald-600'}`}>{isSoldOut ? "Sold Out" : `${remainingSlots} Slots Available`}</span>
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                    <Users className="h-3 w-3" /> Availability
+                  </span>
+                  <span className={`text-[10px] font-black uppercase ${remainingSlots < 5 ? 'text-red-500' : 'text-emerald-600'}`}>
+                    {isSoldOut ? "Sold Out" : `${remainingSlots} Slots Available`}
+                  </span>
                 </div>
                 <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
-                  <div className={`h-full transition-all duration-500 ${remainingSlots < 5 ? 'bg-red-500' : 'bg-emerald-500'}`} style={{ width: `${Math.min((remainingSlots / (event.available_tickets || 50)) * 100, 100)}%` }} />
+                  <div
+                    className={`h-full transition-all duration-500 ${remainingSlots < 5 ? 'bg-red-500' : 'bg-emerald-500'}`}
+                    style={{ width: `${Math.min((remainingSlots / (event.available_tickets || 50)) * 100, 100)}%` }}
+                  />
                 </div>
               </div>
 
@@ -400,7 +435,10 @@ const TripDetail = () => {
                 <div className="flex justify-between text-xs font-bold uppercase tracking-tight">
                   <span className="text-slate-400">Scheduled Date</span>
                   <span className={isExpired ? "text-red-500" : "text-slate-700"}>
-                    {event.is_custom_date ? <span className="text-emerald-600 font-black">AVAILABLE</span> : (<>{new Date(event.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}{isExpired && <span className="ml-1">(Past)</span>}</>)}
+                    {event.is_custom_date
+                      ? <span className="text-emerald-600 font-black">AVAILABLE</span>
+                      : (<>{new Date(event.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}{isExpired && <span className="ml-1">(Past)</span>}</>)
+                    }
                   </span>
                 </div>
                 <div className="flex justify-between text-xs font-bold uppercase tracking-tight">
@@ -432,7 +470,10 @@ const TripDetail = () => {
                 onClick={() => navigateToBooking(`/booking/trip/${event.id}`)}
                 disabled={!canBook}
                 className="w-full py-8 rounded-2xl text-md font-black uppercase tracking-[0.2em] text-white shadow-xl transition-all active:scale-95 border-none"
-                style={{ background: !canBook ? "#cbd5e1" : `linear-gradient(135deg, ${COLORS.CORAL_LIGHT} 0%, ${COLORS.CORAL} 100%)`, boxShadow: !canBook ? "none" : `0 12px 24px -8px ${COLORS.CORAL}88` }}
+                style={{
+                  background: !canBook ? "#cbd5e1" : `linear-gradient(135deg, ${COLORS.CORAL_LIGHT} 0%, ${COLORS.CORAL} 100%)`,
+                  boxShadow: !canBook ? "none" : `0 12px 24px -8px ${COLORS.CORAL}88`
+                }}
               >
                 {isSoldOut ? "Fully Booked" : isExpired ? "Trip Expired" : "Reserve Spot"}
               </Button>
@@ -460,7 +501,7 @@ const TripDetail = () => {
               </div>
             </div>
 
-            {/* Inclusions & Exclusions below price card on mobile */}
+            {/* Inclusions & Exclusions — mobile only, below price card */}
             {((event.inclusions && event.inclusions.length > 0) || (event.exclusions && event.exclusions.length > 0)) && (
               <div className="lg:hidden bg-white rounded-[28px] p-7 shadow-sm border border-slate-100">
                 <h2 className="text-xl font-black uppercase tracking-tight mb-5" style={{ color: COLORS.TEAL }}>Package Details</h2>
@@ -506,13 +547,15 @@ const TripDetail = () => {
           currentItem={{ id: event.id, name: event.name, latitude: null, longitude: null, location: event.location, country: event.country, image_url: event.image_url, price: event.price }}
           itemType="trip"
         />
-
       </main>
+
       <Footer />
 
-      {/* Fixed bottom reserve bar on mobile */}
-      <div className="fixed bottom-0 left-0 right-0 z-[100] md:hidden bg-white border-t border-slate-200 shadow-[0_-4px_20px_rgb(0,0,0,0.08)]"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+      {/* Fixed bottom reserve bar — mobile only */}
+      <div
+        className="fixed bottom-0 left-0 right-0 z-[100] md:hidden bg-white border-t border-slate-200 shadow-[0_-4px_20px_rgb(0,0,0,0.08)]"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      >
         <div className="flex items-center justify-between px-4 py-3">
           <div>
             <div className="flex items-baseline gap-1">

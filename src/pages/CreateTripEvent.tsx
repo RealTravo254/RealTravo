@@ -375,7 +375,7 @@ const CreateTripEvent = () => {
     if (useTicketTypes) { if (ticketTypes.length === 0) allErrors.push("ticket_types"); }
     else { if (!formData.price || parseFloat(formData.price) < 0) allErrors.push("price"); }
     if (!formData.available_tickets || parseInt(formData.available_tickets) <= 0) allErrors.push("available_tickets");
-    if (!formData.phone_number) allErrors.push("phone_number");
+    if (!formData.phone_number) allErrors.push("");
     if (!formData.description.trim()) allErrors.push("description");
     if (galleryImages.length < 5) allErrors.push("gallery");
     if (formData.type === 'event' && !eventCertificate) allErrors.push("event_certificate");
@@ -810,7 +810,7 @@ const CreateTripEvent = () => {
                       <KenyaPhoneWrapper isInvalid={validationErrors.includes("phone_number")}>
                         <PhoneInput
                           value={formData.phone_number}
-                          onChange={(val) => { setFormData({ ...formData, phone_number: val }); if (val) setValidationErrors(prev => prev.filter(err => err !== "phone_number")); }}
+                          onChange={(val) => { setFormData({ ...formData, phone_number: val }); if (val) setValidationErrors(prev => prev.filter(err => err !== "")); }}
                           country={formData.country}
                           placeholder="712 345 678"
                         />

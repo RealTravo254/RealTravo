@@ -4,7 +4,6 @@ import { Menu, Heart, Ticket, Home, User, Search, Compass, Briefcase } from "luc
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { NavigationDrawer } from "./NavigationDrawer";
 import { Link, useNavigate } from "react-router-dom";
 import { NotificationBell } from "./NotificationBell";
@@ -23,7 +22,6 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
   const { user } = useAuth();
   const { t } = useTranslation();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [accountPopoverOpen, setAccountPopoverOpen] = useState(false);
   const [hasScrolled, setHasScrolled] = useState(false);
 
   useEffect(() => {
@@ -54,15 +52,17 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
 
         {/* Left — hamburger + logo */}
         <div className="flex items-center gap-2">
+          {/* Navigation Drawer — constrained width on desktop */}
           <Sheet open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
             <SheetTrigger asChild>
               <button className={headerIconStyles} aria-label="Open Menu">
                 <Menu className="h-6 w-6 stroke-[2.5]" />
               </button>
             </SheetTrigger>
-
-            {/* 80 % of viewport width, capped at 320 px — matches Index.tsx */}
-            <SheetContent side="left" className="w-[80vw] max-w-sm p-0 h-screen border-none">
+            <SheetContent
+              side="left"
+              className="w-[80vw] max-w-[320px] p-0 h-screen border-none"
+            >
               <NavigationDrawer onClose={() => setIsDrawerOpen(false)} />
             </SheetContent>
           </Sheet>
@@ -77,10 +77,10 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
         {/* Center nav — desktop only */}
         <nav className="hidden lg:flex items-center gap-6">
           {[
-            { to: "/",        icon: <Home    className="h-4 w-4" />, label: t("nav.home")     },
-            { to: "/explore", icon: <Compass className="h-4 w-4" />, label: "Explore"          },
-            { to: "/bookings",icon: <Ticket  className="h-4 w-4" />, label: t("nav.bookings") },
-            { to: "/saved",   icon: <Heart   className="h-4 w-4" />, label: t("nav.wishlist") },
+            { to: "/",         icon: <Home    className="h-4 w-4" />, label: t("nav.home")     },
+            { to: "/explore",  icon: <Compass className="h-4 w-4" />, label: "Explore"          },
+            { to: "/bookings", icon: <Ticket  className="h-4 w-4" />, label: t("nav.bookings") },
+            { to: "/saved",    icon: <Heart   className="h-4 w-4" />, label: t("nav.wishlist") },
           ].map(item => (
             <Link
               key={item.to}
@@ -106,7 +106,7 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
             </button>
           )}
 
-          {/* Become Host — desktop only, navigates directly */}
+          {/* Become Host — desktop only */}
           <button
             onClick={() => navigate("/become-host")}
             className="hidden md:flex h-9 px-3 rounded-xl items-center gap-2 transition-all font-semibold text-xs text-white bg-white/20 hover:bg-white/30 active:scale-95"
@@ -114,50 +114,18 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
             <Briefcase className="h-4 w-4" /><span>Become Host</span>
           </button>
 
-          {/* NotificationBell — desktop only */}
-          <div className="hidden md:flex [&_button]:text-white [&_button]:h-9 [&_button]:w-9">
+          {/* NotificationBell — desktop only, constrained */}
+          <div className="hidden md:flex [&_button]:text-white [&_button]:h-9 [&_button]:w-9 [&_[data-radix-popper-content-wrapper]]:!max-w-[320px]">
             <NotificationBell />
           </div>
 
-          {/* Account — desktop only */}
-          {user ? (
-            <AccountSheet>
-              <button className="hidden md:flex h-9 px-4 rounded-xl items-center gap-2 transition-all font-semibold text-xs text-[#008080] bg-white hover:brightness-95">
-                <User className="h-4 w-4" /><span>{t("nav.profile")}</span>
-              </button>
-            </AccountSheet>
-          ) : (
-            <Popover open={accountPopoverOpen} onOpenChange={setAccountPopoverOpen}>
-              <PopoverTrigger asChild>
-                <button className="hidden md:flex h-9 px-4 rounded-xl items-center gap-2 transition-all font-semibold text-xs text-[#008080] bg-white hover:brightness-95">
-                  <User className="h-4 w-4" /><span>{t("nav.login")}</span>
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-64 p-4" align="end">
-                <div className="space-y-3">
-                  <p className="text-sm font-semibold text-foreground">Welcome to RealTravo!</p>
-                  <p className="text-xs text-muted-foreground">
-                    Log in or create an account to save items, book trips, and more.
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => { setAccountPopoverOpen(false); navigate("/auth"); }}
-                      className="flex-1 py-2.5 rounded-xl text-xs font-bold text-white transition-all active:scale-95"
-                      style={{ backgroundColor: "#008080" }}
-                    >
-                      Sign Up
-                    </button>
-                    <button
-                      onClick={() => { setAccountPopoverOpen(false); navigate("/auth"); }}
-                      className="flex-1 py-2.5 rounded-xl text-xs font-bold border border-slate-200 text-foreground transition-all active:scale-95 hover:bg-slate-50"
-                    >
-                      Log In
-                    </button>
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
-          )}
+          {/* Account — desktop only — always opens AccountSheet (handles guest state internally) */}
+          <AccountSheet>
+            <button className="hidden md:flex h-9 px-4 rounded-xl items-center gap-2 transition-all font-semibold text-xs text-[#008080] bg-white hover:brightness-95">
+              <User className="h-4 w-4" />
+              <span>{user ? t("nav.profile") : t("nav.login")}</span>
+            </button>
+          </AccountSheet>
         </div>
       </div>
     </header>

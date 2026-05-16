@@ -1,16 +1,11 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Bell, CheckCircle2, Clock, ChevronRight, X } from "lucide-react";
-import {
-  Sheet,
-  SheetContent,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { format, isToday, isYesterday } from "date-fns";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useNavigate } from "react-router-dom";
 
 interface Notification {
@@ -27,16 +22,16 @@ const NOTIFICATION_SOUND_URL = "/audio/notification.mp3";
 
 const categorizeNotifications = (notifications: Notification[]) => {
   const groups: Record<string, Notification[]> = {};
-  notifications.forEach(notification => {
+  notifications.forEach((notification) => {
     const date = new Date(notification.created_at);
     let category: string;
-    if (isToday(date)) category = 'Today';
-    else if (isYesterday(date)) category = 'Yesterday';
-    else category = format(date, 'MMMM dd, yyyy');
+    if (isToday(date)) category = "Today";
+    else if (isYesterday(date)) category = "Yesterday";
+    else category = format(date, "MMMM dd, yyyy");
     if (!groups[category]) groups[category] = [];
     groups[category].push(notification);
   });
-  return Object.keys(groups).map(title => ({ title, notifications: groups[title] }));
+  return Object.keys(groups).map((title) => ({ title, notifications: groups[title] }));
 };
 
 export const NotificationBell = () => {
@@ -50,29 +45,32 @@ export const NotificationBell = () => {
   const getNotificationDeepLink = useCallback((notification: Notification): string | null => {
     const { type, data } = notification;
     switch (type) {
-      case 'host_verification': return '/verification-status';
-      case 'payment_verification': return '/account';
-      case 'withdrawal_success':
-      case 'withdrawal_failed': return '/payment';
-      case 'new_booking':
+      case "host_verification":    return "/verification-status";
+      case "payment_verification": return "/account";
+      case "withdrawal_success":
+      case "withdrawal_failed":    return "/payment";
+      case "new_booking":
         if (data?.item_id && data?.booking_type) return `/host-bookings/${data.booking_type}/${data.item_id}`;
-        return '/host-bookings';
-      case 'payment_confirmed': return '/bookings';
-      case 'new_referral': return '/payment';
-      case 'item_status':
-      case 'item_hidden':
-      case 'item_unhidden':
+        return "/host-bookings";
+      case "payment_confirmed":    return "/bookings";
+      case "new_referral":         return "/payment";
+      case "item_status":
+      case "item_hidden":
+      case "item_unhidden":
         if (data?.item_id && data?.item_type) return `/host-bookings/${data.item_type}/${data.item_id}`;
-        return '/my-listing';
+        return "/my-listing";
       default: return null;
     }
   }, []);
 
-  const handleNotificationClick = useCallback((notification: Notification) => {
-    markAsRead(notification.id);
-    const deepLink = getNotificationDeepLink(notification);
-    if (deepLink) { setIsOpen(false); navigate(deepLink); }
-  }, [getNotificationDeepLink, navigate]);
+  const handleNotificationClick = useCallback(
+    (notification: Notification) => {
+      markAsRead(notification.id);
+      const deepLink = getNotificationDeepLink(notification);
+      if (deepLink) { setIsOpen(false); navigate(deepLink); }
+    },
+    [getNotificationDeepLink, navigate]
+  );
 
   useEffect(() => {
     audioRef.current = new Audio(NOTIFICATION_SOUND_URL);
@@ -91,11 +89,14 @@ export const NotificationBell = () => {
   const fetchNotifications = async () => {
     if (!user) return;
     const { data, error } = await supabase
-      .from('notifications').select('*').eq('user_id', user.id)
-      .order('created_at', { ascending: false }).limit(20);
+      .from("notifications")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(20);
     if (!error) {
       setNotifications(data || []);
-      setUnreadCount(data?.filter(n => !n.is_read).length || 0);
+      setUnreadCount(data?.filter((n) => !n.is_read).length || 0);
     }
   };
 
@@ -103,34 +104,48 @@ export const NotificationBell = () => {
     if (!user) return;
     fetchNotifications();
     const channelName = `notifications-${user.id}-${Date.now()}`;
-    const channel = supabase.channel(channelName)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
         (payload) => {
           playNotificationSound();
           if (payload.new) showInAppNotification(payload.new as Notification);
           fetchNotifications();
         }
       )
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` }, fetchNotifications);
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
+        fetchNotifications
+      );
     channel.subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [user?.id]);
 
   const markAsRead = async (notificationId: string) => {
-    await supabase.from('notifications').update({ is_read: true }).eq('id', notificationId);
+    await supabase.from("notifications").update({ is_read: true }).eq("id", notificationId);
     fetchNotifications();
   };
 
   const markAllAsRead = async () => {
     if (!user) return;
-    const { error } = await supabase.from('notifications').update({ is_read: true }).eq('user_id', user.id).eq('is_read', false);
+    const { error } = await supabase
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("user_id", user.id)
+      .eq("is_read", false);
     if (!error) {
       fetchNotifications();
       toast({ title: "CLEARED!", description: "All notifications marked as read." });
     }
   };
 
-  const categorizedNotifications = useMemo(() => categorizeNotifications(notifications), [notifications]);
+  const categorizedNotifications = useMemo(
+    () => categorizeNotifications(notifications),
+    [notifications]
+  );
 
   return (
     <div className="relative overflow-visible z-20">
@@ -144,19 +159,26 @@ export const NotificationBell = () => {
             {unreadCount > 0 && (
               <Badge
                 className="absolute -top-1 -right-1 h-5 min-w-[20px] px-1 flex items-center justify-center border-2 border-white text-[10px] font-black z-[50] bg-destructive text-destructive-foreground"
-                style={{ boxShadow: '0 2px 4px rgba(0,0,0,0.2)', pointerEvents: 'none' }}
+                style={{ boxShadow: "0 2px 4px rgba(0,0,0,0.2)", pointerEvents: "none" }}
               >
-                {unreadCount > 99 ? '99+' : unreadCount}
+                {unreadCount > 99 ? "99+" : unreadCount}
               </Badge>
             )}
           </button>
         </SheetTrigger>
 
+        {/*
+          ✅ Constrained width: w-[80vw] max-w-[320px] — no longer full-width on desktop
+        */}
         <SheetContent
-          className="w-[80vw] max-w-[300px] p-0 border-none flex flex-col [&>button]:hidden"
-          style={{ paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+          side="right"
+          className="w-[80vw] max-w-[320px] p-0 border-none flex flex-col [&>button]:hidden"
+          style={{
+            paddingTop: "env(safe-area-inset-top, 0px)",
+            paddingBottom: "env(safe-area-inset-bottom, 0px)",
+          }}
         >
-          {/* Header — matches AccountSheet */}
+          {/* Header */}
           <div className="bg-primary px-4 pt-4 pb-4 relative flex-shrink-0">
             <button
               onClick={() => setIsOpen(false)}
@@ -165,7 +187,9 @@ export const NotificationBell = () => {
               <X className="h-3 w-3 text-primary-foreground" />
             </button>
 
-            <p className="text-[9px] font-black uppercase tracking-[0.3em] text-primary-foreground/40 mb-0.5">Stay Updated</p>
+            <p className="text-[9px] font-black uppercase tracking-[0.3em] text-primary-foreground/40 mb-0.5">
+              Stay Updated
+            </p>
             <div className="flex items-center justify-between pr-8">
               <h2 className="text-lg font-extrabold text-primary-foreground">Inbox</h2>
               {unreadCount > 0 && (
@@ -179,17 +203,19 @@ export const NotificationBell = () => {
             </div>
           </div>
 
-          {/* Scrollable content — matches AccountSheet rounded-t-3xl pattern */}
+          {/* Scrollable content */}
           <div className="flex-1 overflow-y-auto bg-background rounded-t-3xl py-2.5 px-2.5 space-y-2.5">
             {notifications.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-center">
                 <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
                   <Bell className="h-6 w-6 text-primary" />
                 </div>
-                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">All caught up!</p>
+                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                  All caught up!
+                </p>
               </div>
             ) : (
-              categorizedNotifications.map(group => (
+              categorizedNotifications.map((group) => (
                 <div key={group.title}>
                   <p className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.22em] px-1 mb-1">
                     {group.title}
@@ -202,19 +228,30 @@ export const NotificationBell = () => {
                         className="w-full flex items-center justify-between px-3 py-2 hover:bg-muted/60 transition-colors group"
                       >
                         <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                          <div className={`h-6 w-6 rounded-md flex items-center justify-center flex-shrink-0 ${notification.is_read ? "bg-muted" : "bg-primary/10"}`}>
-                            {notification.is_read
-                              ? <CheckCircle2 className="h-3 w-3 text-muted-foreground" />
-                              : <Clock className="h-3 w-3 text-primary" />
-                            }
+                          <div
+                            className={`h-6 w-6 rounded-md flex items-center justify-center flex-shrink-0 ${
+                              notification.is_read ? "bg-muted" : "bg-primary/10"
+                            }`}
+                          >
+                            {notification.is_read ? (
+                              <CheckCircle2 className="h-3 w-3 text-muted-foreground" />
+                            ) : (
+                              <Clock className="h-3 w-3 text-primary" />
+                            )}
                           </div>
                           <div className="flex-1 min-w-0 text-left">
-                            <p className={`text-xs font-semibold truncate ${notification.is_read ? 'text-muted-foreground' : 'text-foreground'}`}>
+                            <p
+                              className={`text-xs font-semibold truncate ${
+                                notification.is_read ? "text-muted-foreground" : "text-foreground"
+                              }`}
+                            >
                               {notification.title}
                             </p>
-                            <p className="text-[10px] text-muted-foreground truncate">{notification.message}</p>
+                            <p className="text-[10px] text-muted-foreground truncate">
+                              {notification.message}
+                            </p>
                             <span className="text-[9px] font-medium text-muted-foreground uppercase tracking-wider">
-                              {format(new Date(notification.created_at), 'h:mm a')}
+                              {format(new Date(notification.created_at), "h:mm a")}
                             </span>
                           </div>
                         </div>

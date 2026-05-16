@@ -77,13 +77,30 @@ const BecomeHost = () => {
         setHasCompany(!!company);
         setCompanyStatus(company?.verification_status || null);
 
-        // If the user has no verification profile and no company, show them the onboarding options selection
+        // If they are an adventure host, we DO NOT care about verification approvals. Let them pass.
+        const isAdventureHost = currentCategory === 'adventure';
+
+        // Go to selection screen ONLY if they don't have a company AND don't have any verification record setup
         if (!hasV && !company) {
           setShowTypeSelection(true);
           setLoading(false);
           return;
         }
 
+        // If they are not an adventure host, enforce normal verification checks before showing inventory dashboard
+        if (!isAdventureHost) {
+          const isApprovedGuide = verification?.status === 'approved';
+          const isApprovedCompany = company?.verification_status === 'approved';
+          
+          if (!isApprovedGuide && !isApprovedCompany) {
+            // If they have an application but it's not approved yet, take them to the selection screen or a pending view
+            setShowTypeSelection(true);
+            setLoading(false);
+            return;
+          }
+        }
+
+        // Fetch assets for users who are either approved or opting into the unverified Adventure route
         const [trips, hotels] = await Promise.all([
           supabase.from("trips").select("id,name,type").eq("created_by", user.id),
           supabase.from("hotels").select("id,name,category").eq("created_by", user.id),
@@ -108,7 +125,13 @@ const BecomeHost = () => {
   }, [user, navigate]);
 
   const handleHostTypeSelect = (type: HostType) => {
-    navigate(`/host-verification?category=${type}`);
+    // If they click Adventure, bypass the host-verification checklist entirely if you want, 
+    // or route them directly to create if they don't need a profile submission.
+    if (type === 'adventure') {
+      navigate("/CreateAdventure");
+    } else {
+      navigate(`/host-verification?category=${type}`);
+    }
   };
 
   if (loading) return (
@@ -139,7 +162,7 @@ const BecomeHost = () => {
             <SelectionCard
               icon={<Tent className="h-8 w-8 text-emerald-600" />}
               title="Adventure Place"
-              desc="List your campsite, park, or private adventure destination."
+              desc="List your campsite, park, or private adventure destination instantly."
               onClick={() => handleHostTypeSelect('adventure')}
               bg="bg-emerald-50"
             />
@@ -182,7 +205,7 @@ const BecomeHost = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Adventure Dashboard - Displays regardless of verification status */}
+          {/* Adventure Dashboard Card - Open unconditionally if category matches */}
           {hostingCategory === 'adventure' && (
             <HostCategoryCard
               title="Adventure Places"
@@ -196,7 +219,7 @@ const BecomeHost = () => {
             />
           )}
 
-          {/* Standard Host Dashboard */}
+          {/* Standard Host Dashboard Card - Requires explicit approval checks */}
           {hostingCategory !== 'adventure' && (verificationStatus === 'approved' || companyStatus === 'approved') && (
             <>
               <HostCategoryCard
@@ -226,7 +249,7 @@ const SelectionCard = ({ icon, title, desc, onClick, bg }: any) => (
     <h3 className="text-xl font-black uppercase tracking-tight text-slate-900 mb-2">{title}</h3>
     <p className="text-sm text-slate-500 leading-relaxed mb-6">{desc}</p>
     <div className="py-2.5 rounded-xl text-center text-xs font-bold uppercase tracking-widest border-2 border-slate-200 group-hover:border-[#008080] group-hover:text-[#008080] transition-colors">
-      Start Application →
+      Start →
     </div>
   </button>
 );

@@ -172,10 +172,11 @@ const TripDetail = () => {
     <div className="min-h-screen bg-background pb-24">
       <DetailNavBar scrolled={scrolled} itemName={event.name} isSaved={isSaved} onSave={handleSave} onBack={goBack} />
 
-      {/* ══ IMAGE GALLERY ══════════════════════════════════════════════════════ */}
+      {/* ══ IMAGE GALLERY — pushed below fixed header, never overlapped ══ */}
+      <div style={{ paddingTop: "calc(56px + env(safe-area-inset-top, 0px))" }}>
 
-      {/* Mobile — 45vh, clean, no overlays except See All + dots */}
-      <div className="relative w-full bg-slate-900 md:hidden" style={{ height: "45vh", minHeight: "220px", maxHeight: "380px" }}>
+      {/* Mobile — strict 45vh of viewport, no overlays except See All + dots */}
+      <div className="relative w-full bg-slate-900 md:hidden" style={{ height: "45vh", minHeight: "200px", maxHeight: "360px" }}>
         <Carousel setApi={setCarouselApi} plugins={[Autoplay({ delay: 4000 })]} className="w-full h-full">
           <CarouselContent className="h-full ml-0">
             {allImages.map((img, idx) => (
@@ -236,6 +237,8 @@ const TripDetail = () => {
         </div>
       </div>
 
+      </div>{/* end paddingTop wrapper */}
+
       {/* ══ NAME / CATEGORY / LOCATION — below gallery, same style mobile & desktop ══ */}
       <div className="max-w-6xl mx-auto px-4 pt-4 pb-1">
         <span className="inline-block mb-2 bg-[#FF7F50] text-white px-3 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest">Trip</span>
@@ -278,9 +281,9 @@ const TripDetail = () => {
               </div>
             )}
 
-            {/* Inclusions & Exclusions — desktop */}
+            {/* Inclusions & Exclusions — all screens */}
             {((event.inclusions?.length > 0) || (event.exclusions?.length > 0)) && (
-              <div className="hidden lg:block bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+              <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
                 <h2 className="text-base font-black uppercase tracking-tight mb-4" style={{ color: TEAL }}>Package Details</h2>
                 <div className="grid grid-cols-2 gap-6">
                   {event.inclusions?.length > 0 && (
@@ -447,39 +450,6 @@ const TripDetail = () => {
                 </div>
               )}
             </div>
-
-            {/* Inclusions & Exclusions — mobile */}
-            {((event.inclusions?.length > 0) || (event.exclusions?.length > 0)) && (
-              <div className="lg:hidden bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-                <h2 className="text-base font-black uppercase tracking-tight mb-4" style={{ color: TEAL }}>Package Details</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  {event.inclusions?.length > 0 && (
-                    <div>
-                      <p className="text-[10px] font-black uppercase text-emerald-600 tracking-widest mb-2">✓ Included</p>
-                      <ul className="space-y-1.5">
-                        {event.inclusions.map((item: string, i: number) => (
-                          <li key={i} className="flex items-start gap-2 text-sm text-emerald-700">
-                            <span className="text-emerald-500 mt-0.5">✓</span><span>{item}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  {event.exclusions?.length > 0 && (
-                    <div>
-                      <p className="text-[10px] font-black uppercase text-red-500 tracking-widest mb-2">✗ Not Included</p>
-                      <ul className="space-y-1.5">
-                        {event.exclusions.map((item: string, i: number) => (
-                          <li key={i} className="flex items-start gap-2 text-sm text-red-600">
-                            <span className="text-red-400 mt-0.5">✗</span><span>{item}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
 
             {/* Reviews — mobile */}
             <div className="lg:hidden bg-white rounded-2xl p-5 shadow-sm border border-slate-100">

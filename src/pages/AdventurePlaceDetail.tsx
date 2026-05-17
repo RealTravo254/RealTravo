@@ -164,10 +164,11 @@ const AdventurePlaceDetail = () => {
       <DetailNavBar scrolled={scrolled} itemName={place.name} isSaved={isSaved}
         onSave={() => handleSaveItem(resolvedId, "adventure_place")} onBack={goBack} />
 
-      {/* ══ IMAGE GALLERY ══════════════════════════════════════════════════════ */}
+      {/* ══ IMAGE GALLERY — pushed below fixed header, never overlapped ══ */}
+      <div style={{ paddingTop: "calc(56px + env(safe-area-inset-top, 0px))" }}>
 
-      {/* Mobile — 45vh, clean, only See All + dots overlay */}
-      <div className="relative w-full bg-slate-900 overflow-hidden md:hidden" style={{ height: "45vh", minHeight: "220px", maxHeight: "380px" }}>
+      {/* Mobile — strict 45vh, no overlays except See All + dots */}
+      <div className="relative w-full bg-slate-900 overflow-hidden md:hidden" style={{ height: "45vh", minHeight: "200px", maxHeight: "360px" }}>
         <Carousel setApi={setCarouselApi} plugins={[Autoplay({ delay: 3500 })]} className="w-full h-full">
           <CarouselContent className="h-full ml-0">
             {allImages.length > 0 ? allImages.map((img, idx) => (
@@ -229,6 +230,8 @@ const AdventurePlaceDetail = () => {
           <ImageGalleryModal images={allImages} name={place.name} />
         </div>
       </div>
+
+      </div>{/* end paddingTop wrapper */}
 
       {/* ══ NAME / CATEGORY / LOCATION — below gallery, same style mobile & desktop ══ */}
       <div className="max-w-6xl mx-auto px-4 pt-4 pb-1">
@@ -345,12 +348,10 @@ const AdventurePlaceDetail = () => {
               )}
             </section>
 
-            {/* General amenities — inline display, NOT buttons — mobile */}
-            <div className="lg:hidden">
-              <GeneralFacilitiesDisplay facilityIds={
-                Array.isArray(place.amenities) ? place.amenities.map((a: any) => typeof a === "string" ? a : a.name || "") : []
-              } />
-            </div>
+            {/* General amenities — shown on all screen sizes, NOT buttons */}
+            <GeneralFacilitiesDisplay facilityIds={
+              Array.isArray(place.amenities) ? place.amenities.map((a: any) => typeof a === "string" ? a : a.name || "") : []
+            } />
 
             {/* Mobile booking card */}
             <div className="bg-white rounded-2xl p-5 shadow-lg border border-slate-100 lg:hidden">
@@ -393,12 +394,7 @@ const AdventurePlaceDetail = () => {
               </div>
             </div>
 
-            {/* General amenities — desktop */}
-            <div className="hidden lg:block">
-              <GeneralFacilitiesDisplay facilityIds={
-                Array.isArray(place.amenities) ? place.amenities.map((a: any) => typeof a === "string" ? a : a.name || "") : []
-              } />
-            </div>
+            {/* General amenities already rendered above for all screens */}
 
             {place.facilities?.length > 0 && (
               <div id="facilities-section">

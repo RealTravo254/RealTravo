@@ -1,85 +1,89 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useSafeBack } from "@/hooks/useSafeBack";
 import { useBookingNavigate } from "@/hooks/useBookingNavigate";
-import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { 
-  MapPin, Clock, ArrowLeft, 
-  Heart, Star, Circle, Calendar, Share2, Copy, Navigation, AlertCircle, Phone, Mail
-} from "lucide-react";
 
+import { Button } from "@/components/ui/button";
+import { MapPin, Share2, Heart, Calendar, Copy, CheckCircle2, ArrowLeft, Star, Phone, Mail, Clock, Users } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
 import { ReviewSection } from "@/components/ReviewSection";
-import { FacilitiesGrid, ActivitiesGrid } from "@/components/detail/FacilityActivityCards";
 import { useSavedItems } from "@/hooks/useSavedItems";
-import { useGeolocation, calculateDistance } from "@/hooks/useGeolocation";
 import { trackReferralClick } from "@/lib/referralUtils";
 import { getShareLink } from "@/lib/shareUtils";
-import { extractIdFromSlug } from "@/lib/slugUtils";
+import { getSlugLookupCandidates } from "@/lib/slugUtils";
+import { useBookingSubmit, BookingFormData } from "@/hooks/useBookingSubmit";
+import { useRealtimeItemAvailability } from "@/hooks/useRealtimeBookings";
 import { DetailNavBar } from "@/components/detail/DetailNavBar";
-import { ImageGalleryModal } from "@/components/detail/ImageGalleryModal";
-import { QuickNavigationBar } from "@/components/detail/QuickNavigationBar";
-import { GeneralFacilitiesDisplay } from "@/components/detail/GeneralFacilitiesDisplay";
 import { DetailMapSection } from "@/components/detail/DetailMapSection";
 import { TealLoader } from "@/components/ui/teal-loader";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { ImageGalleryModal } from "@/components/detail/ImageGalleryModal";
 import { Footer } from "@/components/Footer";
 
-const AdventurePlaceDetail = () => {
+const COLORS = {
+  TEAL: "#008080",
+  CORAL: "#FF7F50",
+  CORAL_LIGHT: "#FF9E7A",
+  KHAKI: "#F0E68C",
+  KHAKI_DARK: "#857F3E",
+  RED: "#FF0000",
+  SOFT_GRAY: "#F8F9FA"
+};
+
+const ReviewHeader = ({ event }: { event: any }) => (
+  <div className="flex justify-between items-center mb-8">
+    <div>
+      <h2 className="text-xl font-black uppercase tracking-tight" style={{ color: COLORS.TEAL }}>Ratings</h2>
+      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Community Feedback</p>
+    </div>
+    {event.average_rating > 0 && (
+      <div className="flex items-center gap-2 bg-slate-50 px-4 py-2 rounded-2xl border border-slate-100">
+        <Star className="h-4 w-4 fill-[#FF7F50] text-[#FF7F50]" />
+        <span className="text-lg font-black" style={{ color: COLORS.TEAL }}>{event.average_rating.toFixed(1)}</span>
+      </div>
+    )}
+  </div>
+);
+
+const SELECT_FIELDS = "id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,price,price_child,available_tickets,description,activities,phone_number,email,created_by,type,opening_hours,closing_hours,days_opened,map_link,is_flexible_date,inclusions,exclusions,allow_children,ticket_types,slot_limit_type";
+
+const TripDetail = () => {
   const { slug: rawSlug } = useParams();
-  const id = rawSlug ? extractIdFromSlug(rawSlug) : null;
   const navigate = useNavigate();
   const goBack = useSafeBack();
   const navigateToBooking = useBookingNavigate();
+  const { user } = useAuth();
   const { toast } = useToast();
-  const { position, requestLocation } = useGeolocation();
   const { formatPrice } = useCurrency();
-
-  const [place, setPlace] = useState<any | null>(null);
+  
+  const [event, setEvent] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isOpenNow, setIsOpenNow] = useState(false);
-  const [liveRating, setLiveRating] = useState({ avg: 0, count: 0 });
+  const [showBooking, setShowBooking] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const { savedItems, handleSave: handleSaveItem } = useSavedItems();
+  const currentItemId = event?.id || "";
+  const isSaved = savedItems.has(currentItemId);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isCompleted, setIsCompleted] = useState(false);
   const [carouselApi, setCarouselApi] = useState<CarouselApi | null>(null);
   const [activeSlide, setActiveSlide] = useState(0);
 
-  const { savedItems, handleSave: handleSaveItem } = useSavedItems();
-  const isSaved = savedItems.has(id || "");
-
-  const distance = position && place?.latitude && place?.longitude
-    ? calculateDistance(position.latitude, position.longitude, place.latitude, place.longitude)
-    : undefined;
-
-  const getStartingPrice = () => {
-    if (!place) return 0;
-    const prices: number[] = [];
-    if (place.entry_fee) prices.push(Number(place.entry_fee));
-    const extractPrices = (arr: any[]) => {
-      if (!Array.isArray(arr)) return;
-      arr.forEach((item) => {
-        const p = typeof item === "object" ? item.price : null;
-        if (p) prices.push(Number(p));
-      });
-    };
-    extractPrices(place.facilities);
-    extractPrices(place.activities);
-    return prices.length > 0 ? Math.min(...prices) : 0;
-  };
-
   useEffect(() => {
     window.scrollTo(0, 0);
-    if (rawSlug) {
-      Promise.all([fetchPlace(), fetchLiveRating()]);
-    }
+    if (rawSlug) fetchTrip();
+  }, [rawSlug]);
+
+  useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const refSlug = urlParams.get("ref");
-    if (refSlug && id) trackReferralClick(refSlug, id, "adventure_place", "booking");
-    requestLocation();
-  }, [rawSlug]);
+    if (refSlug && event?.id) trackReferralClick(refSlug, event.id, "trip", "booking");
+  }, [event?.id]);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 300);
@@ -88,139 +92,141 @@ const AdventurePlaceDetail = () => {
   }, []);
 
   useEffect(() => {
-    if (!place) return;
-    const checkOpenStatus = () => {
-      const now = new Date();
-      const currentDay = now.toLocaleString("en-us", { weekday: "long" }).toLowerCase();
-      if (place.opening_hours === "00:00" && place.closing_hours === "23:59") {
-        const days = Array.isArray(place.days_opened)
-          ? place.days_opened.map((d: string) => d.toLowerCase())
-          : ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"];
-        setIsOpenNow(days.includes(currentDay));
-        return;
-      }
-      const currentTime = now.getHours() * 60 + now.getMinutes();
-      const parseTime = (timeStr: string) => {
-        if (!timeStr) return 0;
-        const [time, modifier] = timeStr.split(" ");
-        let [hours, minutes] = time.split(":").map(Number);
-        if (modifier === "PM" && hours < 12) hours += 12;
-        if (modifier === "AM" && hours === 12) hours = 0;
-        return hours * 60 + minutes;
-      };
-      const openTime = parseTime(place.opening_hours || "08:00 AM");
-      const closeTime = parseTime(place.closing_hours || "06:00 PM");
-      const days = Array.isArray(place.days_opened)
-        ? place.days_opened.map((d: string) => d.toLowerCase())
-        : ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"];
-      setIsOpenNow(days.includes(currentDay) && currentTime >= openTime && currentTime <= closeTime);
-    };
-    checkOpenStatus();
-    const interval = setInterval(checkOpenStatus, 60000);
-    return () => clearInterval(interval);
-  }, [place]);
-
-  useEffect(() => {
     if (!carouselApi) return;
     const onSelect = () => setActiveSlide(carouselApi.selectedScrollSnap());
     carouselApi.on("select", onSelect);
     return () => { carouselApi.off("select", onSelect); };
   }, [carouselApi]);
 
-  const fetchPlace = async () => {
+  const fetchTrip = async () => {
     if (!rawSlug) return;
+    setLoading(true);
+    setEvent(null);
+
     try {
-      let data: any = null;
-      const candidates = [...new Set([id, rawSlug].filter(Boolean))] as string[];
+      const candidates = getSlugLookupCandidates(rawSlug);
 
-      for (const candidate of candidates) {
-        if (data) break;
-        const { data: byId } = await supabase.from("adventure_places").select("*").eq("id", candidate).maybeSingle();
-        if (byId) { data = byId; break; }
-        const { data: bySlug } = await supabase.from("adventure_places").select("*").eq("slug", candidate).maybeSingle();
-        if (bySlug) { data = bySlug; break; }
-      }
-
-      if (!data && rawSlug) {
-        const { data: byPartial } = await supabase.from("adventure_places").select("*").filter("id", "neq", "").limit(100);
-        if (byPartial) {
-          data = byPartial.find(item => rawSlug.endsWith(item.id) || rawSlug.includes(item.id)) || null;
+      const findMatch = (rows: any[] | null | undefined, field: "id" | "slug") => {
+        if (!rows?.length) return null;
+        for (const candidate of candidates) {
+          const match = rows.find((row) => row?.[field] === candidate);
+          if (match) return match;
         }
-      }
+        return rows[0] || null;
+      };
+
+      const fetchByField = async (field: "id" | "slug", type?: string) => {
+        let query: any = supabase.from("trips").select(SELECT_FIELDS).in(field, candidates);
+        if (type) query = query.eq("type", type);
+        const { data } = await query;
+        return findMatch(data, field);
+      };
+
+      const data =
+        (await fetchByField("id", "trip")) ||
+        (await fetchByField("slug", "trip")) ||
+        (await fetchByField("id")) ||
+        (await fetchByField("slug"));
 
       if (!data) throw new Error("Not found");
-      setPlace(data);
+      setEvent(data);
     } catch (error) {
-      console.error("AdventurePlaceDetail fetch error:", error, { rawSlug, id });
-      toast({ title: "Place not found", variant: "destructive" });
-    } finally {
-      setLoading(false);
+      toast({ title: "Trip not found", variant: "destructive" });
+    } finally { setLoading(false); }
+  };
+
+  const handleSave = () => currentItemId && handleSaveItem(currentItemId, "trip");
+
+  const handleCopyLink = async () => {
+    if (!event) return;
+    const link = getShareLink(event.id, "trip", event.name, event.location);
+    await navigator.clipboard.writeText(link);
+    toast({ title: "Link Copied!" });
+  };
+
+  const handleShare = async () => {
+    if (!event) return;
+    const link = getShareLink(event.id, "trip", event.name, event.location);
+    if (navigator.share) {
+      try { await navigator.share({ title: event.name, url: link }); } catch (e) {}
+    } else { 
+      await navigator.clipboard.writeText(link);
+      toast({ title: "Link Copied!" });
     }
   };
 
-  const fetchLiveRating = async () => {
-    if (!id && !rawSlug) return;
-    const lookupId = id || rawSlug!;
-    const { data } = await supabase.from("reviews").select("rating").eq("item_id", lookupId).eq("item_type", "adventure_place");
-    if (data && data.length > 0) {
-      const avg = data.reduce((acc, curr) => acc + curr.rating, 0) / data.length;
-      setLiveRating({ avg: parseFloat(avg.toFixed(1)), count: data.length });
-    }
+  const openInMaps = () => {
+    const query = encodeURIComponent(`${event?.name}, ${event?.location}`);
+    window.open(event?.map_link || `https://www.google.com/maps/search/?api=1&query=${query}`, "_blank");
   };
+
+  const { submitBooking } = useBookingSubmit();
+
+  const handleBookingSubmit = async (data: BookingFormData) => {
+    if (!event) return;
+    setIsProcessing(true);
+    try {
+      const totalAmount = (data.num_adults * event.price) + (data.num_children * (event.price_child || 0));
+      await submitBooking({
+        itemId: event.id, itemName: event.name, bookingType: 'trip', totalAmount,
+        slotsBooked: data.num_adults + data.num_children, visitDate: event.date,
+        guestName: data.guest_name, guestEmail: data.guest_email, guestPhone: data.guest_phone,
+        hostId: event.created_by, bookingDetails: { ...data, event_name: event.name }
+      });
+      setIsCompleted(true);
+      setShowBooking(false);
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally { setIsProcessing(false); }
+  };
+
+  const { remainingSlots, isSoldOut } = useRealtimeItemAvailability(event?.id || undefined, event?.available_tickets || 0);
 
   if (loading) return <TealLoader />;
-  if (!place) return (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-4">
-      <AlertCircle className="h-12 w-12 text-red-400" />
-      <p className="text-lg font-black uppercase text-slate-500">Place not found</p>
-      <Button onClick={() => navigate(-1)} className="rounded-full bg-teal-600 text-white border-none">Go Back</Button>
-    </div>
-  );
+  if (!event) return null;
 
-  const facilityImages = (Array.isArray(place.facilities) ? place.facilities : []).flatMap((f: any) => (Array.isArray(f.images) ? f.images : []));
-  const activityImages = (Array.isArray(place.activities) ? place.activities : []).flatMap((a: any) => (Array.isArray(a.images) ? a.images : []));
-  const allImagesRaw = [place.image_url, ...(place.gallery_images || []), ...facilityImages, ...activityImages].filter(Boolean);
-  const allImages = allImagesRaw.slice(0, 5);
-  const is24Hours = place.opening_hours === "00:00" && place.closing_hours === "23:59";
-  const resolvedId = place.id;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const eventDate = event.date ? new Date(event.date) : null;
+  const isExpired = !event.is_custom_date && eventDate && eventDate < today;
+  const canBook = !isExpired && !isSoldOut;
+  const allImages = [event?.image_url, ...(event?.gallery_images || []), ...(event?.images || [])].filter((v, i, a) => Boolean(v) && a.indexOf(v) === i);
 
   return (
     <div className="min-h-screen bg-background pb-24">
 
       <DetailNavBar
         scrolled={scrolled}
-        itemName={place.name}
+        itemName={event.name}
         isSaved={isSaved}
-        onSave={() => handleSaveItem(resolvedId, "adventure_place")}
+        onSave={handleSave}
         onBack={goBack}
       />
 
       {/* ── Image gallery — flush under header, no gap, no border-radius on desktop ── */}
       <div className="w-full">
-        {/* Mobile carousel */}
-        <div className="relative w-full bg-slate-900 overflow-hidden md:hidden" style={{ height: "65vw", minHeight: "300px", maxHeight: "520px" }}>
+        {/* Mobile carousel — full width, no border-radius, no top padding */}
+        <div className="relative w-full bg-slate-900 md:hidden" style={{ height: "65vw", minHeight: "300px", maxHeight: "520px" }}>
           <Carousel
             setApi={setCarouselApi}
-            plugins={[Autoplay({ delay: 3500 })]}
+            plugins={[Autoplay({ delay: 4000 })]}
             className="w-full h-full"
           >
             <CarouselContent className="h-full ml-0">
-              {allImages.length > 0 ? allImages.map((img, idx) => (
+              {allImages.map((img, idx) => (
                 <CarouselItem key={idx} className="h-full pl-0 basis-full">
                   <div className="relative h-full w-full">
-                    <img src={img} alt={`${place.name} - ${idx + 1}`} className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent z-10" />
+                    <img src={img} alt={`${event.name} - ${idx + 1}`} className="w-full h-full object-cover object-center" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent z-10" />
                   </div>
                 </CarouselItem>
-              )) : (
-                <div className="h-full w-full bg-slate-200 flex items-center justify-center text-slate-400 font-black uppercase text-xs">No Image</div>
-              )}
+              ))}
             </CarouselContent>
           </Carousel>
 
-          {/* Dot indicators */}
+          {/* Dot indicators — above title overlay */}
           {allImages.length > 1 && (
-            <div className="absolute bottom-16 left-0 right-0 z-30 flex justify-center gap-1.5">
+            <div className="absolute bottom-[4.5rem] left-0 right-0 z-30 flex justify-center gap-1.5">
               {allImages.slice(0, 5).map((_, idx) => (
                 <button
                   key={idx}
@@ -238,390 +244,332 @@ const AdventurePlaceDetail = () => {
             </div>
           )}
 
-          {allImages.length > 1 && <ImageGalleryModal images={allImages} name={place.name} />}
+          {allImages.length > 1 && <ImageGalleryModal images={allImages} name={event.name} />}
 
-          <div className="absolute bottom-4 left-0 w-full px-4 z-20">
-            <div className="bg-gradient-to-r from-black/70 via-black/50 to-transparent rounded-xl p-3 max-w-md">
-              <div className="flex flex-wrap gap-1.5 mb-1.5">
-                <Badge className="bg-amber-400 text-black border-none px-2 py-0.5 text-[8px] font-black uppercase rounded-full flex items-center gap-1 shadow-lg">
-                  <Star className="h-2.5 w-2.5 fill-current" />{liveRating.avg > 0 ? liveRating.avg : "—"}
-                </Badge>
-              </div>
-              <h1 className="text-lg font-black text-white uppercase tracking-tighter leading-none mb-1">{place.name}</h1>
-              <div className="flex items-center gap-1 text-white">
-                <MapPin className="h-3 w-3" />
-                <span className="text-[10px] font-bold uppercase truncate">{[place.place, place.location, place.country].filter(Boolean).join(", ")}</span>
+          {/* Title overlay */}
+          <div className="absolute bottom-5 left-0 z-40 w-full px-4 pointer-events-none">
+            <div className="pointer-events-auto bg-gradient-to-r from-black/70 via-black/40 to-transparent rounded-2xl p-4 max-w-xl">
+              <Button className="bg-[#FF7F50] hover:bg-[#FF7F50] border-none px-3 py-1 h-auto uppercase font-black tracking-[0.1em] text-[9px] rounded-full shadow-lg mb-2">Trip</Button>
+              <h1 className="text-xl font-black uppercase tracking-tighter leading-none text-white drop-shadow-2xl mb-1">{event.name}</h1>
+              <div className="flex items-center gap-2 cursor-pointer" onClick={openInMaps}>
+                <MapPin className="h-3.5 w-3.5 text-white" />
+                <span className="text-xs font-bold text-white uppercase tracking-wide">{[event.place, event.location, event.country].filter(Boolean).join(', ')}</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Desktop grid — no border-radius, no gap, flush under header */}
+        {/* Desktop gallery — constrained width, rounded corners, name NOT overlaid */}
         <div className="hidden md:block">
-          <div className="grid grid-cols-4 gap-0.5 h-[500px]">
-            {allImages.length > 0 ? (
-              <>
-                <div className="col-span-2 row-span-2 overflow-hidden relative group">
-                  <img src={allImages[0]} alt={place.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-                  <div className="absolute bottom-4 left-4 right-4 z-20 space-y-1.5">
-                    <div className="flex flex-wrap gap-1.5">
-                      <Badge className="bg-amber-400 text-black border-none px-2 py-0.5 text-[9px] font-black uppercase rounded-full flex items-center gap-1 shadow-lg">
-                        <Star className="h-3 w-3 fill-current" />{liveRating.avg > 0 ? liveRating.avg : "—"}
-                      </Badge>
-                    </div>
-                    <h1 className="text-xl font-black text-white uppercase tracking-tighter leading-none">{place.name}</h1>
-                    <div className="flex items-center gap-1.5 text-white">
-                      <MapPin className="h-3.5 w-3.5" />
-                      <span className="text-xs font-bold uppercase">{[place.place, place.location, place.country].filter(Boolean).join(", ")}</span>
-                    </div>
-                  </div>
-                </div>
-                {allImages[1] && (
-                  <div className="col-span-2 overflow-hidden relative group">
-                    <img src={allImages[1]} alt={`${place.name} - 2`} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                  </div>
-                )}
-                <div className="col-span-2 grid grid-cols-3 gap-0.5">
-                  {allImages.slice(2, 5).map((img, idx) => (
-                    <div key={idx} className="overflow-hidden relative group">
-                      <img src={img} alt={`${place.name} - ${idx + 3}`} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                      {idx === 2 && allImages.length > 5 && (
-                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-sm cursor-pointer">
-                          <div className="text-center">
-                            <span className="text-white text-2xl font-black">+{allImages.length - 5}</span>
-                            <p className="text-white text-xs font-bold uppercase mt-1">See All</p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                <ImageGalleryModal images={allImages} name={place.name} />
-              </>
-            ) : (
-              <div className="col-span-4 bg-slate-200 flex items-center justify-center">
-                <p className="text-slate-400 font-black uppercase text-sm">No Images Available</p>
+          <div className="max-w-6xl mx-auto px-4 pt-4">
+            {/* Item title + location — above the gallery, clean */}
+            <div className="mb-3 flex items-start justify-between gap-4">
+              <div>
+                <span className="inline-block mb-1.5 bg-[#FF7F50] text-white px-3 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest">Trip</span>
+                <h1 className="text-3xl font-black uppercase tracking-tighter leading-none text-foreground">{event.name}</h1>
+                <button onClick={openInMaps} className="flex items-center gap-1.5 mt-1.5 text-muted-foreground hover:text-[#008080] transition-colors">
+                  <MapPin className="h-4 w-4" />
+                  <span className="text-sm font-semibold">{[event.place, event.location, event.country].filter(Boolean).join(', ')}</span>
+                </button>
               </div>
-            )}
+            </div>
+
+            {/* Photo grid — rounded, no full-width bleed */}
+            <div className="relative grid grid-cols-4 gap-1.5 h-[420px] rounded-2xl overflow-hidden">
+              {allImages.length > 0 ? (
+                <>
+                  <div className="col-span-2 row-span-2 overflow-hidden relative group">
+                    <img src={allImages[0]} alt={event.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                  </div>
+                  {allImages[1] && (
+                    <div className="col-span-2 overflow-hidden relative group">
+                      <img src={allImages[1]} alt={`${event.name} - 2`} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                    </div>
+                  )}
+                  <div className="col-span-2 grid grid-cols-3 gap-1.5">
+                    {allImages.slice(2, 5).map((img, idx) => (
+                      <div key={idx} className="overflow-hidden relative group">
+                        <img src={img} alt={`${event.name} - ${idx + 3}`} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                        {idx === 2 && allImages.length > 3 && (
+                          <div className="absolute inset-0 bg-black/55 flex items-center justify-center backdrop-blur-[2px] cursor-pointer">
+                            <div className="text-center">
+                              <span className="text-white text-2xl font-black">+{allImages.length - 3}</span>
+                              <p className="text-white text-[10px] font-black uppercase tracking-widest mt-0.5">See All</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="col-span-4 bg-slate-200 flex items-center justify-center rounded-2xl">
+                  <p className="text-slate-400 font-black uppercase text-sm">No Images Available</p>
+                </div>
+              )}
+              <ImageGalleryModal images={allImages} name={event.name} />
+            </div>
           </div>
         </div>
-      </div>
-
-      {/* Quick nav bar — mobile only */}
-      <div className="md:hidden container px-4 mt-4 max-w-6xl mx-auto">
-        <QuickNavigationBar
-          hasFacilities={place.facilities?.length > 0}
-          hasActivities={place.activities?.length > 0}
-          hasContact={place.phone_numbers?.length > 0 || !!place.email}
-        />
       </div>
 
       {/* ── Main content ── */}
-      <main className="container px-4 mt-6 relative z-10 max-w-6xl mx-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-[1.8fr,1fr] gap-6">
+      <main className="container px-4 max-w-6xl mx-auto mt-6 relative z-10">
+        <div className="grid lg:grid-cols-[1.7fr,1fr] gap-6">
 
           {/* ── Left column ── */}
           <div className="space-y-6">
-            <section className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-              <h2 className="text-lg font-black text-slate-900 mb-4">About this property</h2>
-              <div className="space-y-4">
-                {is24Hours ? (
-                  <div className="flex items-start gap-3">
-                    <Clock className="h-5 w-5 text-slate-700 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="text-sm font-bold text-slate-900">Open 24 Hours</p>
-                      <p className="text-xs text-slate-500">Available round the clock</p>
-                    </div>
-                  </div>
-                ) : (place.opening_hours || place.closing_hours) && (
-                  <div className="flex items-start gap-3">
-                    <Clock className="h-5 w-5 text-slate-700 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="text-sm font-bold text-slate-900">{place.opening_hours || "08:00 AM"} - {place.closing_hours || "06:00 PM"}</p>
-                      <p className="text-xs text-slate-500">{Array.isArray(place.days_opened) ? place.days_opened.join(", ") : "Open daily"}</p>
-                    </div>
-                  </div>
-                )}
-
-                {place.entry_fee && place.entry_fee > 0 ? (
-                  <>
-                    <div className="flex items-start gap-3">
-                      <Circle className="h-5 w-5 text-slate-700 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <p className="text-sm font-bold text-slate-900">Adult entry from {formatPrice(Number(place.entry_fee))}</p>
-                        <p className="text-xs text-slate-500">Per adult admission</p>
-                      </div>
-                    </div>
-                    {place.child_entry_fee !== undefined && place.child_entry_fee > 0 && (
-                      <div className="flex items-start gap-3">
-                        <Circle className="h-5 w-5 text-slate-700 mt-0.5 flex-shrink-0" />
-                        <div>
-                          <p className="text-sm font-bold text-slate-900">Child entry {formatPrice(Number(place.child_entry_fee))}</p>
-                          <p className="text-xs text-slate-500">Per child admission</p>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="flex items-start gap-3">
-                    <Circle className="h-5 w-5 text-emerald-600 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="text-sm font-bold text-emerald-700">Free entry</p>
-                      <p className="text-xs text-slate-500">No admission fee required</p>
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex items-start gap-3">
-                  <MapPin className="h-5 w-5 text-slate-700 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-sm font-bold text-slate-900">{[place.place, place.location].filter(Boolean).join(", ")}</p>
-                    <p className="text-xs text-slate-500">{place.country}</p>
-                  </div>
-                </div>
-
-                {place.phone_numbers?.length > 0 && (
-                  <div className="flex items-start gap-3">
-                    <Phone className="h-5 w-5 text-slate-700 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="text-sm font-bold text-slate-900">Phone</p>
-                      <p className="text-xs text-slate-500">{place.phone_numbers[0]}</p>
-                    </div>
-                  </div>
-                )}
-
-                {place.email && (
-                  <div className="flex items-start gap-3">
-                    <Mail className="h-5 w-5 text-slate-700 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="text-sm font-bold text-slate-900">Email</p>
-                      <a href={`mailto:${place.email}`} className="text-xs text-teal-600 hover:underline">{place.email}</a>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {place.description && (
-                <div className="mt-5 pt-5 border-t border-slate-100">
-                  <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{place.description}</p>
-                </div>
+            <div className="bg-white rounded-[28px] p-7 shadow-sm border border-slate-100">
+              <h2 className="text-xl font-black uppercase tracking-tight mb-4" style={{ color: COLORS.TEAL }}>About this Trip</h2>
+              {event.description ? (
+                <p className="text-foreground text-sm leading-relaxed whitespace-pre-line">{event.description}</p>
+              ) : (
+                <p className="text-muted-foreground text-sm italic">No description provided.</p>
               )}
-            </section>
-
-            {/* Amenities — mobile */}
-            <div className="lg:hidden">
-              <GeneralFacilitiesDisplay facilityIds={
-                Array.isArray(place.amenities)
-                  ? place.amenities.map((a: any) => typeof a === "string" ? a : a.name || "")
-                  : []
-              } />
             </div>
 
-            {/* ✅ Mobile booking card — utility buttons BELOW reserve button, no overlap */}
-            <div className="bg-white rounded-2xl p-5 shadow-lg border border-slate-100 lg:hidden">
-              <div className="flex justify-between items-start mb-4">
+            {event.activities?.length > 0 && (
+              <div className="bg-white rounded-[28px] p-7 shadow-sm border border-slate-100">
+                <h2 className="text-xl font-black uppercase tracking-tight mb-5" style={{ color: COLORS.TEAL }}>Highlights</h2>
+                <div className="flex flex-wrap gap-3">
+                  {event.activities.map((act: any, i: number) => (
+                    <div key={i} className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-[#F0E68C]/20 border border-[#F0E68C]/50">
+                      <CheckCircle2 className="h-4 w-4 text-[#857F3E]" />
+                      <div className="flex flex-col">
+                        <span className="text-[11px] font-black text-[#857F3E] uppercase tracking-wide">{act.name}</span>
+                        <span className="text-[10px] font-bold text-[#857F3E]/70">{act.price === 0 || act.is_free ? "Included" : formatPrice(Number(act.price))}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Inclusions & Exclusions — desktop */}
+            {((event.inclusions && event.inclusions.length > 0) || (event.exclusions && event.exclusions.length > 0)) && (
+              <div className="hidden lg:block bg-white rounded-[28px] p-7 shadow-sm border border-slate-100">
+                <h2 className="text-xl font-black uppercase tracking-tight mb-5" style={{ color: COLORS.TEAL }}>Package Details</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {event.inclusions?.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-black uppercase text-emerald-600 tracking-widest mb-3">✓ What's Included</p>
+                      <ul className="space-y-2">
+                        {event.inclusions.map((item: string, i: number) => (
+                          <li key={i} className="flex items-start gap-2 text-sm text-emerald-700">
+                            <span className="text-emerald-500 mt-0.5">✓</span>
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {event.exclusions?.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-black uppercase text-red-500 tracking-widest mb-3">✗ Not Included</p>
+                      <ul className="space-y-2">
+                        {event.exclusions.map((item: string, i: number) => (
+                          <li key={i} className="flex items-start gap-2 text-sm text-red-600">
+                            <span className="text-red-400 mt-0.5">✗</span>
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="hidden lg:block bg-white rounded-[28px] p-7 shadow-sm border border-slate-100">
+              <ReviewHeader event={event} />
+              <ReviewSection itemId={event.id} itemType="trip" />
+            </div>
+          </div>
+
+          {/* ── Right column / Booking card ── */}
+          <div className="space-y-6">
+            <div className="bg-white rounded-[32px] p-6 shadow-2xl border border-slate-100 lg:sticky lg:top-24">
+
+              {/* Price + slots */}
+              <div className="flex justify-between items-end mb-5">
                 <div>
-                  <p className="text-xs text-slate-500 mb-0.5">From</p>
-                  {place.entry_fee && place.entry_fee > 0 ? (
-                    <div>
-                      <span className="text-2xl font-black text-slate-900">{formatPrice(Number(place.entry_fee))}</span>
-                      <span className="text-xs text-slate-500 ml-1">per adult</span>
-                      {place.child_entry_fee !== undefined && place.child_entry_fee > 0 && (
-                        <p className="text-sm text-slate-600 mt-1">Child: {formatPrice(Number(place.child_entry_fee))}</p>
-                      )}
-                    </div>
-                  ) : (
-                    <span className="text-lg font-bold text-emerald-600">Free Entry</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-1 text-slate-800">
-                  <Star className="h-4 w-4 fill-current" />
-                  <span className="text-sm font-bold">{liveRating.avg || "0"}</span>
-                  <span className="text-[10px] text-slate-500">({liveRating.count})</span>
-                </div>
-              </div>
-
-              <Button
-                onClick={() => navigateToBooking(`/booking/adventure_place/${resolvedId}`)}
-                className="w-full py-6 rounded-xl text-sm font-bold bg-emerald-600 hover:bg-emerald-700 border-none shadow-md"
-              >
-                Check availability
-              </Button>
-
-              {/* ✅ Utility buttons below the CTA — no overlap with price details */}
-              <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-slate-100">
-                <UtilityButton
-                  icon={<Navigation className="h-4 w-4" />}
-                  label="Map"
-                  onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${place.name}, ${place.location}`)}`, "_blank")}
-                />
-                <UtilityButton
-                  icon={<Copy className="h-4 w-4" />}
-                  label="Copy"
-                  onClick={async () => {
-                    const link = getShareLink(resolvedId, "adventure_place", place.name, place.location);
-                    await navigator.clipboard.writeText(link);
-                    toast({ title: "Link Copied!" });
-                  }}
-                />
-                <UtilityButton
-                  icon={<Share2 className="h-4 w-4" />}
-                  label="Share"
-                  onClick={async () => {
-                    const link = getShareLink(resolvedId, "adventure_place", place.name, place.location);
-                    if (navigator.share) {
-                      try { await navigator.share({ title: place.name, url: link }); } catch (e) {}
-                    } else {
-                      await navigator.clipboard.writeText(link);
-                      toast({ title: "Link Copied!" });
-                    }
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Amenities — desktop */}
-            <div className="hidden lg:block">
-              <GeneralFacilitiesDisplay facilityIds={
-                Array.isArray(place.amenities)
-                  ? place.amenities.map((a: any) => typeof a === "string" ? a : a.name || "")
-                  : []
-              } />
-            </div>
-
-            {place.facilities?.length > 0 && (
-              <div id="facilities-section">
-                <FacilitiesGrid facilities={place.facilities} itemId={resolvedId} itemType="adventure_place" accentColor="#008080" />
-              </div>
-            )}
-
-            {place.activities?.length > 0 && (
-              <div id="activities-section">
-                <ActivitiesGrid activities={place.activities} itemId={resolvedId} itemType="adventure_place" accentColor="#FF7F50" />
-              </div>
-            )}
-
-            <div id="contact-section" className="lg:hidden">
-              {(place.phone_numbers?.length > 0 || place.email) && (
-                <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-3">
-                  <h3 className="text-sm font-bold text-slate-900">Contact</h3>
-                  {place.phone_numbers?.map((phone: string, idx: number) => (
-                    <a key={idx} href={`tel:${phone}`} className="flex items-center gap-3 text-slate-600 hover:text-teal-600 transition-colors">
-                      <Phone className="h-4 w-4 text-slate-500" />
-                      <span className="text-sm">{phone}</span>
-                    </a>
-                  ))}
-                  {place.email && (
-                    <a href={`mailto:${place.email}`} className="flex items-center gap-3 text-slate-600 hover:text-teal-600 transition-colors">
-                      <Mail className="h-4 w-4 text-slate-500" />
-                      <span className="text-sm">{place.email}</span>
-                    </a>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* ── Desktop sidebar ── */}
-          <div className="hidden lg:block">
-            <div className="sticky top-24 bg-white rounded-2xl p-6 shadow-lg border border-slate-200 space-y-5">
-              <div>
-                <p className="text-xs text-slate-500">From</p>
-                {place.entry_fee && place.entry_fee > 0 ? (
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Ticket Price</p>
                   <div className="flex items-baseline gap-1">
-                    <span className="text-3xl font-black text-slate-900">{formatPrice(Number(place.entry_fee))}</span>
-                    <span className="text-sm text-slate-500">per person</span>
+                    <span className="text-lg font-bold text-destructive">{formatPrice(event.price)}</span>
+                    <span className="text-slate-400 text-[10px] font-bold uppercase tracking-tighter">/ adult</span>
                   </div>
-                ) : (
-                  <span className="text-xl font-bold text-emerald-600">Free Entry</span>
+                </div>
+                <div className="bg-slate-50 px-4 py-2 rounded-2xl border border-slate-100 flex items-center gap-2">
+                  <Clock className="h-4 w-4" style={{ color: COLORS.TEAL }} />
+                  <span className={`text-xs font-black uppercase ${isSoldOut ? "text-red-500" : "text-slate-600"}`}>
+                    {isSoldOut ? "FULL" : `${remainingSlots} Left`}
+                  </span>
+                </div>
+              </div>
+
+              {/* Operating hours */}
+              {(event.opening_hours || event.closing_hours || (event.is_flexible_date && event.days_opened?.length > 0)) && (
+                <div className="mb-5 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                  {(event.opening_hours || event.closing_hours) && (
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-1">
+                        <Clock className="h-3 w-3" /> Hours
+                      </span>
+                      <span className="text-xs font-black text-slate-700">{event.opening_hours || "08:00"} - {event.closing_hours || "18:00"}</span>
+                    </div>
+                  )}
+                  {event.is_flexible_date && event.days_opened?.length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2">Available Days</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {event.days_opened.map((day: string, i: number) => (
+                          <span key={i} className="px-3 py-1 rounded-lg bg-primary/10 text-[9px] font-black uppercase text-primary border border-primary/20">{day}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Availability bar */}
+              <div className="mb-5 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                    <Users className="h-3 w-3" /> Availability
+                  </span>
+                  <span className={`text-[10px] font-black uppercase ${remainingSlots < 5 ? 'text-red-500' : 'text-emerald-600'}`}>
+                    {isSoldOut ? "Sold Out" : `${remainingSlots} Slots Available`}
+                  </span>
+                </div>
+                <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full transition-all duration-500 ${remainingSlots < 5 ? 'bg-red-500' : 'bg-emerald-500'}`}
+                    style={{ width: `${Math.min((remainingSlots / (event.available_tickets || 50)) * 100, 100)}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Trip details */}
+              <div className="space-y-3 mb-5">
+                <div className="flex justify-between text-xs font-bold uppercase tracking-tight">
+                  <span className="text-slate-400">Scheduled Date</span>
+                  <span className={isExpired ? "text-red-500" : "text-slate-700"}>
+                    {event.is_custom_date
+                      ? <span className="text-emerald-600 font-black">AVAILABLE</span>
+                      : (<>{new Date(event.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}{isExpired && <span className="ml-1">(Past)</span>}</>)
+                    }
+                  </span>
+                </div>
+                <div className="flex justify-between text-xs font-bold uppercase tracking-tight">
+                  <span className="text-slate-400">Children Allowed</span>
+                  <span className={event.allow_children === false ? "text-red-500 font-black" : "text-emerald-600 font-black"}>
+                    {event.allow_children === false ? "No" : "Yes"}
+                  </span>
+                </div>
+                {event.allow_children !== false && (
+                  <div className="flex justify-between text-xs font-bold uppercase tracking-tight">
+                    <span className="text-slate-400">Child (Under 12)</span>
+                    <span className="text-slate-700">{formatPrice(event.price_child || 0)}</span>
+                  </div>
                 )}
-                {place.child_entry_fee !== undefined && place.child_entry_fee > 0 && (
-                  <p className="text-sm text-slate-600 mt-1">Child: {formatPrice(Number(place.child_entry_fee))}</p>
+                {event.ticket_types && Array.isArray(event.ticket_types) && event.ticket_types.length > 0 && (
+                  <div className="pt-2 border-t border-slate-100">
+                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2">Ticket Types</p>
+                    {event.ticket_types.map((ticket: any, i: number) => (
+                      <div key={i} className="flex justify-between text-xs font-bold uppercase tracking-tight py-1">
+                        <span className="text-slate-500">{ticket.name}</span>
+                        <span className="text-slate-700">{formatPrice(Number(ticket.price))}</span>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
 
+              {/* Reserve button */}
               <Button
-                onClick={() => navigateToBooking(`/booking/adventure_place/${resolvedId}`)}
-                className="w-full py-6 rounded-xl text-sm font-bold bg-emerald-600 hover:bg-emerald-700 border-none shadow-md"
+                onClick={() => navigateToBooking(`/booking/trip/${event.id}`)}
+                disabled={!canBook}
+                className="w-full py-7 rounded-2xl text-md font-black uppercase tracking-[0.2em] text-white shadow-xl transition-all active:scale-95 border-none"
+                style={{
+                  background: !canBook ? "#cbd5e1" : `linear-gradient(135deg, ${COLORS.CORAL_LIGHT} 0%, ${COLORS.CORAL} 100%)`,
+                  boxShadow: !canBook ? "none" : `0 12px 24px -8px ${COLORS.CORAL}88`
+                }}
               >
-                Check availability
+                {isSoldOut ? "Fully Booked" : isExpired ? "Trip Expired" : "Reserve Spot"}
               </Button>
 
-              <div className="flex items-center gap-2 pt-3 border-t border-slate-100">
-                <Star className="h-5 w-5 fill-slate-800 text-slate-800" />
-                <span className="text-lg font-black text-slate-900">{liveRating.avg || "0"}</span>
-                <span className="text-xs text-slate-500">({liveRating.count} reviews)</span>
+              {/* ✅ Utility buttons BELOW reserve, separated by border — no z-index clash */}
+              <div className="grid grid-cols-3 gap-3 mt-5 pt-5 border-t border-slate-100">
+                <UtilityButton icon={<MapPin className="h-5 w-5" />} label="Map" onClick={openInMaps} />
+                <UtilityButton icon={<Copy className="h-5 w-5" />} label="Copy" onClick={handleCopyLink} />
+                <UtilityButton icon={<Share2 className="h-5 w-5" />} label="Share" onClick={handleShare} />
               </div>
 
-              {/* ✅ Utility buttons below rating — clear visual separation */}
-              <div className="grid grid-cols-3 gap-2 pt-3 border-t border-slate-100">
-                <UtilityButton
-                  icon={<Navigation className="h-4 w-4" />}
-                  label="Map"
-                  onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${place.name}, ${place.location}`)}`, "_blank")}
-                />
-                <UtilityButton
-                  icon={<Copy className="h-4 w-4" />}
-                  label="Copy"
-                  onClick={async () => {
-                    const link = getShareLink(resolvedId, "adventure_place", place.name, place.location);
-                    await navigator.clipboard.writeText(link);
-                    toast({ title: "Link Copied!" });
-                  }}
-                />
-                <UtilityButton
-                  icon={<Share2 className="h-4 w-4" />}
-                  label="Share"
-                  onClick={async () => {
-                    const link = getShareLink(resolvedId, "adventure_place", place.name, place.location);
-                    if (navigator.share) {
-                      try { await navigator.share({ title: place.name, url: link }); } catch (e) {}
-                    } else {
-                      await navigator.clipboard.writeText(link);
-                      toast({ title: "Link Copied!" });
-                    }
-                  }}
-                />
-              </div>
-
-              {(place.phone_numbers?.length > 0 || place.email) && (
-                <div className="space-y-2 pt-3 border-t border-slate-100">
-                  <h3 className="text-xs font-bold text-slate-500">Contact</h3>
-                  {place.phone_numbers?.map((phone: string, idx: number) => (
-                    <a key={idx} href={`tel:${phone}`} className="flex items-center gap-2 text-slate-600 hover:text-teal-600 transition-colors">
-                      <Phone className="h-4 w-4" />
-                      <span className="text-sm">{phone}</span>
+              {/* Contact */}
+              {(event.phone_number || event.email) && (
+                <div className="space-y-3 mt-5 pt-5 border-t border-slate-100">
+                  <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contact</h3>
+                  {event.phone_number && (
+                    <a href={`tel:${event.phone_number}`} className="flex items-center gap-3 text-slate-600 hover:text-[#008080] transition-colors">
+                      <Phone className="h-4 w-4 text-[#008080]" />
+                      <span className="text-xs font-bold uppercase tracking-tight">{event.phone_number}</span>
                     </a>
-                  ))}
-                  {place.email && (
-                    <a href={`mailto:${place.email}`} className="flex items-center gap-2 text-slate-600 hover:text-teal-600 transition-colors">
-                      <Mail className="h-4 w-4" />
-                      <span className="text-sm">{place.email}</span>
+                  )}
+                  {event.email && (
+                    <a href={`mailto:${event.email}`} className="flex items-center gap-3 text-slate-600 hover:text-[#008080] transition-colors">
+                      <Mail className="h-4 w-4 text-[#008080]" />
+                      <span className="text-xs font-bold uppercase tracking-tight truncate">{event.email}</span>
                     </a>
                   )}
                 </div>
               )}
             </div>
-          </div>
-        </div>
 
-        <div className="mt-12 bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
-          <ReviewSection itemId={resolvedId} itemType="adventure_place" />
+            {/* Inclusions & Exclusions — mobile */}
+            {((event.inclusions && event.inclusions.length > 0) || (event.exclusions && event.exclusions.length > 0)) && (
+              <div className="lg:hidden bg-white rounded-[28px] p-7 shadow-sm border border-slate-100">
+                <h2 className="text-xl font-black uppercase tracking-tight mb-5" style={{ color: COLORS.TEAL }}>Package Details</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {event.inclusions?.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-black uppercase text-emerald-600 tracking-widest mb-3">✓ What's Included</p>
+                      <ul className="space-y-2">
+                        {event.inclusions.map((item: string, i: number) => (
+                          <li key={i} className="flex items-start gap-2 text-sm text-emerald-700">
+                            <span className="text-emerald-500 mt-0.5">✓</span>
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {event.exclusions?.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-black uppercase text-red-500 tracking-widest mb-3">✗ Not Included</p>
+                      <ul className="space-y-2">
+                        {event.exclusions.map((item: string, i: number) => (
+                          <li key={i} className="flex items-start gap-2 text-sm text-red-600">
+                            <span className="text-red-400 mt-0.5">✗</span>
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="lg:hidden bg-white rounded-[28px] p-7 shadow-sm border border-slate-100">
+              <ReviewHeader event={event} />
+              <ReviewSection itemId={event.id} itemType="trip" />
+            </div>
+          </div>
         </div>
 
         <DetailMapSection
-          currentItem={{
-            id: resolvedId,
-            name: place.name,
-            latitude: place.latitude,
-            longitude: place.longitude,
-            location: place.location,
-            country: place.country,
-            image_url: place.image_url,
-            entry_fee: place.entry_fee
-          }}
-          itemType="adventure"
+          currentItem={{ id: event.id, name: event.name, latitude: null, longitude: null, location: event.location, country: event.country, image_url: event.image_url, price: event.price }}
+          itemType="trip"
         />
       </main>
 
@@ -634,26 +582,21 @@ const AdventurePlaceDetail = () => {
       >
         <div className="flex items-center justify-between px-4 py-3">
           <div>
-            {place.entry_fee && place.entry_fee > 0 ? (
-              <div className="flex items-baseline gap-1">
-                <span className="text-xs text-slate-500">From</span>
-                <span className="text-lg font-black text-slate-900">{formatPrice(Number(place.entry_fee))}</span>
-                <span className="text-xs text-slate-500">/ person</span>
-              </div>
-            ) : getStartingPrice() > 0 ? (
-              <div className="flex items-baseline gap-1">
-                <span className="text-xs text-slate-500">From</span>
-                <span className="text-lg font-black text-slate-900">{formatPrice(getStartingPrice())}</span>
-              </div>
-            ) : (
-              <span className="text-sm font-bold text-emerald-600">Free Entry</span>
+            <div className="flex items-baseline gap-1">
+              <span className="text-base font-bold text-destructive">{formatPrice(event.price)}</span>
+              <span className="text-[9px] font-bold text-slate-400 uppercase">/ adult</span>
+            </div>
+            {event.price_child != null && (
+              <div className="text-[10px] font-bold text-slate-500">Child: {formatPrice(event.price_child || 0)}</div>
             )}
           </div>
           <Button
-            onClick={() => navigateToBooking(`/booking/adventure_place/${resolvedId}`)}
-            className="px-6 py-5 rounded-xl text-sm font-bold text-white border-none bg-emerald-600 hover:bg-emerald-700"
+            onClick={() => navigateToBooking(`/booking/trip/${event.id}`)}
+            disabled={!canBook}
+            className="px-6 py-5 rounded-xl text-xs font-black uppercase tracking-widest text-white border-none"
+            style={{ background: !canBook ? "#cbd5e1" : `linear-gradient(135deg, ${COLORS.CORAL_LIGHT} 0%, ${COLORS.CORAL} 100%)` }}
           >
-            Check availability
+            {isSoldOut ? "Fully Booked" : isExpired ? "Expired" : "Reserve"}
           </Button>
         </div>
       </div>
@@ -661,15 +604,15 @@ const AdventurePlaceDetail = () => {
   );
 };
 
-const UtilityButton = ({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) => (
+const UtilityButton = ({ icon, label, onClick }: { icon: React.ReactNode, label: string, onClick: () => void }) => (
   <Button
     variant="ghost"
     onClick={onClick}
-    className="flex-col h-auto py-3 bg-slate-50 text-slate-500 rounded-xl border border-slate-100 hover:bg-slate-100 transition-colors flex-1"
+    className="flex-col h-auto py-3 bg-[#F0E68C]/10 text-[#857F3E] rounded-2xl hover:bg-[#F0E68C]/30 transition-colors border border-[#F0E68C]/20"
   >
-    <div className="mb-0.5">{icon}</div>
-    <span className="text-[9px] font-bold uppercase">{label}</span>
+    <div className="mb-1">{icon}</div>
+    <span className="text-[10px] font-black uppercase tracking-tighter">{label}</span>
   </Button>
 );
 
-export default AdventurePlaceDetail;
+export default TripDetail;12

@@ -4,12 +4,7 @@ import { useSafeBack } from "@/hooks/useSafeBack";
 import { useBookingNavigate } from "@/hooks/useBookingNavigate";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { 
-  MapPin, Clock, ArrowLeft, 
-  Heart, Star, Circle, Calendar, Share2, Copy, Navigation, AlertCircle, Phone, Mail
-} from "lucide-react";
-
+import { MapPin, Clock, Star, Circle, Share2, Copy, Navigation, AlertCircle, Phone, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
@@ -50,20 +45,13 @@ const AdventurePlaceDetail = () => {
   const { savedItems, handleSave: handleSaveItem } = useSavedItems();
   const isSaved = savedItems.has(id || "");
 
-  const distance = position && place?.latitude && place?.longitude
-    ? calculateDistance(position.latitude, position.longitude, place.latitude, place.longitude)
-    : undefined;
-
   const getStartingPrice = () => {
     if (!place) return 0;
     const prices: number[] = [];
     if (place.entry_fee) prices.push(Number(place.entry_fee));
     const extractPrices = (arr: any[]) => {
       if (!Array.isArray(arr)) return;
-      arr.forEach((item) => {
-        const p = typeof item === "object" ? item.price : null;
-        if (p) prices.push(Number(p));
-      });
+      arr.forEach((item) => { const p = typeof item === "object" ? item.price : null; if (p) prices.push(Number(p)); });
     };
     extractPrices(place.facilities);
     extractPrices(place.activities);
@@ -72,9 +60,7 @@ const AdventurePlaceDetail = () => {
 
   useEffect(() => {
     window.scrollTo(0, 0);
-    if (rawSlug) {
-      Promise.all([fetchPlace(), fetchLiveRating()]);
-    }
+    if (rawSlug) Promise.all([fetchPlace(), fetchLiveRating()]);
     const urlParams = new URLSearchParams(window.location.search);
     const refSlug = urlParams.get("ref");
     if (refSlug && id) trackReferralClick(refSlug, id, "adventure_place", "booking");
@@ -93,11 +79,8 @@ const AdventurePlaceDetail = () => {
       const now = new Date();
       const currentDay = now.toLocaleString("en-us", { weekday: "long" }).toLowerCase();
       if (place.opening_hours === "00:00" && place.closing_hours === "23:59") {
-        const days = Array.isArray(place.days_opened)
-          ? place.days_opened.map((d: string) => d.toLowerCase())
-          : ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"];
-        setIsOpenNow(days.includes(currentDay));
-        return;
+        const days = Array.isArray(place.days_opened) ? place.days_opened.map((d: string) => d.toLowerCase()) : ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"];
+        setIsOpenNow(days.includes(currentDay)); return;
       }
       const currentTime = now.getHours() * 60 + now.getMinutes();
       const parseTime = (timeStr: string) => {
@@ -110,9 +93,7 @@ const AdventurePlaceDetail = () => {
       };
       const openTime = parseTime(place.opening_hours || "08:00 AM");
       const closeTime = parseTime(place.closing_hours || "06:00 PM");
-      const days = Array.isArray(place.days_opened)
-        ? place.days_opened.map((d: string) => d.toLowerCase())
-        : ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"];
+      const days = Array.isArray(place.days_opened) ? place.days_opened.map((d: string) => d.toLowerCase()) : ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"];
       setIsOpenNow(days.includes(currentDay) && currentTime >= openTime && currentTime <= closeTime);
     };
     checkOpenStatus();
@@ -132,7 +113,6 @@ const AdventurePlaceDetail = () => {
     try {
       let data: any = null;
       const candidates = [...new Set([id, rawSlug].filter(Boolean))] as string[];
-
       for (const candidate of candidates) {
         if (data) break;
         const { data: byId } = await supabase.from("adventure_places").select("*").eq("id", candidate).maybeSingle();
@@ -140,22 +120,16 @@ const AdventurePlaceDetail = () => {
         const { data: bySlug } = await supabase.from("adventure_places").select("*").eq("slug", candidate).maybeSingle();
         if (bySlug) { data = bySlug; break; }
       }
-
       if (!data && rawSlug) {
         const { data: byPartial } = await supabase.from("adventure_places").select("*").filter("id", "neq", "").limit(100);
-        if (byPartial) {
-          data = byPartial.find(item => rawSlug.endsWith(item.id) || rawSlug.includes(item.id)) || null;
-        }
+        if (byPartial) data = byPartial.find(item => rawSlug.endsWith(item.id) || rawSlug.includes(item.id)) || null;
       }
-
       if (!data) throw new Error("Not found");
       setPlace(data);
     } catch (error) {
       console.error("AdventurePlaceDetail fetch error:", error, { rawSlug, id });
       toast({ title: "Place not found", variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   const fetchLiveRating = async () => {
@@ -181,144 +155,100 @@ const AdventurePlaceDetail = () => {
   const activityImages = (Array.isArray(place.activities) ? place.activities : []).flatMap((a: any) => (Array.isArray(a.images) ? a.images : []));
   const allImagesRaw = [place.image_url, ...(place.gallery_images || []), ...facilityImages, ...activityImages].filter(Boolean);
   const allImages = allImagesRaw.slice(0, 5);
+  const dotImages = allImages.slice(0, 5);
   const is24Hours = place.opening_hours === "00:00" && place.closing_hours === "23:59";
   const resolvedId = place.id;
 
   return (
     <div className="min-h-screen bg-background pb-24">
+      <DetailNavBar scrolled={scrolled} itemName={place.name} isSaved={isSaved}
+        onSave={() => handleSaveItem(resolvedId, "adventure_place")} onBack={goBack} />
 
-      <DetailNavBar
-        scrolled={scrolled}
-        itemName={place.name}
-        isSaved={isSaved}
-        onSave={() => handleSaveItem(resolvedId, "adventure_place")}
-        onBack={goBack}
-      />
+      {/* ══ IMAGE GALLERY ══════════════════════════════════════════════════════ */}
 
-      {/* ── Image gallery — flush under header, no gap, no border-radius on desktop ── */}
-      <div className="w-full">
-        {/* Mobile carousel */}
-        <div className="relative w-full bg-slate-900 overflow-hidden md:hidden" style={{ height: "65vw", minHeight: "300px", maxHeight: "520px" }}>
-          <Carousel
-            setApi={setCarouselApi}
-            plugins={[Autoplay({ delay: 3500 })]}
-            className="w-full h-full"
-          >
-            <CarouselContent className="h-full ml-0">
-              {allImages.length > 0 ? allImages.map((img, idx) => (
-                <CarouselItem key={idx} className="h-full pl-0 basis-full">
-                  <div className="relative h-full w-full">
-                    <img src={img} alt={`${place.name} - ${idx + 1}`} className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent z-10" />
-                  </div>
-                </CarouselItem>
-              )) : (
-                <div className="h-full w-full bg-slate-200 flex items-center justify-center text-slate-400 font-black uppercase text-xs">No Image</div>
+      {/* Mobile — 45vh, clean, only See All + dots overlay */}
+      <div className="relative w-full bg-slate-900 overflow-hidden md:hidden" style={{ height: "45vh", minHeight: "220px", maxHeight: "380px" }}>
+        <Carousel setApi={setCarouselApi} plugins={[Autoplay({ delay: 3500 })]} className="w-full h-full">
+          <CarouselContent className="h-full ml-0">
+            {allImages.length > 0 ? allImages.map((img, idx) => (
+              <CarouselItem key={idx} className="h-full pl-0 basis-full">
+                <img src={img} alt={`${place.name} - ${idx + 1}`} className="w-full h-full object-cover" />
+              </CarouselItem>
+            )) : (
+              <div className="h-full w-full bg-slate-200 flex items-center justify-center text-slate-400 font-black uppercase text-xs">No Image</div>
+            )}
+          </CarouselContent>
+        </Carousel>
+        {allImages.length > 1 && <ImageGalleryModal images={allImages} name={place.name} />}
+        {allImages.length > 1 && (
+          <div className="absolute bottom-3 left-0 right-0 z-30 flex justify-center gap-1.5 pointer-events-none">
+            {dotImages.map((_, idx) => (
+              <span key={idx} className="transition-all duration-300 block" style={{
+                width: activeSlide === idx ? "20px" : "6px", height: "6px", borderRadius: "3px",
+                background: activeSlide === idx ? "white" : "rgba(255,255,255,0.5)",
+              }} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Desktop — constrained, rounded, no overlay */}
+      <div className="hidden md:block max-w-6xl mx-auto px-4 pt-4">
+        <div className="relative grid grid-cols-4 gap-1.5 h-[420px] rounded-2xl overflow-hidden">
+          {allImages.length > 0 ? (
+            <>
+              <div className="col-span-2 row-span-2 overflow-hidden group">
+                <img src={allImages[0]} alt={place.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+              </div>
+              {allImages[1] && (
+                <div className="col-span-2 overflow-hidden group">
+                  <img src={allImages[1]} alt={`${place.name} - 2`} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                </div>
               )}
-            </CarouselContent>
-          </Carousel>
-
-          {/* Dot indicators — above title overlay */}
-          {allImages.length > 1 && (
-            <div className="absolute bottom-[4.5rem] left-0 right-0 z-30 flex justify-center gap-1.5">
-              {allImages.slice(0, 5).map((_, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => carouselApi?.scrollTo(idx)}
-                  className="transition-all duration-300"
-                  style={{
-                    width: activeSlide === idx ? "20px" : "6px",
-                    height: "6px",
-                    borderRadius: "3px",
-                    background: activeSlide === idx ? "white" : "rgba(255,255,255,0.45)",
-                  }}
-                  aria-label={`Go to slide ${idx + 1}`}
-                />
-              ))}
+              <div className="col-span-2 grid grid-cols-3 gap-1.5">
+                {allImages.slice(2, 5).map((img, idx) => (
+                  <div key={idx} className="overflow-hidden relative group">
+                    <img src={img} alt={`${place.name} - ${idx + 3}`} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                    {idx === 2 && allImages.length > 3 && (
+                      <div className="absolute inset-0 bg-black/55 flex items-center justify-center backdrop-blur-[2px] cursor-pointer">
+                        <div className="text-center">
+                          <span className="text-white text-2xl font-black">+{allImages.length - 3}</span>
+                          <p className="text-white text-[10px] font-black uppercase tracking-widest mt-0.5">See All</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="col-span-4 bg-slate-200 flex items-center justify-center rounded-2xl">
+              <p className="text-slate-400 font-black uppercase text-sm">No Images Available</p>
             </div>
           )}
-
-          {allImages.length > 1 && <ImageGalleryModal images={allImages} name={place.name} />}
-
-          <div className="absolute bottom-4 left-0 w-full px-4 z-20">
-            <div className="bg-gradient-to-r from-black/70 via-black/50 to-transparent rounded-xl p-3 max-w-md">
-              <div className="flex flex-wrap gap-1.5 mb-1.5">
-                <Badge className="bg-amber-400 text-black border-none px-2 py-0.5 text-[8px] font-black uppercase rounded-full flex items-center gap-1 shadow-lg">
-                  <Star className="h-2.5 w-2.5 fill-current" />{liveRating.avg > 0 ? liveRating.avg : "—"}
-                </Badge>
-              </div>
-              <h1 className="text-lg font-black text-white uppercase tracking-tighter leading-none mb-1">{place.name}</h1>
-              <div className="flex items-center gap-1 text-white">
-                <MapPin className="h-3 w-3" />
-                <span className="text-[10px] font-bold uppercase truncate">{[place.place, place.location, place.country].filter(Boolean).join(", ")}</span>
-              </div>
-            </div>
-          </div>
+          <ImageGalleryModal images={allImages} name={place.name} />
         </div>
+      </div>
 
-        {/* Desktop gallery — constrained width, rounded corners, name above gallery */}
-        <div className="hidden md:block">
-          <div className="max-w-6xl mx-auto px-4 pt-4">
-            {/* Item title + location + rating — clean row above photos */}
-            <div className="mb-3 flex items-start justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2 mb-1.5">
-                  <Badge className="bg-amber-400 text-black border-none px-2.5 py-0.5 text-[9px] font-black uppercase rounded-full flex items-center gap-1">
-                    <Star className="h-3 w-3 fill-current" />{liveRating.avg > 0 ? liveRating.avg : "New"}
-                  </Badge>
-                  {liveRating.count > 0 && (
-                    <span className="text-xs text-muted-foreground">({liveRating.count} reviews)</span>
-                  )}
-                </div>
-                <h1 className="text-3xl font-black uppercase tracking-tighter leading-none text-foreground">{place.name}</h1>
-                <div className="flex items-center gap-1.5 mt-1.5 text-muted-foreground">
-                  <MapPin className="h-4 w-4" />
-                  <span className="text-sm font-semibold">{[place.place, place.location, place.country].filter(Boolean).join(", ")}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Photo grid — rounded, constrained */}
-            <div className="relative grid grid-cols-4 gap-1.5 h-[420px] rounded-2xl overflow-hidden">
-              {allImages.length > 0 ? (
-                <>
-                  <div className="col-span-2 row-span-2 overflow-hidden relative group">
-                    <img src={allImages[0]} alt={place.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                  </div>
-                  {allImages[1] && (
-                    <div className="col-span-2 overflow-hidden relative group">
-                      <img src={allImages[1]} alt={`${place.name} - 2`} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                    </div>
-                  )}
-                  <div className="col-span-2 grid grid-cols-3 gap-1.5">
-                    {allImages.slice(2, 5).map((img, idx) => (
-                      <div key={idx} className="overflow-hidden relative group">
-                        <img src={img} alt={`${place.name} - ${idx + 3}`} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                        {idx === 2 && allImages.length > 3 && (
-                          <div className="absolute inset-0 bg-black/55 flex items-center justify-center backdrop-blur-[2px] cursor-pointer">
-                            <div className="text-center">
-                              <span className="text-white text-2xl font-black">+{allImages.length - 3}</span>
-                              <p className="text-white text-[10px] font-black uppercase tracking-widest mt-0.5">See All</p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <div className="col-span-4 bg-slate-200 flex items-center justify-center rounded-2xl">
-                  <p className="text-slate-400 font-black uppercase text-sm">No Images Available</p>
-                </div>
-              )}
-              <ImageGalleryModal images={allImages} name={place.name} />
-            </div>
-          </div>
+      {/* ══ NAME / CATEGORY / LOCATION — below gallery, same style mobile & desktop ══ */}
+      <div className="max-w-6xl mx-auto px-4 pt-4 pb-1">
+        <div className="flex items-center gap-2 mb-1.5">
+          <span className="inline-block bg-teal-600 text-white px-3 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest">Adventure</span>
+          {liveRating.avg > 0 && (
+            <span className="inline-flex items-center gap-1 bg-amber-400 text-black px-2.5 py-0.5 rounded-full text-[10px] font-black">
+              <Star className="h-3 w-3 fill-current" />{liveRating.avg}
+            </span>
+          )}
+        </div>
+        <h1 className="text-2xl font-black uppercase tracking-tighter leading-tight text-foreground">{place.name}</h1>
+        <div className="flex items-center gap-1.5 mt-1 text-muted-foreground">
+          <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
+          <span className="text-sm font-semibold">{[place.place, place.location, place.country].filter(Boolean).join(", ")}</span>
         </div>
       </div>
 
       {/* Quick nav bar — mobile only */}
-      <div className="md:hidden container px-4 mt-4 max-w-6xl mx-auto">
+      <div className="md:hidden container px-4 mt-3 max-w-6xl mx-auto">
         <QuickNavigationBar
           hasFacilities={place.facilities?.length > 0}
           hasActivities={place.activities?.length > 0}
@@ -326,18 +256,20 @@ const AdventurePlaceDetail = () => {
         />
       </div>
 
-      {/* ── Main content ── */}
-      <main className="container px-4 mt-6 relative z-10 max-w-6xl mx-auto">
+      {/* ══ MAIN CONTENT ══════════════════════════════════════════════════════ */}
+      <main className="container px-4 mt-5 relative z-10 max-w-6xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-[1.8fr,1fr] gap-6">
 
           {/* ── Left column ── */}
-          <div className="space-y-6">
-            <section className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-              <h2 className="text-lg font-black text-slate-900 mb-4">About this property</h2>
-              <div className="space-y-4">
+          <div className="space-y-5">
+
+            {/* About */}
+            <section className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+              <h2 className="text-base font-black text-slate-900 mb-3">About this property</h2>
+              <div className="space-y-3">
                 {is24Hours ? (
                   <div className="flex items-start gap-3">
-                    <Clock className="h-5 w-5 text-slate-700 mt-0.5 flex-shrink-0" />
+                    <Clock className="h-4 w-4 text-slate-600 mt-0.5 flex-shrink-0" />
                     <div>
                       <p className="text-sm font-bold text-slate-900">Open 24 Hours</p>
                       <p className="text-xs text-slate-500">Available round the clock</p>
@@ -345,28 +277,27 @@ const AdventurePlaceDetail = () => {
                   </div>
                 ) : (place.opening_hours || place.closing_hours) && (
                   <div className="flex items-start gap-3">
-                    <Clock className="h-5 w-5 text-slate-700 mt-0.5 flex-shrink-0" />
+                    <Clock className="h-4 w-4 text-slate-600 mt-0.5 flex-shrink-0" />
                     <div>
-                      <p className="text-sm font-bold text-slate-900">{place.opening_hours || "08:00 AM"} - {place.closing_hours || "06:00 PM"}</p>
+                      <p className="text-sm font-bold text-slate-900">{place.opening_hours || "08:00 AM"} – {place.closing_hours || "06:00 PM"}</p>
                       <p className="text-xs text-slate-500">{Array.isArray(place.days_opened) ? place.days_opened.join(", ") : "Open daily"}</p>
                     </div>
                   </div>
                 )}
-
                 {place.entry_fee && place.entry_fee > 0 ? (
                   <>
                     <div className="flex items-start gap-3">
-                      <Circle className="h-5 w-5 text-slate-700 mt-0.5 flex-shrink-0" />
+                      <Circle className="h-4 w-4 text-slate-600 mt-0.5 flex-shrink-0" />
                       <div>
-                        <p className="text-sm font-bold text-slate-900">Adult entry from {formatPrice(Number(place.entry_fee))}</p>
+                        <p className="text-sm font-bold text-slate-900">Adult from {formatPrice(Number(place.entry_fee))}</p>
                         <p className="text-xs text-slate-500">Per adult admission</p>
                       </div>
                     </div>
-                    {place.child_entry_fee !== undefined && place.child_entry_fee > 0 && (
+                    {place.child_entry_fee > 0 && (
                       <div className="flex items-start gap-3">
-                        <Circle className="h-5 w-5 text-slate-700 mt-0.5 flex-shrink-0" />
+                        <Circle className="h-4 w-4 text-slate-600 mt-0.5 flex-shrink-0" />
                         <div>
-                          <p className="text-sm font-bold text-slate-900">Child entry {formatPrice(Number(place.child_entry_fee))}</p>
+                          <p className="text-sm font-bold text-slate-900">Child {formatPrice(Number(place.child_entry_fee))}</p>
                           <p className="text-xs text-slate-500">Per child admission</p>
                         </div>
                       </div>
@@ -374,35 +305,32 @@ const AdventurePlaceDetail = () => {
                   </>
                 ) : (
                   <div className="flex items-start gap-3">
-                    <Circle className="h-5 w-5 text-emerald-600 mt-0.5 flex-shrink-0" />
+                    <Circle className="h-4 w-4 text-emerald-600 mt-0.5 flex-shrink-0" />
                     <div>
                       <p className="text-sm font-bold text-emerald-700">Free entry</p>
                       <p className="text-xs text-slate-500">No admission fee required</p>
                     </div>
                   </div>
                 )}
-
                 <div className="flex items-start gap-3">
-                  <MapPin className="h-5 w-5 text-slate-700 mt-0.5 flex-shrink-0" />
+                  <MapPin className="h-4 w-4 text-slate-600 mt-0.5 flex-shrink-0" />
                   <div>
                     <p className="text-sm font-bold text-slate-900">{[place.place, place.location].filter(Boolean).join(", ")}</p>
                     <p className="text-xs text-slate-500">{place.country}</p>
                   </div>
                 </div>
-
                 {place.phone_numbers?.length > 0 && (
                   <div className="flex items-start gap-3">
-                    <Phone className="h-5 w-5 text-slate-700 mt-0.5 flex-shrink-0" />
+                    <Phone className="h-4 w-4 text-slate-600 mt-0.5 flex-shrink-0" />
                     <div>
                       <p className="text-sm font-bold text-slate-900">Phone</p>
                       <p className="text-xs text-slate-500">{place.phone_numbers[0]}</p>
                     </div>
                   </div>
                 )}
-
                 {place.email && (
                   <div className="flex items-start gap-3">
-                    <Mail className="h-5 w-5 text-slate-700 mt-0.5 flex-shrink-0" />
+                    <Mail className="h-4 w-4 text-slate-600 mt-0.5 flex-shrink-0" />
                     <div>
                       <p className="text-sm font-bold text-slate-900">Email</p>
                       <a href={`mailto:${place.email}`} className="text-xs text-teal-600 hover:underline">{place.email}</a>
@@ -410,92 +338,65 @@ const AdventurePlaceDetail = () => {
                   </div>
                 )}
               </div>
-
               {place.description && (
-                <div className="mt-5 pt-5 border-t border-slate-100">
+                <div className="mt-4 pt-4 border-t border-slate-100">
                   <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{place.description}</p>
                 </div>
               )}
             </section>
 
-            {/* Amenities — mobile */}
+            {/* General amenities — inline display, NOT buttons — mobile */}
             <div className="lg:hidden">
               <GeneralFacilitiesDisplay facilityIds={
-                Array.isArray(place.amenities)
-                  ? place.amenities.map((a: any) => typeof a === "string" ? a : a.name || "")
-                  : []
+                Array.isArray(place.amenities) ? place.amenities.map((a: any) => typeof a === "string" ? a : a.name || "") : []
               } />
             </div>
 
-            {/* ✅ Mobile booking card — utility buttons BELOW reserve button, no overlap */}
+            {/* Mobile booking card */}
             <div className="bg-white rounded-2xl p-5 shadow-lg border border-slate-100 lg:hidden">
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <p className="text-xs text-slate-500 mb-0.5">From</p>
                   {place.entry_fee && place.entry_fee > 0 ? (
                     <div>
-                      <span className="text-2xl font-black text-slate-900">{formatPrice(Number(place.entry_fee))}</span>
-                      <span className="text-xs text-slate-500 ml-1">per adult</span>
-                      {place.child_entry_fee !== undefined && place.child_entry_fee > 0 && (
-                        <p className="text-sm text-slate-600 mt-1">Child: {formatPrice(Number(place.child_entry_fee))}</p>
+                      <span className="text-xl font-black text-slate-900">{formatPrice(Number(place.entry_fee))}</span>
+                      <span className="text-xs text-slate-500 ml-1">/ adult</span>
+                      {place.child_entry_fee > 0 && (
+                        <p className="text-sm text-slate-600 mt-0.5">Child: {formatPrice(Number(place.child_entry_fee))}</p>
                       )}
                     </div>
                   ) : (
                     <span className="text-lg font-bold text-emerald-600">Free Entry</span>
                   )}
                 </div>
-                <div className="flex items-center gap-1 text-slate-800">
-                  <Star className="h-4 w-4 fill-current" />
+                <div className="flex items-center gap-1 text-slate-700">
+                  <Star className="h-3.5 w-3.5 fill-current" />
                   <span className="text-sm font-bold">{liveRating.avg || "0"}</span>
                   <span className="text-[10px] text-slate-500">({liveRating.count})</span>
                 </div>
               </div>
-
-              <Button
-                onClick={() => navigateToBooking(`/booking/adventure_place/${resolvedId}`)}
-                className="w-full py-6 rounded-xl text-sm font-bold bg-emerald-600 hover:bg-emerald-700 border-none shadow-md"
-              >
+              <Button onClick={() => navigateToBooking(`/booking/adventure_place/${resolvedId}`)}
+                className="w-full py-5 rounded-xl text-sm font-bold bg-emerald-600 hover:bg-emerald-700 border-none shadow-md">
                 Check availability
               </Button>
-
-              {/* ✅ Utility buttons below the CTA — no overlap with price details */}
               <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-slate-100">
-                <UtilityButton
-                  icon={<Navigation className="h-4 w-4" />}
-                  label="Map"
-                  onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${place.name}, ${place.location}`)}`, "_blank")}
-                />
-                <UtilityButton
-                  icon={<Copy className="h-4 w-4" />}
-                  label="Copy"
+                <UtilityButton icon={<Navigation className="h-4 w-4" />} label="Map"
+                  onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${place.name}, ${place.location}`)}`, "_blank")} />
+                <UtilityButton icon={<Copy className="h-4 w-4" />} label="Copy"
+                  onClick={async () => { const link = getShareLink(resolvedId, "adventure_place", place.name, place.location); await navigator.clipboard.writeText(link); toast({ title: "Link Copied!" }); }} />
+                <UtilityButton icon={<Share2 className="h-4 w-4" />} label="Share"
                   onClick={async () => {
                     const link = getShareLink(resolvedId, "adventure_place", place.name, place.location);
-                    await navigator.clipboard.writeText(link);
-                    toast({ title: "Link Copied!" });
-                  }}
-                />
-                <UtilityButton
-                  icon={<Share2 className="h-4 w-4" />}
-                  label="Share"
-                  onClick={async () => {
-                    const link = getShareLink(resolvedId, "adventure_place", place.name, place.location);
-                    if (navigator.share) {
-                      try { await navigator.share({ title: place.name, url: link }); } catch (e) {}
-                    } else {
-                      await navigator.clipboard.writeText(link);
-                      toast({ title: "Link Copied!" });
-                    }
-                  }}
-                />
+                    if (navigator.share) { try { await navigator.share({ title: place.name, url: link }); } catch {} }
+                    else { await navigator.clipboard.writeText(link); toast({ title: "Link Copied!" }); }
+                  }} />
               </div>
             </div>
 
-            {/* Amenities — desktop */}
+            {/* General amenities — desktop */}
             <div className="hidden lg:block">
               <GeneralFacilitiesDisplay facilityIds={
-                Array.isArray(place.amenities)
-                  ? place.amenities.map((a: any) => typeof a === "string" ? a : a.name || "")
-                  : []
+                Array.isArray(place.amenities) ? place.amenities.map((a: any) => typeof a === "string" ? a : a.name || "") : []
               } />
             </div>
 
@@ -517,14 +418,12 @@ const AdventurePlaceDetail = () => {
                   <h3 className="text-sm font-bold text-slate-900">Contact</h3>
                   {place.phone_numbers?.map((phone: string, idx: number) => (
                     <a key={idx} href={`tel:${phone}`} className="flex items-center gap-3 text-slate-600 hover:text-teal-600 transition-colors">
-                      <Phone className="h-4 w-4 text-slate-500" />
-                      <span className="text-sm">{phone}</span>
+                      <Phone className="h-4 w-4 text-slate-500" /><span className="text-sm">{phone}</span>
                     </a>
                   ))}
                   {place.email && (
                     <a href={`mailto:${place.email}`} className="flex items-center gap-3 text-slate-600 hover:text-teal-600 transition-colors">
-                      <Mail className="h-4 w-4 text-slate-500" />
-                      <span className="text-sm">{place.email}</span>
+                      <Mail className="h-4 w-4 text-slate-500" /><span className="text-sm">{place.email}</span>
                     </a>
                   )}
                 </div>
@@ -534,79 +433,49 @@ const AdventurePlaceDetail = () => {
 
           {/* ── Desktop sidebar ── */}
           <div className="hidden lg:block">
-            <div className="sticky top-24 bg-white rounded-2xl p-6 shadow-lg border border-slate-200 space-y-5">
+            <div className="sticky top-24 bg-white rounded-2xl p-6 shadow-lg border border-slate-200 space-y-4">
               <div>
                 <p className="text-xs text-slate-500">From</p>
                 {place.entry_fee && place.entry_fee > 0 ? (
                   <div className="flex items-baseline gap-1">
                     <span className="text-3xl font-black text-slate-900">{formatPrice(Number(place.entry_fee))}</span>
-                    <span className="text-sm text-slate-500">per person</span>
+                    <span className="text-sm text-slate-500">/ person</span>
                   </div>
-                ) : (
-                  <span className="text-xl font-bold text-emerald-600">Free Entry</span>
-                )}
-                {place.child_entry_fee !== undefined && place.child_entry_fee > 0 && (
-                  <p className="text-sm text-slate-600 mt-1">Child: {formatPrice(Number(place.child_entry_fee))}</p>
-                )}
+                ) : <span className="text-xl font-bold text-emerald-600">Free Entry</span>}
+                {place.child_entry_fee > 0 && <p className="text-sm text-slate-600 mt-1">Child: {formatPrice(Number(place.child_entry_fee))}</p>}
               </div>
-
-              <Button
-                onClick={() => navigateToBooking(`/booking/adventure_place/${resolvedId}`)}
-                className="w-full py-6 rounded-xl text-sm font-bold bg-emerald-600 hover:bg-emerald-700 border-none shadow-md"
-              >
+              <Button onClick={() => navigateToBooking(`/booking/adventure_place/${resolvedId}`)}
+                className="w-full py-6 rounded-xl text-sm font-bold bg-emerald-600 hover:bg-emerald-700 border-none shadow-md">
                 Check availability
               </Button>
-
               <div className="flex items-center gap-2 pt-3 border-t border-slate-100">
                 <Star className="h-5 w-5 fill-slate-800 text-slate-800" />
                 <span className="text-lg font-black text-slate-900">{liveRating.avg || "0"}</span>
                 <span className="text-xs text-slate-500">({liveRating.count} reviews)</span>
               </div>
-
-              {/* ✅ Utility buttons below rating — clear visual separation */}
               <div className="grid grid-cols-3 gap-2 pt-3 border-t border-slate-100">
-                <UtilityButton
-                  icon={<Navigation className="h-4 w-4" />}
-                  label="Map"
-                  onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${place.name}, ${place.location}`)}`, "_blank")}
-                />
-                <UtilityButton
-                  icon={<Copy className="h-4 w-4" />}
-                  label="Copy"
+                <UtilityButton icon={<Navigation className="h-4 w-4" />} label="Map"
+                  onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${place.name}, ${place.location}`)}`, "_blank")} />
+                <UtilityButton icon={<Copy className="h-4 w-4" />} label="Copy"
+                  onClick={async () => { const link = getShareLink(resolvedId, "adventure_place", place.name, place.location); await navigator.clipboard.writeText(link); toast({ title: "Link Copied!" }); }} />
+                <UtilityButton icon={<Share2 className="h-4 w-4" />} label="Share"
                   onClick={async () => {
                     const link = getShareLink(resolvedId, "adventure_place", place.name, place.location);
-                    await navigator.clipboard.writeText(link);
-                    toast({ title: "Link Copied!" });
-                  }}
-                />
-                <UtilityButton
-                  icon={<Share2 className="h-4 w-4" />}
-                  label="Share"
-                  onClick={async () => {
-                    const link = getShareLink(resolvedId, "adventure_place", place.name, place.location);
-                    if (navigator.share) {
-                      try { await navigator.share({ title: place.name, url: link }); } catch (e) {}
-                    } else {
-                      await navigator.clipboard.writeText(link);
-                      toast({ title: "Link Copied!" });
-                    }
-                  }}
-                />
+                    if (navigator.share) { try { await navigator.share({ title: place.name, url: link }); } catch {} }
+                    else { await navigator.clipboard.writeText(link); toast({ title: "Link Copied!" }); }
+                  }} />
               </div>
-
               {(place.phone_numbers?.length > 0 || place.email) && (
                 <div className="space-y-2 pt-3 border-t border-slate-100">
                   <h3 className="text-xs font-bold text-slate-500">Contact</h3>
                   {place.phone_numbers?.map((phone: string, idx: number) => (
                     <a key={idx} href={`tel:${phone}`} className="flex items-center gap-2 text-slate-600 hover:text-teal-600 transition-colors">
-                      <Phone className="h-4 w-4" />
-                      <span className="text-sm">{phone}</span>
+                      <Phone className="h-4 w-4" /><span className="text-sm">{phone}</span>
                     </a>
                   ))}
                   {place.email && (
                     <a href={`mailto:${place.email}`} className="flex items-center gap-2 text-slate-600 hover:text-teal-600 transition-colors">
-                      <Mail className="h-4 w-4" />
-                      <span className="text-sm">{place.email}</span>
+                      <Mail className="h-4 w-4" /><span className="text-sm">{place.email}</span>
                     </a>
                   )}
                 </div>
@@ -615,32 +484,21 @@ const AdventurePlaceDetail = () => {
           </div>
         </div>
 
-        <div className="mt-12 bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
+        <div className="mt-10 bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
           <ReviewSection itemId={resolvedId} itemType="adventure_place" />
         </div>
 
         <DetailMapSection
-          currentItem={{
-            id: resolvedId,
-            name: place.name,
-            latitude: place.latitude,
-            longitude: place.longitude,
-            location: place.location,
-            country: place.country,
-            image_url: place.image_url,
-            entry_fee: place.entry_fee
-          }}
+          currentItem={{ id: resolvedId, name: place.name, latitude: place.latitude, longitude: place.longitude, location: place.location, country: place.country, image_url: place.image_url, entry_fee: place.entry_fee }}
           itemType="adventure"
         />
       </main>
 
       <Footer />
 
-      {/* ── Fixed mobile bottom bar ── */}
-      <div
-        className="fixed bottom-0 left-0 right-0 z-[100] md:hidden bg-white border-t border-slate-200 shadow-[0_-4px_20px_rgb(0,0,0,0.08)]"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
-      >
+      {/* Mobile bottom bar */}
+      <div className="fixed bottom-0 left-0 right-0 z-[100] md:hidden bg-white border-t border-slate-200 shadow-[0_-4px_20px_rgb(0,0,0,0.08)]"
+        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
         <div className="flex items-center justify-between px-4 py-3">
           <div>
             {place.entry_fee && place.entry_fee > 0 ? (
@@ -658,10 +516,8 @@ const AdventurePlaceDetail = () => {
               <span className="text-sm font-bold text-emerald-600">Free Entry</span>
             )}
           </div>
-          <Button
-            onClick={() => navigateToBooking(`/booking/adventure_place/${resolvedId}`)}
-            className="px-6 py-5 rounded-xl text-sm font-bold text-white border-none bg-emerald-600 hover:bg-emerald-700"
-          >
+          <Button onClick={() => navigateToBooking(`/booking/adventure_place/${resolvedId}`)}
+            className="px-6 py-5 rounded-xl text-sm font-bold text-white border-none bg-emerald-600 hover:bg-emerald-700">
             Check availability
           </Button>
         </div>
@@ -671,11 +527,8 @@ const AdventurePlaceDetail = () => {
 };
 
 const UtilityButton = ({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) => (
-  <Button
-    variant="ghost"
-    onClick={onClick}
-    className="flex-col h-auto py-3 bg-slate-50 text-slate-500 rounded-xl border border-slate-100 hover:bg-slate-100 transition-colors flex-1"
-  >
+  <Button variant="ghost" onClick={onClick}
+    className="flex-col h-auto py-2.5 bg-slate-50 text-slate-500 rounded-xl border border-slate-100 hover:bg-slate-100 transition-colors flex-1">
     <div className="mb-0.5">{icon}</div>
     <span className="text-[9px] font-bold uppercase">{label}</span>
   </Button>

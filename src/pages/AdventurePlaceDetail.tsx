@@ -5,13 +5,13 @@ import { useBookingNavigate } from "@/hooks/useBookingNavigate";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  MapPin, Clock, ArrowLeft,
+import { 
+  MapPin, Clock, ArrowLeft, 
   Heart, Star, Circle, Calendar, Share2, Copy, Navigation, AlertCircle, Phone, Mail
 } from "lucide-react";
 
 import { useToast } from "@/hooks/use-toast";
-import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
+import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
 import { ReviewSection } from "@/components/ReviewSection";
 import { FacilitiesGrid, ActivitiesGrid } from "@/components/detail/FacilityActivityCards";
@@ -44,6 +44,8 @@ const AdventurePlaceDetail = () => {
   const [isOpenNow, setIsOpenNow] = useState(false);
   const [liveRating, setLiveRating] = useState({ avg: 0, count: 0 });
   const [scrolled, setScrolled] = useState(false);
+  const [carouselApi, setCarouselApi] = useState<CarouselApi | null>(null);
+  const [activeSlide, setActiveSlide] = useState(0);
 
   const { savedItems, handleSave: handleSaveItem } = useSavedItems();
   const isSaved = savedItems.has(id || "");
@@ -118,6 +120,13 @@ const AdventurePlaceDetail = () => {
     return () => clearInterval(interval);
   }, [place]);
 
+  useEffect(() => {
+    if (!carouselApi) return;
+    const onSelect = () => setActiveSlide(carouselApi.selectedScrollSnap());
+    carouselApi.on("select", onSelect);
+    return () => { carouselApi.off("select", onSelect); };
+  }, [carouselApi]);
+
   const fetchPlace = async () => {
     if (!rawSlug) return;
     try {
@@ -126,18 +135,14 @@ const AdventurePlaceDetail = () => {
 
       for (const candidate of candidates) {
         if (data) break;
-        const { data: byId } = await supabase
-          .from("adventure_places").select("*").eq("id", candidate).maybeSingle();
+        const { data: byId } = await supabase.from("adventure_places").select("*").eq("id", candidate).maybeSingle();
         if (byId) { data = byId; break; }
-
-        const { data: bySlug } = await supabase
-          .from("adventure_places").select("*").eq("slug", candidate).maybeSingle();
+        const { data: bySlug } = await supabase.from("adventure_places").select("*").eq("slug", candidate).maybeSingle();
         if (bySlug) { data = bySlug; break; }
       }
 
       if (!data && rawSlug) {
-        const { data: byPartial } = await supabase
-          .from("adventure_places").select("*").filter("id", "neq", "").limit(100);
+        const { data: byPartial } = await supabase.from("adventure_places").select("*").filter("id", "neq", "").limit(100);
         if (byPartial) {
           data = byPartial.find(item => rawSlug.endsWith(item.id) || rawSlug.includes(item.id)) || null;
         }
@@ -156,9 +161,7 @@ const AdventurePlaceDetail = () => {
   const fetchLiveRating = async () => {
     if (!id && !rawSlug) return;
     const lookupId = id || rawSlug!;
-    const { data } = await supabase
-      .from("reviews").select("rating")
-      .eq("item_id", lookupId).eq("item_type", "adventure_place");
+    const { data } = await supabase.from("reviews").select("rating").eq("item_id", lookupId).eq("item_type", "adventure_place");
     if (data && data.length > 0) {
       const avg = data.reduce((acc, curr) => acc + curr.rating, 0) / data.length;
       setLiveRating({ avg: parseFloat(avg.toFixed(1)), count: data.length });
@@ -174,17 +177,16 @@ const AdventurePlaceDetail = () => {
     </div>
   );
 
-  const facilityImages = (Array.isArray(place.facilities) ? place.facilities : [])
-    .flatMap((f: any) => (Array.isArray(f.images) ? f.images : []));
-  const activityImages = (Array.isArray(place.activities) ? place.activities : [])
-    .flatMap((a: any) => (Array.isArray(a.images) ? a.images : []));
+  const facilityImages = (Array.isArray(place.facilities) ? place.facilities : []).flatMap((f: any) => (Array.isArray(f.images) ? f.images : []));
+  const activityImages = (Array.isArray(place.activities) ? place.activities : []).flatMap((a: any) => (Array.isArray(a.images) ? a.images : []));
   const allImagesRaw = [place.image_url, ...(place.gallery_images || []), ...facilityImages, ...activityImages].filter(Boolean);
   const allImages = allImagesRaw.slice(0, 5);
   const is24Hours = place.opening_hours === "00:00" && place.closing_hours === "23:59";
   const resolvedId = place.id;
 
   return (
-    <div className="min-h-screen bg-background pb-24" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+    <div className="min-h-screen bg-background pb-24">
+
       <DetailNavBar
         scrolled={scrolled}
         itemName={place.name}
@@ -193,13 +195,15 @@ const AdventurePlaceDetail = () => {
         onBack={goBack}
       />
 
-      {/* ── Image gallery: full bleed mobile, no border radius anywhere,
-              no gaps between images, desktop flush below header ── */}
-      <div className="max-w-6xl mx-auto md:px-4 md:pt-3">
-
-        {/* Mobile Carousel — full bleed, no border radius, no gap below header */}
-        <div className="relative w-full h-[45vw] min-h-[240px] max-h-[380px] bg-slate-900 overflow-hidden md:hidden">
-          <Carousel plugins={[Autoplay({ delay: 3500 })]} className="w-full h-full">
+      {/* ── Image gallery — flush under header, no gap, no border-radius on desktop ── */}
+      <div className="w-full">
+        {/* Mobile carousel */}
+        <div className="relative w-full bg-slate-900 overflow-hidden md:hidden" style={{ height: "65vw", minHeight: "300px", maxHeight: "520px" }}>
+          <Carousel
+            setApi={setCarouselApi}
+            plugins={[Autoplay({ delay: 3500 })]}
+            className="w-full h-full"
+          >
             <CarouselContent className="h-full ml-0">
               {allImages.length > 0 ? allImages.map((img, idx) => (
                 <CarouselItem key={idx} className="h-full pl-0 basis-full">
@@ -213,7 +217,29 @@ const AdventurePlaceDetail = () => {
               )}
             </CarouselContent>
           </Carousel>
+
+          {/* Dot indicators */}
+          {allImages.length > 1 && (
+            <div className="absolute bottom-16 left-0 right-0 z-30 flex justify-center gap-1.5">
+              {allImages.slice(0, 5).map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => carouselApi?.scrollTo(idx)}
+                  className="transition-all duration-300"
+                  style={{
+                    width: activeSlide === idx ? "20px" : "6px",
+                    height: "6px",
+                    borderRadius: "3px",
+                    background: activeSlide === idx ? "white" : "rgba(255,255,255,0.45)",
+                  }}
+                  aria-label={`Go to slide ${idx + 1}`}
+                />
+              ))}
+            </div>
+          )}
+
           {allImages.length > 1 && <ImageGalleryModal images={allImages} name={place.name} />}
+
           <div className="absolute bottom-4 left-0 w-full px-4 z-20">
             <div className="bg-gradient-to-r from-black/70 via-black/50 to-transparent rounded-xl p-3 max-w-md">
               <div className="flex flex-wrap gap-1.5 mb-1.5">
@@ -230,12 +256,11 @@ const AdventurePlaceDetail = () => {
           </div>
         </div>
 
-        {/* Desktop Grid — no border radius, no gaps */}
-        <div className="hidden md:block relative">
-          <div className="grid grid-cols-4 gap-0 h-[500px]">
+        {/* Desktop grid — no border-radius, no gap, flush under header */}
+        <div className="hidden md:block">
+          <div className="grid grid-cols-4 gap-0.5 h-[500px]">
             {allImages.length > 0 ? (
               <>
-                {/* Main large image */}
                 <div className="col-span-2 row-span-2 overflow-hidden relative group">
                   <img src={allImages[0]} alt={place.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
@@ -252,16 +277,12 @@ const AdventurePlaceDetail = () => {
                     </div>
                   </div>
                 </div>
-
-                {/* Top-right */}
                 {allImages[1] && (
                   <div className="col-span-2 overflow-hidden relative group">
                     <img src={allImages[1]} alt={`${place.name} - 2`} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
                   </div>
                 )}
-
-                {/* Bottom-right three — no gaps */}
-                <div className="col-span-2 grid grid-cols-3 gap-0">
+                <div className="col-span-2 grid grid-cols-3 gap-0.5">
                   {allImages.slice(2, 5).map((img, idx) => (
                     <div key={idx} className="overflow-hidden relative group">
                       <img src={img} alt={`${place.name} - ${idx + 3}`} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
@@ -287,7 +308,7 @@ const AdventurePlaceDetail = () => {
         </div>
       </div>
 
-      {/* Quick nav — mobile only */}
+      {/* Quick nav bar — mobile only */}
       <div className="md:hidden container px-4 mt-4 max-w-6xl mx-auto">
         <QuickNavigationBar
           hasFacilities={place.facilities?.length > 0}
@@ -296,11 +317,11 @@ const AdventurePlaceDetail = () => {
         />
       </div>
 
-      {/* ── Main content — NO z-index on main to prevent overlay on mobile ── */}
-      <main className="container px-4 mt-6 max-w-6xl mx-auto">
+      {/* ── Main content ── */}
+      <main className="container px-4 mt-6 relative z-10 max-w-6xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-[1.8fr,1fr] gap-6">
 
-          {/* Left column */}
+          {/* ── Left column ── */}
           <div className="space-y-6">
             <section className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
               <h2 className="text-lg font-black text-slate-900 mb-4">About this property</h2>
@@ -317,12 +338,8 @@ const AdventurePlaceDetail = () => {
                   <div className="flex items-start gap-3">
                     <Clock className="h-5 w-5 text-slate-700 mt-0.5 flex-shrink-0" />
                     <div>
-                      <p className="text-sm font-bold text-slate-900">
-                        {place.opening_hours || "08:00 AM"} - {place.closing_hours || "06:00 PM"}
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        {Array.isArray(place.days_opened) ? place.days_opened.join(", ") : "Open daily"}
-                      </p>
+                      <p className="text-sm font-bold text-slate-900">{place.opening_hours || "08:00 AM"} - {place.closing_hours || "06:00 PM"}</p>
+                      <p className="text-xs text-slate-500">{Array.isArray(place.days_opened) ? place.days_opened.join(", ") : "Open daily"}</p>
                     </div>
                   </div>
                 )}
@@ -392,7 +409,7 @@ const AdventurePlaceDetail = () => {
               )}
             </section>
 
-            {/* General amenities — mobile above booking card */}
+            {/* Amenities — mobile */}
             <div className="lg:hidden">
               <GeneralFacilitiesDisplay facilityIds={
                 Array.isArray(place.amenities)
@@ -401,7 +418,7 @@ const AdventurePlaceDetail = () => {
               } />
             </div>
 
-            {/* Mobile booking card — flows in document, no z-index overlap */}
+            {/* ✅ Mobile booking card — utility buttons BELOW reserve button, no overlap */}
             <div className="bg-white rounded-2xl p-5 shadow-lg border border-slate-100 lg:hidden">
               <div className="flex justify-between items-start mb-4">
                 <div>
@@ -432,7 +449,8 @@ const AdventurePlaceDetail = () => {
                 Check availability
               </Button>
 
-              <div className="grid grid-cols-3 gap-2 mt-4">
+              {/* ✅ Utility buttons below the CTA — no overlap with price details */}
+              <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-slate-100">
                 <UtilityButton
                   icon={<Navigation className="h-4 w-4" />}
                   label="Map"
@@ -463,7 +481,7 @@ const AdventurePlaceDetail = () => {
               </div>
             </div>
 
-            {/* Desktop general facilities */}
+            {/* Amenities — desktop */}
             <div className="hidden lg:block">
               <GeneralFacilitiesDisplay facilityIds={
                 Array.isArray(place.amenities)
@@ -505,7 +523,7 @@ const AdventurePlaceDetail = () => {
             </div>
           </div>
 
-          {/* Desktop sidebar — sticky, lg+ only */}
+          {/* ── Desktop sidebar ── */}
           <div className="hidden lg:block">
             <div className="sticky top-24 bg-white rounded-2xl p-6 shadow-lg border border-slate-200 space-y-5">
               <div>
@@ -536,6 +554,7 @@ const AdventurePlaceDetail = () => {
                 <span className="text-xs text-slate-500">({liveRating.count} reviews)</span>
               </div>
 
+              {/* ✅ Utility buttons below rating — clear visual separation */}
               <div className="grid grid-cols-3 gap-2 pt-3 border-t border-slate-100">
                 <UtilityButton
                   icon={<Navigation className="h-4 w-4" />}
@@ -608,7 +627,7 @@ const AdventurePlaceDetail = () => {
 
       <Footer />
 
-      {/* Fixed bottom reserve bar — mobile only */}
+      {/* ── Fixed mobile bottom bar ── */}
       <div
         className="fixed bottom-0 left-0 right-0 z-[100] md:hidden bg-white border-t border-slate-200 shadow-[0_-4px_20px_rgb(0,0,0,0.08)]"
         style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
@@ -643,7 +662,11 @@ const AdventurePlaceDetail = () => {
 };
 
 const UtilityButton = ({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) => (
-  <Button variant="ghost" onClick={onClick} className="flex-col h-auto py-3 bg-slate-50 text-slate-500 rounded-xl border border-slate-100 hover:bg-slate-100 transition-colors flex-1">
+  <Button
+    variant="ghost"
+    onClick={onClick}
+    className="flex-col h-auto py-3 bg-slate-50 text-slate-500 rounded-xl border border-slate-100 hover:bg-slate-100 transition-colors flex-1"
+  >
     <div className="mb-0.5">{icon}</div>
     <span className="text-[9px] font-bold uppercase">{label}</span>
   </Button>

@@ -164,10 +164,10 @@ const AdventurePlaceDetail = () => {
       <DetailNavBar scrolled={scrolled} itemName={place.name} isSaved={isSaved}
         onSave={() => handleSaveItem(resolvedId, "adventure_place")} onBack={goBack} />
 
-      {/* ══ IMAGE GALLERY — pushed below fixed header, never overlapped ══ */}
-      <div style={{ paddingTop: "calc(56px + env(safe-area-inset-top, 0px))" }}>
+      {/* ══ IMAGE GALLERY — spacer pushes gallery below fixed header, overflow-hidden clips image ══ */}
+      <div style={{ height: "calc(56px + env(safe-area-inset-top, 0px))" }} />
 
-      {/* Mobile — strict 45vh, no overlays except See All + dots */}
+      {/* Mobile — strict 45vh, overflow-hidden ensures nothing bleeds below */}
       <div className="relative w-full bg-slate-900 overflow-hidden md:hidden" style={{ height: "45vh", minHeight: "200px", maxHeight: "360px" }}>
         <Carousel setApi={setCarouselApi} plugins={[Autoplay({ delay: 3500 })]} className="w-full h-full">
           <CarouselContent className="h-full ml-0">
@@ -231,10 +231,8 @@ const AdventurePlaceDetail = () => {
         </div>
       </div>
 
-      </div>{/* end paddingTop wrapper */}
-
       {/* ══ NAME / CATEGORY / LOCATION — below gallery, same style mobile & desktop ══ */}
-      <div className="max-w-6xl mx-auto px-4 pt-4 pb-1">
+      <div className="max-w-6xl mx-auto px-4 pt-4 pb-1 bg-background relative z-10">
         <div className="flex items-center gap-2 mb-1.5">
           <span className="inline-block bg-teal-600 text-white px-3 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest">Adventure</span>
           {liveRating.avg > 0 && (

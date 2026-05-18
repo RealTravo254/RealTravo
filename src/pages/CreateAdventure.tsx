@@ -6,15 +6,13 @@ import { MobileBottomBar } from "@/components/MobileBottomBar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBanCheck } from "@/hooks/useBanCheck";
 import {
   MapPin, Navigation, Clock, X, Plus, Camera, CheckCircle2, Info, ArrowLeft, Loader2,
-  DollarSign, ChevronLeft, ChevronRight, Link2,
+  DollarSign, ChevronLeft, ChevronRight, Link2, ShieldCheck, FileImage, Upload,
 } from "lucide-react";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -44,8 +42,14 @@ const generateFriendlySlug = (name: string): string => {
 const safeObjectUrl = (file: File): string => { try { return URL.createObjectURL(file); } catch { return ""; } };
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-interface FacilityItem { id: string; name: string; amenities: string[]; amenityInput: string; price: string; capacity: string; images: File[]; previewUrls: string[]; saved: boolean; }
-interface ActivityItem { id: string; name: string; price: string; images: File[]; previewUrls: string[]; saved: boolean; }
+interface FacilityItem {
+  id: string; name: string; amenities: string[]; amenityInput: string;
+  price: string; capacity: string; images: File[]; previewUrls: string[]; saved: boolean;
+}
+interface ActivityItem {
+  id: string; name: string; price: string;
+  images: File[]; previewUrls: string[]; saved: boolean;
+}
 const emptyFacility = (): FacilityItem => ({ id: makeId(), name: "", amenities: [], amenityInput: "", price: "", capacity: "", images: [], previewUrls: [], saved: false });
 const emptyActivity = (): ActivityItem => ({ id: makeId(), name: "", price: "", images: [], previewUrls: [], saved: false });
 
@@ -65,7 +69,9 @@ const StyledInput = ({ className = "", isInvalid = false, ...props }: React.Comp
   />
 );
 
-const SectionCard = ({ title, subtitle, icon: Icon, children, accent = COLORS.TEAL }: { title?: string; subtitle?: string; icon?: any; children: React.ReactNode; accent?: string }) => (
+const SectionCard = ({ title, subtitle, icon: Icon, children, accent = COLORS.TEAL }: {
+  title?: string; subtitle?: string; icon?: any; children: React.ReactNode; accent?: string;
+}) => (
   <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
     {title && (
       <div className="px-8 py-5 border-b border-slate-100 flex items-center gap-3">
@@ -117,7 +123,7 @@ const ImageGalleryGrid = ({
 }) => (
   <div
     className={`grid gap-3 p-4 rounded-xl border-2 border-dashed transition-all ${isInvalid ? "border-red-400 bg-red-50/30" : "border-slate-200 bg-slate-50/40"}`}
-    style={{ gridTemplateColumns: `repeat(${slots}, minmax(0, 1fr))` }}
+    style={{ gridTemplateColumns: `repeat(${Math.min(slots, 5)}, minmax(0, 1fr))` }}
   >
     {Array.from({ length: slots }).map((_, i) => {
       const url = previews[i];
@@ -140,6 +146,99 @@ const ImageGalleryGrid = ({
         </label>
       );
     })}
+  </div>
+);
+
+// ─── TRA Licence Upload ───────────────────────────────────────────────────────
+const TraLicenceUpload = ({
+  file, preview, onAdd, onRemove, isInvalid,
+}: {
+  file: File | null; preview: string; onAdd: (f: File) => void; onRemove: () => void; isInvalid?: boolean;
+}) => (
+  <div className="mt-6 pt-6 border-t border-slate-100">
+    {/* Header row */}
+    <div className="flex items-center gap-3 mb-4">
+      <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: "linear-gradient(135deg,#008080,#005f5f)" }}>
+        <ShieldCheck className="h-4.5 w-4.5 text-white h-[18px] w-[18px]" />
+      </div>
+      <div>
+        <p className="text-sm font-black text-slate-800 tracking-tight">TRA Licence</p>
+        <p className="text-[11px] text-slate-400 mt-0.5">Upload a clear photo or scan of your Tax Registration Authority licence</p>
+      </div>
+      <span className="ml-auto shrink-0 text-[10px] font-bold uppercase tracking-widest bg-amber-50 text-amber-600 border border-amber-200 px-2.5 py-1 rounded-full">Required</span>
+    </div>
+
+    {preview ? (
+      /* ── Uploaded state ── */
+      <div className={`relative rounded-2xl overflow-hidden border-2 transition-all ${isInvalid ? "border-red-300" : "border-teal-200"}`} style={{ background: "linear-gradient(135deg,#f0fdfa,#e6fffa)" }}>
+        <div className="flex items-center gap-4 p-4">
+          {/* Thumbnail */}
+          <div className="relative shrink-0 w-20 h-20 rounded-xl overflow-hidden border border-teal-200 shadow-md">
+            <img src={preview} alt="TRA Licence" className="w-full h-full object-cover" />
+          </div>
+          {/* Info */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <CheckCircle2 className="h-4 w-4 text-teal-600 shrink-0" />
+              <span className="text-sm font-black text-teal-700">Licence Uploaded</span>
+            </div>
+            <p className="text-[11px] text-teal-600 truncate font-medium">{file?.name}</p>
+            <p className="text-[10px] text-slate-400 mt-0.5">{file ? `${(file.size / 1024).toFixed(0)} KB` : ""}</p>
+          </div>
+          {/* Actions */}
+          <div className="flex flex-col gap-2 shrink-0">
+            <label className="flex items-center gap-1.5 text-[11px] font-bold text-teal-700 border border-teal-300 bg-white rounded-lg px-3 py-1.5 cursor-pointer hover:bg-teal-50 transition-colors">
+              <Upload className="h-3 w-3" /> Replace
+              <input type="file" className="hidden" accept="image/*,application/pdf" onChange={(e) => { if (e.target.files?.[0]) onAdd(e.target.files[0]); }} />
+            </label>
+            <button type="button" onClick={onRemove} className="flex items-center gap-1.5 text-[11px] font-bold text-red-500 border border-red-200 bg-white rounded-lg px-3 py-1.5 hover:bg-red-50 transition-colors">
+              <X className="h-3 w-3" /> Remove
+            </button>
+          </div>
+        </div>
+        {/* Green accent bar */}
+        <div className="h-1 w-full" style={{ background: "linear-gradient(90deg,#008080,#00b3b3)" }} />
+      </div>
+    ) : (
+      /* ── Empty upload zone ── */
+      <label className={cn(
+        "flex flex-col items-center justify-center gap-3 w-full rounded-2xl border-2 border-dashed cursor-pointer transition-all py-10 px-6 group",
+        isInvalid
+          ? "border-red-300 bg-red-50/40 hover:bg-red-50"
+          : "border-slate-200 bg-slate-50/50 hover:border-teal-400 hover:bg-teal-50/30"
+      )}>
+        {/* Icon circle */}
+        <div className={cn(
+          "w-14 h-14 rounded-2xl flex items-center justify-center transition-all",
+          isInvalid ? "bg-red-100" : "bg-slate-100 group-hover:bg-teal-100"
+        )}>
+          <FileImage className={cn("h-6 w-6 transition-colors", isInvalid ? "text-red-400" : "text-slate-400 group-hover:text-teal-600")} />
+        </div>
+        <div className="text-center">
+          <p className={cn("text-sm font-bold mb-0.5", isInvalid ? "text-red-500" : "text-slate-600 group-hover:text-teal-700")}>
+            {isInvalid ? "TRA Licence is required" : "Upload TRA Licence"}
+          </p>
+          <p className="text-[11px] text-slate-400">JPG, PNG or PDF · Max 5 MB</p>
+        </div>
+        <div className={cn(
+          "flex items-center gap-2 px-5 py-2.5 rounded-xl text-[12px] font-bold transition-all",
+          isInvalid
+            ? "bg-red-500 text-white"
+            : "bg-[#008080] text-white group-hover:bg-[#005f5f]"
+        )}>
+          <Upload className="h-3.5 w-3.5" /> Choose File
+        </div>
+        <input type="file" className="hidden" accept="image/*,application/pdf" onChange={(e) => { if (e.target.files?.[0]) onAdd(e.target.files[0]); }} />
+      </label>
+    )}
+
+    {/* Helper note */}
+    <div className="mt-3 flex items-start gap-2 px-1">
+      <Info className="h-3.5 w-3.5 text-slate-400 mt-0.5 shrink-0" />
+      <p className="text-[10px] text-slate-400 leading-relaxed">
+        Your TRA licence is used for identity verification only and will not be publicly visible. Accepted formats: JPG, PNG, PDF.
+      </p>
+    </div>
   </div>
 );
 
@@ -284,6 +383,7 @@ const FacilityBuilder = ({ items, onChange, showErrors, onValidationFail }: {
 };
 
 // ─── Activity Builder ─────────────────────────────────────────────────────────
+// Activities: user must upload at least 1 image (max 5) before saving.
 const ActivityBuilder = ({ items, onChange, showErrors, onValidationFail }: {
   items: ActivityItem[]; onChange: (items: ActivityItem[]) => void;
   showErrors: boolean; onValidationFail: (msg: string) => void;
@@ -292,21 +392,27 @@ const ActivityBuilder = ({ items, onChange, showErrors, onValidationFail }: {
   const update = (id: string, patch: Partial<ActivityItem>) => onChange(items.map((a) => a.id === id ? { ...a, ...patch } : a));
   const addItem = () => onChange([...items, emptyActivity()]);
   const removeItem = (id: string) => onChange(items.filter((a) => a.id !== id));
+
   const handleImages = async (id: string, fileList: FileList | null, existing: File[]) => {
     if (!fileList || fileList.length === 0) return;
-    const slots = 5 - existing.length; if (slots <= 0) return;
+    const slots = 5 - existing.length;
+    if (slots <= 0) return;
     const incoming = Array.from(fileList).slice(0, slots);
     let merged: File[];
     try { const compressed = await compressImages(incoming); merged = [...existing, ...compressed.map((c) => c.file)].slice(0, 5); }
     catch { merged = [...existing, ...incoming].slice(0, 5); }
     update(id, { images: merged, previewUrls: merged.map(safeObjectUrl) });
   };
+
   const removeImage = (id: string, idx: number, existing: File[]) => {
     const updated = existing.filter((_, i) => i !== idx);
     update(id, { images: updated, previewUrls: updated.map(safeObjectUrl) });
   };
+
+  // ── CHANGED: require at least 1 image before saving ──
   const saveItem = (a: ActivityItem) => {
     if (!a.name.trim()) { onValidationFail("Please enter an activity name."); return; }
+    if (a.images.length === 0) { onValidationFail("Please upload at least 1 photo for this activity."); return; }
     update(a.id, { saved: true });
   };
 
@@ -317,15 +423,26 @@ const ActivityBuilder = ({ items, onChange, showErrors, onValidationFail }: {
         <div key={item.id} className={cn("rounded-xl border overflow-hidden transition-all", item.saved ? "border-indigo-200 bg-indigo-50/30" : "border-slate-200 bg-white")}>
           {item.saved ? (
             <div className="p-4 flex items-center gap-4">
+              {/* Show up to 3 thumbnails */}
               <div className="flex gap-2 shrink-0">
-                {item.previewUrls.slice(0, 3).map((url, i) => url
-                  ? <img key={i} src={url} className="w-12 h-12 rounded-xl object-cover border border-slate-200" alt="" />
-                  : null
+                {item.previewUrls.length > 0
+                  ? item.previewUrls.slice(0, 3).map((url, i) =>
+                      url ? <img key={i} src={url} className="w-12 h-12 rounded-xl object-cover border border-slate-200" alt="" /> : null
+                    )
+                  : (
+                    <div className="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center">
+                      <Camera className="h-5 w-5 text-slate-300" />
+                    </div>
+                  )
+                }
+                {item.previewUrls.length > 3 && (
+                  <div className="w-12 h-12 rounded-xl bg-indigo-100 border border-indigo-200 flex items-center justify-center text-xs font-bold text-indigo-500">+{item.previewUrls.length - 3}</div>
                 )}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-bold text-sm text-slate-800 truncate">{item.name}</p>
                 {item.price && <p className="text-[11px] font-semibold text-indigo-500">KSh {item.price} <span className="text-blue-500">{usdHint(parseFloat(item.price))}</span></p>}
+                <p className="text-[10px] text-slate-400 mt-0.5">{item.previewUrls.length > 0 ? `${item.previewUrls.length} photo${item.previewUrls.length > 1 ? "s" : ""}` : "No photos"}</p>
               </div>
               <div className="flex gap-2 shrink-0">
                 <button type="button" onClick={() => update(item.id, { saved: false })} className="text-[11px] font-bold uppercase tracking-wide text-indigo-500 border border-indigo-200 rounded-lg px-3 py-1.5 hover:bg-indigo-50 transition-colors">Edit</button>
@@ -341,14 +458,93 @@ const ActivityBuilder = ({ items, onChange, showErrors, onValidationFail }: {
                 </div>
                 <div className="space-y-1">
                   <FieldLabel>Price (KSh)</FieldLabel>
-                  <StyledInput type="number" value={item.price} onChange={(e) => update(item.id, { price: e.target.value })} placeholder="0" />
+                  <StyledInput type="number" value={item.price} onChange={(e) => update(item.id, { price: e.target.value })} placeholder="0 = Free" />
                   {item.price && parseFloat(item.price) > 0 && <p className="text-[9px] text-blue-500 font-semibold mt-0.5">{usdHint(parseFloat(item.price))}</p>}
                 </div>
               </div>
+
+              {/* Activity photo grid — 1 to 5 images (min 1 required) */}
               <div>
-                <FieldLabel>Photos (max 5)</FieldLabel>
-                <ImageGalleryGrid images={item.images} previews={item.previewUrls} onRemove={(i) => removeImage(item.id, i, item.images)} onAdd={(files) => handleImages(item.id, files, item.images)} slots={5} />
+                <div className="flex items-center justify-between mb-1.5">
+                  {/* ── CHANGED: label updated to reflect min 1 requirement ── */}
+                  <FieldLabel required>
+                    Photos (min 1, max 5)
+                    {showErrors && item.images.length === 0 && (
+                      <span className="text-red-400 text-[10px] normal-case font-normal"> — at least 1 required</span>
+                    )}
+                  </FieldLabel>
+                  {item.images.length > 0 && (
+                    <span className="text-[10px] font-bold text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+                      {item.images.length}/5 uploaded
+                    </span>
+                  )}
+                </div>
+
+                {/* Uploaded thumbnails row */}
+                {item.previewUrls.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {item.previewUrls.map((url, i) => (
+                      <div key={i} className="relative group w-16 h-16 rounded-xl overflow-hidden border border-slate-200 shadow-sm">
+                        <img src={url} className="w-full h-full object-cover" alt={`Activity ${i + 1}`} />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
+                          <button type="button" onClick={() => removeImage(item.id, i, item.images)} className="opacity-0 group-hover:opacity-100 bg-red-500 text-white rounded-full p-1 transition-all scale-75 group-hover:scale-100">
+                            <X className="h-2.5 w-2.5" />
+                          </button>
+                        </div>
+                        <div className="absolute bottom-0.5 left-0.5 bg-black/60 text-white text-[8px] font-bold px-1 py-0.5 rounded">#{i + 1}</div>
+                      </div>
+                    ))}
+                    {/* Add more slot — shown if < 5 */}
+                    {item.images.length < 5 && (
+                      <label className="w-16 h-16 rounded-xl border-2 border-dashed border-indigo-200 bg-indigo-50/50 flex flex-col items-center justify-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-all">
+                        <Plus className="h-4 w-4 text-indigo-400" />
+                        <span className="text-[8px] font-bold text-indigo-400 uppercase mt-0.5">Add</span>
+                        <input type="file" multiple className="hidden" accept="image/*" onChange={(e) => handleImages(item.id, e.target.files, item.images)} />
+                      </label>
+                    )}
+                  </div>
+                )}
+
+                {/* ── CHANGED: empty upload zone now shows red border when showErrors and no images ── */}
+                {item.previewUrls.length === 0 && (
+                  <label className={cn(
+                    "flex flex-col items-center justify-center gap-2 w-full rounded-xl border-2 border-dashed cursor-pointer transition-all py-7 px-4 group",
+                    showErrors && item.images.length === 0
+                      ? "border-red-300 bg-red-50/40 hover:border-red-400 hover:bg-red-50"
+                      : "border-indigo-200 bg-indigo-50/30 hover:border-indigo-400 hover:bg-indigo-50/50"
+                  )}>
+                    <div className={cn(
+                      "w-11 h-11 rounded-xl flex items-center justify-center transition-colors",
+                      showErrors && item.images.length === 0
+                        ? "bg-red-100 group-hover:bg-red-200"
+                        : "bg-indigo-100 group-hover:bg-indigo-200"
+                    )}>
+                      <Camera className={cn(
+                        "h-5 w-5",
+                        showErrors && item.images.length === 0 ? "text-red-400" : "text-indigo-500"
+                      )} />
+                    </div>
+                    <div className="text-center">
+                      <p className={cn(
+                        "text-sm font-bold",
+                        showErrors && item.images.length === 0 ? "text-red-500" : "text-indigo-600"
+                      )}>
+                        {showErrors && item.images.length === 0 ? "At least 1 photo is required" : "Upload Activity Photos"}
+                      </p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">1 to 5 images · JPG or PNG</p>
+                    </div>
+                    <input type="file" multiple className="hidden" accept="image/*" onChange={(e) => handleImages(item.id, e.target.files, item.images)} />
+                  </label>
+                )}
+
+                {/* Cap notice */}
+                {item.images.length >= 5 && (
+                  <p className="text-[10px] text-slate-400 mt-1.5 flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3 text-emerald-500" /> Maximum 5 photos reached
+                  </p>
+                )}
               </div>
+
               <div className="flex gap-3 pt-1">
                 <button type="button" onClick={() => saveItem(item)} className="flex-1 h-10 rounded-xl text-white text-[12px] font-bold hover:opacity-90 transition-all" style={{ background: "linear-gradient(135deg, #6366f1, #4f46e5)" }}>Save Activity</button>
                 {items.length > 1 && (
@@ -422,6 +618,7 @@ const CreateAdventure = () => {
   const { user } = useAuth();
   const { usdHint } = useCurrency();
   useBanCheck();
+
   const [loading, setLoading] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
@@ -434,6 +631,11 @@ const CreateAdventure = () => {
     latitude: null as number | null, longitude: null as number | null,
     locationLink: "",
   });
+
+  // TRA licence state
+  const [traLicenceFile, setTraLicenceFile] = useState<File | null>(null);
+  const [traLicencePreview, setTraLicencePreview] = useState<string>("");
+
   const [locationMode, setLocationMode] = useState<"link" | "gps" | null>(null);
   const [workingDays, setWorkingDays] = useState({ Mon: true, Tue: true, Wed: true, Thu: true, Fri: true, Sat: true, Sun: true });
   const [generalFacilities, setGeneralFacilities] = useState<string[]>([]);
@@ -457,7 +659,17 @@ const CreateAdventure = () => {
     });
   }, [user, navigate, toast]);
 
-  const isStep1Complete = !!formData.registrationName.trim() && !!formData.registrationNumber.trim() && !!formData.country;
+  // TRA licence handlers
+  const handleTraLicenceAdd = (file: File) => {
+    setTraLicenceFile(file);
+    setTraLicencePreview(safeObjectUrl(file));
+  };
+  const handleTraLicenceRemove = () => {
+    setTraLicenceFile(null);
+    setTraLicencePreview("");
+  };
+
+  const isStep1Complete = !!formData.registrationName.trim() && !!formData.registrationNumber.trim() && !!formData.country && !!traLicenceFile;
   const isStep2Complete = !!formData.locationName.trim() && !!formData.place.trim() && (!!formData.latitude || !!formData.locationLink.trim());
   const isStep3Complete = !!formData.description.trim();
   const isStep4Complete = true;
@@ -485,6 +697,11 @@ const CreateAdventure = () => {
       if (!formData.registrationName.trim() || !formData.registrationNumber.trim() || !formData.country) {
         setShowErrors(true);
         toast({ title: "Complete this step", description: "Fill all required fields", variant: "destructive" });
+        return false;
+      }
+      if (!traLicenceFile) {
+        setShowErrors(true);
+        toast({ title: "TRA Licence Required", description: "Please upload your TRA licence to continue", variant: "destructive" });
         return false;
       }
     } else if (currentStep === 2) {
@@ -531,7 +748,8 @@ const CreateAdventure = () => {
     setActivities((prev) =>
       prev.map((a) => {
         if (a.saved) return a;
-        if (a.name.trim()) return { ...a, saved: true };
+        // ── CHANGED: auto-save activity on Next only if it has name AND at least 1 image ──
+        if (a.name.trim() && a.images.length >= 1) return { ...a, saved: true };
         return a;
       })
     );
@@ -590,9 +808,9 @@ const CreateAdventure = () => {
     if (
       !formData.registrationName.trim() || !formData.registrationNumber.trim() || !formData.country ||
       !formData.locationName.trim() || !formData.place.trim() || !formData.latitude ||
-      !formData.description.trim() || galleryImages.length < 5
+      !formData.description.trim() || galleryImages.length < 5 || !traLicenceFile
     ) {
-      toast({ title: "Action Required", description: "Please complete all steps.", variant: "destructive" });
+      toast({ title: "Action Required", description: "Please complete all steps including TRA licence upload.", variant: "destructive" });
       return;
     }
     if (facilities.some((f) => !f.saved)) {
@@ -602,6 +820,10 @@ const CreateAdventure = () => {
     setLoading(true);
     try {
       const friendlySlug = generateFriendlySlug(formData.registrationName);
+
+      // Upload TRA licence
+      const traLicenceUrl = traLicenceFile ? await uploadFile(traLicenceFile, "tra-licence") : "";
+
       const galleryUrls = await Promise.all(galleryImages.map((f) => uploadFile(f, "gallery")));
       const facilitiesForDB = await Promise.all(
         facilities.map(async (fac) => ({
@@ -614,14 +836,17 @@ const CreateAdventure = () => {
       const savedActivities = activities.filter((a) => a.name.trim());
       const activitiesForDB = await Promise.all(
         savedActivities.map(async (act) => ({
-          name: act.name, price: act.price ? parseFloat(act.price) || 0 : 0,
+          name: act.name,
+          price: act.price ? parseFloat(act.price) || 0 : 0,
           images: await Promise.all(act.images.map((f) => uploadFile(f, "act"))),
         }))
       );
       const selectedDays = Object.entries(workingDays).filter(([, v]) => v).map(([k]) => k);
+
       const { error } = await supabase.from("adventure_places").insert([{
         id: friendlySlug, slug: friendlySlug, name: formData.registrationName,
         registration_number: formData.registrationNumber,
+        tra_license_url: traLicenceUrl,
         location: formData.locationName, place: formData.place, country: formData.country,
         description: formData.description, email: formData.email,
         phone_numbers: formData.phoneNumber ? [formData.phoneNumber] : [],
@@ -645,7 +870,6 @@ const CreateAdventure = () => {
     } finally { setLoading(false); }
   };
 
-  // ─── Location mode button options ─────────────────────────────────────────
   const locationModeOptions: { mode: "link" | "gps"; label: string; icon: React.ElementType }[] = [
     { mode: "link", label: "Paste Map Link", icon: Link2 },
     { mode: "gps",  label: "Use My GPS",     icon: Navigation },
@@ -671,10 +895,8 @@ const CreateAdventure = () => {
 
       <main className="max-w-screen-xl mx-auto px-4 lg:px-8 py-6 lg:py-10">
         <div className="flex gap-8 items-start">
-          {/* Sidebar */}
           <StepSidebar steps={steps} currentStep={currentStep} onStepClick={(n) => { setShowErrors(false); setCurrentStep(n); }} />
 
-          {/* Main content */}
           <div className="flex-1 min-w-0 space-y-5">
             {/* Desktop title */}
             <div className="hidden lg:flex items-center justify-between mb-2">
@@ -705,12 +927,22 @@ const CreateAdventure = () => {
                 <div className="grid gap-5">
                   <div>
                     <FieldLabel required>Registration Name</FieldLabel>
-                    <StyledInput value={formData.registrationName} onChange={(e) => setFormData({ ...formData, registrationName: e.target.value })} placeholder="Official Government Name" isInvalid={isMissing(formData.registrationName)} />
+                    <StyledInput
+                      value={formData.registrationName}
+                      onChange={(e) => setFormData({ ...formData, registrationName: e.target.value })}
+                      placeholder="Official Government Name"
+                      isInvalid={isMissing(formData.registrationName)}
+                    />
                   </div>
                   <div className="grid lg:grid-cols-2 gap-4">
                     <div>
                       <FieldLabel required>Registration Number</FieldLabel>
-                      <StyledInput value={formData.registrationNumber} onChange={(e) => setFormData({ ...formData, registrationNumber: e.target.value })} placeholder="e.g. BN-X12345" isInvalid={isMissing(formData.registrationNumber)} />
+                      <StyledInput
+                        value={formData.registrationNumber}
+                        onChange={(e) => setFormData({ ...formData, registrationNumber: e.target.value })}
+                        placeholder="e.g. BN-X12345"
+                        isInvalid={isMissing(formData.registrationNumber)}
+                      />
                     </div>
                     <div>
                       <FieldLabel required>Country</FieldLabel>
@@ -719,6 +951,15 @@ const CreateAdventure = () => {
                       </div>
                     </div>
                   </div>
+
+                  {/* ── TRA Licence Upload ── */}
+                  <TraLicenceUpload
+                    file={traLicenceFile}
+                    preview={traLicencePreview}
+                    onAdd={handleTraLicenceAdd}
+                    onRemove={handleTraLicenceRemove}
+                    isInvalid={showErrors && !traLicenceFile}
+                  />
                 </div>
               </SectionCard>
             )}
@@ -742,38 +983,25 @@ const CreateAdventure = () => {
                       </div>
                     </div>
                   </div>
-
                   <div>
                     <FieldLabel required>Map Location</FieldLabel>
                     <p className="text-[11px] text-slate-400 mb-3">Paste a map link or capture your GPS coordinates</p>
                     <div className="flex gap-3 mb-4">
                       {locationModeOptions.map(({ mode, label, icon: Icon }) => (
-                        <button
-                          key={mode}
-                          type="button"
-                          onClick={() => setLocationMode(mode)}
+                        <button key={mode} type="button" onClick={() => setLocationMode(mode)}
                           className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[12px] font-bold transition-all ${locationMode === mode ? "text-white shadow-md" : "bg-slate-50 border border-slate-200 text-slate-500 hover:bg-slate-100"}`}
-                          style={locationMode === mode ? { background: COLORS.TEAL } : {}}
-                        >
+                          style={locationMode === mode ? { background: COLORS.TEAL } : {}}>
                           <Icon className="h-3.5 w-3.5" /> {label}
                         </button>
                       ))}
                     </div>
-
                     {locationMode === "link" && (
-                      <StyledInput
-                        value={formData.locationLink}
-                        onChange={(e) => setFormData({ ...formData, locationLink: e.target.value })}
-                        placeholder="https://maps.google.com/..."
-                      />
+                      <StyledInput value={formData.locationLink} onChange={(e) => setFormData({ ...formData, locationLink: e.target.value })} placeholder="https://maps.google.com/..." />
                     )}
                     {locationMode === "gps" && (
-                      <button
-                        type="button"
-                        onClick={getCurrentLocation}
+                      <button type="button" onClick={getCurrentLocation}
                         className="flex items-center gap-2.5 px-6 py-3 rounded-xl text-white text-sm font-bold transition-all active:scale-[0.98] shadow-md hover:opacity-90"
-                        style={{ background: formData.latitude ? "#16a34a" : COLORS.KHAKI_DARK }}
-                      >
+                        style={{ background: formData.latitude ? "#16a34a" : COLORS.KHAKI_DARK }}>
                         {formData.latitude
                           ? <><CheckCircle2 className="h-4 w-4" /> Location Captured — {formData.latitude.toFixed(4)}, {formData.longitude?.toFixed(4)}</>
                           : <><Navigation className="h-4 w-4" /> Tap to Capture GPS Location</>

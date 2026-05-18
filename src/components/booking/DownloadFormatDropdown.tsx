@@ -14,7 +14,7 @@ import { toast } from "sonner";
 interface BookingForExport {
   id: string;
   guest_name: string | null;
-  guest_email: string | null;
+  guest_email: string | null; 
   guest_phone: string | null;
   visit_date: string | null;
   total_amount: number | null;

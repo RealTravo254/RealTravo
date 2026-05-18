@@ -16,7 +16,7 @@ export const BookingDownloadButton = ({
   booking,
   variant = "outline",
   size = "sm",
-  className
+  className 
 }: BookingDownloadButtonProps) => {
   const [isDownloading, setIsDownloading] = useState(false);
   const qrRef = useRef<HTMLCanvasElement>(null);

@@ -20,7 +20,7 @@ export interface BookingPDFData {
   guestName: string;
   guestEmail: string;
   guestPhone?: string;
-  hostName?: string;
+  hostName?: string; 
   hostEmail?: string;
   hostPhone?: string;
   itemName: string;

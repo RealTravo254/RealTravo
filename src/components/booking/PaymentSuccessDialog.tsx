@@ -15,7 +15,7 @@ interface PaymentSuccessDialogProps {
 
 export const PaymentSuccessDialog = ({
   open,
-  onOpenChange,
+  onOpenChange, 
   bookingData,
   reference,
   onBackToBooking,

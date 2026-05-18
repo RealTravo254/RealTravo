@@ -11,7 +11,7 @@ interface BookingForExport {
   total_amount: number | null;
   slots_booked: number | null;
   booking_type: string | null;
-  payment_status: string | null;
+  payment_status: string | null; 
   status: string | null;
   created_at: string | null;
   checked_in?: boolean | null;

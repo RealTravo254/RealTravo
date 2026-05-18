@@ -425,7 +425,7 @@ const BookingPage = () => {
         </div>
       )}
 
-      {/* Payment Success Dialog */}
+      {/* Payment Success Dialog */} 
       <PaymentSuccessDialog
         open={showSuccessDialog}
         onOpenChange={setShowSuccessDialog}

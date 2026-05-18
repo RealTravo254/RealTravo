@@ -14,7 +14,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useBanCheck } from "@/hooks/useBanCheck";
 import {
   MapPin, Navigation, Clock, X, Plus, Camera, CheckCircle2, Info, ArrowLeft, Loader2,
-  DollarSign, ChevronLeft, ChevronRight,
+  DollarSign, ChevronLeft, ChevronRight, Link2,
 } from "lucide-react";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -37,7 +37,8 @@ const makeId = () => `item-${Date.now()}-${++_idCounter}`;
 const generateFriendlySlug = (name: string): string => {
   const cleanName = name.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-").substring(0, 30);
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  let code = ""; for (let i = 0; i < 4; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
+  let code = "";
+  for (let i = 0; i < 4; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
   return `${cleanName}-${code}`;
 };
 const safeObjectUrl = (file: File): string => { try { return URL.createObjectURL(file); } catch { return ""; } };
@@ -58,14 +59,21 @@ const FieldLabel = ({ children, required }: { children: React.ReactNode; require
 );
 
 const StyledInput = ({ className = "", isInvalid = false, ...props }: React.ComponentProps<typeof Input> & { isInvalid?: boolean }) => (
-  <Input className={`h-11 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-800 placeholder:text-slate-400 placeholder:font-normal focus:ring-2 focus:ring-[#008080]/20 focus:border-[#008080] transition-all ${isInvalid ? "border-red-400 ring-2 ring-red-100 bg-red-50" : ""} ${className}`} {...props} />
+  <Input
+    className={`h-11 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-800 placeholder:text-slate-400 placeholder:font-normal focus:ring-2 focus:ring-[#008080]/20 focus:border-[#008080] transition-all ${isInvalid ? "border-red-400 ring-2 ring-red-100 bg-red-50" : ""} ${className}`}
+    {...props}
+  />
 );
 
 const SectionCard = ({ title, subtitle, icon: Icon, children, accent = COLORS.TEAL }: { title?: string; subtitle?: string; icon?: any; children: React.ReactNode; accent?: string }) => (
   <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
     {title && (
       <div className="px-8 py-5 border-b border-slate-100 flex items-center gap-3">
-        {Icon && <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${accent}12` }}><Icon className="h-4 w-4" style={{ color: accent }} /></div>}
+        {Icon && (
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${accent}12` }}>
+            <Icon className="h-4 w-4" style={{ color: accent }} />
+          </div>
+        )}
         <div>
           <h3 className="text-sm font-bold text-slate-800">{title}</h3>
           {subtitle && <p className="text-[11px] text-slate-400 mt-0.5">{subtitle}</p>}
@@ -101,19 +109,25 @@ const KenyaPhoneWrapper = ({ children, isInvalid }: { children: React.ReactNode;
 );
 
 // ─── Image Gallery Grid ───────────────────────────────────────────────────────
-const ImageGalleryGrid = ({ images, previews, onRemove, onAdd, isInvalid, slots = 5 }: {
+const ImageGalleryGrid = ({
+  images, previews, onRemove, onAdd, isInvalid, slots = 5,
+}: {
   images: File[]; previews: string[]; onRemove: (i: number) => void;
   onAdd: (files: FileList | null) => void; isInvalid?: boolean; slots?: number;
 }) => (
-  <div className={`grid gap-3 p-4 rounded-xl border-2 border-dashed transition-all ${isInvalid ? "border-red-400 bg-red-50/30" : "border-slate-200 bg-slate-50/40"}`}
-    style={{ gridTemplateColumns: `repeat(${slots}, minmax(0, 1fr))` }}>
+  <div
+    className={`grid gap-3 p-4 rounded-xl border-2 border-dashed transition-all ${isInvalid ? "border-red-400 bg-red-50/30" : "border-slate-200 bg-slate-50/40"}`}
+    style={{ gridTemplateColumns: `repeat(${slots}, minmax(0, 1fr))` }}
+  >
     {Array.from({ length: slots }).map((_, i) => {
       const url = previews[i];
       if (url) return (
         <div key={i} className="relative group aspect-square rounded-xl overflow-hidden border border-slate-200 shadow-sm">
           <img src={url} className="w-full h-full object-cover" alt={`Photo ${i + 1}`} />
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
-            <button type="button" onClick={() => onRemove(i)} className="opacity-0 group-hover:opacity-100 bg-red-500 text-white rounded-full p-1 shadow-lg transition-all scale-75 group-hover:scale-100"><X className="h-3 w-3" /></button>
+            <button type="button" onClick={() => onRemove(i)} className="opacity-0 group-hover:opacity-100 bg-red-500 text-white rounded-full p-1 shadow-lg transition-all scale-75 group-hover:scale-100">
+              <X className="h-3 w-3" />
+            </button>
           </div>
           <div className="absolute bottom-1 left-1 bg-black/60 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md">{i === 0 ? "Cover" : `#${i + 1}`}</div>
         </div>
@@ -130,29 +144,49 @@ const ImageGalleryGrid = ({ images, previews, onRemove, onAdd, isInvalid, slots 
 );
 
 // ─── Amenity Tag Input ────────────────────────────────────────────────────────
-const AmenityTagInput = ({ tags, input, onInputChange, onAdd, onRemove, hasError }: { tags: string[]; input: string; onInputChange: (v: string) => void; onAdd: () => void; onRemove: (i: number) => void; hasError: boolean; }) => (
-  <div className={cn("min-h-[44px] flex flex-wrap gap-1.5 items-center px-3 py-2 rounded-xl border bg-white transition-all", hasError ? "border-red-400 ring-2 ring-red-100" : "border-slate-200 focus-within:ring-2 focus-within:ring-[#008080]/20 focus-within:border-[#008080]")}>
+const AmenityTagInput = ({ tags, input, onInputChange, onAdd, onRemove, hasError }: {
+  tags: string[]; input: string; onInputChange: (v: string) => void;
+  onAdd: () => void; onRemove: (i: number) => void; hasError: boolean;
+}) => (
+  <div className={cn(
+    "min-h-[44px] flex flex-wrap gap-1.5 items-center px-3 py-2 rounded-xl border bg-white transition-all",
+    hasError ? "border-red-400 ring-2 ring-red-100" : "border-slate-200 focus-within:ring-2 focus-within:ring-[#008080]/20 focus-within:border-[#008080]"
+  )}>
     {tags.map((tag, i) => (
       <span key={i} className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[11px] font-bold" style={{ background: `${COLORS.TEAL}10`, color: COLORS.TEAL }}>
-        {tag}<button type="button" onClick={() => onRemove(i)} className="hover:text-red-500 transition-colors"><X className="h-2.5 w-2.5" /></button>
+        {tag}
+        <button type="button" onClick={() => onRemove(i)} className="hover:text-red-500 transition-colors"><X className="h-2.5 w-2.5" /></button>
       </span>
     ))}
-    <input value={input} onChange={(e) => onInputChange(e.target.value)}
-      onKeyDown={(e) => { if (e.key === "," || e.key === "Enter" || e.key === ".") { e.preventDefault(); onAdd(); } if (e.key === "Backspace" && !input && tags.length > 0) onRemove(tags.length - 1); }}
-      onBlur={onAdd} placeholder={tags.length === 0 ? "Type amenity, press comma..." : "Add more..."}
-      className="flex-1 min-w-[120px] text-sm font-medium outline-none bg-transparent placeholder:text-slate-300 placeholder:font-normal" />
+    <input
+      value={input}
+      onChange={(e) => onInputChange(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === "," || e.key === "Enter" || e.key === ".") { e.preventDefault(); onAdd(); }
+        if (e.key === "Backspace" && !input && tags.length > 0) onRemove(tags.length - 1);
+      }}
+      onBlur={onAdd}
+      placeholder={tags.length === 0 ? "Type amenity, press comma..." : "Add more..."}
+      className="flex-1 min-w-[120px] text-sm font-medium outline-none bg-transparent placeholder:text-slate-300 placeholder:font-normal"
+    />
   </div>
 );
 
 // ─── Facility Builder ─────────────────────────────────────────────────────────
-const FacilityBuilder = ({ items, onChange, showErrors, onValidationFail }: { items: FacilityItem[]; onChange: (items: FacilityItem[]) => void; showErrors: boolean; onValidationFail: (msg: string) => void; }) => {
+const FacilityBuilder = ({ items, onChange, showErrors, onValidationFail }: {
+  items: FacilityItem[]; onChange: (items: FacilityItem[]) => void;
+  showErrors: boolean; onValidationFail: (msg: string) => void;
+}) => {
   const { usdHint } = useCurrency();
   const update = (id: string, patch: Partial<FacilityItem>) => onChange(items.map((f) => f.id === id ? { ...f, ...patch } : f));
   const addItem = () => onChange([...items, emptyFacility()]);
   const removeItem = (id: string) => onChange(items.filter((f) => f.id !== id));
-  const addAmenityTag = (item: FacilityItem) => { const val = item.amenityInput.replace(/,/g, "").trim(); if (!val) return; update(item.id, { amenities: [...item.amenities, val], amenityInput: "" }); };
+  const addAmenityTag = (item: FacilityItem) => {
+    const val = item.amenityInput.replace(/,/g, "").trim();
+    if (!val) return;
+    update(item.id, { amenities: [...item.amenities, val], amenityInput: "" });
+  };
   const removeAmenityTag = (item: FacilityItem, idx: number) => update(item.id, { amenities: item.amenities.filter((_, i) => i !== idx) });
-
   const handleImages = async (id: string, fileList: FileList | null, existing: File[]) => {
     if (!fileList || fileList.length === 0) return;
     const slots = 5 - existing.length; if (slots <= 0) return;
@@ -162,7 +196,10 @@ const FacilityBuilder = ({ items, onChange, showErrors, onValidationFail }: { it
     catch { merged = [...existing, ...incoming].slice(0, 5); }
     update(id, { images: merged, previewUrls: merged.map(safeObjectUrl) });
   };
-  const removeImage = (id: string, idx: number, existing: File[]) => { const updated = existing.filter((_, i) => i !== idx); update(id, { images: updated, previewUrls: updated.map(safeObjectUrl) }); };
+  const removeImage = (id: string, idx: number, existing: File[]) => {
+    const updated = existing.filter((_, i) => i !== idx);
+    update(id, { images: updated, previewUrls: updated.map(safeObjectUrl) });
+  };
   const saveItem = (f: FacilityItem) => {
     if (!f.name.trim()) { onValidationFail("Please enter a facility name."); return; }
     if (f.amenities.length === 0) { onValidationFail("Please add at least one amenity."); return; }
@@ -179,8 +216,13 @@ const FacilityBuilder = ({ items, onChange, showErrors, onValidationFail }: { it
           {item.saved ? (
             <div className="p-4 flex items-center gap-4">
               <div className="flex gap-2 shrink-0">
-                {item.previewUrls.slice(0, 3).map((url, i) => url ? <img key={i} src={url} className="w-12 h-12 rounded-xl object-cover border border-slate-200" alt="" /> : <div key={i} className="w-12 h-12 rounded-xl bg-slate-200" />)}
-                {item.previewUrls.length > 3 && <div className="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-xs font-bold text-slate-500">+{item.previewUrls.length - 3}</div>}
+                {item.previewUrls.slice(0, 3).map((url, i) => url
+                  ? <img key={i} src={url} className="w-12 h-12 rounded-xl object-cover border border-slate-200" alt="" />
+                  : <div key={i} className="w-12 h-12 rounded-xl bg-slate-200" />
+                )}
+                {item.previewUrls.length > 3 && (
+                  <div className="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-xs font-bold text-slate-500">+{item.previewUrls.length - 3}</div>
+                )}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-bold text-sm text-slate-800 truncate">{item.name}</p>
@@ -213,17 +255,22 @@ const FacilityBuilder = ({ items, onChange, showErrors, onValidationFail }: { it
                 </div>
               </div>
               <div className="space-y-1">
-                <FieldLabel required>Amenities {showErrors && item.amenities.length === 0 && <span className="text-red-400 text-[10px] normal-case font-normal">— at least one required</span>}</FieldLabel>
+                <FieldLabel required>
+                  Amenities{showErrors && item.amenities.length === 0 && <span className="text-red-400 text-[10px] normal-case font-normal"> — at least one required</span>}
+                </FieldLabel>
                 <AmenityTagInput tags={item.amenities} input={item.amenityInput} onInputChange={(v) => update(item.id, { amenityInput: v })} onAdd={() => addAmenityTag(item)} onRemove={(i) => removeAmenityTag(item, i)} hasError={showErrors && item.amenities.length === 0} />
               </div>
-              {/* Facility image grid — 5 slots */}
               <div>
-                <FieldLabel>Photos (min 2, max 5) {showErrors && item.images.length < 2 && <span className="text-red-400 text-[10px] normal-case font-normal">— at least 2 required</span>}</FieldLabel>
+                <FieldLabel>
+                  Photos (min 2, max 5){showErrors && item.images.length < 2 && <span className="text-red-400 text-[10px] normal-case font-normal"> — at least 2 required</span>}
+                </FieldLabel>
                 <ImageGalleryGrid images={item.images} previews={item.previewUrls} onRemove={(i) => removeImage(item.id, i, item.images)} onAdd={(files) => handleImages(item.id, files, item.images)} isInvalid={showErrors && item.images.length < 2} slots={5} />
               </div>
               <div className="flex gap-3 pt-1">
                 <button type="button" onClick={() => saveItem(item)} className="flex-1 h-10 rounded-xl text-white text-[12px] font-bold hover:opacity-90 transition-all" style={{ background: `linear-gradient(135deg, ${COLORS.CORAL}, #e06040)` }}>Save Facility</button>
-                {items.length > 1 && <button type="button" onClick={() => removeItem(item.id)} className="h-10 px-4 rounded-xl text-red-400 hover:text-red-600 hover:bg-red-50 transition-all"><X className="h-4 w-4" /></button>}
+                {items.length > 1 && (
+                  <button type="button" onClick={() => removeItem(item.id)} className="h-10 px-4 rounded-xl text-red-400 hover:text-red-600 hover:bg-red-50 transition-all"><X className="h-4 w-4" /></button>
+                )}
               </div>
             </div>
           )}
@@ -237,7 +284,10 @@ const FacilityBuilder = ({ items, onChange, showErrors, onValidationFail }: { it
 };
 
 // ─── Activity Builder ─────────────────────────────────────────────────────────
-const ActivityBuilder = ({ items, onChange, showErrors, onValidationFail }: { items: ActivityItem[]; onChange: (items: ActivityItem[]) => void; showErrors: boolean; onValidationFail: (msg: string) => void; }) => {
+const ActivityBuilder = ({ items, onChange, showErrors, onValidationFail }: {
+  items: ActivityItem[]; onChange: (items: ActivityItem[]) => void;
+  showErrors: boolean; onValidationFail: (msg: string) => void;
+}) => {
   const { usdHint } = useCurrency();
   const update = (id: string, patch: Partial<ActivityItem>) => onChange(items.map((a) => a.id === id ? { ...a, ...patch } : a));
   const addItem = () => onChange([...items, emptyActivity()]);
@@ -251,8 +301,14 @@ const ActivityBuilder = ({ items, onChange, showErrors, onValidationFail }: { it
     catch { merged = [...existing, ...incoming].slice(0, 5); }
     update(id, { images: merged, previewUrls: merged.map(safeObjectUrl) });
   };
-  const removeImage = (id: string, idx: number, existing: File[]) => { const updated = existing.filter((_, i) => i !== idx); update(id, { images: updated, previewUrls: updated.map(safeObjectUrl) }); };
-  const saveItem = (a: ActivityItem) => { if (!a.name.trim()) { onValidationFail("Please enter an activity name."); return; } update(a.id, { saved: true }); };
+  const removeImage = (id: string, idx: number, existing: File[]) => {
+    const updated = existing.filter((_, i) => i !== idx);
+    update(id, { images: updated, previewUrls: updated.map(safeObjectUrl) });
+  };
+  const saveItem = (a: ActivityItem) => {
+    if (!a.name.trim()) { onValidationFail("Please enter an activity name."); return; }
+    update(a.id, { saved: true });
+  };
 
   return (
     <div className="space-y-4">
@@ -262,7 +318,10 @@ const ActivityBuilder = ({ items, onChange, showErrors, onValidationFail }: { it
           {item.saved ? (
             <div className="p-4 flex items-center gap-4">
               <div className="flex gap-2 shrink-0">
-                {item.previewUrls.slice(0, 3).map((url, i) => url ? <img key={i} src={url} className="w-12 h-12 rounded-xl object-cover border border-slate-200" alt="" /> : null)}
+                {item.previewUrls.slice(0, 3).map((url, i) => url
+                  ? <img key={i} src={url} className="w-12 h-12 rounded-xl object-cover border border-slate-200" alt="" />
+                  : null
+                )}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-bold text-sm text-slate-800 truncate">{item.name}</p>
@@ -286,14 +345,15 @@ const ActivityBuilder = ({ items, onChange, showErrors, onValidationFail }: { it
                   {item.price && parseFloat(item.price) > 0 && <p className="text-[9px] text-blue-500 font-semibold mt-0.5">{usdHint(parseFloat(item.price))}</p>}
                 </div>
               </div>
-              {/* Activity image grid — 5 slots */}
               <div>
                 <FieldLabel>Photos (max 5)</FieldLabel>
                 <ImageGalleryGrid images={item.images} previews={item.previewUrls} onRemove={(i) => removeImage(item.id, i, item.images)} onAdd={(files) => handleImages(item.id, files, item.images)} slots={5} />
               </div>
               <div className="flex gap-3 pt-1">
                 <button type="button" onClick={() => saveItem(item)} className="flex-1 h-10 rounded-xl text-white text-[12px] font-bold hover:opacity-90 transition-all" style={{ background: "linear-gradient(135deg, #6366f1, #4f46e5)" }}>Save Activity</button>
-                {items.length > 1 && <button type="button" onClick={() => removeItem(item.id)} className="h-10 px-4 rounded-xl text-red-400 hover:text-red-600 hover:bg-red-50 transition-all"><X className="h-4 w-4" /></button>}
+                {items.length > 1 && (
+                  <button type="button" onClick={() => removeItem(item.id)} className="h-10 px-4 rounded-xl text-red-400 hover:text-red-600 hover:bg-red-50 transition-all"><X className="h-4 w-4" /></button>
+                )}
               </div>
             </div>
           )}
@@ -329,8 +389,11 @@ const StepSidebar = ({ steps, currentStep, onStepClick }: { steps: any[]; curren
           const isPast = currentStep > num;
           return (
             <li key={i}>
-              <button type="button" onClick={() => isPast && onStepClick?.(num)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all ${isActive ? "bg-[#008080] text-white shadow-md" : isPast ? "hover:bg-slate-50 cursor-pointer" : "cursor-default"}`}>
+              <button
+                type="button"
+                onClick={() => isPast && onStepClick?.(num)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all ${isActive ? "bg-[#008080] text-white shadow-md" : isPast ? "hover:bg-slate-50 cursor-pointer" : "cursor-default"}`}
+              >
                 <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-black shrink-0 ${isActive ? "bg-white text-[#008080]" : isDone ? "bg-emerald-100 text-emerald-600" : "bg-slate-100 text-slate-400"}`}>
                   {isDone ? <CheckCircle2 className="h-3.5 w-3.5" /> : num}
                 </div>
@@ -371,7 +434,7 @@ const CreateAdventure = () => {
     latitude: null as number | null, longitude: null as number | null,
     locationLink: "",
   });
-  const [locationMode, setLocationMode] = useState<'link' | 'gps' | null>(null);
+  const [locationMode, setLocationMode] = useState<"link" | "gps" | null>(null);
   const [workingDays, setWorkingDays] = useState({ Mon: true, Tue: true, Wed: true, Thu: true, Fri: true, Sat: true, Sun: true });
   const [generalFacilities, setGeneralFacilities] = useState<string[]>([]);
   const [facilities, setFacilities] = useState<FacilityItem[]>(() => [emptyFacility()]);
@@ -388,7 +451,7 @@ const CreateAdventure = () => {
     });
     supabase.from("companies").select("verification_status").eq("user_id", user.id).maybeSingle().then(({ data }) => {
       if (data && (data.verification_status === "approved" || data.verification_status === "verified")) {
-        toast({ title: "Not Allowed", description: "Verified companies cannot host adventure places. Please host trips, hotels or events instead.", variant: "destructive" });
+        toast({ title: "Not Allowed", description: "Verified companies cannot host adventure places.", variant: "destructive" });
         navigate("/become-host");
       }
     });
@@ -398,7 +461,7 @@ const CreateAdventure = () => {
   const isStep2Complete = !!formData.locationName.trim() && !!formData.place.trim() && (!!formData.latitude || !!formData.locationLink.trim());
   const isStep3Complete = !!formData.description.trim();
   const isStep4Complete = true;
-  const isStep5Complete = facilities.every(f => f.saved);
+  const isStep5Complete = facilities.every((f) => f.saved);
   const isStep6Complete = galleryImages.length >= 5;
 
   const steps = [
@@ -411,52 +474,108 @@ const CreateAdventure = () => {
     { name: STEP_NAMES[6], isComplete: isStep1Complete && isStep2Complete && isStep3Complete && isStep6Complete },
   ];
 
-  const isMissing = (v: any) => { if (!showErrors) return false; if (typeof v === "string") return !v.trim(); return v === null || v === undefined; };
+  const isMissing = (v: any) => {
+    if (!showErrors) return false;
+    if (typeof v === "string") return !v.trim();
+    return v === null || v === undefined;
+  };
 
   const validateCurrentStep = (): boolean => {
-    if (currentStep === 1) { if (!formData.registrationName.trim() || !formData.registrationNumber.trim() || !formData.country) { setShowErrors(true); toast({ title: "Complete this step", description: "Fill all required fields", variant: "destructive" }); return false; } }
-    else if (currentStep === 2) { if (!formData.locationName.trim() || !formData.place.trim() || (!formData.latitude && !formData.locationLink.trim())) { setShowErrors(true); toast({ title: "Complete this step", description: "Fill location and provide a link or GPS", variant: "destructive" }); return false; } }
-    else if (currentStep === 3) { if (!formData.description.trim()) { setShowErrors(true); toast({ title: "Complete this step", description: "Description is required", variant: "destructive" }); return false; } }
-    else if (currentStep === 5) { if (facilities.some(f => !f.saved)) { toast({ title: "Unsaved Facility", description: "Please save all facilities", variant: "destructive" }); return false; } }
-    else if (currentStep === 6) { if (galleryImages.length < 5) { setShowErrors(true); toast({ title: "Photos Required", description: `Upload ${5 - galleryImages.length} more photos`, variant: "destructive" }); return false; } }
+    if (currentStep === 1) {
+      if (!formData.registrationName.trim() || !formData.registrationNumber.trim() || !formData.country) {
+        setShowErrors(true);
+        toast({ title: "Complete this step", description: "Fill all required fields", variant: "destructive" });
+        return false;
+      }
+    } else if (currentStep === 2) {
+      if (!formData.locationName.trim() || !formData.place.trim() || (!formData.latitude && !formData.locationLink.trim())) {
+        setShowErrors(true);
+        toast({ title: "Complete this step", description: "Fill location and provide a link or GPS", variant: "destructive" });
+        return false;
+      }
+    } else if (currentStep === 3) {
+      if (!formData.description.trim()) {
+        setShowErrors(true);
+        toast({ title: "Complete this step", description: "Description is required", variant: "destructive" });
+        return false;
+      }
+    } else if (currentStep === 5) {
+      if (facilities.some((f) => !f.saved)) {
+        toast({ title: "Unsaved Facility", description: "Please save all facilities", variant: "destructive" });
+        return false;
+      }
+    } else if (currentStep === 6) {
+      if (galleryImages.length < 5) {
+        setShowErrors(true);
+        toast({ title: "Photos Required", description: `Upload ${5 - galleryImages.length} more photos`, variant: "destructive" });
+        return false;
+      }
+    }
     return true;
   };
 
   const handleNext = () => {
-    setFacilities(prev => prev.map(f => {
-      if (f.saved) return f;
-      let next = { ...f };
-      if (f.amenityInput.trim()) { const val = f.amenityInput.replace(/,/g, "").trim(); next = { ...next, amenities: [...next.amenities, val], amenityInput: "" }; }
-      if (next.name.trim() && next.amenities.length > 0 && next.capacity.trim() && next.images.length >= 2) next.saved = true;
-      return next;
-    }));
-    setActivities(prev => prev.map(a => { if (a.saved) return a; if (a.name.trim()) return { ...a, saved: true }; return a; }));
+    setFacilities((prev) =>
+      prev.map((f) => {
+        if (f.saved) return f;
+        let next = { ...f };
+        if (f.amenityInput.trim()) {
+          const val = f.amenityInput.replace(/,/g, "").trim();
+          next = { ...next, amenities: [...next.amenities, val], amenityInput: "" };
+        }
+        if (next.name.trim() && next.amenities.length > 0 && next.capacity.trim() && next.images.length >= 2)
+          next.saved = true;
+        return next;
+      })
+    );
+    setActivities((prev) =>
+      prev.map((a) => {
+        if (a.saved) return a;
+        if (a.name.trim()) return { ...a, saved: true };
+        return a;
+      })
+    );
     if (!validateCurrentStep()) return;
     setShowErrors(false);
-    setCurrentStep(prev => Math.min(prev + 1, 7));
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setCurrentStep((prev) => Math.min(prev + 1, 7));
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const handlePrev = () => { setShowErrors(false); setCurrentStep(prev => Math.max(prev - 1, 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  const handlePrev = () => {
+    setShowErrors(false);
+    setCurrentStep((prev) => Math.max(prev - 1, 1));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   const getCurrentLocation = () => {
     if (!("geolocation" in navigator)) return;
     navigator.geolocation.getCurrentPosition(
-      ({ coords }) => { setFormData((p) => ({ ...p, latitude: coords.latitude, longitude: coords.longitude })); toast({ title: "Location captured", description: `${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}` }); },
+      ({ coords }) => {
+        setFormData((p) => ({ ...p, latitude: coords.latitude, longitude: coords.longitude }));
+        toast({ title: "Location captured", description: `${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}` });
+      },
       () => toast({ title: "GPS Error", description: "Could not get location.", variant: "destructive" })
     );
   };
 
   const handleGalleryUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    const slots = 5 - galleryImages.length; if (slots <= 0) return;
+    const slots = 5 - galleryImages.length;
+    if (slots <= 0) return;
     const incoming = Array.from(files).slice(0, slots);
     let merged: File[];
     try { const compressed = await compressImages(incoming); merged = [...galleryImages, ...compressed.map((c) => c.file)].slice(0, 5); }
     catch { merged = [...galleryImages, ...incoming].slice(0, 5); }
-    setGalleryImages(merged); setGalleryPreviews(merged.map(safeObjectUrl));
+    setGalleryImages(merged);
+    setGalleryPreviews(merged.map(safeObjectUrl));
   };
-  const removeGalleryImage = (idx: number) => { const updated = galleryImages.filter((_, i) => i !== idx); setGalleryImages(updated); setGalleryPreviews(updated.map(safeObjectUrl)); };
+
+  const removeGalleryImage = (idx: number) => {
+    const updated = galleryImages.filter((_, i) => i !== idx);
+    setGalleryImages(updated);
+    setGalleryPreviews(updated.map(safeObjectUrl));
+  };
+
   const uploadFile = async (file: File, prefix: string): Promise<string> => {
     const ext = file.name.split(".").pop() || "jpg";
     const path = `${user!.id}/${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
@@ -468,23 +587,47 @@ const CreateAdventure = () => {
   const handleSubmit = async () => {
     if (!user) { navigate("/auth"); return; }
     setShowErrors(true);
-    if (!formData.registrationName.trim() || !formData.registrationNumber.trim() || !formData.country || !formData.locationName.trim() || !formData.place.trim() || !formData.latitude || !formData.description.trim() || galleryImages.length < 5) {
-      toast({ title: "Action Required", description: "Please complete all steps.", variant: "destructive" }); return;
+    if (
+      !formData.registrationName.trim() || !formData.registrationNumber.trim() || !formData.country ||
+      !formData.locationName.trim() || !formData.place.trim() || !formData.latitude ||
+      !formData.description.trim() || galleryImages.length < 5
+    ) {
+      toast({ title: "Action Required", description: "Please complete all steps.", variant: "destructive" });
+      return;
     }
-    if (facilities.some((f) => !f.saved)) { toast({ title: "Unsaved Facility", description: "Please save all facilities.", variant: "destructive" }); return; }
+    if (facilities.some((f) => !f.saved)) {
+      toast({ title: "Unsaved Facility", description: "Please save all facilities.", variant: "destructive" });
+      return;
+    }
     setLoading(true);
     try {
       const friendlySlug = generateFriendlySlug(formData.registrationName);
       const galleryUrls = await Promise.all(galleryImages.map((f) => uploadFile(f, "gallery")));
-      const facilitiesForDB = await Promise.all(facilities.map(async (fac) => ({ name: fac.name, amenities: fac.amenities, capacity: fac.capacity ? parseInt(fac.capacity, 10) || 0 : 0, price: fac.price ? parseFloat(fac.price) || 0 : 0, images: await Promise.all(fac.images.map((f) => uploadFile(f, "fac"))) })));
+      const facilitiesForDB = await Promise.all(
+        facilities.map(async (fac) => ({
+          name: fac.name, amenities: fac.amenities,
+          capacity: fac.capacity ? parseInt(fac.capacity, 10) || 0 : 0,
+          price: fac.price ? parseFloat(fac.price) || 0 : 0,
+          images: await Promise.all(fac.images.map((f) => uploadFile(f, "fac"))),
+        }))
+      );
       const savedActivities = activities.filter((a) => a.name.trim());
-      const activitiesForDB = await Promise.all(savedActivities.map(async (act) => ({ name: act.name, price: act.price ? parseFloat(act.price) || 0 : 0, images: await Promise.all(act.images.map((f) => uploadFile(f, "act"))) })));
+      const activitiesForDB = await Promise.all(
+        savedActivities.map(async (act) => ({
+          name: act.name, price: act.price ? parseFloat(act.price) || 0 : 0,
+          images: await Promise.all(act.images.map((f) => uploadFile(f, "act"))),
+        }))
+      );
       const selectedDays = Object.entries(workingDays).filter(([, v]) => v).map(([k]) => k);
       const { error } = await supabase.from("adventure_places").insert([{
-        id: friendlySlug, slug: friendlySlug, name: formData.registrationName, registration_number: formData.registrationNumber,
-        location: formData.locationName, place: formData.place, country: formData.country, description: formData.description, email: formData.email,
+        id: friendlySlug, slug: friendlySlug, name: formData.registrationName,
+        registration_number: formData.registrationNumber,
+        location: formData.locationName, place: formData.place, country: formData.country,
+        description: formData.description, email: formData.email,
         phone_numbers: formData.phoneNumber ? [formData.phoneNumber] : [],
-        map_link: formData.latitude ? `https://www.google.com/maps?q=${formData.latitude},${formData.longitude}` : (formData.locationLink || ""),
+        map_link: formData.latitude
+          ? `https://www.google.com/maps?q=${formData.latitude},${formData.longitude}`
+          : (formData.locationLink || ""),
         latitude: formData.latitude, longitude: formData.longitude,
         opening_hours: formData.openingHours, closing_hours: formData.closingHours, days_opened: selectedDays,
         image_url: galleryUrls[0] ?? "", gallery_images: galleryUrls,
@@ -502,6 +645,12 @@ const CreateAdventure = () => {
     } finally { setLoading(false); }
   };
 
+  // ─── Location mode button options ─────────────────────────────────────────
+  const locationModeOptions: { mode: "link" | "gps"; label: string; icon: React.ElementType }[] = [
+    { mode: "link", label: "Paste Map Link", icon: Link2 },
+    { mode: "gps",  label: "Use My GPS",     icon: Navigation },
+  ];
+
   return (
     <div className="min-h-screen bg-slate-50 pb-24">
       <Header />
@@ -510,20 +659,24 @@ const CreateAdventure = () => {
       <div className="lg:hidden relative h-36 overflow-hidden bg-slate-900">
         <img src="/images/category-campsite.webp" className="absolute inset-0 w-full h-full object-cover opacity-60" alt="" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex flex-col justify-end p-5">
-          <Button onClick={goBack} className="absolute top-4 left-4 rounded-full bg-black/30 backdrop-blur-md text-white border-none w-10 h-10 p-0"><ArrowLeft className="h-4 w-4" /></Button>
-          <h1 className="text-xl font-black text-white uppercase tracking-tight">Create <span style={{ color: COLORS.KHAKI }}>Adventure</span></h1>
+          <Button onClick={goBack} className="absolute top-4 left-4 rounded-full bg-black/30 backdrop-blur-md text-white border-none w-10 h-10 p-0">
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <h1 className="text-xl font-black text-white uppercase tracking-tight">
+            Create <span style={{ color: COLORS.KHAKI }}>Adventure</span>
+          </h1>
           <p className="text-white/60 text-xs font-semibold mt-0.5">Step {currentStep} of {STEP_NAMES.length}</p>
         </div>
       </div>
 
       <main className="max-w-screen-xl mx-auto px-4 lg:px-8 py-6 lg:py-10">
         <div className="flex gap-8 items-start">
-          {/* ─── Sidebar ─── */}
+          {/* Sidebar */}
           <StepSidebar steps={steps} currentStep={currentStep} onStepClick={(n) => { setShowErrors(false); setCurrentStep(n); }} />
 
-          {/* ─── Main Content ─── */}
+          {/* Main content */}
           <div className="flex-1 min-w-0 space-y-5">
-            {/* Desktop page title */}
+            {/* Desktop title */}
             <div className="hidden lg:flex items-center justify-between mb-2">
               <div className="flex items-center gap-3">
                 <button onClick={goBack} className="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-all shadow-sm">
@@ -536,7 +689,8 @@ const CreateAdventure = () => {
               </div>
               <div className="flex items-center gap-3">
                 <div className="w-40 h-2 bg-slate-200 rounded-full overflow-hidden">
-                  <div className="h-full rounded-full transition-all duration-500" style={{ width: `${((currentStep - 1) / (STEP_NAMES.length - 1)) * 100}%`, background: COLORS.TEAL }} />
+                  <div className="h-full rounded-full transition-all duration-500"
+                    style={{ width: `${((currentStep - 1) / (STEP_NAMES.length - 1)) * 100}%`, background: COLORS.TEAL }} />
                 </div>
                 <span className="text-xs font-bold text-slate-400">{Math.round(((currentStep - 1) / (STEP_NAMES.length - 1)) * 100)}%</span>
               </div>
@@ -545,7 +699,7 @@ const CreateAdventure = () => {
             {/* Mobile stepper */}
             <div className="lg:hidden"><CreateFormStepper steps={steps} currentStep={currentStep} /></div>
 
-            {/* ══════ STEP 1: Registration ══════ */}
+            {/* ══ STEP 1: Registration ══ */}
             {currentStep === 1 && (
               <SectionCard title="Registration Details" subtitle="Official government registration information" icon={Info}>
                 <div className="grid gap-5">
@@ -569,7 +723,7 @@ const CreateAdventure = () => {
               </SectionCard>
             )}
 
-            {/* ══════ STEP 2: Location ══════ */}
+            {/* ══ STEP 2: Location ══ */}
             {currentStep === 2 && (
               <SectionCard title="Location Details" subtitle="Where is your adventure place located?" icon={MapPin}>
                 <div className="grid gap-5">
@@ -588,26 +742,42 @@ const CreateAdventure = () => {
                       </div>
                     </div>
                   </div>
+
                   <div>
                     <FieldLabel required>Map Location</FieldLabel>
                     <p className="text-[11px] text-slate-400 mb-3">Paste a map link or capture your GPS coordinates</p>
                     <div className="flex gap-3 mb-4">
-                      {[{ mode: 'link', label: 'Paste Map Link', icon: Link2 }, { mode: 'gps', label: 'Use My GPS', icon: Navigation }].map(({ mode, label, icon: Icon }) => (
-                        <button key={mode} type="button" onClick={() => setLocationMode(mode as any)}
-                          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[12px] font-bold transition-all ${locationMode === mode ? 'text-white shadow-md' : 'bg-slate-50 border border-slate-200 text-slate-500 hover:bg-slate-100'}`}
-                          style={locationMode === mode ? { background: COLORS.TEAL } : {}}>
+                      {locationModeOptions.map(({ mode, label, icon: Icon }) => (
+                        <button
+                          key={mode}
+                          type="button"
+                          onClick={() => setLocationMode(mode)}
+                          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[12px] font-bold transition-all ${locationMode === mode ? "text-white shadow-md" : "bg-slate-50 border border-slate-200 text-slate-500 hover:bg-slate-100"}`}
+                          style={locationMode === mode ? { background: COLORS.TEAL } : {}}
+                        >
                           <Icon className="h-3.5 w-3.5" /> {label}
                         </button>
                       ))}
                     </div>
-                    {locationMode === 'link' && (
-                      <StyledInput value={formData.locationLink} onChange={(e) => setFormData({ ...formData, locationLink: e.target.value })} placeholder="https://maps.google.com/..." />
+
+                    {locationMode === "link" && (
+                      <StyledInput
+                        value={formData.locationLink}
+                        onChange={(e) => setFormData({ ...formData, locationLink: e.target.value })}
+                        placeholder="https://maps.google.com/..."
+                      />
                     )}
-                    {locationMode === 'gps' && (
-                      <button type="button" onClick={getCurrentLocation}
+                    {locationMode === "gps" && (
+                      <button
+                        type="button"
+                        onClick={getCurrentLocation}
                         className="flex items-center gap-2.5 px-6 py-3 rounded-xl text-white text-sm font-bold transition-all active:scale-[0.98] shadow-md hover:opacity-90"
-                        style={{ background: formData.latitude ? "#16a34a" : COLORS.KHAKI_DARK }}>
-                        {formData.latitude ? <><CheckCircle2 className="h-4 w-4" /> Location Captured — {formData.latitude?.toFixed(4)}, {formData.longitude?.toFixed(4)}</> : <><Navigation className="h-4 w-4" /> Tap to Capture GPS Location</>}
+                        style={{ background: formData.latitude ? "#16a34a" : COLORS.KHAKI_DARK }}
+                      >
+                        {formData.latitude
+                          ? <><CheckCircle2 className="h-4 w-4" /> Location Captured — {formData.latitude.toFixed(4)}, {formData.longitude?.toFixed(4)}</>
+                          : <><Navigation className="h-4 w-4" /> Tap to Capture GPS Location</>
+                        }
                       </button>
                     )}
                   </div>
@@ -615,7 +785,7 @@ const CreateAdventure = () => {
               </SectionCard>
             )}
 
-            {/* ══════ STEP 3: Contact & About ══════ */}
+            {/* ══ STEP 3: Contact & About ══ */}
             {currentStep === 3 && (
               <SectionCard title="Contact & About" subtitle="How visitors can reach you and your description" icon={CheckCircle2}>
                 <div className="space-y-5">
@@ -635,7 +805,11 @@ const CreateAdventure = () => {
                     <FieldLabel required>Description (max 20 words)</FieldLabel>
                     <Textarea
                       value={formData.description}
-                      onChange={(e) => { const words = e.target.value.trim().split(/\s+/); if (e.target.value.trim() === "" || words.length <= 20) setFormData({ ...formData, description: e.target.value }); }}
+                      onChange={(e) => {
+                        const words = e.target.value.trim().split(/\s+/);
+                        if (e.target.value.trim() === "" || words.length <= 20)
+                          setFormData({ ...formData, description: e.target.value });
+                      }}
                       placeholder="Describe your adventure place in 20 words or less..."
                       rows={4}
                       className={cn("rounded-xl border text-sm font-medium resize-none transition-all", isMissing(formData.description) ? "border-red-400 ring-2 ring-red-100 bg-red-50" : "border-slate-200 focus:ring-2 focus:ring-[#008080]/20 focus:border-[#008080]")}
@@ -646,7 +820,7 @@ const CreateAdventure = () => {
               </SectionCard>
             )}
 
-            {/* ══════ STEP 4: Access & Pricing ══════ */}
+            {/* ══ STEP 4: Access & Pricing ══ */}
             {currentStep === 4 && (
               <SectionCard title="Access & Pricing" subtitle="Operating hours and entrance fees" icon={Clock}>
                 <div className="space-y-8">
@@ -662,27 +836,32 @@ const CreateAdventure = () => {
                       <FieldLabel>Entrance Fee</FieldLabel>
                       <Select value={formData.entranceFeeType} onValueChange={(v) => setFormData({ ...formData, entranceFeeType: v })}>
                         <SelectTrigger className="rounded-xl h-11 font-semibold border-slate-200"><SelectValue /></SelectTrigger>
-                        <SelectContent className="bg-white rounded-xl"><SelectItem value="free">Free Access</SelectItem><SelectItem value="paid">Paid Admission</SelectItem></SelectContent>
+                        <SelectContent className="bg-white rounded-xl">
+                          <SelectItem value="free">Free Access</SelectItem>
+                          <SelectItem value="paid">Paid Admission</SelectItem>
+                        </SelectContent>
                       </Select>
                     </div>
-                    {formData.entranceFeeType === "paid" && (<>
-                      <div>
-                        <FieldLabel>Adult Entry (KSh)</FieldLabel>
-                        <StyledInput type="number" value={formData.adultPrice} onChange={(e) => setFormData({ ...formData, adultPrice: e.target.value })} />
-                        {parseFloat(formData.adultPrice) > 0 && <p className="text-[9px] text-blue-500 font-semibold mt-1">{usdHint(parseFloat(formData.adultPrice))}</p>}
-                      </div>
-                      <div>
-                        <FieldLabel>Child Entry (KSh)</FieldLabel>
-                        <StyledInput type="number" min="0" value={formData.childPrice} onChange={(e) => setFormData({ ...formData, childPrice: e.target.value })} />
-                        {parseFloat(formData.childPrice) > 0 && <p className="text-[9px] text-blue-500 font-semibold mt-1">{usdHint(parseFloat(formData.childPrice))}</p>}
-                      </div>
-                    </>)}
+                    {formData.entranceFeeType === "paid" && (
+                      <>
+                        <div>
+                          <FieldLabel>Adult Entry (KSh)</FieldLabel>
+                          <StyledInput type="number" value={formData.adultPrice} onChange={(e) => setFormData({ ...formData, adultPrice: e.target.value })} />
+                          {parseFloat(formData.adultPrice) > 0 && <p className="text-[9px] text-blue-500 font-semibold mt-1">{usdHint(parseFloat(formData.adultPrice))}</p>}
+                        </div>
+                        <div>
+                          <FieldLabel>Child Entry (KSh)</FieldLabel>
+                          <StyledInput type="number" min="0" value={formData.childPrice} onChange={(e) => setFormData({ ...formData, childPrice: e.target.value })} />
+                          {parseFloat(formData.childPrice) > 0 && <p className="text-[9px] text-blue-500 font-semibold mt-1">{usdHint(parseFloat(formData.childPrice))}</p>}
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               </SectionCard>
             )}
 
-            {/* ══════ STEP 5: Facilities ══════ */}
+            {/* ══ STEP 5: Facilities ══ */}
             {currentStep === 5 && (
               <SectionCard title="Amenities, Facilities & Activities" subtitle="What can visitors enjoy at your adventure place?" icon={DollarSign}>
                 <div className="space-y-8">
@@ -693,9 +872,13 @@ const CreateAdventure = () => {
               </SectionCard>
             )}
 
-            {/* ══════ STEP 6: Gallery ══════ */}
+            {/* ══ STEP 6: Gallery ══ */}
             {currentStep === 6 && (
-              <SectionCard title={`Photo Gallery — ${galleryImages.length}/5 uploaded`} subtitle={galleryImages.length < 5 ? `You need ${5 - galleryImages.length} more photos to continue` : "All 5 photos ready ✓"} icon={Camera}>
+              <SectionCard
+                title={`Photo Gallery — ${galleryImages.length}/5 uploaded`}
+                subtitle={galleryImages.length < 5 ? `You need ${5 - galleryImages.length} more photos to continue` : "All 5 photos ready ✓"}
+                icon={Camera}
+              >
                 {galleryImages.length < 5 && showErrors && (
                   <div className="mb-4 flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-xl">
                     <span className="text-red-500">⚠</span>
@@ -707,28 +890,29 @@ const CreateAdventure = () => {
               </SectionCard>
             )}
 
-            {/* ══════ STEP 7: Review ══════ */}
+            {/* ══ STEP 7: Review ══ */}
             {currentStep === 7 && (
               <ReviewStep
                 type="adventure"
                 accentColor={COLORS.TEAL}
                 data={{
-                  name: formData.registrationName, registrationName: formData.registrationName, registrationNumber: formData.registrationNumber,
+                  name: formData.registrationName, registrationName: formData.registrationName,
+                  registrationNumber: formData.registrationNumber,
                   locationName: formData.locationName, place: formData.place, country: formData.country,
                   description: formData.description, email: formData.email, phoneNumber: formData.phoneNumber,
                   openingHours: formData.openingHours, closingHours: formData.closingHours,
                   workingDays: Object.entries(workingDays).filter(([, v]) => v).map(([k]) => k),
                   entranceFeeType: formData.entranceFeeType, adultPrice: formData.adultPrice, childPrice: formData.childPrice,
                   latitude: formData.latitude, longitude: formData.longitude, generalFacilities,
-                  facilities: facilities.filter(f => f.saved).map(f => ({ name: f.name, price: parseFloat(f.price) || 0, capacity: parseInt(f.capacity) || null, amenities: f.amenities, images: f.previewUrls })),
-                  activities: activities.filter(a => a.saved && a.name.trim()).map(a => ({ name: a.name, price: parseFloat(a.price) || 0, images: a.previewUrls })),
+                  facilities: facilities.filter((f) => f.saved).map((f) => ({ name: f.name, price: parseFloat(f.price) || 0, capacity: parseInt(f.capacity) || null, amenities: f.amenities, images: f.previewUrls })),
+                  activities: activities.filter((a) => a.saved && a.name.trim()).map((a) => ({ name: a.name, price: parseFloat(a.price) || 0, images: a.previewUrls })),
                   galleryPreviewUrls: galleryPreviews,
                 }}
                 creatorEmail={user?.email}
               />
             )}
 
-            {/* ─── Navigation ─── */}
+            {/* ── Navigation buttons ── */}
             <div className="flex gap-3 pt-2">
               {currentStep > 1 && (
                 <button type="button" onClick={handlePrev} className="flex items-center gap-2 px-6 py-3.5 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm">

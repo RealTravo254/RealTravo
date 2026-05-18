@@ -4,7 +4,7 @@ import { useSafeBack } from "@/hooks/useSafeBack";
 import { useBookingNavigate } from "@/hooks/useBookingNavigate";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { MapPin, Clock, Star, Circle, Share2, Copy, Navigation, AlertCircle, Phone, Mail } from "lucide-react";
+import { MapPin, Clock, Star, Circle, Share2, Copy, Navigation, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
@@ -253,7 +253,7 @@ const AdventurePlaceDetail = () => {
         <QuickNavigationBar
           hasFacilities={place.facilities?.length > 0}
           hasActivities={place.activities?.length > 0}
-          hasContact={place.phone_numbers?.length > 0 || !!place.email}
+          hasContact={false}
         />
       </div>
 
@@ -320,24 +320,7 @@ const AdventurePlaceDetail = () => {
                     <p className="text-xs text-slate-500">{place.country}</p>
                   </div>
                 </div>
-                {place.phone_numbers?.length > 0 && (
-                  <div className="flex items-start gap-3">
-                    <Phone className="h-4 w-4 text-slate-600 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="text-sm font-bold text-slate-900">Phone</p>
-                      <p className="text-xs text-slate-500">{place.phone_numbers[0]}</p>
-                    </div>
-                  </div>
-                )}
-                {place.email && (
-                  <div className="flex items-start gap-3">
-                    <Mail className="h-4 w-4 text-slate-600 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="text-sm font-bold text-slate-900">Email</p>
-                      <a href={`mailto:${place.email}`} className="text-xs text-teal-600 hover:underline">{place.email}</a>
-                    </div>
-                  </div>
-                )}
+
               </div>
               {place.description && (
                 <div className="mt-4 pt-4 border-t border-slate-100">
@@ -406,23 +389,7 @@ const AdventurePlaceDetail = () => {
               </div>
             )}
 
-            <div id="contact-section" className="lg:hidden">
-              {(place.phone_numbers?.length > 0 || place.email) && (
-                <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-3">
-                  <h3 className="text-sm font-bold text-slate-900">Contact</h3>
-                  {place.phone_numbers?.map((phone: string, idx: number) => (
-                    <a key={idx} href={`tel:${phone}`} className="flex items-center gap-3 text-slate-600 hover:text-teal-600 transition-colors">
-                      <Phone className="h-4 w-4 text-slate-500" /><span className="text-sm">{phone}</span>
-                    </a>
-                  ))}
-                  {place.email && (
-                    <a href={`mailto:${place.email}`} className="flex items-center gap-3 text-slate-600 hover:text-teal-600 transition-colors">
-                      <Mail className="h-4 w-4 text-slate-500" /><span className="text-sm">{place.email}</span>
-                    </a>
-                  )}
-                </div>
-              )}
-            </div>
+
           </div>
 
           {/* ── Desktop sidebar ── */}
@@ -459,21 +426,7 @@ const AdventurePlaceDetail = () => {
                     else { await navigator.clipboard.writeText(link); toast({ title: "Link Copied!" }); }
                   }} />
               </div>
-              {(place.phone_numbers?.length > 0 || place.email) && (
-                <div className="space-y-2 pt-3 border-t border-slate-100">
-                  <h3 className="text-xs font-bold text-slate-500">Contact</h3>
-                  {place.phone_numbers?.map((phone: string, idx: number) => (
-                    <a key={idx} href={`tel:${phone}`} className="flex items-center gap-2 text-slate-600 hover:text-teal-600 transition-colors">
-                      <Phone className="h-4 w-4" /><span className="text-sm">{phone}</span>
-                    </a>
-                  ))}
-                  {place.email && (
-                    <a href={`mailto:${place.email}`} className="flex items-center gap-2 text-slate-600 hover:text-teal-600 transition-colors">
-                      <Mail className="h-4 w-4" /><span className="text-sm">{place.email}</span>
-                    </a>
-                  )}
-                </div>
-              )}
+
             </div>
           </div>
         </div>

@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useSafeBack } from "@/hooks/useSafeBack";
 import { useBookingNavigate } from "@/hooks/useBookingNavigate";
 import { Button } from "@/components/ui/button";
-import { MapPin, Share2, Copy, CheckCircle2, Star, Phone, Mail, Clock, Users } from "lucide-react";
+import { MapPin, Share2, Copy, CheckCircle2, Star, Clock, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -42,7 +42,7 @@ const ReviewHeader = ({ event }: { event: any }) => (
   </div>
 );
 
-const SELECT_FIELDS = "id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,price,price_child,available_tickets,description,activities,phone_number,email,created_by,type,opening_hours,closing_hours,days_opened,map_link,is_flexible_date,inclusions,exclusions,allow_children,ticket_types,slot_limit_type";
+const SELECT_FIELDS = "id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,price,price_child,available_tickets,description,activities,created_by,type,opening_hours,closing_hours,days_opened,map_link,is_flexible_date,inclusions,exclusions,allow_children,ticket_types,slot_limit_type";
 
 const TripDetail = () => {
   const { slug: rawSlug } = useParams();
@@ -431,24 +431,7 @@ const TripDetail = () => {
                 <UtilityButton icon={<Share2 className="h-4 w-4" />} label="Share" onClick={handleShare} />
               </div>
 
-              {/* Contact */}
-              {(event.phone_number || event.email) && (
-                <div className="space-y-2.5 mt-4 pt-4 border-t border-slate-100">
-                  <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contact</h3>
-                  {event.phone_number && (
-                    <a href={`tel:${event.phone_number}`} className="flex items-center gap-2.5 text-slate-600 hover:text-[#008080] transition-colors">
-                      <Phone className="h-4 w-4 text-[#008080]" />
-                      <span className="text-xs font-bold">{event.phone_number}</span>
-                    </a>
-                  )}
-                  {event.email && (
-                    <a href={`mailto:${event.email}`} className="flex items-center gap-2.5 text-slate-600 hover:text-[#008080] transition-colors">
-                      <Mail className="h-4 w-4 text-[#008080]" />
-                      <span className="text-xs font-bold truncate">{event.email}</span>
-                    </a>
-                  )}
-                </div>
-              )}
+
             </div>
 
             {/* Reviews — mobile */}

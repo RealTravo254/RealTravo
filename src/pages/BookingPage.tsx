@@ -9,43 +9,32 @@ import { usePaystackPopup } from "@/hooks/usePaystackPopup";
 import { useAuth } from "@/contexts/AuthContext";
 import { getReferralTrackingId } from "@/lib/referralUtils";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Loader2, CreditCard } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import { PaymentSuccessDialog } from "@/components/booking/PaymentSuccessDialog";
 
-const COLORS = {
-  TEAL: "#008080",
-  CORAL: "#FF7F50",
-};
+const COLORS = { TEAL: "#008080", CORAL: "#FF7F50" };
 
-type BookingType = 'trip' | 'event' | 'hotel' | 'adventure_place' | 'attraction';
+type BookingType = "trip" | "event" | "hotel" | "adventure_place" | "attraction";
 
-// ── Portal-based header that renders ABOVE Paystack's z-index:2147483647 iframes ──
+// ── Portal header — floats above Paystack's z-index:2147483647 iframes ─────────
 const PaystackFloatingHeader = ({
   itemName,
   onBack,
 }: {
   itemName: string;
   onBack: () => void;
-}) => {
-  return createPortal(
+}) =>
+  createPortal(
     <div
       style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        zIndex: 2147483647,
-        pointerEvents: "auto",
+        position: "fixed", top: 0, left: 0, right: 0,
+        zIndex: 2147483647, pointerEvents: "auto",
         backgroundColor: "#ffffff",
         borderBottom: "1px solid #f1f5f9",
         boxShadow: "0 1px 8px rgba(0,0,0,0.08)",
         paddingTop: "max(env(safe-area-inset-top, 0px), 10px)",
-        paddingBottom: "10px",
-        paddingLeft: "16px",
-        paddingRight: "16px",
-        display: "flex",
-        alignItems: "center",
-        gap: "12px",
+        paddingBottom: "10px", paddingLeft: "16px", paddingRight: "16px",
+        display: "flex", alignItems: "center", gap: "12px",
       }}
     >
       <button
@@ -57,37 +46,45 @@ const PaystackFloatingHeader = ({
           display: "flex", alignItems: "center", justifyContent: "center",
           flexShrink: 0, transition: "background-color 0.15s",
         }}
-        onMouseEnter={e => (e.currentTarget.style.backgroundColor = "#e2e8f0")}
-        onMouseLeave={e => (e.currentTarget.style.backgroundColor = "#f1f5f9")}
+        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e2e8f0")}
+        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f1f5f9")}
       >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#334155" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+          stroke="#334155" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <polyline points="15 18 9 12 15 6" />
         </svg>
       </button>
+
       <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ margin: 0, fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.08em", lineHeight: 1.2 }}>
+        <p style={{ margin: 0, fontSize: 10, fontWeight: 700, color: "#94a3b8",
+          textTransform: "uppercase", letterSpacing: "0.08em", lineHeight: 1.2 }}>
           Back to Checkout
         </p>
-        <p style={{ margin: 0, fontSize: 15, fontWeight: 900, color: COLORS.TEAL, textTransform: "uppercase", letterSpacing: "-0.03em", lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <p style={{ margin: 0, fontSize: 15, fontWeight: 900, color: COLORS.TEAL,
+          textTransform: "uppercase", letterSpacing: "-0.03em", lineHeight: 1.2,
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {itemName}
         </p>
       </div>
+
       <div style={{
         display: "flex", alignItems: "center", gap: 5,
         backgroundColor: "#f0fdfa", color: "#0f766e",
         fontSize: 11, fontWeight: 700, padding: "6px 12px",
         borderRadius: 999, flexShrink: 0,
       }}>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <rect x="2" y="5" width="20" height="14" rx="2" />
           <line x1="2" y1="10" x2="22" y2="10" />
         </svg>
         Secure Pay
       </div>
     </div>,
-    document.body,
+    document.body
   );
-};
+
+// ────────────────────────────────────────────────────────────────────────────────
 
 const BookingPage = () => {
   const { type, id } = useParams<{ type: string; id: string }>();
@@ -104,10 +101,15 @@ const BookingPage = () => {
   const [searchParams] = useSearchParams();
 
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
-  const [paymentReference, setPaymentReference] = useState('');
+  const [paymentReference, setPaymentReference] = useState("");
   const [completedBookingData, setCompletedBookingData] = useState<any>(null);
 
-  const { initiatePayment, launchPaystack, isLoading: isPaymentLoading, showPaystackContainer } = usePaystackPopup({
+  const {
+    initiatePayment,
+    launchPaystack,
+    isLoading: isPaymentLoading,
+    showPaystackContainer,
+  } = usePaystackPopup({
     onSuccess: (reference, bookingData) => {
       setPaymentReference(reference);
       setCompletedBookingData(bookingData);
@@ -116,7 +118,7 @@ const BookingPage = () => {
       setIsProcessing(false);
       setShowSuccessDialog(true);
     },
-    onVerifying: () => { setIsVerifying(true); },
+    onVerifying: () => setIsVerifying(true),
     onError: (error) => {
       toast({ title: "Payment Error", description: error, variant: "destructive" });
       setIsProcessing(false);
@@ -128,13 +130,15 @@ const BookingPage = () => {
     },
   });
 
+  // Launch Paystack into the container once it's ready
   useEffect(() => {
     if (showPaystackContainer) {
-      const timer = setTimeout(() => { launchPaystack('paystack-checkout-container'); }, 300);
+      const timer = setTimeout(() => launchPaystack("paystack-checkout-container"), 300);
       return () => clearTimeout(timer);
     }
   }, [showPaystackContainer, launchPaystack]);
 
+  // Push page content below the portal header when Paystack overlay is active
   useEffect(() => {
     if (showPaystackContainer && !isCompleted && !isVerifying) {
       document.body.style.paddingTop = "64px";
@@ -152,32 +156,46 @@ const BookingPage = () => {
   const fetchItem = async () => {
     if (!id || !type) return;
     try {
-      let data = null;
-      let error = null;
+      let data: any = null;
+      let error: any = null;
 
       if (type === "trip" || type === "event") {
-        // ✅ phone_number + email fetched here for PDF receipt only — NOT shown on detail page
+        // ✅ phone_number + email fetched for PDF receipt only — NOT shown on detail page
         const result = await supabase
           .from("trips")
-          .select("id,name,location,place,country,image_url,date,is_custom_date,is_flexible_date,slot_limit_type,price,price_child,available_tickets,description,activities,phone_number,email,created_by,opening_hours,closing_hours,days_opened,type,approval_status,is_hidden,ticket_types,allow_children")
+          .select(
+            "id,name,location,place,country,image_url,date,is_custom_date," +
+            "is_flexible_date,slot_limit_type,price,price_child,available_tickets," +
+            "description,activities,phone_number,email,created_by,opening_hours," +
+            "closing_hours,days_opened,type,approval_status,is_hidden,ticket_types,allow_children"
+          )
           .eq("id", id)
           .maybeSingle();
         data = result.data;
         error = result.error;
       } else if (type === "adventure_place" || type === "adventure") {
-        // ✅ phone_numbers + email fetched here for PDF receipt only — NOT shown on detail page
+        // ✅ phone_numbers + email fetched for PDF receipt only — NOT shown on detail page
         const result = await supabase
           .from("adventure_places")
-          .select("id,name,location,place,country,image_url,description,amenities,facilities,activities,phone_numbers,email,opening_hours,closing_hours,days_opened,approval_status,is_hidden,entry_fee,entry_fee_type,available_slots,created_by")
+          .select(
+            "id,name,location,place,country,image_url,description,amenities," +
+            "facilities,activities,phone_numbers,email,opening_hours,closing_hours," +
+            "days_opened,approval_status,is_hidden,entry_fee,entry_fee_type,available_slots,created_by"
+          )
           .eq("id", id)
           .maybeSingle();
         data = result.data;
         error = result.error;
       } else if (type === "hotel") {
-        // ✅ phone_numbers + email fetched here for PDF receipt only — NOT shown on detail page
+        // ✅ phone_numbers + email fetched for PDF receipt only — NOT shown on detail page
         const result = await supabase
           .from("hotels")
-          .select("id,name,location,place,country,image_url,description,amenities,facilities,activities,phone_numbers,email,opening_hours,closing_hours,days_opened,approval_status,is_hidden,available_rooms,created_by,establishment_type,general_booking_link")
+          .select(
+            "id,name,location,place,country,image_url,description,amenities," +
+            "facilities,activities,phone_numbers,email,opening_hours,closing_hours," +
+            "days_opened,approval_status,is_hidden,available_rooms,created_by," +
+            "establishment_type,general_booking_link"
+          )
           .eq("id", id)
           .maybeSingle();
         data = result.data;
@@ -194,14 +212,14 @@ const BookingPage = () => {
         navigate(-1);
         return;
       }
-      if (data.is_hidden || (data.approval_status && data.approval_status !== 'approved')) {
+      if (data.is_hidden || (data.approval_status && data.approval_status !== "approved")) {
         toast({ title: "Unavailable", description: "This item is not currently available for booking.", variant: "destructive" });
-        navigate('/');
+        navigate("/");
         return;
       }
 
       setItem(data);
-    } catch (error) {
+    } catch (err) {
       toast({ title: "Item not found", variant: "destructive" });
       navigate(-1);
     } finally {
@@ -217,23 +235,17 @@ const BookingPage = () => {
     return "attraction";
   };
 
-  // ── Resolve the host contact details depending on item type ──────────────────
-  // trips/events use `phone_number` (single string) + `email`
-  // adventure_places/hotels use `phone_numbers` (array) + `email`
+  // ── Resolve host contact depending on item type ───────────────────────────────
+  // trips/events  → phone_number (string) + email
+  // adventure_places / hotels → phone_numbers (array) + email
+  // These are embedded in bookingData for PDF generation ONLY — never shown in UI.
   const getHostContact = () => {
     if (!item) return { phone: "", email: "" };
     if (type === "trip" || type === "event") {
-      return {
-        phone: item.phone_number || "",
-        email: item.email || "",
-      };
+      return { phone: item.phone_number || "", email: item.email || "" };
     }
-    // adventure_place / hotel
     const phones: string[] = Array.isArray(item.phone_numbers) ? item.phone_numbers : [];
-    return {
-      phone: phones[0] || "",
-      email: item.email || "",
-    };
+    return { phone: phones[0] || "", email: item.email || "" };
   };
 
   const handleBookingSubmit = async (formData: BookingFormData) => {
@@ -247,26 +259,34 @@ const BookingPage = () => {
 
       if (type === "trip" || type === "event") {
         if (formData.ticketSelections && formData.ticketSelections.length > 0) {
-          formData.ticketSelections.forEach(t => totalAmount += t.price * t.quantity);
+          formData.ticketSelections.forEach((t) => (totalAmount += t.price * t.quantity));
         } else {
-          totalAmount = (formData.num_adults * item.price) + (formData.num_children * (item.price_child || 0));
+          totalAmount =
+            formData.num_adults * item.price +
+            formData.num_children * (item.price_child || 0);
         }
       } else if (type === "adventure_place" || type === "adventure") {
         if (!isFacilityOnly) {
           totalAmount = (formData.num_adults + formData.num_children) * (item.entry_fee || 0);
         }
-        formData.selectedActivities?.forEach(a => totalAmount += a.price * a.numberOfPeople);
-        formData.selectedFacilities?.forEach(f => {
+        formData.selectedActivities?.forEach((a) => (totalAmount += a.price * a.numberOfPeople));
+        formData.selectedFacilities?.forEach((f) => {
           if (f.startDate && f.endDate) {
-            const days = Math.ceil((new Date(f.endDate).getTime() - new Date(f.startDate).getTime()) / (1000 * 60 * 60 * 24));
+            const days = Math.ceil(
+              (new Date(f.endDate).getTime() - new Date(f.startDate).getTime()) /
+                (1000 * 60 * 60 * 24)
+            );
             totalAmount += f.price * Math.max(days, 1);
           }
         });
       } else if (type === "hotel") {
-        formData.selectedActivities?.forEach(a => totalAmount += a.price * a.numberOfPeople);
-        formData.selectedFacilities?.forEach(f => {
+        formData.selectedActivities?.forEach((a) => (totalAmount += a.price * a.numberOfPeople));
+        formData.selectedFacilities?.forEach((f) => {
           if (f.startDate && f.endDate) {
-            const days = Math.ceil((new Date(f.endDate).getTime() - new Date(f.startDate).getTime()) / (1000 * 60 * 60 * 24));
+            const days = Math.ceil(
+              (new Date(f.endDate).getTime() - new Date(f.startDate).getTime()) /
+                (1000 * 60 * 60 * 24)
+            );
             totalAmount += f.price * Math.max(days, 1);
           }
         });
@@ -277,12 +297,15 @@ const BookingPage = () => {
         : formData.num_adults + formData.num_children;
 
       let visitDate = formData.visit_date || item.date;
-      if (isFacilityOnly && formData.selectedFacilities?.length && formData.selectedFacilities[0].startDate) {
+      if (
+        isFacilityOnly &&
+        formData.selectedFacilities?.length &&
+        formData.selectedFacilities[0].startDate
+      ) {
         visitDate = formData.selectedFacilities[0].startDate;
       }
 
-      // ✅ Resolve host contact (phone + email) and embed in bookingData
-      // This is consumed by the PDF download on the PaymentSuccessDialog — never shown in the UI
+      // ✅ Host contact normalised and embedded — only for PDF/email, never rendered in UI
       const hostContact = getHostContact();
 
       const bookingData = {
@@ -307,19 +330,18 @@ const BookingPage = () => {
         slots_booked: slotsBooked,
         host_id: item.created_by,
         referral_tracking_id: getReferralTrackingId(),
+        // ✅ Top-level fields read by PaymentSuccessDialog → pdfData
+        host_phone: hostContact.phone,
+        host_email: hostContact.email,
         emailData: {
           itemName: item.name,
-          // ✅ Host contact passed to email/PDF generation
+          // ✅ Also in emailData for any server-side email generation
           hostPhone: hostContact.phone,
           hostEmail: hostContact.email,
         },
-        // ✅ Top-level too so PaymentSuccessDialog / PDF generator can read it directly
-        host_phone: hostContact.phone,
-        host_email: hostContact.email,
       };
 
       await initiatePayment(formData.guest_email, totalAmount, bookingData);
-
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
       setIsProcessing(false);
@@ -351,7 +373,7 @@ const BookingPage = () => {
       itemName: item.name,
       itemId: item.id,
       hostId: item.created_by || "",
-      onPaymentSuccess: () => { setIsCompleted(true); },
+      onPaymentSuccess: () => setIsCompleted(true),
       primaryColor: COLORS.TEAL,
       accentColor: COLORS.CORAL,
     };
@@ -370,7 +392,7 @@ const BookingPage = () => {
         skipDateSelection: !item.is_custom_date && !item.is_flexible_date,
         fixedDate: item.is_flexible_date ? "" : item.date,
         totalCapacity: item.available_tickets || 0,
-        slotLimitType: item.slot_limit_type || (item.is_flexible_date ? 'per_booking' : 'inventory'),
+        slotLimitType: item.slot_limit_type || (item.is_flexible_date ? "per_booking" : "inventory"),
         isFlexibleDate: item.is_flexible_date || false,
         ticketTypes: parsedTicketTypes,
         allowChildren: item.allow_children !== false,
@@ -388,7 +410,8 @@ const BookingPage = () => {
         activities: item.activities || [],
         totalCapacity: item.available_slots || 0,
         workingDays: item.days_opened || [],
-        skipDateSelection: true,
+        // ✅ Visit date is now the first step for adventure places
+        skipDateSelection: false,
       };
     }
 
@@ -424,28 +447,38 @@ const BookingPage = () => {
         <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-lg border-b border-slate-100">
           <div className="container max-w-2xl mx-auto px-4 py-4 flex items-center gap-4">
             <Button
-              variant="ghost" size="icon"
+              variant="ghost"
+              size="icon"
               onClick={() => {
-                if (isProcessing || isVerifying) { setIsProcessing(false); setIsVerifying(false); }
-                else goBack();
+                if (isProcessing || isVerifying) {
+                  setIsProcessing(false);
+                  setIsVerifying(false);
+                } else {
+                  goBack();
+                }
               }}
               className="rounded-full bg-slate-100 hover:bg-slate-200"
             >
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div className="flex-1 min-w-0">
-              <h1 className="text-lg font-black uppercase tracking-tight truncate" style={{ color: COLORS.TEAL }}>
+              <h1
+                className="text-lg font-black uppercase tracking-tight truncate"
+                style={{ color: COLORS.TEAL }}
+              >
                 {isVerifying ? "Checkout" : `Book ${item.name}`}
               </h1>
               <p className="text-xs text-slate-500 truncate">
-                {isVerifying ? "Processing payment..." : `${item.location}, ${item.country}`}
+                {isVerifying
+                  ? "Processing payment..."
+                  : `${item.location}, ${item.country}`}
               </p>
             </div>
           </div>
         </div>
       )}
 
-      {/* Verifying screen */}
+      {/* Verifying / processing screen */}
       {isVerifying && !isCompleted && (
         <div className="flex flex-col items-center justify-center min-h-[70vh] px-6">
           <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-6 animate-pulse">
@@ -458,9 +491,13 @@ const BookingPage = () => {
             Please wait while we verify your payment and confirm your booking...
           </p>
           <div className="mt-6 flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0ms' }} />
-            <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '150ms' }} />
-            <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '300ms' }} />
+            {[0, 150, 300].map((delay) => (
+              <div
+                key={delay}
+                className="w-2 h-2 rounded-full bg-primary animate-bounce"
+                style={{ animationDelay: `${delay}ms` }}
+              />
+            ))}
           </div>
         </div>
       )}
@@ -470,17 +507,22 @@ const BookingPage = () => {
         <div className="container max-w-2xl mx-auto px-4 py-6 pb-24">
           <div className="bg-white rounded-[32px] shadow-xl border border-slate-100 overflow-hidden">
             <div className="p-6 border-b border-slate-100">
-              <h2 className="text-lg font-black uppercase tracking-tight mb-1" style={{ color: COLORS.TEAL }}>
+              <h2
+                className="text-lg font-black uppercase tracking-tight mb-1"
+                style={{ color: COLORS.TEAL }}
+              >
                 Complete Payment
               </h2>
-              <p className="text-xs text-slate-500">Enter your payment details below to complete your booking</p>
+              <p className="text-xs text-slate-500">
+                Enter your payment details below to complete your booking
+              </p>
             </div>
             <div id="paystack-checkout-container" className="w-full min-h-[400px]" />
           </div>
         </div>
       )}
 
-      {/* Booking form */}
+      {/* Full booking form */}
       {!isCompleted && !isVerifying && !showPaystackContainer && (
         <div className="container max-w-2xl mx-auto px-4 py-6 pb-24">
           <div className="bg-white rounded-[32px] shadow-xl border border-slate-100">

@@ -512,7 +512,7 @@ const BookingPage = () => {
           </div>
         </div>
       )}
- 
+
       {/* Payment Success Dialog */}
       <PaymentSuccessDialog
         open={showSuccessDialog}

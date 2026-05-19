@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { createPortal } from "react-dom";
 import { useSafeBack } from "@/hooks/useSafeBack";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -18,28 +19,96 @@ const COLORS = {
 
 type BookingType = 'trip' | 'event' | 'hotel' | 'adventure_place' | 'attraction';
 
+// ── Portal-based header that renders ABOVE Paystack's z-index:2147483647 iframes ──
+const PaystackFloatingHeader = ({
+  itemName,
+  onBack,
+}: {
+  itemName: string;
+  onBack: () => void;
+}) => {
+  return createPortal(
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 2147483647,
+        pointerEvents: "auto",
+        backgroundColor: "#ffffff",
+        borderBottom: "1px solid #f1f5f9",
+        boxShadow: "0 1px 8px rgba(0,0,0,0.08)",
+        paddingTop: "max(env(safe-area-inset-top, 0px), 10px)",
+        paddingBottom: "10px",
+        paddingLeft: "16px",
+        paddingRight: "16px",
+        display: "flex",
+        alignItems: "center",
+        gap: "12px",
+      }}
+    >
+      <button
+        onClick={onBack}
+        aria-label="Back to checkout"
+        style={{
+          width: 36, height: 36, borderRadius: "50%",
+          backgroundColor: "#f1f5f9", border: "none", cursor: "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          flexShrink: 0, transition: "background-color 0.15s",
+        }}
+        onMouseEnter={e => (e.currentTarget.style.backgroundColor = "#e2e8f0")}
+        onMouseLeave={e => (e.currentTarget.style.backgroundColor = "#f1f5f9")}
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#334155" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="15 18 9 12 15 6" />
+        </svg>
+      </button>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ margin: 0, fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.08em", lineHeight: 1.2 }}>
+          Back to Checkout
+        </p>
+        <p style={{ margin: 0, fontSize: 15, fontWeight: 900, color: COLORS.TEAL, textTransform: "uppercase", letterSpacing: "-0.03em", lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {itemName}
+        </p>
+      </div>
+      <div style={{
+        display: "flex", alignItems: "center", gap: 5,
+        backgroundColor: "#f0fdfa", color: "#0f766e",
+        fontSize: 11, fontWeight: 700, padding: "6px 12px",
+        borderRadius: 999, flexShrink: 0,
+      }}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="2" y="5" width="20" height="14" rx="2" />
+          <line x1="2" y1="10" x2="22" y2="10" />
+        </svg>
+        Secure Pay
+      </div>
+    </div>,
+    document.body,
+  );
+};
+
 const BookingPage = () => {
   const { type, id } = useParams<{ type: string; id: string }>();
   const navigate = useNavigate();
   const goBack = useSafeBack();
   const { toast } = useToast();
   const { user } = useAuth();
-  
+
   const [item, setItem] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
   const [searchParams] = useSearchParams();
-  
-  // Payment success dialog state
+
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [paymentReference, setPaymentReference] = useState('');
   const [completedBookingData, setCompletedBookingData] = useState<any>(null);
-  
+
   const { initiatePayment, launchPaystack, isLoading: isPaymentLoading, showPaystackContainer } = usePaystackPopup({
     onSuccess: (reference, bookingData) => {
-      console.log('Payment success callback:', reference, bookingData);
       setPaymentReference(reference);
       setCompletedBookingData(bookingData);
       setIsVerifying(false);
@@ -47,9 +116,7 @@ const BookingPage = () => {
       setIsProcessing(false);
       setShowSuccessDialog(true);
     },
-    onVerifying: () => {
-      setIsVerifying(true);
-    },
+    onVerifying: () => { setIsVerifying(true); },
     onError: (error) => {
       toast({ title: "Payment Error", description: error, variant: "destructive" });
       setIsProcessing(false);
@@ -61,15 +128,21 @@ const BookingPage = () => {
     },
   });
 
-  // Launch Paystack into the container once it's ready
   useEffect(() => {
     if (showPaystackContainer) {
-      const timer = setTimeout(() => {
-        launchPaystack('paystack-checkout-container');
-      }, 300);
+      const timer = setTimeout(() => { launchPaystack('paystack-checkout-container'); }, 300);
       return () => clearTimeout(timer);
     }
   }, [showPaystackContainer, launchPaystack]);
+
+  useEffect(() => {
+    if (showPaystackContainer && !isCompleted && !isVerifying) {
+      document.body.style.paddingTop = "64px";
+    } else {
+      document.body.style.paddingTop = "";
+    }
+    return () => { document.body.style.paddingTop = ""; };
+  }, [showPaystackContainer, isCompleted, isVerifying]);
 
   useEffect(() => {
     if (id && type) fetchItem();
@@ -78,12 +151,12 @@ const BookingPage = () => {
 
   const fetchItem = async () => {
     if (!id || !type) return;
-    
     try {
       let data = null;
       let error = null;
-      
+
       if (type === "trip" || type === "event") {
+        // ✅ phone_number + email fetched here for PDF receipt only — NOT shown on detail page
         const result = await supabase
           .from("trips")
           .select("id,name,location,place,country,image_url,date,is_custom_date,is_flexible_date,slot_limit_type,price,price_child,available_tickets,description,activities,phone_number,email,created_by,opening_hours,closing_hours,days_opened,type,approval_status,is_hidden,ticket_types,allow_children")
@@ -92,6 +165,7 @@ const BookingPage = () => {
         data = result.data;
         error = result.error;
       } else if (type === "adventure_place" || type === "adventure") {
+        // ✅ phone_numbers + email fetched here for PDF receipt only — NOT shown on detail page
         const result = await supabase
           .from("adventure_places")
           .select("id,name,location,place,country,image_url,description,amenities,facilities,activities,phone_numbers,email,opening_hours,closing_hours,days_opened,approval_status,is_hidden,entry_fee,entry_fee_type,available_slots,created_by")
@@ -100,6 +174,7 @@ const BookingPage = () => {
         data = result.data;
         error = result.error;
       } else if (type === "hotel") {
+        // ✅ phone_numbers + email fetched here for PDF receipt only — NOT shown on detail page
         const result = await supabase
           .from("hotels")
           .select("id,name,location,place,country,image_url,description,amenities,facilities,activities,phone_numbers,email,opening_hours,closing_hours,days_opened,approval_status,is_hidden,available_rooms,created_by,establishment_type,general_booking_link")
@@ -108,30 +183,25 @@ const BookingPage = () => {
         data = result.data;
         error = result.error;
       }
-      
+
       if (error) {
-        console.error("Booking fetchItem error:", error);
         toast({ title: "Item not found", description: "Could not load booking details.", variant: "destructive" });
         navigate(-1);
         return;
       }
-      
       if (!data) {
         toast({ title: "Item not found", description: "The item you're trying to book doesn't exist.", variant: "destructive" });
         navigate(-1);
         return;
       }
-      
-      // Block booking if item is hidden or not approved
       if (data.is_hidden || (data.approval_status && data.approval_status !== 'approved')) {
         toast({ title: "Unavailable", description: "This item is not currently available for booking.", variant: "destructive" });
         navigate('/');
         return;
       }
-      
+
       setItem(data);
     } catch (error) {
-      console.error("Booking fetchItem catch:", error);
       toast({ title: "Item not found", variant: "destructive" });
       navigate(-1);
     } finally {
@@ -147,15 +217,34 @@ const BookingPage = () => {
     return "attraction";
   };
 
+  // ── Resolve the host contact details depending on item type ──────────────────
+  // trips/events use `phone_number` (single string) + `email`
+  // adventure_places/hotels use `phone_numbers` (array) + `email`
+  const getHostContact = () => {
+    if (!item) return { phone: "", email: "" };
+    if (type === "trip" || type === "event") {
+      return {
+        phone: item.phone_number || "",
+        email: item.email || "",
+      };
+    }
+    // adventure_place / hotel
+    const phones: string[] = Array.isArray(item.phone_numbers) ? item.phone_numbers : [];
+    return {
+      phone: phones[0] || "",
+      email: item.email || "",
+    };
+  };
+
   const handleBookingSubmit = async (formData: BookingFormData) => {
     if (!item || !type) return;
     setIsProcessing(true);
-    
+
     try {
       let totalAmount = 0;
       const bookingType = getBookingType();
       const isFacilityOnly = searchParams.get("skipToFacility") === "true";
-      
+
       if (type === "trip" || type === "event") {
         if (formData.ticketSelections && formData.ticketSelections.length > 0) {
           formData.ticketSelections.forEach(t => totalAmount += t.price * t.quantity);
@@ -164,8 +253,7 @@ const BookingPage = () => {
         }
       } else if (type === "adventure_place" || type === "adventure") {
         if (!isFacilityOnly) {
-          const entryFee = item.entry_fee || 0;
-          totalAmount = (formData.num_adults + formData.num_children) * entryFee;
+          totalAmount = (formData.num_adults + formData.num_children) * (item.entry_fee || 0);
         }
         formData.selectedActivities?.forEach(a => totalAmount += a.price * a.numberOfPeople);
         formData.selectedFacilities?.forEach(f => {
@@ -184,7 +272,7 @@ const BookingPage = () => {
         });
       }
 
-      const slotsBooked = isFacilityOnly 
+      const slotsBooked = isFacilityOnly
         ? formData.selectedFacilities?.length || 1
         : formData.num_adults + formData.num_children;
 
@@ -192,13 +280,17 @@ const BookingPage = () => {
       if (isFacilityOnly && formData.selectedFacilities?.length && formData.selectedFacilities[0].startDate) {
         visitDate = formData.selectedFacilities[0].startDate;
       }
-      
+
+      // ✅ Resolve host contact (phone + email) and embed in bookingData
+      // This is consumed by the PDF download on the PaymentSuccessDialog — never shown in the UI
+      const hostContact = getHostContact();
+
       const bookingData = {
         item_id: item.id,
         booking_type: bookingType,
         total_amount: totalAmount,
-        booking_details: { 
-          ...formData, 
+        booking_details: {
+          ...formData,
           item_name: item.name,
           is_facility_only: isFacilityOnly,
           adults: formData.num_adults,
@@ -217,22 +309,26 @@ const BookingPage = () => {
         referral_tracking_id: getReferralTrackingId(),
         emailData: {
           itemName: item.name,
+          // ✅ Host contact passed to email/PDF generation
+          hostPhone: hostContact.phone,
+          hostEmail: hostContact.email,
         },
+        // ✅ Top-level too so PaymentSuccessDialog / PDF generator can read it directly
+        host_phone: hostContact.phone,
+        host_email: hostContact.email,
       };
-      
+
       await initiatePayment(formData.guest_email, totalAmount, bookingData);
-      
+
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
       setIsProcessing(false);
     }
   };
 
-  // Handle back from Paystack checkout — cancel and return to form
   const handlePaystackBack = () => {
     setIsProcessing(false);
     setIsVerifying(false);
-    // Force page reload to reset Paystack state cleanly
     window.location.reload();
   };
 
@@ -255,15 +351,13 @@ const BookingPage = () => {
       itemName: item.name,
       itemId: item.id,
       hostId: item.created_by || "",
-      onPaymentSuccess: () => {
-        setIsCompleted(true);
-      },
+      onPaymentSuccess: () => { setIsCompleted(true); },
       primaryColor: COLORS.TEAL,
       accentColor: COLORS.CORAL,
     };
-    
+
     if (type === "trip" || type === "event") {
-      const parsedTicketTypes = Array.isArray(item.ticket_types) 
+      const parsedTicketTypes = Array.isArray(item.ticket_types)
         ? (item.ticket_types as any[]).map((t: any) => ({ name: t.name, price: Number(t.price) }))
         : [];
       return {
@@ -282,7 +376,7 @@ const BookingPage = () => {
         allowChildren: item.allow_children !== false,
       };
     }
-    
+
     if (type === "adventure_place" || type === "adventure") {
       return {
         ...baseProps,
@@ -297,7 +391,7 @@ const BookingPage = () => {
         skipDateSelection: true,
       };
     }
-    
+
     if (type === "hotel") {
       return {
         ...baseProps,
@@ -311,27 +405,29 @@ const BookingPage = () => {
         workingDays: item.days_opened || [],
       };
     }
-    
+
     return baseProps;
   };
+
+  const paystackIsActive = showPaystackContainer && !isCompleted && !isVerifying;
 
   return (
     <div className="min-h-screen bg-[#F8F9FA]">
 
-      {/* ── Standard header: form view & verifying ── */}
+      {/* Portal header — floats above Paystack iframes */}
+      {paystackIsActive && item && (
+        <PaystackFloatingHeader itemName={item.name} onBack={handlePaystackBack} />
+      )}
+
+      {/* Standard header */}
       {!isCompleted && !showPaystackContainer && (
         <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-lg border-b border-slate-100">
           <div className="container max-w-2xl mx-auto px-4 py-4 flex items-center gap-4">
             <Button
-              variant="ghost"
-              size="icon"
+              variant="ghost" size="icon"
               onClick={() => {
-                if (isProcessing || isVerifying) {
-                  setIsProcessing(false);
-                  setIsVerifying(false);
-                } else {
-                  goBack();
-                }
+                if (isProcessing || isVerifying) { setIsProcessing(false); setIsVerifying(false); }
+                else goBack();
               }}
               className="rounded-full bg-slate-100 hover:bg-slate-200"
             >
@@ -349,36 +445,7 @@ const BookingPage = () => {
         </div>
       )}
 
-      {/* ── Paystack header: back to checkout ── */}
-      {showPaystackContainer && !isCompleted && (
-        <div className="sticky top-0 z-50 bg-white border-b border-slate-100 shadow-sm">
-          <div className="container max-w-2xl mx-auto px-4 py-4 flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handlePaystackBack}
-              className="rounded-full bg-slate-100 hover:bg-slate-200 shrink-0"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div className="flex-1 min-w-0">
-              <h1 className="text-lg font-black uppercase tracking-tight truncate" style={{ color: COLORS.TEAL }}>
-                Back to Checkout
-              </h1>
-              <p className="text-xs text-slate-500 truncate">
-                Complete payment for {item.name}
-              </p>
-            </div>
-            {/* Secure badge */}
-            <div className="flex items-center gap-1.5 shrink-0 bg-teal-50 text-teal-700 text-[11px] font-bold px-3 py-1.5 rounded-full">
-              <CreditCard className="h-3.5 w-3.5" />
-              Secure Pay
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Verifying / Processing Payment Screen */}
+      {/* Verifying screen */}
       {isVerifying && !isCompleted && (
         <div className="flex flex-col items-center justify-center min-h-[70vh] px-6">
           <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-6 animate-pulse">
@@ -398,7 +465,7 @@ const BookingPage = () => {
         </div>
       )}
 
-      {/* Paystack Inline Checkout Container */}
+      {/* Paystack inline checkout container */}
       {showPaystackContainer && !isCompleted && !isVerifying && (
         <div className="container max-w-2xl mx-auto px-4 py-6 pb-24">
           <div className="bg-white rounded-[32px] shadow-xl border border-slate-100 overflow-hidden">
@@ -408,15 +475,12 @@ const BookingPage = () => {
               </h2>
               <p className="text-xs text-slate-500">Enter your payment details below to complete your booking</p>
             </div>
-            <div 
-              id="paystack-checkout-container" 
-              className="w-full min-h-[400px]"
-            />
+            <div id="paystack-checkout-container" className="w-full min-h-[400px]" />
           </div>
         </div>
       )}
 
-      {/* Full Page Booking Form */}
+      {/* Booking form */}
       {!isCompleted && !isVerifying && !showPaystackContainer && (
         <div className="container max-w-2xl mx-auto px-4 py-6 pb-24">
           <div className="bg-white rounded-[32px] shadow-xl border border-slate-100">
@@ -425,7 +489,7 @@ const BookingPage = () => {
         </div>
       )}
 
-      {/* Payment Success Dialog */} 
+      {/* Payment success dialog — receives host_phone + host_email for PDF */}
       <PaymentSuccessDialog
         open={showSuccessDialog}
         onOpenChange={setShowSuccessDialog}

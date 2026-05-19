@@ -16,7 +16,7 @@ export const BookingDownloadButton = ({
   booking,
   variant = "outline",
   size = "sm",
-  className 
+  className,
 }: BookingDownloadButtonProps) => {
   const [isDownloading, setIsDownloading] = useState(false);
   const qrRef = useRef<HTMLCanvasElement>(null);
@@ -29,26 +29,17 @@ export const BookingDownloadButton = ({
       if (canvas) {
         try {
           const dataUrl = canvas.toDataURL("image/png");
-          // Valid canvas produces a long base64 string; "data:," means empty/unpainted
           if (dataUrl && dataUrl.length > 100 && dataUrl !== "data:,") {
             resolve(dataUrl);
             return;
           }
         } catch (e) {
-          // SecurityError on tainted canvas (rare) — fall through to fresh render
           console.warn("canvas.toDataURL failed:", e);
         }
       }
 
-      /*
-        Fallback: dynamically mount a fresh QRCodeCanvas into a temporary
-        zero-size inline container appended to document.body.
-
-        Why NOT position:fixed top:-9999?
-        Inside a Radix Sheet/Dialog, the browser may refuse to paint canvases
-        that are outside the sheet's stacking context or clipping rect.
-        Appending directly to document.body at zero opacity sidesteps this.
-      */
+      // Fallback: dynamically mount a fresh QRCodeCanvas into a temporary
+      // zero-size inline container appended to document.body.
       const container = document.createElement("div");
       container.style.cssText =
         "position:absolute;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;top:0;left:0;";
@@ -67,7 +58,6 @@ export const BookingDownloadButton = ({
               })
             );
 
-            // rAF + 200ms gives React time to commit and the browser time to rasterise
             requestAnimationFrame(() => {
               setTimeout(() => {
                 try {
@@ -115,29 +105,20 @@ export const BookingDownloadButton = ({
   return (
     <>
       {/*
-        The inline hidden canvas.
-
-        Why inline instead of position:fixed?
-        position:fixed elements are painted relative to the viewport stacking context.
-        Inside a Radix Sheet (which uses a Portal), the sheet lives in a separate
-        stacking context. A fixed canvas at top:-9999 may fall outside the sheet's
-        composited layer and never get rasterised on iOS Safari / Chrome Android.
-
-        Inline with width:0 / height:0 / overflow:hidden keeps it inside the same
-        render tree, so it always paints. The ref still works because the canvas
-        element itself is 256×256 — only the wrapper is collapsed.
+        Inline hidden canvas — keeps the QR inside the same render tree so it
+        always paints on iOS Safari / Chrome Android inside Radix Sheet/Dialog.
       */}
       <span
         aria-hidden="true"
-        style={{ display: "inline-block", width: 0, height: 0, overflow: "hidden", verticalAlign: "top" }}
+        style={{
+          display: "inline-block",
+          width: 0,
+          height: 0,
+          overflow: "hidden",
+          verticalAlign: "top",
+        }}
       >
-        <QRCodeCanvas
-          ref={qrRef}
-          value={qrData}
-          size={256}
-          level="H"
-          includeMargin
-        />
+        <QRCodeCanvas ref={qrRef} value={qrData} size={256} level="H" includeMargin />
       </span>
 
       <Button

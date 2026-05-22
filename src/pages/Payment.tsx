@@ -177,9 +177,6 @@ export default function Payment() {
               <Link2 className="h-4 w-4 text-primary" />
               <h3 className="text-xs font-black uppercase tracking-widest text-primary">Referral Program</h3>
             </div>
-            <p className="text-[10px] text-muted-foreground">
-              Share referral links from any listing's detail page to earn commissions. Commission rates are set per category by the admin.
-            </p>
           </div>
         )}
 

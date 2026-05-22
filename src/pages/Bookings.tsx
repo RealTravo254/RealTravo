@@ -54,7 +54,6 @@ const fmt = (d: string) =>
 const fmtShort = (d: string) =>
   new Date(d).toLocaleDateString("en-KE", { year: "numeric", month: "short", day: "numeric" });
 
-// KES formatter — default currency
 const KES = (n: number) =>
   `KES ${new Intl.NumberFormat("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)}`;
 
@@ -71,6 +70,7 @@ const bookingName = (b: Booking) => {
 // ─── PDF Download ─────────────────────────────────────────────────────────────
 
 const downloadPDF = async (booking: Booking) => {
+  // Dynamic imports — qrcode must be in dependencies
   const [{ jsPDF }, QRCode] = await Promise.all([
     import("jspdf"),
     import("qrcode"),
@@ -91,7 +91,6 @@ const downloadPDF = async (booking: Booking) => {
 
   let y = 0;
 
-  // helper: auto-page if near bottom
   const checkPage = (need: number) => {
     if (y + need > H - 60) {
       doc.addPage();
@@ -99,7 +98,7 @@ const downloadPDF = async (booking: Booking) => {
     }
   };
 
-  // ── Header ──
+  // ── Header band ──
   doc.setFillColor(...teal);
   doc.rect(0, 0, W, 90, "F");
   doc.setFillColor(...coral);
@@ -137,9 +136,13 @@ const downloadPDF = async (booking: Booking) => {
 
   // ── Status pills ──
   const pillColors: Record<string, [number,number,number]> = {
-    confirmed:[16,185,129], pending:[245,158,11], cancelled:[239,68,68],
-    paid:[16,185,129], unpaid:[148,163,184],
+    confirmed: [16, 185, 129],
+    pending:   [245, 158, 11],
+    cancelled: [239, 68, 68],
+    paid:      [16, 185, 129],
+    unpaid:    [148, 163, 184],
   };
+
   const pill = (label: string, color: [number,number,number], x: number, yy: number) => {
     doc.setFillColor(...color);
     const tw = doc.getTextWidth(label.toUpperCase()) + 18;
@@ -150,14 +153,17 @@ const downloadPDF = async (booking: Booking) => {
     doc.text(label.toUpperCase(), x + 9, yy);
     return x + tw + 8;
   };
+
   let px = 36;
   px = pill(booking.status, pillColors[booking.status?.toLowerCase()] || mid, px, y);
   px = pill(booking.payment_status, pillColors[booking.payment_status?.toLowerCase()] || mid, px, y);
-  if (d.rescheduled_at) pill("RESCHEDULED", [59,130,246], px, y);
+  if (d.rescheduled_at) pill("RESCHEDULED", [59, 130, 246], px, y);
   y += 24;
 
-  // ── Section header helper ──
-  const COL1 = 36, COL2 = W / 2 + 10, COL_W = W / 2 - 56;
+  // ── Layout helpers ──
+  const COL1 = 36;
+  const COL2 = W / 2 + 10;
+  const COL_W = W / 2 - 56;
 
   const section = (title: string) => {
     checkPage(36);
@@ -171,7 +177,7 @@ const downloadPDF = async (booking: Booking) => {
   };
 
   const field = (label: string, value: string, x: number, fw = false) => {
-    if (!value || value === "—") return;
+    if (!value || value === "—") return 0;
     const maxW = fw ? W - 90 : COL_W;
     checkPage(32);
     doc.setTextColor(...mid);
@@ -186,7 +192,6 @@ const downloadPDF = async (booking: Booking) => {
     return lines.length * 12 + 17;
   };
 
-  // two-column field pair
   const fieldRow = (l1: string, v1: string, l2: string, v2: string) => {
     checkPage(36);
     const startY = y;
@@ -201,13 +206,16 @@ const downloadPDF = async (booking: Booking) => {
     y += h + 4;
   };
 
-  // ── Booking Details section ──
+  // ── Booking Details ──
   section("Booking Details");
   fieldRow("Booking ID", booking.id, "Booked On", fmt(booking.created_at));
   fieldRow("Type", booking.booking_type?.toUpperCase() || "—", "Total Amount", KES(booking.total_amount));
 
   if (d.rescheduled_at) {
-    fieldRow("Original Visit Date", d.original_date ? fmt(d.original_date) : "—", "New Visit Date ✦", d.date ? fmt(d.date) : "—");
+    fieldRow(
+      "Original Visit Date", d.original_date ? fmt(d.original_date) : "—",
+      "New Visit Date ✦",    d.date ? fmt(d.date) : "—",
+    );
     fieldFull("Rescheduled On", fmt(d.rescheduled_at));
   } else {
     if (booking.visit_date || d.date) {
@@ -230,7 +238,7 @@ const downloadPDF = async (booking: Booking) => {
   // ── Guests & Slots ──
   section("Guests & Slots");
   fieldRow(
-    "Adults", String(d.adults || d.num_adults || "—"),
+    "Adults",   String(d.adults   || d.num_adults   || "—"),
     "Children", String(d.children || d.num_children || 0),
   );
   if (booking.slots_booked || d.location) {
@@ -247,14 +255,13 @@ const downloadPDF = async (booking: Booking) => {
     y += 6;
   }
 
-  // ── Activities (with date, days, people, per-item total) ──
+  // ── Activities ──
   if (d.selectedActivities?.length) {
     section("Activities");
     d.selectedActivities.forEach((a: any, i: number) => {
       checkPage(60);
       const subtotal = (a.price || 0) * (a.numberOfPeople || 1);
 
-      // Activity name + subtotal on same line
       doc.setTextColor(...dark);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(10);
@@ -263,30 +270,25 @@ const downloadPDF = async (booking: Booking) => {
       doc.text(KES(subtotal), W - 36, y, { align: "right" });
       y += 14;
 
-      // Detail line: people · rate · dates
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);
       doc.setTextColor(...mid);
-      const ppl = `${a.numberOfPeople || 1} ${(a.numberOfPeople || 1) === 1 ? "person" : "people"}`;
-      const rate = `@ ${KES(a.price || 0)}/person`;
-      const dateStr = a.startDate
-        ? `  ·  ${fmtShort(a.startDate)} → ${fmtShort(a.endDate || a.startDate)}`
-        : "";
-      const daysStr = a.startDate && a.endDate
-        ? `  ·  ${daysBetween(a.startDate, a.endDate)} day(s)`
-        : "";
+      const ppl     = `${a.numberOfPeople || 1} ${(a.numberOfPeople || 1) === 1 ? "person" : "people"}`;
+      const rate    = `@ ${KES(a.price || 0)}/person`;
+      const dateStr = a.startDate ? `  ·  ${fmtShort(a.startDate)} → ${fmtShort(a.endDate || a.startDate)}` : "";
+      const daysStr = a.startDate && a.endDate ? `  ·  ${daysBetween(a.startDate, a.endDate)} day(s)` : "";
       doc.text(`${ppl}  ${rate}${dateStr}${daysStr}`, COL1 + 10, y);
       y += 16;
     });
     y += 4;
   }
 
-  // ── Facilities (with check-in → check-out, days, price/day, total) ──
+  // ── Facilities ──
   if (d.selectedFacilities?.length) {
     section("Facilities");
     d.selectedFacilities.forEach((f: any, i: number) => {
       checkPage(60);
-      const days = f.startDate && f.endDate ? daysBetween(f.startDate, f.endDate) : 1;
+      const days     = f.startDate && f.endDate ? daysBetween(f.startDate, f.endDate) : 1;
       const subtotal = (f.price || 0) * days;
 
       doc.setTextColor(...dark);
@@ -333,33 +335,43 @@ const downloadPDF = async (booking: Booking) => {
   doc.text(KES(booking.total_amount), 52, y + 35);
   y += 64;
 
-  // ── QR Code + disclaimer ──
+  // ── QR Code ──
   checkPage(130);
   const qrData = JSON.stringify({
-    id: booking.id, item: name, type: booking.booking_type,
-    status: booking.status, payment: booking.payment_status,
-    amount: booking.total_amount,
-    date: booking.visit_date || d.date || booking.created_at,
-    guest: booking.guest_name || d.guest_name,
+    id:      booking.id,
+    item:    name,
+    type:    booking.booking_type,
+    status:  booking.status,
+    payment: booking.payment_status,
+    amount:  booking.total_amount,
+    date:    booking.visit_date || d.date || booking.created_at,
+    guest:   booking.guest_name || d.guest_name,
   });
-  const qrUrl: string = await QRCode.toDataURL(qrData, {
-    width: 110, margin: 1, color: { dark: "#003333", light: "#ffffff" },
+
+  // QRCode.default handles both ESM and CJS interop
+  const qrLib = (QRCode as any).default ?? QRCode;
+  const qrUrl: string = await qrLib.toDataURL(qrData, {
+    width: 110,
+    margin: 1,
+    color: { dark: "#003333", light: "#ffffff" },
   });
-  const QR = 110;
+
+  const QR_SIZE = 110;
   doc.setFillColor(...white);
-  doc.roundedRect(W - 36 - QR - 4, y - 4, QR + 8, QR + 26, 6, 6, "F");
-  doc.addImage(qrUrl, "PNG", W - 36 - QR, y, QR, QR);
+  doc.roundedRect(W - 36 - QR_SIZE - 4, y - 4, QR_SIZE + 8, QR_SIZE + 26, 6, 6, "F");
+  doc.addImage(qrUrl, "PNG", W - 36 - QR_SIZE, y, QR_SIZE, QR_SIZE);
   doc.setTextColor(...mid);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7);
-  doc.text("Scan to verify booking", W - 36 - QR + 8, y + QR + 16);
+  doc.text("Scan to verify booking", W - 36 - QR_SIZE + 8, y + QR_SIZE + 16);
 
+  // Disclaimer text
   doc.setTextColor(...mid);
   doc.setFont("helvetica", "italic");
   doc.setFontSize(8);
   const note = doc.splitTextToSize(
     "This is your official booking confirmation from Realtravo. Please present this document at the venue. All details are verified and cannot be edited.",
-    W / 2 - 46
+    W / 2 - 46,
   );
   doc.text(note, 36, y + 16);
 
@@ -413,7 +425,9 @@ const Row = ({ icon: Icon, label, value }: { icon: any; label: string; value: Re
 // ─── Reschedule Modal ─────────────────────────────────────────────────────────
 
 const RescheduleModal = ({
-  booking, onClose, onConfirm,
+  booking,
+  onClose,
+  onConfirm,
 }: {
   booking: Booking;
   onClose: () => void;
@@ -434,8 +448,13 @@ const RescheduleModal = ({
   const handle = async () => {
     if (!newDate) return;
     setSaving(true);
-    try { await onConfirm(booking.id, newDate); setDone(true); setTimeout(onClose, 2200); }
-    finally { setSaving(false); }
+    try {
+      await onConfirm(booking.id, newDate);
+      setDone(true);
+      setTimeout(onClose, 2200);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -452,7 +471,10 @@ const RescheduleModal = ({
               <p className="text-white font-black text-base truncate max-w-[200px]">{name}</p>
             </div>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center">
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center"
+          >
             <X className="h-4 w-4 text-white" />
           </button>
         </div>
@@ -462,8 +484,12 @@ const RescheduleModal = ({
             <div className="flex flex-col items-center py-8 gap-3 text-center">
               <CheckCircle className="h-16 w-16 text-emerald-500" />
               <p className="font-black text-xl text-slate-800">All Set!</p>
-              <p className="text-slate-500 text-sm">New visit date: <span className="text-slate-800 font-bold">{fmt(newDate)}</span></p>
-              <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-3 py-1 mt-1">⚠ This was your one allowed reschedule</p>
+              <p className="text-slate-500 text-sm">
+                New visit date: <span className="text-slate-800 font-bold">{fmt(newDate)}</span>
+              </p>
+              <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-3 py-1 mt-1">
+                ⚠ This was your one allowed reschedule
+              </p>
             </div>
           ) : (
             <>
@@ -474,9 +500,13 @@ const RescheduleModal = ({
                 </div>
               )}
               <div className="mb-5">
-                <label className="block text-xs font-black uppercase tracking-widest text-slate-500 mb-2">New Visit Date</label>
+                <label className="block text-xs font-black uppercase tracking-widest text-slate-500 mb-2">
+                  New Visit Date
+                </label>
                 <input
-                  type="date" min={getTomorrow()} value={newDate}
+                  type="date"
+                  min={getTomorrow()}
+                  value={newDate}
                   onChange={(e) => setNewDate(e.target.value)}
                   className="w-full border-2 border-slate-200 focus:border-teal-500 rounded-xl px-4 py-3 text-sm font-semibold bg-white outline-none transition-colors"
                 />
@@ -488,9 +518,16 @@ const RescheduleModal = ({
                 </p>
               </div>
               <div className="flex gap-3">
-                <button onClick={onClose} disabled={saving} className="flex-1 border-2 border-slate-200 text-slate-600 font-bold rounded-xl py-3 text-sm hover:bg-slate-50">Cancel</button>
                 <button
-                  onClick={handle} disabled={!newDate || saving}
+                  onClick={onClose}
+                  disabled={saving}
+                  className="flex-1 border-2 border-slate-200 text-slate-600 font-bold rounded-xl py-3 text-sm hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handle}
+                  disabled={!newDate || saving}
                   style={newDate && !saving ? { background: `linear-gradient(135deg, ${TEAL}, #00b3b3)` } : undefined}
                   className="flex-1 text-white font-black rounded-xl py-3 text-sm disabled:opacity-40 disabled:bg-slate-200 disabled:text-slate-400"
                 >
@@ -507,32 +544,41 @@ const RescheduleModal = ({
 
 // ─── Expanded Detail Panel ────────────────────────────────────────────────────
 
-const BookingDetail = ({ booking, onReschedule }: { booking: Booking; onReschedule: () => void }) => {
+const BookingDetail = ({
+  booking,
+  onReschedule,
+}: {
+  booking: Booking;
+  onReschedule: () => void;
+}) => {
   const [downloading, setDownloading] = useState(false);
-  const d = booking.booking_details || {};
+  const d    = booking.booking_details || {};
   const name = bookingName(booking);
 
   const handleDownload = async () => {
     setDownloading(true);
-    try { await downloadPDF(booking); }
-    catch { toast({ title: "Download failed", variant: "destructive" }); }
-    finally { setDownloading(false); }
+    try {
+      await downloadPDF(booking);
+    } catch {
+      toast({ title: "Download failed", variant: "destructive" });
+    } finally {
+      setDownloading(false);
+    }
   };
 
-  // Compute activity subtotals
   const activitiesTotal = (d.selectedActivities || []).reduce(
-    (sum: number, a: any) => sum + (a.price || 0) * (a.numberOfPeople || 1), 0
+    (sum: number, a: any) => sum + (a.price || 0) * (a.numberOfPeople || 1),
+    0,
   );
 
-  // Compute facility subtotals
   const facilitiesTotal = (d.selectedFacilities || []).reduce((sum: number, f: any) => {
     const days = f.startDate && f.endDate ? daysBetween(f.startDate, f.endDate) : 1;
     return sum + (f.price || 0) * days;
   }, 0);
 
-  // Ticket subtotal
   const ticketsTotal = (d.ticketSelections || []).reduce(
-    (sum: number, t: any) => sum + (t.price || 0) * (t.quantity || 0), 0
+    (sum: number, t: any) => sum + (t.price || 0) * (t.quantity || 0),
+    0,
   );
 
   return (
@@ -570,7 +616,9 @@ const BookingDetail = ({ booking, onReschedule }: { booking: Booking; onReschedu
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-0.5">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">New Visit Date</p>
-                <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200">Rescheduled</span>
+                <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200">
+                  Rescheduled
+                </span>
               </div>
               <p className="text-sm font-black" style={{ color: TEAL }}>{fmt(d.date)}</p>
               <p className="text-[10px] text-slate-400 mt-0.5">Changed on {fmt(d.rescheduled_at)}</p>
@@ -600,7 +648,9 @@ const BookingDetail = ({ booking, onReschedule }: { booking: Booking; onReschedu
               </div>
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tickets</p>
             </div>
-            <span className="text-xs font-black text-slate-500">Subtotal: <span style={{ color: TEAL }}>{KES(ticketsTotal)}</span></span>
+            <span className="text-xs font-black text-slate-500">
+              Subtotal: <span style={{ color: TEAL }}>{KES(ticketsTotal)}</span>
+            </span>
           </div>
           <div className="ml-11 space-y-2">
             {d.ticketSelections.map((t: any, i: number) => (
@@ -616,7 +666,7 @@ const BookingDetail = ({ booking, onReschedule }: { booking: Booking; onReschedu
         </div>
       )}
 
-      {/* Activities — full breakdown */}
+      {/* Activities */}
       {d.selectedActivities?.length > 0 && (
         <div className="py-3 border-b border-dashed border-slate-100">
           <div className="flex items-center justify-between mb-3">
@@ -626,12 +676,14 @@ const BookingDetail = ({ booking, onReschedule }: { booking: Booking; onReschedu
               </div>
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Activities</p>
             </div>
-            <span className="text-xs font-black text-slate-500">Subtotal: <span style={{ color: TEAL }}>{KES(activitiesTotal)}</span></span>
+            <span className="text-xs font-black text-slate-500">
+              Subtotal: <span style={{ color: TEAL }}>{KES(activitiesTotal)}</span>
+            </span>
           </div>
           <div className="ml-11 space-y-3">
             {d.selectedActivities.map((a: any, i: number) => {
               const subtotal = (a.price || 0) * (a.numberOfPeople || 1);
-              const days = a.startDate && a.endDate ? daysBetween(a.startDate, a.endDate) : null;
+              const days     = a.startDate && a.endDate ? daysBetween(a.startDate, a.endDate) : null;
               return (
                 <div key={i} className="bg-white rounded-xl px-3 py-3 border border-slate-100">
                   <div className="flex justify-between items-start mb-1.5">
@@ -665,7 +717,7 @@ const BookingDetail = ({ booking, onReschedule }: { booking: Booking; onReschedu
         </div>
       )}
 
-      {/* Facilities — full breakdown */}
+      {/* Facilities */}
       {d.selectedFacilities?.length > 0 && (
         <div className="py-3 border-b border-dashed border-slate-100">
           <div className="flex items-center justify-between mb-3">
@@ -675,11 +727,13 @@ const BookingDetail = ({ booking, onReschedule }: { booking: Booking; onReschedu
               </div>
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Facilities</p>
             </div>
-            <span className="text-xs font-black text-slate-500">Subtotal: <span style={{ color: TEAL }}>{KES(facilitiesTotal)}</span></span>
+            <span className="text-xs font-black text-slate-500">
+              Subtotal: <span style={{ color: TEAL }}>{KES(facilitiesTotal)}</span>
+            </span>
           </div>
           <div className="ml-11 space-y-3">
             {d.selectedFacilities.map((f: any, i: number) => {
-              const days = f.startDate && f.endDate ? daysBetween(f.startDate, f.endDate) : 1;
+              const days     = f.startDate && f.endDate ? daysBetween(f.startDate, f.endDate) : 1;
               const subtotal = (f.price || 0) * days;
               return (
                 <div key={i} className="bg-white rounded-xl px-3 py-3 border border-slate-100">
@@ -721,12 +775,18 @@ const BookingDetail = ({ booking, onReschedule }: { booking: Booking; onReschedu
           <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Host Contact</p>
           <div className="flex flex-wrap gap-2">
             {booking.host_phone && (
-              <a href={`tel:${booking.host_phone}`} className="flex items-center gap-1.5 text-xs bg-white border border-slate-200 rounded-full px-3 py-1.5 text-slate-700 hover:border-teal-400 transition-colors font-semibold">
+              <a
+                href={`tel:${booking.host_phone}`}
+                className="flex items-center gap-1.5 text-xs bg-white border border-slate-200 rounded-full px-3 py-1.5 text-slate-700 hover:border-teal-400 transition-colors font-semibold"
+              >
                 <Phone className="h-3.5 w-3.5 text-teal-600" />{booking.host_phone}
               </a>
             )}
             {booking.host_email && (
-              <a href={`mailto:${booking.host_email}`} className="flex items-center gap-1.5 text-xs bg-white border border-slate-200 rounded-full px-3 py-1.5 text-slate-700 hover:border-teal-400 transition-colors font-semibold">
+              <a
+                href={`mailto:${booking.host_email}`}
+                className="flex items-center gap-1.5 text-xs bg-white border border-slate-200 rounded-full px-3 py-1.5 text-slate-700 hover:border-teal-400 transition-colors font-semibold"
+              >
                 <Mail className="h-3.5 w-3.5 text-teal-600" />{booking.host_email}
               </a>
             )}
@@ -734,7 +794,7 @@ const BookingDetail = ({ booking, onReschedule }: { booking: Booking; onReschedu
         </div>
       )}
 
-      {/* Grand total summary */}
+      {/* Summary */}
       <div className="mt-5 rounded-2xl overflow-hidden border border-teal-100">
         <div style={{ background: `linear-gradient(135deg, ${TEAL}, #00b3b3)` }} className="px-4 py-2">
           <p className="text-white/80 text-[10px] font-black uppercase tracking-widest">Booking Summary</p>
@@ -776,7 +836,8 @@ const BookingDetail = ({ booking, onReschedule }: { booking: Booking; onReschedu
       {/* Action buttons */}
       <div className="flex gap-3 pt-4">
         <button
-          onClick={handleDownload} disabled={downloading}
+          onClick={handleDownload}
+          disabled={downloading}
           className="flex-1 flex items-center justify-center gap-2 border-2 border-slate-200 text-slate-700 rounded-2xl py-3 text-sm font-black hover:border-teal-400 hover:text-teal-700 transition-all disabled:opacity-50"
         >
           {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
@@ -803,9 +864,15 @@ const BookingDetail = ({ booking, onReschedule }: { booking: Booking; onReschedu
 
 // ─── Booking Card ─────────────────────────────────────────────────────────────
 
-const BookingCard = ({ booking, onReschedule }: { booking: Booking; onReschedule: (b: Booking) => void }) => {
+const BookingCard = ({
+  booking,
+  onReschedule,
+}: {
+  booking: Booking;
+  onReschedule: (b: Booking) => void;
+}) => {
   const [open, setOpen] = useState(false);
-  const d = booking.booking_details || {};
+  const d    = booking.booking_details || {};
   const name = bookingName(booking);
 
   const typeColors: Record<string, string> = {
@@ -819,6 +886,7 @@ const BookingCard = ({ booking, onReschedule }: { booking: Booking; onReschedule
     trip: "✈️", event: "🎟️", hotel: "🏨",
     adventure_place: "🌿", adventure: "🌿",
   };
+
   const typeClass   = typeColors[booking.booking_type?.toLowerCase()] || "bg-slate-50 text-slate-600 border-slate-200";
   const emoji       = typeEmojis[booking.booking_type?.toLowerCase()] || "📋";
   const displayDate = d.rescheduled_at ? d.date : (booking.visit_date || d.date);
@@ -829,15 +897,24 @@ const BookingCard = ({ booking, onReschedule }: { booking: Booking; onReschedule
         onClick={() => setOpen((v) => !v)}
         className="w-full text-left px-5 py-5 flex items-start gap-4 hover:bg-slate-50/40 transition-colors"
       >
-        <div className="w-12 h-12 rounded-2xl flex-shrink-0 flex items-center justify-center text-xl" style={{ background: `linear-gradient(135deg, ${TEAL}15, ${TEAL}28)` }}>
+        <div
+          className="w-12 h-12 rounded-2xl flex-shrink-0 flex items-center justify-center text-xl"
+          style={{ background: `linear-gradient(135deg, ${TEAL}15, ${TEAL}28)` }}
+        >
           {emoji}
         </div>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-1.5">
-            <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border ${typeClass}`}>{booking.booking_type}</span>
+            <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border ${typeClass}`}>
+              {booking.booking_type}
+            </span>
             <StatusPill status={booking.status} />
-            {d.rescheduled_at && <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border bg-blue-50 text-blue-600 border-blue-200">Rescheduled</span>}
+            {d.rescheduled_at && (
+              <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border bg-blue-50 text-blue-600 border-blue-200">
+                Rescheduled
+              </span>
+            )}
           </div>
 
           <p className="font-black text-slate-800 text-base leading-tight truncate">{name}</p>
@@ -853,10 +930,15 @@ const BookingCard = ({ booking, onReschedule }: { booking: Booking; onReschedule
             {(d.adults || d.num_adults) && (
               <span className="flex items-center gap-1">
                 <Users className="h-3 w-3" />
-                {d.adults || d.num_adults} Adults{(d.children || d.num_children) ? ` · ${d.children || d.num_children} Kids` : ""}
+                {d.adults || d.num_adults} Adults
+                {(d.children || d.num_children) ? ` · ${d.children || d.num_children} Kids` : ""}
               </span>
             )}
-            {d.location && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{d.location}</span>}
+            {d.location && (
+              <span className="flex items-center gap-1">
+                <MapPin className="h-3 w-3" />{d.location}
+              </span>
+            )}
           </div>
         </div>
 
@@ -879,8 +961,8 @@ const BookingCard = ({ booking, onReschedule }: { booking: Booking; onReschedule
 const Bookings = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [loading, setLoading]   = useState(true);
+  const [bookings, setBookings]       = useState<Booking[]>([]);
+  const [loading, setLoading]         = useState(true);
   const [rescheduling, setRescheduling] = useState<Booking | null>(null);
 
   useEffect(() => {
@@ -894,13 +976,17 @@ const Bookings = () => {
   const fetchBookings = async () => {
     try {
       const { data, error } = await supabase
-        .from("bookings").select("*")
+        .from("bookings")
+        .select("*")
         .eq("user_id", user?.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
       setBookings(data || []);
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleReschedule = async (id: string, newDate: string) => {
@@ -908,13 +994,21 @@ const Bookings = () => {
     if (!booking) return;
     const updated = {
       ...booking.booking_details,
-      original_date: booking.booking_details?.date || booking.visit_date || null,
-      date: newDate,
+      original_date:  booking.booking_details?.date || booking.visit_date || null,
+      date:           newDate,
       rescheduled_at: new Date().toISOString(),
     };
-    const { error } = await supabase.from("bookings").update({ booking_details: updated }).eq("id", id);
-    if (error) { toast({ title: "Failed", description: error.message, variant: "destructive" }); throw error; }
-    setBookings((prev) => prev.map((b) => b.id === id ? { ...b, booking_details: updated } : b));
+    const { error } = await supabase
+      .from("bookings")
+      .update({ booking_details: updated })
+      .eq("id", id);
+    if (error) {
+      toast({ title: "Failed", description: error.message, variant: "destructive" });
+      throw error;
+    }
+    setBookings((prev) =>
+      prev.map((b) => (b.id === id ? { ...b, booking_details: updated } : b)),
+    );
     toast({ title: "Rescheduled ✓", description: `New visit date: ${fmt(newDate)}` });
   };
 
@@ -924,7 +1018,9 @@ const Bookings = () => {
         <Header />
         <main className="container px-4 py-12 flex flex-col items-center justify-center gap-4">
           <div className="w-16 h-16 rounded-full border-4 border-teal-200 border-t-teal-600 animate-spin" />
-          <p className="text-sm font-black uppercase tracking-widest text-slate-400 animate-pulse">Loading bookings…</p>
+          <p className="text-sm font-black uppercase tracking-widest text-slate-400 animate-pulse">
+            Loading bookings…
+          </p>
         </main>
         <MobileBottomBar />
       </div>
@@ -938,14 +1034,18 @@ const Bookings = () => {
         <div className="mb-8">
           <p className="text-[10px] font-black uppercase tracking-widest text-teal-600 mb-1">My Account</p>
           <h1 className="text-4xl font-black text-slate-800 leading-none tracking-tight">Bookings</h1>
-          <p className="text-slate-500 mt-1 text-sm">{bookings.length} booking{bookings.length !== 1 ? "s" : ""} total</p>
+          <p className="text-slate-500 mt-1 text-sm">
+            {bookings.length} booking{bookings.length !== 1 ? "s" : ""} total
+          </p>
         </div>
 
         {bookings.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
             <div className="w-20 h-20 rounded-3xl bg-teal-50 flex items-center justify-center text-4xl">🗺️</div>
             <h2 className="text-2xl font-black text-slate-700">No Bookings Yet</h2>
-            <p className="text-slate-400 text-sm max-w-xs">Your trips, events, and reservations will appear here once you book something.</p>
+            <p className="text-slate-400 text-sm max-w-xs">
+              Your trips, events, and reservations will appear here once you book something.
+            </p>
             <button
               onClick={() => navigate("/")}
               style={{ background: `linear-gradient(135deg, ${TEAL}, #00b3b3)` }}
@@ -957,7 +1057,11 @@ const Bookings = () => {
         ) : (
           <div className="space-y-4">
             {bookings.map((booking) => (
-              <BookingCard key={booking.id} booking={booking} onReschedule={setRescheduling} />
+              <BookingCard
+                key={booking.id}
+                booking={booking}
+                onReschedule={setRescheduling}
+              />
             ))}
           </div>
         )}

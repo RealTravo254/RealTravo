@@ -59,6 +59,8 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
   const [trendingSearches, setTrendingSearches] = useState<TrendingSearch[]>([]);
   const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
+  // Cache all listings so we can filter client-side instantly on every keystroke
+  const [allListingsCache, setAllListingsCache] = useState<SearchResult[]>([]);
   const navigate = useNavigate();
   const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -68,7 +70,38 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
     fetchTrendingSearches();
     fetchMostPopular();
     fetchLocationSuggestions();
+    // Pre-fetch and cache all listings for instant partial-match suggestions
+    prefetchAllListings();
   }, []);
+
+  // Pre-fetch all listings once and cache them for instant client-side filtering
+  const prefetchAllListings = async () => {
+    try {
+      const [tripsData, adventuresData] = await Promise.all([
+        supabase
+          .from("trips")
+          .select("id, name, location, place, country, activities")
+          .eq("approval_status", "approved")
+          .eq("is_hidden", false)
+          .eq("type", "trip")
+          .limit(100),
+        supabase
+          .from("adventure_places")
+          .select("id, name, location, place, country, activities")
+          .eq("approval_status", "approved")
+          .eq("is_hidden", false)
+          .limit(100),
+      ]);
+
+      const combined: SearchResult[] = [
+        ...(tripsData.data || []).map((item) => ({ ...item, type: "trip" as const })),
+        ...(adventuresData.data || []).map((item) => ({ ...item, type: "adventure" as const })),
+      ];
+      setAllListingsCache(combined);
+    } catch (error) {
+      console.error("Error pre-fetching listings:", error);
+    }
+  };
 
   const fetchTrendingSearches = async () => {
     try {
@@ -135,19 +168,52 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [onBlur]);
 
+  // Instant client-side filter on every keystroke using the cache
   useEffect(() => {
-    if (showSuggestions && value.trim()) {
-      setIsSearching(true);
-      setHasSearched(false);
-      const debounceTimer = setTimeout(() => {
-        fetchSuggestions();
-      }, 300);
-      return () => clearTimeout(debounceTimer);
-    } else {
+    if (!showSuggestions || !value.trim()) {
       setSuggestions([]);
       setHasSearched(false);
+      setIsSearching(false);
+      return;
     }
-  }, [value, showSuggestions]);
+
+    const queryValue = value.trim().toLowerCase();
+
+    // If cache is available, filter instantly (no loading state, no debounce needed)
+    if (allListingsCache.length > 0) {
+      const filtered = allListingsCache
+        .map(item => {
+          const activityMatch = findMatchingActivity(item.activities, queryValue);
+          return { ...item, matchedActivity: activityMatch };
+        })
+        .filter(item =>
+          item.name?.toLowerCase().includes(queryValue) ||
+          item.location?.toLowerCase().includes(queryValue) ||
+          item.place?.toLowerCase().includes(queryValue) ||
+          item.country?.toLowerCase().includes(queryValue) ||
+          item.matchedActivity
+        )
+        .sort((a, b) => {
+          // Prioritise names that START with the query
+          const aStarts = a.name?.toLowerCase().startsWith(queryValue) ? 0 : 1;
+          const bStarts = b.name?.toLowerCase().startsWith(queryValue) ? 0 : 1;
+          return aStarts - bStarts || a.name.localeCompare(b.name);
+        });
+
+      setSuggestions(filtered.slice(0, 10));
+      setHasSearched(true);
+      setIsSearching(false);
+      return;
+    }
+
+    // Fallback: debounced fetch if cache isn't ready yet
+    setIsSearching(true);
+    setHasSearched(false);
+    const debounceTimer = setTimeout(() => {
+      fetchSuggestions();
+    }, 300);
+    return () => clearTimeout(debounceTimer);
+  }, [value, showSuggestions, allListingsCache]);
 
   const fetchSuggestions = async () => {
     const queryValue = value.trim().toLowerCase();
@@ -274,6 +340,9 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
 
           {showSuggestions && (
             <div 
+              // onMouseDown prevents the input's onBlur from firing when clicking
+              // inside the dropdown, so suggestions stay open on click
+              onMouseDown={(e) => e.preventDefault()}
               className="absolute left-0 right-0 top-full mt-3 bg-card border border-border rounded-[32px] shadow-2xl max-h-[70vh] md:max-h-[500px] overflow-y-auto z-[9999] animate-in fade-in slide-in-from-top-2 duration-200"
               style={{ position: 'absolute' }}
             >
@@ -377,7 +446,7 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
               {/* Result Suggestions (shown when typing) */}
               {value.trim() && (
                 <div className="p-2">
-                  {/* Loading State */}
+                  {/* Loading State — only shown during fallback network fetch */}
                   {isSearching && (
                     <div className="p-10 flex flex-col items-center justify-center gap-3">
                       <Loader2 className="h-6 w-6 animate-spin text-primary" />

@@ -226,8 +226,8 @@ const Explore = () => {
         )}
       </div>
 
-      {/* Results */}
-      <main className={cn("flex-1 container mx-auto px-4 py-4 pb-24 md:pb-8 transition-opacity duration-200", isSearchFocused && "pointer-events-none opacity-20")}>
+      {/* Results — removed opacity-20 so cards are never dimmed */}
+      <main className="flex-1 container mx-auto px-4 py-4 pb-24 md:pb-8">
         <p className="text-xs text-muted-foreground mb-3 font-medium">
           {searchQuery ? `Results for "${searchQuery}"` : "Discover"}
           {activeFilter !== "all" && ` in ${FILTER_TABS.find(t => t.key === activeFilter)?.label}`}
@@ -236,6 +236,7 @@ const Explore = () => {
         {loading ? (
           skeletonGrid
         ) : paginatedListings.length === 0 ? (
+          /* Show skeleton mock-up when no results found */
           skeletonGrid
         ) : (
           <>

@@ -16,8 +16,9 @@ export const useSavedItems = () => {
   const [savedItems, setSavedItems] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const hasMergedRef = useRef(false);
+  // Tracks in-flight saves to prevent double-tap race conditions
+  const pendingRef = useRef<Set<string>>(new Set());
 
-  // ── Normalise item type strings coming from ListingCard / detail pages ──
   const normalizeItemType = useCallback((type: string): string => {
     const map: Record<string, string> = {
       trip: "trip",
@@ -33,7 +34,7 @@ export const useSavedItems = () => {
     return map[type.toLowerCase().replace(/\s+/g, "_")] ?? type.toLowerCase();
   }, []);
 
-  // ── Merge localStorage items into Supabase once on login ────────────────
+  // Merge localStorage → Supabase once on login, then clear local storage
   const mergeLocalItemsToDatabase = useCallback(async (userId: string) => {
     const localItems = getLocalSavedItems();
     if (localItems.length === 0) return;
@@ -56,14 +57,12 @@ export const useSavedItems = () => {
         ]);
       }
     }
-
     clearLocalSavedItems();
   }, []);
 
-  // ── Load saved items on auth change ─────────────────────────────────────
   useEffect(() => {
     if (!user) {
-      // Guest — load from localStorage so hearts show as filled
+      // Guest: load from localStorage
       setSavedItems(getLocalSavedItemIds());
       setLoading(false);
       hasMergedRef.current = false;
@@ -71,26 +70,32 @@ export const useSavedItems = () => {
     }
 
     const fetchSavedItems = async () => {
-      // Merge local items first (only once per session)
+      setLoading(true);
+
+      // Merge local items into Supabase first (only once per session)
       if (!hasMergedRef.current) {
         await mergeLocalItemsToDatabase(user.id);
         hasMergedRef.current = true;
       }
 
+      // Always fetch the authoritative list from Supabase after merge
       const { data, error } = await supabase
         .from("saved_items")
         .select("item_id")
         .eq("user_id", user.id);
 
-      if (data) {
-        setSavedItems(new Set(data.map((item) => item.item_id)));
+      if (error) {
+        console.error("fetchSavedItems error:", error);
       }
+
+      // Set state from DB — this is the single source of truth for logged-in users
+      setSavedItems(new Set((data ?? []).map((item) => item.item_id)));
       setLoading(false);
     };
 
     fetchSavedItems();
 
-    // Realtime subscription so other tabs/devices stay in sync
+    // Realtime: keep in sync across tabs/devices
     const channel = supabase
       .channel(`saved-items-${user.id}`)
       .on(
@@ -130,18 +135,33 @@ export const useSavedItems = () => {
     };
   }, [user]);
 
-  // ── Toggle save / unsave ─────────────────────────────────────────────────
   const handleSave = useCallback(
     async (itemId: string, itemType: string) => {
-      const normalizedType = normalizeItemType(itemType);
-      const isCurrentlySaved = savedItems.has(itemId);
+      // Prevent double-tap firing two requests
+      if (pendingRef.current.has(itemId)) return;
+      pendingRef.current.add(itemId);
 
-      // ── Guest (not logged in) ──────────────────────────────────────────
+      const normalizedType = normalizeItemType(itemType);
+
+      // Read current saved state DIRECTLY from the set (not closure)
+      // We use a functional update pattern to get the latest value
+      let wasAlreadySaved = false;
+      setSavedItems((prev) => {
+        wasAlreadySaved = prev.has(itemId);
+        return prev; // no change yet — just reading
+      });
+
+      // Small delay to let the state read settle
+      await new Promise((r) => setTimeout(r, 0));
+
+      // Re-read properly
+      wasAlreadySaved = savedItems.has(itemId);
+
+      // ── Guest ──────────────────────────────────────────────────────────
       if (!user) {
-        // Optimistic UI update immediately
         setSavedItems((prev) => {
           const next = new Set(prev);
-          if (isCurrentlySaved) {
+          if (wasAlreadySaved) {
             next.delete(itemId);
           } else {
             next.add(itemId);
@@ -149,30 +169,39 @@ export const useSavedItems = () => {
           return next;
         });
 
-        if (isCurrentlySaved) {
+        if (wasAlreadySaved) {
           removeItemLocally(itemId);
-          toast({ title: "Removed", description: "Removed from your saved items." });
+          toast({ title: "Removed", description: "Removed from saved items." });
         } else {
           saveItemLocally(itemId, normalizedType);
-          toast({ title: "Saved!", description: "Item saved locally. Sign in to sync." });
+          toast({ title: "Saved!", description: "Sign in to sync across devices." });
         }
+
+        pendingRef.current.delete(itemId);
         return;
       }
 
       // ── Logged-in user ─────────────────────────────────────────────────
-      // Optimistic UI update immediately so heart responds instantly
-      setSavedItems((prev) => {
-        const next = new Set(prev);
-        if (isCurrentlySaved) {
-          next.delete(itemId);
-        } else {
-          next.add(itemId);
-        }
-        return next;
-      });
+      // Check Supabase directly — don't trust local state alone
+      // This prevents the "already saved" false positive
+      const { data: existing } = await supabase
+        .from("saved_items")
+        .select("id")
+        .eq("item_id", itemId)
+        .eq("user_id", user.id)
+        .maybeSingle();
 
-      if (isCurrentlySaved) {
-        // Remove from Supabase
+      const isTrulyInDB = !!existing;
+
+      if (isTrulyInDB) {
+        // ── UNSAVE ──────────────────────────────────────────────────────
+        // Optimistic remove
+        setSavedItems((prev) => {
+          const next = new Set(prev);
+          next.delete(itemId);
+          return next;
+        });
+
         const { error } = await supabase
           .from("saved_items")
           .delete()
@@ -180,46 +209,49 @@ export const useSavedItems = () => {
           .eq("user_id", user.id);
 
         if (error) {
-          // Revert optimistic update on failure
+          // Revert
           setSavedItems((prev) => new Set([...prev, itemId]));
-          toast({ title: "Error", description: "Could not remove item. Please try again.", variant: "destructive" });
+          toast({
+            title: "Error",
+            description: "Could not remove item. Please try again.",
+            variant: "destructive",
+          });
           console.error("handleSave delete error:", error);
         } else {
           toast({ title: "Removed", description: "Removed from your saved items." });
         }
       } else {
-        // Check it doesn't already exist (guard against double-tap)
-        const { data: existing } = await supabase
-          .from("saved_items")
-          .select("id")
-          .eq("item_id", itemId)
-          .eq("user_id", user.id)
-          .maybeSingle();
+        // ── SAVE ────────────────────────────────────────────────────────
+        // Optimistic add
+        setSavedItems((prev) => new Set([...prev, itemId]));
 
-        if (!existing) {
-          const { error } = await supabase.from("saved_items").insert([
-            {
-              user_id: user.id,
-              item_id: itemId,
-              item_type: normalizedType,
-            },
-          ]);
+        const { error } = await supabase.from("saved_items").insert([
+          {
+            user_id: user.id,
+            item_id: itemId,
+            item_type: normalizedType,
+          },
+        ]);
 
-          if (error) {
-            // Revert optimistic update on failure
-            setSavedItems((prev) => {
-              const next = new Set(prev);
-              next.delete(itemId);
-              return next;
-            });
-            toast({ title: "Error", description: "Could not save item. Please try again.", variant: "destructive" });
-            console.error("handleSave insert error:", error);
-          } else {
-            toast({ title: "Saved!", description: "Added to your saved items." });
-          }
+        if (error) {
+          // Revert
+          setSavedItems((prev) => {
+            const next = new Set(prev);
+            next.delete(itemId);
+            return next;
+          });
+          toast({
+            title: "Error",
+            description: "Could not save item. Please try again.",
+            variant: "destructive",
+          });
+          console.error("handleSave insert error:", error);
+        } else {
+          toast({ title: "Saved!", description: "Added to your saved items." });
         }
-        // If existing already, the optimistic update is correct — no action needed
       }
+
+      pendingRef.current.delete(itemId);
     },
     [user, savedItems, normalizeItemType, toast]
   );

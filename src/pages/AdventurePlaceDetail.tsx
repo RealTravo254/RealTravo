@@ -867,20 +867,4 @@ const BookingCard = ({
   </>
 );
 
-// ─── Utility button ───────────────────────────────────────────────────────────
-const UtilityButton = ({
-  icon, label, onClick,
-}: {
-  icon: React.ReactNode; label: string; onClick: () => void;
-}) => (
-  <Button
-    variant="ghost"
-    onClick={onClick}
-    className="flex-col h-auto py-2.5 bg-slate-50 text-slate-500 rounded-xl border border-slate-100 hover:bg-slate-100 transition-colors flex-1"
-  >
-    <div className="mb-0.5">{icon}</div>
-    <span className="text-[9px] font-bold uppercase">{label}</span>
-  </Button>
-);
-
 export default AdventurePlaceDetail;

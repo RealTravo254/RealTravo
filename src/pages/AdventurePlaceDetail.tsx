@@ -1,72 +1,537 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useSafeBack } from "@/hooks/useSafeBack";
 import { useBookingNavigate } from "@/hooks/useBookingNavigate";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
-  MapPin, Clock, Star, Share2, Copy, Navigation, AlertCircle,
-  Users, CheckCircle2, Calendar,
+  MapPin, Clock, Share2, Copy, Navigation, AlertCircle,
+  Users, CheckCircle2, Calendar, ChevronLeft, ChevronRight, X,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Carousel, CarouselContent, CarouselItem, type CarouselApi,
-} from "@/components/ui/carousel";
-import Autoplay from "embla-carousel-autoplay";
-import { ReviewSection } from "@/components/ReviewSection";
-import { FacilitiesGrid, ActivitiesGrid } from "@/components/detail/FacilityActivityCards";
 import { useSavedItems } from "@/hooks/useSavedItems";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { trackReferralClick } from "@/lib/referralUtils";
 import { getShareLink } from "@/lib/shareUtils";
 import { extractIdFromSlug } from "@/lib/slugUtils";
 import { DetailNavBar } from "@/components/detail/DetailNavBar";
-import { ImageGalleryModal } from "@/components/detail/ImageGalleryModal";
 import { QuickNavigationBar } from "@/components/detail/QuickNavigationBar";
 import { DetailMapSection } from "@/components/detail/DetailMapSection";
 import { TealLoader } from "@/components/ui/teal-loader";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { Footer } from "@/components/Footer";
 
-// ─── Brand colours (matching TripDetail) ─────────────────────────────────────
+// ─── Brand colours ────────────────────────────────────────────────────────────
 const TEAL        = "#008080";
 const CORAL       = "#FF7F50";
 const CORAL_LIGHT = "#FF9E7A";
 
 // ─── General-facilities label map ────────────────────────────────────────────
 const FACILITY_LABELS: Record<string, string> = {
-  wifi: "Free Wi-Fi",
-  parking: "On-site Parking",
-  toilet: "Flush Toilets",
-  shower: "Hot Showers",
-  camping: "Camping Area",
-  picnic: "Picnic Tables",
-  braai: "Braai / BBQ Facilities",
-  playground: "Children's Playground",
-  restaurant: "Restaurant / Café",
-  swimming: "Swimming Pool",
-  security: "24-Hour Security",
-  accessibility: "Wheelchair Accessible",
-  pets: "Pet Friendly",
-  guided: "Guided Tours Available",
-  first_aid: "First-Aid Station",
-  shop: "On-site Shop / Curio",
+  wifi: "Free Wi-Fi", parking: "On-site Parking", toilet: "Flush Toilets",
+  shower: "Hot Showers", camping: "Camping Area", picnic: "Picnic Tables",
+  braai: "Braai / BBQ Facilities", playground: "Children's Playground",
+  restaurant: "Restaurant / Café", swimming: "Swimming Pool",
+  security: "24-Hour Security", accessibility: "Wheelchair Accessible",
+  pets: "Pet Friendly", guided: "Guided Tours Available",
+  first_aid: "First-Aid Station", shop: "On-site Shop / Curio",
 };
-
 const facilityLabel = (id: string) =>
   FACILITY_LABELS[id] ?? id.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
-// ─── Utility button ───────────────────────────────────────────────────────────
-const UtilityButton = ({
-  icon, label, onClick,
+// ─── Full-screen image gallery modal ─────────────────────────────────────────
+const GalleryModal = ({
+  images, startIndex, title, onClose,
 }: {
-  icon: React.ReactNode; label: string; onClick: () => void;
-}) => (
-  <Button
-    variant="ghost"
-    onClick={onClick}
-    className="flex-col h-auto py-2.5 bg-slate-50 text-slate-500 rounded-xl border border-slate-100 hover:bg-slate-100 transition-colors flex-1"
-  >
+  images: string[]; startIndex: number; title: string; onClose: () => void;
+}) => {
+  const [active, setActive] = useState(startIndex);
+  const go = (idx: number) => setActive((idx + images.length) % images.length);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "ArrowLeft") go(active - 1);
+      if (e.key === "ArrowRight") go(active + 1);
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [active]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[200] bg-black/95 flex flex-col"
+      style={{ paddingTop: "env(safe-area-inset-top,0px)", paddingBottom: "env(safe-area-inset-bottom,0px)" }}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 flex-shrink-0">
+        <span className="text-white font-black text-sm uppercase tracking-widest truncate max-w-[70%]">{title}</span>
+        <div className="flex items-center gap-3">
+          <span className="text-white/60 text-xs font-bold">{active + 1} / {images.length}</span>
+          <button onClick={onClose} className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-all">
+            <X className="h-5 w-5 text-white" />
+          </button>
+        </div>
+      </div>
+
+      {/* Main image */}
+      <div className="flex-1 relative flex items-center justify-center min-h-0 px-2">
+        <img
+          src={images[active]}
+          alt={`${title} ${active + 1}`}
+          className="max-w-full max-h-full object-contain select-none"
+          style={{ borderRadius: 0 }}
+        />
+        {images.length > 1 && (
+          <>
+            <button onClick={() => go(active - 1)}
+              className="absolute left-3 w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center hover:bg-white/25 transition-all">
+              <ChevronLeft className="h-6 w-6 text-white" />
+            </button>
+            <button onClick={() => go(active + 1)}
+              className="absolute right-3 w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center hover:bg-white/25 transition-all">
+              <ChevronRight className="h-6 w-6 text-white" />
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* Thumbnail strip */}
+      <div className="flex-shrink-0 px-4 py-3 overflow-x-auto">
+        <div className="flex gap-2 w-max">
+          {images.map((img, idx) => (
+            <button key={idx} onClick={() => setActive(idx)}
+              className="flex-shrink-0 transition-all"
+              style={{
+                width: 56, height: 56,
+                border: active === idx ? `2px solid ${CORAL}` : "2px solid transparent",
+                opacity: active === idx ? 1 : 0.55,
+                borderRadius: 0,
+                overflow: "hidden",
+              }}>
+              <img src={img} alt="" className="w-full h-full object-cover" style={{ borderRadius: 0 }} />
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Full-width Slideshow ─────────────────────────────────────────────────────
+const FullSlideshow = ({
+  images, name, onSeeAll,
+}: {
+  images: string[]; name: string; onSeeAll?: () => void;
+}) => {
+  const [active, setActive] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startAuto = () => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setActive((prev) => (prev + 1) % images.length);
+    }, 3500);
+  };
+
+  useEffect(() => {
+    if (images.length > 1) startAuto();
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [images.length]);
+
+  const go = (idx: number) => {
+    setActive((idx + images.length) % images.length);
+    startAuto();
+  };
+
+  if (!images.length) return (
+    <div className="w-full bg-slate-200 flex items-center justify-center text-slate-400 font-black uppercase text-xs" style={{ height: "55vw", maxHeight: "520px", minHeight: "220px" }}>
+      No Image
+    </div>
+  );
+
+  return (
+    <div className="relative w-full overflow-hidden bg-slate-900 select-none" style={{ height: "55vw", maxHeight: "520px", minHeight: "220px" }}>
+      {images.map((img, idx) => (
+        <div key={idx} className="absolute inset-0 transition-opacity duration-700"
+          style={{ opacity: active === idx ? 1 : 0, zIndex: active === idx ? 1 : 0 }}>
+          <img src={img} alt={`${name} ${idx + 1}`} className="w-full h-full object-cover" />
+        </div>
+      ))}
+
+      {/* Gradient bottom */}
+      <div className="absolute bottom-0 left-0 right-0 h-24 z-10 pointer-events-none"
+        style={{ background: "linear-gradient(to top, rgba(0,0,0,0.55), transparent)" }} />
+
+      {/* See All button */}
+      {images.length > 1 && onSeeAll && (
+        <button onClick={onSeeAll}
+          className="absolute bottom-4 right-4 z-20 bg-black/55 backdrop-blur-sm text-white text-[10px] font-black uppercase px-3 py-1.5 tracking-widest hover:bg-black/70 transition-all"
+          style={{ borderRadius: 0 }}>
+          See All {images.length} Photos
+        </button>
+      )}
+
+      {/* Prev / Next */}
+      {images.length > 1 && (
+        <>
+          <button onClick={() => go(active - 1)}
+            className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center hover:bg-black/60 transition-all">
+            <ChevronLeft className="h-5 w-5 text-white" />
+          </button>
+          <button onClick={() => go(active + 1)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center hover:bg-black/60 transition-all">
+            <ChevronRight className="h-5 w-5 text-white" />
+          </button>
+        </>
+      )}
+
+      {/* Dots */}
+      {images.length > 1 && (
+        <div className="absolute bottom-3 left-0 right-0 z-20 flex justify-center gap-1.5 pointer-events-none">
+          {images.map((_, idx) => (
+            <span key={idx} className="transition-all duration-300 block pointer-events-auto cursor-pointer"
+              onClick={() => go(idx)}
+              style={{
+                width: active === idx ? "20px" : "6px",
+                height: "6px", borderRadius: "3px",
+                background: active === idx ? "white" : "rgba(255,255,255,0.45)",
+              }} />
+          ))}
+        </div>
+      )}
+
+      {/* Counter */}
+      <div className="absolute top-3 right-3 z-20 bg-black/50 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
+        {active + 1} / {images.length}
+      </div>
+    </div>
+  );
+};
+
+// ─── Desktop image gallery (like reference photo) ─────────────────────────────
+const DesktopGallery = ({
+  images, name, onOpenGallery,
+}: {
+  images: string[]; name: string; onOpenGallery: (idx: number) => void;
+}) => {
+  if (!images.length) return null;
+  return (
+    <div
+      className="hidden md:grid max-w-6xl mx-auto px-4 pt-4"
+      style={{
+        display: undefined, // override for grid below
+      }}
+    >
+      <div
+        className="hidden md:grid"
+        style={{
+          gridTemplateColumns: "1.55fr 1fr",
+          gridTemplateRows: "220px 145px",
+          gap: "3px",
+          overflow: "hidden",
+          borderRadius: 0,
+          maxWidth: "100%",
+        }}
+      >
+        {/* Big left — spans 2 rows */}
+        <div
+          style={{ gridRow: "1 / 3", overflow: "hidden", cursor: "pointer" }}
+          onClick={() => onOpenGallery(0)}
+        >
+          <img
+            src={images[0]}
+            alt={name}
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", borderRadius: 0, transition: "transform .4s" }}
+            onMouseOver={e => (e.currentTarget.style.transform = "scale(1.03)")}
+            onMouseOut={e => (e.currentTarget.style.transform = "scale(1)")}
+          />
+        </div>
+
+        {/* Top right */}
+        {images[1] ? (
+          <div style={{ overflow: "hidden", cursor: "pointer" }} onClick={() => onOpenGallery(1)}>
+            <img
+              src={images[1]}
+              alt={`${name} 2`}
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", borderRadius: 0, transition: "transform .4s" }}
+              onMouseOver={e => (e.currentTarget.style.transform = "scale(1.03)")}
+              onMouseOut={e => (e.currentTarget.style.transform = "scale(1)")}
+            />
+          </div>
+        ) : <div style={{ background: "#e2e8f0" }} />}
+
+        {/* Bottom right — with See All overlay if more images */}
+        {images[2] ? (
+          <div style={{ overflow: "hidden", position: "relative", cursor: "pointer" }} onClick={() => onOpenGallery(2)}>
+            <img
+              src={images[2]}
+              alt={`${name} 3`}
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", borderRadius: 0, transition: "transform .4s" }}
+              onMouseOver={e => (e.currentTarget.style.transform = "scale(1.03)")}
+              onMouseOut={e => (e.currentTarget.style.transform = "scale(1)")}
+            />
+            {images.length > 3 && (
+              <div style={{
+                position: "absolute", inset: 0, background: "rgba(0,0,0,0.52)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ color: "white", fontSize: 28, fontWeight: 900 }}>+{images.length - 2}</div>
+                  <div style={{ color: "rgba(255,255,255,0.85)", fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".12em", marginTop: 2 }}>See All</div>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : <div style={{ background: "#e2e8f0" }} />}
+      </div>
+    </div>
+  );
+};
+
+// ─── Amenities horizontal scroll ──────────────────────────────────────────────
+const AmenitiesScroll = ({ amenities, accentColor }: { amenities: string[]; accentColor: string }) => {
+  if (!amenities.length) return null;
+  return (
+    <section className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+      <h2 className="text-base font-black uppercase tracking-tight mb-4" style={{ color: accentColor }}>General Amenities</h2>
+      {/* Bleed to card edges on small screens */}
+      <div
+        style={{
+          display: "flex",
+          gap: 10,
+          overflowX: "auto",
+          paddingBottom: 8,
+          margin: "0 -20px",
+          paddingLeft: 20,
+          paddingRight: 20,
+          WebkitOverflowScrolling: "touch",
+          scrollbarWidth: "none",
+        }}
+      >
+        {amenities.map((fId, i) => (
+          <div key={i} style={{
+            flexShrink: 0,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 7,
+            background: `${accentColor}12`,
+            padding: "12px 16px",
+            minWidth: 88,
+            borderRadius: 12,
+          }}>
+            <CheckCircle2 style={{ width: 22, height: 22, color: accentColor }} />
+            <span style={{
+              fontSize: 11,
+              fontWeight: 800,
+              color: accentColor,
+              textTransform: "uppercase",
+              textAlign: "center",
+              whiteSpace: "nowrap",
+              letterSpacing: ".04em",
+            }}>
+              {facilityLabel(fId)}
+            </span>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+};
+
+// ─── Facilities grid ──────────────────────────────────────────────────────────
+const InlineFacilitiesGrid = ({
+  facilities, accentColor, onSeeAll,
+}: {
+  facilities: any[]; accentColor: string; onSeeAll: (images: string[], name: string) => void;
+}) => {
+  if (!facilities?.length) return null;
+  return (
+    <section>
+      <h2 className="text-base font-black uppercase tracking-tight mb-3" style={{ color: accentColor }}>
+        Facilities
+      </h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {facilities.map((fac: any, i: number) => {
+          const imgs: string[] = Array.isArray(fac.images) ? fac.images.filter(Boolean) : [];
+          return (
+            <div key={i} className="bg-white overflow-hidden shadow-sm border border-slate-100" style={{ borderRadius: 0 }}>
+              {imgs.length > 0 ? (
+                <FacSlideshow images={imgs} name={fac.name} onSeeAll={() => onSeeAll(imgs, fac.name)} />
+              ) : (
+                <div className="h-40 bg-slate-100 flex items-center justify-center">
+                  <MapPin className="h-6 w-6 text-slate-300" />
+                </div>
+              )}
+              <div className="p-3">
+                <p className="font-black text-sm text-slate-800 uppercase tracking-tight">{fac.name}</p>
+                {fac.capacity && (
+                  <p className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1">
+                    <Users className="h-3 w-3" /> Capacity: {fac.capacity}
+                  </p>
+                )}
+                {fac.price > 0 && (
+                  <p className="text-[11px] font-bold mt-0.5" style={{ color: accentColor }}>
+                    KSh {fac.price?.toLocaleString()}
+                  </p>
+                )}
+                {Array.isArray(fac.amenities) && fac.amenities.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {fac.amenities.map((a: string, ai: number) => (
+                      <span key={ai} className="text-[9px] font-bold uppercase px-2 py-0.5"
+                        style={{ background: `${accentColor}12`, color: accentColor, borderRadius: 0 }}>
+                        {a}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+};
+
+// ─── Facility card slideshow ───────────────────────────────────────────────────
+const FacSlideshow = ({
+  images, name, onSeeAll,
+}: {
+  images: string[]; name: string; onSeeAll: () => void;
+}) => {
+  const [active, setActive] = useState(0);
+  useEffect(() => {
+    if (images.length <= 1) return;
+    const iv = setInterval(() => setActive((p) => (p + 1) % images.length), 3000);
+    return () => clearInterval(iv);
+  }, [images.length]);
+  return (
+    <div className="relative overflow-hidden" style={{ height: 160, borderRadius: 0 }}>
+      {images.map((img, idx) => (
+        <img key={idx} src={img} alt={name}
+          className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
+          style={{ opacity: active === idx ? 1 : 0, borderRadius: 0 }} />
+      ))}
+      {/* See All overlay */}
+      {images.length > 1 && (
+        <button
+          onClick={onSeeAll}
+          className="absolute bottom-2 right-2 z-10 bg-black/55 backdrop-blur-sm text-white text-[9px] font-black uppercase px-2.5 py-1 tracking-widest hover:bg-black/70 transition-all"
+          style={{ borderRadius: 0 }}
+        >
+          See All {images.length}
+        </button>
+      )}
+      {images.length > 1 && (
+        <div className="absolute bottom-1.5 left-0 right-0 flex justify-center gap-1 pointer-events-none z-10">
+          {images.map((_, idx) => (
+            <span key={idx} className="transition-all duration-300 block"
+              style={{ width: active === idx ? "12px" : "4px", height: "4px", borderRadius: "2px", background: active === idx ? "white" : "rgba(255,255,255,0.4)" }} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── Activities grid ──────────────────────────────────────────────────────────
+const InlineActivitiesGrid = ({
+  activities, formatPrice, onSeeAll,
+}: {
+  activities: any[];
+  formatPrice: (n: number) => string;
+  onSeeAll: (images: string[], name: string) => void;
+}) => {
+  if (!activities?.length) return null;
+  return (
+    <section>
+      <h2 className="text-base font-black uppercase tracking-tight mb-3" style={{ color: CORAL }}>
+        Activities
+      </h2>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        {activities.map((act: any, i: number) => {
+          const imgs: string[] = Array.isArray(act.images) ? act.images.filter(Boolean) : [];
+          return (
+            <ActivityCard key={i} act={act} imgs={imgs} formatPrice={formatPrice}
+              onSeeAll={() => onSeeAll(imgs, act.name)} />
+          );
+        })}
+      </div>
+    </section>
+  );
+};
+
+const ActivityCard = ({
+  act, imgs, formatPrice, onSeeAll,
+}: {
+  act: any; imgs: string[]; formatPrice: (n: number) => string; onSeeAll: () => void;
+}) => {
+  const [active, setActive] = useState(0);
+  useEffect(() => {
+    if (imgs.length <= 1) return;
+    const iv = setInterval(() => setActive((p) => (p + 1) % imgs.length), 3200);
+    return () => clearInterval(iv);
+  }, [imgs.length]);
+
+  return (
+    <div className="relative overflow-hidden" style={{ aspectRatio: "3/4", borderRadius: 0 }}>
+      {/* Images */}
+      {imgs.length > 0 ? (
+        imgs.map((img, idx) => (
+          <img key={idx} src={img} alt={act.name}
+            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
+            style={{ opacity: active === idx ? 1 : 0, borderRadius: 0 }} />
+        ))
+      ) : (
+        <div className="absolute inset-0 bg-slate-200 flex items-center justify-center">
+          <MapPin className="h-6 w-6 text-slate-300" />
+        </div>
+      )}
+
+      {/* Gradient overlay */}
+      <div className="absolute inset-0 pointer-events-none"
+        style={{ background: "linear-gradient(to top, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.1) 55%, transparent 100%)" }} />
+
+      {/* Name + price — overlaid at bottom */}
+      <div className="absolute bottom-0 left-0 right-0 z-10 px-3 pb-3">
+        <p className="text-white font-black text-sm uppercase tracking-tight leading-tight drop-shadow">{act.name}</p>
+        {act.price > 0 ? (
+          <p className="text-[11px] font-bold mt-0.5" style={{ color: CORAL_LIGHT }}>{formatPrice(Number(act.price))}</p>
+        ) : (
+          <p className="text-[11px] font-bold mt-0.5 text-emerald-300">Free</p>
+        )}
+      </div>
+
+      {/* See All button — top right */}
+      {imgs.length > 1 && (
+        <button
+          onClick={onSeeAll}
+          className="absolute top-2 right-2 z-20 bg-black/55 backdrop-blur-sm text-white text-[9px] font-black uppercase px-2 py-1 tracking-widest hover:bg-black/70 transition-all"
+          style={{ borderRadius: 0 }}
+        >
+          All {imgs.length}
+        </button>
+      )}
+
+      {/* Slide dots */}
+      {imgs.length > 1 && (
+        <div className="absolute bottom-1.5 right-2 flex gap-1 z-20 pointer-events-none">
+          {imgs.map((_, idx) => (
+            <span key={idx} className="transition-all duration-300 block"
+              style={{ width: active === idx ? "10px" : "4px", height: "4px", borderRadius: "2px", background: active === idx ? "white" : "rgba(255,255,255,0.4)" }} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── Utility button ───────────────────────────────────────────────────────────
+const UtilityButton = ({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) => (
+  <Button variant="ghost" onClick={onClick}
+    className="flex-col h-auto py-2.5 bg-slate-50 text-slate-500 rounded-xl border border-slate-100 hover:bg-slate-100 transition-colors flex-1">
     <div className="mb-0.5">{icon}</div>
     <span className="text-[9px] font-bold uppercase">{label}</span>
   </Button>
@@ -83,15 +548,15 @@ const AdventurePlaceDetail = () => {
   const { requestLocation } = useGeolocation();
   const { formatPrice } = useCurrency();
 
-  const [place, setPlace]             = useState<any | null>(null);
-  const [loading, setLoading]         = useState(true);
-  const [isOpenNow, setIsOpenNow]     = useState(false);
-  const [liveRating, setLiveRating]   = useState({ avg: 0, count: 0 });
-  const [scrolled, setScrolled]       = useState(false);
-  const [carouselApi, setCarouselApi] = useState<CarouselApi | null>(null);
-  const [activeSlide, setActiveSlide] = useState(0);
+  const [place, setPlace]         = useState<any | null>(null);
+  const [loading, setLoading]     = useState(true);
+  const [isOpenNow, setIsOpenNow] = useState(false);
+  const [scrolled, setScrolled]   = useState(false);
 
-  // Manual date selection — no auto-select
+  // Gallery modal state
+  const [galleryModal, setGalleryModal] = useState<{ images: string[]; startIndex: number; title: string } | null>(null);
+
+  // Manual date selection
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [dateError, setDateError]       = useState(false);
 
@@ -103,18 +568,16 @@ const AdventurePlaceDetail = () => {
     if (!place) return 0;
     const prices: number[] = [];
     if (place.entry_fee) prices.push(Number(place.entry_fee));
-    const extract = (arr: any[]) => {
+    [place.facilities, place.activities].forEach((arr) => {
       if (!Array.isArray(arr)) return;
-      arr.forEach((item) => { const p = typeof item === "object" ? item.price : null; if (p) prices.push(Number(p)); });
-    };
-    extract(place.facilities);
-    extract(place.activities);
+      arr.forEach((item: any) => { if (item?.price) prices.push(Number(item.price)); });
+    });
     return prices.length > 0 ? Math.min(...prices) : 0;
   };
 
   useEffect(() => {
     window.scrollTo(0, 0);
-    if (rawSlug) { fetchPlace(); fetchLiveRating(); }
+    if (rawSlug) { fetchPlace(); }
     const refSlug = new URLSearchParams(window.location.search).get("ref");
     if (refSlug && id) trackReferralClick(refSlug, id, "adventure_place", "booking");
     requestLocation();
@@ -132,10 +595,8 @@ const AdventurePlaceDetail = () => {
       const now = new Date();
       const currentDay = now.toLocaleString("en-us", { weekday: "long" }).toLowerCase();
       if (place.opening_hours === "00:00" && place.closing_hours === "23:59") {
-        const days = Array.isArray(place.days_opened)
-          ? place.days_opened.map((d: string) => d.toLowerCase())
-          : ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"];
-        setIsOpenNow(days.includes(currentDay)); return;
+        const days = Array.isArray(place.days_opened) ? place.days_opened.map((d: string) => d.toLowerCase()) : [];
+        setIsOpenNow(!days.length || days.includes(currentDay)); return;
       }
       const cur = now.getHours() * 60 + now.getMinutes();
       const parseT = (t: string) => {
@@ -148,22 +609,13 @@ const AdventurePlaceDetail = () => {
       };
       const open  = parseT(place.opening_hours || "08:00 AM");
       const close = parseT(place.closing_hours  || "06:00 PM");
-      const days = Array.isArray(place.days_opened)
-        ? place.days_opened.map((d: string) => d.toLowerCase())
-        : ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"];
-      setIsOpenNow(days.includes(currentDay) && cur >= open && cur <= close);
+      const days  = Array.isArray(place.days_opened) ? place.days_opened.map((d: string) => d.toLowerCase()) : [];
+      setIsOpenNow((!days.length || days.includes(currentDay)) && cur >= open && cur <= close);
     };
     checkOpen();
     const iv = setInterval(checkOpen, 60_000);
     return () => clearInterval(iv);
   }, [place]);
-
-  useEffect(() => {
-    if (!carouselApi) return;
-    const onSelect = () => setActiveSlide(carouselApi.selectedScrollSnap());
-    carouselApi.on("select", onSelect);
-    return () => { carouselApi.off("select", onSelect); };
-  }, [carouselApi]);
 
   const fetchPlace = async () => {
     if (!rawSlug) return;
@@ -184,25 +636,15 @@ const AdventurePlaceDetail = () => {
       if (!data) throw new Error("Not found");
       setPlace(data);
     } catch (error) {
-      console.error("AdventurePlaceDetail fetch error:", error, { rawSlug, id });
+      console.error("fetch error:", error);
       toast({ title: "Place not found", variant: "destructive" });
     } finally { setLoading(false); }
-  };
-
-  const fetchLiveRating = async () => {
-    if (!id && !rawSlug) return;
-    const lookupId = id || rawSlug!;
-    const { data } = await supabase.from("reviews").select("rating").eq("item_id", lookupId).eq("item_type", "adventure_place");
-    if (data && data.length > 0) {
-      const avg = data.reduce((acc, curr) => acc + curr.rating, 0) / data.length;
-      setLiveRating({ avg: parseFloat(avg.toFixed(1)), count: data.length });
-    }
   };
 
   const handleCheckAvailability = () => {
     if (!selectedDate) {
       setDateError(true);
-      toast({ title: "Please select a date", description: "You must choose a visit date before checking availability.", variant: "destructive" });
+      toast({ title: "Please select a date", description: "Choose a visit date before checking availability.", variant: "destructive" });
       return;
     }
     setDateError(false);
@@ -218,33 +660,27 @@ const AdventurePlaceDetail = () => {
     </div>
   );
 
-  const facilityImages = (Array.isArray(place.facilities) ? place.facilities : []).flatMap((f: any) => Array.isArray(f.images) ? f.images : []);
-  const activityImages = (Array.isArray(place.activities) ? place.activities : []).flatMap((a: any) => Array.isArray(a.images) ? a.images : []);
-  const allImagesRaw   = [place.image_url, ...(place.gallery_images || []), ...facilityImages, ...activityImages].filter(Boolean);
-  const allImages      = allImagesRaw.slice(0, 5);
-  const dotImages      = allImages.slice(0, 5);
+  const facilityImgs = (Array.isArray(place.facilities) ? place.facilities : []).flatMap((f: any) => Array.isArray(f.images) ? f.images : []);
+  const activityImgs = (Array.isArray(place.activities) ? place.activities : []).flatMap((a: any) => Array.isArray(a.images) ? a.images : []);
+  const allImages    = [place.image_url, ...(place.gallery_images || []), ...facilityImgs, ...activityImgs].filter(Boolean).slice(0, 10);
+
   const is24Hours      = place.opening_hours === "00:00" && place.closing_hours === "23:59";
   const resolvedId     = place.id;
-
-  const generalAmenities: string[] = Array.isArray(place.amenities)
-    ? place.amenities.map((a: any) => (typeof a === "string" ? a : a.name || ""))
-    : [];
-
+  const generalAmenities: string[] = Array.isArray(place.amenities) ? place.amenities.map((a: any) => typeof a === "string" ? a : a.name || "") : [];
   const capacityPerDay: number | null = place.daily_capacity ?? place.capacity_per_day ?? null;
-  const daysOpened: string[]          = Array.isArray(place.days_opened) ? place.days_opened : [];
+  const daysOpened: string[] = Array.isArray(place.days_opened) ? place.days_opened : [];
 
-  // Shared BookingCard props
+  const openGallery = (images: string[], title: string, startIndex = 0) => {
+    setGalleryModal({ images, startIndex, title });
+  };
+
   const bookingCardProps = {
-    place, liveRating, is24Hours, daysOpened, capacityPerDay,
+    place, is24Hours, daysOpened, capacityPerDay,
     selectedDate, setSelectedDate, dateError, setDateError,
     todayIso, formatPrice,
     onCheckAvailability: handleCheckAvailability,
     onMap: () => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${place.name}, ${place.location}`)}`, "_blank"),
-    onCopy: async () => {
-      const link = getShareLink(resolvedId, "adventure_place", place.name, place.location);
-      await navigator.clipboard.writeText(link);
-      toast({ title: "Link Copied!" });
-    },
+    onCopy: async () => { await navigator.clipboard.writeText(getShareLink(resolvedId, "adventure_place", place.name, place.location)); toast({ title: "Link Copied!" }); },
     onShare: async () => {
       const link = getShareLink(resolvedId, "adventure_place", place.name, place.location);
       if (navigator.share) { try { await navigator.share({ title: place.name, url: link }); } catch {} }
@@ -254,85 +690,41 @@ const AdventurePlaceDetail = () => {
 
   return (
     <div className="min-h-screen bg-background pb-24">
+      {/* Full-screen gallery modal */}
+      {galleryModal && (
+        <GalleryModal
+          images={galleryModal.images}
+          startIndex={galleryModal.startIndex}
+          title={galleryModal.title}
+          onClose={() => setGalleryModal(null)}
+        />
+      )}
+
       <DetailNavBar scrolled={scrolled} itemName={place.name} isSaved={isSaved}
         onSave={() => handleSaveItem(resolvedId, "adventure_place")} onBack={goBack} />
 
-      {/* Spacer below fixed header */}
       <div style={{ height: "calc(56px + env(safe-area-inset-top, 0px))" }} />
 
-      {/* ── Mobile carousel ── */}
-      <div className="relative w-full bg-slate-900 overflow-hidden md:hidden" style={{ height: "45vh", minHeight: "200px", maxHeight: "360px" }}>
-        <Carousel setApi={setCarouselApi} plugins={[Autoplay({ delay: 3500 })]} className="w-full h-full">
-          <CarouselContent className="h-full ml-0">
-            {allImages.length > 0 ? allImages.map((img, idx) => (
-              <CarouselItem key={idx} className="h-full pl-0 basis-full">
-                <img src={img} alt={`${place.name} - ${idx + 1}`} className="w-full h-full object-cover" />
-              </CarouselItem>
-            )) : (
-              <div className="h-full w-full bg-slate-200 flex items-center justify-center text-slate-400 font-black uppercase text-xs">No Image</div>
-            )}
-          </CarouselContent>
-        </Carousel>
-        {allImages.length > 1 && <ImageGalleryModal images={allImages} name={place.name} />}
-        {allImages.length > 1 && (
-          <div className="absolute bottom-3 left-0 right-0 z-30 flex justify-center gap-1.5 pointer-events-none">
-            {dotImages.map((_, idx) => (
-              <span key={idx} className="transition-all duration-300 block" style={{
-                width: activeSlide === idx ? "20px" : "6px", height: "6px", borderRadius: "3px",
-                background: activeSlide === idx ? "white" : "rgba(255,255,255,0.5)",
-              }} />
-            ))}
-          </div>
-        )}
+      {/* ── Mobile slideshow ── */}
+      <div className="md:hidden">
+        <FullSlideshow
+          images={allImages}
+          name={place.name}
+          onSeeAll={() => openGallery(allImages, place.name, 0)}
+        />
       </div>
 
       {/* ── Desktop gallery ── */}
-      <div className="hidden md:block max-w-6xl mx-auto px-4 pt-4">
-        <div className="relative grid grid-cols-4 gap-1.5 h-[420px] rounded-2xl overflow-hidden">
-          {allImages.length > 0 ? (
-            <>
-              <div className="col-span-2 row-span-2 overflow-hidden group">
-                <img src={allImages[0]} alt={place.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-              </div>
-              {allImages[1] && (
-                <div className="col-span-2 overflow-hidden group">
-                  <img src={allImages[1]} alt={`${place.name} - 2`} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                </div>
-              )}
-              <div className="col-span-2 grid grid-cols-3 gap-1.5">
-                {allImages.slice(2, 5).map((img, idx) => (
-                  <div key={idx} className="overflow-hidden relative group">
-                    <img src={img} alt={`${place.name} - ${idx + 3}`} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                    {idx === 2 && allImages.length > 3 && (
-                      <div className="absolute inset-0 bg-black/55 flex items-center justify-center backdrop-blur-[2px] cursor-pointer">
-                        <div className="text-center">
-                          <span className="text-white text-2xl font-black">+{allImages.length - 3}</span>
-                          <p className="text-white text-[10px] font-black uppercase tracking-widest mt-0.5">See All</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : (
-            <div className="col-span-4 bg-slate-200 flex items-center justify-center rounded-2xl">
-              <p className="text-slate-400 font-black uppercase text-sm">No Images Available</p>
-            </div>
-          )}
-          <ImageGalleryModal images={allImages} name={place.name} />
-        </div>
-      </div>
+      <DesktopGallery
+        images={allImages}
+        name={place.name}
+        onOpenGallery={(idx) => openGallery(allImages, place.name, idx)}
+      />
 
       {/* ── Name / badge / location ── */}
       <div className="max-w-6xl mx-auto px-4 pt-4 pb-1 bg-background relative z-10">
-        <div className="flex items-center gap-2 mb-1.5">
+        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
           <span className="inline-block bg-teal-600 text-white px-3 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest">Adventure</span>
-          {liveRating.avg > 0 && (
-            <span className="inline-flex items-center gap-1 bg-amber-400 text-black px-2.5 py-0.5 rounded-full text-[10px] font-black">
-              <Star className="h-3 w-3 fill-current" />{liveRating.avg}
-            </span>
-          )}
           <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black border ${isOpenNow ? "bg-emerald-50 text-emerald-600 border-emerald-200" : "bg-red-50 text-red-500 border-red-200"}`}>
             <span className={`w-1.5 h-1.5 rounded-full ${isOpenNow ? "bg-emerald-500" : "bg-red-400"}`} />
             {isOpenNow ? "Open Now" : "Closed"}
@@ -350,35 +742,23 @@ const AdventurePlaceDetail = () => {
         <QuickNavigationBar hasFacilities={place.facilities?.length > 0} hasActivities={place.activities?.length > 0} hasContact={false} />
       </div>
 
-      {/* ══ MAIN CONTENT ══════════════════════════════════════════════════════ */}
+      {/* ══ MAIN CONTENT ══ */}
       <main className="container px-4 mt-5 relative z-10 max-w-6xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-[1.8fr,1fr] gap-6">
 
           {/* ── Left column ── */}
-          <div className="space-y-5">
+          <div className="space-y-6">
 
-            {/* Description (if any) */}
+            {/* Description */}
             {place.description && (
               <section className="bg-white rounded-2xl px-5 py-4 shadow-sm border border-slate-100">
                 <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{place.description}</p>
               </section>
             )}
 
-            {/* ── General Amenities — 2-column grid ── */}
+            {/* General Amenities — horizontal scroll */}
             {generalAmenities.length > 0 && (
-              <section className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-                <h2 className="text-base font-black uppercase tracking-tight mb-4" style={{ color: TEAL }}>
-                  General Amenities
-                </h2>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-2.5 gap-x-4">
-                  {generalAmenities.map((fId, i) => (
-                    <div key={i} className="flex items-center gap-2 text-sm text-slate-700">
-                      <CheckCircle2 className="h-3.5 w-3.5 shrink-0" style={{ color: TEAL }} />
-                      <span className="font-medium leading-tight">{facilityLabel(fId)}</span>
-                    </div>
-                  ))}
-                </div>
-              </section>
+              <AmenitiesScroll amenities={generalAmenities} accentColor={TEAL} />
             )}
 
             {/* Mobile booking card */}
@@ -389,14 +769,22 @@ const AdventurePlaceDetail = () => {
             {/* Facilities */}
             {place.facilities?.length > 0 && (
               <div id="facilities-section">
-                <FacilitiesGrid facilities={place.facilities} itemId={resolvedId} itemType="adventure_place" accentColor={TEAL} />
+                <InlineFacilitiesGrid
+                  facilities={place.facilities}
+                  accentColor={TEAL}
+                  onSeeAll={(imgs, name) => openGallery(imgs, name, 0)}
+                />
               </div>
             )}
 
             {/* Activities */}
             {place.activities?.length > 0 && (
               <div id="activities-section">
-                <ActivitiesGrid activities={place.activities} itemId={resolvedId} itemType="adventure_place" accentColor={CORAL} />
+                <InlineActivitiesGrid
+                  activities={place.activities}
+                  formatPrice={formatPrice}
+                  onSeeAll={(imgs, name) => openGallery(imgs, name, 0)}
+                />
               </div>
             )}
           </div>
@@ -409,29 +797,17 @@ const AdventurePlaceDetail = () => {
           </div>
         </div>
 
-        {/* ── Reviews + Map side-by-side on large screens ── */}
-        <div className="mt-10 grid grid-cols-1 lg:grid-cols-[1.4fr,1fr] gap-6 items-start">
-          {/* Reviews */}
-          <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
-            <ReviewSection itemId={resolvedId} itemType="adventure_place" />
-          </div>
-
-          {/* Map — compact */}
-          <div className="rounded-2xl overflow-hidden shadow-sm border border-slate-100 lg:sticky lg:top-24" style={{ height: "320px" }}>
-            <DetailMapSection
-              currentItem={{
-                id: resolvedId,
-                name: place.name,
-                latitude: place.latitude,
-                longitude: place.longitude,
-                location: place.location,
-                country: place.country,
-                image_url: place.image_url,
-                entry_fee: place.entry_fee,
-              }}
-              itemType="adventure"
-            />
-          </div>
+        {/* Map */}
+        <div className="mt-8 overflow-hidden shadow-sm border border-slate-100" style={{ height: "320px", borderRadius: 0 }}>
+          <DetailMapSection
+            currentItem={{
+              id: resolvedId, name: place.name,
+              latitude: place.latitude, longitude: place.longitude,
+              location: place.location, country: place.country,
+              image_url: place.image_url, entry_fee: place.entry_fee,
+            }}
+            itemType="adventure"
+          />
         </div>
       </main>
 
@@ -470,7 +846,6 @@ const AdventurePlaceDetail = () => {
 // ─── Booking card ─────────────────────────────────────────────────────────────
 interface BookingCardProps {
   place: any;
-  liveRating: { avg: number; count: number };
   is24Hours: boolean;
   daysOpened: string[];
   capacityPerDay: number | null;
@@ -487,33 +862,24 @@ interface BookingCardProps {
 }
 
 const BookingCard = ({
-  place, liveRating, is24Hours, daysOpened, capacityPerDay,
+  place, is24Hours, daysOpened, capacityPerDay,
   selectedDate, setSelectedDate, dateError, setDateError,
   todayIso, formatPrice, onCheckAvailability, onMap, onCopy, onShare,
 }: BookingCardProps) => (
   <>
-    {/* Price + rating */}
-    <div className="flex justify-between items-end">
-      <div>
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">From</p>
-        {place.entry_fee && place.entry_fee > 0 ? (
-          <div className="flex items-baseline gap-1">
-            <span className="text-3xl font-black text-slate-900">{formatPrice(Number(place.entry_fee))}</span>
-            <span className="text-sm text-slate-500">/ person</span>
-          </div>
-        ) : (
-          <span className="text-xl font-bold text-emerald-600">Free Entry</span>
-        )}
-        {place.child_entry_fee > 0 && (
-          <p className="text-sm text-slate-600 mt-1">Child: {formatPrice(Number(place.child_entry_fee))}</p>
-        )}
-      </div>
-      {liveRating.avg > 0 && (
-        <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100">
-          <Star className="h-4 w-4 fill-[#FF7F50] text-[#FF7F50]" />
-          <span className="text-base font-black" style={{ color: TEAL }}>{liveRating.avg}</span>
-          <span className="text-[10px] text-slate-400">({liveRating.count})</span>
+    {/* Price */}
+    <div>
+      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">From</p>
+      {place.entry_fee && place.entry_fee > 0 ? (
+        <div className="flex items-baseline gap-1">
+          <span className="text-3xl font-black text-slate-900">{formatPrice(Number(place.entry_fee))}</span>
+          <span className="text-sm text-slate-500">/ person</span>
         </div>
+      ) : (
+        <span className="text-xl font-bold text-emerald-600">Free Entry</span>
+      )}
+      {place.child_entry_fee > 0 && (
+        <p className="text-sm text-slate-600 mt-0.5">Child: {formatPrice(Number(place.child_entry_fee))}</p>
       )}
     </div>
 
@@ -527,21 +893,19 @@ const BookingCard = ({
           {is24Hours ? "Open 24 Hours" : `${place.opening_hours || "08:00"} – ${place.closing_hours || "18:00"}`}
         </span>
       </div>
-
       {daysOpened.length > 0 && (
         <div>
           <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1.5">Available Days</p>
           <div className="flex flex-wrap gap-1">
             {daysOpened.map((day, i) => (
-              <span key={i} className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase border"
-                style={{ background: `${TEAL}12`, color: TEAL, borderColor: `${TEAL}30` }}>
+              <span key={i} className="px-2 py-0.5 text-[9px] font-black uppercase border"
+                style={{ background: `${TEAL}12`, color: TEAL, borderColor: `${TEAL}30`, borderRadius: 0 }}>
                 {day}
               </span>
             ))}
           </div>
         </div>
       )}
-
       {capacityPerDay != null && capacityPerDay > 0 && (
         <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-200">
           <span className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-1">
@@ -552,6 +916,23 @@ const BookingCard = ({
       )}
     </div>
 
+    {/* Date picker */}
+    <div>
+      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1">
+        <Calendar className="h-3 w-3" /> Select Visit Date <span className="text-red-400">*</span>
+      </p>
+      <input type="date" min={todayIso} value={selectedDate}
+        onChange={(e) => { setSelectedDate(e.target.value); if (e.target.value) setDateError(false); }}
+        className={`w-full h-10 rounded-xl border px-3 text-sm font-semibold text-slate-800 bg-white transition-all outline-none ${
+          dateError ? "border-red-400 ring-2 ring-red-100 bg-red-50" : "border-slate-200 focus:ring-2 focus:ring-[#008080]/20 focus:border-[#008080]"
+        }`}
+      />
+      {dateError && (
+        <p className="text-red-500 text-[11px] font-semibold mt-1 flex items-center gap-1">
+          <AlertCircle className="h-3 w-3" /> Please select a visit date to continue
+        </p>
+      )}
+    </div>
 
     {/* CTA */}
     <Button onClick={onCheckAvailability} className="w-full py-6 rounded-xl text-sm font-bold text-white border-none shadow-md transition-all active:scale-95"

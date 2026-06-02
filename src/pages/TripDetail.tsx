@@ -4,7 +4,7 @@ import { useSafeBack } from "@/hooks/useSafeBack";
 import { useBookingNavigate } from "@/hooks/useBookingNavigate";
 import { Button } from "@/components/ui/button";
 import {
-  MapPin, Share2, Copy, Clock, Users,
+  MapPin, Share2, Copy, CheckCircle2, Clock, Users,
   ChevronLeft, ChevronRight, Grid2X2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -92,37 +92,31 @@ const ImageGalleryModal = ({
   );
 };
 
-// ─── Desktop gallery grid (constrained width, no border-radius) ───────────────
+// ─── Desktop gallery grid (matches reference photo, no border-radius) ─────────
 const DesktopGallery = ({ images, name }: { images: string[]; name: string }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalStart, setModalStart] = useState(0);
+
   const open = (idx: number) => { setModalStart(idx); setModalOpen(true); };
 
-  if (!images.length) return null;
   return (
     <>
       {modalOpen && <ImageGalleryModal images={images} name={name} startIndex={modalStart} onClose={() => setModalOpen(false)} />}
       <div className="hidden md:block max-w-6xl mx-auto px-4 pt-4">
-        <div style={{ display: "grid", gridTemplateColumns: "1.55fr 1fr", gridTemplateRows: "200px 130px", gap: "3px", borderRadius: 0 }}>
+        <div className="relative" style={{ display: "grid", gridTemplateColumns: "1.55fr 1fr", gridTemplateRows: "200px 130px", gap: "3px", borderRadius: 0 }}>
           {/* Large left spanning 2 rows */}
           <div style={{ gridRow: "1 / 3", overflow: "hidden", borderRadius: 0, cursor: "pointer" }} onClick={() => open(0)}>
-            {images[0] && (
-              <img src={images[0]} alt={name} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" style={{ borderRadius: 0 }} />
-            )}
+            {images[0] && <img src={images[0]} alt={name} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" style={{ borderRadius: 0 }} />}
           </div>
           {/* Top right */}
           <div style={{ overflow: "hidden", borderRadius: 0, cursor: "pointer" }} onClick={() => open(1)}>
-            {images[1]
-              ? <img src={images[1]} alt={`${name} 2`} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" style={{ borderRadius: 0 }} />
-              : <div className="w-full h-full bg-slate-200" />}
+            {images[1] && <img src={images[1]} alt={`${name} 2`} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" style={{ borderRadius: 0 }} />}
           </div>
           {/* Bottom right with See All overlay */}
           <div style={{ overflow: "hidden", borderRadius: 0, position: "relative", cursor: "pointer" }} onClick={() => open(2)}>
-            {images[2]
-              ? <img src={images[2]} alt={`${name} 3`} className="w-full h-full object-cover" style={{ borderRadius: 0 }} />
-              : <div className="w-full h-full bg-slate-200" />}
+            {images[2] && <img src={images[2]} alt={`${name} 3`} className="w-full h-full object-cover" style={{ borderRadius: 0 }} />}
             {images.length > 3 && (
-              <div className="absolute inset-0 bg-black/52 flex items-center justify-center backdrop-blur-[1px]">
+              <div className="absolute inset-0 bg-black/52 flex items-center justify-center backdrop-blur-[1px] cursor-pointer">
                 <div className="text-center">
                   <span className="text-white text-2xl font-black">+{images.length - 3}</span>
                   <p className="text-white text-[10px] font-black uppercase tracking-widest mt-0.5">See All</p>
@@ -136,7 +130,7 @@ const DesktopGallery = ({ images, name }: { images: string[]; name: string }) =>
   );
 };
 
-// ─── Mobile carousel (constrained to max-w-6xl, no border-radius) ─────────────
+// ─── Mobile carousel (full-width, no border-radius) ───────────────────────────
 const MobileCarousel = ({ images, name }: { images: string[]; name: string }) => {
   const [active, setActive] = useState(0);
   const [modalOpen, setModalOpen] = useState(false);
@@ -150,57 +144,48 @@ const MobileCarousel = ({ images, name }: { images: string[]; name: string }) =>
 
   const go = (idx: number) => setActive((idx + images.length) % images.length);
 
-  if (!images.length) return (
-    <div className="md:hidden max-w-6xl mx-auto px-4 pt-4">
-      <div className="w-full bg-slate-200 flex items-center justify-center text-slate-400 font-black uppercase text-xs"
-        style={{ height: "45vh", minHeight: "200px", maxHeight: "360px" }}>No Image</div>
-    </div>
-  );
-
   return (
     <>
       {modalOpen && <ImageGalleryModal images={images} name={name} startIndex={modalStart} onClose={() => setModalOpen(false)} />}
-      <div className="md:hidden max-w-6xl mx-auto px-4 pt-4">
-        <div className="relative w-full overflow-hidden bg-slate-900"
-          style={{ height: "45vh", minHeight: "200px", maxHeight: "360px", borderRadius: 0 }}>
-          {images.map((img, idx) => (
-            <img key={idx} src={img} alt={`${name} ${idx + 1}`}
-              className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700"
-              style={{ opacity: active === idx ? 1 : 0, borderRadius: 0 }} />
-          ))}
-          <div className="absolute bottom-0 left-0 right-0 h-20 pointer-events-none z-10"
-            style={{ background: "linear-gradient(to top, rgba(0,0,0,0.5), transparent)" }} />
+      <div className="relative md:hidden w-full overflow-hidden bg-slate-900"
+        style={{ height: "45vh", minHeight: "200px", maxHeight: "360px", borderRadius: 0 }}>
+        {images.map((img, idx) => (
+          <img key={idx} src={img} alt={`${name} ${idx + 1}`}
+            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700"
+            style={{ opacity: active === idx ? 1 : 0, borderRadius: 0 }} />
+        ))}
+        <div className="absolute bottom-0 left-0 right-0 h-20 pointer-events-none z-10"
+          style={{ background: "linear-gradient(to top, rgba(0,0,0,0.5), transparent)" }} />
+        {images.length > 1 && (
+          <>
+            <button onClick={() => go(active - 1)}
+              className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
+              <ChevronLeft className="h-4 w-4 text-white" />
+            </button>
+            <button onClick={() => go(active + 1)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
+              <ChevronRight className="h-4 w-4 text-white" />
+            </button>
+          </>
+        )}
+        {images.length > 1 && (
+          <div className="absolute bottom-3 left-0 right-0 z-20 flex justify-center gap-1.5 pointer-events-none">
+            {images.slice(0, 6).map((_, idx) => (
+              <span key={idx} className="transition-all duration-300 block pointer-events-auto cursor-pointer"
+                onClick={() => go(idx)}
+                style={{ width: active === idx ? "20px" : "6px", height: "6px", borderRadius: "3px", background: active === idx ? "white" : "rgba(255,255,255,0.45)" }} />
+            ))}
+          </div>
+        )}
+        <div className="absolute top-3 right-3 z-20 flex items-center gap-2">
           {images.length > 1 && (
-            <>
-              <button onClick={() => go(active - 1)}
-                className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
-                <ChevronLeft className="h-4 w-4 text-white" />
-              </button>
-              <button onClick={() => go(active + 1)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
-                <ChevronRight className="h-4 w-4 text-white" />
-              </button>
-            </>
+            <button onClick={() => { setModalStart(active); setModalOpen(true); }}
+              className="flex items-center gap-1.5 bg-black/50 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full hover:bg-black/70 transition-all">
+              <Grid2X2 className="h-3 w-3" /> See All
+            </button>
           )}
-          {images.length > 1 && (
-            <div className="absolute bottom-3 left-0 right-0 z-20 flex justify-center gap-1.5 pointer-events-none">
-              {images.slice(0, 6).map((_, idx) => (
-                <span key={idx} className="transition-all duration-300 block pointer-events-auto cursor-pointer"
-                  onClick={() => go(idx)}
-                  style={{ width: active === idx ? "20px" : "6px", height: "6px", borderRadius: "3px", background: active === idx ? "white" : "rgba(255,255,255,0.45)" }} />
-              ))}
-            </div>
-          )}
-          <div className="absolute top-3 right-3 z-20 flex items-center gap-2">
-            {images.length > 1 && (
-              <button onClick={() => { setModalStart(active); setModalOpen(true); }}
-                className="flex items-center gap-1.5 bg-black/50 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full hover:bg-black/70 transition-all">
-                <Grid2X2 className="h-3 w-3" /> See All
-              </button>
-            )}
-            <div className="bg-black/50 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
-              {active + 1} / {images.length}
-            </div>
+          <div className="bg-black/50 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
+            {active + 1} / {images.length}
           </div>
         </div>
       </div>
@@ -208,33 +193,80 @@ const MobileCarousel = ({ images, name }: { images: string[]; name: string }) =>
   );
 };
 
-// ─── Highlights / Activities — text-only cards (no images) ───────────────────
+// ─── Activities grid (image-only, name+price overlay, no border-radius, See All) ──
 const ActivitiesGrid = ({ activities, formatPrice }: { activities: any[]; formatPrice: (n: number) => string }) => {
+  const [modalImages, setModalImages] = useState<string[] | null>(null);
+  const [modalName, setModalName] = useState("");
+
   if (!activities?.length) return null;
   return (
-    <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-      <h2 className="text-base font-black uppercase tracking-tight mb-3" style={{ color: CORAL }}>Highlights</h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {activities.map((act: any, i: number) => (
-          <div key={i} className="flex items-start gap-3 p-3 rounded-xl border border-slate-100 bg-slate-50">
-            <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center"
-              style={{ background: `${CORAL}18` }}>
-              <span className="text-sm font-black" style={{ color: CORAL }}>{i + 1}</span>
-            </div>
-            <div className="min-w-0">
-              <p className="font-black text-sm text-slate-800 uppercase tracking-tight leading-tight">{act.name}</p>
-              {act.price > 0 && !act.is_free ? (
-                <p className="text-[11px] font-bold mt-0.5" style={{ color: CORAL }}>{formatPrice(Number(act.price))}</p>
-              ) : (
-                <p className="text-[11px] font-bold mt-0.5 text-emerald-600">Included</p>
-              )}
-              {act.description && (
-                <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed line-clamp-2">{act.description}</p>
-              )}
-            </div>
-          </div>
-        ))}
+    <>
+      {modalImages && <ImageGalleryModal images={modalImages} name={modalName} onClose={() => setModalImages(null)} />}
+      <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+        <h2 className="text-base font-black uppercase tracking-tight mb-3" style={{ color: CORAL }}>Highlights</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {activities.map((act: any, i: number) => {
+            const imgs: string[] = Array.isArray(act.images) ? act.images.filter(Boolean) : [];
+            return (
+              <ActivityCard key={i} act={act} imgs={imgs} formatPrice={formatPrice}
+                onSeeAll={imgs.length > 1 ? () => { setModalImages(imgs); setModalName(act.name); } : undefined} />
+            );
+          })}
+        </div>
       </div>
+    </>
+  );
+};
+
+const ActivityCard = ({
+  act, imgs, formatPrice, onSeeAll,
+}: {
+  act: any; imgs: string[]; formatPrice: (n: number) => string; onSeeAll?: () => void;
+}) => {
+  const [active, setActive] = useState(0);
+  useEffect(() => {
+    if (imgs.length <= 1) return;
+    const iv = setInterval(() => setActive((p) => (p + 1) % imgs.length), 3200);
+    return () => clearInterval(iv);
+  }, [imgs.length]);
+
+  return (
+    <div className="relative overflow-hidden" style={{ aspectRatio: "3/4", borderRadius: 0 }}>
+      {imgs.length > 0 ? (
+        imgs.map((img, idx) => (
+          <img key={idx} src={img} alt={act.name}
+            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
+            style={{ opacity: active === idx ? 1 : 0, borderRadius: 0 }} />
+        ))
+      ) : (
+        <div className="absolute inset-0 bg-slate-200 flex items-center justify-center">
+          <MapPin className="h-6 w-6 text-slate-300" />
+        </div>
+      )}
+      <div className="absolute inset-0 pointer-events-none"
+        style={{ background: "linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.1) 50%, transparent 100%)" }} />
+      {onSeeAll && (
+        <button onClick={onSeeAll}
+          className="absolute top-2 right-2 z-20 flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white text-[9px] font-bold px-2 py-1 rounded-full hover:bg-black/70 transition-all">
+          <Grid2X2 className="h-2.5 w-2.5" /> All
+        </button>
+      )}
+      <div className="absolute bottom-0 left-0 right-0 z-10 px-3 pb-3">
+        <p className="text-white font-black text-sm uppercase tracking-tight leading-tight drop-shadow">{act.name}</p>
+        {act.price > 0 && !act.is_free ? (
+          <p className="text-[11px] font-bold mt-0.5" style={{ color: CORAL_LIGHT }}>{formatPrice(Number(act.price))}</p>
+        ) : (
+          <p className="text-[11px] font-bold mt-0.5 text-emerald-300">Included</p>
+        )}
+      </div>
+      {imgs.length > 1 && (
+        <div className="absolute bottom-1.5 right-2 flex gap-1 z-20 pointer-events-none">
+          {imgs.map((_, idx) => (
+            <span key={idx} className="transition-all duration-300 block"
+              style={{ width: active === idx ? "10px" : "4px", height: "4px", borderRadius: "2px", background: active === idx ? "white" : "rgba(255,255,255,0.4)" }} />
+          ))}
+        </div>
+      )}
     </div>
   );
 };
@@ -367,8 +399,10 @@ const TripDetail = () => {
 
       <div style={{ height: "calc(56px + env(safe-area-inset-top, 0px))" }} />
 
-      {/* Gallery — constrained width on both mobile and desktop */}
+      {/* Mobile carousel */}
       <MobileCarousel images={allImages} name={event.name} />
+
+      {/* Desktop gallery grid */}
       <DesktopGallery images={allImages} name={event.name} />
 
       {/* ── Name / badge / location ── */}
@@ -397,7 +431,7 @@ const TripDetail = () => {
               }
             </div>
 
-            {/* Activities — text-only list, no images */}
+            {/* Activities — image-only cards with overlay + See All */}
             {event.activities?.length > 0 && (
               <ActivitiesGrid activities={event.activities} formatPrice={formatPrice} />
             )}
@@ -440,16 +474,21 @@ const TripDetail = () => {
           <div className="space-y-5">
             <div className="bg-white rounded-[28px] p-5 shadow-2xl border border-slate-100 lg:sticky lg:top-24">
 
-              {/* Price */}
-              <div className="mb-4">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Ticket Price</p>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-3xl font-black text-slate-900">{formatPrice(event.price)}</span>
-                  <span className="text-sm text-slate-400 font-bold uppercase">/ adult</span>
+              {/* Price + slots */}
+              <div className="flex justify-between items-end mb-4">
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Ticket Price</p>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-lg font-bold text-destructive">{formatPrice(event.price)}</span>
+                    <span className="text-slate-400 text-[10px] font-bold uppercase">/ adult</span>
+                  </div>
                 </div>
-                {event.allow_children !== false && event.price_child != null && (
-                  <p className="text-sm text-slate-600 mt-0.5">Child: {formatPrice(event.price_child || 0)}</p>
-                )}
+                <div className="bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100 flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5 text-[#008080]" />
+                  <span className={`text-xs font-black uppercase ${isSoldOut ? "text-red-500" : "text-slate-600"}`}>
+                    {isSoldOut ? "FULL" : `${remainingSlots} Left`}
+                  </span>
+                </div>
               </div>
 
               {/* Hours */}
@@ -474,8 +513,22 @@ const TripDetail = () => {
                 </div>
               )}
 
+              {/* Availability bar */}
+              <div className="mb-4 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <div className="flex justify-between items-center mb-1.5">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1"><Users className="h-3 w-3" /> Availability</span>
+                  <span className={`text-[10px] font-black uppercase ${remainingSlots < 5 ? "text-red-500" : "text-emerald-600"}`}>
+                    {isSoldOut ? "Sold Out" : `${remainingSlots} Available`}
+                  </span>
+                </div>
+                <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                  <div className={`h-full transition-all duration-500 ${remainingSlots < 5 ? "bg-red-500" : "bg-emerald-500"}`}
+                    style={{ width: `${Math.min((remainingSlots / (event.available_tickets || 50)) * 100, 100)}%` }} />
+                </div>
+              </div>
+
               {/* Trip meta */}
-              <div className="space-y-2 mb-4 p-3 bg-slate-50 rounded-xl border border-slate-100">
+              <div className="space-y-2 mb-4">
                 <div className="flex justify-between text-xs font-bold uppercase tracking-tight">
                   <span className="text-slate-400">Date</span>
                   <span className={isExpired ? "text-red-500" : "text-slate-700"}>
@@ -491,8 +544,14 @@ const TripDetail = () => {
                     {event.allow_children === false ? "Not Allowed" : "Allowed"}
                   </span>
                 </div>
+                {event.allow_children !== false && (
+                  <div className="flex justify-between text-xs font-bold uppercase tracking-tight">
+                    <span className="text-slate-400">Child (Under 12)</span>
+                    <span className="text-slate-700">{formatPrice(event.price_child || 0)}</span>
+                  </div>
+                )}
                 {event.ticket_types?.length > 0 && (
-                  <div className="pt-2 border-t border-slate-200">
+                  <div className="pt-2 border-t border-slate-100">
                     <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1.5">Ticket Types</p>
                     {event.ticket_types.map((ticket: any, i: number) => (
                       <div key={i} className="flex justify-between text-xs font-bold uppercase tracking-tight py-0.5">
@@ -541,7 +600,7 @@ const TripDetail = () => {
               <span className="text-base font-bold text-destructive">{formatPrice(event.price)}</span>
               <span className="text-[9px] font-bold text-slate-400 uppercase">/ adult</span>
             </div>
-            {event.allow_children !== false && event.price_child != null && (
+            {event.price_child != null && (
               <div className="text-[10px] font-bold text-slate-500">Child: {formatPrice(event.price_child || 0)}</div>
             )}
           </div>

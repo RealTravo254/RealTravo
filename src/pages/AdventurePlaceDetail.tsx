@@ -552,26 +552,6 @@ const BookingCard = ({
       )}
     </div>
 
-    {/* Manual date picker */}
-    <div>
-      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1">
-        <Calendar className="h-3 w-3" /> Select Visit Date <span className="text-red-400">*</span>
-      </p>
-      <input
-        type="date"
-        min={todayIso}
-        value={selectedDate}
-        onChange={(e) => { setSelectedDate(e.target.value); if (e.target.value) setDateError(false); }}
-        className={`w-full h-10 rounded-xl border px-3 text-sm font-semibold text-slate-800 bg-white transition-all outline-none ${
-          dateError ? "border-red-400 ring-2 ring-red-100 bg-red-50" : "border-slate-200 focus:ring-2 focus:ring-[#008080]/20 focus:border-[#008080]"
-        }`}
-      />
-      {dateError && (
-        <p className="text-red-500 text-[11px] font-semibold mt-1 flex items-center gap-1">
-          <AlertCircle className="h-3 w-3" /> Please select a visit date to continue
-        </p>
-      )}
-    </div>
 
     {/* CTA */}
     <Button onClick={onCheckAvailability} className="w-full py-6 rounded-xl text-sm font-bold text-white border-none shadow-md transition-all active:scale-95"

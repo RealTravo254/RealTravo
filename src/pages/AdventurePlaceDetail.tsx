@@ -508,7 +508,7 @@ const AdventurePlaceDetail = () => {
   const is24Hours       = place.opening_hours === "00:00" && place.closing_hours === "23:59";
   const resolvedId      = place.id;
   const generalAmenities: string[] = Array.isArray(place.amenities) ? place.amenities.map((a: any) => typeof a === "string" ? a : a.name || "") : [];
-  const capacityPerDay: number | null = place.daily_capacity ?? place.capacity_per_day ?? null;
+  const capacityPerDay: number | null = place.daily_capacity ?? place.capacity_per_day ?? place.capacity ?? null;
   const daysOpened: string[] = Array.isArray(place.days_opened) ? place.days_opened : [];
 
   const bookingCardProps = {
@@ -537,10 +537,6 @@ const AdventurePlaceDetail = () => {
       <div className="max-w-6xl mx-auto px-4 pt-4 pb-1 bg-background relative z-10">
         <div className="flex items-center gap-2 mb-1.5 flex-wrap">
           <span className="inline-block bg-teal-600 text-white px-3 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest">Adventure</span>
-          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black border ${isOpenNow ? "bg-emerald-50 text-emerald-600 border-emerald-200" : "bg-red-50 text-red-500 border-red-200"}`}>
-            <span className={`w-1.5 h-1.5 rounded-full ${isOpenNow ? "bg-emerald-500" : "bg-red-400"}`} />
-            {isOpenNow ? "Open Now" : "Closed"}
-          </span>
         </div>
         <h1 className="text-2xl font-black uppercase tracking-tighter leading-tight text-foreground">{place.name}</h1>
         <div className="flex items-center gap-1.5 mt-1 text-muted-foreground">
@@ -670,7 +666,7 @@ const BookingCard = ({ place, is24Hours, daysOpened, capacityPerDay, formatPrice
       {capacityPerDay != null && capacityPerDay > 0 && (
         <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-200">
           <span className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-1">
-            <Users className="h-3 w-3" /> Capacity / day
+            <Users className="h-3 w-3" /> Daily Capacity
           </span>
           <span className="text-xs font-black text-slate-700">{capacityPerDay} guests</span>
         </div>

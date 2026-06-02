@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
   MapPin, Clock, Share2, Copy, Navigation, AlertCircle,
-  Users, CheckCircle2, Calendar, ChevronLeft, ChevronRight, Grid2X2,
+  Users, CheckCircle2, ChevronLeft, ChevronRight, Grid2X2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSavedItems } from "@/hooks/useSavedItems";
@@ -44,7 +44,6 @@ const ImageGalleryModal = ({
   images: string[]; name: string; startIndex?: number; onClose: () => void;
 }) => {
   const [current, setCurrent] = useState(startIndex);
-
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -58,20 +57,16 @@ const ImageGalleryModal = ({
 
   return (
     <div className="fixed inset-0 z-[200] bg-black/95 flex flex-col"
-      style={{ paddingTop: "env(safe-area-inset-top, 0px)", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+      style={{ paddingTop: "env(safe-area-inset-top,0px)", paddingBottom: "env(safe-area-inset-bottom,0px)" }}>
       <div className="flex items-center justify-between px-4 py-3 flex-shrink-0">
         <span className="text-white/60 text-xs font-bold uppercase tracking-widest">{name}</span>
         <div className="flex items-center gap-3">
           <span className="text-white/50 text-xs font-bold">{current + 1} / {images.length}</span>
-          <button onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors text-white text-lg font-bold">
-            ✕
-          </button>
+          <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors text-white text-lg font-bold">✕</button>
         </div>
       </div>
       <div className="flex-1 relative flex items-center justify-center overflow-hidden px-4">
-        <img src={images[current]} alt={`${name} ${current + 1}`}
-          className="max-h-full max-w-full object-contain select-none" />
+        <img src={images[current]} alt={`${name} ${current + 1}`} className="max-h-full max-w-full object-contain select-none" />
         {images.length > 1 && (
           <>
             <button onClick={() => setCurrent((p) => (p - 1 + images.length) % images.length)}
@@ -101,73 +96,111 @@ const ImageGalleryModal = ({
   );
 };
 
-// ─── Full-width Slideshow ─────────────────────────────────────────────────────
-const FullSlideshow = ({ images, name }: { images: string[]; name: string }) => {
+// ─── Desktop gallery grid — constrained width, no border-radius ───────────────
+const DesktopGallery = ({ images, name }: { images: string[]; name: string }) => {
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalStart, setModalStart] = useState(0);
+  const open = (idx: number) => { setModalStart(idx); setModalOpen(true); };
+
+  if (!images.length) return null;
+  return (
+    <>
+      {modalOpen && <ImageGalleryModal images={images} name={name} startIndex={modalStart} onClose={() => setModalOpen(false)} />}
+      <div className="hidden md:block max-w-6xl mx-auto px-4 pt-4">
+        <div style={{ display: "grid", gridTemplateColumns: "1.55fr 1fr", gridTemplateRows: "200px 130px", gap: "3px", borderRadius: 0 }}>
+          {/* Large left spanning 2 rows */}
+          <div style={{ gridRow: "1 / 3", overflow: "hidden", borderRadius: 0, cursor: "pointer" }} onClick={() => open(0)}>
+            <img src={images[0]} alt={name} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" style={{ borderRadius: 0 }} />
+          </div>
+          {/* Top right */}
+          <div style={{ overflow: "hidden", borderRadius: 0, cursor: "pointer" }} onClick={() => open(1)}>
+            {images[1]
+              ? <img src={images[1]} alt={`${name} 2`} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" style={{ borderRadius: 0 }} />
+              : <div className="w-full h-full bg-slate-200" />}
+          </div>
+          {/* Bottom right with See All overlay */}
+          <div style={{ overflow: "hidden", borderRadius: 0, position: "relative", cursor: "pointer" }} onClick={() => open(2)}>
+            {images[2]
+              ? <img src={images[2]} alt={`${name} 3`} className="w-full h-full object-cover" style={{ borderRadius: 0 }} />
+              : <div className="w-full h-full bg-slate-200" />}
+            {images.length > 3 && (
+              <div className="absolute inset-0 bg-black/52 flex items-center justify-center backdrop-blur-[1px]">
+                <div className="text-center">
+                  <span className="text-white text-2xl font-black">+{images.length - 3}</span>
+                  <p className="text-white text-[10px] font-black uppercase tracking-widest mt-0.5">See All</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+};
+
+// ─── Mobile carousel — constrained to max-w-6xl with px-4 padding ────────────
+const MobileCarousel = ({ images, name }: { images: string[]; name: string }) => {
   const [active, setActive] = useState(0);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalStart, setModalStart] = useState(0);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const startAuto = () => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current = setInterval(() => setActive((prev) => (prev + 1) % images.length), 3500);
-  };
 
   useEffect(() => {
-    if (images.length > 1) startAuto();
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+    if (images.length <= 1) return;
+    const iv = setInterval(() => setActive((p) => (p + 1) % images.length), 4000);
+    return () => clearInterval(iv);
   }, [images.length]);
 
-  const go = (idx: number) => { setActive((idx + images.length) % images.length); startAuto(); };
+  const go = (idx: number) => setActive((idx + images.length) % images.length);
 
   if (!images.length) return (
-    <div className="w-full bg-slate-200 flex items-center justify-center text-slate-400 font-black uppercase text-xs"
-      style={{ height: "55vw", maxHeight: "520px", minHeight: "220px" }}>No Image</div>
+    <div className="md:hidden max-w-6xl mx-auto px-4 pt-4">
+      <div className="w-full bg-slate-200 flex items-center justify-center text-slate-400 font-black uppercase text-xs"
+        style={{ height: "45vh", minHeight: "200px", maxHeight: "360px" }}>No Image</div>
+    </div>
   );
 
   return (
     <>
       {modalOpen && <ImageGalleryModal images={images} name={name} startIndex={modalStart} onClose={() => setModalOpen(false)} />}
-      <div className="relative w-full overflow-hidden bg-slate-900 select-none"
-        style={{ height: "55vw", maxHeight: "520px", minHeight: "220px" }}>
-        {images.map((img, idx) => (
-          <div key={idx} className="absolute inset-0 transition-opacity duration-700"
-            style={{ opacity: active === idx ? 1 : 0, zIndex: active === idx ? 1 : 0 }}>
-            <img src={img} alt={`${name} ${idx + 1}`} className="w-full h-full object-cover" />
-          </div>
-        ))}
-        <div className="absolute bottom-0 left-0 right-0 h-24 z-10 pointer-events-none"
-          style={{ background: "linear-gradient(to top, rgba(0,0,0,0.55), transparent)" }} />
-        {images.length > 1 && (
-          <>
-            <button onClick={() => go(active - 1)}
-              className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center hover:bg-black/60 transition-all">
-              <ChevronLeft className="h-5 w-5 text-white" />
-            </button>
-            <button onClick={() => go(active + 1)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center hover:bg-black/60 transition-all">
-              <ChevronRight className="h-5 w-5 text-white" />
-            </button>
-          </>
-        )}
-        {images.length > 1 && (
-          <div className="absolute bottom-3 left-0 right-0 z-20 flex justify-center gap-1.5 pointer-events-none">
-            {images.map((_, idx) => (
-              <span key={idx} className="transition-all duration-300 block pointer-events-auto cursor-pointer"
-                onClick={() => go(idx)}
-                style={{ width: active === idx ? "20px" : "6px", height: "6px", borderRadius: "3px", background: active === idx ? "white" : "rgba(255,255,255,0.45)" }} />
-            ))}
-          </div>
-        )}
-        <div className="absolute top-3 right-3 z-20 flex items-center gap-2">
+      <div className="md:hidden max-w-6xl mx-auto px-4 pt-4">
+        <div className="relative w-full overflow-hidden bg-slate-900"
+          style={{ height: "45vh", minHeight: "200px", maxHeight: "360px", borderRadius: 0 }}>
+          {images.map((img, idx) => (
+            <img key={idx} src={img} alt={`${name} ${idx + 1}`}
+              className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700"
+              style={{ opacity: active === idx ? 1 : 0, borderRadius: 0 }} />
+          ))}
+          <div className="absolute bottom-0 left-0 right-0 h-20 pointer-events-none z-10"
+            style={{ background: "linear-gradient(to top, rgba(0,0,0,0.5), transparent)" }} />
           {images.length > 1 && (
-            <button onClick={() => { setModalStart(active); setModalOpen(true); }}
-              className="flex items-center gap-1.5 bg-black/50 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full hover:bg-black/70 transition-all">
-              <Grid2X2 className="h-3 w-3" /> See All
-            </button>
+            <>
+              <button onClick={() => go(active - 1)} className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
+                <ChevronLeft className="h-4 w-4 text-white" />
+              </button>
+              <button onClick={() => go(active + 1)} className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
+                <ChevronRight className="h-4 w-4 text-white" />
+              </button>
+            </>
           )}
-          <div className="bg-black/50 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
-            {active + 1} / {images.length}
+          {images.length > 1 && (
+            <div className="absolute bottom-3 left-0 right-0 z-20 flex justify-center gap-1.5 pointer-events-none">
+              {images.slice(0, 6).map((_, idx) => (
+                <span key={idx} className="transition-all duration-300 block pointer-events-auto cursor-pointer"
+                  onClick={() => go(idx)}
+                  style={{ width: active === idx ? "20px" : "6px", height: "6px", borderRadius: "3px", background: active === idx ? "white" : "rgba(255,255,255,0.45)" }} />
+              ))}
+            </div>
+          )}
+          <div className="absolute top-3 right-3 z-20 flex items-center gap-2">
+            {images.length > 1 && (
+              <button onClick={() => { setModalStart(active); setModalOpen(true); }}
+                className="flex items-center gap-1.5 bg-black/50 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full hover:bg-black/70 transition-all">
+                <Grid2X2 className="h-3 w-3" /> See All
+              </button>
+            )}
+            <div className="bg-black/50 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
+              {active + 1} / {images.length}
+            </div>
           </div>
         </div>
       </div>
@@ -201,7 +234,6 @@ const AmenitiesScroll = ({ amenities, accentColor }: { amenities: string[]; acce
 const InlineFacilitiesGrid = ({ facilities, accentColor }: { facilities: any[]; accentColor: string }) => {
   const [modalImages, setModalImages] = useState<string[] | null>(null);
   const [modalName, setModalName] = useState("");
-
   if (!facilities?.length) return null;
   return (
     <>
@@ -231,9 +263,7 @@ const InlineFacilitiesGrid = ({ facilities, accentColor }: { facilities: any[]; 
                 <div className="p-3">
                   <p className="font-black text-sm text-slate-800 uppercase tracking-tight">{fac.name}</p>
                   {fac.capacity && (
-                    <p className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1">
-                      <Users className="h-3 w-3" /> Capacity: {fac.capacity}
-                    </p>
+                    <p className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1"><Users className="h-3 w-3" /> Capacity: {fac.capacity}</p>
                   )}
                   {fac.price > 0 && (
                     <p className="text-[11px] font-bold mt-0.5" style={{ color: accentColor }}>KSh {fac.price?.toLocaleString()}</p>
@@ -282,11 +312,10 @@ const FacSlideshow = ({ images, name }: { images: string[]; name: string }) => {
   );
 };
 
-// ─── Activities grid ──────────────────────────────────────────────────────────
+// ─── Activities grid — image-only, overlay, no border-radius, See All ─────────
 const InlineActivitiesGrid = ({ activities, formatPrice }: { activities: any[]; formatPrice: (n: number) => string }) => {
   const [modalImages, setModalImages] = useState<string[] | null>(null);
   const [modalName, setModalName] = useState("");
-
   if (!activities?.length) return null;
   return (
     <>
@@ -307,18 +336,13 @@ const InlineActivitiesGrid = ({ activities, formatPrice }: { activities: any[]; 
   );
 };
 
-const ActivityCard = ({
-  act, imgs, formatPrice, onSeeAll,
-}: {
-  act: any; imgs: string[]; formatPrice: (n: number) => string; onSeeAll?: () => void;
-}) => {
+const ActivityCard = ({ act, imgs, formatPrice, onSeeAll }: { act: any; imgs: string[]; formatPrice: (n: number) => string; onSeeAll?: () => void }) => {
   const [active, setActive] = useState(0);
   useEffect(() => {
     if (imgs.length <= 1) return;
     const iv = setInterval(() => setActive((p) => (p + 1) % imgs.length), 3200);
     return () => clearInterval(iv);
   }, [imgs.length]);
-
   return (
     <div className="relative overflow-hidden" style={{ aspectRatio: "3/4", borderRadius: 0 }}>
       {imgs.length > 0 ? (
@@ -383,12 +407,9 @@ const AdventurePlaceDetail = () => {
   const [loading, setLoading]     = useState(true);
   const [isOpenNow, setIsOpenNow] = useState(false);
   const [scrolled, setScrolled]   = useState(false);
-  const [selectedDate, setSelectedDate] = useState<string>("");
-  const [dateError, setDateError]       = useState(false);
 
   const { savedItems, handleSave: handleSaveItem } = useSavedItems();
-  const isSaved  = savedItems.has(id || "");
-  const todayIso = new Date().toISOString().split("T")[0];
+  const isSaved = savedItems.has(id || "");
 
   const getStartingPrice = () => {
     if (!place) return 0;
@@ -468,13 +489,7 @@ const AdventurePlaceDetail = () => {
   };
 
   const handleCheckAvailability = () => {
-    if (!selectedDate) {
-      setDateError(true);
-      toast({ title: "Please select a date", description: "Choose a visit date before checking availability.", variant: "destructive" });
-      return;
-    }
-    setDateError(false);
-    navigateToBooking(`/booking/adventure_place/${resolvedId}?date=${selectedDate}`);
+    navigateToBooking(`/booking/adventure_place/${resolvedId}`);
   };
 
   if (loading) return <TealLoader />;
@@ -488,18 +503,16 @@ const AdventurePlaceDetail = () => {
 
   const facilityImgs = (Array.isArray(place.facilities) ? place.facilities : []).flatMap((f: any) => Array.isArray(f.images) ? f.images : []);
   const activityImgs = (Array.isArray(place.activities) ? place.activities : []).flatMap((a: any) => Array.isArray(a.images) ? a.images : []);
-  const allImages    = [place.image_url, ...(place.gallery_images || []), ...facilityImgs, ...activityImgs].filter(Boolean).slice(0, 10);
+  const allImages    = [place.image_url, ...(place.gallery_images || []), ...facilityImgs, ...activityImgs].filter(Boolean).slice(0, 12);
 
-  const is24Hours      = place.opening_hours === "00:00" && place.closing_hours === "23:59";
-  const resolvedId     = place.id;
+  const is24Hours       = place.opening_hours === "00:00" && place.closing_hours === "23:59";
+  const resolvedId      = place.id;
   const generalAmenities: string[] = Array.isArray(place.amenities) ? place.amenities.map((a: any) => typeof a === "string" ? a : a.name || "") : [];
   const capacityPerDay: number | null = place.daily_capacity ?? place.capacity_per_day ?? null;
   const daysOpened: string[] = Array.isArray(place.days_opened) ? place.days_opened : [];
 
   const bookingCardProps = {
-    place, is24Hours, daysOpened, capacityPerDay,
-    selectedDate, setSelectedDate, dateError, setDateError,
-    todayIso, formatPrice,
+    place, is24Hours, daysOpened, capacityPerDay, formatPrice,
     onCheckAvailability: handleCheckAvailability,
     onMap: () => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${place.name}, ${place.location}`)}`, "_blank"),
     onCopy: async () => { await navigator.clipboard.writeText(getShareLink(resolvedId, "adventure_place", place.name, place.location)); toast({ title: "Link Copied!" }); },
@@ -515,8 +528,12 @@ const AdventurePlaceDetail = () => {
       <DetailNavBar scrolled={scrolled} itemName={place.name} isSaved={isSaved}
         onSave={() => handleSaveItem(resolvedId, "adventure_place")} onBack={goBack} />
       <div style={{ height: "calc(56px + env(safe-area-inset-top, 0px))" }} />
-      <FullSlideshow images={allImages} name={place.name} />
 
+      {/* Gallery — constrained on both mobile and desktop */}
+      <MobileCarousel images={allImages} name={place.name} />
+      <DesktopGallery images={allImages} name={place.name} />
+
+      {/* Name / badge / location */}
       <div className="max-w-6xl mx-auto px-4 pt-4 pb-1 bg-background relative z-10">
         <div className="flex items-center gap-2 mb-1.5 flex-wrap">
           <span className="inline-block bg-teal-600 text-white px-3 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest">Adventure</span>
@@ -544,9 +561,7 @@ const AdventurePlaceDetail = () => {
                 <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{place.description}</p>
               </section>
             )}
-            {generalAmenities.length > 0 && (
-              <AmenitiesScroll amenities={generalAmenities} accentColor={TEAL} />
-            )}
+            {generalAmenities.length > 0 && <AmenitiesScroll amenities={generalAmenities} accentColor={TEAL} />}
             <div className="bg-white rounded-2xl p-5 shadow-lg border border-slate-100 lg:hidden">
               <BookingCard {...bookingCardProps} />
             </div>
@@ -567,6 +582,7 @@ const AdventurePlaceDetail = () => {
             </div>
           </div>
         </div>
+
         <div className="mt-8 rounded-2xl overflow-hidden shadow-sm border border-slate-100" style={{ height: "320px" }}>
           <DetailMapSection
             currentItem={{ id: resolvedId, name: place.name, latitude: place.latitude, longitude: place.longitude, location: place.location, country: place.country, image_url: place.image_url, entry_fee: place.entry_fee }}
@@ -577,6 +593,7 @@ const AdventurePlaceDetail = () => {
 
       <Footer />
 
+      {/* Mobile bottom bar */}
       <div className="fixed bottom-0 left-0 right-0 z-[100] md:hidden bg-white border-t border-slate-200 shadow-[0_-4px_20px_rgb(0,0,0,0.08)]"
         style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
         <div className="flex items-center justify-between px-4 py-3">
@@ -609,17 +626,11 @@ const AdventurePlaceDetail = () => {
 // ─── Booking card ─────────────────────────────────────────────────────────────
 interface BookingCardProps {
   place: any; is24Hours: boolean; daysOpened: string[]; capacityPerDay: number | null;
-  selectedDate: string; setSelectedDate: (v: string) => void;
-  dateError: boolean; setDateError: (v: boolean) => void;
-  todayIso: string; formatPrice: (n: number) => string;
+  formatPrice: (n: number) => string;
   onCheckAvailability: () => void; onMap: () => void; onCopy: () => void; onShare: () => void;
 }
 
-const BookingCard = ({
-  place, is24Hours, daysOpened, capacityPerDay,
-  selectedDate, setSelectedDate, dateError, setDateError,
-  todayIso, formatPrice, onCheckAvailability, onMap, onCopy, onShare,
-}: BookingCardProps) => (
+const BookingCard = ({ place, is24Hours, daysOpened, capacityPerDay, formatPrice, onCheckAvailability, onMap, onCopy, onShare }: BookingCardProps) => (
   <>
     <div>
       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">From</p>
@@ -635,6 +646,7 @@ const BookingCard = ({
         <p className="text-sm text-slate-600 mt-0.5">Child: {formatPrice(Number(place.child_entry_fee))}</p>
       )}
     </div>
+
     <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
       <div className="flex justify-between items-center mb-2">
         <span className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-1">
@@ -664,26 +676,12 @@ const BookingCard = ({
         </div>
       )}
     </div>
-    <div>
-      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1">
-        <Calendar className="h-3 w-3" /> Select Visit Date <span className="text-red-400">*</span>
-      </p>
-      <input type="date" min={todayIso} value={selectedDate}
-        onChange={(e) => { setSelectedDate(e.target.value); if (e.target.value) setDateError(false); }}
-        className={`w-full h-10 rounded-xl border px-3 text-sm font-semibold text-slate-800 bg-white transition-all outline-none ${
-          dateError ? "border-red-400 ring-2 ring-red-100 bg-red-50" : "border-slate-200 focus:ring-2 focus:ring-[#008080]/20 focus:border-[#008080]"
-        }`}
-      />
-      {dateError && (
-        <p className="text-red-500 text-[11px] font-semibold mt-1 flex items-center gap-1">
-          <AlertCircle className="h-3 w-3" /> Please select a visit date to continue
-        </p>
-      )}
-    </div>
+
     <Button onClick={onCheckAvailability} className="w-full py-6 rounded-xl text-sm font-bold text-white border-none shadow-md transition-all active:scale-95"
       style={{ background: `linear-gradient(135deg, ${CORAL_LIGHT} 0%, ${CORAL} 100%)` }}>
       Check availability
     </Button>
+
     <div className="grid grid-cols-3 gap-2 pt-3 border-t border-slate-100">
       <UtilityButton icon={<Navigation className="h-4 w-4" />} label="Map" onClick={onMap} />
       <UtilityButton icon={<Copy className="h-4 w-4" />} label="Copy" onClick={onCopy} />

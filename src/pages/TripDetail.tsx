@@ -4,8 +4,8 @@ import { useSafeBack } from "@/hooks/useSafeBack";
 import { useBookingNavigate } from "@/hooks/useBookingNavigate";
 import { Button } from "@/components/ui/button";
 import {
-  MapPin, Share2, Copy, CheckCircle2, Clock, Users,
-  ChevronLeft, ChevronRight, Grid2X2,
+  MapPin, Share2, Copy, Clock, Users,
+  ChevronLeft, ChevronRight, Grid2X2, Star,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -26,7 +26,7 @@ const TEAL        = "#008080";
 const CORAL       = "#FF7F50";
 const CORAL_LIGHT = "#FF9E7A";
 
-const SELECT_FIELDS = "id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,price,price_child,available_tickets,description,activities,created_by,type,opening_hours,closing_hours,days_opened,map_link,is_flexible_date,inclusions,exclusions,allow_children,ticket_types,slot_limit_type";
+const SELECT_FIELDS = "id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,price,price_child,available_tickets,description,activities,created_by,type,opening_hours,closing_hours,days_opened,map_link,is_flexible_date,inclusions,exclusions,allow_children,ticket_types,slot_limit_type,latitude,longitude,average_rating,total_reviews";
 
 // ─── Image Gallery Modal ──────────────────────────────────────────────────────
 const ImageGalleryModal = ({
@@ -92,31 +92,37 @@ const ImageGalleryModal = ({
   );
 };
 
-// ─── Desktop gallery grid (matches reference photo, no border-radius) ─────────
+// ─── Desktop gallery grid (constrained width, no border-radius) ───────────────
 const DesktopGallery = ({ images, name }: { images: string[]; name: string }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalStart, setModalStart] = useState(0);
-
   const open = (idx: number) => { setModalStart(idx); setModalOpen(true); };
 
+  if (!images.length) return null;
   return (
     <>
       {modalOpen && <ImageGalleryModal images={images} name={name} startIndex={modalStart} onClose={() => setModalOpen(false)} />}
       <div className="hidden md:block max-w-6xl mx-auto px-4 pt-4">
-        <div className="relative" style={{ display: "grid", gridTemplateColumns: "1.55fr 1fr", gridTemplateRows: "200px 130px", gap: "3px", borderRadius: 0 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1.55fr 1fr", gridTemplateRows: "200px 130px", gap: "3px", borderRadius: 0 }}>
           {/* Large left spanning 2 rows */}
           <div style={{ gridRow: "1 / 3", overflow: "hidden", borderRadius: 0, cursor: "pointer" }} onClick={() => open(0)}>
-            {images[0] && <img src={images[0]} alt={name} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" style={{ borderRadius: 0 }} />}
+            {images[0] && (
+              <img src={images[0]} alt={name} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" style={{ borderRadius: 0 }} />
+            )}
           </div>
           {/* Top right */}
           <div style={{ overflow: "hidden", borderRadius: 0, cursor: "pointer" }} onClick={() => open(1)}>
-            {images[1] && <img src={images[1]} alt={`${name} 2`} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" style={{ borderRadius: 0 }} />}
+            {images[1]
+              ? <img src={images[1]} alt={`${name} 2`} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" style={{ borderRadius: 0 }} />
+              : <div className="w-full h-full bg-slate-200" />}
           </div>
           {/* Bottom right with See All overlay */}
           <div style={{ overflow: "hidden", borderRadius: 0, position: "relative", cursor: "pointer" }} onClick={() => open(2)}>
-            {images[2] && <img src={images[2]} alt={`${name} 3`} className="w-full h-full object-cover" style={{ borderRadius: 0 }} />}
+            {images[2]
+              ? <img src={images[2]} alt={`${name} 3`} className="w-full h-full object-cover" style={{ borderRadius: 0 }} />
+              : <div className="w-full h-full bg-slate-200" />}
             {images.length > 3 && (
-              <div className="absolute inset-0 bg-black/52 flex items-center justify-center backdrop-blur-[1px] cursor-pointer">
+              <div className="absolute inset-0 bg-black/52 flex items-center justify-center backdrop-blur-[1px]">
                 <div className="text-center">
                   <span className="text-white text-2xl font-black">+{images.length - 3}</span>
                   <p className="text-white text-[10px] font-black uppercase tracking-widest mt-0.5">See All</p>
@@ -130,7 +136,7 @@ const DesktopGallery = ({ images, name }: { images: string[]; name: string }) =>
   );
 };
 
-// ─── Mobile carousel (full-width, no border-radius) ───────────────────────────
+// ─── Mobile carousel (constrained to max-w-6xl, no border-radius) ─────────────
 const MobileCarousel = ({ images, name }: { images: string[]; name: string }) => {
   const [active, setActive] = useState(0);
   const [modalOpen, setModalOpen] = useState(false);
@@ -144,48 +150,57 @@ const MobileCarousel = ({ images, name }: { images: string[]; name: string }) =>
 
   const go = (idx: number) => setActive((idx + images.length) % images.length);
 
+  if (!images.length) return (
+    <div className="md:hidden max-w-6xl mx-auto px-4 pt-4">
+      <div className="w-full bg-slate-200 flex items-center justify-center text-slate-400 font-black uppercase text-xs"
+        style={{ height: "45vh", minHeight: "200px", maxHeight: "360px" }}>No Image</div>
+    </div>
+  );
+
   return (
     <>
       {modalOpen && <ImageGalleryModal images={images} name={name} startIndex={modalStart} onClose={() => setModalOpen(false)} />}
-      <div className="relative md:hidden w-full overflow-hidden bg-slate-900"
-        style={{ height: "45vh", minHeight: "200px", maxHeight: "360px", borderRadius: 0 }}>
-        {images.map((img, idx) => (
-          <img key={idx} src={img} alt={`${name} ${idx + 1}`}
-            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700"
-            style={{ opacity: active === idx ? 1 : 0, borderRadius: 0 }} />
-        ))}
-        <div className="absolute bottom-0 left-0 right-0 h-20 pointer-events-none z-10"
-          style={{ background: "linear-gradient(to top, rgba(0,0,0,0.5), transparent)" }} />
-        {images.length > 1 && (
-          <>
-            <button onClick={() => go(active - 1)}
-              className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
-              <ChevronLeft className="h-4 w-4 text-white" />
-            </button>
-            <button onClick={() => go(active + 1)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
-              <ChevronRight className="h-4 w-4 text-white" />
-            </button>
-          </>
-        )}
-        {images.length > 1 && (
-          <div className="absolute bottom-3 left-0 right-0 z-20 flex justify-center gap-1.5 pointer-events-none">
-            {images.slice(0, 6).map((_, idx) => (
-              <span key={idx} className="transition-all duration-300 block pointer-events-auto cursor-pointer"
-                onClick={() => go(idx)}
-                style={{ width: active === idx ? "20px" : "6px", height: "6px", borderRadius: "3px", background: active === idx ? "white" : "rgba(255,255,255,0.45)" }} />
-            ))}
-          </div>
-        )}
-        <div className="absolute top-3 right-3 z-20 flex items-center gap-2">
+      <div className="md:hidden max-w-6xl mx-auto px-4 pt-4">
+        <div className="relative w-full overflow-hidden bg-slate-900"
+          style={{ height: "45vh", minHeight: "200px", maxHeight: "360px", borderRadius: 0 }}>
+          {images.map((img, idx) => (
+            <img key={idx} src={img} alt={`${name} ${idx + 1}`}
+              className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700"
+              style={{ opacity: active === idx ? 1 : 0, borderRadius: 0 }} />
+          ))}
+          <div className="absolute bottom-0 left-0 right-0 h-20 pointer-events-none z-10"
+            style={{ background: "linear-gradient(to top, rgba(0,0,0,0.5), transparent)" }} />
           {images.length > 1 && (
-            <button onClick={() => { setModalStart(active); setModalOpen(true); }}
-              className="flex items-center gap-1.5 bg-black/50 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full hover:bg-black/70 transition-all">
-              <Grid2X2 className="h-3 w-3" /> See All
-            </button>
+            <>
+              <button onClick={() => go(active - 1)}
+                className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
+                <ChevronLeft className="h-4 w-4 text-white" />
+              </button>
+              <button onClick={() => go(active + 1)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
+                <ChevronRight className="h-4 w-4 text-white" />
+              </button>
+            </>
           )}
-          <div className="bg-black/50 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
-            {active + 1} / {images.length}
+          {images.length > 1 && (
+            <div className="absolute bottom-3 left-0 right-0 z-20 flex justify-center gap-1.5 pointer-events-none">
+              {images.slice(0, 6).map((_, idx) => (
+                <span key={idx} className="transition-all duration-300 block pointer-events-auto cursor-pointer"
+                  onClick={() => go(idx)}
+                  style={{ width: active === idx ? "20px" : "6px", height: "6px", borderRadius: "3px", background: active === idx ? "white" : "rgba(255,255,255,0.45)" }} />
+              ))}
+            </div>
+          )}
+          <div className="absolute top-3 right-3 z-20 flex items-center gap-2">
+            {images.length > 1 && (
+              <button onClick={() => { setModalStart(active); setModalOpen(true); }}
+                className="flex items-center gap-1.5 bg-black/50 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full hover:bg-black/70 transition-all">
+                <Grid2X2 className="h-3 w-3" /> See All
+              </button>
+            )}
+            <div className="bg-black/50 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
+              {active + 1} / {images.length}
+            </div>
           </div>
         </div>
       </div>
@@ -193,80 +208,31 @@ const MobileCarousel = ({ images, name }: { images: string[]; name: string }) =>
   );
 };
 
-// ─── Activities grid (image-only, name+price overlay, no border-radius, See All) ──
+// ─── Highlights / Activities — plain list, no images, no numbering ───────────
 const ActivitiesGrid = ({ activities, formatPrice }: { activities: any[]; formatPrice: (n: number) => string }) => {
-  const [modalImages, setModalImages] = useState<string[] | null>(null);
-  const [modalName, setModalName] = useState("");
-
   if (!activities?.length) return null;
   return (
-    <>
-      {modalImages && <ImageGalleryModal images={modalImages} name={modalName} onClose={() => setModalImages(null)} />}
-      <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-        <h2 className="text-base font-black uppercase tracking-tight mb-3" style={{ color: CORAL }}>Highlights</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {activities.map((act: any, i: number) => {
-            const imgs: string[] = Array.isArray(act.images) ? act.images.filter(Boolean) : [];
-            return (
-              <ActivityCard key={i} act={act} imgs={imgs} formatPrice={formatPrice}
-                onSeeAll={imgs.length > 1 ? () => { setModalImages(imgs); setModalName(act.name); } : undefined} />
-            );
-          })}
-        </div>
-      </div>
-    </>
-  );
-};
-
-const ActivityCard = ({
-  act, imgs, formatPrice, onSeeAll,
-}: {
-  act: any; imgs: string[]; formatPrice: (n: number) => string; onSeeAll?: () => void;
-}) => {
-  const [active, setActive] = useState(0);
-  useEffect(() => {
-    if (imgs.length <= 1) return;
-    const iv = setInterval(() => setActive((p) => (p + 1) % imgs.length), 3200);
-    return () => clearInterval(iv);
-  }, [imgs.length]);
-
-  return (
-    <div className="relative overflow-hidden" style={{ aspectRatio: "3/4", borderRadius: 0 }}>
-      {imgs.length > 0 ? (
-        imgs.map((img, idx) => (
-          <img key={idx} src={img} alt={act.name}
-            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
-            style={{ opacity: active === idx ? 1 : 0, borderRadius: 0 }} />
-        ))
-      ) : (
-        <div className="absolute inset-0 bg-slate-200 flex items-center justify-center">
-          <MapPin className="h-6 w-6 text-slate-300" />
-        </div>
-      )}
-      <div className="absolute inset-0 pointer-events-none"
-        style={{ background: "linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.1) 50%, transparent 100%)" }} />
-      {onSeeAll && (
-        <button onClick={onSeeAll}
-          className="absolute top-2 right-2 z-20 flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white text-[9px] font-bold px-2 py-1 rounded-full hover:bg-black/70 transition-all">
-          <Grid2X2 className="h-2.5 w-2.5" /> All
-        </button>
-      )}
-      <div className="absolute bottom-0 left-0 right-0 z-10 px-3 pb-3">
-        <p className="text-white font-black text-sm uppercase tracking-tight leading-tight drop-shadow">{act.name}</p>
-        {act.price > 0 && !act.is_free ? (
-          <p className="text-[11px] font-bold mt-0.5" style={{ color: CORAL_LIGHT }}>{formatPrice(Number(act.price))}</p>
-        ) : (
-          <p className="text-[11px] font-bold mt-0.5 text-emerald-300">Included</p>
-        )}
-      </div>
-      {imgs.length > 1 && (
-        <div className="absolute bottom-1.5 right-2 flex gap-1 z-20 pointer-events-none">
-          {imgs.map((_, idx) => (
-            <span key={idx} className="transition-all duration-300 block"
-              style={{ width: active === idx ? "10px" : "4px", height: "4px", borderRadius: "2px", background: active === idx ? "white" : "rgba(255,255,255,0.4)" }} />
-          ))}
-        </div>
-      )}
+    <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+      <h2 className="text-base font-black uppercase tracking-tight mb-3" style={{ color: CORAL }}>Highlights</h2>
+      <ul className="divide-y divide-slate-100">
+        {activities.map((act: any, i: number) => (
+          <li key={i} className="flex items-start justify-between gap-4 py-3 first:pt-0 last:pb-0">
+            <div className="min-w-0">
+              <p className="font-bold text-sm text-slate-800 leading-snug">{act.name}</p>
+              {act.description && (
+                <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">{act.description}</p>
+              )}
+            </div>
+            <div className="shrink-0 text-right">
+              {act.price > 0 && !act.is_free ? (
+                <p className="text-[12px] font-bold" style={{ color: CORAL }}>{formatPrice(Number(act.price))}</p>
+              ) : (
+                <p className="text-[12px] font-bold text-emerald-600">Included</p>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 };
@@ -278,6 +244,150 @@ const UtilityButton = ({ icon, label, onClick }: { icon: React.ReactNode; label:
     <span className="text-[9px] font-black uppercase tracking-tight">{label}</span>
   </Button>
 );
+
+// ─── Rating Stars ─────────────────────────────────────────────────────────────
+const RatingStars = ({ rating, size = "sm" }: { rating: number; size?: "sm" | "lg" }) => {
+  const starSize = size === "lg" ? "h-5 w-5" : "h-3.5 w-3.5";
+  return (
+    <div className="flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <Star
+          key={star}
+          className={starSize}
+          style={{
+            fill: star <= Math.round(rating) ? "#FF7F50" : "none",
+            color: star <= Math.round(rating) ? "#FF7F50" : "#d1d5db",
+          }}
+        />
+      ))}
+    </div>
+  );
+};
+
+// ─── Reviews Section ──────────────────────────────────────────────────────────
+const ReviewsSection = ({ itemId, averageRating, totalReviews }: {
+  itemId: string; averageRating: number; totalReviews: number;
+}) => {
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showAll, setShowAll] = useState(false);
+
+  useEffect(() => {
+    if (!itemId) return;
+    supabase
+      .from("reviews")
+      .select("id, rating, comment, created_at, reviewer_name, reviewer_avatar")
+      .eq("item_id", itemId)
+      .eq("item_type", "trip")
+      .order("created_at", { ascending: false })
+      .limit(20)
+      .then(({ data }) => {
+        setReviews(data || []);
+        setLoading(false);
+      });
+  }, [itemId]);
+
+  const avg = averageRating || (reviews.length > 0
+    ? reviews.reduce((s, r) => s + (r.rating || 0), 0) / reviews.length
+    : 0);
+  const total = totalReviews || reviews.length;
+  const displayed = showAll ? reviews : reviews.slice(0, 3);
+
+  // Distribution
+  const dist = [5, 4, 3, 2, 1].map((star) => ({
+    star,
+    count: reviews.filter((r) => Math.round(r.rating) === star).length,
+  }));
+
+  if (loading) return (
+    <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 animate-pulse">
+      <div className="h-4 w-32 bg-slate-200 rounded mb-4" />
+      <div className="space-y-3">
+        {[1, 2].map((i) => <div key={i} className="h-16 bg-slate-100 rounded-xl" />)}
+      </div>
+    </div>
+  );
+
+  if (total === 0 && reviews.length === 0) return null;
+
+  return (
+    <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+      <h2 className="text-base font-black uppercase tracking-tight mb-4" style={{ color: TEAL }}>
+        Reviews {total > 0 && <span className="text-slate-400 font-bold normal-case text-sm">({total})</span>}
+      </h2>
+
+      {/* Summary row */}
+      {avg > 0 && (
+        <div className="flex items-start gap-6 mb-5 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+          {/* Big score */}
+          <div className="text-center shrink-0">
+            <p className="text-4xl font-black text-slate-900 leading-none">{avg.toFixed(1)}</p>
+            <RatingStars rating={avg} size="sm" />
+            <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-wide">{total} review{total !== 1 ? "s" : ""}</p>
+          </div>
+          {/* Bar chart */}
+          <div className="flex-1 space-y-1.5">
+            {dist.map(({ star, count }) => {
+              const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+              return (
+                <div key={star} className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-slate-500 w-3 shrink-0">{star}</span>
+                  <Star className="h-2.5 w-2.5 shrink-0" style={{ fill: "#FF7F50", color: "#FF7F50" }} />
+                  <div className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full transition-all duration-700"
+                      style={{ width: `${pct}%`, background: "linear-gradient(90deg, #FF9E7A, #FF7F50)" }} />
+                  </div>
+                  <span className="text-[10px] font-bold text-slate-400 w-6 text-right shrink-0">{count}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Individual reviews */}
+      {displayed.length > 0 && (
+        <div className="space-y-3">
+          {displayed.map((review) => (
+            <div key={review.id} className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <div className="flex items-center gap-2.5">
+                  {review.reviewer_avatar ? (
+                    <img src={review.reviewer_avatar} alt={review.reviewer_name}
+                      className="w-8 h-8 rounded-full object-cover border border-slate-200" />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-black"
+                      style={{ background: `linear-gradient(135deg, ${TEAL}, #005f5f)` }}>
+                      {(review.reviewer_name || "A").charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-xs font-black text-slate-800">{review.reviewer_name || "Anonymous"}</p>
+                    <p className="text-[10px] text-slate-400">
+                      {new Date(review.created_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                    </p>
+                  </div>
+                </div>
+                <RatingStars rating={review.rating} size="sm" />
+              </div>
+              {review.comment && (
+                <p className="text-sm text-slate-600 leading-relaxed">{review.comment}</p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {reviews.length > 3 && (
+        <button
+          onClick={() => setShowAll((p) => !p)}
+          className="mt-3 w-full py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wide border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors">
+          {showAll ? "Show Less" : `Show All ${reviews.length} Reviews`}
+        </button>
+      )}
+    </div>
+  );
+};
 
 // ─── Main component ───────────────────────────────────────────────────────────
 const TripDetail = () => {
@@ -399,10 +509,8 @@ const TripDetail = () => {
 
       <div style={{ height: "calc(56px + env(safe-area-inset-top, 0px))" }} />
 
-      {/* Mobile carousel */}
+      {/* Gallery — constrained width on both mobile and desktop */}
       <MobileCarousel images={allImages} name={event.name} />
-
-      {/* Desktop gallery grid */}
       <DesktopGallery images={allImages} name={event.name} />
 
       {/* ── Name / badge / location ── */}
@@ -413,6 +521,14 @@ const TripDetail = () => {
           <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
           <span className="text-sm font-semibold">{[event.place, event.location, event.country].filter(Boolean).join(", ")}</span>
         </button>
+        {/* Rating summary */}
+        {(event.average_rating > 0 || event.total_reviews > 0) && (
+          <div className="flex items-center gap-2 mt-2">
+            <RatingStars rating={event.average_rating || 0} size="sm" />
+            <span className="text-sm font-black text-slate-800">{(event.average_rating || 0).toFixed(1)}</span>
+            <span className="text-xs text-slate-400 font-semibold">({event.total_reviews || 0} review{event.total_reviews !== 1 ? "s" : ""})</span>
+          </div>
+        )}
       </div>
 
       {/* ══ MAIN CONTENT ══════════════════════════════════════════════════════ */}
@@ -431,7 +547,7 @@ const TripDetail = () => {
               }
             </div>
 
-            {/* Activities — image-only cards with overlay + See All */}
+            {/* Activities — text-only list, no images */}
             {event.activities?.length > 0 && (
               <ActivitiesGrid activities={event.activities} formatPrice={formatPrice} />
             )}
@@ -468,27 +584,30 @@ const TripDetail = () => {
                 </div>
               </div>
             )}
+
+            {/* Reviews */}
+            <ReviewsSection
+              itemId={event.id}
+              averageRating={event.average_rating || 0}
+              totalReviews={event.total_reviews || 0}
+            />
+
           </div>
 
           {/* ── Right column / Booking card ── */}
           <div className="space-y-5">
             <div className="bg-white rounded-[28px] p-5 shadow-2xl border border-slate-100 lg:sticky lg:top-24">
 
-              {/* Price + slots */}
-              <div className="flex justify-between items-end mb-4">
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Ticket Price</p>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-lg font-bold text-destructive">{formatPrice(event.price)}</span>
-                    <span className="text-slate-400 text-[10px] font-bold uppercase">/ adult</span>
-                  </div>
+              {/* Price */}
+              <div className="mb-4">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Ticket Price</p>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-3xl font-black text-slate-900">{formatPrice(event.price)}</span>
+                  <span className="text-sm text-slate-400 font-bold uppercase">/ adult</span>
                 </div>
-                <div className="bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100 flex items-center gap-1.5">
-                  <Clock className="h-3.5 w-3.5 text-[#008080]" />
-                  <span className={`text-xs font-black uppercase ${isSoldOut ? "text-red-500" : "text-slate-600"}`}>
-                    {isSoldOut ? "FULL" : `${remainingSlots} Left`}
-                  </span>
-                </div>
+                {event.allow_children !== false && event.price_child != null && (
+                  <p className="text-sm text-slate-600 mt-0.5">Child: {formatPrice(event.price_child || 0)}</p>
+                )}
               </div>
 
               {/* Hours */}
@@ -513,22 +632,8 @@ const TripDetail = () => {
                 </div>
               )}
 
-              {/* Availability bar */}
-              <div className="mb-4 p-3 bg-slate-50 rounded-xl border border-slate-100">
-                <div className="flex justify-between items-center mb-1.5">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1"><Users className="h-3 w-3" /> Availability</span>
-                  <span className={`text-[10px] font-black uppercase ${remainingSlots < 5 ? "text-red-500" : "text-emerald-600"}`}>
-                    {isSoldOut ? "Sold Out" : `${remainingSlots} Available`}
-                  </span>
-                </div>
-                <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                  <div className={`h-full transition-all duration-500 ${remainingSlots < 5 ? "bg-red-500" : "bg-emerald-500"}`}
-                    style={{ width: `${Math.min((remainingSlots / (event.available_tickets || 50)) * 100, 100)}%` }} />
-                </div>
-              </div>
-
               {/* Trip meta */}
-              <div className="space-y-2 mb-4">
+              <div className="space-y-2 mb-4 p-3 bg-slate-50 rounded-xl border border-slate-100">
                 <div className="flex justify-between text-xs font-bold uppercase tracking-tight">
                   <span className="text-slate-400">Date</span>
                   <span className={isExpired ? "text-red-500" : "text-slate-700"}>
@@ -544,14 +649,8 @@ const TripDetail = () => {
                     {event.allow_children === false ? "Not Allowed" : "Allowed"}
                   </span>
                 </div>
-                {event.allow_children !== false && (
-                  <div className="flex justify-between text-xs font-bold uppercase tracking-tight">
-                    <span className="text-slate-400">Child (Under 12)</span>
-                    <span className="text-slate-700">{formatPrice(event.price_child || 0)}</span>
-                  </div>
-                )}
                 {event.ticket_types?.length > 0 && (
-                  <div className="pt-2 border-t border-slate-100">
+                  <div className="pt-2 border-t border-slate-200">
                     <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1.5">Ticket Types</p>
                     {event.ticket_types.map((ticket: any, i: number) => (
                       <div key={i} className="flex justify-between text-xs font-bold uppercase tracking-tight py-0.5">
@@ -583,10 +682,22 @@ const TripDetail = () => {
           </div>
         </div>
 
-        <DetailMapSection
-          currentItem={{ id: event.id, name: event.name, latitude: null, longitude: null, location: event.location, country: event.country, image_url: event.image_url, price: event.price }}
-          itemType="trip"
-        />
+        {/* Map */}
+        <div className="mt-6 rounded-2xl overflow-hidden shadow-sm border border-slate-100" style={{ height: "320px" }}>
+          <DetailMapSection
+            currentItem={{
+              id: event.id,
+              name: event.name,
+              latitude: event.latitude ?? null,
+              longitude: event.longitude ?? null,
+              location: event.location,
+              country: event.country,
+              image_url: event.image_url,
+              price: event.price,
+            }}
+            itemType="trip"
+          />
+        </div>
       </main>
 
       <Footer />
@@ -600,7 +711,7 @@ const TripDetail = () => {
               <span className="text-base font-bold text-destructive">{formatPrice(event.price)}</span>
               <span className="text-[9px] font-bold text-slate-400 uppercase">/ adult</span>
             </div>
-            {event.price_child != null && (
+            {event.allow_children !== false && event.price_child != null && (
               <div className="text-[10px] font-bold text-slate-500">Child: {formatPrice(event.price_child || 0)}</div>
             )}
           </div>

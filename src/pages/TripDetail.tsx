@@ -3,13 +3,13 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useSafeBack } from "@/hooks/useSafeBack";
 import { useBookingNavigate } from "@/hooks/useBookingNavigate";
 import { Button } from "@/components/ui/button";
-import { MapPin, Share2, Copy, CheckCircle2, Star, Clock, Users } from "lucide-react";
+import {
+  MapPin, Share2, Copy, CheckCircle2, Clock, Users,
+  ChevronLeft, ChevronRight, Grid2X2,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
-import Autoplay from "embla-carousel-autoplay";
-import { ReviewSection } from "@/components/ReviewSection";
 import { useSavedItems } from "@/hooks/useSavedItems";
 import { trackReferralClick } from "@/lib/referralUtils";
 import { getShareLink } from "@/lib/shareUtils";
@@ -20,30 +20,266 @@ import { DetailNavBar } from "@/components/detail/DetailNavBar";
 import { DetailMapSection } from "@/components/detail/DetailMapSection";
 import { TealLoader } from "@/components/ui/teal-loader";
 import { useCurrency } from "@/contexts/CurrencyContext";
-import { ImageGalleryModal } from "@/components/detail/ImageGalleryModal";
 import { Footer } from "@/components/Footer";
 
-const TEAL = "#008080";
-const CORAL = "#FF7F50";
+const TEAL        = "#008080";
+const CORAL       = "#FF7F50";
 const CORAL_LIGHT = "#FF9E7A";
-
-const ReviewHeader = ({ event }: { event: any }) => (
-  <div className="flex justify-between items-center mb-6">
-    <div>
-      <h2 className="text-lg font-black uppercase tracking-tight" style={{ color: TEAL }}>Ratings</h2>
-      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Community Feedback</p>
-    </div>
-    {event.average_rating > 0 && (
-      <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100">
-        <Star className="h-4 w-4 fill-[#FF7F50] text-[#FF7F50]" />
-        <span className="text-base font-black" style={{ color: TEAL }}>{event.average_rating.toFixed(1)}</span>
-      </div>
-    )}
-  </div>
-);
 
 const SELECT_FIELDS = "id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,price,price_child,available_tickets,description,activities,created_by,type,opening_hours,closing_hours,days_opened,map_link,is_flexible_date,inclusions,exclusions,allow_children,ticket_types,slot_limit_type";
 
+// ─── Image Gallery Modal ──────────────────────────────────────────────────────
+const ImageGalleryModal = ({
+  images, name, startIndex = 0, onClose,
+}: {
+  images: string[]; name: string; startIndex?: number; onClose: () => void;
+}) => {
+  const [current, setCurrent] = useState(startIndex);
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowRight") setCurrent((p) => (p + 1) % images.length);
+      if (e.key === "ArrowLeft") setCurrent((p) => (p - 1 + images.length) % images.length);
+    };
+    window.addEventListener("keydown", handleKey);
+    document.body.style.overflow = "hidden";
+    return () => { window.removeEventListener("keydown", handleKey); document.body.style.overflow = ""; };
+  }, [images.length, onClose]);
+
+  return (
+    <div className="fixed inset-0 z-[200] bg-black/95 flex flex-col"
+      style={{ paddingTop: "env(safe-area-inset-top, 0px)", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+      <div className="flex items-center justify-between px-4 py-3 flex-shrink-0">
+        <span className="text-white/60 text-xs font-bold uppercase tracking-widest">{name}</span>
+        <div className="flex items-center gap-3">
+          <span className="text-white/50 text-xs font-bold">{current + 1} / {images.length}</span>
+          <button onClick={onClose}
+            className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors text-white text-lg font-bold">
+            ✕
+          </button>
+        </div>
+      </div>
+      <div className="flex-1 relative flex items-center justify-center overflow-hidden px-4">
+        <img src={images[current]} alt={`${name} ${current + 1}`}
+          className="max-h-full max-w-full object-contain select-none" />
+        {images.length > 1 && (
+          <>
+            <button onClick={() => setCurrent((p) => (p - 1 + images.length) % images.length)}
+              className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center hover:bg-white/20 transition-all">
+              <ChevronLeft className="h-5 w-5 text-white" />
+            </button>
+            <button onClick={() => setCurrent((p) => (p + 1) % images.length)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center hover:bg-white/20 transition-all">
+              <ChevronRight className="h-5 w-5 text-white" />
+            </button>
+          </>
+        )}
+      </div>
+      {images.length > 1 && (
+        <div className="flex-shrink-0 px-4 py-3 overflow-x-auto">
+          <div className="flex gap-2 w-max mx-auto">
+            {images.map((img, idx) => (
+              <button key={idx} onClick={() => setCurrent(idx)} className="flex-shrink-0 transition-all"
+                style={{ width: 56, height: 42, outline: idx === current ? `2px solid ${CORAL}` : "2px solid transparent", outlineOffset: 1, opacity: idx === current ? 1 : 0.5 }}>
+                <img src={img} alt="" className="w-full h-full object-cover" style={{ borderRadius: 0 }} />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── Desktop gallery grid (matches reference photo, no border-radius) ─────────
+const DesktopGallery = ({ images, name }: { images: string[]; name: string }) => {
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalStart, setModalStart] = useState(0);
+
+  const open = (idx: number) => { setModalStart(idx); setModalOpen(true); };
+
+  return (
+    <>
+      {modalOpen && <ImageGalleryModal images={images} name={name} startIndex={modalStart} onClose={() => setModalOpen(false)} />}
+      <div className="hidden md:block max-w-6xl mx-auto px-4 pt-4">
+        <div className="relative" style={{ display: "grid", gridTemplateColumns: "1.55fr 1fr", gridTemplateRows: "200px 130px", gap: "3px", borderRadius: 0 }}>
+          {/* Large left spanning 2 rows */}
+          <div style={{ gridRow: "1 / 3", overflow: "hidden", borderRadius: 0, cursor: "pointer" }} onClick={() => open(0)}>
+            {images[0] && <img src={images[0]} alt={name} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" style={{ borderRadius: 0 }} />}
+          </div>
+          {/* Top right */}
+          <div style={{ overflow: "hidden", borderRadius: 0, cursor: "pointer" }} onClick={() => open(1)}>
+            {images[1] && <img src={images[1]} alt={`${name} 2`} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" style={{ borderRadius: 0 }} />}
+          </div>
+          {/* Bottom right with See All overlay */}
+          <div style={{ overflow: "hidden", borderRadius: 0, position: "relative", cursor: "pointer" }} onClick={() => open(2)}>
+            {images[2] && <img src={images[2]} alt={`${name} 3`} className="w-full h-full object-cover" style={{ borderRadius: 0 }} />}
+            {images.length > 3 && (
+              <div className="absolute inset-0 bg-black/52 flex items-center justify-center backdrop-blur-[1px] cursor-pointer">
+                <div className="text-center">
+                  <span className="text-white text-2xl font-black">+{images.length - 3}</span>
+                  <p className="text-white text-[10px] font-black uppercase tracking-widest mt-0.5">See All</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+};
+
+// ─── Mobile carousel (full-width, no border-radius) ───────────────────────────
+const MobileCarousel = ({ images, name }: { images: string[]; name: string }) => {
+  const [active, setActive] = useState(0);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalStart, setModalStart] = useState(0);
+
+  useEffect(() => {
+    if (images.length <= 1) return;
+    const iv = setInterval(() => setActive((p) => (p + 1) % images.length), 4000);
+    return () => clearInterval(iv);
+  }, [images.length]);
+
+  const go = (idx: number) => setActive((idx + images.length) % images.length);
+
+  return (
+    <>
+      {modalOpen && <ImageGalleryModal images={images} name={name} startIndex={modalStart} onClose={() => setModalOpen(false)} />}
+      <div className="relative md:hidden w-full overflow-hidden bg-slate-900"
+        style={{ height: "45vh", minHeight: "200px", maxHeight: "360px", borderRadius: 0 }}>
+        {images.map((img, idx) => (
+          <img key={idx} src={img} alt={`${name} ${idx + 1}`}
+            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700"
+            style={{ opacity: active === idx ? 1 : 0, borderRadius: 0 }} />
+        ))}
+        <div className="absolute bottom-0 left-0 right-0 h-20 pointer-events-none z-10"
+          style={{ background: "linear-gradient(to top, rgba(0,0,0,0.5), transparent)" }} />
+        {images.length > 1 && (
+          <>
+            <button onClick={() => go(active - 1)}
+              className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
+              <ChevronLeft className="h-4 w-4 text-white" />
+            </button>
+            <button onClick={() => go(active + 1)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
+              <ChevronRight className="h-4 w-4 text-white" />
+            </button>
+          </>
+        )}
+        {images.length > 1 && (
+          <div className="absolute bottom-3 left-0 right-0 z-20 flex justify-center gap-1.5 pointer-events-none">
+            {images.slice(0, 6).map((_, idx) => (
+              <span key={idx} className="transition-all duration-300 block pointer-events-auto cursor-pointer"
+                onClick={() => go(idx)}
+                style={{ width: active === idx ? "20px" : "6px", height: "6px", borderRadius: "3px", background: active === idx ? "white" : "rgba(255,255,255,0.45)" }} />
+            ))}
+          </div>
+        )}
+        <div className="absolute top-3 right-3 z-20 flex items-center gap-2">
+          {images.length > 1 && (
+            <button onClick={() => { setModalStart(active); setModalOpen(true); }}
+              className="flex items-center gap-1.5 bg-black/50 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full hover:bg-black/70 transition-all">
+              <Grid2X2 className="h-3 w-3" /> See All
+            </button>
+          )}
+          <div className="bg-black/50 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
+            {active + 1} / {images.length}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+};
+
+// ─── Activities grid (image-only, name+price overlay, no border-radius, See All) ──
+const ActivitiesGrid = ({ activities, formatPrice }: { activities: any[]; formatPrice: (n: number) => string }) => {
+  const [modalImages, setModalImages] = useState<string[] | null>(null);
+  const [modalName, setModalName] = useState("");
+
+  if (!activities?.length) return null;
+  return (
+    <>
+      {modalImages && <ImageGalleryModal images={modalImages} name={modalName} onClose={() => setModalImages(null)} />}
+      <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+        <h2 className="text-base font-black uppercase tracking-tight mb-3" style={{ color: CORAL }}>Highlights</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {activities.map((act: any, i: number) => {
+            const imgs: string[] = Array.isArray(act.images) ? act.images.filter(Boolean) : [];
+            return (
+              <ActivityCard key={i} act={act} imgs={imgs} formatPrice={formatPrice}
+                onSeeAll={imgs.length > 1 ? () => { setModalImages(imgs); setModalName(act.name); } : undefined} />
+            );
+          })}
+        </div>
+      </div>
+    </>
+  );
+};
+
+const ActivityCard = ({
+  act, imgs, formatPrice, onSeeAll,
+}: {
+  act: any; imgs: string[]; formatPrice: (n: number) => string; onSeeAll?: () => void;
+}) => {
+  const [active, setActive] = useState(0);
+  useEffect(() => {
+    if (imgs.length <= 1) return;
+    const iv = setInterval(() => setActive((p) => (p + 1) % imgs.length), 3200);
+    return () => clearInterval(iv);
+  }, [imgs.length]);
+
+  return (
+    <div className="relative overflow-hidden" style={{ aspectRatio: "3/4", borderRadius: 0 }}>
+      {imgs.length > 0 ? (
+        imgs.map((img, idx) => (
+          <img key={idx} src={img} alt={act.name}
+            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
+            style={{ opacity: active === idx ? 1 : 0, borderRadius: 0 }} />
+        ))
+      ) : (
+        <div className="absolute inset-0 bg-slate-200 flex items-center justify-center">
+          <MapPin className="h-6 w-6 text-slate-300" />
+        </div>
+      )}
+      <div className="absolute inset-0 pointer-events-none"
+        style={{ background: "linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.1) 50%, transparent 100%)" }} />
+      {onSeeAll && (
+        <button onClick={onSeeAll}
+          className="absolute top-2 right-2 z-20 flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white text-[9px] font-bold px-2 py-1 rounded-full hover:bg-black/70 transition-all">
+          <Grid2X2 className="h-2.5 w-2.5" /> All
+        </button>
+      )}
+      <div className="absolute bottom-0 left-0 right-0 z-10 px-3 pb-3">
+        <p className="text-white font-black text-sm uppercase tracking-tight leading-tight drop-shadow">{act.name}</p>
+        {act.price > 0 && !act.is_free ? (
+          <p className="text-[11px] font-bold mt-0.5" style={{ color: CORAL_LIGHT }}>{formatPrice(Number(act.price))}</p>
+        ) : (
+          <p className="text-[11px] font-bold mt-0.5 text-emerald-300">Included</p>
+        )}
+      </div>
+      {imgs.length > 1 && (
+        <div className="absolute bottom-1.5 right-2 flex gap-1 z-20 pointer-events-none">
+          {imgs.map((_, idx) => (
+            <span key={idx} className="transition-all duration-300 block"
+              style={{ width: active === idx ? "10px" : "4px", height: "4px", borderRadius: "2px", background: active === idx ? "white" : "rgba(255,255,255,0.4)" }} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const UtilityButton = ({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) => (
+  <Button variant="ghost" onClick={onClick}
+    className="flex-col h-auto py-2.5 bg-[#F0E68C]/15 text-[#857F3E] rounded-xl hover:bg-[#F0E68C]/30 transition-colors border border-[#F0E68C]/30">
+    <div className="mb-0.5">{icon}</div>
+    <span className="text-[9px] font-black uppercase tracking-tight">{label}</span>
+  </Button>
+);
+
+// ─── Main component ───────────────────────────────────────────────────────────
 const TripDetail = () => {
   const { slug: rawSlug } = useParams();
   const navigate = useNavigate();
@@ -57,8 +293,6 @@ const TripDetail = () => {
   const [loading, setLoading] = useState(true);
   const [scrolled, setScrolled] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [carouselApi, setCarouselApi] = useState<CarouselApi | null>(null);
-  const [activeSlide, setActiveSlide] = useState(0);
 
   const { savedItems, handleSave: handleSaveItem } = useSavedItems();
   const currentItemId = event?.id || "";
@@ -77,13 +311,6 @@ const TripDetail = () => {
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
-
-  useEffect(() => {
-    if (!carouselApi) return;
-    const onSelect = () => setActiveSlide(carouselApi.selectedScrollSnap());
-    carouselApi.on("select", onSelect);
-    return () => { carouselApi.off("select", onSelect); };
-  }, [carouselApi]);
 
   const fetchTrip = async () => {
     if (!rawSlug) return;
@@ -121,8 +348,7 @@ const TripDetail = () => {
 
   const handleCopyLink = async () => {
     if (!event) return;
-    const link = getShareLink(event.id, "trip", event.name, event.location);
-    await navigator.clipboard.writeText(link);
+    await navigator.clipboard.writeText(getShareLink(event.id, "trip", event.name, event.location));
     toast({ title: "Link Copied!" });
   };
 
@@ -166,80 +392,20 @@ const TripDetail = () => {
   const isExpired = !event.is_custom_date && eventDate && eventDate < today;
   const canBook = !isExpired && !isSoldOut;
   const allImages = [event?.image_url, ...(event?.gallery_images || []), ...(event?.images || [])].filter((v, i, a) => Boolean(v) && a.indexOf(v) === i);
-  const dotImages = allImages.slice(0, 5);
 
   return (
     <div className="min-h-screen bg-background pb-24">
       <DetailNavBar scrolled={scrolled} itemName={event.name} isSaved={isSaved} onSave={handleSave} onBack={goBack} />
 
-      {/* ══ IMAGE GALLERY + NAME — all in normal block flow, no overlap possible ══ */}
-
-      {/* Spacer — exactly the height of the fixed header so content starts below it */}
       <div style={{ height: "calc(56px + env(safe-area-inset-top, 0px))" }} />
 
-      {/* Mobile carousel — 45vh, overflow-hidden clips image, nothing overlaps below */}
-      <div className="relative w-full overflow-hidden bg-slate-900 md:hidden" style={{ height: "45vh", minHeight: "200px", maxHeight: "360px" }}>
-        <Carousel setApi={setCarouselApi} plugins={[Autoplay({ delay: 4000 })]} className="w-full h-full">
-          <CarouselContent className="h-full ml-0">
-            {allImages.map((img, idx) => (
-              <CarouselItem key={idx} className="h-full pl-0 basis-full">
-                <img src={img} alt={`${event.name} - ${idx + 1}`} className="w-full h-full object-cover object-center" />
-              </CarouselItem>
-            ))}
-          </CarouselContent>
-        </Carousel>
-        {allImages.length > 1 && <ImageGalleryModal images={allImages} name={event.name} />}
-        {allImages.length > 1 && (
-          <div className="absolute bottom-3 left-0 right-0 z-30 flex justify-center gap-1.5 pointer-events-none">
-            {dotImages.map((_, idx) => (
-              <span key={idx} className="transition-all duration-300 block" style={{
-                width: activeSlide === idx ? "20px" : "6px", height: "6px", borderRadius: "3px",
-                background: activeSlide === idx ? "white" : "rgba(255,255,255,0.5)",
-              }} />
-            ))}
-          </div>
-        )}
-      </div>
+      {/* Mobile carousel */}
+      <MobileCarousel images={allImages} name={event.name} />
 
-      {/* Desktop gallery — constrained width, rounded, clipped */}
-      <div className="hidden md:block max-w-6xl mx-auto px-4 pt-4">
-        <div className="relative grid grid-cols-4 gap-1.5 h-[420px] rounded-2xl overflow-hidden">
-          {allImages.length > 0 ? (
-            <>
-              <div className="col-span-2 row-span-2 overflow-hidden group">
-                <img src={allImages[0]} alt={event.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-              </div>
-              {allImages[1] && (
-                <div className="col-span-2 overflow-hidden group">
-                  <img src={allImages[1]} alt={`${event.name} - 2`} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                </div>
-              )}
-              <div className="col-span-2 grid grid-cols-3 gap-1.5">
-                {allImages.slice(2, 5).map((img, idx) => (
-                  <div key={idx} className="overflow-hidden relative group">
-                    <img src={img} alt={`${event.name} - ${idx + 3}`} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                    {idx === 2 && allImages.length > 3 && (
-                      <div className="absolute inset-0 bg-black/55 flex items-center justify-center backdrop-blur-[2px] cursor-pointer">
-                        <div className="text-center">
-                          <span className="text-white text-2xl font-black">+{allImages.length - 3}</span>
-                          <p className="text-white text-[10px] font-black uppercase tracking-widest mt-0.5">See All</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : (
-            <div className="col-span-4 bg-slate-200 flex items-center justify-center">
-              <p className="text-slate-400 font-black uppercase text-sm">No Images Available</p>
-            </div>
-          )}
-          <ImageGalleryModal images={allImages} name={event.name} />
-        </div>
-      </div>
+      {/* Desktop gallery grid */}
+      <DesktopGallery images={allImages} name={event.name} />
 
-      {/* ══ NAME / CATEGORY / LOCATION — always below gallery in normal flow ══ */}
+      {/* ── Name / badge / location ── */}
       <div className="max-w-6xl mx-auto px-4 pt-4 pb-1 bg-background">
         <span className="inline-block mb-2 bg-[#FF7F50] text-white px-3 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest">Trip</span>
         <h1 className="text-2xl font-black uppercase tracking-tighter leading-tight text-foreground">{event.name}</h1>
@@ -265,23 +431,12 @@ const TripDetail = () => {
               }
             </div>
 
-            {/* Highlights — compact inline chips, NOT buttons */}
+            {/* Activities — image-only cards with overlay + See All */}
             {event.activities?.length > 0 && (
-              <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-                <h2 className="text-base font-black uppercase tracking-tight mb-3" style={{ color: TEAL }}>Highlights</h2>
-                <div className="flex flex-wrap gap-1.5">
-                  {event.activities.map((act: any, i: number) => (
-                    <span key={i} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#F0E68C]/30 border border-[#F0E68C]/60 text-[11px] font-semibold text-[#857F3E]">
-                      <CheckCircle2 className="h-3 w-3 flex-shrink-0" />
-                      {act.name}
-                      {act.price > 0 && !act.is_free && <span className="opacity-60">· {formatPrice(Number(act.price))}</span>}
-                    </span>
-                  ))}
-                </div>
-              </div>
+              <ActivitiesGrid activities={event.activities} formatPrice={formatPrice} />
             )}
 
-            {/* Inclusions & Exclusions — all screens */}
+            {/* Inclusions & Exclusions */}
             {((event.inclusions?.length > 0) || (event.exclusions?.length > 0)) && (
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
                 <h2 className="text-base font-black uppercase tracking-tight mb-4" style={{ color: TEAL }}>Package Details</h2>
@@ -313,12 +468,6 @@ const TripDetail = () => {
                 </div>
               </div>
             )}
-
-            {/* Reviews — desktop */}
-            <div className="hidden lg:block bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-              <ReviewHeader event={event} />
-              <ReviewSection itemId={event.id} itemType="trip" />
-            </div>
           </div>
 
           {/* ── Right column / Booking card ── */}
@@ -430,14 +579,6 @@ const TripDetail = () => {
                 <UtilityButton icon={<Copy className="h-4 w-4" />} label="Copy" onClick={handleCopyLink} />
                 <UtilityButton icon={<Share2 className="h-4 w-4" />} label="Share" onClick={handleShare} />
               </div>
-
-
-            </div>
-
-            {/* Reviews — mobile */}
-            <div className="lg:hidden bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-              <ReviewHeader event={event} />
-              <ReviewSection itemId={event.id} itemType="trip" />
             </div>
           </div>
         </div>
@@ -476,13 +617,5 @@ const TripDetail = () => {
     </div>
   );
 };
-
-const UtilityButton = ({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) => (
-  <Button variant="ghost" onClick={onClick}
-    className="flex-col h-auto py-2.5 bg-[#F0E68C]/15 text-[#857F3E] rounded-xl hover:bg-[#F0E68C]/30 transition-colors border border-[#F0E68C]/30">
-    <div className="mb-0.5">{icon}</div>
-    <span className="text-[9px] font-black uppercase tracking-tight">{label}</span>
-  </Button>
-);
 
 export default TripDetail;

@@ -158,7 +158,6 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: G
         >
           {title}
         </h2>
-        {/* CHANGE 1: All "View All →" links now navigate to /explore */}
         <Link
           to="/explore"
           className="text-xs md:text-sm font-semibold hover:opacity-70 transition-opacity shrink-0"
@@ -215,7 +214,6 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: G
 GridSection.displayName = "GridSection";
 
 // ── Category cards ────────────────────────────────────────────────────────────
-// CHANGE 2: "Events" category card removed — now only 3 cards
 const CATEGORIES = [
   { icon: Tent,     title: "Adventures",   path: "/category/campsite", bgImage: "/images/category-adventures.jpg" },
   { icon: Calendar, title: "Trips",        path: "/category/trips",    bgImage: "/images/category-trips.jpg"      },
@@ -282,7 +280,6 @@ const Index = () => {
     setSearchFocused(v);
   }, [setSearchFocused]);
 
-  // Collect all IDs for ratings
   const allItemIds = useMemo(() => {
     const ids = new Set<string>();
     listings.forEach(i => ids.add(i.id));
@@ -605,7 +602,7 @@ const Index = () => {
         }}
       />
 
-      {/* Mobile top bar — unchanged */}
+      {/* Mobile top bar */}
       {!isSearchFocused && (
         <div
           className="fixed top-0 left-0 right-0 z-[100] md:hidden flex items-center justify-between px-4 pointer-events-none"
@@ -617,11 +614,17 @@ const Index = () => {
           >
             <Sheet open={isIndexDrawerOpen} onOpenChange={setIsIndexDrawerOpen}>
               <SheetTrigger asChild>
-                <button className="h-9 w-9 rounded-xl flex items-center justify-center text-white transition-all active:scale-95" aria-label="Open Menu">
+                <button
+                  className="h-9 w-9 rounded-xl flex items-center justify-center text-white transition-all active:scale-95"
+                  aria-label="Open Menu"
+                >
                   <Menu className="h-5 w-5 stroke-[2.5]" />
                 </button>
               </SheetTrigger>
-              <SheetContent side="left" className="w-[80vw] max-w-sm p-0 h-screen border-none">
+              <SheetContent
+                side="left"
+                className="w-[80vw] max-w-sm p-0 h-screen border-none"
+              >
                 <NavigationDrawer onClose={() => setIsIndexDrawerOpen(false)} />
               </SheetContent>
             </Sheet>
@@ -657,9 +660,15 @@ const Index = () => {
         >
           <div className="md:container md:mx-auto md:px-6">
             <div className="relative w-full flex flex-col px-4 md:px-8 pt-8 md:pt-10 pb-5 md:pb-6 overflow-hidden">
-              <img src="/images/hero-background.webp" alt="" aria-hidden="true"
-                fetchPriority="high" loading="eager" decoding="async"
-                className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none select-none" />
+              <img
+                src="/images/hero-background.webp"
+                alt=""
+                aria-hidden="true"
+                fetchPriority="high"
+                loading="eager"
+                decoding="async"
+                className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none select-none"
+              />
               <div className="absolute inset-0 bg-black/25" />
               <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/30" />
 
@@ -672,16 +681,19 @@ const Index = () => {
                 </h1>
                 <div onClick={() => navigate("/explore")} className="cursor-pointer w-full">
                   <SearchBarWithSuggestions
-                    value="" onChange={() => {}}
+                    value=""
+                    onChange={() => {}}
                     onSubmit={() => navigate("/explore")}
                     onSuggestionSearch={() => navigate("/explore")}
                     onFocus={() => navigate("/explore")}
-                    onBlur={() => {}} onBack={() => {}} showBackButton={false}
+                    onBlur={() => {}}
+                    onBack={() => {}}
+                    showBackButton={false}
                   />
                 </div>
               </div>
 
-              {/* Hero category cards — CHANGE 2: Events removed, now 3 cards */}
+              {/* Hero category cards */}
               <div className="relative z-10 w-full grid grid-cols-3 gap-2 md:gap-3 mt-2">
                 {CATEGORIES.map(cat => (
                   <div
@@ -690,8 +702,15 @@ const Index = () => {
                     className="cursor-pointer rounded-lg relative w-full flex flex-col items-center justify-center gap-1 px-2 py-2 md:py-4 overflow-hidden"
                     style={{ height: "clamp(60px, 8vw, 144px)" }}
                   >
-                    <img src={cat.bgImage} alt="" aria-hidden="true" fetchPriority="high" loading="eager" decoding="async"
-                      className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none select-none rounded-lg" />
+                    <img
+                      src={cat.bgImage}
+                      alt=""
+                      aria-hidden="true"
+                      fetchPriority="high"
+                      loading="eager"
+                      decoding="async"
+                      className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none select-none rounded-lg"
+                    />
                     <div className="absolute inset-0 rounded-lg bg-black/60" />
                     <cat.icon className="relative z-10 h-3 w-3 md:h-6 md:w-6 text-white shrink-0" />
                     <span className="relative z-10 text-white text-[10px] md:text-sm font-bold leading-none whitespace-nowrap">
@@ -711,7 +730,10 @@ const Index = () => {
 
             {/* Counties — horizontal scroll */}
             <section className="mb-4 md:mb-6">
-              <div ref={countiesRef} className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide scroll-smooth snap-x snap-mandatory">
+              <div
+                ref={countiesRef}
+                className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide scroll-smooth snap-x snap-mandatory"
+              >
                 {FEATURED_COUNTIES.map((county, idx) => (
                   <div
                     key={county}
@@ -723,7 +745,8 @@ const Index = () => {
                         src={COUNTY_IMAGES[county] || `/images/counties/${county.toLowerCase().replace(/['\s]/g, "-")}.jpg`}
                         alt={county}
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                        loading={idx < 4 ? "eager" : "lazy"} decoding="async"
+                        loading={idx < 4 ? "eager" : "lazy"}
+                        decoding="async"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
                       <div className="absolute bottom-0 left-0 right-0 p-2">
@@ -760,10 +783,15 @@ const Index = () => {
               <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-3">Quick Access</h2>
               <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                 {QUICK_NAV.map(nav => (
-                  <button key={nav.title} onClick={() => navigate(nav.path)}
+                  <button
+                    key={nav.title}
+                    onClick={() => navigate(nav.path)}
                     className="flex flex-col items-center gap-1.5 py-3 px-2 rounded-2xl bg-card border border-border hover:shadow-md transition-all active:scale-95"
                   >
-                    <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${nav.color}15` }}>
+                    <div
+                      className="h-9 w-9 rounded-xl flex items-center justify-center"
+                      style={{ backgroundColor: `${nav.color}15` }}
+                    >
                       <nav.icon style={{ color: nav.color, width: 18, height: 18 }} />
                     </div>
                     <span className="text-[10px] font-bold text-foreground leading-tight text-center">{nav.title}</span>
@@ -781,20 +809,28 @@ const Index = () => {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
                       <Star className="h-4 w-4 text-yellow-300 fill-yellow-300" />
-                      <span className="text-primary-foreground/80 text-xs font-semibold uppercase tracking-widest">Partner with us</span>
+                      <span className="text-primary-foreground/80 text-xs font-semibold uppercase tracking-widest">
+                        Partner with us
+                      </span>
                     </div>
-                    <h3 className="text-primary-foreground text-xl md:text-2xl font-extrabold leading-tight mb-1">Become a Host</h3>
+                    <h3 className="text-primary-foreground text-xl md:text-2xl font-extrabold leading-tight mb-1">
+                      Become a Host
+                    </h3>
                     <p className="text-primary-foreground/75 text-sm md:text-base leading-relaxed max-w-md">
                       List your adventure spot or tour and reach thousands of travellers. It's free to get started.
                     </p>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-2 shrink-0">
-                    <button onClick={() => navigate("/become-host")}
-                      className="px-6 py-3 rounded-xl bg-white text-primary font-bold text-sm shadow-lg hover:bg-white/90 active:scale-95 transition-all whitespace-nowrap">
+                    <button
+                      onClick={() => navigate("/become-host")}
+                      className="px-6 py-3 rounded-xl bg-white text-primary font-bold text-sm shadow-lg hover:bg-white/90 active:scale-95 transition-all whitespace-nowrap"
+                    >
                       Get Started →
                     </button>
-                    <button onClick={() => navigate("/become-host#learn-more")}
-                      className="px-6 py-3 rounded-xl bg-white/15 text-primary-foreground font-semibold text-sm border border-white/25 hover:bg-white/25 active:scale-95 transition-all whitespace-nowrap">
+                    <button
+                      onClick={() => navigate("/become-host#learn-more")}
+                      className="px-6 py-3 rounded-xl bg-white/15 text-primary-foreground font-semibold text-sm border border-white/25 hover:bg-white/25 active:scale-95 transition-all whitespace-nowrap"
+                    >
                       Learn More
                     </button>
                   </div>
@@ -818,12 +854,16 @@ const Index = () => {
               <AlertDialogDescription className="text-center">{t("location.description")}</AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter className="flex-col gap-2 sm:flex-col">
-              <AlertDialogAction onClick={() => { setShowLocationDialog(false); forceRequestLocation(); }}
-                className="w-full bg-primary hover:bg-primary/90">
+              <AlertDialogAction
+                onClick={() => { setShowLocationDialog(false); forceRequestLocation(); }}
+                className="w-full bg-primary hover:bg-primary/90"
+              >
                 {t("location.tryAgain")}
               </AlertDialogAction>
-              <AlertDialogAction onClick={() => setShowLocationDialog(false)}
-                className="w-full bg-muted text-muted-foreground hover:bg-muted/80">
+              <AlertDialogAction
+                onClick={() => setShowLocationDialog(false)}
+                className="w-full bg-muted text-muted-foreground hover:bg-muted/80"
+              >
                 {t("location.continueWithout")}
               </AlertDialogAction>
             </AlertDialogFooter>

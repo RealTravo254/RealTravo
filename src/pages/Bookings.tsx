@@ -7,7 +7,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
-import QRCode from "qrcode";
 import {
   Calendar, Users, MapPin, CalendarClock,
   X, CheckCircle, Download, ChevronDown, ChevronUp,
@@ -104,7 +103,7 @@ const Row = ({
 
 // ─── Download as PDF ──────────────────────────────────────────────────────────
 
-const downloadBooking = async (booking: Booking) => {
+const downloadBooking = (booking: Booking) => {
   const d = booking.booking_details || {};
   const itemName =
     d.trip_name || d.event_name || d.hotel_name ||
@@ -206,32 +205,14 @@ const downloadBooking = async (booking: Booking) => {
     doc.setTextColor(...SLATE_RGB);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8.5);
+    // Truncate long values to prevent overflow
     const valStr = String(value);
-    const maxWidth = W - 72 - 160;
-    const lines = doc.splitTextToSize(valStr, maxWidth);
-    if (lines.length > 1) {
-      // multi-line row — expand the rect
-      const rowH = 14 + lines.length * 11;
-      doc.setFillColor(...LIGHT_RGB);
-      doc.roundedRect(36, y, W - 72, rowH, 3, 3, "F");
-      doc.setTextColor(...MUTED_RGB);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(7);
-      doc.text(label.toUpperCase(), 44, y + 9);
-      doc.setTextColor(...SLATE_RGB);
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8.5);
-      lines.forEach((line: string, i: number) => {
-        doc.text(line, W - 44, y + 14 + i * 11, { align: "right" });
-      });
-      y += rowH + 6;
-    } else {
-      const truncated = doc.getStringUnitWidth(valStr) * 8.5 > maxWidth
-        ? doc.splitTextToSize(valStr, maxWidth)[0] + "…"
-        : valStr;
-      doc.text(truncated, W - 44, y + 14, { align: "right" });
-      y += 28;
-    }
+    const maxWidth = W - 72 - 50;
+    const truncated = doc.getStringUnitWidth(valStr) * 8.5 > maxWidth
+      ? doc.splitTextToSize(valStr, maxWidth)[0] + "…"
+      : valStr;
+    doc.text(truncated, W - 44, y + 14, { align: "right" });
+    y += 28;
   };
 
   // ── Booking information ────────────────────────────────────────
@@ -270,7 +251,7 @@ const downloadBooking = async (booking: Booking) => {
   if (d.ticketSelections?.length) {
     section("TICKETS");
     d.ticketSelections.forEach((t: any) => {
-      row(`${t.name} × ${t.quantity} person(s)`, fmtMoney(t.price * t.quantity));
+      row(`${t.name} × ${t.quantity}`, fmtMoney(t.price * t.quantity));
     });
     y += 8;
   }
@@ -279,8 +260,7 @@ const downloadBooking = async (booking: Booking) => {
   if (d.selectedActivities?.length) {
     section("ACTIVITIES");
     d.selectedActivities.forEach((a: any) => {
-      const people = a.numberOfPeople || a.number_of_people || 1;
-      row(`${a.name} — ${people} person(s)`, fmtMoney(a.price * people));
+      row(`${a.name} × ${a.numberOfPeople}`, fmtMoney(a.price * a.numberOfPeople));
     });
     y += 8;
   }
@@ -289,24 +269,19 @@ const downloadBooking = async (booking: Booking) => {
   if (d.selectedFacilities?.length) {
     section("FACILITIES");
     d.selectedFacilities.forEach((f: any) => {
-      const people = f.numberOfPeople || f.number_of_people || null;
-      let label = f.name;
-      if (f.startDate && f.endDate) {
-        label += ` · From: ${fmt(f.startDate)} → To: ${fmt(f.endDate)}`;
-      }
-      if (people) label += ` · ${people} person(s)`;
-      row(label, fmtMoney(f.price));
+      const dateRange = f.startDate
+        ? ` (${fmt(f.startDate)} → ${fmt(f.endDate)})`
+        : "";
+      row(`${f.name}${dateRange}`, fmtMoney(f.price));
     });
     y += 8;
   }
 
   // ── Host contact ───────────────────────────────────────────────
-  const hostPhone = booking.host_phone || d.host_phone || d.emailData?.hostPhone || "";
-  const hostEmail = booking.host_email || d.host_email || d.emailData?.hostEmail || "";
-  if (hostPhone || hostEmail) {
+  if (booking.host_phone || booking.host_email) {
     section("HOST CONTACT");
-    row("Phone", hostPhone);
-    row("Email", hostEmail);
+    row("Phone", booking.host_phone);
+    row("Email", booking.host_email);
     y += 8;
   }
 
@@ -322,62 +297,6 @@ const downloadBooking = async (booking: Booking) => {
   doc.setFontSize(17);
   doc.text(fmtMoney(booking.total_amount), W - 54, y + 30, { align: "right" });
   y += 62;
-
-  // ── QR Code ────────────────────────────────────────────────────
-  try {
-    const qrData = JSON.stringify({
-      id: booking.id,
-      ref: booking.id,
-      item: itemName,
-      guest: gName || "",
-      amount: booking.total_amount,
-      date: booking.visit_date || d.date || booking.created_at,
-      status: booking.status,
-    });
-    const qrDataUrl = await QRCode.toDataURL(qrData, {
-      width: 120,
-      margin: 1,
-      color: { dark: "#008080", light: "#ffffff" },
-    });
-
-    newPageIfNeeded();
-    y += 8;
-
-    // QR section background
-    doc.setFillColor(...LIGHT_RGB);
-    doc.roundedRect(36, y, W - 72, 130, 8, 8, "F");
-    doc.setDrawColor(...TEAL_RGB);
-    doc.setLineWidth(0.5);
-    doc.roundedRect(36, y, W - 72, 130, 8, 8, "S");
-
-    // QR image (left side)
-    doc.addImage(qrDataUrl, "PNG", 50, y + 15, 100, 100);
-
-    // QR text (right side)
-    doc.setTextColor(...TEAL_RGB);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
-    doc.text("BOOKING QR CODE", 170, y + 32);
-
-    doc.setTextColor(...MUTED_RGB);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    const qrLines = [
-      "Scan this QR code at the venue to verify",
-      "your booking. Present this PDF or the QR",
-      "code on your mobile device to the host.",
-    ];
-    qrLines.forEach((line, i) => doc.text(line, 170, y + 50 + i * 13));
-
-    doc.setTextColor(...SLATE_RGB);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.5);
-    doc.text(`Booking ID: ${booking.id}`, 170, y + 105);
-
-    y += 148;
-  } catch (e) {
-    console.warn("QR generation failed", e);
-  }
 
   // ── Footer ─────────────────────────────────────────────────────
   const footerY = H - 52;
@@ -581,7 +500,7 @@ const BookingDetail = ({
           <div className="space-y-1 ml-4">
             {d.ticketSelections.map((t: any, i: number) => (
               <div key={i} className="flex justify-between text-xs">
-                <span className="text-slate-600">{t.name} × {t.quantity} person(s)</span>
+                <span className="text-slate-600">{t.name} × {t.quantity}</span>
                 <span className="font-bold text-slate-700">{fmtMoney(t.price * t.quantity)}</span>
               </div>
             ))}
@@ -596,15 +515,12 @@ const BookingDetail = ({
             <Activity className="h-3 w-3" /> Activities
           </p>
           <div className="space-y-1 ml-4">
-            {d.selectedActivities.map((a: any, i: number) => {
-              const people = a.numberOfPeople || a.number_of_people || 1;
-              return (
-                <div key={i} className="flex justify-between text-xs">
-                  <span className="text-slate-600">{a.name} — {people} person(s)</span>
-                  <span className="font-bold text-slate-700">{fmtMoney(a.price * people)}</span>
-                </div>
-              );
-            })}
+            {d.selectedActivities.map((a: any, i: number) => (
+              <div key={i} className="flex justify-between text-xs">
+                <span className="text-slate-600">{a.name} × {a.numberOfPeople}</span>
+                <span className="font-bold text-slate-700">{fmtMoney(a.price * a.numberOfPeople)}</span>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -616,25 +532,19 @@ const BookingDetail = ({
             <Building2 className="h-3 w-3" /> Facilities
           </p>
           <div className="space-y-1.5 ml-4">
-            {d.selectedFacilities.map((f: any, i: number) => {
-              const people = f.numberOfPeople || f.number_of_people || null;
-              return (
-                <div key={i} className="text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-slate-700 font-semibold">{f.name}</span>
-                    <span className="font-bold text-slate-700">{fmtMoney(f.price)}</span>
-                  </div>
-                  {f.startDate && (
-                    <p className="text-[10px] text-slate-400 mt-0.5">
-                      From: {fmt(f.startDate)} → To: {fmt(f.endDate)}
-                    </p>
-                  )}
-                  {people && (
-                    <p className="text-[10px] text-slate-400">{people} person(s)</p>
-                  )}
+            {d.selectedFacilities.map((f: any, i: number) => (
+              <div key={i} className="text-xs">
+                <div className="flex justify-between">
+                  <span className="text-slate-700 font-semibold">{f.name}</span>
+                  <span className="font-bold text-slate-700">{fmtMoney(f.price)}</span>
                 </div>
-              );
-            })}
+                {f.startDate && (
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    {fmt(f.startDate)} → {fmt(f.endDate)}
+                  </p>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -955,4 +865,4 @@ const Bookings = () => {
   );
 };
 
-export default Bookings;
+export default Bookings; 

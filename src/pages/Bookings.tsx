@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
+import jsPDF from "jspdf";
 import {
   Calendar, Users, MapPin, CalendarClock,
   X, CheckCircle, Download, ChevronDown, ChevronUp,
@@ -100,7 +101,7 @@ const Row = ({
   </div>
 );
 
-// ─── Download helper — matches PaymentSuccessDialog receipt style ─────────────
+// ─── Download as PDF ──────────────────────────────────────────────────────────
 
 const downloadBooking = (booking: Booking) => {
   const d = booking.booking_details || {};
@@ -108,145 +109,218 @@ const downloadBooking = (booking: Booking) => {
     d.trip_name || d.event_name || d.hotel_name ||
     d.place_name || d.item_name || "Booking";
 
-  const line = (label: string, value: any) =>
-    value ? `${label.padEnd(20)}: ${value}` : null;
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const W = doc.internal.pageSize.getWidth();
+  const H = doc.internal.pageSize.getHeight();
 
-  const moneyLine = (label: string, amount: number) =>
-    `${label.padEnd(20)}: ${fmtMoney(amount)}`;
+  const TEAL_RGB:  [number, number, number] = [0, 128, 128];
+  const CORAL_RGB: [number, number, number] = [255, 127, 80];
+  const SLATE_RGB: [number, number, number] = [51, 65, 85];
+  const LIGHT_RGB: [number, number, number] = [248, 249, 250];
+  const MUTED_RGB: [number, number, number] = [100, 116, 139];
 
-  const sections: string[] = [];
+  let y = 0;
 
-  // ── Header ──
-  sections.push(
-    "================================================",
-    "         REALTRAVO BOOKING CONFIRMATION         ",
-    "================================================",
-    "",
-  );
+  // ── Header banner ──────────────────────────────────────────────
+  doc.setFillColor(...TEAL_RGB);
+  doc.rect(0, 0, W, 90, "F");
 
-  // ── Booking info ──
-  sections.push(
-    "BOOKING INFORMATION",
-    "────────────────────────────────────────────────",
-    ...[
-      line("Booking ID",      booking.id),
-      line("Type",            booking.booking_type?.toUpperCase()),
-      line("Item",            itemName),
-      line("Status",          booking.status?.toUpperCase()),
-      line("Payment",         booking.payment_status?.toUpperCase()),
-      moneyLine("Total Amount", booking.total_amount),
-      line("Booked On",       fmt(booking.created_at)),
-      booking.visit_date ? line("Visit Date", fmt(booking.visit_date)) : null,
-      d.date ? line("Event Date", fmt(d.date)) : null,
-      d.rescheduled_at ? line("Rescheduled On", fmt(d.rescheduled_at)) : null,
-    ].filter(Boolean) as string[],
-    "",
-  );
+  // Coral diagonal accent (top-right triangle)
+  doc.setFillColor(...CORAL_RGB);
+  doc.triangle(W - 120, 0, W, 0, W, 90, "F");
 
-  // ── Guest details ──
-  const guestName  = booking.guest_name  || d.guest_name;
-  const guestEmail = booking.guest_email || d.guest_email;
-  const guestPhone = booking.guest_phone || d.guest_phone;
-  if (guestName || guestEmail || guestPhone) {
-    sections.push(
-      "GUEST DETAILS",
-      "────────────────────────────────────────────────",
-      ...[
-        line("Name",  guestName),
-        line("Email", guestEmail),
-        line("Phone", guestPhone),
-      ].filter(Boolean) as string[],
-      "",
-    );
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(22);
+  doc.text("REALTRAVO", 36, 38);
+
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.text("BOOKING CONFIRMATION", 36, 54);
+
+  doc.setFontSize(7.5);
+  doc.text(`Ref: ${booking.id}`, 36, 68);
+  doc.text(`Generated: ${new Date().toLocaleDateString()}`, 36, 80);
+
+  y = 110;
+
+  // ── Status badge ───────────────────────────────────────────────
+  const statusColorMap: Record<string, [number, number, number]> = {
+    confirmed: [16, 185, 129],
+    paid:      [16, 185, 129],
+    pending:   [245, 158, 11],
+    cancelled: [239, 68, 68],
+  };
+  const sColor = statusColorMap[booking.status?.toLowerCase()] ?? [100, 116, 139];
+  doc.setFillColor(...sColor);
+  doc.roundedRect(W - 130, 95, 94, 22, 11, 11, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.text((booking.status || "").toUpperCase(), W - 83, 110, { align: "center" });
+
+  // ── Item name ──────────────────────────────────────────────────
+  doc.setTextColor(...TEAL_RGB);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(18);
+  doc.text(itemName, 36, y);
+  y += 16;
+
+  doc.setTextColor(...MUTED_RGB);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.text(`${(booking.booking_type || "").toUpperCase()} BOOKING`, 36, y);
+  y += 22;
+
+  // ── Helper: new page if near bottom ───────────────────────────
+  const newPageIfNeeded = () => {
+    if (y > H - 110) {
+      doc.addPage();
+      y = 40;
+    }
+  };
+
+  // ── Helper: section header with teal left bar ──────────────────
+  const section = (title: string) => {
+    newPageIfNeeded();
+    doc.setFillColor(...TEAL_RGB);
+    doc.rect(36, y, 3, 12, "F");
+    doc.setTextColor(...TEAL_RGB);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.text(title, 44, y + 9);
+    y += 20;
+  };
+
+  // ── Helper: info row with light background ─────────────────────
+  const row = (label: string, value: string | number | undefined | null) => {
+    if (value === undefined || value === null || value === "") return;
+    newPageIfNeeded();
+    doc.setFillColor(...LIGHT_RGB);
+    doc.roundedRect(36, y, W - 72, 22, 3, 3, "F");
+    doc.setTextColor(...MUTED_RGB);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7);
+    doc.text(label.toUpperCase(), 44, y + 9);
+    doc.setTextColor(...SLATE_RGB);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    // Truncate long values to prevent overflow
+    const valStr = String(value);
+    const maxWidth = W - 72 - 50;
+    const truncated = doc.getStringUnitWidth(valStr) * 8.5 > maxWidth
+      ? doc.splitTextToSize(valStr, maxWidth)[0] + "…"
+      : valStr;
+    doc.text(truncated, W - 44, y + 14, { align: "right" });
+    y += 28;
+  };
+
+  // ── Booking information ────────────────────────────────────────
+  section("BOOKING INFORMATION");
+  row("Payment Status", (booking.payment_status || "").toUpperCase());
+  row("Total Amount",   fmtMoney(booking.total_amount));
+  row("Booked On",      fmt(booking.created_at));
+  if (booking.visit_date)  row("Visit Date",      fmt(booking.visit_date));
+  if (d.date)              row("Event Date",      fmt(d.date));
+  if (d.rescheduled_at)    row("Rescheduled On",  fmt(d.rescheduled_at));
+  y += 8;
+
+  // ── Guest details ──────────────────────────────────────────────
+  const gName  = booking.guest_name  || d.guest_name;
+  const gEmail = booking.guest_email || d.guest_email;
+  const gPhone = booking.guest_phone || d.guest_phone;
+  if (gName || gEmail || gPhone) {
+    section("GUEST DETAILS");
+    row("Name",  gName);
+    row("Email", gEmail);
+    row("Phone", gPhone);
+    y += 8;
   }
 
-  // ── Booking details ──
+  // ── Booking details ────────────────────────────────────────────
   const adults   = d.adults   || d.num_adults;
   const children = d.children || d.num_children;
-  sections.push(
-    "BOOKING DETAILS",
-    "────────────────────────────────────────────────",
-    ...[
-      adults   ? line("Adults",       adults)                : null,
-      children ? line("Children",     children)              : null,
-      booking.slots_booked ? line("Slots Booked", booking.slots_booked) : null,
-      d.location ? line("Location",   d.location)            : null,
-    ].filter(Boolean) as string[],
-    "",
-  );
+  section("BOOKING DETAILS");
+  row("Adults",       adults);
+  row("Children",     children);
+  row("Slots Booked", booking.slots_booked);
+  row("Location",     d.location);
+  y += 8;
 
-  // ── Tickets ──
+  // ── Tickets ────────────────────────────────────────────────────
   if (d.ticketSelections?.length) {
-    sections.push(
-      "TICKETS",
-      "────────────────────────────────────────────────",
-      ...d.ticketSelections.map(
-        (t: any) =>
-          `  • ${t.name} × ${t.quantity}`.padEnd(36) +
-          fmtMoney(t.price * t.quantity)
-      ),
-      "",
-    );
+    section("TICKETS");
+    d.ticketSelections.forEach((t: any) => {
+      row(`${t.name} × ${t.quantity}`, fmtMoney(t.price * t.quantity));
+    });
+    y += 8;
   }
 
-  // ── Activities ──
+  // ── Activities ─────────────────────────────────────────────────
   if (d.selectedActivities?.length) {
-    sections.push(
-      "ACTIVITIES",
-      "────────────────────────────────────────────────",
-      ...d.selectedActivities.map(
-        (a: any) =>
-          `  • ${a.name} × ${a.numberOfPeople}`.padEnd(36) +
-          fmtMoney(a.price * a.numberOfPeople)
-      ),
-      "",
-    );
+    section("ACTIVITIES");
+    d.selectedActivities.forEach((a: any) => {
+      row(`${a.name} × ${a.numberOfPeople}`, fmtMoney(a.price * a.numberOfPeople));
+    });
+    y += 8;
   }
 
-  // ── Facilities ──
+  // ── Facilities ─────────────────────────────────────────────────
   if (d.selectedFacilities?.length) {
-    sections.push(
-      "FACILITIES",
-      "────────────────────────────────────────────────",
-      ...d.selectedFacilities.map((f: any) => {
-        const dateRange = f.startDate
-          ? ` (${fmt(f.startDate)} → ${fmt(f.endDate)})`
-          : "";
-        return `  • ${f.name}${dateRange}`.padEnd(36) + fmtMoney(f.price);
-      }),
-      "",
-    );
+    section("FACILITIES");
+    d.selectedFacilities.forEach((f: any) => {
+      const dateRange = f.startDate
+        ? ` (${fmt(f.startDate)} → ${fmt(f.endDate)})`
+        : "";
+      row(`${f.name}${dateRange}`, fmtMoney(f.price));
+    });
+    y += 8;
   }
 
-  // ── Host contact ──
+  // ── Host contact ───────────────────────────────────────────────
   if (booking.host_phone || booking.host_email) {
-    sections.push(
-      "HOST CONTACT",
-      "────────────────────────────────────────────────",
-      ...[
-        booking.host_phone ? line("Phone", booking.host_phone) : null,
-        booking.host_email ? line("Email", booking.host_email) : null,
-      ].filter(Boolean) as string[],
-      "",
-    );
+    section("HOST CONTACT");
+    row("Phone", booking.host_phone);
+    row("Email", booking.host_email);
+    y += 8;
   }
 
-  // ── Footer ──
-  sections.push(
-    "================================================",
-    "      Thank you for booking with Realtravo!     ",
-    "    For support: support@realtravo.com          ",
-    "================================================",
-  );
+  // ── Total highlight box ────────────────────────────────────────
+  newPageIfNeeded();
+  y += 10;
+  doc.setFillColor(...TEAL_RGB);
+  doc.roundedRect(36, y, W - 72, 44, 6, 6, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.text("TOTAL AMOUNT PAID", 54, y + 16);
+  doc.setFontSize(17);
+  doc.text(fmtMoney(booking.total_amount), W - 54, y + 30, { align: "right" });
+  y += 62;
 
-  const content = sections.join("\n");
-  const blob = new Blob([content], { type: "text/plain" });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement("a");
-  a.href     = url;
-  a.download = `realtravo-booking-${booking.id.slice(0, 8)}.txt`;
-  a.click();
-  URL.revokeObjectURL(url);
+  // ── Footer ─────────────────────────────────────────────────────
+  const footerY = H - 52;
+  doc.setFillColor(...LIGHT_RGB);
+  doc.rect(0, footerY - 12, W, 64, "F");
+  doc.setDrawColor(...TEAL_RGB);
+  doc.setLineWidth(1.5);
+  doc.line(0, footerY - 12, W, footerY - 12);
+
+  doc.setTextColor(...TEAL_RGB);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text("realtravo.com", W / 2, footerY + 4, { align: "center" });
+
+  doc.setTextColor(...MUTED_RGB);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.text(
+    "Thank you for booking with Realtravo!  ·  support@realtravo.com",
+    W / 2, footerY + 18, { align: "center" }
+  );
+  doc.text(`Booking ID: ${booking.id}`, W / 2, footerY + 30, { align: "center" });
+
+  doc.save(`realtravo-booking-${booking.id.slice(0, 8)}.pdf`);
 };
 
 // ─── Reschedule Modal ─────────────────────────────────────────────────────────
@@ -509,7 +583,7 @@ const BookingDetail = ({
           className="flex-1 flex items-center justify-center gap-1.5 border border-slate-200 text-slate-600 rounded-xl py-2 text-xs font-bold hover:border-teal-400 hover:text-teal-700 transition-all"
         >
           <Download className="h-3.5 w-3.5" />
-          Download
+          Download PDF
         </button>
 
         {isReschedulable(booking) ? (
@@ -532,7 +606,7 @@ const BookingDetail = ({
   );
 };
 
-// ─── Booking Card — simplified ────────────────────────────────────────────────
+// ─── Booking Card ─────────────────────────────────────────────────────────────
 
 const BookingCard = ({
   booking,
@@ -621,10 +695,10 @@ const BookingCard = ({
 const Bookings = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [bookings, setBookings]     = useState<Booking[]>([]);
-  const [loading, setLoading]       = useState(true);
+  const [bookings, setBookings]         = useState<Booking[]>([]);
+  const [loading, setLoading]           = useState(true);
   const [rescheduling, setRescheduling] = useState<Booking | null>(null);
-  const [filter, setFilter]         = useState<"all" | "upcoming" | "past">("all");
+  const [filter, setFilter]             = useState<"all" | "upcoming" | "past">("all");
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/auth");

@@ -4,8 +4,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  ArrowLeft, DollarSign, Wallet, TrendingUp, Award, Percent, 
+import {
+  ArrowLeft, DollarSign, Wallet, TrendingUp, Award, Percent,
   Link2, Users, ArrowUpRight, CreditCard
 } from "lucide-react";
 import { useHostVerificationStatus } from "@/hooks/useHostVerificationStatus";
@@ -14,8 +14,10 @@ import { WithdrawalDetailsSection } from "@/components/payment/WithdrawalDetails
 import { SEOHead } from "@/components/SEOHead";
 import { useCurrency } from "@/contexts/CurrencyContext";
 
+const MIN_WITHDRAWAL = 100;
+
 export default function Payment() {
-  const { formatPrice } = useCurrency(); 
+  const { formatPrice } = useCurrency();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -29,14 +31,12 @@ export default function Payment() {
     serviceFeeDeducted: 0, withdrawableBalance: 0,
   });
 
-  // Commission history for timeline
   const [recentCommissions, setRecentCommissions] = useState<any[]>([]);
 
   useEffect(() => {
     if (!user) { navigate("/auth"); return; }
     if (!verificationLoading) fetchData();
   }, [user, navigate, isVerifiedHost, verificationLoading]);
-
 
   const fetchData = async () => {
     try {
@@ -49,14 +49,14 @@ export default function Payment() {
 
       const bookings = bookingsRes.data || [];
       const settings = settingsRes.data;
-      
+
       const itemIds = [...new Set(bookings.map(b => b.item_id))];
       const [tripsRes, hotelsRes, adventuresRes] = await Promise.all([
         supabase.from("trips").select("id, created_by").in("id", itemIds),
         supabase.from("hotels").select("id, created_by").in("id", itemIds),
         supabase.from("adventure_places").select("id, created_by").in("id", itemIds),
       ]);
-      
+
       const ownerMap = new Map<string, string>();
       [...(tripsRes.data || []), ...(hotelsRes.data || []), ...(adventuresRes.data || [])].forEach(item => {
         if (item.created_by) ownerMap.set(item.id, item.created_by);
@@ -125,10 +125,14 @@ export default function Payment() {
 
   const handleWithdrawalSuccess = () => { setLoading(true); window.location.reload(); };
 
+  const canWithdraw = stats.withdrawableBalance >= MIN_WITHDRAWAL;
+
   if (loading || verificationLoading) return (
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="flex items-center gap-2">
-        {[0,1,2].map(i => <div key={i} className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse" style={{ animationDelay: `${i*0.2}s` }} />)}
+        {[0, 1, 2].map(i => (
+          <div key={i} className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse" style={{ animationDelay: `${i * 0.2}s` }} />
+        ))}
       </div>
     </div>
   );
@@ -150,7 +154,8 @@ export default function Payment() {
           <CreditCard className="mr-2 h-3.5 w-3.5" /> View Payment History
         </Button>
 
-        <div className="bg-card rounded-xl p-4 border border-border mb-4">
+        {/* Available Balance Card */}
+        <div className="bg-card rounded-xl p-4 border border-border mb-1">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-destructive/10">
@@ -161,17 +166,35 @@ export default function Payment() {
                 <p className="text-2xl font-black text-destructive">{formatPrice(stats.withdrawableBalance)}</p>
               </div>
             </div>
-            <Button onClick={() => setShowWithdrawDialog(true)} disabled={stats.withdrawableBalance <= 0} size="sm"
-              className="rounded-lg text-[9px] font-bold uppercase h-8 px-4">
-              Withdraw
+            <Button
+              onClick={() => setShowWithdrawDialog(true)}
+              disabled={!canWithdraw}
+              size="sm"
+              className="rounded-lg text-[9px] font-bold uppercase h-8 px-4"
+            >
+              {canWithdraw ? "Withdraw" : `Min ${formatPrice(MIN_WITHDRAWAL)}`}
             </Button>
           </div>
         </div>
 
+        {/* Minimum withdrawal hint */}
+        {stats.withdrawableBalance > 0 && !canWithdraw && (
+          <p className="text-[9px] text-amber-600 dark:text-amber-400 font-bold text-center mb-4 mt-1">
+            Minimum withdrawal is {formatPrice(MIN_WITHDRAWAL)}. You need {formatPrice(MIN_WITHDRAWAL - stats.withdrawableBalance)} more.
+          </p>
+        )}
+        {stats.withdrawableBalance <= 0 && (
+          <p className="text-[9px] text-muted-foreground font-bold text-center mb-4 mt-1">
+            No balance available for withdrawal yet.
+          </p>
+        )}
+        {canWithdraw && (
+          <p className="text-[9px] text-muted-foreground font-bold text-center mb-4 mt-1">
+            Processed via Paystack · Transfers usually arrive within minutes.
+          </p>
+        )}
+
         <WithdrawalDetailsSection userId={user?.id || ""} />
-
-        {/* Referral info */}
-
 
         {/* Not verified host prompt */}
         {!isVerifiedHost && !verificationLoading && (
@@ -181,12 +204,12 @@ export default function Payment() {
               <div>
                 <h3 className="text-xs font-black uppercase tracking-tight text-amber-800 dark:text-amber-300">Unlock Referral Earnings</h3>
                 <p className="text-[10px] text-amber-700 dark:text-amber-400 mt-1">
-                  {verificationStatus === 'pending' 
+                  {verificationStatus === 'pending'
                     ? 'Your host verification is pending. Referral program will be unlocked once approved.'
                     : 'Become a verified host to earn commissions by sharing listings with your referral link.'}
                 </p>
                 {verificationStatus !== 'pending' && (
-                  <Button size="sm" variant="outline" onClick={() => navigate("/host-verification")} 
+                  <Button size="sm" variant="outline" onClick={() => navigate("/host-verification")}
                     className="mt-2 rounded-lg text-[9px] font-bold uppercase h-7 border-amber-300">
                     <ArrowUpRight className="h-3 w-3 mr-1" /> Get Verified
                   </Button>
@@ -264,8 +287,13 @@ export default function Payment() {
         )}
       </main>
 
-      <WithdrawalDialog open={showWithdrawDialog} onOpenChange={setShowWithdrawDialog}
-        availableBalance={stats.withdrawableBalance} userId={user?.id || ""} onSuccess={handleWithdrawalSuccess} />
+      <WithdrawalDialog
+        open={showWithdrawDialog}
+        onOpenChange={setShowWithdrawDialog}
+        availableBalance={stats.withdrawableBalance}
+        userId={user?.id || ""}
+        onSuccess={handleWithdrawalSuccess}
+      />
     </div>
   );
 }
@@ -273,7 +301,9 @@ export default function Payment() {
 const ReferralRatesSection = () => {
   const [rates, setRates] = useState<any>(null);
   useEffect(() => {
-    supabase.from("referral_settings").select("trip_commission_rate,event_commission_rate,hotel_commission_rate,adventure_place_commission_rate").single()
+    supabase.from("referral_settings")
+      .select("trip_commission_rate,event_commission_rate,hotel_commission_rate,adventure_place_commission_rate")
+      .single()
       .then(({ data }) => data && setRates(data));
   }, []);
   if (!rates) return null;

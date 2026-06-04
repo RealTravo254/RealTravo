@@ -11,7 +11,7 @@ import { getReferralTrackingId } from "@/lib/referralUtils";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { PaymentSuccessDialog } from "@/components/booking/PaymentSuccessDialog";
-import jsPDF from "jspdf";
+import { jsPDF } from "jspdf";
 import QRCode from "qrcode";
 
 const COLORS = { TEAL: "#008080", CORAL: "#FF7F50" };

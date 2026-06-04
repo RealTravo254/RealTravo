@@ -7,7 +7,27 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { jsPDF } from "jspdf";
-import QRCode from "qrcode";
+
+// ── QR Code generator (no external lib — canvas + free API) ────────────────
+const generateQRDataUrl = (text: string, size = 120): Promise<string> => {
+  return new Promise((resolve) => {
+    try {
+      const url = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(text)}&color=008080&bgcolor=ffffff&margin=4`;
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        if (ctx) { ctx.drawImage(img, 0, 0, size, size); resolve(canvas.toDataURL("image/png")); }
+        else resolve("");
+      };
+      img.onerror = () => resolve("");
+      img.src = url;
+    } catch { resolve(""); }
+  });
+};
 import {
   Calendar, Users, MapPin, CalendarClock,
   X, CheckCircle, Download, ChevronDown, ChevronUp,
@@ -323,37 +343,21 @@ const downloadBooking = async (booking: Booking) => {
   doc.text(fmtMoney(booking.total_amount), W - 54, y + 30, { align: "right" });
   y += 62;
 
-  // ── QR Code ────────────────────────────────────────────────────
-  try {
-    const qrData = JSON.stringify({
-      id: booking.id,
-      ref: booking.id,
-      item: itemName,
-      guest: gName || "",
-      amount: booking.total_amount,
-      date: booking.visit_date || d.date || booking.created_at,
-      status: booking.status,
-    });
-    const qrDataUrl = await QRCode.toDataURL(qrData, {
-      width: 120,
-      margin: 1,
-      color: { dark: "#008080", light: "#ffffff" },
-    });
-
+  // ── QR Code (canvas-based, no external lib) ────────────────────
+  const qrText = `REALTRAVO|${booking.id}|${itemName}|${gName || ""}|KES ${Math.round(booking.total_amount)}|${booking.visit_date || d.date || booking.created_at}`;
+  const qrDataUrl = await generateQRDataUrl(qrText, 120);
+  if (qrDataUrl) {
     newPageIfNeeded();
     y += 8;
 
-    // QR section background
     doc.setFillColor(...LIGHT_RGB);
     doc.roundedRect(36, y, W - 72, 130, 8, 8, "F");
     doc.setDrawColor(...TEAL_RGB);
     doc.setLineWidth(0.5);
     doc.roundedRect(36, y, W - 72, 130, 8, 8, "S");
 
-    // QR image (left side)
     doc.addImage(qrDataUrl, "PNG", 50, y + 15, 100, 100);
 
-    // QR text (right side)
     doc.setTextColor(...TEAL_RGB);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
@@ -362,12 +366,11 @@ const downloadBooking = async (booking: Booking) => {
     doc.setTextColor(...MUTED_RGB);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
-    const qrLines = [
+    [
       "Scan this QR code at the venue to verify",
       "your booking. Present this PDF or the QR",
       "code on your mobile device to the host.",
-    ];
-    qrLines.forEach((line, i) => doc.text(line, 170, y + 50 + i * 13));
+    ].forEach((line, i) => doc.text(line, 170, y + 50 + i * 13));
 
     doc.setTextColor(...SLATE_RGB);
     doc.setFont("helvetica", "bold");
@@ -375,8 +378,6 @@ const downloadBooking = async (booking: Booking) => {
     doc.text(`Booking ID: ${booking.id}`, 170, y + 105);
 
     y += 148;
-  } catch (e) {
-    console.warn("QR generation failed", e);
   }
 
   // ── Footer ─────────────────────────────────────────────────────

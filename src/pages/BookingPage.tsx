@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { PaymentSuccessDialog } from "@/components/booking/PaymentSuccessDialog";
 import { jsPDF } from "jspdf";
-import QRCode from "qrcode";
 
 const COLORS = { TEAL: "#008080", CORAL: "#FF7F50" };
 
@@ -86,8 +85,36 @@ const PaystackFloatingHeader = ({
     document.body
   );
 
-// ── PDF generator — identical style to Bookings.tsx ──────────────────────────
+// ── QR Code generator (no external lib — pure canvas) ────────────────────────
+// Uses the browser's built-in canvas + a tiny URL-based QR via Google Charts API
+// Falls back gracefully if network is unavailable.
+const generateQRDataUrl = (text: string, size = 120): Promise<string> => {
+  return new Promise((resolve) => {
+    try {
+      const url = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(text)}&color=008080&bgcolor=ffffff&margin=4`;
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, size, size);
+          resolve(canvas.toDataURL("image/png"));
+        } else {
+          resolve("");
+        }
+      };
+      img.onerror = () => resolve("");
+      img.src = url;
+    } catch {
+      resolve("");
+    }
+  });
+};
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
 const fmtMoney = (n: number) => "KES " + Math.round(n).toLocaleString("en-KE");
 
 const fmtDate = (d: string) =>
@@ -95,9 +122,12 @@ const fmtDate = (d: string) =>
     weekday: "short", year: "numeric", month: "long", day: "numeric",
   });
 
+// ── PDF generator ─────────────────────────────────────────────────────────────
 export const generateBookingPDF = async (bookingData: any, reference: string) => {
   const d = bookingData?.booking_details || bookingData || {};
-  const itemName = d.item_name || d.trip_name || d.event_name || d.hotel_name || d.place_name || "Booking";
+  const itemName =
+    d.item_name || d.trip_name || d.event_name ||
+    d.hotel_name || d.place_name || "Booking";
 
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const W = doc.internal.pageSize.getWidth();
@@ -115,7 +145,6 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
   doc.setFillColor(...TEAL_RGB);
   doc.rect(0, 0, W, 90, "F");
 
-  // Coral diagonal accent (top-right triangle)
   doc.setFillColor(...CORAL_RGB);
   doc.triangle(W - 120, 0, W, 0, W, 90, "F");
 
@@ -135,7 +164,7 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
   y = 110;
 
   // ── Status badge ───────────────────────────────────────────────
-  doc.setFillColor(16, 185, 129); // confirmed green
+  doc.setFillColor(16, 185, 129);
   doc.roundedRect(W - 130, 95, 94, 22, 11, 11, "F");
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
@@ -156,15 +185,11 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
   doc.text(`${bookingType} BOOKING`, 36, y);
   y += 22;
 
-  // ── Helper: new page if near bottom ───────────────────────────
+  // ── Helpers ────────────────────────────────────────────────────
   const newPageIfNeeded = () => {
-    if (y > H - 110) {
-      doc.addPage();
-      y = 40;
-    }
+    if (y > H - 110) { doc.addPage(); y = 40; }
   };
 
-  // ── Helper: section header with teal left bar ──────────────────
   const section = (title: string) => {
     newPageIfNeeded();
     doc.setFillColor(...TEAL_RGB);
@@ -176,13 +201,12 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
     y += 20;
   };
 
-  // ── Helper: info row with light background ─────────────────────
   const row = (label: string, value: string | number | undefined | null) => {
     if (value === undefined || value === null || value === "") return;
     newPageIfNeeded();
     const valStr = String(value);
     const maxWidth = W - 72 - 160;
-    const lines = doc.splitTextToSize(valStr, maxWidth);
+    const lines: string[] = doc.splitTextToSize(valStr, maxWidth);
     if (lines.length > 1) {
       const rowH = 14 + lines.length * 11;
       doc.setFillColor(...LIGHT_RGB);
@@ -210,7 +234,7 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
       doc.setFontSize(8.5);
       const truncated =
         doc.getStringUnitWidth(valStr) * 8.5 > maxWidth
-          ? doc.splitTextToSize(valStr, maxWidth)[0] + "…"
+          ? (doc.splitTextToSize(valStr, maxWidth) as string[])[0] + "…"
           : valStr;
       doc.text(truncated, W - 44, y + 14, { align: "right" });
       y += 28;
@@ -291,14 +315,12 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
     bookingData?.host_phone ||
     d.host_phone ||
     bookingData?.emailData?.hostPhone ||
-    d.emailData?.hostPhone ||
-    "";
+    d.emailData?.hostPhone || "";
   const hostEmail =
     bookingData?.host_email ||
     d.host_email ||
     bookingData?.emailData?.hostEmail ||
-    d.emailData?.hostEmail ||
-    "";
+    d.emailData?.hostEmail || "";
   if (hostPhone || hostEmail) {
     section("HOST CONTACT");
     row("Phone", hostPhone);
@@ -319,37 +341,21 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
   doc.text(fmtMoney(bookingData?.total_amount ?? 0), W - 54, y + 30, { align: "right" });
   y += 62;
 
-  // ── QR Code ────────────────────────────────────────────────────
-  try {
-    const qrData = JSON.stringify({
-      id: reference,
-      ref: reference,
-      item: itemName,
-      guest: gName || "",
-      amount: bookingData?.total_amount ?? 0,
-      date: visitDate || new Date().toISOString(),
-      status: "confirmed",
-    });
-    const qrDataUrl = await QRCode.toDataURL(qrData, {
-      width: 120,
-      margin: 1,
-      color: { dark: "#008080", light: "#ffffff" },
-    });
-
+  // ── QR Code (canvas-based, no external lib) ────────────────────
+  const qrText = `REALTRAVO|${reference}|${itemName}|${gName || ""}|KES ${Math.round(bookingData?.total_amount ?? 0)}|${visitDate || new Date().toISOString().split("T")[0]}`;
+  const qrDataUrl = await generateQRDataUrl(qrText, 120);
+  if (qrDataUrl) {
     newPageIfNeeded();
     y += 8;
 
-    // QR section background
     doc.setFillColor(...LIGHT_RGB);
     doc.roundedRect(36, y, W - 72, 130, 8, 8, "F");
     doc.setDrawColor(...TEAL_RGB);
     doc.setLineWidth(0.5);
     doc.roundedRect(36, y, W - 72, 130, 8, 8, "S");
 
-    // QR image (left side)
     doc.addImage(qrDataUrl, "PNG", 50, y + 15, 100, 100);
 
-    // QR text (right side)
     doc.setTextColor(...TEAL_RGB);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
@@ -358,12 +364,11 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
     doc.setTextColor(...MUTED_RGB);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
-    const qrLines = [
+    [
       "Scan this QR code at the venue to verify",
       "your booking. Present this PDF or the QR",
       "code on your mobile device to the host.",
-    ];
-    qrLines.forEach((line, i) => doc.text(line, 170, y + 50 + i * 13));
+    ].forEach((line, i) => doc.text(line, 170, y + 50 + i * 13));
 
     doc.setTextColor(...SLATE_RGB);
     doc.setFont("helvetica", "bold");
@@ -371,8 +376,6 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
     doc.text(`Booking Ref: ${reference}`, 170, y + 105);
 
     y += 148;
-  } catch (e) {
-    console.warn("QR generation failed", e);
   }
 
   // ── Footer ─────────────────────────────────────────────────────
@@ -400,7 +403,7 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
   doc.save(`realtravo-booking-${reference.slice(0, 8)}.pdf`);
 };
 
-// ────────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 
 const BookingPage = () => {
   const { type, id } = useParams<{ type: string; id: string }>();
@@ -446,7 +449,6 @@ const BookingPage = () => {
     },
   });
 
-  // Launch Paystack into the container once it's ready
   useEffect(() => {
     if (showPaystackContainer) {
       const timer = setTimeout(() => launchPaystack("paystack-checkout-container"), 300);
@@ -454,7 +456,6 @@ const BookingPage = () => {
     }
   }, [showPaystackContainer, launchPaystack]);
 
-  // Push page content below the portal header when Paystack overlay is active
   useEffect(() => {
     if (showPaystackContainer && !isCompleted && !isVerifying) {
       document.body.style.paddingTop = "64px";
@@ -476,7 +477,6 @@ const BookingPage = () => {
       let error: any = null;
 
       if (type === "trip" || type === "event") {
-        // ✅ phone_number + email fetched for PDF receipt only — NOT shown on detail page
         const result = await supabase
           .from("trips")
           .select(
@@ -490,7 +490,6 @@ const BookingPage = () => {
         data = result.data;
         error = result.error;
       } else if (type === "adventure_place" || type === "adventure") {
-        // ✅ phone_numbers + email fetched for PDF receipt only — NOT shown on detail page
         const result = await supabase
           .from("adventure_places")
           .select(
@@ -503,7 +502,6 @@ const BookingPage = () => {
         data = result.data;
         error = result.error;
       } else if (type === "hotel") {
-        // ✅ phone_numbers + email fetched for PDF receipt only — NOT shown on detail page
         const result = await supabase
           .from("hotels")
           .select(
@@ -551,10 +549,6 @@ const BookingPage = () => {
     return "attraction";
   };
 
-  // ── Resolve host contact depending on item type ───────────────────────────────
-  // trips/events  → phone_number (string) + email
-  // adventure_places / hotels → phone_numbers (array) + email
-  // These are embedded in bookingData for PDF generation ONLY — never shown in UI.
   const getHostContact = () => {
     if (!item) return { phone: "", email: "" };
     if (type === "trip" || type === "event") {
@@ -621,7 +615,6 @@ const BookingPage = () => {
         visitDate = formData.selectedFacilities[0].startDate;
       }
 
-      // ✅ Host contact normalised and embedded — only for PDF/email, never rendered in UI
       const hostContact = getHostContact();
 
       const bookingData = {
@@ -646,12 +639,10 @@ const BookingPage = () => {
         slots_booked: slotsBooked,
         host_id: item.created_by,
         referral_tracking_id: getReferralTrackingId(),
-        // ✅ Top-level fields read by PaymentSuccessDialog → pdfData and generateBookingPDF
         host_phone: hostContact.phone,
         host_email: hostContact.email,
         emailData: {
           itemName: item.name,
-          // ✅ Also in emailData for any server-side email generation
           hostPhone: hostContact.phone,
           hostEmail: hostContact.email,
         },
@@ -670,7 +661,6 @@ const BookingPage = () => {
     window.location.reload();
   };
 
-  // ── Download PDF from success state ──────────────────────────────────────────
   const handleDownloadPDF = async () => {
     if (!completedBookingData || !paymentReference) return;
     try {
@@ -736,7 +726,6 @@ const BookingPage = () => {
         activities: item.activities || [],
         totalCapacity: item.available_slots || 0,
         workingDays: item.days_opened || [],
-        // ✅ Visit date is now the first step for adventure places
         skipDateSelection: false,
       };
     }
@@ -763,12 +752,10 @@ const BookingPage = () => {
   return (
     <div className="min-h-screen bg-[#F8F9FA]">
 
-      {/* Portal header — floats above Paystack iframes */}
       {paystackIsActive && item && (
         <PaystackFloatingHeader itemName={item.name} onBack={handlePaystackBack} />
       )}
 
-      {/* Standard header */}
       {!isCompleted && !showPaystackContainer && (
         <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-lg border-b border-slate-100">
           <div className="container max-w-2xl mx-auto px-4 py-4 flex items-center gap-4">
@@ -804,7 +791,6 @@ const BookingPage = () => {
         </div>
       )}
 
-      {/* Verifying / processing screen */}
       {isVerifying && !isCompleted && (
         <div className="flex flex-col items-center justify-center min-h-[70vh] px-6">
           <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-6 animate-pulse">
@@ -828,7 +814,6 @@ const BookingPage = () => {
         </div>
       )}
 
-      {/* Paystack inline checkout container */}
       {showPaystackContainer && !isCompleted && !isVerifying && (
         <div className="container max-w-2xl mx-auto px-4 py-6 pb-24">
           <div className="bg-white rounded-[32px] shadow-xl border border-slate-100 overflow-hidden">
@@ -848,7 +833,6 @@ const BookingPage = () => {
         </div>
       )}
 
-      {/* Full booking form */}
       {!isCompleted && !isVerifying && !showPaystackContainer && (
         <div className="container max-w-2xl mx-auto px-4 py-6 pb-24">
           <div className="bg-white rounded-[32px] shadow-xl border border-slate-100">
@@ -857,7 +841,6 @@ const BookingPage = () => {
         </div>
       )}
 
-      {/* Payment success dialog — receives host_phone + host_email for PDF */}
       <PaymentSuccessDialog
         open={showSuccessDialog}
         onOpenChange={setShowSuccessDialog}

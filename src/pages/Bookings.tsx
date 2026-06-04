@@ -44,7 +44,7 @@ const isReschedulable = (booking: Booking) => {
   return (
     RESCHEDULABLE_TYPES.includes(type) &&
     (status === "confirmed" || status === "pending") &&
-    !alreadyRescheduled // 1-reschedule limit
+    !alreadyRescheduled
   );
 };
 
@@ -59,8 +59,9 @@ const fmt = (d: string) =>
     weekday: "short", year: "numeric", month: "long", day: "numeric",
   });
 
+// KES formatter — no decimals
 const fmtMoney = (n: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
+  "KES " + Math.round(n).toLocaleString("en-KE");
 
 // ─── Status pill ──────────────────────────────────────────────────────────────
 
@@ -74,7 +75,7 @@ const StatusPill = ({ status }: { status: string }) => {
   };
   return (
     <span
-      className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border ${
+      className={`text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${
         map[status?.toLowerCase()] ?? "bg-slate-100 text-slate-500 border-slate-200"
       }`}
     >
@@ -90,85 +91,160 @@ const Row = ({
 }: {
   icon: any; label: string; value: React.ReactNode;
 }) => (
-  <div className="flex items-start gap-3 py-3 border-b border-dashed border-slate-100 last:border-0">
-    <div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center flex-shrink-0 mt-0.5">
-      <Icon className="h-4 w-4 text-teal-600" />
-    </div>
+  <div className="flex items-start gap-2 py-2 border-b border-dashed border-slate-100 last:border-0">
+    <Icon className="h-3.5 w-3.5 text-teal-500 flex-shrink-0 mt-0.5" />
     <div className="flex-1 min-w-0">
-      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-0.5">{label}</p>
-      <p className="text-sm font-semibold text-slate-800 break-words">{value || "—"}</p>
+      <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">{label}</p>
+      <p className="text-xs font-semibold text-slate-700 break-words">{value || "—"}</p>
     </div>
   </div>
 );
 
-// ─── Download helper ──────────────────────────────────────────────────────────
+// ─── Download helper — matches PaymentSuccessDialog receipt style ─────────────
 
 const downloadBooking = (booking: Booking) => {
   const d = booking.booking_details || {};
-  const name =
+  const itemName =
     d.trip_name || d.event_name || d.hotel_name ||
     d.place_name || d.item_name || "Booking";
 
-  const section = (title: string, lines: string[]) =>
-    lines.length ? [`── ${title} ${"─".repeat(42 - title.length)}`, ...lines, ""].join("\n") : "";
+  const line = (label: string, value: any) =>
+    value ? `${label.padEnd(20)}: ${value}` : null;
 
-  const lines = [
-    "╔══════════════════════════════════════════╗",
-    "║          REALTRAVO BOOKING RECEIPT       ║",
-    "╚══════════════════════════════════════════╝",
-    "",
-    `Booking ID      : ${booking.id}`,
-    `Type            : ${booking.booking_type?.toUpperCase()}`,
-    `Item            : ${name}`,
-    `Status          : ${booking.status}`,
-    `Payment Status  : ${booking.payment_status}`,
-    `Total Amount    : ${fmtMoney(booking.total_amount)}`,
-    `Booked On       : ${fmt(booking.created_at)}`,
-    booking.visit_date ? `Visit Date      : ${fmt(booking.visit_date)}` : "",
-    d.date ? `Event Date      : ${fmt(d.date)}` : "",
-    "",
-    section("GUEST DETAILS", [
-      `Name            : ${booking.guest_name || d.guest_name || "—"}`,
-      `Email           : ${booking.guest_email || d.guest_email || "—"}`,
-      `Phone           : ${booking.guest_phone || d.guest_phone || "—"}`,
-    ]),
-    section("BOOKING DETAILS", [
-      `Adults          : ${d.adults || d.num_adults || "—"}`,
-      `Children        : ${d.children || d.num_children || "—"}`,
-      `Slots Booked    : ${booking.slots_booked || "—"}`,
-      d.location ? `Location        : ${d.location}` : "",
-    ].filter(Boolean)),
-    d.ticketSelections?.length
-      ? section("TICKETS", d.ticketSelections.map(
-          (t: any) => `  • ${t.name} × ${t.quantity} — ${fmtMoney(t.price * t.quantity)}`
-        ))
-      : "",
-    d.selectedActivities?.length
-      ? section("ACTIVITIES", d.selectedActivities.map(
-          (a: any) => `  • ${a.name} × ${a.numberOfPeople} — ${fmtMoney(a.price * a.numberOfPeople)}`
-        ))
-      : "",
-    d.selectedFacilities?.length
-      ? section("FACILITIES", d.selectedFacilities.map(
-          (f: any) =>
-            `  • ${f.name}${f.startDate ? ` (${fmt(f.startDate)} → ${fmt(f.endDate)})` : ""} — ${fmtMoney(f.price)}`
-        ))
-      : "",
-    booking.host_phone ? `Host Phone      : ${booking.host_phone}` : "",
-    booking.host_email ? `Host Email      : ${booking.host_email}` : "",
-    d.rescheduled_at ? `\nRescheduled At  : ${fmt(d.rescheduled_at)}` : "",
-    "",
-    "────────────────────────────────────────────",
-    "Thank you for booking with Realtravo!",
-  ]
-    .filter((l) => l !== null && l !== undefined)
-    .join("\n");
+  const moneyLine = (label: string, amount: number) =>
+    `${label.padEnd(20)}: ${fmtMoney(amount)}`;
 
-  const blob = new Blob([lines], { type: "text/plain" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `booking-${booking.id.slice(0, 8)}.txt`;
+  const sections: string[] = [];
+
+  // ── Header ──
+  sections.push(
+    "================================================",
+    "         REALTRAVO BOOKING CONFIRMATION         ",
+    "================================================",
+    "",
+  );
+
+  // ── Booking info ──
+  sections.push(
+    "BOOKING INFORMATION",
+    "────────────────────────────────────────────────",
+    ...[
+      line("Booking ID",      booking.id),
+      line("Type",            booking.booking_type?.toUpperCase()),
+      line("Item",            itemName),
+      line("Status",          booking.status?.toUpperCase()),
+      line("Payment",         booking.payment_status?.toUpperCase()),
+      moneyLine("Total Amount", booking.total_amount),
+      line("Booked On",       fmt(booking.created_at)),
+      booking.visit_date ? line("Visit Date", fmt(booking.visit_date)) : null,
+      d.date ? line("Event Date", fmt(d.date)) : null,
+      d.rescheduled_at ? line("Rescheduled On", fmt(d.rescheduled_at)) : null,
+    ].filter(Boolean) as string[],
+    "",
+  );
+
+  // ── Guest details ──
+  const guestName  = booking.guest_name  || d.guest_name;
+  const guestEmail = booking.guest_email || d.guest_email;
+  const guestPhone = booking.guest_phone || d.guest_phone;
+  if (guestName || guestEmail || guestPhone) {
+    sections.push(
+      "GUEST DETAILS",
+      "────────────────────────────────────────────────",
+      ...[
+        line("Name",  guestName),
+        line("Email", guestEmail),
+        line("Phone", guestPhone),
+      ].filter(Boolean) as string[],
+      "",
+    );
+  }
+
+  // ── Booking details ──
+  const adults   = d.adults   || d.num_adults;
+  const children = d.children || d.num_children;
+  sections.push(
+    "BOOKING DETAILS",
+    "────────────────────────────────────────────────",
+    ...[
+      adults   ? line("Adults",       adults)                : null,
+      children ? line("Children",     children)              : null,
+      booking.slots_booked ? line("Slots Booked", booking.slots_booked) : null,
+      d.location ? line("Location",   d.location)            : null,
+    ].filter(Boolean) as string[],
+    "",
+  );
+
+  // ── Tickets ──
+  if (d.ticketSelections?.length) {
+    sections.push(
+      "TICKETS",
+      "────────────────────────────────────────────────",
+      ...d.ticketSelections.map(
+        (t: any) =>
+          `  • ${t.name} × ${t.quantity}`.padEnd(36) +
+          fmtMoney(t.price * t.quantity)
+      ),
+      "",
+    );
+  }
+
+  // ── Activities ──
+  if (d.selectedActivities?.length) {
+    sections.push(
+      "ACTIVITIES",
+      "────────────────────────────────────────────────",
+      ...d.selectedActivities.map(
+        (a: any) =>
+          `  • ${a.name} × ${a.numberOfPeople}`.padEnd(36) +
+          fmtMoney(a.price * a.numberOfPeople)
+      ),
+      "",
+    );
+  }
+
+  // ── Facilities ──
+  if (d.selectedFacilities?.length) {
+    sections.push(
+      "FACILITIES",
+      "────────────────────────────────────────────────",
+      ...d.selectedFacilities.map((f: any) => {
+        const dateRange = f.startDate
+          ? ` (${fmt(f.startDate)} → ${fmt(f.endDate)})`
+          : "";
+        return `  • ${f.name}${dateRange}`.padEnd(36) + fmtMoney(f.price);
+      }),
+      "",
+    );
+  }
+
+  // ── Host contact ──
+  if (booking.host_phone || booking.host_email) {
+    sections.push(
+      "HOST CONTACT",
+      "────────────────────────────────────────────────",
+      ...[
+        booking.host_phone ? line("Phone", booking.host_phone) : null,
+        booking.host_email ? line("Email", booking.host_email) : null,
+      ].filter(Boolean) as string[],
+      "",
+    );
+  }
+
+  // ── Footer ──
+  sections.push(
+    "================================================",
+    "      Thank you for booking with Realtravo!     ",
+    "    For support: support@realtravo.com          ",
+    "================================================",
+  );
+
+  const content = sections.join("\n");
+  const blob = new Blob([content], { type: "text/plain" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href     = url;
+  a.download = `realtravo-booking-${booking.id.slice(0, 8)}.txt`;
   a.click();
   URL.revokeObjectURL(url);
 };
@@ -185,8 +261,8 @@ const RescheduleModal = ({
   onConfirm: (id: string, date: string) => Promise<void>;
 }) => {
   const [newDate, setNewDate] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [done, setDone] = useState(false);
+  const [saving, setSaving]   = useState(false);
+  const [done, setDone]       = useState(false);
 
   const name =
     booking.booking_details?.trip_name ||
@@ -217,54 +293,49 @@ const RescheduleModal = ({
       className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 backdrop-blur-sm px-4 pb-6 md:pb-0"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
-        {/* Header */}
-        <div
-          style={{ background: `linear-gradient(135deg, ${TEAL}, #00b3b3)` }}
-          className="px-6 py-5 flex items-center justify-between"
-        >
-          <div className="flex items-center gap-3">
-            <CalendarClock className="h-5 w-5 text-white/80" />
+      <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+        <div className="px-5 py-4 flex items-center justify-between border-b border-slate-100">
+          <div className="flex items-center gap-2">
+            <CalendarClock className="h-4 w-4 text-teal-600" />
             <div>
-              <p className="text-white/70 text-[10px] font-bold uppercase tracking-widest">Reschedule</p>
-              <p className="text-white font-black text-base truncate max-w-[200px]">{name}</p>
+              <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Reschedule</p>
+              <p className="text-sm font-black text-slate-800 truncate max-w-[200px]">{name}</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
+            className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors"
           >
-            <X className="h-4 w-4 text-white" />
+            <X className="h-3.5 w-3.5 text-slate-500" />
           </button>
         </div>
 
-        <div className="p-6">
+        <div className="p-5">
           {done ? (
-            <div className="flex flex-col items-center py-8 gap-3 text-center">
-              <CheckCircle className="h-16 w-16 text-emerald-500" />
-              <p className="font-black text-xl text-slate-800">All Set!</p>
+            <div className="flex flex-col items-center py-6 gap-2 text-center">
+              <CheckCircle className="h-12 w-12 text-emerald-500" />
+              <p className="font-black text-lg text-slate-800">All Set!</p>
               <p className="text-slate-500 text-sm">
-                Rescheduled to{" "}
-                <span className="text-slate-800 font-bold">{fmt(newDate)}</span>
+                Rescheduled to <span className="text-slate-800 font-bold">{fmt(newDate)}</span>
               </p>
-              <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-3 py-1 mt-1">
+              <p className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-3 py-1 mt-1">
                 ⚠ This was your one allowed reschedule
               </p>
             </div>
           ) : (
             <>
               {current && (
-                <div className="mb-4 flex items-center gap-2 bg-slate-50 rounded-xl px-4 py-3">
-                  <Calendar className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                <div className="mb-4 flex items-center gap-2 bg-slate-50 rounded-xl px-3 py-2.5">
+                  <Calendar className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
                   <div>
-                    <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400">Current Date</p>
-                    <p className="text-sm font-semibold text-slate-700">{fmt(current)}</p>
+                    <p className="text-[9px] uppercase tracking-widest font-bold text-slate-400">Current Date</p>
+                    <p className="text-xs font-semibold text-slate-700">{fmt(current)}</p>
                   </div>
                 </div>
               )}
 
-              <div className="mb-5">
-                <label className="block text-xs font-black uppercase tracking-widest text-slate-500 mb-2">
+              <div className="mb-4">
+                <label className="block text-[9px] font-black uppercase tracking-widest text-slate-500 mb-1.5">
                   Select New Date
                 </label>
                 <input
@@ -272,35 +343,31 @@ const RescheduleModal = ({
                   min={getTomorrow()}
                   value={newDate}
                   onChange={(e) => setNewDate(e.target.value)}
-                  className="w-full border-2 border-slate-200 focus:border-teal-500 rounded-xl px-4 py-3 text-sm font-semibold bg-white outline-none transition-colors"
+                  className="w-full border border-slate-200 focus:border-teal-500 rounded-xl px-3 py-2.5 text-sm font-semibold bg-white outline-none transition-colors"
                 />
               </div>
 
-              <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-5">
-                <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0 mt-0.5" />
-                <p className="text-xs text-amber-700 font-medium leading-relaxed">
+              <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 mb-4">
+                <AlertTriangle className="h-3.5 w-3.5 text-amber-500 flex-shrink-0 mt-0.5" />
+                <p className="text-[10px] text-amber-700 font-medium leading-relaxed">
                   You can only reschedule this booking <strong>once</strong>. This action cannot be undone.
                 </p>
               </div>
 
-              <div className="flex gap-3">
+              <div className="flex gap-2">
                 <button
                   onClick={onClose}
-                  className="flex-1 border-2 border-slate-200 text-slate-600 font-bold rounded-xl py-3 text-sm hover:bg-slate-50 transition-colors"
+                  className="flex-1 border border-slate-200 text-slate-600 font-bold rounded-xl py-2.5 text-xs hover:bg-slate-50 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handle}
                   disabled={!newDate || saving}
-                  style={
-                    newDate && !saving
-                      ? { background: `linear-gradient(135deg, ${TEAL}, #00b3b3)` }
-                      : undefined
-                  }
-                  className="flex-1 text-white font-black rounded-xl py-3 text-sm disabled:opacity-40 disabled:bg-slate-200 disabled:text-slate-400 transition-all"
+                  className="flex-1 text-white font-black rounded-xl py-2.5 text-xs disabled:opacity-40 disabled:bg-slate-200 disabled:text-slate-400 transition-all"
+                  style={newDate && !saving ? { backgroundColor: TEAL } : undefined}
                 >
-                  {saving ? "Saving…" : "Confirm Reschedule"}
+                  {saving ? "Saving…" : "Confirm"}
                 </button>
               </div>
             </>
@@ -326,60 +393,41 @@ const BookingDetail = ({
     d.place_name || d.item_name || "Booking";
 
   return (
-    <div className="border-t border-slate-100 bg-slate-50/60 px-5 py-5">
-      {/* Item name */}
-      <div className="mb-5">
-        <p className="text-[10px] uppercase tracking-widest font-black text-slate-400 mb-0.5">Item</p>
-        <p className="text-lg font-black text-slate-800">{name}</p>
-        <p className="text-xs text-slate-400 mt-0.5">ID: {booking.id}</p>
+    <div className="border-t border-slate-100 bg-slate-50/50 px-4 py-4">
+      {/* Item name + ID */}
+      <div className="mb-3">
+        <p className="text-[9px] uppercase tracking-widest font-bold text-slate-400">Item</p>
+        <p className="text-sm font-black text-slate-800">{name}</p>
+        <p className="text-[9px] text-slate-400 font-mono mt-0.5">{booking.id}</p>
       </div>
 
       {/* Guest */}
-      {(booking.guest_name || d.guest_name) && (
-        <Row icon={Users} label="Guest Name" value={booking.guest_name || d.guest_name} />
-      )}
-      {(booking.guest_email || d.guest_email) && (
-        <Row icon={Mail} label="Guest Email" value={booking.guest_email || d.guest_email} />
-      )}
-      {(booking.guest_phone || d.guest_phone) && (
-        <Row icon={Phone} label="Guest Phone" value={booking.guest_phone || d.guest_phone} />
-      )}
+      {(booking.guest_name  || d.guest_name)  && <Row icon={Users}  label="Guest"       value={booking.guest_name  || d.guest_name}  />}
+      {(booking.guest_email || d.guest_email) && <Row icon={Mail}   label="Email"       value={booking.guest_email || d.guest_email} />}
+      {(booking.guest_phone || d.guest_phone) && <Row icon={Phone}  label="Phone"       value={booking.guest_phone || d.guest_phone} />}
 
       {/* Dates */}
-      {booking.visit_date && (
-        <Row icon={Calendar} label="Visit / Check-In Date" value={fmt(booking.visit_date)} />
-      )}
-      {d.date && <Row icon={Calendar} label="Event Date" value={fmt(d.date)} />}
-      {d.rescheduled_at && (
-        <Row icon={CalendarClock} label="Rescheduled On" value={fmt(d.rescheduled_at)} />
-      )}
+      {booking.visit_date   && <Row icon={Calendar}      label="Visit Date"     value={fmt(booking.visit_date)} />}
+      {d.date               && <Row icon={Calendar}      label="Event Date"     value={fmt(d.date)} />}
+      {d.rescheduled_at     && <Row icon={CalendarClock} label="Rescheduled On" value={fmt(d.rescheduled_at)} />}
 
-      {/* Guests */}
-      {(d.adults || d.num_adults) && (
-        <Row icon={Users} label="Adults" value={d.adults || d.num_adults} />
-      )}
-      {(d.children || d.num_children) && (
-        <Row icon={Users} label="Children" value={d.children || d.num_children} />
-      )}
-      {booking.slots_booked && (
-        <Row icon={Ticket} label="Slots Booked" value={booking.slots_booked} />
-      )}
-      {d.location && <Row icon={MapPin} label="Location" value={d.location} />}
+      {/* Guests counts */}
+      {(d.adults   || d.num_adults)   && <Row icon={Users}  label="Adults"   value={d.adults   || d.num_adults}   />}
+      {(d.children || d.num_children) && <Row icon={Users}  label="Children" value={d.children || d.num_children} />}
+      {booking.slots_booked           && <Row icon={Ticket} label="Slots"    value={booking.slots_booked}          />}
+      {d.location                     && <Row icon={MapPin} label="Location" value={d.location}                    />}
 
       {/* Tickets */}
       {d.ticketSelections?.length > 0 && (
-        <div className="py-3 border-b border-dashed border-slate-100">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center">
-              <Ticket className="h-4 w-4 text-teal-600" />
-            </div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tickets</p>
-          </div>
-          <div className="ml-11 space-y-2">
+        <div className="py-2 border-b border-dashed border-slate-100">
+          <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 flex items-center gap-1">
+            <Ticket className="h-3 w-3" /> Tickets
+          </p>
+          <div className="space-y-1 ml-4">
             {d.ticketSelections.map((t: any, i: number) => (
-              <div key={i} className="flex justify-between text-sm">
+              <div key={i} className="flex justify-between text-xs">
                 <span className="text-slate-600">{t.name} × {t.quantity}</span>
-                <span className="font-bold text-slate-800">{fmtMoney(t.price * t.quantity)}</span>
+                <span className="font-bold text-slate-700">{fmtMoney(t.price * t.quantity)}</span>
               </div>
             ))}
           </div>
@@ -388,18 +436,15 @@ const BookingDetail = ({
 
       {/* Activities */}
       {d.selectedActivities?.length > 0 && (
-        <div className="py-3 border-b border-dashed border-slate-100">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center">
-              <Activity className="h-4 w-4 text-teal-600" />
-            </div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Activities</p>
-          </div>
-          <div className="ml-11 space-y-2">
+        <div className="py-2 border-b border-dashed border-slate-100">
+          <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 flex items-center gap-1">
+            <Activity className="h-3 w-3" /> Activities
+          </p>
+          <div className="space-y-1 ml-4">
             {d.selectedActivities.map((a: any, i: number) => (
-              <div key={i} className="flex justify-between text-sm">
+              <div key={i} className="flex justify-between text-xs">
                 <span className="text-slate-600">{a.name} × {a.numberOfPeople}</span>
-                <span className="font-bold text-slate-800">{fmtMoney(a.price * a.numberOfPeople)}</span>
+                <span className="font-bold text-slate-700">{fmtMoney(a.price * a.numberOfPeople)}</span>
               </div>
             ))}
           </div>
@@ -408,22 +453,19 @@ const BookingDetail = ({
 
       {/* Facilities */}
       {d.selectedFacilities?.length > 0 && (
-        <div className="py-3 border-b border-dashed border-slate-100">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center">
-              <Building2 className="h-4 w-4 text-teal-600" />
-            </div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Facilities</p>
-          </div>
-          <div className="ml-11 space-y-3">
+        <div className="py-2 border-b border-dashed border-slate-100">
+          <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 flex items-center gap-1">
+            <Building2 className="h-3 w-3" /> Facilities
+          </p>
+          <div className="space-y-1.5 ml-4">
             {d.selectedFacilities.map((f: any, i: number) => (
-              <div key={i} className="text-sm">
+              <div key={i} className="text-xs">
                 <div className="flex justify-between">
                   <span className="text-slate-700 font-semibold">{f.name}</span>
-                  <span className="font-bold text-slate-800">{fmtMoney(f.price)}</span>
+                  <span className="font-bold text-slate-700">{fmtMoney(f.price)}</span>
                 </div>
                 {f.startDate && (
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-[10px] text-slate-400 mt-0.5">
                     {fmt(f.startDate)} → {fmt(f.endDate)}
                   </p>
                 )}
@@ -435,24 +477,24 @@ const BookingDetail = ({
 
       {/* Host contact */}
       {(booking.host_phone || booking.host_email) && (
-        <div className="pt-3 pb-1">
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Host Contact</p>
-          <div className="flex flex-wrap gap-2">
+        <div className="pt-2 pb-1">
+          <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Host Contact</p>
+          <div className="flex flex-wrap gap-1.5">
             {booking.host_phone && (
               <a
                 href={`tel:${booking.host_phone}`}
-                className="flex items-center gap-1.5 text-xs bg-white border border-slate-200 rounded-full px-3 py-1.5 text-slate-700 hover:border-teal-400 transition-colors font-semibold"
+                className="flex items-center gap-1 text-[10px] bg-white border border-slate-200 rounded-full px-2.5 py-1 text-slate-600 hover:border-teal-400 transition-colors font-semibold"
               >
-                <Phone className="h-3.5 w-3.5 text-teal-600" />
+                <Phone className="h-3 w-3 text-teal-600" />
                 {booking.host_phone}
               </a>
             )}
             {booking.host_email && (
               <a
                 href={`mailto:${booking.host_email}`}
-                className="flex items-center gap-1.5 text-xs bg-white border border-slate-200 rounded-full px-3 py-1.5 text-slate-700 hover:border-teal-400 transition-colors font-semibold"
+                className="flex items-center gap-1 text-[10px] bg-white border border-slate-200 rounded-full px-2.5 py-1 text-slate-600 hover:border-teal-400 transition-colors font-semibold"
               >
-                <Mail className="h-3.5 w-3.5 text-teal-600" />
+                <Mail className="h-3 w-3 text-teal-600" />
                 {booking.host_email}
               </a>
             )}
@@ -461,27 +503,27 @@ const BookingDetail = ({
       )}
 
       {/* Action buttons */}
-      <div className="flex gap-3 pt-5">
+      <div className="flex gap-2 pt-4">
         <button
           onClick={() => downloadBooking(booking)}
-          className="flex-1 flex items-center justify-center gap-2 border-2 border-slate-200 text-slate-700 rounded-2xl py-3 text-sm font-black hover:border-teal-400 hover:text-teal-700 transition-all"
+          className="flex-1 flex items-center justify-center gap-1.5 border border-slate-200 text-slate-600 rounded-xl py-2 text-xs font-bold hover:border-teal-400 hover:text-teal-700 transition-all"
         >
-          <Download className="h-4 w-4" />
+          <Download className="h-3.5 w-3.5" />
           Download
         </button>
 
         {isReschedulable(booking) ? (
           <button
             onClick={onReschedule}
-            style={{ background: `linear-gradient(135deg, ${TEAL}, #00b3b3)` }}
-            className="flex-1 flex items-center justify-center gap-2 text-white rounded-2xl py-3 text-sm font-black hover:opacity-90 transition-opacity"
+            className="flex-1 flex items-center justify-center gap-1.5 text-white rounded-xl py-2 text-xs font-bold hover:opacity-90 transition-opacity"
+            style={{ backgroundColor: TEAL }}
           >
-            <CalendarClock className="h-4 w-4" />
+            <CalendarClock className="h-3.5 w-3.5" />
             Reschedule
           </button>
         ) : booking.booking_details?.rescheduled_at ? (
-          <div className="flex-1 flex items-center justify-center gap-2 bg-amber-50 border border-amber-200 text-amber-700 rounded-2xl py-3 text-sm font-bold cursor-not-allowed">
-            <AlertTriangle className="h-4 w-4" />
+          <div className="flex-1 flex items-center justify-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-600 rounded-xl py-2 text-xs font-bold cursor-not-allowed">
+            <AlertTriangle className="h-3.5 w-3.5" />
             Rescheduled
           </div>
         ) : null}
@@ -490,7 +532,7 @@ const BookingDetail = ({
   );
 };
 
-// ─── Booking Card ─────────────────────────────────────────────────────────────
+// ─── Booking Card — simplified ────────────────────────────────────────────────
 
 const BookingCard = ({
   booking,
@@ -506,109 +548,69 @@ const BookingCard = ({
     d.trip_name || d.event_name || d.hotel_name ||
     d.place_name || d.item_name || "Booking";
 
-  const typeColors: Record<string, string> = {
-    trip:           "bg-blue-50 text-blue-700 border-blue-200",
-    event:          "bg-violet-50 text-violet-700 border-violet-200",
-    hotel:          "bg-orange-50 text-orange-700 border-orange-200",
-    adventure_place:"bg-emerald-50 text-emerald-700 border-emerald-200",
-    adventure:      "bg-emerald-50 text-emerald-700 border-emerald-200",
-  };
-  const typeClass =
-    typeColors[booking.booking_type?.toLowerCase()] ||
-    "bg-slate-50 text-slate-600 border-slate-200";
-
-  const typeEmoji: Record<string, string> = {
-    trip: "✈️", event: "🎟️", hotel: "🏨",
-    adventure_place: "🌿", adventure: "🌿",
-  };
-  const emoji = typeEmoji[booking.booking_type?.toLowerCase()] || "📋";
-
   const displayDate = booking.visit_date || d.date;
 
+  const typeLabel: Record<string, string> = {
+    trip: "Trip", event: "Event", hotel: "Hotel",
+    adventure_place: "Adventure", adventure: "Adventure",
+  };
+
   return (
-    <div
-      className={`bg-white rounded-3xl border-2 overflow-hidden transition-all duration-300 ${
-        open
-          ? "border-teal-300 shadow-lg shadow-teal-50"
-          : "border-transparent shadow-md hover:shadow-lg"
-      }`}
-    >
-      {/* Always-visible header */}
+    <div className={`bg-white rounded-xl border overflow-hidden transition-all ${
+      open ? "border-teal-200" : "border-slate-100"
+    }`}>
+      {/* Card header */}
       <button
         onClick={() => setOpen((v) => !v)}
-        className="w-full text-left px-5 py-5 flex items-start gap-4 hover:bg-slate-50/40 transition-colors"
+        className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-slate-50/60 transition-colors"
       >
-        {/* Emoji icon */}
-        <div
-          className="w-12 h-12 rounded-2xl flex-shrink-0 flex items-center justify-center text-xl"
-          style={{ background: `linear-gradient(135deg, ${TEAL}15, ${TEAL}28)` }}
-        >
-          {emoji}
-        </div>
-
+        {/* Left: name + meta */}
         <div className="flex-1 min-w-0">
-          {/* Badges */}
-          <div className="flex items-center gap-2 flex-wrap mb-1.5">
-            <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border ${typeClass}`}>
-              {booking.booking_type}
+          <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+            <span className="text-[9px] font-bold uppercase tracking-widest text-teal-600">
+              {typeLabel[booking.booking_type?.toLowerCase()] || booking.booking_type}
             </span>
             <StatusPill status={booking.status} />
             {d.rescheduled_at && (
-              <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border bg-blue-50 text-blue-600 border-blue-200">
+              <span className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full border bg-blue-50 text-blue-600 border-blue-200">
                 Rescheduled
               </span>
             )}
           </div>
 
-          <p className="font-black text-slate-800 text-base leading-tight truncate">{name}</p>
+          <p className="font-bold text-sm text-slate-800 truncate">{name}</p>
 
-          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5 text-xs text-slate-500 font-medium">
+          <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5 text-[10px] text-slate-400 font-medium">
             {displayDate && (
-              <span className="flex items-center gap-1">
-                <Calendar className="h-3 w-3" />
+              <span className="flex items-center gap-0.5">
+                <Calendar className="h-2.5 w-2.5" />
                 {fmt(displayDate)}
               </span>
             )}
             {(d.adults || d.num_adults) && (
-              <span className="flex items-center gap-1">
-                <Users className="h-3 w-3" />
-                {d.adults || d.num_adults} Adults
-                {(d.children || d.num_children)
-                  ? ` · ${d.children || d.num_children} Kids`
-                  : ""}
-              </span>
-            )}
-            {d.location && (
-              <span className="flex items-center gap-1">
-                <MapPin className="h-3 w-3" />
-                {d.location}
+              <span className="flex items-center gap-0.5">
+                <Users className="h-2.5 w-2.5" />
+                {d.adults || d.num_adults} adults
+                {(d.children || d.num_children) ? ` · ${d.children || d.num_children} kids` : ""}
               </span>
             )}
           </div>
         </div>
 
-        {/* Right column */}
-        <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-          <p className="text-xl font-black" style={{ color: TEAL }}>
+        {/* Right: amount + chevron */}
+        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+          <p className="text-sm font-black" style={{ color: TEAL }}>
             {fmtMoney(booking.total_amount)}
           </p>
           <StatusPill status={booking.payment_status} />
-          <div className="mt-1 flex items-center gap-1 text-slate-400 text-xs font-bold">
-            {open ? (
-              <><ChevronUp className="h-3.5 w-3.5" /> Less</>
-            ) : (
-              <><ChevronDown className="h-3.5 w-3.5" /> Details</>
-            )}
-          </div>
+          <span className="text-[9px] text-slate-400 font-bold flex items-center gap-0.5 mt-0.5">
+            {open ? <><ChevronUp className="h-3 w-3" /> less</> : <><ChevronDown className="h-3 w-3" /> details</>}
+          </span>
         </div>
       </button>
 
-      {/* Expandable detail */}
       {open && (
-        <BookingDetail
-          booking={booking}
-          onReschedule={() => onReschedule(booking)}
-        />
+        <BookingDetail booking={booking} onReschedule={() => onReschedule(booking)} />
       )}
     </div>
   );
@@ -619,10 +621,10 @@ const BookingCard = ({
 const Bookings = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [bookings, setBookings]     = useState<Booking[]>([]);
+  const [loading, setLoading]       = useState(true);
   const [rescheduling, setRescheduling] = useState<Booking | null>(null);
-  const [filter, setFilter] = useState<"all" | "upcoming" | "past">("all");
+  const [filter, setFilter]         = useState<"all" | "upcoming" | "past">("all");
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/auth");
@@ -694,10 +696,10 @@ const Bookings = () => {
     return (
       <div className="min-h-screen bg-[#F8F9FA] pb-20 md:pb-0">
         <Header />
-        <main className="container px-4 py-12 flex flex-col items-center justify-center gap-4">
-          <div className="w-16 h-16 rounded-full border-4 border-teal-200 border-t-teal-600 animate-spin" />
-          <p className="text-sm font-black uppercase tracking-widest text-slate-400 animate-pulse">
-            Loading bookings…
+        <main className="container px-4 py-12 flex flex-col items-center justify-center gap-3">
+          <div className="w-10 h-10 rounded-full border-2 border-teal-200 border-t-teal-600 animate-spin" />
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 animate-pulse">
+            Loading…
           </p>
         </main>
         <Footer />
@@ -710,40 +712,31 @@ const Bookings = () => {
     <div className="min-h-screen bg-[#F8F9FA] pb-20 md:pb-0">
       <Header />
 
-      <main className="container max-w-2xl mx-auto px-4 py-8">
+      <main className="container max-w-2xl mx-auto px-4 py-6">
         {/* Page header */}
-        <div className="mb-8">
-          <p className="text-[10px] font-black uppercase tracking-widest text-teal-600 mb-1">
+        <div className="mb-6">
+          <p className="text-[9px] font-bold uppercase tracking-widest text-teal-600 mb-0.5">
             My Account
           </p>
-          <h1 className="text-4xl font-black text-slate-800 leading-none tracking-tight">
-            Bookings
-          </h1>
-          <p className="text-slate-500 mt-1 text-sm">
-            {bookings.length} booking{bookings.length !== 1 ? "s" : ""} total
+          <h1 className="text-2xl font-black text-slate-800 tracking-tight">Bookings</h1>
+          <p className="text-xs text-slate-400 mt-0.5">
+            {bookings.length} booking{bookings.length !== 1 ? "s" : ""}
           </p>
         </div>
 
         {/* Filter tabs */}
         {bookings.length > 0 && (
-          <div className="flex gap-2 mb-6 bg-white rounded-2xl p-1.5 shadow-sm border border-slate-100">
+          <div className="flex gap-1.5 mb-5 bg-white rounded-xl p-1 border border-slate-100">
             {(["all", "upcoming", "past"] as const).map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
-                className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-                  filter === f
-                    ? "text-white shadow-md"
-                    : "text-slate-500 hover:text-slate-700"
+                className={`flex-1 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${
+                  filter === f ? "text-white" : "text-slate-400 hover:text-slate-600"
                 }`}
-                style={
-                  filter === f
-                    ? { background: `linear-gradient(135deg, ${TEAL}, #00b3b3)` }
-                    : {}
-                }
+                style={filter === f ? { backgroundColor: TEAL } : undefined}
               >
-                {f}{" "}
-                <span className="opacity-60">({counts[f]})</span>
+                {f} <span className="opacity-60">({counts[f]})</span>
               </button>
             ))}
           </div>
@@ -751,28 +744,28 @@ const Bookings = () => {
 
         {/* Empty states */}
         {bookings.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
-            <div className="w-20 h-20 rounded-3xl bg-teal-50 flex items-center justify-center text-4xl">
+          <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
+            <div className="w-14 h-14 rounded-2xl bg-teal-50 flex items-center justify-center text-3xl">
               🗺️
             </div>
-            <h2 className="text-2xl font-black text-slate-700">No Bookings Yet</h2>
-            <p className="text-slate-400 text-sm max-w-xs">
-              Your trips, events, and reservations will all appear here once you book something.
+            <h2 className="text-lg font-black text-slate-700">No Bookings Yet</h2>
+            <p className="text-slate-400 text-xs max-w-xs">
+              Your trips, events, and reservations will appear here once you book something.
             </p>
             <button
               onClick={() => navigate("/")}
-              style={{ background: `linear-gradient(135deg, ${TEAL}, #00b3b3)` }}
-              className="mt-2 text-white font-black rounded-2xl px-6 py-3 text-sm hover:opacity-90 transition-opacity"
+              className="mt-1 text-white font-bold rounded-xl px-5 py-2.5 text-xs hover:opacity-90 transition-opacity"
+              style={{ backgroundColor: TEAL }}
             >
               Explore Now
             </button>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="text-center py-16">
-            <p className="text-slate-400 font-semibold">No {filter} bookings found</p>
+          <div className="text-center py-12">
+            <p className="text-slate-400 text-sm font-semibold">No {filter} bookings</p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-2">
             {filtered.map((booking) => (
               <BookingCard
                 key={booking.id}

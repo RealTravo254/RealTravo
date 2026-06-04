@@ -11,6 +11,8 @@ import { getReferralTrackingId } from "@/lib/referralUtils";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { PaymentSuccessDialog } from "@/components/booking/PaymentSuccessDialog";
+import jsPDF from "jspdf";
+import QRCode from "qrcode";
 
 const COLORS = { TEAL: "#008080", CORAL: "#FF7F50" };
 
@@ -83,6 +85,320 @@ const PaystackFloatingHeader = ({
     </div>,
     document.body
   );
+
+// ── PDF generator — identical style to Bookings.tsx ──────────────────────────
+
+const fmtMoney = (n: number) => "KES " + Math.round(n).toLocaleString("en-KE");
+
+const fmtDate = (d: string) =>
+  new Date(d).toLocaleDateString(undefined, {
+    weekday: "short", year: "numeric", month: "long", day: "numeric",
+  });
+
+export const generateBookingPDF = async (bookingData: any, reference: string) => {
+  const d = bookingData?.booking_details || bookingData || {};
+  const itemName = d.item_name || d.trip_name || d.event_name || d.hotel_name || d.place_name || "Booking";
+
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const W = doc.internal.pageSize.getWidth();
+  const H = doc.internal.pageSize.getHeight();
+
+  const TEAL_RGB:  [number, number, number] = [0, 128, 128];
+  const CORAL_RGB: [number, number, number] = [255, 127, 80];
+  const SLATE_RGB: [number, number, number] = [51, 65, 85];
+  const LIGHT_RGB: [number, number, number] = [248, 249, 250];
+  const MUTED_RGB: [number, number, number] = [100, 116, 139];
+
+  let y = 0;
+
+  // ── Header banner ──────────────────────────────────────────────
+  doc.setFillColor(...TEAL_RGB);
+  doc.rect(0, 0, W, 90, "F");
+
+  // Coral diagonal accent (top-right triangle)
+  doc.setFillColor(...CORAL_RGB);
+  doc.triangle(W - 120, 0, W, 0, W, 90, "F");
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(22);
+  doc.text("REALTRAVO", 36, 38);
+
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.text("BOOKING CONFIRMATION", 36, 54);
+
+  doc.setFontSize(7.5);
+  doc.text(`Ref: ${reference}`, 36, 68);
+  doc.text(`Generated: ${new Date().toLocaleDateString()}`, 36, 80);
+
+  y = 110;
+
+  // ── Status badge ───────────────────────────────────────────────
+  doc.setFillColor(16, 185, 129); // confirmed green
+  doc.roundedRect(W - 130, 95, 94, 22, 11, 11, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.text("CONFIRMED", W - 83, 110, { align: "center" });
+
+  // ── Item name ──────────────────────────────────────────────────
+  doc.setTextColor(...TEAL_RGB);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(18);
+  doc.text(itemName, 36, y);
+  y += 16;
+
+  const bookingType = (bookingData?.booking_type || d.booking_type || "booking").toUpperCase();
+  doc.setTextColor(...MUTED_RGB);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.text(`${bookingType} BOOKING`, 36, y);
+  y += 22;
+
+  // ── Helper: new page if near bottom ───────────────────────────
+  const newPageIfNeeded = () => {
+    if (y > H - 110) {
+      doc.addPage();
+      y = 40;
+    }
+  };
+
+  // ── Helper: section header with teal left bar ──────────────────
+  const section = (title: string) => {
+    newPageIfNeeded();
+    doc.setFillColor(...TEAL_RGB);
+    doc.rect(36, y, 3, 12, "F");
+    doc.setTextColor(...TEAL_RGB);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.text(title, 44, y + 9);
+    y += 20;
+  };
+
+  // ── Helper: info row with light background ─────────────────────
+  const row = (label: string, value: string | number | undefined | null) => {
+    if (value === undefined || value === null || value === "") return;
+    newPageIfNeeded();
+    const valStr = String(value);
+    const maxWidth = W - 72 - 160;
+    const lines = doc.splitTextToSize(valStr, maxWidth);
+    if (lines.length > 1) {
+      const rowH = 14 + lines.length * 11;
+      doc.setFillColor(...LIGHT_RGB);
+      doc.roundedRect(36, y, W - 72, rowH, 3, 3, "F");
+      doc.setTextColor(...MUTED_RGB);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7);
+      doc.text(label.toUpperCase(), 44, y + 9);
+      doc.setTextColor(...SLATE_RGB);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8.5);
+      lines.forEach((line: string, i: number) => {
+        doc.text(line, W - 44, y + 14 + i * 11, { align: "right" });
+      });
+      y += rowH + 6;
+    } else {
+      doc.setFillColor(...LIGHT_RGB);
+      doc.roundedRect(36, y, W - 72, 22, 3, 3, "F");
+      doc.setTextColor(...MUTED_RGB);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7);
+      doc.text(label.toUpperCase(), 44, y + 9);
+      doc.setTextColor(...SLATE_RGB);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8.5);
+      const truncated =
+        doc.getStringUnitWidth(valStr) * 8.5 > maxWidth
+          ? doc.splitTextToSize(valStr, maxWidth)[0] + "…"
+          : valStr;
+      doc.text(truncated, W - 44, y + 14, { align: "right" });
+      y += 28;
+    }
+  };
+
+  // ── Booking information ────────────────────────────────────────
+  section("BOOKING INFORMATION");
+  row("Payment Reference", reference);
+  row("Payment Status",    "PAID");
+  row("Total Amount",      fmtMoney(bookingData?.total_amount ?? 0));
+  row("Booked On",         fmtDate(new Date().toISOString()));
+  const visitDate = bookingData?.visit_date || d.visit_date || d.date;
+  if (visitDate) row("Visit Date", fmtDate(visitDate));
+  y += 8;
+
+  // ── Guest details ──────────────────────────────────────────────
+  const gName  = bookingData?.guest_name  || d.guest_name;
+  const gEmail = bookingData?.guest_email || d.guest_email;
+  const gPhone = bookingData?.guest_phone || d.guest_phone;
+  if (gName || gEmail || gPhone) {
+    section("GUEST DETAILS");
+    row("Name",  gName);
+    row("Email", gEmail);
+    row("Phone", gPhone);
+    y += 8;
+  }
+
+  // ── Booking details ────────────────────────────────────────────
+  const adults   = d.adults   || d.num_adults;
+  const children = d.children || d.num_children;
+  section("BOOKING DETAILS");
+  row("Adults",       adults);
+  row("Children",     children);
+  row("Slots Booked", bookingData?.slots_booked);
+  row("Location",     d.location);
+  y += 8;
+
+  // ── Tickets ────────────────────────────────────────────────────
+  const ticketSelections = d.ticketSelections || d.ticket_selections;
+  if (ticketSelections?.length) {
+    section("TICKETS");
+    ticketSelections.forEach((t: any) => {
+      row(`${t.name} × ${t.quantity} person(s)`, fmtMoney(t.price * t.quantity));
+    });
+    y += 8;
+  }
+
+  // ── Activities ─────────────────────────────────────────────────
+  const selectedActivities = d.selectedActivities || d.selected_activities || d.activities;
+  if (selectedActivities?.length) {
+    section("ACTIVITIES");
+    selectedActivities.forEach((a: any) => {
+      const people = a.numberOfPeople || a.number_of_people || 1;
+      row(`${a.name} — ${people} person(s)`, fmtMoney((a.price || 0) * people));
+    });
+    y += 8;
+  }
+
+  // ── Facilities ─────────────────────────────────────────────────
+  const selectedFacilities = d.selectedFacilities || d.selected_facilities || d.facilities;
+  if (selectedFacilities?.length) {
+    section("FACILITIES");
+    selectedFacilities.forEach((f: any) => {
+      const people = f.numberOfPeople || f.number_of_people || null;
+      let label = f.name;
+      if (f.startDate && f.endDate) {
+        label += ` · From: ${fmtDate(f.startDate)} → To: ${fmtDate(f.endDate)}`;
+      }
+      if (people) label += ` · ${people} person(s)`;
+      row(label, fmtMoney(f.price || 0));
+    });
+    y += 8;
+  }
+
+  // ── Host contact ───────────────────────────────────────────────
+  const hostPhone =
+    bookingData?.host_phone ||
+    d.host_phone ||
+    bookingData?.emailData?.hostPhone ||
+    d.emailData?.hostPhone ||
+    "";
+  const hostEmail =
+    bookingData?.host_email ||
+    d.host_email ||
+    bookingData?.emailData?.hostEmail ||
+    d.emailData?.hostEmail ||
+    "";
+  if (hostPhone || hostEmail) {
+    section("HOST CONTACT");
+    row("Phone", hostPhone);
+    row("Email", hostEmail);
+    y += 8;
+  }
+
+  // ── Total highlight box ────────────────────────────────────────
+  newPageIfNeeded();
+  y += 10;
+  doc.setFillColor(...TEAL_RGB);
+  doc.roundedRect(36, y, W - 72, 44, 6, 6, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.text("TOTAL AMOUNT PAID", 54, y + 16);
+  doc.setFontSize(17);
+  doc.text(fmtMoney(bookingData?.total_amount ?? 0), W - 54, y + 30, { align: "right" });
+  y += 62;
+
+  // ── QR Code ────────────────────────────────────────────────────
+  try {
+    const qrData = JSON.stringify({
+      id: reference,
+      ref: reference,
+      item: itemName,
+      guest: gName || "",
+      amount: bookingData?.total_amount ?? 0,
+      date: visitDate || new Date().toISOString(),
+      status: "confirmed",
+    });
+    const qrDataUrl = await QRCode.toDataURL(qrData, {
+      width: 120,
+      margin: 1,
+      color: { dark: "#008080", light: "#ffffff" },
+    });
+
+    newPageIfNeeded();
+    y += 8;
+
+    // QR section background
+    doc.setFillColor(...LIGHT_RGB);
+    doc.roundedRect(36, y, W - 72, 130, 8, 8, "F");
+    doc.setDrawColor(...TEAL_RGB);
+    doc.setLineWidth(0.5);
+    doc.roundedRect(36, y, W - 72, 130, 8, 8, "S");
+
+    // QR image (left side)
+    doc.addImage(qrDataUrl, "PNG", 50, y + 15, 100, 100);
+
+    // QR text (right side)
+    doc.setTextColor(...TEAL_RGB);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.text("BOOKING QR CODE", 170, y + 32);
+
+    doc.setTextColor(...MUTED_RGB);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    const qrLines = [
+      "Scan this QR code at the venue to verify",
+      "your booking. Present this PDF or the QR",
+      "code on your mobile device to the host.",
+    ];
+    qrLines.forEach((line, i) => doc.text(line, 170, y + 50 + i * 13));
+
+    doc.setTextColor(...SLATE_RGB);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.text(`Booking Ref: ${reference}`, 170, y + 105);
+
+    y += 148;
+  } catch (e) {
+    console.warn("QR generation failed", e);
+  }
+
+  // ── Footer ─────────────────────────────────────────────────────
+  const footerY = H - 52;
+  doc.setFillColor(...LIGHT_RGB);
+  doc.rect(0, footerY - 12, W, 64, "F");
+  doc.setDrawColor(...TEAL_RGB);
+  doc.setLineWidth(1.5);
+  doc.line(0, footerY - 12, W, footerY - 12);
+
+  doc.setTextColor(...TEAL_RGB);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text("realtravo.com", W / 2, footerY + 4, { align: "center" });
+
+  doc.setTextColor(...MUTED_RGB);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.text(
+    "Thank you for booking with Realtravo!  ·  support@realtravo.com",
+    W / 2, footerY + 18, { align: "center" }
+  );
+  doc.text(`Booking Ref: ${reference}`, W / 2, footerY + 30, { align: "center" });
+
+  doc.save(`realtravo-booking-${reference.slice(0, 8)}.pdf`);
+};
 
 // ────────────────────────────────────────────────────────────────────────────────
 
@@ -330,7 +646,7 @@ const BookingPage = () => {
         slots_booked: slotsBooked,
         host_id: item.created_by,
         referral_tracking_id: getReferralTrackingId(),
-        // ✅ Top-level fields read by PaymentSuccessDialog → pdfData
+        // ✅ Top-level fields read by PaymentSuccessDialog → pdfData and generateBookingPDF
         host_phone: hostContact.phone,
         host_email: hostContact.email,
         emailData: {
@@ -352,6 +668,16 @@ const BookingPage = () => {
     setIsProcessing(false);
     setIsVerifying(false);
     window.location.reload();
+  };
+
+  // ── Download PDF from success state ──────────────────────────────────────────
+  const handleDownloadPDF = async () => {
+    if (!completedBookingData || !paymentReference) return;
+    try {
+      await generateBookingPDF(completedBookingData, paymentReference);
+    } catch (e) {
+      toast({ title: "PDF Error", description: "Could not generate PDF.", variant: "destructive" });
+    }
   };
 
   if (loading) {
@@ -537,6 +863,7 @@ const BookingPage = () => {
         onOpenChange={setShowSuccessDialog}
         bookingData={completedBookingData}
         reference={paymentReference}
+        onDownloadPDF={handleDownloadPDF}
       />
     </div>
   );

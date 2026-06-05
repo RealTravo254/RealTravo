@@ -1,6 +1,3 @@
-Here is your updated, complete code. The activity count badge and the pricing badges inside the **Highlights** section have been completely removed.
-
-```tsx
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useSafeBack } from "@/hooks/useSafeBack";
@@ -192,7 +189,7 @@ const MobileCarousel = ({ images, name }: { images: string[]; name: string }) =>
   );
 };
 
-// ─── Highlights — pill/tag style, NO images, NO prices, NO counts ───────────────
+// ─── Highlights — Clean Pill Style Layout without any Price or Count tags ───
 const HighlightsTags = ({
   activities,
 }: {
@@ -200,7 +197,6 @@ const HighlightsTags = ({
 }) => {
   if (!activities?.length) return null;
 
-  // Colour palette cycling for variety
   const palettes = [
     { bg: "#FFF0EB", border: "#FFD5C2", text: "#C24D1A", dot: CORAL },
     { bg: "#E6F7F7", border: "#B2E4E4", text: "#006666", dot: TEAL },
@@ -212,7 +208,7 @@ const HighlightsTags = ({
 
   return (
     <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-      {/* Header */}
+      {/* Header — Activity Counts Removed */}
       <div className="flex items-center gap-2 mb-4">
         <div className="w-7 h-7 rounded-lg flex items-center justify-center"
           style={{ background: `${CORAL}18` }}>
@@ -223,7 +219,7 @@ const HighlightsTags = ({
         </h2>
       </div>
 
-      {/* Tags */}
+      {/* Tags — Clean textual content layout without pricing badges */}
       <div className="flex flex-wrap gap-2">
         {activities.map((act: any, i: number) => {
           const p = palettes[i % palettes.length];
@@ -236,10 +232,10 @@ const HighlightsTags = ({
                 borderColor: p.border,
               }}
             >
-              {/* Coloured dot */}
+              {/* Colored Dot indicator */}
               <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: p.dot }} />
 
-              {/* Name */}
+              {/* Activity Label */}
               <span className="text-[12px] font-black uppercase tracking-tight leading-none" style={{ color: p.text }}>
                 {act.name}
               </span>
@@ -411,7 +407,7 @@ const TripDetail = () => {
               }
             </div>
 
-            {/* ── Highlights — pill/tag style, no images, no counts, no price ── */}
+            {/* ── Highlights — clean array or explicit pill layout ── */}
             {event.activities?.length > 0 && (
               <HighlightsTags activities={event.activities} />
             )}

@@ -152,12 +152,7 @@ const downloadBooking = async (booking: Booking) => {
     d.item_name || d.trip_name || d.event_name ||
     d.hotel_name || d.place_name || "Booking";
 
-  // ── Resolve ALL contact fields from every possible location ────
-  // host_phone / host_email on top-level booking row (set at payment time)
-  // booking_details.host_phone / host_email (legacy)
-  // booking_details.emailData.hostPhone / hostEmail (set by BookingPage)
-  // For trips/events: booking_details.phone_number / email (from CreateTripEvent form)
-  // For adventure/hotel: booking_details.phone_numbers[0] / email (from CreateAdventure form)
+  // ── Resolve ALL contact fields from every possible location ──────────────
   const hostPhone =
     booking.host_phone ||
     d.host_phone ||
@@ -196,6 +191,7 @@ const downloadBooking = async (booking: Booking) => {
   const MUTED_RGB: [number,number,number] = [100,116,139];
   const AMBER_RGB: [number,number,number] = [180,120,0];
   const WHITE:     [number,number,number] = [255,255,255];
+  const GREEN_RGB: [number,number,number] = [16,185,129];
 
   let y = 0;
   const M = 36;
@@ -411,7 +407,7 @@ const downloadBooking = async (booking: Booking) => {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 5. ACTIVITIES  (name · number of people · price per person · subtotal)
+  // 5. ACTIVITIES
   // ─────────────────────────────────────────────────────────────
   const acts = d.selectedActivities || d.activities;
   if (acts?.length) {
@@ -430,7 +426,7 @@ const downloadBooking = async (booking: Booking) => {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 6. FACILITIES  (name · from → to dates · price)
+  // 6. FACILITIES
   // ─────────────────────────────────────────────────────────────
   const facs = d.selectedFacilities || d.facilities;
   if (facs?.length) {
@@ -454,7 +450,7 @@ const downloadBooking = async (booking: Booking) => {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 7. HOST / ORGANIZER CONTACT  (email + phone from creation form)
+  // 7. HOST / ORGANIZER CONTACT  (amber notice + phone + email)
   // ─────────────────────────────────────────────────────────────
   if (hostPhone || hostEmail) {
     section(`${contactLabel.toUpperCase()} CONTACT`);
@@ -508,20 +504,30 @@ const downloadBooking = async (booking: Booking) => {
   const qrText = `REALTRAVO|${booking.id}|${listingName}|${gName || ""}|KES ${Math.round(booking.total_amount)}|${booking.visit_date || d.date || booking.created_at}`;
   const qrDataUrl = await generateQRDataUrl(qrText, 120);
   if (qrDataUrl) {
-    newPage(140);
+    // Calculate box height: base 130 + extra rows if contact present
+    const hasContact = !!(hostPhone || hostEmail);
+    const contactRows = (hostPhone ? 1 : 0) + (hostEmail ? 1 : 0);
+    const boxH = hasContact ? 130 + 18 + contactRows * 22 + 10 : 130;
+
+    newPage(boxH + 10);
     y += 8;
+
     doc.setFillColor(...LIGHT_RGB);
-    doc.roundedRect(M, y, CW, 130, 8, 8, "F");
+    doc.roundedRect(M, y, CW, boxH, 8, 8, "F");
     doc.setDrawColor(...TEAL_RGB);
     doc.setLineWidth(0.5);
-    doc.roundedRect(M, y, CW, 130, 8, 8, "S");
+    doc.roundedRect(M, y, CW, boxH, 8, 8, "S");
 
+    // QR image (left side)
     doc.addImage(qrDataUrl, "PNG", M + 14, y + 15, 100, 100);
+
+    // Right-side text block
+    const rx = M + 130;
 
     doc.setTextColor(...TEAL_RGB);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
-    doc.text("BOOKING QR CODE", M + 130, y + 32);
+    doc.text("BOOKING QR CODE", rx, y + 32);
 
     doc.setTextColor(...MUTED_RGB);
     doc.setFont("helvetica", "normal");
@@ -529,13 +535,89 @@ const downloadBooking = async (booking: Booking) => {
     ["Scan this QR code at the venue to verify",
      "your booking. Present this PDF or the QR",
      "code on your mobile device to the host."]
-      .forEach((ln, i) => doc.text(ln, M + 130, y + 50 + i * 13));
+      .forEach((ln, i) => doc.text(ln, rx, y + 50 + i * 13));
 
     doc.setTextColor(...SLATE_RGB);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
-    doc.text(`Booking ID: ${booking.id}`, M + 130, y + 108);
-    y += 146;
+    doc.text(`Booking ID: ${booking.id}`, rx, y + 108);
+
+    // ── HOST CONTACT BLOCK (below QR, inside the same card) ──────────────
+    if (hasContact) {
+      const contactY = y + 130 + 6;
+
+      // Thin teal divider across full card width (inset)
+      doc.setDrawColor(...TEAL_RGB);
+      doc.setLineWidth(0.3);
+      doc.line(M + 10, contactY, M + CW - 10, contactY);
+
+      // Section label
+      doc.setTextColor(...TEAL_RGB);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7);
+      doc.text(
+        `${contactLabel.toUpperCase()} CONTACT`,
+        M + 14,
+        contactY + 12
+      );
+
+      let cy = contactY + 24;
+
+      if (hostPhone) {
+        // Phone pill
+        doc.setFillColor(240, 253, 250);
+        doc.roundedRect(M + 14, cy - 9, (CW - 28) / 2 - 4, 18, 4, 4, "F");
+        doc.setDrawColor(...TEAL_RGB);
+        doc.setLineWidth(0.3);
+        doc.roundedRect(M + 14, cy - 9, (CW - 28) / 2 - 4, 18, 4, 4, "S");
+
+        // Phone icon (simple circle + lines)
+        doc.setFillColor(...TEAL_RGB);
+        doc.circle(M + 22, cy, 3.5, "F");
+        doc.setTextColor(...WHITE);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(5.5);
+        doc.text("📞", M + 20, cy + 2);
+
+        doc.setTextColor(...TEAL_RGB);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7.5);
+        doc.text(hostPhone, M + 30, cy + 1.5);
+
+        if (hostEmail) {
+          // Email pill (second column)
+          const ex = M + 14 + (CW - 28) / 2 + 4;
+          const ew = (CW - 28) / 2 - 4;
+          doc.setFillColor(240, 253, 250);
+          doc.roundedRect(ex, cy - 9, ew, 18, 4, 4, "F");
+          doc.setDrawColor(...TEAL_RGB);
+          doc.setLineWidth(0.3);
+          doc.roundedRect(ex, cy - 9, ew, 18, 4, 4, "S");
+
+          doc.setTextColor(...TEAL_RGB);
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(7.5);
+          const emailLines: string[] = doc.splitTextToSize(hostEmail, ew - 20);
+          doc.text(emailLines[0], ex + 8, cy + 1.5);
+        }
+        cy += 22;
+      } else if (hostEmail) {
+        // Email only — full-width pill
+        doc.setFillColor(240, 253, 250);
+        doc.roundedRect(M + 14, cy - 9, CW - 28, 18, 4, 4, "F");
+        doc.setDrawColor(...TEAL_RGB);
+        doc.setLineWidth(0.3);
+        doc.roundedRect(M + 14, cy - 9, CW - 28, 18, 4, 4, "S");
+
+        doc.setTextColor(...TEAL_RGB);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7.5);
+        doc.text(hostEmail, M + 22, cy + 1.5);
+        cy += 22;
+      }
+    }
+
+    y += boxH + 10;
   }
 
   // ─────────────────────────────────────────────────────────────

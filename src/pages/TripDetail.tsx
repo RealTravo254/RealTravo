@@ -1,3 +1,6 @@
+Here is your updated, complete code. The activity count badge and the pricing badges inside the **Highlights** section have been completely removed.
+
+```tsx
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useSafeBack } from "@/hooks/useSafeBack";
@@ -189,13 +192,11 @@ const MobileCarousel = ({ images, name }: { images: string[]; name: string }) =>
   );
 };
 
-// ─── Highlights — pill/tag style, NO images ───────────────────────────────────
+// ─── Highlights — pill/tag style, NO images, NO prices, NO counts ───────────────
 const HighlightsTags = ({
   activities,
-  formatPrice,
 }: {
   activities: any[];
-  formatPrice: (n: number) => string;
 }) => {
   if (!activities?.length) return null;
 
@@ -220,17 +221,12 @@ const HighlightsTags = ({
         <h2 className="text-base font-black uppercase tracking-tight" style={{ color: CORAL }}>
           Highlights
         </h2>
-        <span className="ml-auto text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border"
-          style={{ background: `${CORAL}10`, borderColor: `${CORAL}30`, color: CORAL }}>
-          {activities.length} {activities.length === 1 ? "activity" : "activities"}
-        </span>
       </div>
 
       {/* Tags */}
       <div className="flex flex-wrap gap-2">
         {activities.map((act: any, i: number) => {
           const p = palettes[i % palettes.length];
-          const isFree = !act.price || Number(act.price) === 0 || act.is_free;
           return (
             <div
               key={i}
@@ -246,17 +242,6 @@ const HighlightsTags = ({
               {/* Name */}
               <span className="text-[12px] font-black uppercase tracking-tight leading-none" style={{ color: p.text }}>
                 {act.name}
-              </span>
-
-              {/* Price badge */}
-              <span
-                className="text-[9px] font-bold px-1.5 py-0.5 rounded-md leading-none flex-shrink-0"
-                style={{
-                  background: isFree ? "#D1FAE5" : `${p.dot}20`,
-                  color: isFree ? "#065F46" : p.dot,
-                }}
-              >
-                {isFree ? "FREE" : formatPrice(Number(act.price))}
               </span>
             </div>
           );
@@ -426,9 +411,9 @@ const TripDetail = () => {
               }
             </div>
 
-            {/* ── Highlights — pill/tag style, no images ── */}
+            {/* ── Highlights — pill/tag style, no images, no counts, no price ── */}
             {event.activities?.length > 0 && (
-              <HighlightsTags activities={event.activities} formatPrice={formatPrice} />
+              <HighlightsTags activities={event.activities} />
             )}
 
             {/* Inclusions & Exclusions */}

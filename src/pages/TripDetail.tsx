@@ -5,7 +5,7 @@ import { useBookingNavigate } from "@/hooks/useBookingNavigate";
 import { Button } from "@/components/ui/button";
 import {
   MapPin, Share2, Copy, CheckCircle2, Clock, Users,
-  ChevronLeft, ChevronRight, Grid2X2,
+  ChevronLeft, ChevronRight, Grid2X2, Zap,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -92,11 +92,10 @@ const ImageGalleryModal = ({
   );
 };
 
-// ─── Desktop gallery grid (matches reference photo, no border-radius) ─────────
+// ─── Desktop gallery grid ─────────────────────────────────────────────────────
 const DesktopGallery = ({ images, name }: { images: string[]; name: string }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalStart, setModalStart] = useState(0);
-
   const open = (idx: number) => { setModalStart(idx); setModalOpen(true); };
 
   return (
@@ -104,15 +103,12 @@ const DesktopGallery = ({ images, name }: { images: string[]; name: string }) =>
       {modalOpen && <ImageGalleryModal images={images} name={name} startIndex={modalStart} onClose={() => setModalOpen(false)} />}
       <div className="hidden md:block max-w-6xl mx-auto px-4 pt-4">
         <div className="relative" style={{ display: "grid", gridTemplateColumns: "1.55fr 1fr", gridTemplateRows: "200px 130px", gap: "3px", borderRadius: 0 }}>
-          {/* Large left spanning 2 rows */}
           <div style={{ gridRow: "1 / 3", overflow: "hidden", borderRadius: 0, cursor: "pointer" }} onClick={() => open(0)}>
             {images[0] && <img src={images[0]} alt={name} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" style={{ borderRadius: 0 }} />}
           </div>
-          {/* Top right */}
           <div style={{ overflow: "hidden", borderRadius: 0, cursor: "pointer" }} onClick={() => open(1)}>
             {images[1] && <img src={images[1]} alt={`${name} 2`} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" style={{ borderRadius: 0 }} />}
           </div>
-          {/* Bottom right with See All overlay */}
           <div style={{ overflow: "hidden", borderRadius: 0, position: "relative", cursor: "pointer" }} onClick={() => open(2)}>
             {images[2] && <img src={images[2]} alt={`${name} 3`} className="w-full h-full object-cover" style={{ borderRadius: 0 }} />}
             {images.length > 3 && (
@@ -130,7 +126,7 @@ const DesktopGallery = ({ images, name }: { images: string[]; name: string }) =>
   );
 };
 
-// ─── Mobile carousel (full-width, no border-radius) ───────────────────────────
+// ─── Mobile carousel ──────────────────────────────────────────────────────────
 const MobileCarousel = ({ images, name }: { images: string[]; name: string }) => {
   const [active, setActive] = useState(0);
   const [modalOpen, setModalOpen] = useState(false);
@@ -193,80 +189,79 @@ const MobileCarousel = ({ images, name }: { images: string[]; name: string }) =>
   );
 };
 
-// ─── Activities grid (image-only, name+price overlay, no border-radius, See All) ──
-const ActivitiesGrid = ({ activities, formatPrice }: { activities: any[]; formatPrice: (n: number) => string }) => {
-  const [modalImages, setModalImages] = useState<string[] | null>(null);
-  const [modalName, setModalName] = useState("");
-
-  if (!activities?.length) return null;
-  return (
-    <>
-      {modalImages && <ImageGalleryModal images={modalImages} name={modalName} onClose={() => setModalImages(null)} />}
-      <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-        <h2 className="text-base font-black uppercase tracking-tight mb-3" style={{ color: CORAL }}>Highlights</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {activities.map((act: any, i: number) => {
-            const imgs: string[] = Array.isArray(act.images) ? act.images.filter(Boolean) : [];
-            return (
-              <ActivityCard key={i} act={act} imgs={imgs} formatPrice={formatPrice}
-                onSeeAll={imgs.length > 1 ? () => { setModalImages(imgs); setModalName(act.name); } : undefined} />
-            );
-          })}
-        </div>
-      </div>
-    </>
-  );
-};
-
-const ActivityCard = ({
-  act, imgs, formatPrice, onSeeAll,
+// ─── Highlights — pill/tag style, NO images ───────────────────────────────────
+const HighlightsTags = ({
+  activities,
+  formatPrice,
 }: {
-  act: any; imgs: string[]; formatPrice: (n: number) => string; onSeeAll?: () => void;
+  activities: any[];
+  formatPrice: (n: number) => string;
 }) => {
-  const [active, setActive] = useState(0);
-  useEffect(() => {
-    if (imgs.length <= 1) return;
-    const iv = setInterval(() => setActive((p) => (p + 1) % imgs.length), 3200);
-    return () => clearInterval(iv);
-  }, [imgs.length]);
+  if (!activities?.length) return null;
+
+  // Colour palette cycling for variety
+  const palettes = [
+    { bg: "#FFF0EB", border: "#FFD5C2", text: "#C24D1A", dot: CORAL },
+    { bg: "#E6F7F7", border: "#B2E4E4", text: "#006666", dot: TEAL },
+    { bg: "#FFF8E6", border: "#FFE5A0", text: "#8A6200", dot: "#F0A500" },
+    { bg: "#F0F4FF", border: "#C7D4FF", text: "#3A56C4", dot: "#5B7BE8" },
+    { bg: "#F3F0FF", border: "#D4C9FF", text: "#5B3FC4", dot: "#7B5EE8" },
+    { bg: "#EFFFF5", border: "#B6EDD0", text: "#1A7A45", dot: "#2DB461" },
+  ];
 
   return (
-    <div className="relative overflow-hidden" style={{ aspectRatio: "3/4", borderRadius: 0 }}>
-      {imgs.length > 0 ? (
-        imgs.map((img, idx) => (
-          <img key={idx} src={img} alt={act.name}
-            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
-            style={{ opacity: active === idx ? 1 : 0, borderRadius: 0 }} />
-        ))
-      ) : (
-        <div className="absolute inset-0 bg-slate-200 flex items-center justify-center">
-          <MapPin className="h-6 w-6 text-slate-300" />
+    <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+      {/* Header */}
+      <div className="flex items-center gap-2 mb-4">
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center"
+          style={{ background: `${CORAL}18` }}>
+          <Zap className="h-3.5 w-3.5" style={{ color: CORAL }} />
         </div>
-      )}
-      <div className="absolute inset-0 pointer-events-none"
-        style={{ background: "linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.1) 50%, transparent 100%)" }} />
-      {onSeeAll && (
-        <button onClick={onSeeAll}
-          className="absolute top-2 right-2 z-20 flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white text-[9px] font-bold px-2 py-1 rounded-full hover:bg-black/70 transition-all">
-          <Grid2X2 className="h-2.5 w-2.5" /> All
-        </button>
-      )}
-      <div className="absolute bottom-0 left-0 right-0 z-10 px-3 pb-3">
-        <p className="text-white font-black text-sm uppercase tracking-tight leading-tight drop-shadow">{act.name}</p>
-        {act.price > 0 && !act.is_free ? (
-          <p className="text-[11px] font-bold mt-0.5" style={{ color: CORAL_LIGHT }}>{formatPrice(Number(act.price))}</p>
-        ) : (
-          <p className="text-[11px] font-bold mt-0.5 text-emerald-300">Included</p>
-        )}
+        <h2 className="text-base font-black uppercase tracking-tight" style={{ color: CORAL }}>
+          Highlights
+        </h2>
+        <span className="ml-auto text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border"
+          style={{ background: `${CORAL}10`, borderColor: `${CORAL}30`, color: CORAL }}>
+          {activities.length} {activities.length === 1 ? "activity" : "activities"}
+        </span>
       </div>
-      {imgs.length > 1 && (
-        <div className="absolute bottom-1.5 right-2 flex gap-1 z-20 pointer-events-none">
-          {imgs.map((_, idx) => (
-            <span key={idx} className="transition-all duration-300 block"
-              style={{ width: active === idx ? "10px" : "4px", height: "4px", borderRadius: "2px", background: active === idx ? "white" : "rgba(255,255,255,0.4)" }} />
-          ))}
-        </div>
-      )}
+
+      {/* Tags */}
+      <div className="flex flex-wrap gap-2">
+        {activities.map((act: any, i: number) => {
+          const p = palettes[i % palettes.length];
+          const isFree = !act.price || Number(act.price) === 0 || act.is_free;
+          return (
+            <div
+              key={i}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border transition-all hover:scale-[1.03] hover:shadow-sm"
+              style={{
+                background: p.bg,
+                borderColor: p.border,
+              }}
+            >
+              {/* Coloured dot */}
+              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: p.dot }} />
+
+              {/* Name */}
+              <span className="text-[12px] font-black uppercase tracking-tight leading-none" style={{ color: p.text }}>
+                {act.name}
+              </span>
+
+              {/* Price badge */}
+              <span
+                className="text-[9px] font-bold px-1.5 py-0.5 rounded-md leading-none flex-shrink-0"
+                style={{
+                  background: isFree ? "#D1FAE5" : `${p.dot}20`,
+                  color: isFree ? "#065F46" : p.dot,
+                }}
+              >
+                {isFree ? "FREE" : formatPrice(Number(act.price))}
+              </span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };
@@ -431,9 +426,9 @@ const TripDetail = () => {
               }
             </div>
 
-            {/* Activities — image-only cards with overlay + See All */}
+            {/* ── Highlights — pill/tag style, no images ── */}
             {event.activities?.length > 0 && (
-              <ActivitiesGrid activities={event.activities} formatPrice={formatPrice} />
+              <HighlightsTags activities={event.activities} formatPrice={formatPrice} />
             )}
 
             {/* Inclusions & Exclusions */}

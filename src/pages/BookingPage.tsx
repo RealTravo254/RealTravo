@@ -17,6 +17,50 @@ const COLORS = { TEAL: "#008080", CORAL: "#FF7F50" };
 
 type BookingType = "trip" | "event" | "hotel" | "adventure_place" | "attraction";
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+const fmtMoney = (n: number) => "KES " + Math.round(n).toLocaleString("en-KE");
+
+const fmtDate = (d: string) =>
+  new Date(d).toLocaleDateString(undefined, {
+    weekday: "short", year: "numeric", month: "long", day: "numeric",
+  });
+
+/**
+ * Returns human-readable type label and organizer contact label
+ * based on the booking type and whether the trip is guided (tour).
+ */
+const getBookingMeta = (
+  bookingType: string,
+  bookingDetails?: any
+): { typeLabel: string; contactLabel: string } => {
+  const raw = (bookingType || "").toLowerCase();
+  const d = bookingDetails || {};
+
+  const isGuidedTrip =
+    raw === "trip" &&
+    (d.trip_type === "guided" ||
+      d.tripType === "guided" ||
+      d.is_guided === true ||
+      d.isGuided === true);
+
+  switch (raw) {
+    case "trip":
+      return isGuidedTrip
+        ? { typeLabel: "Tour", contactLabel: "Tour Organizer" }
+        : { typeLabel: "Trip", contactLabel: "Trip Organizer" };
+    case "event":
+      return { typeLabel: "Event", contactLabel: "Event Organizer" };
+    case "adventure_place":
+    case "adventure":
+      return { typeLabel: "Adventure Place", contactLabel: "Premises Owner / Operator" };
+    case "hotel":
+      return { typeLabel: "Hotel", contactLabel: "Hotel Management" };
+    default:
+      return { typeLabel: "Booking", contactLabel: "Organizer" };
+  }
+};
+
 // ── Portal header — floats above Paystack's z-index:2147483647 iframes ─────────
 const PaystackFloatingHeader = ({
   itemName,
@@ -85,9 +129,7 @@ const PaystackFloatingHeader = ({
     document.body
   );
 
-// ── QR Code generator (no external lib — pure canvas) ────────────────────────
-// Uses the browser's built-in canvas + a tiny URL-based QR via Google Charts API
-// Falls back gracefully if network is unavailable.
+// ── QR Code generator ─────────────────────────────────────────────────────────
 const generateQRDataUrl = (text: string, size = 120): Promise<string> => {
   return new Promise((resolve) => {
     try {
@@ -114,20 +156,15 @@ const generateQRDataUrl = (text: string, size = 120): Promise<string> => {
   });
 };
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-const fmtMoney = (n: number) => "KES " + Math.round(n).toLocaleString("en-KE");
-
-const fmtDate = (d: string) =>
-  new Date(d).toLocaleDateString(undefined, {
-    weekday: "short", year: "numeric", month: "long", day: "numeric",
-  });
-
 // ── PDF generator ─────────────────────────────────────────────────────────────
 export const generateBookingPDF = async (bookingData: any, reference: string) => {
   const d = bookingData?.booking_details || bookingData || {};
   const itemName =
     d.item_name || d.trip_name || d.event_name ||
     d.hotel_name || d.place_name || "Booking";
+
+  const rawType = bookingData?.booking_type || d.booking_type || "booking";
+  const { typeLabel, contactLabel } = getBookingMeta(rawType, d);
 
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const W = doc.internal.pageSize.getWidth();
@@ -138,6 +175,7 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
   const SLATE_RGB: [number, number, number] = [51, 65, 85];
   const LIGHT_RGB: [number, number, number] = [248, 249, 250];
   const MUTED_RGB: [number, number, number] = [100, 116, 139];
+  const AMBER_RGB: [number, number, number] = [180, 120, 0];
 
   let y = 0;
 
@@ -178,11 +216,10 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
   doc.text(itemName, 36, y);
   y += 16;
 
-  const bookingType = (bookingData?.booking_type || d.booking_type || "booking").toUpperCase();
   doc.setTextColor(...MUTED_RGB);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
-  doc.text(`${bookingType} BOOKING`, 36, y);
+  doc.text(`${typeLabel.toUpperCase()} BOOKING`, 36, y);
   y += 22;
 
   // ── Helpers ────────────────────────────────────────────────────
@@ -310,7 +347,7 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
     y += 8;
   }
 
-  // ── Host contact ───────────────────────────────────────────────
+  // ── Organizer / Host contact (prominently labelled) ────────────
   const hostPhone =
     bookingData?.host_phone ||
     d.host_phone ||
@@ -321,8 +358,33 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
     d.host_email ||
     bookingData?.emailData?.hostEmail ||
     d.emailData?.hostEmail || "";
+
   if (hostPhone || hostEmail) {
-    section("HOST CONTACT");
+    section(`${contactLabel.toUpperCase()} CONTACT`);
+
+    // Amber notice banner
+    newPageIfNeeded();
+    doc.setFillColor(255, 251, 235);
+    doc.roundedRect(36, y, W - 72, 48, 5, 5, "F");
+    doc.setDrawColor(...AMBER_RGB);
+    doc.setLineWidth(0.5);
+    doc.roundedRect(36, y, W - 72, 48, 5, 5, "S");
+    doc.setTextColor(...AMBER_RGB);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.text(
+      `Contact the ${contactLabel} below for any inquiries,`,
+      44, y + 15
+    );
+    doc.text(
+      "cancellations, refunds, or booking transfers.",
+      44, y + 28
+    );
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    doc.text("Please have your booking reference ready when contacting.", 44, y + 40);
+    y += 56;
+
     row("Phone", hostPhone);
     row("Email", hostEmail);
     y += 8;
@@ -341,7 +403,7 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
   doc.text(fmtMoney(bookingData?.total_amount ?? 0), W - 54, y + 30, { align: "right" });
   y += 62;
 
-  // ── QR Code (canvas-based, no external lib) ────────────────────
+  // ── QR Code ────────────────────────────────────────────────────
   const qrText = `REALTRAVO|${reference}|${itemName}|${gName || ""}|KES ${Math.round(bookingData?.total_amount ?? 0)}|${visitDate || new Date().toISOString().split("T")[0]}`;
   const qrDataUrl = await generateQRDataUrl(qrText, 120);
   if (qrDataUrl) {
@@ -558,6 +620,20 @@ const BookingPage = () => {
     return { phone: phones[0] || "", email: item.email || "" };
   };
 
+  // Derive the display label for the booking type (Tour / Trip / Event / etc.)
+  const getItemTypeLabel = (): string => {
+    if (!item || !type) return "Booking";
+    // For trips, check if it's guided
+    const isGuidedTrip =
+      type === "trip" &&
+      (item.type === "guided" || item.trip_type === "guided" || item.is_guided === true);
+    if (type === "trip") return isGuidedTrip ? "Tour" : "Trip";
+    if (type === "event") return "Event";
+    if (type === "adventure_place" || type === "adventure") return "Adventure Place";
+    if (type === "hotel") return "Hotel";
+    return "Booking";
+  };
+
   const handleBookingSubmit = async (formData: BookingFormData) => {
     if (!item || !type) return;
     setIsProcessing(true);
@@ -616,10 +692,13 @@ const BookingPage = () => {
       }
 
       const hostContact = getHostContact();
+      const { typeLabel, contactLabel } = getBookingMeta(bookingType, formData);
 
       const bookingData = {
         item_id: item.id,
         booking_type: bookingType,
+        type_label: typeLabel,
+        contact_label: contactLabel,
         total_amount: totalAmount,
         booking_details: {
           ...formData,
@@ -643,6 +722,8 @@ const BookingPage = () => {
         host_email: hostContact.email,
         emailData: {
           itemName: item.name,
+          typeLabel,
+          contactLabel,
           hostPhone: hostContact.phone,
           hostEmail: hostContact.email,
         },
@@ -748,6 +829,7 @@ const BookingPage = () => {
   };
 
   const paystackIsActive = showPaystackContainer && !isCompleted && !isVerifying;
+  const itemTypeLabel = getItemTypeLabel();
 
   return (
     <div className="min-h-screen bg-[#F8F9FA]">
@@ -779,7 +861,7 @@ const BookingPage = () => {
                 className="text-lg font-black uppercase tracking-tight truncate"
                 style={{ color: COLORS.TEAL }}
               >
-                {isVerifying ? "Checkout" : `Book ${item.name}`}
+                {isVerifying ? "Checkout" : `Book ${itemTypeLabel} — ${item.name}`}
               </h1>
               <p className="text-xs text-slate-500 truncate">
                 {isVerifying
@@ -846,7 +928,6 @@ const BookingPage = () => {
         onOpenChange={setShowSuccessDialog}
         bookingData={completedBookingData}
         reference={paymentReference}
-        onDownloadPDF={handleDownloadPDF}
       />
     </div>
   );

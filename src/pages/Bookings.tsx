@@ -59,6 +59,8 @@ interface Booking {
 const TEAL = "#008080";
 const RESCHEDULABLE_TYPES = ["trip", "event", "hotel", "adventure_place", "adventure"];
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
 const isReschedulable = (booking: Booking) => {
   const type = booking.booking_type?.toLowerCase();
   const status = booking.status?.toLowerCase();
@@ -84,6 +86,40 @@ const fmt = (d: string) =>
 // KES formatter — no decimals
 const fmtMoney = (n: number) =>
   "KES " + Math.round(n).toLocaleString("en-KE");
+
+/**
+ * Returns:
+ *  - the human-readable type label ("Tour", "Trip", "Event", "Adventure Place", "Hotel")
+ *  - the organizer role label used in contact sections
+ */
+const getBookingMeta = (booking: Booking): { typeLabel: string; contactLabel: string } => {
+  const raw = booking.booking_type?.toLowerCase();
+  const d = booking.booking_details || {};
+
+  // Detect guided/tour trips
+  const isGuidedTrip =
+    raw === "trip" &&
+    (d.trip_type === "guided" ||
+      d.tripType === "guided" ||
+      d.is_guided === true ||
+      d.isGuided === true);
+
+  switch (raw) {
+    case "trip":
+      return isGuidedTrip
+        ? { typeLabel: "Tour", contactLabel: "Tour Organizer" }
+        : { typeLabel: "Trip", contactLabel: "Trip Organizer" };
+    case "event":
+      return { typeLabel: "Event", contactLabel: "Event Organizer" };
+    case "adventure_place":
+    case "adventure":
+      return { typeLabel: "Adventure Place", contactLabel: "Premises Owner / Operator" };
+    case "hotel":
+      return { typeLabel: "Hotel", contactLabel: "Hotel Management" };
+    default:
+      return { typeLabel: "Booking", contactLabel: "Organizer" };
+  }
+};
 
 // ─── Status pill ──────────────────────────────────────────────────────────────
 
@@ -126,6 +162,7 @@ const Row = ({
 
 const downloadBooking = async (booking: Booking) => {
   const d = booking.booking_details || {};
+  const { typeLabel, contactLabel } = getBookingMeta(booking);
   const itemName =
     d.trip_name || d.event_name || d.hotel_name ||
     d.place_name || d.item_name || "Booking";
@@ -139,6 +176,7 @@ const downloadBooking = async (booking: Booking) => {
   const SLATE_RGB: [number, number, number] = [51, 65, 85];
   const LIGHT_RGB: [number, number, number] = [248, 249, 250];
   const MUTED_RGB: [number, number, number] = [100, 116, 139];
+  const AMBER_RGB: [number, number, number] = [180, 120, 0];
 
   let y = 0;
 
@@ -146,7 +184,6 @@ const downloadBooking = async (booking: Booking) => {
   doc.setFillColor(...TEAL_RGB);
   doc.rect(0, 0, W, 90, "F");
 
-  // Coral diagonal accent (top-right triangle)
   doc.setFillColor(...CORAL_RGB);
   doc.triangle(W - 120, 0, W, 0, W, 90, "F");
 
@@ -190,7 +227,7 @@ const downloadBooking = async (booking: Booking) => {
   doc.setTextColor(...MUTED_RGB);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
-  doc.text(`${(booking.booking_type || "").toUpperCase()} BOOKING`, 36, y);
+  doc.text(`${typeLabel.toUpperCase()} BOOKING`, 36, y);
   y += 22;
 
   // ── Helper: new page if near bottom ───────────────────────────
@@ -230,7 +267,6 @@ const downloadBooking = async (booking: Booking) => {
     const maxWidth = W - 72 - 160;
     const lines = doc.splitTextToSize(valStr, maxWidth);
     if (lines.length > 1) {
-      // multi-line row — expand the rect
       const rowH = 14 + lines.length * 11;
       doc.setFillColor(...LIGHT_RGB);
       doc.roundedRect(36, y, W - 72, rowH, 3, 3, "F");
@@ -320,11 +356,32 @@ const downloadBooking = async (booking: Booking) => {
     y += 8;
   }
 
-  // ── Host contact ───────────────────────────────────────────────
+  // ── Organizer / Host contact (prominently labelled) ────────────
   const hostPhone = booking.host_phone || d.host_phone || d.emailData?.hostPhone || "";
   const hostEmail = booking.host_email || d.host_email || d.emailData?.hostEmail || "";
   if (hostPhone || hostEmail) {
-    section("HOST CONTACT");
+    section(`${contactLabel.toUpperCase()} CONTACT`);
+
+    // Amber notice banner
+    newPageIfNeeded();
+    doc.setFillColor(255, 251, 235);
+    doc.roundedRect(36, y, W - 72, 38, 5, 5, "F");
+    doc.setDrawColor(...AMBER_RGB);
+    doc.setLineWidth(0.5);
+    doc.roundedRect(36, y, W - 72, 38, 5, 5, "S");
+    doc.setTextColor(...AMBER_RGB);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7);
+    doc.text(
+      `Contact the ${contactLabel} below for any inquiries,`,
+      44, y + 13
+    );
+    doc.text(
+      "cancellations, refunds, or booking transfers.",
+      44, y + 25
+    );
+    y += 46;
+
     row("Phone", hostPhone);
     row("Email", hostEmail);
     y += 8;
@@ -343,7 +400,7 @@ const downloadBooking = async (booking: Booking) => {
   doc.text(fmtMoney(booking.total_amount), W - 54, y + 30, { align: "right" });
   y += 62;
 
-  // ── QR Code (canvas-based, no external lib) ────────────────────
+  // ── QR Code ────────────────────────────────────────────────────
   const qrText = `REALTRAVO|${booking.id}|${itemName}|${gName || ""}|KES ${Math.round(booking.total_amount)}|${booking.visit_date || d.date || booking.created_at}`;
   const qrDataUrl = await generateQRDataUrl(qrText, 120);
   if (qrDataUrl) {
@@ -544,9 +601,15 @@ const BookingDetail = ({
   onReschedule: () => void;
 }) => {
   const d = booking.booking_details || {};
+  const { contactLabel } = getBookingMeta(booking);
+
   const name =
     d.trip_name || d.event_name || d.hotel_name ||
     d.place_name || d.item_name || "Booking";
+
+  const hostPhone = booking.host_phone || d.host_phone || d.emailData?.hostPhone || "";
+  const hostEmail = booking.host_email || d.host_email || d.emailData?.hostEmail || "";
+  const hasHostContact = !!(hostPhone || hostEmail);
 
   return (
     <div className="border-t border-slate-100 bg-slate-50/50 px-4 py-4">
@@ -640,27 +703,40 @@ const BookingDetail = ({
         </div>
       )}
 
-      {/* Host contact */}
-      {(booking.host_phone || booking.host_email) && (
-        <div className="pt-2 pb-1">
-          <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Host Contact</p>
-          <div className="flex flex-wrap gap-1.5">
-            {booking.host_phone && (
+      {/* ── Organizer / Host Contact (with prominent notice) ── */}
+      {hasHostContact && (
+        <div className="mt-3 rounded-xl overflow-hidden border border-amber-200">
+          {/* Header */}
+          <div className="flex items-center gap-2 px-3 py-2.5 bg-amber-50 border-b border-amber-100">
+            <AlertTriangle className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-[9px] font-black uppercase tracking-widest text-amber-700">
+                {contactLabel}
+              </p>
+              <p className="text-[10px] text-amber-600 mt-0.5 leading-snug">
+                Contact for inquiries, cancellations, refunds, or booking transfers
+              </p>
+            </div>
+          </div>
+
+          {/* Contact links */}
+          <div className="px-3 py-2.5 bg-white flex flex-wrap gap-2">
+            {hostPhone && (
               <a
-                href={`tel:${booking.host_phone}`}
-                className="flex items-center gap-1 text-[10px] bg-white border border-slate-200 rounded-full px-2.5 py-1 text-slate-600 hover:border-teal-400 transition-colors font-semibold"
+                href={`tel:${hostPhone}`}
+                className="flex items-center gap-1.5 text-[11px] font-bold text-teal-700 bg-teal-50 border border-teal-200 rounded-lg px-3 py-1.5 hover:bg-teal-100 transition-colors"
               >
-                <Phone className="h-3 w-3 text-teal-600" />
-                {booking.host_phone}
+                <Phone className="h-3 w-3" />
+                {hostPhone}
               </a>
             )}
-            {booking.host_email && (
+            {hostEmail && (
               <a
-                href={`mailto:${booking.host_email}`}
-                className="flex items-center gap-1 text-[10px] bg-white border border-slate-200 rounded-full px-2.5 py-1 text-slate-600 hover:border-teal-400 transition-colors font-semibold"
+                href={`mailto:${hostEmail}`}
+                className="flex items-center gap-1.5 text-[11px] font-bold text-teal-700 bg-teal-50 border border-teal-200 rounded-lg px-3 py-1.5 hover:bg-teal-100 transition-colors"
               >
-                <Mail className="h-3 w-3 text-teal-600" />
-                {booking.host_email}
+                <Mail className="h-3 w-3" />
+                {hostEmail}
               </a>
             )}
           </div>
@@ -708,17 +784,13 @@ const BookingCard = ({
 }) => {
   const [open, setOpen] = useState(false);
   const d = booking.booking_details || {};
+  const { typeLabel } = getBookingMeta(booking);
 
   const name =
     d.trip_name || d.event_name || d.hotel_name ||
     d.place_name || d.item_name || "Booking";
 
   const displayDate = booking.visit_date || d.date;
-
-  const typeLabel: Record<string, string> = {
-    trip: "Trip", event: "Event", hotel: "Hotel",
-    adventure_place: "Adventure", adventure: "Adventure",
-  };
 
   return (
     <div className={`bg-white rounded-xl border overflow-hidden transition-all ${
@@ -733,7 +805,7 @@ const BookingCard = ({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
             <span className="text-[9px] font-bold uppercase tracking-widest text-teal-600">
-              {typeLabel[booking.booking_type?.toLowerCase()] || booking.booking_type}
+              {typeLabel}
             </span>
             <StatusPill status={booking.status} />
             {d.rescheduled_at && (

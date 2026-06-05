@@ -96,7 +96,7 @@ const ImageGalleryModal = ({
   );
 };
 
-// ─── Desktop gallery grid — constrained width, no border-radius ───────────────
+// ─── Desktop gallery grid ─────────────────────────────────────────────────────
 const DesktopGallery = ({ images, name }: { images: string[]; name: string }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalStart, setModalStart] = useState(0);
@@ -108,17 +108,14 @@ const DesktopGallery = ({ images, name }: { images: string[]; name: string }) =>
       {modalOpen && <ImageGalleryModal images={images} name={name} startIndex={modalStart} onClose={() => setModalOpen(false)} />}
       <div className="hidden md:block max-w-6xl mx-auto px-4 pt-4">
         <div style={{ display: "grid", gridTemplateColumns: "1.55fr 1fr", gridTemplateRows: "200px 130px", gap: "3px", borderRadius: 0 }}>
-          {/* Large left spanning 2 rows */}
           <div style={{ gridRow: "1 / 3", overflow: "hidden", borderRadius: 0, cursor: "pointer" }} onClick={() => open(0)}>
             <img src={images[0]} alt={name} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" style={{ borderRadius: 0 }} />
           </div>
-          {/* Top right */}
           <div style={{ overflow: "hidden", borderRadius: 0, cursor: "pointer" }} onClick={() => open(1)}>
             {images[1]
               ? <img src={images[1]} alt={`${name} 2`} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" style={{ borderRadius: 0 }} />
               : <div className="w-full h-full bg-slate-200" />}
           </div>
-          {/* Bottom right with See All overlay */}
           <div style={{ overflow: "hidden", borderRadius: 0, position: "relative", cursor: "pointer" }} onClick={() => open(2)}>
             {images[2]
               ? <img src={images[2]} alt={`${name} 3`} className="w-full h-full object-cover" style={{ borderRadius: 0 }} />
@@ -138,7 +135,7 @@ const DesktopGallery = ({ images, name }: { images: string[]; name: string }) =>
   );
 };
 
-// ─── Mobile carousel — constrained to max-w-6xl with px-4 padding ────────────
+// ─── Mobile carousel — full screen width, no px-4 padding ────────────────────
 const MobileCarousel = ({ images, name }: { images: string[]; name: string }) => {
   const [active, setActive] = useState(0);
   const [modalOpen, setModalOpen] = useState(false);
@@ -153,54 +150,51 @@ const MobileCarousel = ({ images, name }: { images: string[]; name: string }) =>
   const go = (idx: number) => setActive((idx + images.length) % images.length);
 
   if (!images.length) return (
-    <div className="md:hidden max-w-6xl mx-auto px-4 pt-4">
-      <div className="w-full bg-slate-200 flex items-center justify-center text-slate-400 font-black uppercase text-xs"
-        style={{ height: "45vh", minHeight: "200px", maxHeight: "360px" }}>No Image</div>
-    </div>
+    <div className="md:hidden w-full bg-slate-200 flex items-center justify-center text-slate-400 font-black uppercase text-xs"
+      style={{ height: "45vh", minHeight: "200px", maxHeight: "360px" }}>No Image</div>
   );
 
   return (
     <>
       {modalOpen && <ImageGalleryModal images={images} name={name} startIndex={modalStart} onClose={() => setModalOpen(false)} />}
-      <div className="md:hidden max-w-6xl mx-auto px-4 pt-4">
-        <div className="relative w-full overflow-hidden bg-slate-900"
-          style={{ height: "45vh", minHeight: "200px", maxHeight: "360px", borderRadius: 0 }}>
-          {images.map((img, idx) => (
-            <img key={idx} src={img} alt={`${name} ${idx + 1}`}
-              className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700"
-              style={{ opacity: active === idx ? 1 : 0, borderRadius: 0 }} />
-          ))}
-          <div className="absolute bottom-0 left-0 right-0 h-20 pointer-events-none z-10"
-            style={{ background: "linear-gradient(to top, rgba(0,0,0,0.5), transparent)" }} />
+      {/* Full screen width — no horizontal padding, no max-width wrapper */}
+      <div className="md:hidden w-full relative overflow-hidden bg-slate-900"
+        style={{ height: "45vh", minHeight: "200px", maxHeight: "360px", borderRadius: 0 }}>
+        {images.map((img, idx) => (
+          <img key={idx} src={img} alt={`${name} ${idx + 1}`}
+            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700"
+            style={{ opacity: active === idx ? 1 : 0, borderRadius: 0 }} />
+        ))}
+        <div className="absolute bottom-0 left-0 right-0 h-20 pointer-events-none z-10"
+          style={{ background: "linear-gradient(to top, rgba(0,0,0,0.5), transparent)" }} />
+        {images.length > 1 && (
+          <>
+            <button onClick={() => go(active - 1)} className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
+              <ChevronLeft className="h-4 w-4 text-white" />
+            </button>
+            <button onClick={() => go(active + 1)} className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
+              <ChevronRight className="h-4 w-4 text-white" />
+            </button>
+          </>
+        )}
+        {images.length > 1 && (
+          <div className="absolute bottom-3 left-0 right-0 z-20 flex justify-center gap-1.5 pointer-events-none">
+            {images.slice(0, 6).map((_, idx) => (
+              <span key={idx} className="transition-all duration-300 block pointer-events-auto cursor-pointer"
+                onClick={() => go(idx)}
+                style={{ width: active === idx ? "20px" : "6px", height: "6px", borderRadius: "3px", background: active === idx ? "white" : "rgba(255,255,255,0.45)" }} />
+            ))}
+          </div>
+        )}
+        <div className="absolute top-3 right-3 z-20 flex items-center gap-2">
           {images.length > 1 && (
-            <>
-              <button onClick={() => go(active - 1)} className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
-                <ChevronLeft className="h-4 w-4 text-white" />
-              </button>
-              <button onClick={() => go(active + 1)} className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
-                <ChevronRight className="h-4 w-4 text-white" />
-              </button>
-            </>
+            <button onClick={() => { setModalStart(active); setModalOpen(true); }}
+              className="flex items-center gap-1.5 bg-black/50 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full hover:bg-black/70 transition-all">
+              <Grid2X2 className="h-3 w-3" /> See All
+            </button>
           )}
-          {images.length > 1 && (
-            <div className="absolute bottom-3 left-0 right-0 z-20 flex justify-center gap-1.5 pointer-events-none">
-              {images.slice(0, 6).map((_, idx) => (
-                <span key={idx} className="transition-all duration-300 block pointer-events-auto cursor-pointer"
-                  onClick={() => go(idx)}
-                  style={{ width: active === idx ? "20px" : "6px", height: "6px", borderRadius: "3px", background: active === idx ? "white" : "rgba(255,255,255,0.45)" }} />
-              ))}
-            </div>
-          )}
-          <div className="absolute top-3 right-3 z-20 flex items-center gap-2">
-            {images.length > 1 && (
-              <button onClick={() => { setModalStart(active); setModalOpen(true); }}
-                className="flex items-center gap-1.5 bg-black/50 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full hover:bg-black/70 transition-all">
-                <Grid2X2 className="h-3 w-3" /> See All
-              </button>
-            )}
-            <div className="bg-black/50 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
-              {active + 1} / {images.length}
-            </div>
+          <div className="bg-black/50 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
+            {active + 1} / {images.length}
           </div>
         </div>
       </div>
@@ -230,18 +224,82 @@ const AmenitiesScroll = ({ amenities, accentColor }: { amenities: string[]; acce
   );
 };
 
-// ─── Facilities grid ──────────────────────────────────────────────────────────
+// ─── Facilities — horizontal scroll on mobile, grid on desktop ────────────────
 const InlineFacilitiesGrid = ({ facilities, accentColor }: { facilities: any[]; accentColor: string }) => {
   const [modalImages, setModalImages] = useState<string[] | null>(null);
   const [modalName, setModalName] = useState("");
+  const [showAll, setShowAll] = useState(false);
+
   if (!facilities?.length) return null;
+
+  const visibleFacilities = showAll ? facilities : facilities.slice(0, 6);
+
   return (
     <>
       {modalImages && <ImageGalleryModal images={modalImages} name={modalName} onClose={() => setModalImages(null)} />}
       <section>
-        <h2 className="text-base font-black uppercase tracking-tight mb-3" style={{ color: accentColor }}>Facilities</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {facilities.map((fac: any, i: number) => {
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-base font-black uppercase tracking-tight" style={{ color: accentColor }}>Facilities</h2>
+          {facilities.length > 6 && (
+            <button
+              onClick={() => setShowAll((v) => !v)}
+              className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border transition-all"
+              style={{ color: accentColor, borderColor: `${accentColor}40`, background: `${accentColor}0D` }}>
+              {showAll ? "Show Less" : `See All (${facilities.length})`}
+            </button>
+          )}
+        </div>
+
+        {/* Mobile: horizontal scroll */}
+        <div className="sm:hidden">
+          <div
+            className="flex gap-3 overflow-x-auto pb-3"
+            style={{ scrollbarWidth: "thin", scrollbarColor: `${accentColor}40 transparent`, WebkitOverflowScrolling: "touch", marginLeft: "-16px", marginRight: "-16px", paddingLeft: "16px", paddingRight: "16px" }}>
+            {visibleFacilities.map((fac: any, i: number) => {
+              const imgs: string[] = Array.isArray(fac.images) ? fac.images.filter(Boolean) : [];
+              return (
+                <div key={i} className="flex-shrink-0 bg-white overflow-hidden shadow-sm border border-slate-100" style={{ borderRadius: 0, width: 180 }}>
+                  {imgs.length > 0 ? (
+                    <div className="relative">
+                      <FacSlideshow images={imgs} name={fac.name} />
+                      {imgs.length > 1 && (
+                        <button onClick={() => { setModalImages(imgs); setModalName(fac.name); }}
+                          className="absolute top-2 right-2 z-20 flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white text-[9px] font-bold px-2 py-1 rounded-full hover:bg-black/70 transition-all">
+                          <Grid2X2 className="h-2.5 w-2.5" /> See All ({imgs.length})
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="h-36 bg-slate-100 flex items-center justify-center">
+                      <MapPin className="h-6 w-6 text-slate-300" />
+                    </div>
+                  )}
+                  <div className="p-3">
+                    <p className="font-black text-sm text-slate-800 uppercase tracking-tight">{fac.name}</p>
+                    {fac.capacity && (
+                      <p className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1"><Users className="h-3 w-3" /> Capacity: {fac.capacity}</p>
+                    )}
+                    {fac.price > 0 && (
+                      <p className="text-[11px] font-bold mt-0.5" style={{ color: accentColor }}>KSh {fac.price?.toLocaleString()}</p>
+                    )}
+                    {Array.isArray(fac.amenities) && fac.amenities.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {fac.amenities.map((a: string, ai: number) => (
+                          <span key={ai} className="text-[9px] font-bold uppercase px-2 py-0.5 rounded"
+                            style={{ background: `${accentColor}12`, color: accentColor }}>{a}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Desktop: 2-column grid */}
+        <div className="hidden sm:grid grid-cols-2 gap-4">
+          {visibleFacilities.map((fac: any, i: number) => {
             const imgs: string[] = Array.isArray(fac.images) ? fac.images.filter(Boolean) : [];
             return (
               <div key={i} className="bg-white overflow-hidden shadow-sm border border-slate-100" style={{ borderRadius: 0 }}>
@@ -312,18 +370,52 @@ const FacSlideshow = ({ images, name }: { images: string[]; name: string }) => {
   );
 };
 
-// ─── Activities grid — image-only, overlay, no border-radius, See All ─────────
+// ─── Activities — horizontal scroll on mobile, grid on desktop, See All ───────
 const InlineActivitiesGrid = ({ activities, formatPrice }: { activities: any[]; formatPrice: (n: number) => string }) => {
   const [modalImages, setModalImages] = useState<string[] | null>(null);
   const [modalName, setModalName] = useState("");
+  const [showAll, setShowAll] = useState(false);
+
   if (!activities?.length) return null;
+
+  const visibleActivities = showAll ? activities : activities.slice(0, 6);
+
   return (
     <>
       {modalImages && <ImageGalleryModal images={modalImages} name={modalName} onClose={() => setModalImages(null)} />}
       <section>
-        <h2 className="text-base font-black uppercase tracking-tight mb-3" style={{ color: CORAL }}>Activities</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {activities.map((act: any, i: number) => {
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-base font-black uppercase tracking-tight" style={{ color: CORAL }}>Activities</h2>
+          {activities.length > 6 && (
+            <button
+              onClick={() => setShowAll((v) => !v)}
+              className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border transition-all"
+              style={{ color: CORAL, borderColor: `${CORAL}40`, background: `${CORAL}0D` }}>
+              {showAll ? "Show Less" : `See All (${activities.length})`}
+            </button>
+          )}
+        </div>
+
+        {/* Mobile: horizontal scroll */}
+        <div className="sm:hidden">
+          <div
+            className="flex gap-3 overflow-x-auto pb-3"
+            style={{ scrollbarWidth: "thin", scrollbarColor: `${CORAL}40 transparent`, WebkitOverflowScrolling: "touch", marginLeft: "-16px", marginRight: "-16px", paddingLeft: "16px", paddingRight: "16px" }}>
+            {visibleActivities.map((act: any, i: number) => {
+              const imgs: string[] = Array.isArray(act.images) ? act.images.filter(Boolean) : [];
+              return (
+                <div key={i} className="flex-shrink-0" style={{ width: 150 }}>
+                  <ActivityCard act={act} imgs={imgs} formatPrice={formatPrice}
+                    onSeeAll={imgs.length > 1 ? () => { setModalImages(imgs); setModalName(act.name); } : undefined} />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Desktop: 2-3 column grid */}
+        <div className="hidden sm:grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {visibleActivities.map((act: any, i: number) => {
             const imgs: string[] = Array.isArray(act.images) ? act.images.filter(Boolean) : [];
             return (
               <ActivityCard key={i} act={act} imgs={imgs} formatPrice={formatPrice}
@@ -529,15 +621,12 @@ const AdventurePlaceDetail = () => {
         onSave={() => handleSaveItem(resolvedId, "adventure_place")} onBack={goBack} />
       <div style={{ height: "calc(56px + env(safe-area-inset-top, 0px))" }} />
 
-      {/* Gallery — constrained on both mobile and desktop */}
+      {/* Gallery — mobile: full width; desktop: constrained */}
       <MobileCarousel images={allImages} name={place.name} />
       <DesktopGallery images={allImages} name={place.name} />
 
-      {/* Name / badge / location */}
+      {/* Name / location — NO category badge */}
       <div className="max-w-6xl mx-auto px-4 pt-4 pb-1 bg-background relative z-10">
-        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-          <span className="inline-block bg-teal-600 text-white px-3 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest">Adventure</span>
-        </div>
         <h1 className="text-2xl font-black uppercase tracking-tighter leading-tight text-foreground">{place.name}</h1>
         <div className="flex items-center gap-1.5 mt-1 text-muted-foreground">
           <MapPin className="h-3.5 w-3.5 flex-shrink-0" />

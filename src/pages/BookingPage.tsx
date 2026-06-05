@@ -932,5 +932,5 @@ const BookingPage = () => {
     </div>
   );
 };
-
+ 
 export default BookingPage;

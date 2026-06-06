@@ -89,24 +89,11 @@ const AllBookings = () => {
     setHostInfo(hosts);
   };
 
-  // UUID validation helper
-  const isValidUUID = (str: string) =>
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
-
   const handleSearch = async () => {
     const q = searchQuery.trim();
     if (!q) {
       setBookings([]);
       setHasSearched(false);
-      return;
-    }
-
-    if (!isValidUUID(q)) {
-      toast({
-        title: "Invalid Booking ID",
-        description: "Please enter a valid UUID booking ID (e.g. 00b97332-0ebc-4811-b52d-b7670304c9f2)",
-        variant: "destructive",
-      });
       return;
     }
 
@@ -118,7 +105,7 @@ const AllBookings = () => {
       const { data, error } = await supabase
         .from("bookings")
         .select("*")
-        .eq("id", q)
+        .filter("id::text", "eq", q.toLowerCase())
         .limit(1);
 
       if (error) throw error;

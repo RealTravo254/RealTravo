@@ -1,418 +1,247 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect } from "react";
 import {
-  Bell, CheckCircle2, Clock, ChevronRight, X, Inbox,
-  ShieldCheck, CreditCard, Wallet, CalendarCheck, Star,
-  EyeOff, Eye, AlertCircle, Gift, Ban,
+  Ticket, Heart, Phone, LogOut, User,
+  Shield, ChevronRight, Briefcase, Languages, DollarSign, X,
 } from "lucide-react";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
-import { toast } from "@/hooks/use-toast";
-import { format, isToday, isYesterday } from "date-fns";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { useTranslation } from "react-i18next";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
-interface Notification {
-  id: string;
-  type: string;
-  title: string;
-  message: string;
-  data: any;
-  is_read: boolean;
-  created_at: string;
-}
+interface NavigationDrawerProps { onClose: () => void; }
 
-const NOTIFICATION_SOUND_URL = "/audio/notification.mp3";
+const LANGUAGES = [
+  { code: "en", name: "English"    },
+  { code: "fr", name: "Français"   },
+  { code: "es", name: "Español"    },
+  { code: "pt", name: "Português"  },
+  { code: "de", name: "Deutsch"    },
+  { code: "zh", name: "中文"        },
+  { code: "ar", name: "العربية"    },
+  { code: "he", name: "עברית"      },
+];
 
-// ── Icon + colour per notification type ──────────────────────────────────────
-const TYPE_META: Record<
-  string,
-  { icon: React.ElementType; bg: string; iconColor: string; accent: string }
-> = {
-  host_verification:    { icon: ShieldCheck,   bg: "bg-emerald-50",  iconColor: "text-emerald-600", accent: "#059669" },
-  payment_verification: { icon: CreditCard,    bg: "bg-blue-50",     iconColor: "text-blue-600",    accent: "#2563eb" },
-  withdrawal_success:   { icon: Wallet,        bg: "bg-teal-50",     iconColor: "text-teal-600",    accent: "#0d9488" },
-  withdrawal_failed:    { icon: Wallet,        bg: "bg-red-50",      iconColor: "text-red-500",     accent: "#ef4444" },
-  new_booking:          { icon: CalendarCheck, bg: "bg-violet-50",   iconColor: "text-violet-600",  accent: "#7c3aed" },
-  payment_confirmed:    { icon: CreditCard,    bg: "bg-green-50",    iconColor: "text-green-600",   accent: "#16a34a" },
-  new_referral:         { icon: Gift,          bg: "bg-amber-50",    iconColor: "text-amber-500",   accent: "#f59e0b" },
-  item_status:          { icon: Star,          bg: "bg-orange-50",   iconColor: "text-orange-500",  accent: "#f97316" },
-  item_hidden:          { icon: EyeOff,        bg: "bg-slate-100",   iconColor: "text-slate-500",   accent: "#64748b" },
-  item_unhidden:        { icon: Eye,           bg: "bg-sky-50",      iconColor: "text-sky-500",     accent: "#0ea5e9" },
-  item_submitted:       { icon: Clock,         bg: "bg-amber-50",    iconColor: "text-amber-500",   accent: "#f59e0b" },
-  account_banned:       { icon: Ban,           bg: "bg-red-50",      iconColor: "text-red-600",     accent: "#dc2626" },
-  account_unbanned:     { icon: ShieldCheck,   bg: "bg-green-50",    iconColor: "text-green-600",   accent: "#16a34a" },
-};
-
-const DEFAULT_META = {
-  icon: Bell,
-  bg: "bg-slate-100",
-  iconColor: "text-slate-500",
-  accent: "#008080",
-};
-
-const getMeta = (type: string) => TYPE_META[type] ?? DEFAULT_META;
-
-// ── Group by date ─────────────────────────────────────────────────────────────
-const categorize = (notifications: Notification[]) => {
-  const groups: Record<string, Notification[]> = {};
-  notifications.forEach((n) => {
-    const d = new Date(n.created_at);
-    const label = isToday(d) ? "Today" : isYesterday(d) ? "Yesterday" : format(d, "MMMM d, yyyy");
-    (groups[label] ??= []).push(n);
-  });
-  return Object.entries(groups).map(([title, items]) => ({ title, items }));
-};
-
-// ── Relative time ─────────────────────────────────────────────────────────────
-const relativeTime = (iso: string) => {
-  const diff = Date.now() - new Date(iso).getTime();
-  const m = Math.floor(diff / 60000);
-  if (m < 1) return "just now";
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return format(new Date(iso), "MMM d");
-};
-
-export const NotificationBell = () => {
-  const { user } = useAuth();
+export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
+  const { user, signOut } = useAuth();
+  const { t, i18n } = useTranslation();
+  const { currency, setCurrency } = useCurrency();
   const navigate = useNavigate();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [isOpen, setIsOpen] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [animateBell, setAnimateBell] = useState(false);
+  const [userName, setUserName]     = useState("");
+  const [userAvatar, setUserAvatar] = useState<string | null>(null);
+  const [language, setLanguage]     = useState(i18n.language || "en");
 
-  // ── Deep-link map ────────────────────────────────────────────────────────
-  const getDeepLink = useCallback((n: Notification): string | null => {
-    const { type, data } = n;
-    switch (type) {
-      case "host_verification":    return "/verification-status";
-      case "payment_verification": return "/account";
-      case "withdrawal_success":
-      case "withdrawal_failed":    return "/payment";
-      case "new_booking":
-        return data?.item_id && data?.booking_type
-          ? `/host-bookings/${data.booking_type}/${data.item_id}`
-          : "/host-bookings";
-      case "payment_confirmed":    return "/bookings";
-      case "new_referral":         return "/payment";
-      case "item_status":
-      case "item_hidden":
-      case "item_unhidden":
-        return data?.item_id && data?.item_type
-          ? `/host-bookings/${data.item_type}/${data.item_id}`
-          : "/my-listing";
-      default: return null;
-    }
-  }, []);
-
-  // ── Audio setup ──────────────────────────────────────────────────────────
   useEffect(() => {
-    audioRef.current = new Audio(NOTIFICATION_SOUND_URL);
-    audioRef.current.volume = 0.5;
-    return () => { audioRef.current = null; };
-  }, []);
-
-  const playSound = useCallback(() => {
-    audioRef.current?.play().catch(() => {});
-  }, []);
-
-  // ── Fetch ────────────────────────────────────────────────────────────────
-  const fetchNotifications = useCallback(async () => {
     if (!user) return;
-    const { data } = await supabase
-      .from("notifications")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(30);
-    setNotifications(data ?? []);
-    setUnreadCount(data?.filter((n) => !n.is_read).length ?? 0);
+    supabase
+      .from("profiles")
+      .select("name, profile_picture_url")
+      .eq("id", user.id)
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          setUserName(data.name || "");
+          setUserAvatar(data.profile_picture_url || null);
+        }
+      });
   }, [user]);
 
-  // ── Realtime ─────────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!user) return;
-    fetchNotifications();
-    const channel = supabase
-      .channel(`notif-${user.id}-${Date.now()}`)
-      .on("postgres_changes", {
-        event: "INSERT", schema: "public", table: "notifications",
-        filter: `user_id=eq.${user.id}`,
-      }, (payload) => {
-        playSound();
-        setAnimateBell(true);
-        setTimeout(() => setAnimateBell(false), 1000);
-        if (payload.new) {
-          const n = payload.new as Notification;
-          toast({ title: n.title, description: n.message });
-        }
-        fetchNotifications();
-      })
-      .on("postgres_changes", {
-        event: "UPDATE", schema: "public", table: "notifications",
-        filter: `user_id=eq.${user.id}`,
-      }, fetchNotifications)
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [user?.id, fetchNotifications, playSound]);
+  const handleLanguageChange = (lang: string) => {
+    setLanguage(lang);
+    i18n.changeLanguage(lang);
+    document.documentElement.dir = lang === "ar" || lang === "he" ? "rtl" : "ltr";
+  };
 
-  // ── Actions ──────────────────────────────────────────────────────────────
-  const markAsRead = useCallback(async (id: string) => {
-    await supabase.from("notifications").update({ is_read: true }).eq("id", id);
-    fetchNotifications();
-  }, [fetchNotifications]);
+  const go = (path: string, isProtected = false) => {
+    onClose();
+    navigate(isProtected && !user ? "/auth" : path);
+  };
 
-  const markAllAsRead = useCallback(async () => {
-    if (!user) return;
-    await supabase.from("notifications")
-      .update({ is_read: true })
-      .eq("user_id", user.id)
-      .eq("is_read", false);
-    fetchNotifications();
-  }, [user, fetchNotifications]);
+  const NavItem = ({
+    icon: Icon,
+    label,
+    path,
+    isProtected = false,
+  }: {
+    icon: React.ElementType;
+    label: string;
+    path: string;
+    isProtected?: boolean;
+  }) => (
+    <button
+      onClick={() => go(path, isProtected)}
+      className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted transition-colors border-b border-border/50 last:border-b-0"
+    >
+      <div className="flex items-center gap-3">
+        <Icon className="h-4 w-4 text-primary" />
+        <span className="text-sm font-medium">{label}</span>
+      </div>
+      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+    </button>
+  );
 
-  const handleClick = useCallback((n: Notification) => {
-    markAsRead(n.id);
-    const link = getDeepLink(n);
-    if (link) { setIsOpen(false); navigate(link); }
-  }, [markAsRead, getDeepLink, navigate]);
-
-  const grouped = useMemo(() => categorize(notifications), [notifications]);
-
-  // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="relative z-20">
-      <Sheet open={isOpen} onOpenChange={setIsOpen}>
+    /*
+      ✅ Width is controlled by the SheetContent in Header.tsx (w-[80vw] max-w-[320px]).
+         This component simply fills 100% of whatever the Sheet gives it.
+    */
+    <div className="flex flex-col h-full bg-background">
 
-        {/* ── Bell trigger ── */}
-        <SheetTrigger asChild>
-          <button
-            aria-label="Notifications"
-            className="relative h-9 w-9 flex items-center justify-center rounded-xl transition-all duration-150 hover:bg-slate-100 active:scale-90"
-          >
-            <Bell
-              className={`h-5 w-5 stroke-[2px] transition-transform duration-200 ${
-                animateBell ? "animate-[wiggle_0.4s_ease-in-out]" : ""
-              }`}
-            />
-            {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center border-2 border-white leading-none z-10">
-                {unreadCount > 99 ? "99+" : unreadCount}
-              </span>
-            )}
-          </button>
-        </SheetTrigger>
+      {/* ── Header / profile banner ── */}
+      <div
+        className="relative px-5 pt-10 pb-6 flex-shrink-0 overflow-hidden"
+        style={{ background: "linear-gradient(135deg,#008080 0%,#005f5f 100%)" }}
+      >
+        {/* Decorative rings */}
+        <div className="pointer-events-none absolute -top-6 -right-6 h-28 w-28 rounded-full border-[3px] border-white/10" />
+        <div className="pointer-events-none absolute -bottom-4 -left-4 h-20 w-20 rounded-full border-[2px] border-white/10" />
 
-        {/* ── Drawer ── */}
-        <SheetContent
-          side="right"
-          className="w-[88vw] max-w-[360px] p-0 border-none shadow-2xl [&>button]:hidden"
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          aria-label="Close menu"
+          className="absolute top-4 right-4 h-7 w-7 rounded-full bg-white/15 flex items-center justify-center hover:bg-white/25 transition-colors"
         >
-          {/* inner wrapper carries the safe-area padding + background */}
-          <div
-            className="flex flex-col h-full"
-            style={{
-              paddingTop: "env(safe-area-inset-top, 0px)",
-              paddingBottom: "env(safe-area-inset-bottom, 0px)",
-              background: "#f8fafc",
-            }}
-          >
+          <X className="h-3.5 w-3.5 text-white" />
+        </button>
 
-          {/* ── Header ── */}
-          <div
-            className="relative flex-shrink-0 px-5 pt-5 pb-4"
-            style={{ background: "linear-gradient(135deg, #008080 0%, #005f5f 100%)" }}
-          >
-            {/* close */}
-            <button
-              onClick={() => setIsOpen(false)}
-              className="absolute top-4 right-4 h-7 w-7 rounded-full bg-white/15 flex items-center justify-center hover:bg-white/25 transition-colors"
-            >
-              <X className="h-3.5 w-3.5 text-white" />
-            </button>
-
-            {/* title row */}
-            <div className="flex items-end justify-between pr-8">
-              <div>
-                <p className="text-[9px] font-black uppercase tracking-[0.3em] text-white/50 mb-0.5">
-                  Notifications
-                </p>
-                <h2 className="text-2xl font-black text-white tracking-tight leading-none">
-                  Inbox
-                </h2>
-              </div>
-
-              {/* unread pill */}
-              {unreadCount > 0 && (
-                <div className="flex flex-col items-end gap-1.5">
-                  <span className="text-[22px] font-black text-white leading-none">
-                    {unreadCount}
-                  </span>
-                  <span className="text-[9px] font-bold uppercase tracking-widest text-white/50">
-                    unread
-                  </span>
-                </div>
+        {user ? (
+          <div className="flex items-center gap-3">
+            <div className="h-12 w-12 rounded-xl bg-white/20 flex items-center justify-center overflow-hidden border border-white/20 flex-shrink-0">
+              {userAvatar ? (
+                <img src={userAvatar} alt={userName} className="h-full w-full object-cover" />
+              ) : (
+                <User className="text-white h-6 w-6" />
               )}
             </div>
-
-            {/* mark all read */}
-            {unreadCount > 0 && (
-              <button
-                onClick={markAllAsRead}
-                className="mt-3 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-white/60 hover:text-white transition-colors"
-              >
-                <CheckCircle2 className="h-3 w-3" />
-                Mark all as read
-              </button>
-            )}
-
-            {/* bottom wave */}
-            <div className="absolute bottom-0 left-0 right-0 overflow-hidden h-3 pointer-events-none">
-              <svg viewBox="0 0 360 12" preserveAspectRatio="none" className="w-full h-full">
-                <path d="M0,0 C90,12 270,12 360,0 L360,12 L0,12 Z" fill="#f8fafc" />
-              </svg>
-            </div>
-          </div>
-
-          {/* ── Body ── */}
-          <div className="flex-1 overflow-y-auto px-3 pt-3 pb-4 space-y-4">
-            {notifications.length === 0 ? (
-              /* Empty state */
-              <div className="flex flex-col items-center justify-center py-20 text-center px-6">
-                <div className="relative mb-5">
-                  <div className="h-16 w-16 rounded-2xl bg-white shadow-sm border border-slate-100 flex items-center justify-center">
-                    <Inbox className="h-7 w-7 text-slate-300" />
-                  </div>
-                  <span className="absolute -bottom-1 -right-1 text-lg">✨</span>
-                </div>
-                <p className="text-sm font-black text-slate-800 mb-1">All caught up!</p>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  No notifications yet. We'll let you know when something happens.
-                </p>
-              </div>
-            ) : (
-              grouped.map((group) => (
-                <div key={group.title}>
-                  {/* Date label */}
-                  <div className="flex items-center gap-2 mb-2 px-1">
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.22em]">
-                      {group.title}
-                    </span>
-                    <div className="flex-1 h-px bg-slate-200" />
-                  </div>
-
-                  {/* Cards */}
-                  <div className="space-y-2">
-                    {group.items.map((n) => {
-                      const meta = getMeta(n.type);
-                      const Icon = meta.icon;
-                      const isUnread = !n.is_read;
-                      const hasLink = !!getDeepLink(n);
-
-                      return (
-                        <button
-                          key={n.id}
-                          onClick={() => handleClick(n)}
-                          className={`w-full text-left rounded-2xl border transition-all duration-150 group
-                            ${isUnread
-                              ? "bg-white border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300"
-                              : "bg-white/60 border-slate-100 hover:bg-white hover:border-slate-200"
-                            }`}
-                        >
-                          <div className="flex items-start gap-3 p-3.5">
-                            {/* icon */}
-                            <div className={`h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0 ${meta.bg}`}>
-                              <Icon className={`h-4 w-4 ${meta.iconColor}`} />
-                            </div>
-
-                            {/* text */}
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-start justify-between gap-2">
-                                <p className={`text-[12px] font-bold leading-tight truncate ${
-                                  isUnread ? "text-slate-900" : "text-slate-500"
-                                }`}>
-                                  {n.title}
-                                </p>
-                                <span className="text-[9px] text-slate-400 font-medium whitespace-nowrap flex-shrink-0 mt-0.5">
-                                  {relativeTime(n.created_at)}
-                                </span>
-                              </div>
-                              <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-2 leading-snug">
-                                {n.message}
-                              </p>
-
-                              {/* footer row */}
-                              <div className="flex items-center justify-between mt-2">
-                                {/* type badge */}
-                                <span
-                                  className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full"
-                                  style={{
-                                    background: `${meta.accent}15`,
-                                    color: meta.accent,
-                                  }}
-                                >
-                                  {n.type.replace(/_/g, " ")}
-                                </span>
-
-                                <div className="flex items-center gap-1.5">
-                                  {/* unread dot */}
-                                  {isUnread && (
-                                    <span
-                                      className="h-1.5 w-1.5 rounded-full flex-shrink-0"
-                                      style={{ background: meta.accent }}
-                                    />
-                                  )}
-                                  {/* arrow if has link */}
-                                  {hasLink && (
-                                    <ChevronRight
-                                      className="h-3 w-3 text-slate-300 group-hover:text-slate-500 group-hover:translate-x-0.5 transition-all"
-                                    />
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* accent bottom bar for unread */}
-                          {isUnread && (
-                            <div
-                              className="h-0.5 rounded-b-2xl"
-                              style={{ background: `linear-gradient(90deg, ${meta.accent}, transparent)` }}
-                            />
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-
-          {/* ── Footer ── */}
-          {notifications.length > 0 && (
-            <div className="flex-shrink-0 px-4 py-3 border-t border-slate-100 bg-white">
-              <p className="text-[9px] text-center font-bold uppercase tracking-widest text-slate-300">
-                {notifications.length} notification{notifications.length !== 1 ? "s" : ""} · Last {notifications.length} shown
+            <div>
+              <p className="text-white font-black text-sm">{userName || t("drawer.traveler")}</p>
+              <p className="text-white/60 text-[10px] uppercase tracking-widest font-semibold">
+                Verified Member
               </p>
             </div>
-          )}
-          </div>{/* end inner wrapper */}
-        </SheetContent>
-      </Sheet>
+          </div>
+        ) : (
+          <div className="pt-1">
+            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-white/40 mb-1">
+              Welcome to
+            </p>
+            <h2 className="text-2xl font-black text-white tracking-tight italic">RealTravo</h2>
+            <p className="text-white/60 text-xs mt-0.5">Travel and Hosting</p>
+          </div>
+        )}
+      </div>
 
-      {/* Bell wiggle keyframe injected once */}
-      <style>{`
-        @keyframes wiggle {
-          0%,100% { transform: rotate(0deg); }
-          20%      { transform: rotate(-15deg); }
-          40%      { transform: rotate(15deg); }
-          60%      { transform: rotate(-10deg); }
-          80%      { transform: rotate(8deg); }
-        }
-      `}</style>
+      {/* ── Scrollable body ── */}
+      <div className="flex-1 overflow-y-auto bg-background">
+
+        {/* Login CTA for guests */}
+        {!user && (
+          <div className="px-3 pt-3 pb-1">
+            <div className="flex gap-2">
+              <button
+                onClick={() => go("/auth?mode=signup")}
+                className="flex-1 py-2.5 rounded-xl text-xs font-black text-white transition-all active:scale-95"
+                style={{ background: "linear-gradient(135deg,#008080 0%,#005f5f 100%)" }}
+              >
+                Sign Up
+              </button>
+              <button
+                onClick={() => go("/auth?mode=login")}
+                className="flex-1 py-2.5 rounded-xl text-xs font-bold border border-border text-foreground hover:bg-muted transition-all active:scale-95"
+              >
+                Log In
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Main menu */}
+        <div className="p-2 pt-3">
+          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.25em] px-2 mb-1.5">
+            {t("drawer.mainMenu")}
+          </p>
+          <div className="rounded-xl border overflow-hidden bg-card">
+            <NavItem icon={Heart}    label={t("nav.wishlist")}   path="/saved"        isProtected />
+            <NavItem icon={Ticket}   label={t("nav.myBookings")} path="/bookings"     isProtected />
+            <NavItem icon={Briefcase}label="Become a Host"       path="/become-host"  isProtected />
+          </div>
+        </div>
+
+        {/* Preferences */}
+        <div className="p-2">
+          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.25em] px-2 mb-1.5">
+            Preferences
+          </p>
+          <div className="rounded-xl border overflow-hidden bg-card divide-y divide-border/50">
+            {/* Language */}
+            <div className="flex items-center justify-between px-4 py-3">
+              <div className="flex items-center gap-3">
+                <Languages className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">Language</span>
+              </div>
+              <select
+                value={language}
+                onChange={(e) => handleLanguageChange(e.target.value)}
+                className="text-xs font-bold bg-transparent focus:outline-none text-foreground max-w-[100px]"
+              >
+                {LANGUAGES.map((l) => (
+                  <option key={l.code} value={l.code}>{l.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Currency */}
+            <div className="flex items-center justify-between px-4 py-3">
+              <div className="flex items-center gap-3">
+                <DollarSign className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">Currency</span>
+              </div>
+              <div className="flex border border-border rounded-lg overflow-hidden">
+                {["KES", "USD"].map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => setCurrency(c)}
+                    className={`px-3 py-1 text-[10px] font-black transition-colors ${
+                      currency === c
+                        ? "bg-primary text-white"
+                        : "bg-background text-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Support */}
+        <div className="p-2">
+          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.25em] px-2 mb-1.5">
+            Support
+          </p>
+          <div className="rounded-xl border overflow-hidden bg-card">
+            <NavItem icon={Phone}  label="Contact Support" path="/contact"        />
+            <NavItem icon={Shield} label="Privacy Policy"  path="/privacy-policy" />
+          </div>
+        </div>
+
+        {/* Sign out */}
+        {user && (
+          <div className="p-3 pb-6">
+            <button
+              onClick={() => { signOut(); onClose(); }}
+              className="w-full py-3 flex items-center justify-center gap-2 rounded-xl border border-destructive text-destructive font-bold text-sm hover:bg-destructive/5 transition-colors active:scale-95"
+            >
+              <LogOut className="h-4 w-4" /> Log Out
+            </button>
+          </div>
+        )}
+
+        {/* Bottom padding for safe area */}
+        <div className="h-4" />
+      </div>
     </div>
   );
 };

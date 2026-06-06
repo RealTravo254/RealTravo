@@ -89,6 +89,10 @@ const AllBookings = () => {
     setHostInfo(hosts);
   };
 
+  // UUID validation helper
+  const isValidUUID = (str: string) =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+
   const handleSearch = async () => {
     const q = searchQuery.trim();
     if (!q) {
@@ -96,6 +100,16 @@ const AllBookings = () => {
       setHasSearched(false);
       return;
     }
+
+    if (!isValidUUID(q)) {
+      toast({
+        title: "Invalid Booking ID",
+        description: "Please enter a valid UUID booking ID (e.g. 00b97332-0ebc-4811-b52d-b7670304c9f2)",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setSearching(true);
     setHasSearched(true);
     setSelectedBooking(null);
@@ -104,25 +118,24 @@ const AllBookings = () => {
       const { data, error } = await supabase
         .from("bookings")
         .select("*")
-        .ilike("id", `%${q}%`)
-        .order("created_at", { ascending: false })
-        .limit(30);
+        .eq("id", q)
+        .limit(1);
 
       if (error) throw error;
       const rows = data ?? [];
       setBookings(rows);
 
-      const refMap = new Map<string, ItemRef>();
-      rows.forEach((b) => {
-        const key = `${b.item_id}::${b.booking_type}`;
-        if (!refMap.has(key)) {
-          refMap.set(key, { id: String(b.item_id), type: String(b.booking_type) });
-        }
-      });
-      await fetchItemDetails(Array.from(refMap.values()));
-
-      const exact = rows.find((b: any) => b.id.toLowerCase() === q.toLowerCase());
-      if (exact) setSelectedBooking(exact);
+      if (rows.length > 0) {
+        const refMap = new Map<string, ItemRef>();
+        rows.forEach((b) => {
+          const key = `${b.item_id}::${b.booking_type}`;
+          if (!refMap.has(key)) {
+            refMap.set(key, { id: String(b.item_id), type: String(b.booking_type) });
+          }
+        });
+        await fetchItemDetails(Array.from(refMap.values()));
+        setSelectedBooking(rows[0]);
+      }
     } catch (err: any) {
       toast({ title: "Search failed", description: err.message, variant: "destructive" });
     } finally {
@@ -165,21 +178,21 @@ const AllBookings = () => {
               <p className="text-white/60 text-xs font-bold uppercase tracking-widest mt-2">
                 {hasSearched
                   ? `${bookings.length} result${bookings.length !== 1 ? "s" : ""} found`
-                  : "Search by Booking ID"}
+                  : "Paste a full Booking ID to search"}
               </p>
             </div>
 
             <form
               onSubmit={(e) => { e.preventDefault(); handleSearch(); }}
-              className="w-full md:w-[460px] flex gap-2"
+              className="w-full md:w-[520px] flex gap-2"
             >
               <div className="relative flex-1">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
                 <Input
-                  placeholder="Enter Booking ID…"
+                  placeholder="Paste full Booking ID (UUID)…"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="bg-white/10 border-white/20 text-white placeholder:text-white/30 rounded-2xl pl-11 h-14 font-bold text-sm focus:bg-white/20 transition-all"
+                  className="bg-white/10 border-white/20 text-white placeholder:text-white/30 rounded-2xl pl-11 h-14 font-bold text-sm focus:bg-white/20 transition-all font-mono"
                 />
               </div>
               <Button
@@ -215,7 +228,7 @@ const AllBookings = () => {
                 <div className="flex flex-col items-center justify-center py-16 bg-white/60 rounded-b-[20px] text-center px-6">
                   <Search className="h-10 w-10 text-slate-200 mb-3" />
                   <p className="text-sm font-black text-slate-400 uppercase tracking-tight">No results</p>
-                  <p className="text-[10px] text-slate-400 mt-1">Try a different Booking ID</p>
+                  <p className="text-[10px] text-slate-400 mt-1">No booking found with that ID</p>
                 </div>
               )}
 
@@ -223,7 +236,7 @@ const AllBookings = () => {
                 <div className="flex flex-col items-center justify-center py-16 bg-white/60 rounded-b-[20px] text-center px-6">
                   <Hash className="h-10 w-10 text-slate-200 mb-3" />
                   <p className="text-sm font-black text-slate-400 uppercase tracking-tight">Search to begin</p>
-                  <p className="text-[10px] text-slate-400 mt-1">Enter a Booking ID above</p>
+                  <p className="text-[10px] text-slate-400 mt-1">Paste a full Booking UUID above</p>
                 </div>
               )}
 
@@ -290,7 +303,7 @@ const AllBookings = () => {
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">
                   {hasSearched
                     ? "Click any record on the left to view full details"
-                    : "Use the search bar above to find bookings"}
+                    : "Paste a full Booking ID to get started"}
                 </p>
               </div>
             )}

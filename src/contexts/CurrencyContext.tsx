@@ -2,12 +2,12 @@ import { createContext, useContext, useState, useEffect, useCallback, ReactNode 
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 
-type Currency = "KES" | "USD";
+export type Currency = "KES" | "USD";
 
 interface CurrencyContextType {
   currency: Currency;
   setCurrency: (c: Currency) => void;
-  rate: number; // KES per 1 USD
+  rate: number;
   convertPrice: (kesAmount: number) => number;
   formatPrice: (kesAmount: number) => string;
   usdHint: (kesAmount: number) => string;
@@ -16,14 +16,12 @@ interface CurrencyContextType {
 
 const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined);
 
-const FALLBACK_RATE = 129; // fallback KES/USD
+const FALLBACK_RATE = 129;
 const CACHE_KEY = "realtravo_currency";
 const RATE_CACHE_KEY = "realtravo_exchange_rate";
-const RATE_CACHE_DURATION = 1800000; // 30 minutes for fresher rates
+const RATE_CACHE_DURATION = 1800000;
 
-/** Try multiple free exchange rate APIs for reliability */
 const fetchExchangeRate = async (): Promise<number> => {
-  // API 1: exchangerate-api (free, no key)
   try {
     const res = await fetch("https://api.exchangerate-api.com/v4/latest/USD");
     if (res.ok) {
@@ -32,7 +30,6 @@ const fetchExchangeRate = async (): Promise<number> => {
     }
   } catch {}
 
-  // API 2: open.er-api (free fallback)
   try {
     const res = await fetch("https://open.er-api.com/v6/latest/USD");
     if (res.ok) {
@@ -61,7 +58,6 @@ export const CurrencyProvider = ({ children }: { children: ReactNode }) => {
   });
   const [loading, setLoading] = useState(false);
 
-  // Fetch live exchange rate
   useEffect(() => {
     const loadRate = async () => {
       const cached = localStorage.getItem(RATE_CACHE_KEY);
@@ -74,7 +70,7 @@ export const CurrencyProvider = ({ children }: { children: ReactNode }) => {
           }
         } catch {}
       }
-      
+
       setLoading(true);
       try {
         const liveRate = await fetchExchangeRate();
@@ -87,19 +83,18 @@ export const CurrencyProvider = ({ children }: { children: ReactNode }) => {
     loadRate();
   }, []);
 
-  // Auto-detect from user profile country
   useEffect(() => {
     const detectCurrency = async () => {
       if (!user) return;
       const stored = localStorage.getItem(CACHE_KEY);
-      if (stored) return; // user already chose
+      if (stored) return;
 
       const { data } = await supabase
         .from("profiles")
         .select("country")
         .eq("id", user.id)
         .single();
-      
+
       if (data?.country && data.country !== "Kenya") {
         setCurrencyState("USD");
         localStorage.setItem(CACHE_KEY, "USD");
@@ -124,7 +119,6 @@ export const CurrencyProvider = ({ children }: { children: ReactNode }) => {
     return `$${usd.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
   }, [currency, rate]);
 
-  /** Show USD equivalent hint for a KES amount (useful in creation forms) */
   const usdHint = useCallback((kesAmount: number) => {
     if (!kesAmount || kesAmount <= 0) return "";
     const usd = Math.ceil((kesAmount / rate) * 100) / 100;
@@ -141,7 +135,6 @@ export const CurrencyProvider = ({ children }: { children: ReactNode }) => {
 export const useCurrency = () => {
   const ctx = useContext(CurrencyContext);
   if (!ctx) {
-    // Provide safe defaults instead of crashing when used outside provider
     return {
       currency: "KES" as Currency,
       setCurrency: () => {},

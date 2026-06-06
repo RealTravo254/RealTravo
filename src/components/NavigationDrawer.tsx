@@ -7,7 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useTranslation } from "react-i18next";
-import { useCurrency } from "@/contexts/CurrencyContext";
+import { useCurrency, Currency } from "@/contexts/CurrencyContext";
 
 interface NavigationDrawerProps { onClose: () => void; }
 
@@ -81,10 +81,6 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
   );
 
   return (
-    /*
-      ✅ Width is controlled by the SheetContent in Header.tsx (w-[80vw] max-w-[320px]).
-         This component simply fills 100% of whatever the Sheet gives it.
-    */
     <div className="flex flex-col h-full bg-background">
 
       {/* ── Header / profile banner ── */}
@@ -162,9 +158,9 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
             {t("drawer.mainMenu")}
           </p>
           <div className="rounded-xl border overflow-hidden bg-card">
-            <NavItem icon={Heart}    label={t("nav.wishlist")}   path="/saved"        isProtected />
-            <NavItem icon={Ticket}   label={t("nav.myBookings")} path="/bookings"     isProtected />
-            <NavItem icon={Briefcase}label="Become a Host"       path="/become-host"  isProtected />
+            <NavItem icon={Heart}     label={t("nav.wishlist")}   path="/saved"       isProtected />
+            <NavItem icon={Ticket}    label={t("nav.myBookings")} path="/bookings"    isProtected />
+            <NavItem icon={Briefcase} label="Become a Host"       path="/become-host" isProtected />
           </div>
         </div>
 
@@ -198,7 +194,7 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
                 <span className="text-sm font-medium">Currency</span>
               </div>
               <div className="flex border border-border rounded-lg overflow-hidden">
-                {["KES", "USD"].map((c) => (
+                {(["KES", "USD"] as Currency[]).map((c) => (
                   <button
                     key={c}
                     onClick={() => setCurrency(c)}
@@ -239,7 +235,6 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
           </div>
         )}
 
-        {/* Bottom padding for safe area */}
         <div className="h-4" />
       </div>
     </div>

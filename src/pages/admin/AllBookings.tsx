@@ -14,8 +14,8 @@ import {
   ArrowLeft, DollarSign,
   Ticket, Briefcase,
   CheckCircle2, ShieldCheck, Hash,
-  MapPin, Clock, Users, CreditCard,
-  ChevronRight, Loader2,
+  Clock, Users, CreditCard,
+  Loader2,
 } from "lucide-react";
 import { BookingDownloadButton } from "@/components/booking/BookingDownloadButton";
 import { useCurrency } from "@/contexts/CurrencyContext";
@@ -23,29 +23,26 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 const TEAL = "#008080";
 const CORAL = "#FF7F50";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
 interface ItemRef { id: string; type: string }
 interface ItemDetail { name: string; type: string; hostId: string }
 interface HostProfile { name: string; phone_number: string }
 
-// ── Main Component ─────────────────────────────────────────────────────────────
 const AllBookings = () => {
   const { formatPrice } = useCurrency();
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const [isAdmin, setIsAdmin]           = useState(false);
-  const [loading, setLoading]           = useState(true);
-  const [searching, setSearching]       = useState(false);
-  const [hasSearched, setHasSearched]   = useState(false);
-  const [searchQuery, setSearchQuery]   = useState("");
-  const [bookings, setBookings]         = useState<any[]>([]);
+  const [isAdmin, setIsAdmin]                 = useState(false);
+  const [loading, setLoading]                 = useState(true);
+  const [searching, setSearching]             = useState(false);
+  const [hasSearched, setHasSearched]         = useState(false);
+  const [searchQuery, setSearchQuery]         = useState("");
+  const [bookings, setBookings]               = useState<any[]>([]);
   const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
-  const [itemDetails, setItemDetails]   = useState<Record<string, ItemDetail>>({});
-  const [hostInfo, setHostInfo]         = useState<Record<string, HostProfile>>({});
+  const [itemDetails, setItemDetails]         = useState<Record<string, ItemDetail>>({});
+  const [hostInfo, setHostInfo]               = useState<Record<string, HostProfile>>({});
 
-  // ── Auth check ──────────────────────────────────────────────────────────────
   useEffect(() => {
     (async () => {
       if (!user) { navigate("/auth"); return; }
@@ -61,7 +58,6 @@ const AllBookings = () => {
     })();
   }, [user]);
 
-  // ── Fetch item details (name + host) ────────────────────────────────────────
   const fetchItemDetails = async (items: ItemRef[]) => {
     const details: Record<string, ItemDetail> = {};
     const hostIds = new Set<string>();
@@ -84,7 +80,6 @@ const AllBookings = () => {
     }
     setItemDetails(details);
 
-    // fetch host profiles — name + phone only (no email)
     const hosts: Record<string, HostProfile> = {};
     for (const hid of hostIds) {
       const { data } = await supabase
@@ -94,7 +89,6 @@ const AllBookings = () => {
     setHostInfo(hosts);
   };
 
-  // ── Search ──────────────────────────────────────────────────────────────────
   const handleSearch = async () => {
     const q = searchQuery.trim();
     if (!q) {
@@ -105,14 +99,12 @@ const AllBookings = () => {
     setSearching(true);
     setHasSearched(true);
     setSelectedBooking(null);
+
     try {
-      const pat = `%${q}%`;
       const { data, error } = await supabase
         .from("bookings")
         .select("*")
-        .or(
-          `id.ilike.${pat},guest_name.ilike.${pat},guest_phone.ilike.${pat}`
-        )
+        .ilike("id", `%${q}%`)
         .order("created_at", { ascending: false })
         .limit(30);
 
@@ -120,18 +112,15 @@ const AllBookings = () => {
       const rows = data ?? [];
       setBookings(rows);
 
-      // ── deduplicate into explicitly typed ItemRef[] ──
       const refMap = new Map<string, ItemRef>();
-      (rows as any[]).forEach((b) => {
+      rows.forEach((b) => {
         const key = `${b.item_id}::${b.booking_type}`;
         if (!refMap.has(key)) {
           refMap.set(key, { id: String(b.item_id), type: String(b.booking_type) });
         }
       });
-      const itemRefs: ItemRef[] = Array.from<ItemRef>(refMap.values() as IterableIterator<ItemRef>);
-      await fetchItemDetails(itemRefs);
+      await fetchItemDetails(Array.from(refMap.values()));
 
-      // auto-select exact booking-id match
       const exact = rows.find((b: any) => b.id.toLowerCase() === q.toLowerCase());
       if (exact) setSelectedBooking(exact);
     } catch (err: any) {
@@ -141,7 +130,6 @@ const AllBookings = () => {
     }
   };
 
-  // ── Loading guard ───────────────────────────────────────────────────────────
   if (loading || !isAdmin) return (
     <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
       <div className="flex flex-col items-center gap-3">
@@ -151,12 +139,10 @@ const AllBookings = () => {
     </div>
   );
 
-  // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-[#F8F9FA] pb-24">
       <Header className="hidden md:block" />
 
-      {/* ── Hero ── */}
       <div className="bg-[#008080] pt-12 pb-20 px-4 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-20 -mt-20 blur-3xl" />
         <div className="container mx-auto px-4 relative z-10">
@@ -177,11 +163,12 @@ const AllBookings = () => {
                 All Bookings
               </h1>
               <p className="text-white/60 text-xs font-bold uppercase tracking-widest mt-2">
-                {hasSearched ? `${bookings.length} result${bookings.length !== 1 ? "s" : ""} found` : "Search by Booking ID, name or phone"}
+                {hasSearched
+                  ? `${bookings.length} result${bookings.length !== 1 ? "s" : ""} found`
+                  : "Search by Booking ID"}
               </p>
             </div>
 
-            {/* Search bar */}
             <form
               onSubmit={(e) => { e.preventDefault(); handleSearch(); }}
               className="w-full md:w-[460px] flex gap-2"
@@ -189,7 +176,7 @@ const AllBookings = () => {
               <div className="relative flex-1">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
                 <Input
-                  placeholder="Booking ID · Guest Name · Phone…"
+                  placeholder="Enter Booking ID…"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="bg-white/10 border-white/20 text-white placeholder:text-white/30 rounded-2xl pl-11 h-14 font-bold text-sm focus:bg-white/20 transition-all"
@@ -207,11 +194,9 @@ const AllBookings = () => {
         </div>
       </div>
 
-      {/* ── Main ── */}
       <main className="container px-4 mx-auto -mt-10 relative z-50">
         <div className="grid lg:grid-cols-[1fr,1.6fr] gap-6">
 
-          {/* ── Booking list ── */}
           <div>
             <div className="bg-white/80 backdrop-blur-md px-5 py-3 rounded-t-[20px] border border-slate-100">
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
@@ -220,19 +205,17 @@ const AllBookings = () => {
             </div>
 
             <div className="max-h-[72vh] overflow-y-auto space-y-2 pr-1 pb-2">
-              {/* spinner */}
               {searching && (
                 <div className="flex items-center justify-center py-16 bg-white/60 rounded-b-[20px]">
                   <Loader2 className="h-7 w-7 animate-spin text-[#008080]" />
                 </div>
               )}
 
-              {/* empty states */}
               {!searching && hasSearched && bookings.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-16 bg-white/60 rounded-b-[20px] text-center px-6">
                   <Search className="h-10 w-10 text-slate-200 mb-3" />
                   <p className="text-sm font-black text-slate-400 uppercase tracking-tight">No results</p>
-                  <p className="text-[10px] text-slate-400 mt-1">Try a different booking ID, name or phone</p>
+                  <p className="text-[10px] text-slate-400 mt-1">Try a different Booking ID</p>
                 </div>
               )}
 
@@ -240,11 +223,10 @@ const AllBookings = () => {
                 <div className="flex flex-col items-center justify-center py-16 bg-white/60 rounded-b-[20px] text-center px-6">
                   <Hash className="h-10 w-10 text-slate-200 mb-3" />
                   <p className="text-sm font-black text-slate-400 uppercase tracking-tight">Search to begin</p>
-                  <p className="text-[10px] text-slate-400 mt-1">Enter a booking ID, guest name or phone number</p>
+                  <p className="text-[10px] text-slate-400 mt-1">Enter a Booking ID above</p>
                 </div>
               )}
 
-              {/* results */}
               {!searching && bookings.map((b: any) => (
                 <button
                   key={b.id}
@@ -291,7 +273,6 @@ const AllBookings = () => {
             </div>
           </div>
 
-          {/* ── Detail panel ── */}
           <div className="lg:sticky lg:top-24 h-fit">
             {selectedBooking ? (
               <DetailPanel
@@ -322,7 +303,6 @@ const AllBookings = () => {
   );
 };
 
-// ── Detail Panel ───────────────────────────────────────────────────────────────
 const DetailPanel = ({
   booking, itemDetail, host, formatPrice,
 }: {
@@ -332,11 +312,9 @@ const DetailPanel = ({
   formatPrice: (v: number) => string;
 }) => (
   <Card className="bg-white rounded-[32px] p-8 shadow-2xl border-none overflow-hidden relative">
-    {/* decorative ticket watermark */}
     <Ticket className="h-28 w-28 text-slate-50 absolute -right-6 -top-6 rotate-12 pointer-events-none" />
 
     <div className="relative z-10 space-y-7">
-      {/* ── Title row ── */}
       <div className="flex justify-between items-start">
         <div>
           <p className="text-[10px] font-black text-[#FF7F50] uppercase tracking-[0.2em] mb-1">Confirmed Booking</p>
@@ -361,20 +339,9 @@ const DetailPanel = ({
         />
       </div>
 
-      {/* ── Stat chips ── */}
       <div className="grid grid-cols-3 gap-3">
-        <StatChip
-          icon={<DollarSign className="h-4 w-4" />}
-          label="Total Paid"
-          value={formatPrice(booking.total_amount)}
-          accent="#dc2626"
-        />
-        <StatChip
-          icon={<Users className="h-4 w-4" />}
-          label="Slots"
-          value={String(booking.slots_booked ?? 1)}
-          accent={TEAL}
-        />
+        <StatChip icon={<DollarSign className="h-4 w-4" />} label="Total Paid" value={formatPrice(booking.total_amount)} accent="#dc2626" />
+        <StatChip icon={<Users className="h-4 w-4" />} label="Slots" value={String(booking.slots_booked ?? 1)} accent={TEAL} />
         <StatChip
           icon={<Calendar className="h-4 w-4" />}
           label="Visit Date"
@@ -385,29 +352,27 @@ const DetailPanel = ({
         />
       </div>
 
-      {/* ── Guest + booking info ── */}
       <div className="grid md:grid-cols-2 gap-6">
-        {/* Guest */}
         <div className="space-y-4">
           <SectionLabel>Guest Details</SectionLabel>
           <InfoRow icon={<User />} label="Name" value={booking.guest_name || "N/A"} />
           <InfoRow icon={<Phone />} label="Phone" value={booking.guest_phone || "N/A"} href={booking.guest_phone ? `tel:${booking.guest_phone}` : undefined} />
-          {/* ✅ No email shown as per requirement */}
         </div>
 
-        {/* Booking info */}
         <div className="space-y-4">
           <SectionLabel>Booking Info</SectionLabel>
           <InfoRow icon={<Briefcase />} label="Service Type" value={booking.booking_type?.toUpperCase() || "N/A"} />
           <InfoRow icon={<CreditCard />} label="Payment Method" value={booking.payment_method || "N/A"} />
           <InfoRow icon={<Clock />} label="Booked On" value={new Date(booking.created_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })} />
-          <InfoRow icon={<CheckCircle2 />} label="Payment Status" value={booking.payment_status?.toUpperCase() || "N/A"} accent={
-            booking.payment_status === "paid" || booking.payment_status === "completed" ? "#16a34a" : "#f59e0b"
-          } />
+          <InfoRow
+            icon={<CheckCircle2 />}
+            label="Payment Status"
+            value={booking.payment_status?.toUpperCase() || "N/A"}
+            accent={booking.payment_status === "paid" || booking.payment_status === "completed" ? "#16a34a" : "#f59e0b"}
+          />
         </div>
       </div>
 
-      {/* ── Host info (no email) ── */}
       <div>
         <SectionLabel>Host Profile</SectionLabel>
         {host ? (
@@ -425,7 +390,6 @@ const DetailPanel = ({
         )}
       </div>
 
-      {/* ── Booking meta / details JSON ── */}
       {booking.booking_details && (
         <div className="bg-[#F8F9FA] rounded-2xl p-5 border border-slate-100">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
@@ -440,7 +404,6 @@ const DetailPanel = ({
   </Card>
 );
 
-// ── Small helpers ──────────────────────────────────────────────────────────────
 const SectionLabel = ({ children }: { children: React.ReactNode }) => (
   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-1.5">
     {children}

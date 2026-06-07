@@ -464,13 +464,31 @@ const TripDetail = () => {
     try {
       let data: any = null;
 
-      // 1. Try matching by slug column directly (e.g. "river-mathioya-banks-and-water-KS2X")
-      const { data: bySlug } = await supabase
+      // Build slug candidates: try the full slug, then progressively drop leading segments.
+      // e.g. "sws-river-mathioya-banks-and-water-KS2X"
+      //   → ["sws-river-mathioya-banks-and-water-KS2X",
+      //       "river-mathioya-banks-and-water-KS2X",
+      //       "mathioya-banks-and-water-KS2X", ...]
+      const parts = rawSlug.split("-");
+      const slugCandidates: string[] = [];
+      for (let i = 0; i < parts.length - 1; i++) {
+        slugCandidates.push(parts.slice(i).join("-"));
+      }
+
+      // 1. Batch query: fetch any row whose slug matches one of the candidates
+      const { data: rows } = await supabase
         .from("trips")
         .select(SELECT_FIELDS)
-        .eq("slug", rawSlug)
-        .maybeSingle();
-      if (bySlug) data = bySlug;
+        .in("slug", slugCandidates);
+
+      if (rows?.length) {
+        // Pick the candidate that appears first (most specific / longest match wins)
+        for (const candidate of slugCandidates) {
+          const match = rows.find((r) => r.slug === candidate);
+          if (match) { data = match; break; }
+        }
+        if (!data) data = rows[0];
+      }
 
       // 2. Fallback: try as a direct UUID id
       if (!data) {

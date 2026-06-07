@@ -225,32 +225,38 @@ const HighlightsTags = ({ activities }: { activities: any[] }) => {
   );
 };
 
-// ─── Always-open Map Section with Google Maps link ────────────────────────────
-const AlwaysOpenMapSection = ({
+// ─── Map Section — matching AdventurePlaceDetail style exactly ────────────────
+const MapSection = ({
   name, latitude, longitude, location, country, mapLink,
 }: {
-  name: string; latitude?: number | null; longitude?: number | null; location?: string; country?: string; mapLink?: string;
+  name: string; latitude?: number | null; longitude?: number | null;
+  location?: string; country?: string; mapLink?: string;
 }) => {
   const hasCoords = latitude != null && longitude != null;
+
+  // Prefer the stored map_link for the external button, fall back to coords/search
   const googleMapsUrl = mapLink || (
     hasCoords
       ? `https://www.google.com/maps?q=${latitude},${longitude}`
       : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${name}, ${location || ""}, ${country || ""}`)}`
   );
 
+  // For the embed, always use coords when available (more accurate pin)
   const embedUrl = hasCoords
     ? `https://maps.google.com/maps?q=${latitude},${longitude}&z=15&output=embed`
     : `https://maps.google.com/maps?q=${encodeURIComponent(`${name}, ${location || ""}, ${country || ""}`)}&z=13&output=embed`;
 
   return (
-    <section className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 mt-5">
-      {/* Header */}
+    <section className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100">
+      {/* Header row */}
       <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100">
         <div className="flex items-center gap-2">
           <MapPin className="h-4 w-4" style={{ color: TEAL }} />
           <div>
             <h2 className="text-sm font-black uppercase tracking-tight" style={{ color: TEAL }}>Location</h2>
-            <p className="text-[10px] text-slate-400 font-medium">{[name, location, country].filter(Boolean).join(", ")}</p>
+            <p className="text-[10px] text-slate-400 font-medium">
+              {[name, location, country].filter(Boolean).join(", ")}
+            </p>
           </div>
         </div>
         <a
@@ -265,8 +271,8 @@ const AlwaysOpenMapSection = ({
         </a>
       </div>
 
-      {/* Map iframe — always open */}
-      <div style={{ height: "300px", position: "relative" }}>
+      {/* Embedded map — always visible, no toggle */}
+      <div style={{ height: "320px", position: "relative" }}>
         <iframe
           title={`Map of ${name}`}
           src={embedUrl}
@@ -277,16 +283,47 @@ const AlwaysOpenMapSection = ({
           loading="lazy"
           referrerPolicy="no-referrer-when-downgrade"
         />
-        {/* Location name overlay */}
+        {/* Floating name pill — mirrors adventure detail */}
         <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 bg-white/95 backdrop-blur-sm shadow-md rounded-full px-3 py-1.5 pointer-events-none">
           <MapPin className="h-3 w-3" style={{ color: CORAL }} />
           <span className="text-[10px] font-black uppercase tracking-tight text-slate-700">{name}</span>
         </div>
+
+        {/* Coordinates badge — shown only when we have them (adventure detail style) */}
+        {hasCoords && (
+          <div className="absolute bottom-3 right-3 z-10 bg-black/60 backdrop-blur-sm rounded-lg px-2.5 py-1.5 pointer-events-none">
+            <p className="text-[9px] font-black text-white/70 uppercase tracking-widest">Coordinates</p>
+            <p className="text-[10px] font-black text-white">
+              {Number(latitude).toFixed(5)}, {Number(longitude).toFixed(5)}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Footer action row — matches adventure detail bottom strip */}
+      <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100 bg-slate-50/60">
+        <div className="flex items-center gap-1.5">
+          <div className="w-2 h-2 rounded-full bg-emerald-400" />
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+            {hasCoords ? "GPS Pinned" : "Approximate Location"}
+          </span>
+        </div>
+        <a
+          href={googleMapsUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest transition-colors hover:opacity-80"
+          style={{ color: TEAL }}
+        >
+          <Navigation className="h-3 w-3" />
+          Get Directions
+        </a>
       </div>
     </section>
   );
 };
 
+// ─── Utility button ───────────────────────────────────────────────────────────
 const UtilityButton = ({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) => (
   <Button variant="ghost" onClick={onClick}
     className="flex-col h-auto py-2.5 bg-[#F0E68C]/15 text-[#857F3E] rounded-xl hover:bg-[#F0E68C]/30 transition-colors border border-[#F0E68C]/30">
@@ -328,60 +365,36 @@ const TripDetail = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // ─── Fetch — direct equality queries, no .in(), no .maybeSingle() ──────────
   const fetchTrip = async () => {
     if (!rawSlug) return;
     setLoading(true);
     setEvent(null);
+
+    // Helper: run a query and return the first row or null, never throws
+    const tryQuery = async (field: "slug" | "id", value: string, typeFilter?: string) => {
+      try {
+        let q = supabase.from("trips").select(SELECT_FIELDS).eq(field, value).limit(1);
+        if (typeFilter) q = q.eq("type", typeFilter);
+        const { data, error } = await q;
+        if (error || !data || data.length === 0) return null;
+        return data[0];
+      } catch {
+        return null;
+      }
+    };
+
     try {
-      const candidates = getSlugLookupCandidates(rawSlug);
+      // The slug in the URL IS the slug/id stored in the DB (e.g. "wws-kamweti-waterfalls-XYFI")
+      // Try every combination in order, most specific first
+      const result =
+        (await tryQuery("slug", rawSlug, "trip"))  ||
+        (await tryQuery("slug", rawSlug))           ||
+        (await tryQuery("id",   rawSlug, "trip"))   ||
+        (await tryQuery("id",   rawSlug));
 
-      // ── 1. Try slug column with type=trip ──────────────────────────────────
-      const { data: bySlugTyped, error: e1 } = await supabase
-        .from("trips")
-        .select(SELECT_FIELDS)
-        .in("slug", candidates)
-        .eq("type", "trip")
-        .limit(1)
-        .maybeSingle();
-
-      if (bySlugTyped) { setEvent(bySlugTyped); return; }
-
-      // ── 2. Try slug column without type filter ─────────────────────────────
-      const { data: bySlugAny, error: e2 } = await supabase
-        .from("trips")
-        .select(SELECT_FIELDS)
-        .in("slug", candidates)
-        .limit(1)
-        .maybeSingle();
-
-      if (bySlugAny) { setEvent(bySlugAny); return; }
-
-      // ── 3. Try id column — only if candidates could be valid IDs ──────────
-      // The create form sets id = friendlySlug (e.g. "wws-kamweti-waterfalls-XYFI")
-      // so we try id as a plain string match too, but guard against UUID type errors
-      // by catching the error instead of pre-filtering.
-      const { data: byIdTyped, error: e3 } = await supabase
-        .from("trips")
-        .select(SELECT_FIELDS)
-        .in("id", candidates)
-        .eq("type", "trip")
-        .limit(1)
-        .maybeSingle();
-
-      if (!e3 && byIdTyped) { setEvent(byIdTyped); return; }
-
-      // ── 4. Final fallback: id without type filter ──────────────────────────
-      const { data: byIdAny, error: e4 } = await supabase
-        .from("trips")
-        .select(SELECT_FIELDS)
-        .in("id", candidates)
-        .limit(1)
-        .maybeSingle();
-
-      if (!e4 && byIdAny) { setEvent(byIdAny); return; }
-
-      // ── Nothing found ──────────────────────────────────────────────────────
-      throw new Error("Not found");
+      if (!result) throw new Error("Not found");
+      setEvent(result);
     } catch {
       toast({ title: "Trip not found", variant: "destructive" });
     } finally {
@@ -405,8 +418,14 @@ const TripDetail = () => {
   };
 
   const openInMaps = () => {
-    const query = encodeURIComponent(`${event?.name}, ${event?.location}`);
-    window.open(event?.map_link || `https://www.google.com/maps/search/?api=1&query=${query}`, "_blank");
+    const q = encodeURIComponent(`${event?.name}, ${event?.location}`);
+    window.open(
+      event?.map_link ||
+      (event?.latitude && event?.longitude
+        ? `https://www.google.com/maps?q=${event.latitude},${event.longitude}`
+        : `https://www.google.com/maps/search/?api=1&query=${q}`),
+      "_blank"
+    );
   };
 
   const { submitBooking } = useBookingSubmit();
@@ -420,14 +439,16 @@ const TripDetail = () => {
         itemId: event.id, itemName: event.name, bookingType: "trip", totalAmount,
         slotsBooked: data.num_adults + data.num_children, visitDate: event.date,
         guestName: data.guest_name, guestEmail: data.guest_email, guestPhone: data.guest_phone,
-        hostId: event.created_by, bookingDetails: { ...data, event_name: event.name }
+        hostId: event.created_by, bookingDetails: { ...data, event_name: event.name },
       });
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally { setIsProcessing(false); }
   };
 
-  const { remainingSlots, isSoldOut } = useRealtimeItemAvailability(event?.id || undefined, event?.available_tickets || 0);
+  const { remainingSlots, isSoldOut } = useRealtimeItemAvailability(
+    event?.id || undefined, event?.available_tickets || 0
+  );
 
   if (loading) return <TealLoader />;
   if (!event) return null;
@@ -435,8 +456,9 @@ const TripDetail = () => {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const eventDate = event.date ? new Date(event.date) : null;
   const isExpired = !event.is_custom_date && eventDate && eventDate < today;
-  const canBook = !isExpired && !isSoldOut;
-  const allImages = [event?.image_url, ...(event?.gallery_images || []), ...(event?.images || [])].filter((v, i, a) => Boolean(v) && a.indexOf(v) === i);
+  const canBook   = !isExpired && !isSoldOut;
+  const allImages = [event?.image_url, ...(event?.gallery_images || []), ...(event?.images || [])]
+    .filter((v, i, a) => Boolean(v) && a.indexOf(v) === i);
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -444,19 +466,21 @@ const TripDetail = () => {
 
       <div style={{ height: "calc(56px + env(safe-area-inset-top, 0px))" }} />
 
-      {/* Mobile carousel */}
+      {/* Gallery */}
       <MobileCarousel images={allImages} name={event.name} />
-
-      {/* Desktop gallery grid */}
       <DesktopGallery images={allImages} name={event.name} />
 
       {/* Name / badge / location */}
       <div className="max-w-6xl mx-auto px-4 pt-4 pb-1 bg-background">
-        <span className="inline-block mb-2 bg-[#FF7F50] text-white px-3 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest">Trip</span>
+        <span className="inline-block mb-2 bg-[#FF7F50] text-white px-3 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest">
+          Trip
+        </span>
         <h1 className="text-2xl font-black uppercase tracking-tighter leading-tight text-foreground">{event.name}</h1>
         <button onClick={openInMaps} className="flex items-center gap-1.5 mt-1 text-muted-foreground hover:text-[#008080] transition-colors">
           <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
-          <span className="text-sm font-semibold">{[event.place, event.location, event.country].filter(Boolean).join(", ")}</span>
+          <span className="text-sm font-semibold">
+            {[event.place, event.location, event.country].filter(Boolean).join(", ")}
+          </span>
         </button>
       </div>
 
@@ -464,26 +488,28 @@ const TripDetail = () => {
       <main className="container px-4 max-w-6xl mx-auto mt-5 relative z-10">
         <div className="grid lg:grid-cols-[1.7fr,1fr] gap-6">
 
-          {/* Left column */}
+          {/* ── Left column ── */}
           <div className="space-y-5">
+
             {/* About */}
             <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-              <h2 className="text-base font-black uppercase tracking-tight mb-3" style={{ color: TEAL }}>About this Trip</h2>
+              <h2 className="text-base font-black uppercase tracking-tight mb-3" style={{ color: TEAL }}>
+                About this Trip
+              </h2>
               {event.description
                 ? <p className="text-foreground text-sm leading-relaxed whitespace-pre-line">{event.description}</p>
-                : <p className="text-muted-foreground text-sm italic">No description provided.</p>
-              }
+                : <p className="text-muted-foreground text-sm italic">No description provided.</p>}
             </div>
 
             {/* Highlights */}
-            {event.activities?.length > 0 && (
-              <HighlightsTags activities={event.activities} />
-            )}
+            {event.activities?.length > 0 && <HighlightsTags activities={event.activities} />}
 
             {/* Inclusions & Exclusions */}
             {((event.inclusions?.length > 0) || (event.exclusions?.length > 0)) && (
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-                <h2 className="text-base font-black uppercase tracking-tight mb-4" style={{ color: TEAL }}>Package Details</h2>
+                <h2 className="text-base font-black uppercase tracking-tight mb-4" style={{ color: TEAL }}>
+                  Package Details
+                </h2>
                 <div className="grid grid-cols-2 gap-6">
                   {event.inclusions?.length > 0 && (
                     <div>
@@ -513,8 +539,8 @@ const TripDetail = () => {
               </div>
             )}
 
-            {/* Map — always open, with Google Maps link */}
-            <AlwaysOpenMapSection
+            {/* ── Map — adventure-detail style ── */}
+            <MapSection
               name={event.name}
               latitude={event.latitude}
               longitude={event.longitude}
@@ -524,7 +550,7 @@ const TripDetail = () => {
             />
           </div>
 
-          {/* Right column / Booking card */}
+          {/* ── Right column / Booking card ── */}
           <div className="space-y-5">
             <div className="bg-white rounded-[28px] p-5 shadow-2xl border border-slate-100 lg:sticky lg:top-24">
 
@@ -550,8 +576,12 @@ const TripDetail = () => {
                 <div className="mb-4 p-3 bg-slate-50 rounded-xl border border-slate-100">
                   {(event.opening_hours || event.closing_hours) && (
                     <div className="flex justify-between items-center mb-1">
-                      <span className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-1"><Clock className="h-3 w-3" /> Hours</span>
-                      <span className="text-xs font-black text-slate-700">{event.opening_hours || "08:00"} – {event.closing_hours || "18:00"}</span>
+                      <span className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-1">
+                        <Clock className="h-3 w-3" /> Hours
+                      </span>
+                      <span className="text-xs font-black text-slate-700">
+                        {event.opening_hours || "08:00"} – {event.closing_hours || "18:00"}
+                      </span>
                     </div>
                   )}
                   {event.is_flexible_date && event.days_opened?.length > 0 && (
@@ -570,14 +600,18 @@ const TripDetail = () => {
               {/* Availability bar */}
               <div className="mb-4 p-3 bg-slate-50 rounded-xl border border-slate-100">
                 <div className="flex justify-between items-center mb-1.5">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1"><Users className="h-3 w-3" /> Availability</span>
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                    <Users className="h-3 w-3" /> Availability
+                  </span>
                   <span className={`text-[10px] font-black uppercase ${remainingSlots < 5 ? "text-red-500" : "text-emerald-600"}`}>
                     {isSoldOut ? "Sold Out" : `${remainingSlots} Available`}
                   </span>
                 </div>
                 <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                  <div className={`h-full transition-all duration-500 ${remainingSlots < 5 ? "bg-red-500" : "bg-emerald-500"}`}
-                    style={{ width: `${Math.min((remainingSlots / (event.available_tickets || 50)) * 100, 100)}%` }} />
+                  <div
+                    className={`h-full transition-all duration-500 ${remainingSlots < 5 ? "bg-red-500" : "bg-emerald-500"}`}
+                    style={{ width: `${Math.min((remainingSlots / (event.available_tickets || 50)) * 100, 100)}%` }}
+                  />
                 </div>
               </div>
 
@@ -631,7 +665,7 @@ const TripDetail = () => {
                 )}
               </div>
 
-              {/* Reserve */}
+              {/* Reserve button */}
               <Button
                 onClick={() => navigateToBooking(`/booking/trip/${event.id}`)}
                 disabled={!canBook}
@@ -641,7 +675,7 @@ const TripDetail = () => {
                 {isSoldOut ? "Fully Booked" : isExpired ? "Trip Expired" : "Reserve Spot"}
               </Button>
 
-              {/* Utilities */}
+              {/* Utility buttons */}
               <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-slate-100">
                 <UtilityButton icon={<MapPin className="h-4 w-4" />} label="Map" onClick={openInMaps} />
                 <UtilityButton icon={<Copy className="h-4 w-4" />} label="Copy" onClick={handleCopyLink} />

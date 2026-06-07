@@ -5,7 +5,7 @@ import { useBookingNavigate } from "@/hooks/useBookingNavigate";
 import { Button } from "@/components/ui/button";
 import {
   MapPin, Share2, Copy, CheckCircle2, Clock, Users,
-  ChevronLeft, ChevronRight, Grid2X2, Zap, Navigation,
+  ChevronLeft, ChevronRight, Grid2X2, Zap, ExternalLink, Navigation,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -17,7 +17,6 @@ import { getSlugLookupCandidates } from "@/lib/slugUtils";
 import { useBookingSubmit, BookingFormData } from "@/hooks/useBookingSubmit";
 import { useRealtimeItemAvailability } from "@/hooks/useRealtimeBookings";
 import { DetailNavBar } from "@/components/detail/DetailNavBar";
-import { DetailMapSection } from "@/components/detail/DetailMapSection";
 import { TealLoader } from "@/components/ui/teal-loader";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { Footer } from "@/components/Footer";
@@ -26,8 +25,7 @@ const TEAL        = "#008080";
 const CORAL       = "#FF7F50";
 const CORAL_LIGHT = "#FF9E7A";
 
-// ← pickup_location added to SELECT_FIELDS (fixes the 400 errors)
-const SELECT_FIELDS = "id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,price,price_child,available_tickets,description,activities,created_by,type,opening_hours,closing_hours,days_opened,map_link,is_flexible_date,inclusions,exclusions,allow_children,ticket_types,slot_limit_type,pickup_location";
+const SELECT_FIELDS = "id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,price,price_child,available_tickets,description,activities,created_by,type,opening_hours,closing_hours,days_opened,map_link,is_flexible_date,inclusions,exclusions,allow_children,ticket_types,slot_limit_type,pickup_location,latitude,longitude,slug";
 
 // ─── Image Gallery Modal ──────────────────────────────────────────────────────
 const ImageGalleryModal = ({
@@ -190,7 +188,7 @@ const MobileCarousel = ({ images, name }: { images: string[]; name: string }) =>
   );
 };
 
-// ─── Highlights ───────────────────────────────────────────────────────────────
+// ─── Highlights pills ─────────────────────────────────────────────────────────
 const HighlightsTags = ({ activities }: { activities: any[] }) => {
   if (!activities?.length) return null;
 
@@ -224,6 +222,68 @@ const HighlightsTags = ({ activities }: { activities: any[] }) => {
         })}
       </div>
     </div>
+  );
+};
+
+// ─── Always-open Map Section with Google Maps link ────────────────────────────
+const AlwaysOpenMapSection = ({
+  name, latitude, longitude, location, country, mapLink,
+}: {
+  name: string; latitude?: number | null; longitude?: number | null; location?: string; country?: string; mapLink?: string;
+}) => {
+  const hasCoords = latitude != null && longitude != null;
+  const googleMapsUrl = mapLink || (
+    hasCoords
+      ? `https://www.google.com/maps?q=${latitude},${longitude}`
+      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${name}, ${location || ""}, ${country || ""}`)}`
+  );
+
+  const embedUrl = hasCoords
+    ? `https://maps.google.com/maps?q=${latitude},${longitude}&z=15&output=embed`
+    : `https://maps.google.com/maps?q=${encodeURIComponent(`${name}, ${location || ""}, ${country || ""}`)}&z=13&output=embed`;
+
+  return (
+    <section className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 mt-5">
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100">
+        <div className="flex items-center gap-2">
+          <MapPin className="h-4 w-4" style={{ color: TEAL }} />
+          <div>
+            <h2 className="text-sm font-black uppercase tracking-tight" style={{ color: TEAL }}>Location</h2>
+            <p className="text-[10px] text-slate-400 font-medium">{[name, location, country].filter(Boolean).join(", ")}</p>
+          </div>
+        </div>
+        <a
+          href={googleMapsUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-white text-[10px] font-bold transition-all hover:opacity-90 active:scale-95"
+          style={{ background: `linear-gradient(135deg, ${TEAL}, #005f5f)` }}
+        >
+          <ExternalLink className="h-3 w-3" />
+          View on Google Maps
+        </a>
+      </div>
+
+      {/* Map iframe — always open */}
+      <div style={{ height: "300px", position: "relative" }}>
+        <iframe
+          title={`Map of ${name}`}
+          src={embedUrl}
+          width="100%"
+          height="100%"
+          style={{ border: 0, display: "block" }}
+          allowFullScreen
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+        />
+        {/* Location name overlay */}
+        <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 bg-white/95 backdrop-blur-sm shadow-md rounded-full px-3 py-1.5 pointer-events-none">
+          <MapPin className="h-3 w-3" style={{ color: CORAL }} />
+          <span className="text-[10px] font-black uppercase tracking-tight text-slate-700">{name}</span>
+        </div>
+      </div>
+    </section>
   );
 };
 
@@ -274,30 +334,59 @@ const TripDetail = () => {
     setEvent(null);
     try {
       const candidates = getSlugLookupCandidates(rawSlug);
-      const findMatch = (rows: any[] | null | undefined, field: "id" | "slug") => {
-        if (!rows?.length) return null;
-        for (const candidate of candidates) {
-          const match = rows.find((row) => row?.[field] === candidate);
-          if (match) return match;
-        }
-        return rows[0] || null;
-      };
-      const fetchByField = async (field: "id" | "slug", type?: string) => {
-        let query: any = supabase.from("trips").select(SELECT_FIELDS).in(field, candidates);
-        if (type) query = query.eq("type", type);
-        const { data } = await query;
-        return findMatch(data, field);
-      };
-      const data =
-        (await fetchByField("id", "trip")) ||
-        (await fetchByField("slug", "trip")) ||
-        (await fetchByField("id")) ||
-        (await fetchByField("slug"));
-      if (!data) throw new Error("Not found");
-      setEvent(data);
+
+      // ── 1. Try slug column with type=trip ──────────────────────────────────
+      const { data: bySlugTyped, error: e1 } = await supabase
+        .from("trips")
+        .select(SELECT_FIELDS)
+        .in("slug", candidates)
+        .eq("type", "trip")
+        .limit(1)
+        .maybeSingle();
+
+      if (bySlugTyped) { setEvent(bySlugTyped); return; }
+
+      // ── 2. Try slug column without type filter ─────────────────────────────
+      const { data: bySlugAny, error: e2 } = await supabase
+        .from("trips")
+        .select(SELECT_FIELDS)
+        .in("slug", candidates)
+        .limit(1)
+        .maybeSingle();
+
+      if (bySlugAny) { setEvent(bySlugAny); return; }
+
+      // ── 3. Try id column — only if candidates could be valid IDs ──────────
+      // The create form sets id = friendlySlug (e.g. "wws-kamweti-waterfalls-XYFI")
+      // so we try id as a plain string match too, but guard against UUID type errors
+      // by catching the error instead of pre-filtering.
+      const { data: byIdTyped, error: e3 } = await supabase
+        .from("trips")
+        .select(SELECT_FIELDS)
+        .in("id", candidates)
+        .eq("type", "trip")
+        .limit(1)
+        .maybeSingle();
+
+      if (!e3 && byIdTyped) { setEvent(byIdTyped); return; }
+
+      // ── 4. Final fallback: id without type filter ──────────────────────────
+      const { data: byIdAny, error: e4 } = await supabase
+        .from("trips")
+        .select(SELECT_FIELDS)
+        .in("id", candidates)
+        .limit(1)
+        .maybeSingle();
+
+      if (!e4 && byIdAny) { setEvent(byIdAny); return; }
+
+      // ── Nothing found ──────────────────────────────────────────────────────
+      throw new Error("Not found");
     } catch {
       toast({ title: "Trip not found", variant: "destructive" });
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSave = () => currentItemId && handleSaveItem(currentItemId, "trip");
@@ -355,7 +444,10 @@ const TripDetail = () => {
 
       <div style={{ height: "calc(56px + env(safe-area-inset-top, 0px))" }} />
 
+      {/* Mobile carousel */}
       <MobileCarousel images={allImages} name={event.name} />
+
+      {/* Desktop gallery grid */}
       <DesktopGallery images={allImages} name={event.name} />
 
       {/* Name / badge / location */}
@@ -374,6 +466,7 @@ const TripDetail = () => {
 
           {/* Left column */}
           <div className="space-y-5">
+            {/* About */}
             <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
               <h2 className="text-base font-black uppercase tracking-tight mb-3" style={{ color: TEAL }}>About this Trip</h2>
               {event.description
@@ -382,8 +475,12 @@ const TripDetail = () => {
               }
             </div>
 
-            {event.activities?.length > 0 && <HighlightsTags activities={event.activities} />}
+            {/* Highlights */}
+            {event.activities?.length > 0 && (
+              <HighlightsTags activities={event.activities} />
+            )}
 
+            {/* Inclusions & Exclusions */}
             {((event.inclusions?.length > 0) || (event.exclusions?.length > 0)) && (
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
                 <h2 className="text-base font-black uppercase tracking-tight mb-4" style={{ color: TEAL }}>Package Details</h2>
@@ -415,6 +512,16 @@ const TripDetail = () => {
                 </div>
               </div>
             )}
+
+            {/* Map — always open, with Google Maps link */}
+            <AlwaysOpenMapSection
+              name={event.name}
+              latitude={event.latitude}
+              longitude={event.longitude}
+              location={event.location}
+              country={event.country}
+              mapLink={event.map_link}
+            />
           </div>
 
           {/* Right column / Booking card */}
@@ -437,23 +544,6 @@ const TripDetail = () => {
                   </span>
                 </div>
               </div>
-
-              {/* ← NEW: Pickup Location */}
-              {event.pickup_location && (
-                <div className="mb-4 p-3 rounded-xl border flex items-start gap-2.5"
-                  style={{ background: "#FFF8E6", borderColor: "#FFE5A0" }}>
-                  <div className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
-                    style={{ background: "#F0A50018" }}>
-                    <Navigation className="h-3.5 w-3.5" style={{ color: "#F0A500" }} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-black uppercase tracking-widest mb-0.5" style={{ color: "#8A6200" }}>
-                      Pickup Location
-                    </p>
-                    <p className="text-xs font-bold text-slate-700 leading-snug">{event.pickup_location}</p>
-                  </div>
-                </div>
-              )}
 
               {/* Hours */}
               {(event.opening_hours || event.closing_hours || (event.is_flexible_date && event.days_opened?.length > 0)) && (
@@ -514,6 +604,20 @@ const TripDetail = () => {
                     <span className="text-slate-700">{formatPrice(event.price_child || 0)}</span>
                   </div>
                 )}
+
+                {/* Pickup Location */}
+                {event.pickup_location && (
+                  <div className="pt-2 mt-1 border-t border-slate-100">
+                    <div className="flex items-start gap-2">
+                      <Navigation className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" style={{ color: TEAL }} />
+                      <div>
+                        <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-0.5">Pickup Location</p>
+                        <p className="text-xs font-bold text-slate-700">{event.pickup_location}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {event.ticket_types?.length > 0 && (
                   <div className="pt-2 border-t border-slate-100">
                     <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1.5">Ticket Types</p>
@@ -546,11 +650,6 @@ const TripDetail = () => {
             </div>
           </div>
         </div>
-
-        <DetailMapSection
-          currentItem={{ id: event.id, name: event.name, latitude: null, longitude: null, location: event.location, country: event.country, image_url: event.image_url, price: event.price }}
-          itemType="trip"
-        />
       </main>
 
       <Footer />
@@ -566,13 +665,6 @@ const TripDetail = () => {
             </div>
             {event.price_child != null && (
               <div className="text-[10px] font-bold text-slate-500">Child: {formatPrice(event.price_child || 0)}</div>
-            )}
-            {/* ← NEW: Pickup shown in mobile bar too */}
-            {event.pickup_location && (
-              <div className="flex items-center gap-1 mt-0.5">
-                <Navigation className="h-2.5 w-2.5 text-amber-500 shrink-0" />
-                <span className="text-[9px] font-bold text-slate-400 truncate max-w-[140px]">{event.pickup_location}</span>
-              </div>
             )}
           </div>
           <Button

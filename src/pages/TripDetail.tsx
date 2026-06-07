@@ -5,7 +5,7 @@ import { useBookingNavigate } from "@/hooks/useBookingNavigate";
 import { Button } from "@/components/ui/button";
 import {
   MapPin, Share2, Copy, CheckCircle2, Clock, Users,
-  ChevronLeft, ChevronRight, Grid2X2, Zap,
+  ChevronLeft, ChevronRight, Grid2X2, Zap, Navigation,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -26,7 +26,7 @@ const TEAL        = "#008080";
 const CORAL       = "#FF7F50";
 const CORAL_LIGHT = "#FF9E7A";
 
-const SELECT_FIELDS = "id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,price,price_child,available_tickets,description,activities,created_by,type,opening_hours,closing_hours,days_opened,map_link,is_flexible_date,inclusions,exclusions,allow_children,ticket_types,slot_limit_type";
+const SELECT_FIELDS = "id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,price,price_child,available_tickets,description,activities,created_by,type,opening_hours,closing_hours,days_opened,map_link,is_flexible_date,inclusions,exclusions,allow_children,ticket_types,slot_limit_type,pickup_location";
 
 // ─── Image Gallery Modal ──────────────────────────────────────────────────────
 const ImageGalleryModal = ({
@@ -208,7 +208,6 @@ const HighlightsTags = ({
 
   return (
     <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-      {/* Header — Activity Counts Removed */}
       <div className="flex items-center gap-2 mb-4">
         <div className="w-7 h-7 rounded-lg flex items-center justify-center"
           style={{ background: `${CORAL}18` }}>
@@ -218,8 +217,6 @@ const HighlightsTags = ({
           Highlights
         </h2>
       </div>
-
-      {/* Tags — Clean textual content layout without pricing badges */}
       <div className="flex flex-wrap gap-2">
         {activities.map((act: any, i: number) => {
           const p = palettes[i % palettes.length];
@@ -227,15 +224,9 @@ const HighlightsTags = ({
             <div
               key={i}
               className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border transition-all hover:scale-[1.03] hover:shadow-sm"
-              style={{
-                background: p.bg,
-                borderColor: p.border,
-              }}
+              style={{ background: p.bg, borderColor: p.border }}
             >
-              {/* Colored Dot indicator */}
               <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: p.dot }} />
-
-              {/* Activity Label */}
               <span className="text-[12px] font-black uppercase tracking-tight leading-none" style={{ color: p.text }}>
                 {act.name}
               </span>
@@ -407,7 +398,7 @@ const TripDetail = () => {
               }
             </div>
 
-            {/* ── Highlights — clean array or explicit pill layout ── */}
+            {/* Highlights */}
             {event.activities?.length > 0 && (
               <HighlightsTags activities={event.activities} />
             )}
@@ -514,18 +505,35 @@ const TripDetail = () => {
                     }
                   </span>
                 </div>
+
                 <div className="flex justify-between text-xs font-bold uppercase tracking-tight">
                   <span className="text-slate-400">Children</span>
                   <span className={event.allow_children === false ? "text-red-500" : "text-emerald-600"}>
                     {event.allow_children === false ? "Not Allowed" : "Allowed"}
                   </span>
                 </div>
+
                 {event.allow_children !== false && (
                   <div className="flex justify-between text-xs font-bold uppercase tracking-tight">
                     <span className="text-slate-400">Child (Under 12)</span>
                     <span className="text-slate-700">{formatPrice(event.price_child || 0)}</span>
                   </div>
                 )}
+
+                {/* ── Pickup Location ── */}
+                <div className="flex justify-between items-start text-xs font-bold uppercase tracking-tight gap-2">
+                  <span className="text-slate-400 flex items-center gap-1 flex-shrink-0">
+                    <Navigation className="h-3 w-3" /> Pickup
+                  </span>
+                  {event.pickup_location ? (
+                    <span className="text-slate-700 text-right normal-case font-semibold max-w-[60%] leading-snug capitalize">
+                      {event.pickup_location}
+                    </span>
+                  ) : (
+                    <span className="text-slate-400 italic font-semibold normal-case">Not Available</span>
+                  )}
+                </div>
+
                 {event.ticket_types?.length > 0 && (
                   <div className="pt-2 border-t border-slate-100">
                     <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1.5">Ticket Types</p>
@@ -588,7 +596,7 @@ const TripDetail = () => {
           >
             {isSoldOut ? "Fully Booked" : isExpired ? "Expired" : "Reserve"}
           </Button>
-        </div> 
+        </div>
       </div>
     </div>
   );

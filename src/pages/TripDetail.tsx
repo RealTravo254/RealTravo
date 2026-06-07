@@ -389,21 +389,12 @@ const TripDetail = () => {
           {/* ── Left column ── */}
           <div className="space-y-5">
 
-            {/* About */}
-            <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-              <h2 className="text-base font-black uppercase tracking-tight mb-3" style={{ color: TEAL }}>About this Trip</h2>
-              {event.description
-                ? <p className="text-foreground text-sm leading-relaxed whitespace-pre-line">{event.description}</p>
-                : <p className="text-muted-foreground text-sm italic">No description provided.</p>
-              }
-            </div>
-
-            {/* Highlights */}
+            {/* Highlights — shown first on all screen sizes */}
             {event.activities?.length > 0 && (
               <HighlightsTags activities={event.activities} />
             )}
 
-            {/* Inclusions & Exclusions */}
+            {/* Inclusions & Exclusions — shown second on all screen sizes */}
             {((event.inclusions?.length > 0) || (event.exclusions?.length > 0)) && (
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
                 <h2 className="text-base font-black uppercase tracking-tight mb-4" style={{ color: TEAL }}>Package Details</h2>
@@ -435,6 +426,16 @@ const TripDetail = () => {
                 </div>
               </div>
             )}
+
+            {/* About — shown last on all screen sizes */}
+            <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+              <h2 className="text-base font-black uppercase tracking-tight mb-3" style={{ color: TEAL }}>About this Trip</h2>
+              {event.description
+                ? <p className="text-foreground text-sm leading-relaxed whitespace-pre-line">{event.description}</p>
+                : <p className="text-muted-foreground text-sm italic">No description provided.</p>
+              }
+            </div>
+
           </div>
 
           {/* ── Right column / Booking card ── */}

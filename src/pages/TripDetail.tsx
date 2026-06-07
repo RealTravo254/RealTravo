@@ -13,7 +13,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSavedItems } from "@/hooks/useSavedItems";
 import { trackReferralClick } from "@/lib/referralUtils";
 import { getShareLink } from "@/lib/shareUtils";
-import { getSlugLookupCandidates } from "@/lib/slugUtils";
 import { useBookingSubmit, BookingFormData } from "@/hooks/useBookingSubmit";
 import { useRealtimeItemAvailability } from "@/hooks/useRealtimeBookings";
 import { DetailNavBar } from "@/components/detail/DetailNavBar";
@@ -26,7 +25,7 @@ const CORAL       = "#FF7F50";
 const CORAL_LIGHT = "#FF9E7A";
 
 const SELECT_FIELDS =
-  "id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,price,price_child,available_tickets,description,activities,created_by,type,opening_hours,closing_hours,days_opened,map_link,is_flexible_date,inclusions,exclusions,allow_children,ticket_types,slot_limit_type,pickup_location,latitude,longitude";
+  "id,slug,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,price,price_child,available_tickets,description,activities,created_by,type,opening_hours,closing_hours,days_opened,map_link,is_flexible_date,inclusions,exclusions,allow_children,ticket_types,slot_limit_type,pickup_location,latitude,longitude";
 
 // ─── Image Gallery Modal ──────────────────────────────────────────────────────
 const ImageGalleryModal = ({
@@ -463,26 +462,29 @@ const TripDetail = () => {
     setLoading(true);
     setEvent(null);
     try {
-      const candidates = getSlugLookupCandidates(rawSlug);
-      const findMatch = (rows: any[] | null | undefined, field: "id" | "slug") => {
-        if (!rows?.length) return null;
-        for (const candidate of candidates) {
-          const match = rows.find((row) => row?.[field] === candidate);
-          if (match) return match;
+      let data: any = null;
+
+      // 1. Try matching by slug column directly (e.g. "river-mathioya-banks-and-water-KS2X")
+      const { data: bySlug } = await supabase
+        .from("trips")
+        .select(SELECT_FIELDS)
+        .eq("slug", rawSlug)
+        .maybeSingle();
+      if (bySlug) data = bySlug;
+
+      // 2. Fallback: try as a direct UUID id
+      if (!data) {
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (uuidRegex.test(rawSlug)) {
+          const { data: byId } = await supabase
+            .from("trips")
+            .select(SELECT_FIELDS)
+            .eq("id", rawSlug)
+            .maybeSingle();
+          if (byId) data = byId;
         }
-        return rows[0] || null;
-      };
-      const fetchByField = async (field: "id" | "slug", type?: string) => {
-        let query: any = supabase.from("trips").select(SELECT_FIELDS).in(field, candidates);
-        if (type) query = query.eq("type", type);
-        const { data } = await query;
-        return findMatch(data, field);
-      };
-      const data =
-        (await fetchByField("id", "trip")) ||
-        (await fetchByField("slug", "trip")) ||
-        (await fetchByField("id")) ||
-        (await fetchByField("slug"));
+      }
+
       if (!data) throw new Error("Not found");
       setEvent(data);
     } catch {

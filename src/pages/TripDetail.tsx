@@ -25,7 +25,8 @@ const TEAL        = "#008080";
 const CORAL       = "#FF7F50";
 const CORAL_LIGHT = "#FF9E7A";
 
-const SELECT_FIELDS = "id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,price,price_child,available_tickets,description,activities,created_by,type,opening_hours,closing_hours,days_opened,map_link,is_flexible_date,inclusions,exclusions,allow_children,ticket_types,slot_limit_type,pickup_location,latitude,longitude";
+// Revert to original SELECT_FIELDS — no latitude/longitude to avoid 400 errors
+const SELECT_FIELDS = "id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,price,price_child,available_tickets,description,activities,created_by,type,opening_hours,closing_hours,days_opened,map_link,is_flexible_date,inclusions,exclusions,allow_children,ticket_types,slot_limit_type,pickup_location";
 
 // ─── Image Gallery Modal ──────────────────────────────────────────────────────
 const ImageGalleryModal = ({
@@ -229,25 +230,26 @@ const HighlightsTags = ({ activities }: { activities: any[] }) => {
 };
 
 // ─── Map Section ──────────────────────────────────────────────────────────────
+// Uses map_link if stored, otherwise falls back to a name+location search query.
+// No latitude/longitude columns needed — fully safe for existing trips table schema.
 const TripMapSection = ({
-  name, latitude, longitude, location, country, mapLink,
+  name, location, country, mapLink,
 }: {
   name: string;
-  latitude?: number | null;
-  longitude?: number | null;
   location?: string;
   country?: string;
   mapLink?: string;
 }) => {
-  const hasCoords = latitude != null && longitude != null;
+  const searchQuery = encodeURIComponent([name, location, country].filter(Boolean).join(", "));
 
-  const googleMapsUrl = hasCoords
-    ? `https://www.google.com/maps?q=${latitude},${longitude}`
-    : mapLink || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${name}, ${location || ""}, ${country || ""}`)}`;
+  // Try to extract coords from a Google Maps URL like ?q=lat,lng
+  const coordMatch = mapLink?.match(/[?&]q=([-\d.]+),([-\d.]+)/);
 
-  const embedUrl = hasCoords
-    ? `https://maps.google.com/maps?q=${latitude},${longitude}&z=15&output=embed`
-    : `https://maps.google.com/maps?q=${encodeURIComponent(`${name}, ${location || ""}, ${country || ""}`)}&z=13&output=embed`;
+  const googleMapsUrl = mapLink || `https://www.google.com/maps/search/?api=1&query=${searchQuery}`;
+
+  const embedUrl = coordMatch
+    ? `https://maps.google.com/maps?q=${coordMatch[1]},${coordMatch[2]}&z=15&output=embed`
+    : `https://maps.google.com/maps?q=${searchQuery}&z=13&output=embed`;
 
   return (
     <section className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100">
@@ -274,7 +276,7 @@ const TripMapSection = ({
         </a>
       </div>
 
-      {/* Map iframe */}
+      {/* Map iframe — always visible */}
       <div style={{ height: "300px", position: "relative" }}>
         <iframe
           title={`Map of ${name}`}
@@ -286,7 +288,7 @@ const TripMapSection = ({
           loading="lazy"
           referrerPolicy="no-referrer-when-downgrade"
         />
-        {/* Pin overlay */}
+        {/* Name pill overlay */}
         <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 bg-white/95 backdrop-blur-sm shadow-md rounded-full px-3 py-1.5 pointer-events-none">
           <MapPin className="h-3 w-3" style={{ color: CORAL }} />
           <span className="text-[10px] font-black uppercase tracking-tight text-slate-700">{name}</span>
@@ -495,11 +497,9 @@ const TripDetail = () => {
               }
             </div>
 
-            {/* ── Map Section ── */}
+            {/* ── Map Section — uses map_link or falls back to name search ── */}
             <TripMapSection
               name={event.name}
-              latitude={event.latitude}
-              longitude={event.longitude}
               location={event.location}
               country={event.country}
               mapLink={event.map_link}

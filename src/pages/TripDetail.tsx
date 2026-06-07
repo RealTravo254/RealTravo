@@ -4,8 +4,8 @@ import { useSafeBack } from "@/hooks/useSafeBack";
 import { useBookingNavigate } from "@/hooks/useBookingNavigate";
 import { Button } from "@/components/ui/button";
 import {
-  MapPin, Share2, Copy, CheckCircle2, Clock, Users,
-  ChevronLeft, ChevronRight, Grid2X2, Zap, Navigation,
+  MapPin, Share2, Copy, Clock, Users,
+  ChevronLeft, ChevronRight, Grid2X2, Zap, Navigation, ExternalLink,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -17,7 +17,6 @@ import { getSlugLookupCandidates } from "@/lib/slugUtils";
 import { useBookingSubmit, BookingFormData } from "@/hooks/useBookingSubmit";
 import { useRealtimeItemAvailability } from "@/hooks/useRealtimeBookings";
 import { DetailNavBar } from "@/components/detail/DetailNavBar";
-import { DetailMapSection } from "@/components/detail/DetailMapSection";
 import { TealLoader } from "@/components/ui/teal-loader";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { Footer } from "@/components/Footer";
@@ -26,7 +25,7 @@ const TEAL        = "#008080";
 const CORAL       = "#FF7F50";
 const CORAL_LIGHT = "#FF9E7A";
 
-const SELECT_FIELDS = "id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,price,price_child,available_tickets,description,activities,created_by,type,opening_hours,closing_hours,days_opened,map_link,is_flexible_date,inclusions,exclusions,allow_children,ticket_types,slot_limit_type,pickup_location";
+const SELECT_FIELDS = "id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,price,price_child,available_tickets,description,activities,created_by,type,opening_hours,closing_hours,days_opened,map_link,is_flexible_date,inclusions,exclusions,allow_children,ticket_types,slot_limit_type,pickup_location,latitude,longitude";
 
 // ─── Image Gallery Modal ──────────────────────────────────────────────────────
 const ImageGalleryModal = ({
@@ -189,12 +188,8 @@ const MobileCarousel = ({ images, name }: { images: string[]; name: string }) =>
   );
 };
 
-// ─── Highlights — Clean Pill Style Layout without any Price or Count tags ───
-const HighlightsTags = ({
-  activities,
-}: {
-  activities: any[];
-}) => {
+// ─── Highlights ───────────────────────────────────────────────────────────────
+const HighlightsTags = ({ activities }: { activities: any[] }) => {
   if (!activities?.length) return null;
 
   const palettes = [
@@ -209,23 +204,18 @@ const HighlightsTags = ({
   return (
     <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
       <div className="flex items-center gap-2 mb-4">
-        <div className="w-7 h-7 rounded-lg flex items-center justify-center"
-          style={{ background: `${CORAL}18` }}>
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: `${CORAL}18` }}>
           <Zap className="h-3.5 w-3.5" style={{ color: CORAL }} />
         </div>
-        <h2 className="text-base font-black uppercase tracking-tight" style={{ color: CORAL }}>
-          Highlights
-        </h2>
+        <h2 className="text-base font-black uppercase tracking-tight" style={{ color: CORAL }}>Highlights</h2>
       </div>
       <div className="flex flex-wrap gap-2">
         {activities.map((act: any, i: number) => {
           const p = palettes[i % palettes.length];
           return (
-            <div
-              key={i}
+            <div key={i}
               className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border transition-all hover:scale-[1.03] hover:shadow-sm"
-              style={{ background: p.bg, borderColor: p.border }}
-            >
+              style={{ background: p.bg, borderColor: p.border }}>
               <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: p.dot }} />
               <span className="text-[12px] font-black uppercase tracking-tight leading-none" style={{ color: p.text }}>
                 {act.name}
@@ -238,6 +228,75 @@ const HighlightsTags = ({
   );
 };
 
+// ─── Map Section ──────────────────────────────────────────────────────────────
+const TripMapSection = ({
+  name, latitude, longitude, location, country, mapLink,
+}: {
+  name: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  location?: string;
+  country?: string;
+  mapLink?: string;
+}) => {
+  const hasCoords = latitude != null && longitude != null;
+
+  const googleMapsUrl = hasCoords
+    ? `https://www.google.com/maps?q=${latitude},${longitude}`
+    : mapLink || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${name}, ${location || ""}, ${country || ""}`)}`;
+
+  const embedUrl = hasCoords
+    ? `https://maps.google.com/maps?q=${latitude},${longitude}&z=15&output=embed`
+    : `https://maps.google.com/maps?q=${encodeURIComponent(`${name}, ${location || ""}, ${country || ""}`)}&z=13&output=embed`;
+
+  return (
+    <section className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100">
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100">
+        <div className="flex items-center gap-2">
+          <MapPin className="h-4 w-4" style={{ color: TEAL }} />
+          <div>
+            <h2 className="text-sm font-black uppercase tracking-tight" style={{ color: TEAL }}>Location</h2>
+            <p className="text-[10px] text-slate-400 font-medium">
+              {[name, location, country].filter(Boolean).join(", ")}
+            </p>
+          </div>
+        </div>
+        <a
+          href={googleMapsUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-white text-[10px] font-bold transition-all hover:opacity-90 active:scale-95"
+          style={{ background: `linear-gradient(135deg, ${TEAL}, #005f5f)` }}
+        >
+          <ExternalLink className="h-3 w-3" />
+          View on Google Maps
+        </a>
+      </div>
+
+      {/* Map iframe */}
+      <div style={{ height: "300px", position: "relative" }}>
+        <iframe
+          title={`Map of ${name}`}
+          src={embedUrl}
+          width="100%"
+          height="100%"
+          style={{ border: 0, display: "block" }}
+          allowFullScreen
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+        />
+        {/* Pin overlay */}
+        <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 bg-white/95 backdrop-blur-sm shadow-md rounded-full px-3 py-1.5 pointer-events-none">
+          <MapPin className="h-3 w-3" style={{ color: CORAL }} />
+          <span className="text-[10px] font-black uppercase tracking-tight text-slate-700">{name}</span>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+// ─── Utility button ───────────────────────────────────────────────────────────
 const UtilityButton = ({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) => (
   <Button variant="ghost" onClick={onClick}
     className="flex-col h-auto py-2.5 bg-[#F0E68C]/15 text-[#857F3E] rounded-xl hover:bg-[#F0E68C]/30 transition-colors border border-[#F0E68C]/30">
@@ -389,12 +448,12 @@ const TripDetail = () => {
           {/* ── Left column ── */}
           <div className="space-y-5">
 
-            {/* Highlights — shown first on all screen sizes */}
+            {/* Highlights */}
             {event.activities?.length > 0 && (
               <HighlightsTags activities={event.activities} />
             )}
 
-            {/* Inclusions & Exclusions — shown second on all screen sizes */}
+            {/* Inclusions & Exclusions */}
             {((event.inclusions?.length > 0) || (event.exclusions?.length > 0)) && (
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
                 <h2 className="text-base font-black uppercase tracking-tight mb-4" style={{ color: TEAL }}>Package Details</h2>
@@ -427,7 +486,7 @@ const TripDetail = () => {
               </div>
             )}
 
-            {/* About — shown last on all screen sizes */}
+            {/* About */}
             <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
               <h2 className="text-base font-black uppercase tracking-tight mb-3" style={{ color: TEAL }}>About this Trip</h2>
               {event.description
@@ -435,6 +494,16 @@ const TripDetail = () => {
                 : <p className="text-muted-foreground text-sm italic">No description provided.</p>
               }
             </div>
+
+            {/* ── Map Section ── */}
+            <TripMapSection
+              name={event.name}
+              latitude={event.latitude}
+              longitude={event.longitude}
+              location={event.location}
+              country={event.country}
+              mapLink={event.map_link}
+            />
 
           </div>
 
@@ -521,7 +590,7 @@ const TripDetail = () => {
                   </div>
                 )}
 
-                {/* ── Pickup Location ── */}
+                {/* Pickup Location */}
                 <div className="flex justify-between items-start text-xs font-bold uppercase tracking-tight gap-2">
                   <span className="text-slate-400 flex items-center gap-1 flex-shrink-0">
                     <Navigation className="h-3 w-3" /> Pickup
@@ -567,11 +636,6 @@ const TripDetail = () => {
             </div>
           </div>
         </div>
-
-        <DetailMapSection
-          currentItem={{ id: event.id, name: event.name, latitude: null, longitude: null, location: event.location, country: event.country, image_url: event.image_url, price: event.price }}
-          itemType="trip"
-        />
       </main>
 
       <Footer />

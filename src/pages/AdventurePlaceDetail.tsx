@@ -365,39 +365,36 @@ const TripDetail = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // ─── Fetch — slug-first, id as fallback, no UUID type errors ───────────────
+  // ─── Fetch — direct equality queries, no .in(), no .maybeSingle() ──────────
   const fetchTrip = async () => {
     if (!rawSlug) return;
     setLoading(true);
     setEvent(null);
+
+    // Helper: run a query and return the first row or null, never throws
+    const tryQuery = async (field: "slug" | "id", value: string, typeFilter?: string) => {
+      try {
+        let q = supabase.from("trips").select(SELECT_FIELDS).eq(field, value).limit(1);
+        if (typeFilter) q = q.eq("type", typeFilter);
+        const { data, error } = await q;
+        if (error || !data || data.length === 0) return null;
+        return data[0];
+      } catch {
+        return null;
+      }
+    };
+
     try {
-      const candidates = getSlugLookupCandidates(rawSlug);
+      // The slug in the URL IS the slug/id stored in the DB (e.g. "wws-kamweti-waterfalls-XYFI")
+      // Try every combination in order, most specific first
+      const result =
+        (await tryQuery("slug", rawSlug, "trip"))  ||
+        (await tryQuery("slug", rawSlug))           ||
+        (await tryQuery("id",   rawSlug, "trip"))   ||
+        (await tryQuery("id",   rawSlug));
 
-      // 1. slug + type=trip
-      const { data: s1 } = await supabase
-        .from("trips").select(SELECT_FIELDS)
-        .in("slug", candidates).eq("type", "trip").limit(1).maybeSingle();
-      if (s1) { setEvent(s1); return; }
-
-      // 2. slug, any type
-      const { data: s2 } = await supabase
-        .from("trips").select(SELECT_FIELDS)
-        .in("slug", candidates).limit(1).maybeSingle();
-      if (s2) { setEvent(s2); return; }
-
-      // 3. id + type=trip (silently skip 400s — id col may be UUID)
-      const { data: i1, error: e1 } = await supabase
-        .from("trips").select(SELECT_FIELDS)
-        .in("id", candidates).eq("type", "trip").limit(1).maybeSingle();
-      if (!e1 && i1) { setEvent(i1); return; }
-
-      // 4. id, any type
-      const { data: i2, error: e2 } = await supabase
-        .from("trips").select(SELECT_FIELDS)
-        .in("id", candidates).limit(1).maybeSingle();
-      if (!e2 && i2) { setEvent(i2); return; }
-
-      throw new Error("Not found");
+      if (!result) throw new Error("Not found");
+      setEvent(result);
     } catch {
       toast({ title: "Trip not found", variant: "destructive" });
     } finally {

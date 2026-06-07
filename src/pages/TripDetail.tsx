@@ -588,7 +588,7 @@ const TripDetail = () => {
           >
             {isSoldOut ? "Fully Booked" : isExpired ? "Expired" : "Reserve"}
           </Button>
-        </div>
+        </div> 
       </div>
     </div>
   );

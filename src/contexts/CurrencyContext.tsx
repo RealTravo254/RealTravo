@@ -43,9 +43,13 @@ const fetchExchangeRate = async (): Promise<number> => {
 
 export const CurrencyProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
+
+  // Always default to KES — never USD unless the user explicitly picks it
   const [currency, setCurrencyState] = useState<Currency>(() => {
-    return (localStorage.getItem(CACHE_KEY) as Currency) || "KES";
+    const stored = localStorage.getItem(CACHE_KEY) as Currency | null;
+    return stored === "USD" ? "USD" : "KES";
   });
+
   const [rate, setRate] = useState(() => {
     const cached = localStorage.getItem(RATE_CACHE_KEY);
     if (cached) {
@@ -56,8 +60,10 @@ export const CurrencyProvider = ({ children }: { children: ReactNode }) => {
     }
     return FALLBACK_RATE;
   });
+
   const [loading, setLoading] = useState(false);
 
+  // Fetch / refresh exchange rate
   useEffect(() => {
     const loadRate = async () => {
       const cached = localStorage.getItem(RATE_CACHE_KEY);
@@ -75,7 +81,10 @@ export const CurrencyProvider = ({ children }: { children: ReactNode }) => {
       try {
         const liveRate = await fetchExchangeRate();
         setRate(liveRate);
-        localStorage.setItem(RATE_CACHE_KEY, JSON.stringify({ rate: liveRate, timestamp: Date.now() }));
+        localStorage.setItem(
+          RATE_CACHE_KEY,
+          JSON.stringify({ rate: liveRate, timestamp: Date.now() })
+        );
       } finally {
         setLoading(false);
       }
@@ -83,50 +92,45 @@ export const CurrencyProvider = ({ children }: { children: ReactNode }) => {
     loadRate();
   }, []);
 
-  useEffect(() => {
-    const detectCurrency = async () => {
-      if (!user) return;
-      const stored = localStorage.getItem(CACHE_KEY);
-      if (stored) return;
-
-      const { data } = await supabase
-        .from("profiles")
-        .select("country")
-        .eq("id", user.id)
-        .single();
-
-      if (data?.country && data.country !== "Kenya") {
-        setCurrencyState("USD");
-        localStorage.setItem(CACHE_KEY, "USD");
-      }
-    };
-    detectCurrency();
-  }, [user]);
+  // NOTE: Auto-detection removed intentionally.
+  // We no longer switch currency based on the user's profile country.
+  // KES is the default for all users; they can change it manually in the drawer.
 
   const setCurrency = useCallback((c: Currency) => {
     setCurrencyState(c);
     localStorage.setItem(CACHE_KEY, c);
   }, []);
 
-  const convertPrice = useCallback((kesAmount: number) => {
-    if (currency === "KES") return Math.ceil(kesAmount);
-    return Math.ceil((kesAmount / rate) * 100) / 100;
-  }, [currency, rate]);
+  const convertPrice = useCallback(
+    (kesAmount: number) => {
+      if (currency === "KES") return Math.ceil(kesAmount);
+      return Math.ceil((kesAmount / rate) * 100) / 100;
+    },
+    [currency, rate]
+  );
 
-  const formatPrice = useCallback((kesAmount: number) => {
-    if (currency === "KES") return `KSh ${Math.ceil(kesAmount).toLocaleString()}`;
-    const usd = Math.ceil((kesAmount / rate) * 100) / 100;
-    return `$${usd.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
-  }, [currency, rate]);
+  const formatPrice = useCallback(
+    (kesAmount: number) => {
+      if (currency === "KES") return `KSh ${Math.ceil(kesAmount).toLocaleString()}`;
+      const usd = Math.ceil((kesAmount / rate) * 100) / 100;
+      return `$${usd.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+    },
+    [currency, rate]
+  );
 
-  const usdHint = useCallback((kesAmount: number) => {
-    if (!kesAmount || kesAmount <= 0) return "";
-    const usd = Math.ceil((kesAmount / rate) * 100) / 100;
-    return `≈ $${usd.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
-  }, [rate]);
+  const usdHint = useCallback(
+    (kesAmount: number) => {
+      if (!kesAmount || kesAmount <= 0) return "";
+      const usd = Math.ceil((kesAmount / rate) * 100) / 100;
+      return `≈ $${usd.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+    },
+    [rate]
+  );
 
   return (
-    <CurrencyContext.Provider value={{ currency, setCurrency, rate, convertPrice, formatPrice, usdHint, loading }}>
+    <CurrencyContext.Provider
+      value={{ currency, setCurrency, rate, convertPrice, formatPrice, usdHint, loading }}
+    >
       {children}
     </CurrencyContext.Provider>
   );

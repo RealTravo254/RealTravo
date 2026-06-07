@@ -25,7 +25,6 @@ const TEAL        = "#008080";
 const CORAL       = "#FF7F50";
 const CORAL_LIGHT = "#FF9E7A";
 
-// Revert to original SELECT_FIELDS — no latitude/longitude to avoid 400 errors
 const SELECT_FIELDS = "id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,price,price_child,available_tickets,description,activities,created_by,type,opening_hours,closing_hours,days_opened,map_link,is_flexible_date,inclusions,exclusions,allow_children,ticket_types,slot_limit_type,pickup_location";
 
 // ─── Image Gallery Modal ──────────────────────────────────────────────────────
@@ -230,8 +229,6 @@ const HighlightsTags = ({ activities }: { activities: any[] }) => {
 };
 
 // ─── Map Section ──────────────────────────────────────────────────────────────
-// Uses map_link if stored, otherwise falls back to a name+location search query.
-// No latitude/longitude columns needed — fully safe for existing trips table schema.
 const TripMapSection = ({
   name, location, country, mapLink,
 }: {
@@ -241,19 +238,14 @@ const TripMapSection = ({
   mapLink?: string;
 }) => {
   const searchQuery = encodeURIComponent([name, location, country].filter(Boolean).join(", "));
-
-  // Try to extract coords from a Google Maps URL like ?q=lat,lng
   const coordMatch = mapLink?.match(/[?&]q=([-\d.]+),([-\d.]+)/);
-
   const googleMapsUrl = mapLink || `https://www.google.com/maps/search/?api=1&query=${searchQuery}`;
-
   const embedUrl = coordMatch
     ? `https://maps.google.com/maps?q=${coordMatch[1]},${coordMatch[2]}&z=15&output=embed`
     : `https://maps.google.com/maps?q=${searchQuery}&z=13&output=embed`;
 
   return (
     <section className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100">
-      {/* Header */}
       <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100">
         <div className="flex items-center gap-2">
           <MapPin className="h-4 w-4" style={{ color: TEAL }} />
@@ -275,8 +267,6 @@ const TripMapSection = ({
           View on Google Maps
         </a>
       </div>
-
-      {/* Map iframe — always visible */}
       <div style={{ height: "300px", position: "relative" }}>
         <iframe
           title={`Map of ${name}`}
@@ -288,7 +278,6 @@ const TripMapSection = ({
           loading="lazy"
           referrerPolicy="no-referrer-when-downgrade"
         />
-        {/* Name pill overlay */}
         <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 bg-white/95 backdrop-blur-sm shadow-md rounded-full px-3 py-1.5 pointer-events-none">
           <MapPin className="h-3 w-3" style={{ color: CORAL }} />
           <span className="text-[10px] font-black uppercase tracking-tight text-slate-700">{name}</span>
@@ -305,6 +294,156 @@ const UtilityButton = ({ icon, label, onClick }: { icon: React.ReactNode; label:
     <div className="mb-0.5">{icon}</div>
     <span className="text-[9px] font-black uppercase tracking-tight">{label}</span>
   </Button>
+);
+
+// ─── Booking Card (extracted so it can be rendered in two places) ─────────────
+const BookingCard = ({
+  event,
+  formatPrice,
+  remainingSlots,
+  isSoldOut,
+  isExpired,
+  canBook,
+  navigateToBooking,
+  openInMaps,
+  handleCopyLink,
+  handleShare,
+}: {
+  event: any;
+  formatPrice: (v: number) => string;
+  remainingSlots: number;
+  isSoldOut: boolean;
+  isExpired: boolean;
+  canBook: boolean;
+  navigateToBooking: (path: string) => void;
+  openInMaps: () => void;
+  handleCopyLink: () => void;
+  handleShare: () => void;
+}) => (
+  <div className="bg-white rounded-[28px] p-5 shadow-2xl border border-slate-100 lg:sticky lg:top-24">
+
+    {/* Price + slots */}
+    <div className="flex justify-between items-end mb-4">
+      <div>
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Ticket Price</p>
+        <div className="flex items-baseline gap-1">
+          <span className="text-lg font-bold text-destructive">{formatPrice(event.price)}</span>
+          <span className="text-slate-400 text-[10px] font-bold uppercase">/ adult</span>
+        </div>
+      </div>
+      <div className="bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100 flex items-center gap-1.5">
+        <Clock className="h-3.5 w-3.5 text-[#008080]" />
+        <span className={`text-xs font-black uppercase ${isSoldOut ? "text-red-500" : "text-slate-600"}`}>
+          {isSoldOut ? "FULL" : `${remainingSlots} Left`}
+        </span>
+      </div>
+    </div>
+
+    {/* Hours */}
+    {(event.opening_hours || event.closing_hours || (event.is_flexible_date && event.days_opened?.length > 0)) && (
+      <div className="mb-4 p-3 bg-slate-50 rounded-xl border border-slate-100">
+        {(event.opening_hours || event.closing_hours) && (
+          <div className="flex justify-between items-center mb-1">
+            <span className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-1"><Clock className="h-3 w-3" /> Hours</span>
+            <span className="text-xs font-black text-slate-700">{event.opening_hours || "08:00"} – {event.closing_hours || "18:00"}</span>
+          </div>
+        )}
+        {event.is_flexible_date && event.days_opened?.length > 0 && (
+          <div className="mt-1.5">
+            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1.5">Available Days</p>
+            <div className="flex flex-wrap gap-1">
+              {event.days_opened.map((day: string, i: number) => (
+                <span key={i} className="px-2 py-0.5 rounded-md bg-primary/10 text-[9px] font-black uppercase text-primary border border-primary/20">{day}</span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    )}
+
+    {/* Availability bar */}
+    <div className="mb-4 p-3 bg-slate-50 rounded-xl border border-slate-100">
+      <div className="flex justify-between items-center mb-1.5">
+        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1"><Users className="h-3 w-3" /> Availability</span>
+        <span className={`text-[10px] font-black uppercase ${remainingSlots < 5 ? "text-red-500" : "text-emerald-600"}`}>
+          {isSoldOut ? "Sold Out" : `${remainingSlots} Available`}
+        </span>
+      </div>
+      <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+        <div className={`h-full transition-all duration-500 ${remainingSlots < 5 ? "bg-red-500" : "bg-emerald-500"}`}
+          style={{ width: `${Math.min((remainingSlots / (event.available_tickets || 50)) * 100, 100)}%` }} />
+      </div>
+    </div>
+
+    {/* Trip meta */}
+    <div className="space-y-2 mb-4">
+      <div className="flex justify-between text-xs font-bold uppercase tracking-tight">
+        <span className="text-slate-400">Date</span>
+        <span className={isExpired ? "text-red-500" : "text-slate-700"}>
+          {event.is_custom_date
+            ? <span className="text-emerald-600 font-black">FLEXIBLE</span>
+            : <>{new Date(event.date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}{isExpired && " (Past)"}</>
+          }
+        </span>
+      </div>
+
+      <div className="flex justify-between text-xs font-bold uppercase tracking-tight">
+        <span className="text-slate-400">Children</span>
+        <span className={event.allow_children === false ? "text-red-500" : "text-emerald-600"}>
+          {event.allow_children === false ? "Not Allowed" : "Allowed"}
+        </span>
+      </div>
+
+      {event.allow_children !== false && (
+        <div className="flex justify-between text-xs font-bold uppercase tracking-tight">
+          <span className="text-slate-400">Child (Under 12)</span>
+          <span className="text-slate-700">{formatPrice(event.price_child || 0)}</span>
+        </div>
+      )}
+
+      <div className="flex justify-between items-start text-xs font-bold uppercase tracking-tight gap-2">
+        <span className="text-slate-400 flex items-center gap-1 flex-shrink-0">
+          <Navigation className="h-3 w-3" /> Pickup
+        </span>
+        {event.pickup_location ? (
+          <span className="text-slate-700 text-right normal-case font-semibold max-w-[60%] leading-snug capitalize">
+            {event.pickup_location}
+          </span>
+        ) : (
+          <span className="text-slate-400 italic font-semibold normal-case">Not Available</span>
+        )}
+      </div>
+
+      {event.ticket_types?.length > 0 && (
+        <div className="pt-2 border-t border-slate-100">
+          <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1.5">Ticket Types</p>
+          {event.ticket_types.map((ticket: any, i: number) => (
+            <div key={i} className="flex justify-between text-xs font-bold uppercase tracking-tight py-0.5">
+              <span className="text-slate-500">{ticket.name}</span>
+              <span className="text-slate-700">{formatPrice(Number(ticket.price))}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+
+    {/* Reserve */}
+    <Button
+      onClick={() => navigateToBooking(`/booking/trip/${event.id}`)}
+      disabled={!canBook}
+      className="w-full py-6 rounded-2xl text-sm font-black uppercase tracking-[0.15em] text-white shadow-xl transition-all active:scale-95 border-none"
+      style={{ background: !canBook ? "#cbd5e1" : `linear-gradient(135deg, ${CORAL_LIGHT} 0%, ${CORAL} 100%)` }}
+    >
+      {isSoldOut ? "Fully Booked" : isExpired ? "Trip Expired" : "Reserve Spot"}
+    </Button>
+
+    {/* Utilities */}
+    <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-slate-100">
+      <UtilityButton icon={<MapPin className="h-4 w-4" />} label="Map" onClick={openInMaps} />
+      <UtilityButton icon={<Copy className="h-4 w-4" />} label="Copy" onClick={handleCopyLink} />
+      <UtilityButton icon={<Share2 className="h-4 w-4" />} label="Share" onClick={handleShare} />
+    </div>
+  </div>
 );
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -421,6 +560,20 @@ const TripDetail = () => {
   const canBook = !isExpired && !isSoldOut;
   const allImages = [event?.image_url, ...(event?.gallery_images || []), ...(event?.images || [])].filter((v, i, a) => Boolean(v) && a.indexOf(v) === i);
 
+  // Shared booking card props
+  const bookingCardProps = {
+    event,
+    formatPrice,
+    remainingSlots,
+    isSoldOut,
+    isExpired,
+    canBook,
+    navigateToBooking,
+    openInMaps,
+    handleCopyLink,
+    handleShare,
+  };
+
   return (
     <div className="min-h-screen bg-background pb-24">
       <DetailNavBar scrolled={scrolled} itemName={event.name} isSaved={isSaved} onSave={handleSave} onBack={goBack} />
@@ -445,6 +598,12 @@ const TripDetail = () => {
 
       {/* ══ MAIN CONTENT ══════════════════════════════════════════════════════ */}
       <main className="container px-4 max-w-6xl mx-auto mt-5 relative z-10">
+
+        {/* ── Mobile-only: Booking card FIRST, above everything ── */}
+        <div className="lg:hidden mb-5">
+          <BookingCard {...bookingCardProps} />
+        </div>
+
         <div className="grid lg:grid-cols-[1.7fr,1fr] gap-6">
 
           {/* ── Left column ── */}
@@ -497,7 +656,7 @@ const TripDetail = () => {
               }
             </div>
 
-            {/* ── Map Section — uses map_link or falls back to name search ── */}
+            {/* Map Section */}
             <TripMapSection
               name={event.name}
               location={event.location}
@@ -507,133 +666,9 @@ const TripDetail = () => {
 
           </div>
 
-          {/* ── Right column / Booking card ── */}
-          <div className="space-y-5">
-            <div className="bg-white rounded-[28px] p-5 shadow-2xl border border-slate-100 lg:sticky lg:top-24">
-
-              {/* Price + slots */}
-              <div className="flex justify-between items-end mb-4">
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Ticket Price</p>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-lg font-bold text-destructive">{formatPrice(event.price)}</span>
-                    <span className="text-slate-400 text-[10px] font-bold uppercase">/ adult</span>
-                  </div>
-                </div>
-                <div className="bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100 flex items-center gap-1.5">
-                  <Clock className="h-3.5 w-3.5 text-[#008080]" />
-                  <span className={`text-xs font-black uppercase ${isSoldOut ? "text-red-500" : "text-slate-600"}`}>
-                    {isSoldOut ? "FULL" : `${remainingSlots} Left`}
-                  </span>
-                </div>
-              </div>
-
-              {/* Hours */}
-              {(event.opening_hours || event.closing_hours || (event.is_flexible_date && event.days_opened?.length > 0)) && (
-                <div className="mb-4 p-3 bg-slate-50 rounded-xl border border-slate-100">
-                  {(event.opening_hours || event.closing_hours) && (
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-1"><Clock className="h-3 w-3" /> Hours</span>
-                      <span className="text-xs font-black text-slate-700">{event.opening_hours || "08:00"} – {event.closing_hours || "18:00"}</span>
-                    </div>
-                  )}
-                  {event.is_flexible_date && event.days_opened?.length > 0 && (
-                    <div className="mt-1.5">
-                      <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1.5">Available Days</p>
-                      <div className="flex flex-wrap gap-1">
-                        {event.days_opened.map((day: string, i: number) => (
-                          <span key={i} className="px-2 py-0.5 rounded-md bg-primary/10 text-[9px] font-black uppercase text-primary border border-primary/20">{day}</span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Availability bar */}
-              <div className="mb-4 p-3 bg-slate-50 rounded-xl border border-slate-100">
-                <div className="flex justify-between items-center mb-1.5">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1"><Users className="h-3 w-3" /> Availability</span>
-                  <span className={`text-[10px] font-black uppercase ${remainingSlots < 5 ? "text-red-500" : "text-emerald-600"}`}>
-                    {isSoldOut ? "Sold Out" : `${remainingSlots} Available`}
-                  </span>
-                </div>
-                <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                  <div className={`h-full transition-all duration-500 ${remainingSlots < 5 ? "bg-red-500" : "bg-emerald-500"}`}
-                    style={{ width: `${Math.min((remainingSlots / (event.available_tickets || 50)) * 100, 100)}%` }} />
-                </div>
-              </div>
-
-              {/* Trip meta */}
-              <div className="space-y-2 mb-4">
-                <div className="flex justify-between text-xs font-bold uppercase tracking-tight">
-                  <span className="text-slate-400">Date</span>
-                  <span className={isExpired ? "text-red-500" : "text-slate-700"}>
-                    {event.is_custom_date
-                      ? <span className="text-emerald-600 font-black">FLEXIBLE</span>
-                      : <>{new Date(event.date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}{isExpired && " (Past)"}</>
-                    }
-                  </span>
-                </div>
-
-                <div className="flex justify-between text-xs font-bold uppercase tracking-tight">
-                  <span className="text-slate-400">Children</span>
-                  <span className={event.allow_children === false ? "text-red-500" : "text-emerald-600"}>
-                    {event.allow_children === false ? "Not Allowed" : "Allowed"}
-                  </span>
-                </div>
-
-                {event.allow_children !== false && (
-                  <div className="flex justify-between text-xs font-bold uppercase tracking-tight">
-                    <span className="text-slate-400">Child (Under 12)</span>
-                    <span className="text-slate-700">{formatPrice(event.price_child || 0)}</span>
-                  </div>
-                )}
-
-                {/* Pickup Location */}
-                <div className="flex justify-between items-start text-xs font-bold uppercase tracking-tight gap-2">
-                  <span className="text-slate-400 flex items-center gap-1 flex-shrink-0">
-                    <Navigation className="h-3 w-3" /> Pickup
-                  </span>
-                  {event.pickup_location ? (
-                    <span className="text-slate-700 text-right normal-case font-semibold max-w-[60%] leading-snug capitalize">
-                      {event.pickup_location}
-                    </span>
-                  ) : (
-                    <span className="text-slate-400 italic font-semibold normal-case">Not Available</span>
-                  )}
-                </div>
-
-                {event.ticket_types?.length > 0 && (
-                  <div className="pt-2 border-t border-slate-100">
-                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1.5">Ticket Types</p>
-                    {event.ticket_types.map((ticket: any, i: number) => (
-                      <div key={i} className="flex justify-between text-xs font-bold uppercase tracking-tight py-0.5">
-                        <span className="text-slate-500">{ticket.name}</span>
-                        <span className="text-slate-700">{formatPrice(Number(ticket.price))}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Reserve */}
-              <Button
-                onClick={() => navigateToBooking(`/booking/trip/${event.id}`)}
-                disabled={!canBook}
-                className="w-full py-6 rounded-2xl text-sm font-black uppercase tracking-[0.15em] text-white shadow-xl transition-all active:scale-95 border-none"
-                style={{ background: !canBook ? "#cbd5e1" : `linear-gradient(135deg, ${CORAL_LIGHT} 0%, ${CORAL} 100%)` }}
-              >
-                {isSoldOut ? "Fully Booked" : isExpired ? "Trip Expired" : "Reserve Spot"}
-              </Button>
-
-              {/* Utilities */}
-              <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-slate-100">
-                <UtilityButton icon={<MapPin className="h-4 w-4" />} label="Map" onClick={openInMaps} />
-                <UtilityButton icon={<Copy className="h-4 w-4" />} label="Copy" onClick={handleCopyLink} />
-                <UtilityButton icon={<Share2 className="h-4 w-4" />} label="Share" onClick={handleShare} />
-              </div>
-            </div>
+          {/* ── Right column / Booking card — desktop only ── */}
+          <div className="hidden lg:block space-y-5">
+            <BookingCard {...bookingCardProps} />
           </div>
         </div>
       </main>

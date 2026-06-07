@@ -1,5 +1,5 @@
 import { Card } from "@/components/ui/card";
-import { CheckCircle2, MapPin, Clock, DollarSign, Phone, User, Calendar, Building, Users, Image as ImageIcon, Link as LinkIcon, Sparkles, Globe2 } from "lucide-react";
+import { CheckCircle2, MapPin, Clock, DollarSign, Phone, User, Calendar, Building, Users, Image as ImageIcon, Link as LinkIcon, Sparkles, Globe2, Navigation } from "lucide-react";
 import { useCurrency } from "@/contexts/CurrencyContext";
 
 interface FacilityWithImages {
@@ -18,6 +18,7 @@ interface ActivityWithImages {
   price: number;
   is_free?: boolean;
   images?: string[];
+  previewUrls?: string[];
 }
 
 interface ReviewStepProps {
@@ -63,6 +64,7 @@ interface ReviewStepProps {
     allowChildren?: boolean;
     traLicensePreviewUrl?: string;
     eventCertificatePreviewUrl?: string;
+    pickupLocation?: string; // ← ADDED
   };
   creatorName?: string;
   creatorEmail?: string;
@@ -177,6 +179,15 @@ export const ReviewStep = ({ type, data, creatorName, creatorEmail, creatorPhone
           <InfoItem label="City / Place" value={data.place} />
           {data.location && <InfoItem label="Specific Location" value={data.location} fullWidth />}
           {data.locationName && <InfoItem label="Location Name" value={data.locationName} fullWidth />}
+          {/* PICKUP LOCATION — trips only */}
+          {type === 'trip' && data.pickupLocation && (
+            <div className="col-span-2 p-3 rounded-xl bg-amber-50 border border-amber-200">
+              <p className="text-[10px] font-semibold text-amber-600 uppercase tracking-wider mb-1 flex items-center gap-1">
+                <Navigation className="h-3 w-3" /> Pickup Location
+              </p>
+              <p className="font-semibold text-amber-800 text-sm">{data.pickupLocation}</p>
+            </div>
+          )}
           {data.latitude && data.longitude && (
             <InfoItem label="GPS" value={`${data.latitude.toFixed(4)}, ${data.longitude.toFixed(4)}`} fullWidth />
           )}

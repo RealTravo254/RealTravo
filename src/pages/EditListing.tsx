@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Upload, X, Edit2, Save, Calendar, MapPin, Phone, Mail, DollarSign, Users, Clock, CheckCircle, XCircle, Pencil, Plus, Trash2, ArrowLeft, Image as ImageIcon } from "lucide-react";
+import { Loader2, Upload, X, Edit2, Save, Calendar, MapPin, Phone, Mail, DollarSign, Users, Clock, CheckCircle, XCircle, Pencil, Plus, Trash2, ArrowLeft, Image as ImageIcon, Navigation } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -72,11 +72,9 @@ const EditListing = () => {
   const [emailVerified, setEmailVerified] = useState(false);
   const [originalEmail, setOriginalEmail] = useState("");
   
-  // Check if user is re-submitting
   const urlParams = new URLSearchParams(window.location.search);
   const isResubmitting = urlParams.get("resubmit") === "true";
   
-  // Edit states
   const [editMode, setEditMode] = useState<Record<string, boolean>>({});
   
   // Common fields
@@ -108,6 +106,8 @@ const EditListing = () => {
   const [exclusions, setExclusions] = useState<string[]>([]);
   const [newInclusion, setNewInclusion] = useState("");
   const [newExclusion, setNewExclusion] = useState("");
+  // ← NEW: Pickup location state
+  const [pickupLocation, setPickupLocation] = useState("");
 
   useEffect(() => {
     if (!user || !id || !type) {
@@ -140,12 +140,7 @@ const EditListing = () => {
       else if (type === "adventure") table = "adventure_places";
       else if (type === "trip") table = "trips";
       else if (type === "attraction") {
-        // Attractions table doesn't exist
-        toast({
-          title: "Not Supported",
-          description: "Attractions are not supported",
-          variant: "destructive",
-        });
+        toast({ title: "Not Supported", description: "Attractions are not supported", variant: "destructive" });
         navigate("/become-host");
         return;
       }
@@ -159,11 +154,9 @@ const EditListing = () => {
 
       if (error) throw error;
 
-      // Common fields
       setName((data as any).name as string);
       setDescription(((data as any).description as string) || "");
       
-      // Location handling - attractions use location_name
       if (type === "attraction") {
         setLocation(((data as any).location_name as string) || "");
       } else {
@@ -174,12 +167,8 @@ const EditListing = () => {
       const fetchedEmail = ((data as any).email as string) || "";
       setEmail(fetchedEmail);
       setOriginalEmail(fetchedEmail);
-      // If email exists, mark as verified (existing email is already trusted)
-      if (fetchedEmail) {
-        setEmailVerified(true);
-      }
+      if (fetchedEmail) setEmailVerified(true);
       
-      // Images handling
       if (type === "attraction") {
         setExistingImages(((data as any).photo_urls as string[]) || []);
       } else {
@@ -190,7 +179,6 @@ const EditListing = () => {
       setClosingHours(((data as any).closing_hours as string) || "");
       setDaysOpened(((data as any).days_opened as string[]) || []);
       
-      // Phone numbers
       if (type === "trip") {
         setPhoneNumbers([((data as any).phone_number as string)].filter(Boolean));
       } else if (type === "attraction") {
@@ -199,7 +187,6 @@ const EditListing = () => {
         setPhoneNumbers(((data as any).phone_numbers as string[]) || []);
       }
 
-      // Type-specific fields
       if (type === 'trip') {
         setDate((data as any).date || '');
         setAvailableSlots((data as any).available_tickets || 0);
@@ -207,6 +194,8 @@ const EditListing = () => {
         setPriceChild((data as any).price_child || 0);
         setInclusions((data as any).inclusions || []);
         setExclusions((data as any).exclusions || []);
+        // ← NEW: Load pickup location
+        setPickupLocation((data as any).pickup_location || '');
       }
 
       if (type === 'hotel' || type === 'adventure') {
@@ -215,7 +204,6 @@ const EditListing = () => {
       }
 
       if (type === 'hotel') {
-        // amenities stores general facility IDs (icon-based)
         setGeneralFacilities(((data as any).amenities as string[]) || []);
       }
 
@@ -223,12 +211,10 @@ const EditListing = () => {
         setEntranceFeeType((data as any).entry_fee_type || "free");
         setEntranceFee((data as any).entry_fee || 0);
         setEntranceFeeChild((data as any).child_entry_fee || 0);
-        // Handle amenities - could be string[] or object array in jsonb
         const adventureAmenities = (data as any).amenities || [];
         const amenityStrings = Array.isArray(adventureAmenities) 
           ? adventureAmenities.map((a: any) => typeof a === 'string' ? a : a.name || '')
           : [];
-        // Separate general facilities (matching AVAILABLE_FACILITIES ids) from text amenities
         const { AVAILABLE_FACILITIES } = await import("@/components/creation/GeneralFacilitiesSelector");
         const facilityIds = AVAILABLE_FACILITIES.map(f => f.id);
         setGeneralFacilities(amenityStrings.filter((a: string) => facilityIds.includes(a)));
@@ -240,24 +226,18 @@ const EditListing = () => {
         setEntranceFee((data as any).price_adult || 0);
         setFacilities((data as any).facilities || []);
         setActivities((data as any).activities || []);
-        // Handle amenities - could be string[] or object array in jsonb
         const attractionAmenities = (data as any).amenities || [];
         setAmenities(Array.isArray(attractionAmenities) 
           ? attractionAmenities.map((a: any) => typeof a === 'string' ? a : a.name || '')
           : []);
       }
       
-      // Set approval status and hidden state
       setApprovalStatus((data as any).approval_status || "");
       setIsHidden((data as any).is_hidden || false);
       
     } catch (error) {
       console.error("Error fetching listing:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load listing",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to load listing", variant: "destructive" });
       navigate("/become-host");
     } finally {
       setLoading(false);
@@ -272,21 +252,13 @@ const EditListing = () => {
     if (e.target.files) {
       const files = Array.from(e.target.files);
       if (existingImages.length + newImages.length + files.length > 10) {
-        toast({
-          title: "Too many images",
-          description: "You can upload a maximum of 10 images",
-          variant: "destructive",
-        });
+        toast({ title: "Too many images", description: "You can upload a maximum of 10 images", variant: "destructive" });
         return;
       }
-      
       try {
-        // Compress images before adding
         const compressed = await compressImages(files);
         setNewImages([...newImages, ...compressed.map(c => c.file)]);
       } catch (error) {
-        console.error("Error compressing images:", error);
-        // Fall back to original files if compression fails
         setNewImages([...newImages, ...files]);
       }
     }
@@ -294,11 +266,7 @@ const EditListing = () => {
 
   const removeExistingImage = (index: number) => {
     if (existingImages.length + newImages.length <= 1) {
-      toast({
-        title: "Cannot remove image",
-        description: "At least one image is required",
-        variant: "destructive",
-      });
+      toast({ title: "Cannot remove image", description: "At least one image is required", variant: "destructive" });
       return;
     }
     setExistingImages(existingImages.filter((_, i) => i !== index));
@@ -306,78 +274,27 @@ const EditListing = () => {
 
   const removeNewImage = (index: number) => {
     if (existingImages.length + newImages.length <= 1) {
-      toast({
-        title: "Cannot remove image",
-        description: "At least one image is required",
-        variant: "destructive",
-      });
+      toast({ title: "Cannot remove image", description: "At least one image is required", variant: "destructive" });
       return;
     }
     setNewImages(newImages.filter((_, i) => i !== index));
   };
 
-  const addPhoneNumber = () => {
-    setPhoneNumbers([...phoneNumbers, ""]);
-  };
-
-  const updatePhoneNumber = (index: number, value: string) => {
-    const updated = [...phoneNumbers];
-    updated[index] = value;
-    setPhoneNumbers(updated);
-  };
-
-  const removePhoneNumber = (index: number) => {
-    setPhoneNumbers(phoneNumbers.filter((_, i) => i !== index));
-  };
-
-  const addAmenity = () => {
-    setAmenities([...amenities, ""]);
-  };
-
-  const updateAmenity = (index: number, value: string) => {
-    const updated = [...amenities];
-    updated[index] = value;
-    setAmenities(updated);
-  };
-
-  const removeAmenity = (index: number) => {
-    setAmenities(amenities.filter((_, i) => i !== index));
-  };
-
-  const addFacility = () => {
-    setFacilities([...facilities, { name: "", price: 0, capacity: 1, images: [] }]);
-  };
-
-  const updateFacility = (index: number, field: keyof FacilityWithImages, value: string | number | string[]) => {
-    const updated = [...facilities];
-    updated[index] = { ...updated[index], [field]: value };
-    setFacilities(updated);
-  };
-
-  const removeFacility = (index: number) => {
-    setFacilities(facilities.filter((_, i) => i !== index));
-  };
-
-  const addActivity = () => {
-    setActivities([...activities, { name: "", price: 0, images: [] }]);
-  };
-
-  const updateActivity = (index: number, field: keyof ActivityWithImages, value: string | number | string[]) => {
-    const updated = [...activities];
-    updated[index] = { ...updated[index], [field]: value };
-    setActivities(updated);
-  };
-
-  const removeActivity = (index: number) => {
-    setActivities(activities.filter((_, i) => i !== index));
-  };
-
+  const addPhoneNumber = () => setPhoneNumbers([...phoneNumbers, ""]);
+  const updatePhoneNumber = (index: number, value: string) => { const u = [...phoneNumbers]; u[index] = value; setPhoneNumbers(u); };
+  const removePhoneNumber = (index: number) => setPhoneNumbers(phoneNumbers.filter((_, i) => i !== index));
+  const addAmenity = () => setAmenities([...amenities, ""]);
+  const updateAmenity = (index: number, value: string) => { const u = [...amenities]; u[index] = value; setAmenities(u); };
+  const removeAmenity = (index: number) => setAmenities(amenities.filter((_, i) => i !== index));
+  const addFacility = () => setFacilities([...facilities, { name: "", price: 0, capacity: 1, images: [] }]);
+  const updateFacility = (index: number, field: keyof FacilityWithImages, value: string | number | string[]) => { const u = [...facilities]; u[index] = { ...u[index], [field]: value }; setFacilities(u); };
+  const removeFacility = (index: number) => setFacilities(facilities.filter((_, i) => i !== index));
+  const addActivity = () => setActivities([...activities, { name: "", price: 0, images: [] }]);
+  const updateActivity = (index: number, field: keyof ActivityWithImages, value: string | number | string[]) => { const u = [...activities]; u[index] = { ...u[index], [field]: value }; setActivities(u); };
+  const removeActivity = (index: number) => setActivities(activities.filter((_, i) => i !== index));
   const toggleDay = (day: string) => {
-    if (daysOpened.includes(day)) {
-      setDaysOpened(daysOpened.filter(d => d !== day));
-    } else {
-      setDaysOpened([...daysOpened, day]);
-    }
+    if (daysOpened.includes(day)) setDaysOpened(daysOpened.filter(d => d !== day));
+    else setDaysOpened([...daysOpened, day]);
   };
 
   const handleResubmit = async () => {
@@ -385,31 +302,13 @@ const EditListing = () => {
     try {
       let table: "hotels" | "adventure_places" | "trips" | "attractions" = "hotels";
       if (!table) return;
-
-      // Validate approval_status before update
       const validatedStatus = approvalStatusSchema.parse("pending");
-
-      const { error } = await supabase
-        .from(table)
-        .update({ approval_status: validatedStatus })
-        .eq("id", id!)
-        .eq("created_by", user?.id!);
-
+      const { error } = await supabase.from(table).update({ approval_status: validatedStatus }).eq("id", id!).eq("created_by", user?.id!);
       if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Your listing has been re-submitted for approval",
-      });
-
+      toast({ title: "Success", description: "Your listing has been re-submitted for approval" });
       navigate("/become-host");
     } catch (error) {
-      console.error("Error re-submitting:", error);
-      toast({
-        title: "Error",
-        description: "Failed to re-submit listing",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to re-submit listing", variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -423,41 +322,22 @@ const EditListing = () => {
       else if (type === "adventure") table = "adventure_places";
       else if (type === "trip") table = "trips";
       else if (type === "attraction") {
-        // Attractions table doesn't exist
-        toast({
-          title: "Not Supported",
-          description: "Attractions are not supported",
-          variant: "destructive",
-        });
+        toast({ title: "Not Supported", description: "Attractions are not supported", variant: "destructive" });
         setSaving(false);
         return;
       }
 
       let updateData: any = {};
 
-      // Map field to update data
       switch (field) {
-        case "name":
-          updateData.name = name;
-          break;
-        case "description":
-          updateData.description = description;
-          break;
-        case "location":
-          updateData.location = location;
-          break;
-        case "mapLink":
-          updateData.map_link = mapLink;
-          break;
-        case "email":
-          updateData.email = email;
-          break;
+        case "name": updateData.name = name; break;
+        case "description": updateData.description = description; break;
+        case "location": updateData.location = location; break;
+        case "mapLink": updateData.map_link = mapLink; break;
+        case "email": updateData.email = email; break;
         case "phone":
-          if (type === "trip" || type === "attraction") {
-            updateData.phone_number = phoneNumbers[0] || "";
-          } else {
-            updateData.phone_numbers = phoneNumbers.filter(Boolean);
-          }
+          if (type === "trip" || type === "attraction") updateData.phone_number = phoneNumbers[0] || "";
+          else updateData.phone_numbers = phoneNumbers.filter(Boolean);
           break;
         case "hours":
           updateData.opening_hours = openingHours;
@@ -465,20 +345,17 @@ const EditListing = () => {
           updateData.days_opened = daysOpened;
           break;
         case "price":
-          if (type === "trip") {
-            updateData.price = price;
-            updateData.price_child = priceChild;
-          }
+          if (type === "trip") { updateData.price = price; updateData.price_child = priceChild; }
           break;
         case "slots":
-          if (type === "trip") {
-            updateData.available_tickets = availableSlots;
-          }
+          if (type === "trip") updateData.available_tickets = availableSlots;
           break;
         case "date":
-          if (type === "trip") {
-            updateData.date = date;
-          }
+          if (type === "trip") updateData.date = date;
+          break;
+        // ← NEW: Save pickup location
+        case "pickupLocation":
+          if (type === "trip") updateData.pickup_location = pickupLocation;
           break;
         case "amenities":
           updateData.amenities = [...generalFacilities, ...amenities.filter(Boolean)];
@@ -486,21 +363,13 @@ const EditListing = () => {
         case "generalFacilities":
           updateData.amenities = [...generalFacilities, ...amenities.filter(Boolean)];
           break;
-        case "facilities":
-          updateData.facilities = facilities;
-          break;
-        case "activities":
-          updateData.activities = activities;
-          break;
+        case "facilities": updateData.facilities = facilities; break;
+        case "activities": updateData.activities = activities; break;
         case "inclusions":
-          if (type === "trip") {
-            updateData.inclusions = inclusions.filter(Boolean);
-          }
+          if (type === "trip") updateData.inclusions = inclusions.filter(Boolean);
           break;
         case "exclusions":
-          if (type === "trip") {
-            updateData.exclusions = exclusions.filter(Boolean);
-          }
+          if (type === "trip") updateData.exclusions = exclusions.filter(Boolean);
           break;
         case "entranceFee":
           if (type === "adventure") {
@@ -514,32 +383,15 @@ const EditListing = () => {
           break;
       }
 
-      const { error } = await supabase
-        .from(table)
-        .update(updateData)
-        .eq("id", id!)
-        .eq("created_by", user?.id!);
-
+      const { error } = await supabase.from(table).update(updateData).eq("id", id!).eq("created_by", user?.id!);
       if (error) throw error;
 
-      toast({
-        title: "Success",
-        description: "Changes saved successfully",
-      });
-
-      // Update original email after successful save
-      if (field === "email") {
-        setOriginalEmail(email);
-      }
-
+      toast({ title: "Success", description: "Changes saved successfully" });
+      if (field === "email") setOriginalEmail(email);
       toggleEditMode(field);
     } catch (error) {
       console.error("Error saving:", error);
-      toast({
-        title: "Error",
-        description: "Failed to save changes",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to save changes", variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -549,32 +401,18 @@ const EditListing = () => {
     setSaving(true);
     try {
       let uploadedImageUrls: string[] = [];
-
       for (const file of newImages) {
         const fileExt = file.name.split(".").pop();
         const fileName = `${user?.id}-${Date.now()}-${Math.random()}.${fileExt}`;
-        const { error: uploadError } = await supabase.storage
-          .from("listing-images")
-          .upload(fileName, file);
-
+        const { error: uploadError } = await supabase.storage.from("listing-images").upload(fileName, file);
         if (uploadError) throw uploadError;
-
-        const { data: { publicUrl } } = supabase.storage
-          .from("listing-images")
-          .getPublicUrl(fileName);
-
+        const { data: { publicUrl } } = supabase.storage.from("listing-images").getPublicUrl(fileName);
         uploadedImageUrls.push(publicUrl);
       }
 
       const allImages = [...existingImages, ...uploadedImageUrls];
-      
-      // Validate minimum one image
       if (allImages.length < 1) {
-        toast({
-          title: "Error",
-          description: "At least one image is required",
-          variant: "destructive",
-        });
+        toast({ title: "Error", description: "At least one image is required", variant: "destructive" });
         setSaving(false);
         return;
       }
@@ -584,44 +422,19 @@ const EditListing = () => {
       else if (type === "adventure") table = "adventure_places";
       else if (type === "trip") table = "trips";
       else if (type === "attraction") {
-        // Attractions table doesn't exist
-        toast({
-          title: "Not Supported",
-          description: "Attractions are not supported",
-          variant: "destructive",
-        });
+        toast({ title: "Not Supported", description: "Attractions are not supported", variant: "destructive" });
         setSaving(false);
         return;
       }
 
-      let updateData: any = {
-        gallery_images: allImages,
-        image_url: allImages[0] || existingImages[0],
-        images: allImages,
-      };
-
-      const { error } = await supabase
-        .from(table)
-        .update(updateData)
-        .eq("id", id!)
-        .eq("created_by", user?.id!);
-
+      const { error } = await supabase.from(table).update({ gallery_images: allImages, image_url: allImages[0] || existingImages[0], images: allImages }).eq("id", id!).eq("created_by", user?.id!);
       if (error) throw error;
 
       setNewImages([]);
-      toast({
-        title: "Success",
-        description: "Images updated successfully",
-      });
-
+      toast({ title: "Success", description: "Images updated successfully" });
       toggleEditMode("images");
     } catch (error) {
-      console.error("Error saving images:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update images",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to update images", variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -631,29 +444,17 @@ const EditListing = () => {
     <Button
       size="icon"
       variant={editMode[field] ? "default" : "ghost"}
-      onClick={() => {
-        if (editMode[field] && onSave) {
-          onSave();
-        } else {
-          toggleEditMode(field);
-        }
-      }}
+      onClick={() => { if (editMode[field] && onSave) onSave(); else toggleEditMode(field); }}
       disabled={saving}
     >
-      {editMode[field] ? (
-        saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />
-      ) : (
-        <Edit2 className="h-4 w-4" />
-      )}
+      {editMode[field]
+        ? (saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />)
+        : <Edit2 className="h-4 w-4" />}
     </Button>
   );
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
+    return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
   }
 
   return (
@@ -661,14 +462,10 @@ const EditListing = () => {
       <Header />
       
       <main className="container px-4 py-8 mx-auto">
-        <Button
-          variant="ghost"
-          onClick={goBack}
-          className="mb-4 text-[#008080] hover:bg-[#008080]/10"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back
+        <Button variant="ghost" onClick={goBack} className="mb-4 text-[#008080] hover:bg-[#008080]/10">
+          <ArrowLeft className="mr-2 h-4 w-4" /> Back
         </Button>
+
         <div className="mb-6">
           <div className="flex items-center justify-between">
             <div>
@@ -677,25 +474,18 @@ const EditListing = () => {
               <p className="text-slate-500 text-sm">Click the edit icons to modify any detail</p>
             </div>
             <div className="flex items-center gap-2">
-              <Badge 
-                variant={approvalStatus === 'approved' ? 'default' : approvalStatus === 'pending' ? 'secondary' : 'destructive'}
-                className={approvalStatus === 'approved' ? 'bg-[#008080]' : ''}
-              >
+              <Badge variant={approvalStatus === 'approved' ? 'default' : approvalStatus === 'pending' ? 'secondary' : 'destructive'} className={approvalStatus === 'approved' ? 'bg-[#008080]' : ''}>
                 {approvalStatus}
               </Badge>
               {isHidden && (
-                <Badge variant="outline" className="bg-[#F0E68C]/20 text-[#857F3E] border-[#F0E68C]">
-                  Hidden from Public View
-                </Badge>
+                <Badge variant="outline" className="bg-[#F0E68C]/20 text-[#857F3E] border-[#F0E68C]">Hidden from Public View</Badge>
               )}
             </div>
           </div>
           
           {isResubmitting && approvalStatus === 'rejected' && (
             <div className="mt-4 p-4 bg-[#008080]/10 border border-[#008080]/30 rounded-xl">
-              <p className="text-sm text-[#008080] mb-3">
-                Make your desired changes, then click the button below to re-submit your listing for approval.
-              </p>
+              <p className="text-sm text-[#008080] mb-3">Make your desired changes, then click the button below to re-submit your listing for approval.</p>
               <Button onClick={handleResubmit} disabled={saving} className="bg-[#008080] hover:bg-[#006666]">
                 {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                 Re-submit for Approval
@@ -704,7 +494,7 @@ const EditListing = () => {
           )}
         </div>
 
-        {/* Images Section - Full Width */}
+        {/* Images Section */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-semibold">Images</h2>
@@ -717,12 +507,7 @@ const EditListing = () => {
                 {existingImages.map((img, idx) => (
                   <div key={`existing-${idx}`} className="relative aspect-square">
                     <img src={img} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover rounded-lg" />
-                    <Button
-                      size="icon"
-                      variant="destructive"
-                      className="absolute -top-2 -right-2 h-6 w-6"
-                      onClick={() => removeExistingImage(idx)}
-                    >
+                    <Button size="icon" variant="destructive" className="absolute -top-2 -right-2 h-6 w-6" onClick={() => removeExistingImage(idx)}>
                       <X className="h-3 w-3" />
                     </Button>
                   </div>
@@ -730,12 +515,7 @@ const EditListing = () => {
                 {newImages.map((file, idx) => (
                   <div key={`new-${idx}`} className="relative aspect-square">
                     <img src={URL.createObjectURL(file)} alt="" className="w-full h-full object-cover rounded-lg" />
-                    <Button
-                      size="icon"
-                      variant="destructive"
-                      className="absolute -top-2 -right-2 h-6 w-6"
-                      onClick={() => removeNewImage(idx)}
-                    >
+                    <Button size="icon" variant="destructive" className="absolute -top-2 -right-2 h-6 w-6" onClick={() => removeNewImage(idx)}>
                       <X className="h-3 w-3" />
                     </Button>
                   </div>
@@ -761,7 +541,8 @@ const EditListing = () => {
 
         {/* Grid Layout for Fields */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Name - Now editable */}
+
+          {/* Name */}
           <div className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
@@ -770,18 +551,12 @@ const EditListing = () => {
               </div>
               <EditButton field="name" onSave={() => handleSaveField("name")} />
             </div>
-            {editMode.name ? (
-              <Input 
-                value={name} 
-                onChange={(e) => setName(e.target.value)} 
-                className="border-[#008080]/30 focus:border-[#008080]"
-              />
-            ) : (
-              <p className="font-bold text-[#008080] truncate">{name}</p>
-            )}
+            {editMode.name
+              ? <Input value={name} onChange={(e) => setName(e.target.value)} className="border-[#008080]/30 focus:border-[#008080]" />
+              : <p className="font-bold text-[#008080] truncate">{name}</p>}
           </div>
 
-          {/* Location - Now editable */}
+          {/* Location */}
           <div className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
@@ -790,19 +565,38 @@ const EditListing = () => {
               </div>
               <EditButton field="location" onSave={() => handleSaveField("location")} />
             </div>
-            {editMode.location ? (
-              <Input 
-                value={location} 
-                onChange={(e) => setLocation(e.target.value)} 
-                placeholder="Enter location"
-                className="border-[#008080]/30 focus:border-[#008080]"
-              />
-            ) : (
-              <p className="font-bold text-[#008080] truncate">{location || "Not set"}</p>
-            )}
+            {editMode.location
+              ? <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Enter location" className="border-[#008080]/30 focus:border-[#008080]" />
+              : <p className="font-bold text-[#008080] truncate">{location || "Not set"}</p>}
           </div>
 
-          {/* Map Link - Now editable */}
+          {/* ← NEW: Pickup Location — trips only */}
+          {type === "trip" && (
+            <div className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Navigation className="h-4 w-4 text-[#FF7F50]" />
+                  <span className="text-sm font-bold text-slate-500 uppercase tracking-tight">Pickup Location</span>
+                </div>
+                <EditButton field="pickupLocation" onSave={() => handleSaveField("pickupLocation")} />
+              </div>
+              {editMode.pickupLocation ? (
+                <div>
+                  <Input
+                    value={pickupLocation}
+                    onChange={(e) => setPickupLocation(e.target.value)}
+                    placeholder="e.g. Nairobi CBD, Globe Cinema Roundabout"
+                    className="border-[#008080]/30 focus:border-[#008080]"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">Where guests will be picked up for this trip</p>
+                </div>
+              ) : (
+                <p className="font-bold text-[#008080] truncate">{pickupLocation || "Not set"}</p>
+              )}
+            </div>
+          )}
+
+          {/* Map Link */}
           <div className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
@@ -811,19 +605,12 @@ const EditListing = () => {
               </div>
               <EditButton field="mapLink" onSave={() => handleSaveField("mapLink")} />
             </div>
-            {editMode.mapLink ? (
-              <Input 
-                value={mapLink} 
-                onChange={(e) => setMapLink(e.target.value)} 
-                placeholder="Google Maps link"
-                className="border-[#008080]/30 focus:border-[#008080]"
-              />
-            ) : (
-              <p className="font-bold text-[#008080] truncate text-sm">{mapLink || "Not set"}</p>
-            )}
+            {editMode.mapLink
+              ? <Input value={mapLink} onChange={(e) => setMapLink(e.target.value)} placeholder="Google Maps link" className="border-[#008080]/30 focus:border-[#008080]" />
+              : <p className="font-bold text-[#008080] truncate text-sm">{mapLink || "Not set"}</p>}
           </div>
 
-          {/* Contact Email - Editable without verification */}
+          {/* Email */}
           <div className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
@@ -832,20 +619,12 @@ const EditListing = () => {
               </div>
               <EditButton field="email" onSave={() => handleSaveField("email")} />
             </div>
-            {editMode.email ? (
-              <Input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Contact email"
-                className="border-[#008080]/30 focus:border-[#008080]"
-              />
-            ) : (
-              <p className="font-bold text-[#008080] truncate">{email || "Not set"}</p>
-            )}
+            {editMode.email
+              ? <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Contact email" className="border-[#008080]/30 focus:border-[#008080]" />
+              : <p className="font-bold text-[#008080] truncate">{email || "Not set"}</p>}
           </div>
 
-          {/* Phone Numbers - Now editable */}
+          {/* Phone */}
           <div className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
@@ -858,12 +637,7 @@ const EditListing = () => {
               <div className="space-y-2">
                 {phoneNumbers.map((phone, idx) => (
                   <div key={idx} className="flex gap-2">
-                    <Input
-                      value={phone}
-                      onChange={(e) => updatePhoneNumber(idx, e.target.value)}
-                      placeholder="Phone number"
-                      className="border-[#008080]/30 focus:border-[#008080] h-8"
-                    />
+                    <Input value={phone} onChange={(e) => updatePhoneNumber(idx, e.target.value)} placeholder="Phone number" className="border-[#008080]/30 focus:border-[#008080] h-8" />
                     {phoneNumbers.length > 1 && (
                       <Button size="icon" variant="destructive" className="h-8 w-8" onClick={() => removePhoneNumber(idx)}>
                         <X className="h-3 w-3" />
@@ -880,14 +654,12 @@ const EditListing = () => {
             ) : (
               <>
                 <p className="font-bold text-[#008080]">{phoneNumbers.length > 0 ? phoneNumbers[0] : "Not set"}</p>
-                {phoneNumbers.length > 1 && (
-                  <p className="text-xs text-slate-400">+{phoneNumbers.length - 1} more</p>
-                )}
+                {phoneNumbers.length > 1 && <p className="text-xs text-slate-400">+{phoneNumbers.length - 1} more</p>}
               </>
             )}
           </div>
 
-          {/* Operating Hours - Only for hotels, adventures, and attractions */}
+          {/* Operating Hours — not for trips */}
           {type !== "trip" && (
             <div className="bg-card rounded-lg border p-4">
               <div className="flex items-center justify-between mb-2">
@@ -911,12 +683,7 @@ const EditListing = () => {
                   </div>
                   <div className="flex flex-wrap gap-1">
                     {DAYS_OF_WEEK.map((day) => (
-                      <Badge
-                        key={day}
-                        variant={daysOpened.includes(day) ? "default" : "outline"}
-                        className="cursor-pointer text-xs"
-                        onClick={() => toggleDay(day)}
-                      >
+                      <Badge key={day} variant={daysOpened.includes(day) ? "default" : "outline"} className="cursor-pointer text-xs" onClick={() => toggleDay(day)}>
                         {day.slice(0, 3)}
                       </Badge>
                     ))}
@@ -931,7 +698,7 @@ const EditListing = () => {
             </div>
           )}
 
-          {/* Trip-specific: Date - Now editable */}
+          {/* Trip: Date */}
           {type === "trip" && (
             <div className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm">
               <div className="flex items-center justify-between mb-2">
@@ -941,20 +708,13 @@ const EditListing = () => {
                 </div>
                 <EditButton field="date" onSave={() => handleSaveField("date")} />
               </div>
-              {editMode.date ? (
-                <Input 
-                  type="date" 
-                  value={date} 
-                  onChange={(e) => setDate(e.target.value)} 
-                  className="border-[#008080]/30 focus:border-[#008080] h-8"
-                />
-              ) : (
-                <p className="font-bold text-[#008080]">{date ? new Date(date).toLocaleDateString() : "Not set"}</p>
-              )}
+              {editMode.date
+                ? <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="border-[#008080]/30 focus:border-[#008080] h-8" />
+                : <p className="font-bold text-[#008080]">{date ? new Date(date).toLocaleDateString() : "Not set"}</p>}
             </div>
           )}
 
-          {/* Trip-specific: Pricing */}
+          {/* Trip: Pricing */}
           {type === "trip" && (
             <div className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm">
               <div className="flex items-center justify-between mb-2">
@@ -986,7 +746,7 @@ const EditListing = () => {
             </div>
           )}
 
-          {/* Trip-specific: Tickets */}
+          {/* Trip: Tickets */}
           {type === "trip" && (
             <div className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm">
               <div className="flex items-center justify-between mb-2">
@@ -996,17 +756,9 @@ const EditListing = () => {
                 </div>
                 <EditButton field="slots" onSave={() => handleSaveField("slots")} />
               </div>
-              {editMode.slots ? (
-                <Input
-                  type="number"
-                  value={availableSlots}
-                  onChange={(e) => setAvailableSlots(parseInt(e.target.value) || 0)}
-                  min={0}
-                  className="h-8 border-[#008080]/30"
-                />
-              ) : (
-                <p className="font-bold text-[#008080]">{availableSlots} tickets</p>
-              )}
+              {editMode.slots
+                ? <Input type="number" value={availableSlots} onChange={(e) => setAvailableSlots(parseInt(e.target.value) || 0)} min={0} className="h-8 border-[#008080]/30" />
+                : <p className="font-bold text-[#008080]">{availableSlots} tickets</p>}
             </div>
           )}
 
@@ -1023,9 +775,7 @@ const EditListing = () => {
               {editMode.entranceFee ? (
                 <div className="space-y-2">
                   <Select value={entranceFeeType} onValueChange={setEntranceFeeType}>
-                    <SelectTrigger className="h-8 border-[#008080]/30">
-                      <SelectValue />
-                    </SelectTrigger>
+                    <SelectTrigger className="h-8 border-[#008080]/30"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="free">Free</SelectItem>
                       <SelectItem value="paid">Paid</SelectItem>
@@ -1035,26 +785,12 @@ const EditListing = () => {
                     <>
                       <div>
                         <Label className="text-xs text-slate-500">Adult (KSh)</Label>
-                        <Input
-                          type="number"
-                          placeholder="Adult Price"
-                          value={entranceFee}
-                          onChange={(e) => setEntranceFee(parseFloat(e.target.value) || 0)}
-                          min={0}
-                          className="h-8 border-[#008080]/30"
-                        />
+                        <Input type="number" value={entranceFee} onChange={(e) => setEntranceFee(parseFloat(e.target.value) || 0)} min={0} className="h-8 border-[#008080]/30" />
                         {entranceFee > 0 && <p className="text-[9px] text-blue-500 font-bold mt-0.5">{usdHint(entranceFee)}</p>}
                       </div>
                       <div>
                         <Label className="text-xs text-slate-500">Child (KSh)</Label>
-                        <Input
-                          type="number"
-                          placeholder="Child Price"
-                          value={entranceFeeChild}
-                          onChange={(e) => setEntranceFeeChild(parseFloat(e.target.value) || 0)}
-                          min={0}
-                          className="h-8 border-[#008080]/30"
-                        />
+                        <Input type="number" value={entranceFeeChild} onChange={(e) => setEntranceFeeChild(parseFloat(e.target.value) || 0)} min={0} className="h-8 border-[#008080]/30" />
                         {entranceFeeChild > 0 && <p className="text-[9px] text-blue-500 font-bold mt-0.5">{usdHint(entranceFeeChild)}</p>}
                       </div>
                     </>
@@ -1070,25 +806,18 @@ const EditListing = () => {
           )}
         </div>
 
-        {/* Description - Full Width */}
+        {/* Description */}
         <div className="mt-6 bg-card rounded-lg border p-4">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-semibold">Description</h2>
             <EditButton field="description" onSave={() => handleSaveField("description")} />
           </div>
-          {editMode.description ? (
-            <Textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={4}
-              placeholder="Enter description..."
-            />
-          ) : (
-            <p className="text-sm text-muted-foreground">{description || "No description"}</p>
-          )}
+          {editMode.description
+            ? <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} placeholder="Enter description..." />
+            : <p className="text-sm text-muted-foreground">{description || "No description"}</p>}
         </div>
 
-        {/* Inclusions & Exclusions for trips */}
+        {/* Inclusions & Exclusions */}
         {type === "trip" && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
             <div className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm">
@@ -1104,13 +833,7 @@ const EditListing = () => {
                   <div className="flex gap-2">
                     <Input
                       value={newInclusion}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (val.endsWith(',') || val.endsWith('.')) {
-                          const item = val.slice(0, -1).trim();
-                          if (item) { setInclusions(prev => [...prev, item]); setNewInclusion(""); }
-                        } else { setNewInclusion(val); }
-                      }}
+                      onChange={(e) => { const val = e.target.value; if (val.endsWith(',') || val.endsWith('.')) { const item = val.slice(0, -1).trim(); if (item) { setInclusions(prev => [...prev, item]); setNewInclusion(""); } } else setNewInclusion(val); }}
                       onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (newInclusion.trim()) { setInclusions(prev => [...prev, newInclusion.trim()]); setNewInclusion(""); } } }}
                       placeholder="Type & press comma to add"
                       className="border-[#008080]/30 focus:border-[#008080] h-8"
@@ -1150,13 +873,7 @@ const EditListing = () => {
                   <div className="flex gap-2">
                     <Input
                       value={newExclusion}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (val.endsWith(',') || val.endsWith('.')) {
-                          const item = val.slice(0, -1).trim();
-                          if (item) { setExclusions(prev => [...prev, item]); setNewExclusion(""); }
-                        } else { setNewExclusion(val); }
-                      }}
+                      onChange={(e) => { const val = e.target.value; if (val.endsWith(',') || val.endsWith('.')) { const item = val.slice(0, -1).trim(); if (item) { setExclusions(prev => [...prev, item]); setNewExclusion(""); } } else setNewExclusion(val); }}
                       onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (newExclusion.trim()) { setExclusions(prev => [...prev, newExclusion.trim()]); setNewExclusion(""); } } }}
                       placeholder="Type & press comma to add"
                       className="border-[#008080]/30 focus:border-[#008080] h-8"
@@ -1185,9 +902,8 @@ const EditListing = () => {
           </div>
         )}
 
-        {/* Amenities, Facilities, Activities - Grid */}
+        {/* Amenities, Facilities, Activities */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
-          {/* General Facilities (Icons) */}
           {(type === "hotel" || type === "adventure" || type === "attraction") && (
             <div className="bg-card rounded-lg border p-4 md:col-span-2 lg:col-span-3">
               <div className="flex items-center justify-between mb-3">
@@ -1195,12 +911,7 @@ const EditListing = () => {
                 <EditButton field="generalFacilities" onSave={() => handleSaveField("generalFacilities")} />
               </div>
               {editMode.generalFacilities ? (
-                <GeneralFacilitiesSelector
-                  selected={generalFacilities}
-                  onChange={setGeneralFacilities}
-                  maxSelection={6}
-                  accentColor="#008080"
-                />
+                <GeneralFacilitiesSelector selected={generalFacilities} onChange={setGeneralFacilities} maxSelection={6} accentColor="#008080" />
               ) : (
                 <div className="flex flex-wrap gap-1">
                   {generalFacilities.length > 0 ? generalFacilities.map((id, idx) => (
@@ -1211,7 +922,6 @@ const EditListing = () => {
             </div>
           )}
 
-          {/* Facilities with Images */}
           {(type === "hotel" || type === "adventure" || type === "attraction") && (
             <div className="bg-card rounded-lg border p-4 md:col-span-2 lg:col-span-3">
               <div className="flex items-center justify-between mb-3">
@@ -1222,24 +932,14 @@ const EditListing = () => {
                 <EditButton field="facilities" onSave={() => handleSaveField("facilities")} />
               </div>
               {editMode.facilities ? (
-                <FacilityActivityImageEditor
-                  type="facility"
-                  items={facilities}
-                  onChange={(items) => setFacilities(items as FacilityWithImages[])}
-                  userId={user?.id || ""}
-                  onSave={() => handleSaveField("facilities")}
-                  isSaving={saving}
-                  accentColor="#008080"
-                />
+                <FacilityActivityImageEditor type="facility" items={facilities} onChange={(items) => setFacilities(items as FacilityWithImages[])} userId={user?.id || ""} onSave={() => handleSaveField("facilities")} isSaving={saving} accentColor="#008080" />
               ) : (
                 <div className="space-y-3">
                   {facilities.length > 0 ? facilities.map((facility, idx) => (
                     <div key={idx} className="p-3 rounded-lg bg-muted/50 border border-border">
                       <div className="flex justify-between items-start mb-2">
                         <span className="font-bold text-sm">{facility.name}</span>
-                        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
-                          {facility.price === 0 ? "Free" : formatPrice(facility.price)}
-                        </span>
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">{facility.price === 0 ? "Free" : formatPrice(facility.price)}</span>
                       </div>
                       {facility.images && facility.images.length > 0 && (
                         <div className="flex gap-2 overflow-x-auto">
@@ -1250,9 +950,7 @@ const EditListing = () => {
                           ))}
                         </div>
                       )}
-                      {facility.capacity && (
-                        <p className="text-[10px] text-muted-foreground mt-1">Capacity: {facility.capacity}</p>
-                      )}
+                      {facility.capacity && <p className="text-[10px] text-muted-foreground mt-1">Capacity: {facility.capacity}</p>}
                     </div>
                   )) : <p className="text-sm text-muted-foreground">None</p>}
                 </div>
@@ -1260,7 +958,6 @@ const EditListing = () => {
             </div>
           )}
 
-          {/* Activities with Images */}
           {(type === "hotel" || type === "adventure" || type === "attraction") && (
             <div className="bg-card rounded-lg border p-4 md:col-span-2 lg:col-span-3">
               <div className="flex items-center justify-between mb-3">
@@ -1271,24 +968,14 @@ const EditListing = () => {
                 <EditButton field="activities" onSave={() => handleSaveField("activities")} />
               </div>
               {editMode.activities ? (
-                <FacilityActivityImageEditor
-                  type="activity"
-                  items={activities}
-                  onChange={(items) => setActivities(items as ActivityWithImages[])}
-                  userId={user?.id || ""}
-                  onSave={() => handleSaveField("activities")}
-                  isSaving={saving}
-                  accentColor="#FF7F50"
-                />
+                <FacilityActivityImageEditor type="activity" items={activities} onChange={(items) => setActivities(items as ActivityWithImages[])} userId={user?.id || ""} onSave={() => handleSaveField("activities")} isSaving={saving} accentColor="#FF7F50" />
               ) : (
                 <div className="space-y-3">
                   {activities.length > 0 ? activities.map((activity, idx) => (
                     <div key={idx} className="p-3 rounded-lg bg-muted/50 border border-border">
                       <div className="flex justify-between items-start mb-2">
                         <span className="font-bold text-sm">{activity.name}</span>
-                        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-teal-100 text-teal-700">
-                          {activity.price === 0 ? "Free" : formatPrice(activity.price)}
-                        </span>
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-teal-100 text-teal-700">{activity.price === 0 ? "Free" : formatPrice(activity.price)}</span>
                       </div>
                       {activity.images && activity.images.length > 0 && (
                         <div className="flex gap-2 overflow-x-auto">
@@ -1306,7 +993,7 @@ const EditListing = () => {
             </div>
           )}
 
-          {/* Bookings Card */}
+          {/* Bookings */}
           <div className="bg-card rounded-lg border p-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-medium">Bookings ({bookings.length})</h3>
@@ -1319,19 +1006,12 @@ const EditListing = () => {
                   <div key={booking.id} className="border rounded p-2 space-y-1">
                     <div className="flex justify-between items-center">
                       <span className="text-sm font-medium truncate">{booking.guest_name_masked}</span>
-                      <Badge variant={booking.payment_status === "completed" ? "default" : "secondary"} className="text-xs">
-                        {booking.payment_status}
-                      </Badge>
+                      <Badge variant={booking.payment_status === "completed" ? "default" : "secondary"} className="text-xs">{booking.payment_status}</Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">{formatPrice(booking.total_amount)}</p>
                   </div>
                 ))}
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="w-full"
-                  onClick={() => navigate(`/host/bookings/${type}/${id}`)}
-                >
+                <Button variant="outline" size="sm" className="w-full" onClick={() => navigate(`/host/bookings/${type}/${id}`)}>
                   See All Bookings
                 </Button>
               </div>

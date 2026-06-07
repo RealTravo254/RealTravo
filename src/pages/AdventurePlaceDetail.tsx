@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
   MapPin, Clock, Share2, Copy, Navigation, AlertCircle,
-  Users, CheckCircle2, ChevronLeft, ChevronRight, Grid2X2,
+  Users, CheckCircle2, ChevronLeft, ChevronRight, Grid2X2, ExternalLink,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSavedItems } from "@/hooks/useSavedItems";
@@ -16,7 +16,6 @@ import { getShareLink } from "@/lib/shareUtils";
 import { extractIdFromSlug } from "@/lib/slugUtils";
 import { DetailNavBar } from "@/components/detail/DetailNavBar";
 import { QuickNavigationBar } from "@/components/detail/QuickNavigationBar";
-import { DetailMapSection } from "@/components/detail/DetailMapSection";
 import { TealLoader } from "@/components/ui/teal-loader";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { Footer } from "@/components/Footer";
@@ -135,7 +134,7 @@ const DesktopGallery = ({ images, name }: { images: string[]; name: string }) =>
   );
 };
 
-// ─── Mobile carousel — full screen width, no px-4 padding ────────────────────
+// ─── Mobile carousel ──────────────────────────────────────────────────────────
 const MobileCarousel = ({ images, name }: { images: string[]; name: string }) => {
   const [active, setActive] = useState(0);
   const [modalOpen, setModalOpen] = useState(false);
@@ -157,7 +156,6 @@ const MobileCarousel = ({ images, name }: { images: string[]; name: string }) =>
   return (
     <>
       {modalOpen && <ImageGalleryModal images={images} name={name} startIndex={modalStart} onClose={() => setModalOpen(false)} />}
-      {/* Full screen width — no horizontal padding, no max-width wrapper */}
       <div className="md:hidden w-full relative overflow-hidden bg-slate-900"
         style={{ height: "45vh", minHeight: "200px", maxHeight: "360px", borderRadius: 0 }}>
         {images.map((img, idx) => (
@@ -202,19 +200,37 @@ const MobileCarousel = ({ images, name }: { images: string[]; name: string }) =>
   );
 };
 
-// ─── Horizontal Amenities scroll ──────────────────────────────────────────────
+// ─── General Amenities — small chips with horizontal scroll on mobile ─────────
 const AmenitiesScroll = ({ amenities, accentColor }: { amenities: string[]; accentColor: string }) => {
   if (!amenities.length) return null;
   return (
-    <section className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-      <h2 className="text-base font-black uppercase tracking-tight mb-4" style={{ color: accentColor }}>General Amenities</h2>
-      <div className="flex gap-3 overflow-x-auto pb-2"
-        style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch", marginLeft: "-20px", marginRight: "-20px", paddingLeft: "20px", paddingRight: "20px" }}>
+    <section className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+      <h2 className="text-base font-black uppercase tracking-tight mb-3" style={{ color: accentColor }}>General Amenities</h2>
+
+      {/* Mobile: horizontal scroll */}
+      <div className="sm:hidden">
+        <div
+          className="flex gap-2 overflow-x-auto pb-1"
+          style={{ scrollbarWidth: "thin", scrollbarColor: `${accentColor}40 transparent`, WebkitOverflowScrolling: "touch", marginLeft: "-16px", marginRight: "-16px", paddingLeft: "16px", paddingRight: "16px" }}>
+          {amenities.map((fId, i) => (
+            <div key={i} className="flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-full border"
+              style={{ background: `${accentColor}10`, borderColor: `${accentColor}30` }}>
+              <CheckCircle2 className="h-3 w-3 flex-shrink-0" style={{ color: accentColor }} />
+              <span className="text-[10px] font-bold uppercase tracking-tight whitespace-nowrap" style={{ color: accentColor }}>
+                {facilityLabel(fId)}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Desktop: wrap */}
+      <div className="hidden sm:flex flex-wrap gap-2">
         {amenities.map((fId, i) => (
-          <div key={i} className="flex-shrink-0 flex flex-col items-center gap-2 px-4 py-3 rounded-xl"
-            style={{ background: `${accentColor}12`, minWidth: 86 }}>
-            <CheckCircle2 className="h-5 w-5" style={{ color: accentColor }} />
-            <span className="text-[10px] font-black uppercase tracking-tight text-center leading-tight" style={{ color: accentColor }}>
+          <div key={i} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border"
+            style={{ background: `${accentColor}10`, borderColor: `${accentColor}30` }}>
+            <CheckCircle2 className="h-3 w-3 flex-shrink-0" style={{ color: accentColor }} />
+            <span className="text-[10px] font-bold uppercase tracking-tight" style={{ color: accentColor }}>
               {facilityLabel(fId)}
             </span>
           </div>
@@ -370,7 +386,7 @@ const FacSlideshow = ({ images, name }: { images: string[]; name: string }) => {
   );
 };
 
-// ─── Activities — horizontal scroll on mobile, grid on desktop, See All ───────
+// ─── Activities — horizontal scroll on mobile, grid on desktop ────────────────
 const InlineActivitiesGrid = ({ activities, formatPrice }: { activities: any[]; formatPrice: (n: number) => string }) => {
   const [modalImages, setModalImages] = useState<string[] | null>(null);
   const [modalName, setModalName] = useState("");
@@ -473,6 +489,66 @@ const ActivityCard = ({ act, imgs, formatPrice, onSeeAll }: { act: any; imgs: st
         </div>
       )}
     </div>
+  );
+};
+
+// ─── Always-open Map Section with Google Maps link ────────────────────────────
+const AlwaysOpenMapSection = ({
+  name, latitude, longitude, location, country,
+}: {
+  name: string; latitude?: number | null; longitude?: number | null; location?: string; country?: string;
+}) => {
+  const hasCoords = latitude != null && longitude != null;
+  const googleMapsUrl = hasCoords
+    ? `https://www.google.com/maps?q=${latitude},${longitude}`
+    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${name}, ${location || ""}, ${country || ""}`)}`;
+
+  const embedUrl = hasCoords
+    ? `https://maps.google.com/maps?q=${latitude},${longitude}&z=15&output=embed`
+    : `https://maps.google.com/maps?q=${encodeURIComponent(`${name}, ${location || ""}, ${country || ""}`)}&z=13&output=embed`;
+
+  return (
+    <section className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100">
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100">
+        <div className="flex items-center gap-2">
+          <MapPin className="h-4 w-4" style={{ color: TEAL }} />
+          <div>
+            <h2 className="text-sm font-black uppercase tracking-tight" style={{ color: TEAL }}>Location</h2>
+            <p className="text-[10px] text-slate-400 font-medium">{[name, location, country].filter(Boolean).join(", ")}</p>
+          </div>
+        </div>
+        <a
+          href={googleMapsUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-white text-[10px] font-bold transition-all hover:opacity-90 active:scale-95"
+          style={{ background: `linear-gradient(135deg, ${TEAL}, #005f5f)` }}
+        >
+          <ExternalLink className="h-3 w-3" />
+          View on Google Maps
+        </a>
+      </div>
+
+      {/* Map iframe — always open */}
+      <div style={{ height: "300px", position: "relative" }}>
+        <iframe
+          title={`Map of ${name}`}
+          src={embedUrl}
+          width="100%"
+          height="100%"
+          style={{ border: 0, display: "block" }}
+          allowFullScreen
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+        />
+        {/* Location name overlay pin */}
+        <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 bg-white/95 backdrop-blur-sm shadow-md rounded-full px-3 py-1.5 pointer-events-none">
+          <MapPin className="h-3 w-3" style={{ color: CORAL }} />
+          <span className="text-[10px] font-black uppercase tracking-tight text-slate-700">{name}</span>
+        </div>
+      </div>
+    </section>
   );
 };
 
@@ -606,7 +682,12 @@ const AdventurePlaceDetail = () => {
   const bookingCardProps = {
     place, is24Hours, daysOpened, capacityPerDay, formatPrice,
     onCheckAvailability: handleCheckAvailability,
-    onMap: () => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${place.name}, ${place.location}`)}`, "_blank"),
+    onMap: () => window.open(
+      place.latitude && place.longitude
+        ? `https://www.google.com/maps?q=${place.latitude},${place.longitude}`
+        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${place.name}, ${place.location}`)}`,
+      "_blank"
+    ),
     onCopy: async () => { await navigator.clipboard.writeText(getShareLink(resolvedId, "adventure_place", place.name, place.location)); toast({ title: "Link Copied!" }); },
     onShare: async () => {
       const link = getShareLink(resolvedId, "adventure_place", place.name, place.location);
@@ -621,11 +702,11 @@ const AdventurePlaceDetail = () => {
         onSave={() => handleSaveItem(resolvedId, "adventure_place")} onBack={goBack} />
       <div style={{ height: "calc(56px + env(safe-area-inset-top, 0px))" }} />
 
-      {/* Gallery — mobile: full width; desktop: constrained */}
+      {/* Gallery */}
       <MobileCarousel images={allImages} name={place.name} />
       <DesktopGallery images={allImages} name={place.name} />
 
-      {/* Name / location — NO category badge */}
+      {/* Name / location */}
       <div className="max-w-6xl mx-auto px-4 pt-4 pb-1 bg-background relative z-10">
         <h1 className="text-2xl font-black uppercase tracking-tighter leading-tight text-foreground">{place.name}</h1>
         <div className="flex items-center gap-1.5 mt-1 text-muted-foreground">
@@ -641,38 +722,51 @@ const AdventurePlaceDetail = () => {
       <main className="container px-4 mt-5 relative z-10 max-w-6xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-[1.8fr,1fr] gap-6">
           <div className="space-y-6">
-            {place.description && (
-              <section className="bg-white rounded-2xl px-5 py-4 shadow-sm border border-slate-100">
-                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{place.description}</p>
-              </section>
-            )}
+            {/* General Amenities — small chips */}
             {generalAmenities.length > 0 && <AmenitiesScroll amenities={generalAmenities} accentColor={TEAL} />}
+
+            {/* Booking card — mobile only, shown before facilities */}
             <div className="bg-white rounded-2xl p-5 shadow-lg border border-slate-100 lg:hidden">
               <BookingCard {...bookingCardProps} />
             </div>
+
+            {/* Facilities */}
             {place.facilities?.length > 0 && (
               <div id="facilities-section">
                 <InlineFacilitiesGrid facilities={place.facilities} accentColor={TEAL} />
               </div>
             )}
+
+            {/* Activities */}
             {place.activities?.length > 0 && (
               <div id="activities-section">
                 <InlineActivitiesGrid activities={place.activities} formatPrice={formatPrice} />
               </div>
             )}
+
+            {/* Description — BELOW facilities and activities */}
+            {place.description && (
+              <section className="bg-white rounded-2xl px-5 py-4 shadow-sm border border-slate-100">
+                <h2 className="text-base font-black uppercase tracking-tight mb-3" style={{ color: TEAL }}>About this Place</h2>
+                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{place.description}</p>
+              </section>
+            )}
+
+            {/* Map — always open, with Google Maps link */}
+            <AlwaysOpenMapSection
+              name={place.name}
+              latitude={place.latitude}
+              longitude={place.longitude}
+              location={place.location}
+              country={place.country}
+            />
           </div>
+
           <div className="hidden lg:block">
             <div className="sticky top-24 bg-white rounded-2xl p-6 shadow-lg border border-slate-200 space-y-4">
               <BookingCard {...bookingCardProps} />
             </div>
           </div>
-        </div>
-
-        <div className="mt-8 rounded-2xl overflow-hidden shadow-sm border border-slate-100" style={{ height: "320px" }}>
-          <DetailMapSection
-            currentItem={{ id: resolvedId, name: place.name, latitude: place.latitude, longitude: place.longitude, location: place.location, country: place.country, image_url: place.image_url, entry_fee: place.entry_fee }}
-            itemType="adventure"
-          />
         </div>
       </main>
 

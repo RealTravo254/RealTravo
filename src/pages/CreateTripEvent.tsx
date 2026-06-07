@@ -86,7 +86,6 @@ const SectionCard = ({ title, subtitle, icon: Icon, children, accent = COLORS.TE
 // ─── Step Sidebar ─────────────────────────────────────────────────────────────
 const StepSidebar = ({ steps, currentStep, onStepClick, type }: { steps: any[]; currentStep: number; onStepClick?: (i: number) => void; type: string }) => (
   <aside className="hidden lg:flex flex-col w-72 shrink-0 sticky top-24 self-start">
-    {/* Brand card */}
     <div className="rounded-2xl overflow-hidden mb-6 relative h-44">
       <img src="/images/category-trips.webp" className="w-full h-full object-cover" alt="" />
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
@@ -98,7 +97,6 @@ const StepSidebar = ({ steps, currentStep, onStepClick, type }: { steps: any[]; 
       </div>
     </div>
 
-    {/* Steps list */}
     <nav className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
       <div className="px-5 py-4 border-b border-slate-100">
         <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Your progress</p>
@@ -130,7 +128,6 @@ const StepSidebar = ({ steps, currentStep, onStepClick, type }: { steps: any[]; 
       </ul>
     </nav>
 
-    {/* Help card */}
     <div className="mt-4 bg-slate-50 rounded-2xl p-5 border border-slate-100">
       <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1">Need help?</p>
       <p className="text-xs text-slate-400 leading-relaxed">Fill each step carefully. Your listing will be reviewed before going live.</p>
@@ -141,20 +138,16 @@ const StepSidebar = ({ steps, currentStep, onStepClick, type }: { steps: any[]; 
 // ─── Kenya Flag Phone Display ─────────────────────────────────────────────────
 const KenyaPhoneWrapper = ({ children, isInvalid }: { children: React.ReactNode; isInvalid?: boolean }) => (
   <div className={`flex items-center gap-2 h-11 rounded-xl border bg-white px-3 transition-all ${isInvalid ? "border-red-400 ring-2 ring-red-100" : "border-slate-200 focus-within:ring-2 focus-within:ring-[#008080]/20 focus-within:border-[#008080]"}`}>
-    {/* Kenya flag SVG */}
     <div className="flex items-center gap-1.5 shrink-0 pr-2 border-r border-slate-200">
       <svg width="22" height="15" viewBox="0 0 22 15" fill="none" xmlns="http://www.w3.org/2000/svg" className="rounded-sm overflow-hidden">
         <rect width="22" height="5" fill="#006600" />
         <rect y="5" width="22" height="5" fill="#BB0000" />
         <rect y="10" width="22" height="5" fill="#006600" />
         <rect y="5" width="22" height="5" fill="#BB0000" />
-        {/* Black stripe */}
         <rect y="4" width="22" height="7" fill="#000000" />
         <rect y="5" width="22" height="5" fill="#BB0000" />
-        {/* White edge lines */}
         <rect y="4" width="22" height="1" fill="white" />
         <rect y="10" width="22" height="1" fill="white" />
-        {/* Maasai shield (simplified) */}
         <ellipse cx="11" cy="7.5" rx="2.5" ry="4" fill="white" />
         <ellipse cx="11" cy="7.5" rx="1.8" ry="3.2" fill="#BB0000" />
         <line x1="11" y1="3.5" x2="11" y2="11.5" stroke="white" strokeWidth="0.5" />
@@ -182,11 +175,8 @@ const ImageGalleryGrid = ({ images, onRemove, onAdd, isInvalid }: {
             <div key={i} className="relative group aspect-square rounded-xl overflow-hidden border border-slate-200 shadow-sm">
               <img src={URL.createObjectURL(file)} className="w-full h-full object-cover" alt={`Photo ${i + 1}`} />
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
-                <button
-                  type="button"
-                  onClick={() => onRemove(i)}
-                  className="opacity-0 group-hover:opacity-100 bg-red-500 text-white rounded-full p-1 shadow-lg transition-all scale-75 group-hover:scale-100"
-                >
+                <button type="button" onClick={() => onRemove(i)}
+                  className="opacity-0 group-hover:opacity-100 bg-red-500 text-white rounded-full p-1 shadow-lg transition-all scale-75 group-hover:scale-100">
                   <X className="h-3 w-3" />
                 </button>
               </div>
@@ -197,10 +187,8 @@ const ImageGalleryGrid = ({ images, onRemove, onAdd, isInvalid }: {
           );
         }
         return (
-          <label
-            key={i}
-            className={`aspect-square rounded-xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all hover:bg-slate-100 ${isInvalid ? "border-red-300 bg-red-50" : "border-slate-200 hover:border-slate-300"}`}
-          >
+          <label key={i}
+            className={`aspect-square rounded-xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all hover:bg-slate-100 ${isInvalid ? "border-red-300 bg-red-50" : "border-slate-200 hover:border-slate-300"}`}>
             <Camera className={`h-5 w-5 mb-1 ${isInvalid ? "text-red-400" : "text-slate-300"}`} />
             <span className={`text-[9px] font-bold uppercase tracking-wide ${isInvalid ? "text-red-400" : "text-slate-300"}`}>
               {i === 0 ? "Cover" : `Photo ${i + 1}`}
@@ -237,6 +225,7 @@ const CreateTripEvent = () => {
     latitude: null as number | null, longitude: null as number | null,
     opening_hours: "00:00", closing_hours: "23:59", flexible_duration_months: "3",
     event_category: "" as string, location_link: "", allow_children: true,
+    pickup_location: "",
   });
 
   const [ticketTypes, setTicketTypes] = useState<TicketType[]>([]);
@@ -266,7 +255,10 @@ const CreateTripEvent = () => {
     fetchUserProfile();
   }, [user]);
 
-  const isStep1Complete = !!formData.name.trim() && !!formData.country && !!formData.place.trim() && !!formData.location.trim();
+  // Step 1: trip requires pickup_location; event doesn't
+  const isStep1Complete = !!formData.name.trim() && !!formData.country && !!formData.place.trim() && !!formData.location.trim()
+    && (formData.type === "event" || !!formData.pickup_location.trim());
+
   const isStep2Complete = (formData.is_custom_date || !!formData.date) && (useTicketTypes ? ticketTypes.length > 0 : parseFloat(formData.price) >= 0) && parseInt(formData.available_tickets) > 0;
   const isStep3Complete = !!formData.phone_number && galleryImages.length >= 5 && (formData.type !== 'event' || !!eventCertificate);
   const isStep4Complete = !!formData.description.trim();
@@ -286,6 +278,8 @@ const CreateTripEvent = () => {
       if (!formData.country) errors.push("country");
       if (!formData.place.trim()) errors.push("place");
       if (!formData.location.trim()) errors.push("location");
+      // Pickup location required for trips
+      if (formData.type === "trip" && !formData.pickup_location.trim()) errors.push("pickup_location");
       if (formData.location_link && !formData.location_link.startsWith("https://")) errors.push("location_link");
     } else if (currentStep === 2) {
       if (!formData.is_custom_date && !formData.date) errors.push("date");
@@ -371,6 +365,8 @@ const CreateTripEvent = () => {
     if (!formData.country) allErrors.push("country");
     if (!formData.place.trim()) allErrors.push("place");
     if (!formData.location.trim()) allErrors.push("location");
+    // Pickup location required for trips
+    if (formData.type === "trip" && !formData.pickup_location.trim()) allErrors.push("pickup_location");
     if (!formData.is_custom_date && !formData.date) allErrors.push("date");
     if (useTicketTypes) { if (ticketTypes.length === 0) allErrors.push("ticket_types"); }
     else { if (!formData.price || parseFloat(formData.price) < 0) allErrors.push("price"); }
@@ -434,6 +430,8 @@ const CreateTripEvent = () => {
         location_link: formData.location_link || null,
         activities: activityNames.length > 0 ? activityNames.map(name => ({ name, price: 0 })) : [],
         event_certificate_url: eventCertificateUrl,
+        // Save pickup_location to database
+        pickup_location: formData.type === "trip" ? (formData.pickup_location || null) : null,
       } as any]);
       if (error) throw error;
       toast({ title: "Success!", description: `Ref: ${friendlySlug} — Submitted for approval.`, duration: 5000 });
@@ -447,7 +445,7 @@ const CreateTripEvent = () => {
     <div className="min-h-screen bg-slate-50 pb-24">
       <Header />
 
-      {/* Mobile Hero (shown only on mobile) */}
+      {/* Mobile Hero */}
       <div className="lg:hidden relative h-36 overflow-hidden">
         <img src="/images/category-trips.webp" className="w-full h-full object-cover" alt="" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-5">
@@ -461,7 +459,7 @@ const CreateTripEvent = () => {
 
       <main className="max-w-screen-xl mx-auto px-4 lg:px-8 py-6 lg:py-10">
         <div className="flex gap-8 items-start">
-          {/* ─── Sidebar ─── */}
+          {/* Sidebar */}
           <StepSidebar
             steps={steps}
             currentStep={currentStep}
@@ -469,7 +467,7 @@ const CreateTripEvent = () => {
             type={formData.type}
           />
 
-          {/* ─── Main Content ─── */}
+          {/* Main Content */}
           <div className="flex-1 min-w-0 space-y-5">
             {/* Desktop page title */}
             <div className="hidden lg:flex items-center justify-between mb-2">
@@ -478,19 +476,14 @@ const CreateTripEvent = () => {
                   <ArrowLeft className="h-4 w-4 text-slate-600" />
                 </button>
                 <div>
-                  <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-                    {STEP_NAMES[currentStep - 1]}
-                  </h1>
+                  <h1 className="text-2xl font-black text-slate-900 tracking-tight">{STEP_NAMES[currentStep - 1]}</h1>
                   <p className="text-sm text-slate-400 font-medium mt-0.5">Step {currentStep} of {STEP_NAMES.length}</p>
                 </div>
               </div>
-              {/* Progress bar */}
               <div className="flex items-center gap-3">
                 <div className="w-40 h-2 bg-slate-200 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all duration-500"
-                    style={{ width: `${((currentStep - 1) / (STEP_NAMES.length - 1)) * 100}%`, background: COLORS.TEAL }}
-                  />
+                  <div className="h-full rounded-full transition-all duration-500"
+                    style={{ width: `${((currentStep - 1) / (STEP_NAMES.length - 1)) * 100}%`, background: COLORS.TEAL }} />
                 </div>
                 <span className="text-xs font-bold text-slate-400">{Math.round(((currentStep - 1) / (STEP_NAMES.length - 1)) * 100)}%</span>
               </div>
@@ -517,13 +510,9 @@ const CreateTripEvent = () => {
                   <SectionCard title="Event Category" subtitle="Select the best category for your event" icon={Ticket}>
                     <div className="grid grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
                       {EVENT_CATEGORIES.map((cat) => (
-                        <button
-                          key={cat}
-                          type="button"
-                          onClick={() => setFormData({ ...formData, event_category: cat })}
+                        <button key={cat} type="button" onClick={() => setFormData({ ...formData, event_category: cat })}
                           className={`px-3 py-2.5 rounded-xl text-[11px] font-bold text-center transition-all ${formData.event_category === cat ? 'text-white shadow-md' : 'bg-slate-50 border border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-100'}`}
-                          style={formData.event_category === cat ? { background: COLORS.TEAL } : {}}
-                        >
+                          style={formData.event_category === cat ? { background: COLORS.TEAL } : {}}>
                           {cat}
                         </button>
                       ))}
@@ -578,23 +567,41 @@ const CreateTripEvent = () => {
                       />
                       {validationErrors.includes("location") && <p className="text-red-500 text-[10px] font-semibold mt-1">⚠ Specific location is required</p>}
                     </div>
+
+                    {/* Pickup Location — trips only, required, full width */}
+                    {formData.type === "trip" && (
+                      <div className="lg:col-span-2">
+                        <FieldLabel required>Pickup Location</FieldLabel>
+                        <div className="relative">
+                          <Navigation className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                          <StyledInput
+                            isInvalid={validationErrors.includes("pickup_location")}
+                            value={formData.pickup_location}
+                            onChange={(e) => {
+                              setFormData({ ...formData, pickup_location: e.target.value });
+                              if (e.target.value) setValidationErrors(prev => prev.filter(err => err !== "pickup_location"));
+                            }}
+                            placeholder="e.g. Nairobi CBD, Globe Cinema Roundabout"
+                            className="pl-9"
+                          />
+                        </div>
+                        <p className="text-[10px] text-slate-400 mt-1 font-medium">Where guests will be picked up for this trip</p>
+                        {validationErrors.includes("pickup_location") && <p className="text-red-500 text-[10px] font-semibold mt-1">⚠ Pickup location is required for trips</p>}
+                      </div>
+                    )}
                   </div>
                 </SectionCard>
 
-                {/* Access Location */}
+                {/* Map Location */}
                 <SectionCard title="Map Location" subtitle="Help guests find you — paste a link or use GPS" icon={Navigation}>
                   <div className="flex gap-3 mb-5">
                     {[
                       { mode: 'link', icon: Link2, label: 'Paste Map Link' },
                       { mode: 'gps', icon: Navigation, label: 'Use My GPS' },
                     ].map(({ mode, icon: Icon, label }) => (
-                      <button
-                        key={mode}
-                        type="button"
-                        onClick={() => setLocationMode(mode as any)}
+                      <button key={mode} type="button" onClick={() => setLocationMode(mode as any)}
                         className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[12px] font-bold transition-all ${locationMode === mode ? 'text-white shadow-md' : 'bg-slate-50 border border-slate-200 text-slate-500 hover:bg-slate-100'}`}
-                        style={locationMode === mode ? { background: COLORS.TEAL } : {}}
-                      >
+                        style={locationMode === mode ? { background: COLORS.TEAL } : {}}>
                         <Icon className="h-3.5 w-3.5" /> {label}
                       </button>
                     ))}
@@ -612,12 +619,9 @@ const CreateTripEvent = () => {
                     </div>
                   )}
                   {locationMode === 'gps' && (
-                    <button
-                      type="button"
-                      onClick={getCurrentLocation}
+                    <button type="button" onClick={getCurrentLocation}
                       className="flex items-center gap-2.5 px-6 py-3 rounded-xl text-white text-sm font-bold transition-all active:scale-[0.98] shadow-md hover:opacity-90"
-                      style={{ background: formData.map_link ? "#16a34a" : COLORS.CORAL }}
-                    >
+                      style={{ background: formData.map_link ? "#16a34a" : COLORS.CORAL }}>
                       {formData.map_link ? <><CheckCircle2 className="h-4 w-4" /> Location Captured</> : <><Navigation className="h-4 w-4" /> Capture My Location</>}
                     </button>
                   )}
@@ -645,13 +649,9 @@ const CreateTripEvent = () => {
                       <p className="text-xs text-slate-400">How long will this flexible trip be available? (Max 12 months)</p>
                       <div className="flex flex-wrap gap-2">
                         {[1, 2, 3, 4, 5, 6, 9, 12].map((months) => (
-                          <button
-                            key={months}
-                            type="button"
-                            onClick={() => setFormData({ ...formData, flexible_duration_months: String(months) })}
+                          <button key={months} type="button" onClick={() => setFormData({ ...formData, flexible_duration_months: String(months) })}
                             className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${formData.flexible_duration_months === String(months) ? 'text-white shadow-md' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
-                            style={formData.flexible_duration_months === String(months) ? { background: COLORS.TEAL } : {}}
-                          >
+                            style={formData.flexible_duration_months === String(months) ? { background: COLORS.TEAL } : {}}>
                             {months} {months === 1 ? 'Month' : 'Months'}
                           </button>
                         ))}
@@ -832,12 +832,7 @@ const CreateTripEvent = () => {
                       <p className="text-red-600 text-xs font-semibold">You need exactly 5 photos. Please upload {5 - galleryImages.length} more.</p>
                     </div>
                   )}
-                  <ImageGalleryGrid
-                    images={galleryImages}
-                    onRemove={removeImage}
-                    onAdd={handleImageUpload}
-                    isInvalid={validationErrors.includes("gallery")}
-                  />
+                  <ImageGalleryGrid images={galleryImages} onRemove={removeImage} onAdd={handleImageUpload} isInvalid={validationErrors.includes("gallery")} />
                   <p className="text-[10px] text-slate-400 mt-3 font-medium">First photo becomes your cover image. Use landscape photos for best results.</p>
                 </SectionCard>
 
@@ -852,11 +847,7 @@ const CreateTripEvent = () => {
                             <div className="flex items-center gap-1.5 bg-green-500 text-white px-3 py-1 rounded-lg text-[11px] font-bold">
                               <CheckCircle2 className="h-3 w-3" /> Certificate Uploaded
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => { setEventCertificate(null); setCertificatePreview(null); }}
-                              className="bg-red-500 text-white px-3 py-1 rounded-lg text-[11px] font-bold"
-                            >Remove</button>
+                            <button type="button" onClick={() => { setEventCertificate(null); setCertificatePreview(null); }} className="bg-red-500 text-white px-3 py-1 rounded-lg text-[11px] font-bold">Remove</button>
                           </div>
                         </div>
                       </div>
@@ -957,39 +948,30 @@ const CreateTripEvent = () => {
                   allowChildren: formData.allow_children,
                   activities: activityNames.map(name => ({ name, price: 0, images: [] as string[], previewUrls: [] as string[] })),
                   eventCertificatePreviewUrl: certificatePreview || undefined,
+                  pickupLocation: formData.pickup_location || undefined,
                 }}
                 creatorEmail={user?.email}
               />
             )}
 
-            {/* ─── Navigation ─── */}
+            {/* Navigation */}
             <div className="flex gap-3 pt-2">
               {currentStep > 1 && (
-                <button
-                  type="button"
-                  onClick={handlePrev}
-                  className="flex items-center gap-2 px-6 py-3.5 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm"
-                >
+                <button type="button" onClick={handlePrev}
+                  className="flex items-center gap-2 px-6 py-3.5 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm">
                   <ChevronLeft className="h-4 w-4" /> Back
                 </button>
               )}
               {currentStep < 5 ? (
-                <button
-                  type="button"
-                  onClick={handleNext}
+                <button type="button" onClick={handleNext}
                   className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-white text-sm font-bold shadow-lg hover:opacity-90 transition-all active:scale-[0.99]"
-                  style={{ background: `linear-gradient(135deg, ${COLORS.TEAL}, #005f5f)` }}
-                >
+                  style={{ background: `linear-gradient(135deg, ${COLORS.TEAL}, #005f5f)` }}>
                   Continue to {STEP_NAMES[currentStep]} <ChevronRight className="h-4 w-4" />
                 </button>
               ) : (
-                <button
-                  type="button"
-                  onClick={handleSubmit}
-                  disabled={loading}
+                <button type="button" onClick={handleSubmit} disabled={loading}
                   className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-white text-sm font-bold shadow-lg hover:opacity-90 transition-all active:scale-[0.99] disabled:opacity-60"
-                  style={{ background: `linear-gradient(135deg, ${COLORS.CORAL_LIGHT}, ${COLORS.CORAL})` }}
-                >
+                  style={{ background: `linear-gradient(135deg, ${COLORS.CORAL_LIGHT}, ${COLORS.CORAL})` }}>
                   {loading ? <><Loader2 className="h-4 w-4 animate-spin" /> Submitting...</> : <><CheckCircle2 className="h-4 w-4" /> Submit for Approval</>}
                 </button>
               )}

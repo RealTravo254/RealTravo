@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
   MapPin, Clock, Share2, Copy, Navigation, AlertCircle,
-  Users, CheckCircle2, ChevronLeft, ChevronRight, Grid2X2, ExternalLink, X,
+  Users, CheckCircle2, ChevronLeft, ChevronRight, Grid2X2, ExternalLink,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSavedItems } from "@/hooks/useSavedItems";
@@ -37,6 +37,7 @@ const facilityLabel = (id: string) =>
   FACILITY_LABELS[id] ?? id.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
 // ─── Image Gallery Modal ──────────────────────────────────────────────────────
+// z-[9999] ensures it overlays the header/nav bar
 const ImageGalleryModal = ({
   images, name, startIndex = 0, onClose,
 }: {
@@ -55,31 +56,47 @@ const ImageGalleryModal = ({
   }, [images.length, onClose]);
 
   return (
-    <div className="fixed inset-0 z-[200] bg-black/95 flex flex-col"
-      style={{ paddingTop: "env(safe-area-inset-top,0px)", paddingBottom: "env(safe-area-inset-bottom,0px)" }}>
+    // z-[9999] so modal overlays header (DetailNavBar is typically z-50 or z-[100])
+    <div
+      className="fixed inset-0 bg-black/95 flex flex-col"
+      style={{
+        zIndex: 9999,
+        paddingTop: "env(safe-area-inset-top,0px)",
+        paddingBottom: "env(safe-area-inset-bottom,0px)",
+      }}
+    >
       <div className="flex items-center justify-between px-4 py-3 flex-shrink-0">
         <span className="text-white/60 text-xs font-bold uppercase tracking-widest">{name}</span>
         <div className="flex items-center gap-3">
           <span className="text-white/50 text-xs font-bold">{current + 1} / {images.length}</span>
           <button
             onClick={onClose}
-            className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center hover:bg-white/30 transition-colors text-white border border-white/20"
-            aria-label="Close gallery"
+            className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors text-white text-lg font-bold"
           >
-            <X className="h-4 w-4" />
+            ✕
           </button>
         </div>
       </div>
       <div className="flex-1 relative flex items-center justify-center overflow-hidden px-4">
-        <img src={images[current]} alt={`${name} ${current + 1}`} className="max-h-full max-w-full object-contain select-none" />
+        {/* No border-radius on gallery images */}
+        <img
+          src={images[current]}
+          alt={`${name} ${current + 1}`}
+          className="max-h-full max-w-full object-contain select-none"
+          style={{ borderRadius: 0 }}
+        />
         {images.length > 1 && (
           <>
-            <button onClick={() => setCurrent((p) => (p - 1 + images.length) % images.length)}
-              className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center hover:bg-white/20 transition-all">
+            <button
+              onClick={() => setCurrent((p) => (p - 1 + images.length) % images.length)}
+              className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center hover:bg-white/20 transition-all"
+            >
               <ChevronLeft className="h-5 w-5 text-white" />
             </button>
-            <button onClick={() => setCurrent((p) => (p + 1) % images.length)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center hover:bg-white/20 transition-all">
+            <button
+              onClick={() => setCurrent((p) => (p + 1) % images.length)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center hover:bg-white/20 transition-all"
+            >
               <ChevronRight className="h-5 w-5 text-white" />
             </button>
           </>
@@ -89,7 +106,10 @@ const ImageGalleryModal = ({
         <div className="flex-shrink-0 px-4 py-3 overflow-x-auto">
           <div className="flex gap-2 w-max mx-auto">
             {images.map((img, idx) => (
-              <button key={idx} onClick={() => setCurrent(idx)} className="flex-shrink-0 transition-all"
+              <button
+                key={idx}
+                onClick={() => setCurrent(idx)}
+                className="flex-shrink-0 transition-all"
                 style={{
                   width: 56, height: 42,
                   border: idx === current ? `2px solid ${CORAL}` : "2px solid rgba(255,255,255,0.25)",
@@ -97,8 +117,16 @@ const ImageGalleryModal = ({
                   opacity: idx === current ? 1 : 0.55,
                   padding: 0,
                   boxSizing: "border-box",
-                }}>
-                <img src={img} alt="" className="w-full h-full object-cover" style={{ borderRadius: 4, display: "block" }} />
+                  borderRadius: 0,
+                }}
+              >
+                {/* No border-radius on thumbnails */}
+                <img
+                  src={img}
+                  alt=""
+                  className="w-full h-full object-cover"
+                  style={{ borderRadius: 0, display: "block" }}
+                />
               </button>
             ))}
           </div>
@@ -117,11 +145,31 @@ const DesktopGallery = ({ images, name }: { images: string[]; name: string }) =>
   if (!images.length) return null;
   return (
     <>
-      {modalOpen && <ImageGalleryModal images={images} name={name} startIndex={modalStart} onClose={() => setModalOpen(false)} />}
+      {modalOpen && (
+        <ImageGalleryModal
+          images={images}
+          name={name}
+          startIndex={modalStart}
+          onClose={() => setModalOpen(false)}
+        />
+      )}
       <div className="hidden md:block max-w-6xl mx-auto px-4 pt-4">
-        <div style={{ display: "grid", gridTemplateColumns: "1.55fr 1fr", gridTemplateRows: "200px 130px", gap: "3px", borderRadius: "16px", overflow: "hidden", border: "2px solid rgba(0,0,0,0.08)" }}>
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "1.55fr 1fr",
+          gridTemplateRows: "200px 130px",
+          gap: "3px",
+          borderRadius: "16px",
+          overflow: "hidden",
+          border: "2px solid rgba(0,0,0,0.08)",
+        }}>
           <div style={{ gridRow: "1 / 3", overflow: "hidden", borderRadius: 0, cursor: "pointer" }} onClick={() => open(0)}>
-            <img src={images[0]} alt={name} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" style={{ borderRadius: 0 }} />
+            <img
+              src={images[0]}
+              alt={name}
+              className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
+              style={{ borderRadius: 0 }}
+            />
           </div>
           <div style={{ overflow: "hidden", borderRadius: 0, cursor: "pointer" }} onClick={() => open(1)}>
             {images[1]
@@ -162,28 +210,53 @@ const MobileCarousel = ({ images, name }: { images: string[]; name: string }) =>
   const go = (idx: number) => setActive((idx + images.length) % images.length);
 
   if (!images.length) return (
-    <div className="md:hidden w-full bg-slate-200 flex items-center justify-center text-slate-400 font-black uppercase text-xs"
-      style={{ height: "45vh", minHeight: "200px", maxHeight: "360px" }}>No Image</div>
+    <div
+      className="md:hidden w-full bg-slate-200 flex items-center justify-center text-slate-400 font-black uppercase text-xs"
+      style={{ height: "45vh", minHeight: "200px", maxHeight: "360px" }}
+    >
+      No Image
+    </div>
   );
 
   return (
     <>
-      {modalOpen && <ImageGalleryModal images={images} name={name} startIndex={modalStart} onClose={() => setModalOpen(false)} />}
-      <div className="md:hidden relative overflow-hidden bg-slate-900"
-        style={{ height: "45vh", minHeight: "200px", maxHeight: "360px" }}>
+      {modalOpen && (
+        <ImageGalleryModal
+          images={images}
+          name={name}
+          startIndex={modalStart}
+          onClose={() => setModalOpen(false)}
+        />
+      )}
+      <div
+        className="md:hidden relative overflow-hidden bg-slate-900"
+        style={{ height: "45vh", minHeight: "200px", maxHeight: "360px" }}
+      >
         {images.map((img, idx) => (
-          <img key={idx} src={img} alt={`${name} ${idx + 1}`}
+          <img
+            key={idx}
+            src={img}
+            alt={`${name} ${idx + 1}`}
             className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700"
-            style={{ opacity: active === idx ? 1 : 0, borderRadius: 0 }} />
+            style={{ opacity: active === idx ? 1 : 0, borderRadius: 0 }}
+          />
         ))}
-        <div className="absolute bottom-0 left-0 right-0 h-20 pointer-events-none z-10"
-          style={{ background: "linear-gradient(to top, rgba(0,0,0,0.5), transparent)" }} />
+        <div
+          className="absolute bottom-0 left-0 right-0 h-20 pointer-events-none z-10"
+          style={{ background: "linear-gradient(to top, rgba(0,0,0,0.5), transparent)" }}
+        />
         {images.length > 1 && (
           <>
-            <button onClick={() => go(active - 1)} className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
+            <button
+              onClick={() => go(active - 1)}
+              className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center"
+            >
               <ChevronLeft className="h-4 w-4 text-white" />
             </button>
-            <button onClick={() => go(active + 1)} className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
+            <button
+              onClick={() => go(active + 1)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center"
+            >
               <ChevronRight className="h-4 w-4 text-white" />
             </button>
           </>
@@ -191,16 +264,26 @@ const MobileCarousel = ({ images, name }: { images: string[]; name: string }) =>
         {images.length > 1 && (
           <div className="absolute bottom-3 left-0 right-0 z-20 flex justify-center gap-1.5 pointer-events-none">
             {images.slice(0, 6).map((_, idx) => (
-              <span key={idx} className="transition-all duration-300 block pointer-events-auto cursor-pointer"
+              <span
+                key={idx}
+                className="transition-all duration-300 block pointer-events-auto cursor-pointer"
                 onClick={() => go(idx)}
-                style={{ width: active === idx ? "20px" : "6px", height: "6px", borderRadius: "3px", background: active === idx ? "white" : "rgba(255,255,255,0.45)" }} />
+                style={{
+                  width: active === idx ? "20px" : "6px",
+                  height: "6px",
+                  borderRadius: "3px",
+                  background: active === idx ? "white" : "rgba(255,255,255,0.45)",
+                }}
+              />
             ))}
           </div>
         )}
         <div className="absolute top-3 right-3 z-20 flex items-center gap-2">
           {images.length > 1 && (
-            <button onClick={() => { setModalStart(active); setModalOpen(true); }}
-              className="flex items-center gap-1.5 bg-black/50 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full hover:bg-black/70 transition-all">
+            <button
+              onClick={() => { setModalStart(active); setModalOpen(true); }}
+              className="flex items-center gap-1.5 bg-black/50 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full hover:bg-black/70 transition-all"
+            >
               <Grid2X2 className="h-3 w-3" /> See All
             </button>
           )}
@@ -213,17 +296,19 @@ const MobileCarousel = ({ images, name }: { images: string[]; name: string }) =>
   );
 };
 
-// ─── General Amenities — grid wrap on ALL screen sizes (no horizontal scroll) ─
+// ─── General Amenities ────────────────────────────────────────────────────────
 const AmenitiesScroll = ({ amenities, accentColor }: { amenities: string[]; accentColor: string }) => {
   if (!amenities.length) return null;
   return (
     <section className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
       <h2 className="text-base font-black uppercase tracking-tight mb-3" style={{ color: accentColor }}>General Amenities</h2>
-      {/* Grid wrap on ALL screen sizes — no horizontal scroll */}
       <div className="flex flex-wrap gap-1.5">
         {amenities.map((fId, i) => (
-          <div key={i} className="flex items-center gap-1 px-2 py-1 rounded-full border"
-            style={{ background: `${accentColor}10`, borderColor: `${accentColor}30` }}>
+          <div
+            key={i}
+            className="flex items-center gap-1 px-2 py-1 rounded-full border"
+            style={{ background: `${accentColor}10`, borderColor: `${accentColor}30` }}
+          >
             <CheckCircle2 className="h-2.5 w-2.5 flex-shrink-0" style={{ color: accentColor }} />
             <span className="text-[9px] font-bold uppercase tracking-tight whitespace-nowrap" style={{ color: accentColor }}>
               {facilityLabel(fId)}
@@ -235,18 +320,71 @@ const AmenitiesScroll = ({ amenities, accentColor }: { amenities: string[]; acce
   );
 };
 
-// ─── Shared small card dimensions ────────────────────────────────────────────
-const CARD_IMG_HEIGHT = 100; // px — uniform image height for facilities & activities
+const CARD_IMG_HEIGHT = 100;
 
-// ─── Facilities — uniform small cards, 2-col grid on mobile & desktop ─────────
+// ─── FacSlideshow ─────────────────────────────────────────────────────────────
+const FacSlideshow = ({
+  images, name, height, onClick,
+}: {
+  images: string[]; name: string; height: number; onClick?: () => void;
+}) => {
+  const [active, setActive] = useState(0);
+  useEffect(() => {
+    if (images.length <= 1) return;
+    const iv = setInterval(() => setActive((p) => (p + 1) % images.length), 3000);
+    return () => clearInterval(iv);
+  }, [images.length]);
+  return (
+    <div
+      className="relative overflow-hidden"
+      style={{ height, borderRadius: "12px 12px 0 0", cursor: onClick ? "pointer" : "default" }}
+      onClick={onClick}
+    >
+      {images.map((img, idx) => (
+        <img
+          key={idx}
+          src={img}
+          alt={name}
+          className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
+          style={{ opacity: active === idx ? 1 : 0, borderRadius: 0 }}
+        />
+      ))}
+      {images.length > 1 && (
+        <div className="absolute bottom-1 left-0 right-0 flex justify-center gap-0.5 pointer-events-none z-10">
+          {images.map((_, idx) => (
+            <span
+              key={idx}
+              className="transition-all duration-300 block"
+              style={{
+                width: active === idx ? "10px" : "3px",
+                height: "3px",
+                borderRadius: "2px",
+                background: active === idx ? "white" : "rgba(255,255,255,0.4)",
+              }}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── Facilities Grid ──────────────────────────────────────────────────────────
 const InlineFacilitiesGrid = ({ facilities, accentColor }: { facilities: any[]; accentColor: string }) => {
   const [modalImages, setModalImages] = useState<string[] | null>(null);
   const [modalName, setModalName] = useState("");
+  const [modalStart, setModalStart] = useState(0);
   const [showAll, setShowAll] = useState(false);
 
   if (!facilities?.length) return null;
 
   const visibleFacilities = showAll ? facilities : facilities.slice(0, 6);
+
+  const openModal = (imgs: string[], name: string, startIdx = 0) => {
+    setModalImages(imgs);
+    setModalName(name);
+    setModalStart(startIdx);
+  };
 
   return (
     <>
@@ -254,6 +392,7 @@ const InlineFacilitiesGrid = ({ facilities, accentColor }: { facilities: any[]; 
         <ImageGalleryModal
           images={modalImages}
           name={modalName}
+          startIndex={modalStart}
           onClose={() => setModalImages(null)}
         />
       )}
@@ -264,25 +403,32 @@ const InlineFacilitiesGrid = ({ facilities, accentColor }: { facilities: any[]; 
             <button
               onClick={() => setShowAll((v) => !v)}
               className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border transition-all"
-              style={{ color: accentColor, borderColor: `${accentColor}40`, background: `${accentColor}0D` }}>
+              style={{ color: accentColor, borderColor: `${accentColor}40`, background: `${accentColor}0D` }}
+            >
               {showAll ? "Show Less" : `See All (${facilities.length})`}
             </button>
           )}
         </div>
 
-        {/* 2-col grid on ALL screen sizes */}
         <div className="grid grid-cols-2 gap-2">
           {visibleFacilities.map((fac: any, i: number) => {
             const imgs: string[] = Array.isArray(fac.images) ? fac.images.filter(Boolean) : [];
             return (
-              <div key={i} className="bg-white overflow-hidden shadow-sm border border-slate-100" style={{ borderRadius: 0 }}>
-                {/* Image area — fixed height, no border radius */}
+              <div key={i} className="bg-white overflow-hidden shadow-sm border border-slate-100" style={{ borderRadius: 12 }}>
                 {imgs.length > 0 ? (
-                  <div className="relative overflow-hidden" style={{ height: CARD_IMG_HEIGHT, borderRadius: 0 }}>
-                    <FacSlideshow images={imgs} name={fac.name} height={CARD_IMG_HEIGHT} />
+                  <div className="relative overflow-hidden" style={{ height: CARD_IMG_HEIGHT, borderRadius: "12px 12px 0 0" }}>
+                    {/* Clicking the image area opens the gallery modal */}
+                    <FacSlideshow
+                      images={imgs}
+                      name={fac.name}
+                      height={CARD_IMG_HEIGHT}
+                      onClick={() => openModal(imgs, fac.name, 0)}
+                    />
                     {imgs.length > 1 && (
-                      <button onClick={() => { setModalImages(imgs); setModalName(fac.name); }}
-                        className="absolute top-1.5 right-1.5 z-20 flex items-center gap-0.5 bg-black/50 backdrop-blur-sm text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full hover:bg-black/70 transition-all">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openModal(imgs, fac.name, 0); }}
+                        className="absolute top-1.5 right-1.5 z-20 flex items-center gap-0.5 bg-black/50 backdrop-blur-sm text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full hover:bg-black/70 transition-all"
+                      >
                         <Grid2X2 className="h-2 w-2" /> {imgs.length}
                       </button>
                     )}
@@ -292,7 +438,6 @@ const InlineFacilitiesGrid = ({ facilities, accentColor }: { facilities: any[]; 
                     <MapPin className="h-5 w-5 text-slate-300" />
                   </div>
                 )}
-                {/* Info area */}
                 <div className="p-2">
                   <p className="font-black text-[11px] text-slate-800 uppercase tracking-tight leading-tight">{fac.name}</p>
                   {fac.capacity && (
@@ -306,8 +451,13 @@ const InlineFacilitiesGrid = ({ facilities, accentColor }: { facilities: any[]; 
                   {Array.isArray(fac.amenities) && fac.amenities.length > 0 && (
                     <div className="flex flex-wrap gap-0.5 mt-1">
                       {fac.amenities.slice(0, 3).map((a: string, ai: number) => (
-                        <span key={ai} className="text-[8px] font-bold uppercase px-1.5 py-0.5 rounded"
-                          style={{ background: `${accentColor}12`, color: accentColor }}>{a}</span>
+                        <span
+                          key={ai}
+                          className="text-[8px] font-bold uppercase px-1.5 py-0.5 rounded"
+                          style={{ background: `${accentColor}12`, color: accentColor }}
+                        >
+                          {a}
+                        </span>
                       ))}
                     </div>
                   )}
@@ -321,83 +471,11 @@ const InlineFacilitiesGrid = ({ facilities, accentColor }: { facilities: any[]; 
   );
 };
 
-const FacSlideshow = ({ images, name, height }: { images: string[]; name: string; height: number }) => {
-  const [active, setActive] = useState(0);
-  useEffect(() => {
-    if (images.length <= 1) return;
-    const iv = setInterval(() => setActive((p) => (p + 1) % images.length), 3000);
-    return () => clearInterval(iv);
-  }, [images.length]);
-  return (
-    <div className="relative overflow-hidden" style={{ height, borderRadius: 0 }}>
-      {images.map((img, idx) => (
-        <img key={idx} src={img} alt={name}
-          className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
-          style={{ opacity: active === idx ? 1 : 0, borderRadius: 0 }} />
-      ))}
-      {images.length > 1 && (
-        <div className="absolute bottom-1 left-0 right-0 flex justify-center gap-0.5 pointer-events-none z-10">
-          {images.map((_, idx) => (
-            <span key={idx} className="transition-all duration-300 block"
-              style={{ width: active === idx ? "10px" : "3px", height: "3px", borderRadius: "2px", background: active === idx ? "white" : "rgba(255,255,255,0.4)" }} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
-
-// ─── Activities — uniform small cards, 2-col grid on mobile, 3-col on desktop ─
-const InlineActivitiesGrid = ({ activities, formatPrice }: { activities: any[]; formatPrice: (n: number) => string }) => {
-  const [modalImages, setModalImages] = useState<string[] | null>(null);
-  const [modalName, setModalName] = useState("");
-  const [showAll, setShowAll] = useState(false);
-
-  if (!activities?.length) return null;
-
-  const visibleActivities = showAll ? activities : activities.slice(0, 6);
-
-  return (
-    <>
-      {modalImages && (
-        <ImageGalleryModal
-          images={modalImages}
-          name={modalName}
-          onClose={() => setModalImages(null)}
-        />
-      )}
-      <section>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-black uppercase tracking-tight" style={{ color: CORAL }}>Activities</h2>
-          {activities.length > 6 && (
-            <button
-              onClick={() => setShowAll((v) => !v)}
-              className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border transition-all"
-              style={{ color: CORAL, borderColor: `${CORAL}40`, background: `${CORAL}0D` }}>
-              {showAll ? "Show Less" : `See All (${activities.length})`}
-            </button>
-          )}
-        </div>
-
-        {/* 2-col on mobile, 3-col on sm+ */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {visibleActivities.map((act: any, i: number) => {
-            const imgs: string[] = Array.isArray(act.images) ? act.images.filter(Boolean) : [];
-            return (
-              <ActivityCard key={i} act={act} imgs={imgs} formatPrice={formatPrice}
-                onSeeAll={imgs.length > 1 ? () => { setModalImages(imgs); setModalName(act.name); } : undefined} />
-            );
-          })}
-        </div>
-      </section>
-    </>
-  );
-};
-
+// ─── Activity Card ────────────────────────────────────────────────────────────
 const ActivityCard = ({
-  act, imgs, formatPrice, onSeeAll,
+  act, imgs, formatPrice, onImageClick,
 }: {
-  act: any; imgs: string[]; formatPrice: (n: number) => string; onSeeAll?: () => void;
+  act: any; imgs: string[]; formatPrice: (n: number) => string; onImageClick?: () => void;
 }) => {
   const [active, setActive] = useState(0);
   useEffect(() => {
@@ -407,38 +485,57 @@ const ActivityCard = ({
   }, [imgs.length]);
 
   return (
-    <div className="bg-white overflow-hidden shadow-sm border border-slate-100" style={{ borderRadius: 0 }}>
-      {/* Image area — same fixed height as facilities, no border radius */}
-      <div className="relative overflow-hidden" style={{ height: CARD_IMG_HEIGHT, borderRadius: 0 }}>
+    <div className="bg-white overflow-hidden shadow-sm border border-slate-100" style={{ borderRadius: 12 }}>
+      {/* Image area — clicking opens the gallery modal */}
+      <div
+        className="relative overflow-hidden"
+        style={{ height: CARD_IMG_HEIGHT, borderRadius: "12px 12px 0 0", cursor: imgs.length > 0 ? "pointer" : "default" }}
+        onClick={imgs.length > 0 ? onImageClick : undefined}
+      >
         {imgs.length > 0 ? (
           imgs.map((img, idx) => (
-            <img key={idx} src={img} alt={act.name}
+            <img
+              key={idx}
+              src={img}
+              alt={act.name}
               className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
-              style={{ opacity: active === idx ? 1 : 0, borderRadius: 0 }} />
+              style={{ opacity: active === idx ? 1 : 0, borderRadius: 0 }}
+            />
           ))
         ) : (
           <div className="absolute inset-0 bg-slate-200 flex items-center justify-center">
             <MapPin className="h-5 w-5 text-slate-300" />
           </div>
         )}
-        <div className="absolute inset-0 pointer-events-none"
-          style={{ background: "linear-gradient(to top, rgba(0,0,0,0.45) 0%, transparent 55%)" }} />
-        {onSeeAll && (
-          <button onClick={onSeeAll}
-            className="absolute top-1.5 right-1.5 z-20 flex items-center gap-0.5 bg-black/50 backdrop-blur-sm text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full hover:bg-black/70 transition-all">
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: "linear-gradient(to top, rgba(0,0,0,0.45) 0%, transparent 55%)" }}
+        />
+        {imgs.length > 1 && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onImageClick?.(); }}
+            className="absolute top-1.5 right-1.5 z-20 flex items-center gap-0.5 bg-black/50 backdrop-blur-sm text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full hover:bg-black/70 transition-all"
+          >
             <Grid2X2 className="h-2 w-2" /> {imgs.length}
           </button>
         )}
         {imgs.length > 1 && (
           <div className="absolute bottom-1 right-1.5 flex gap-0.5 z-20 pointer-events-none">
             {imgs.map((_, idx) => (
-              <span key={idx} className="transition-all duration-300 block"
-                style={{ width: active === idx ? "10px" : "3px", height: "3px", borderRadius: "2px", background: active === idx ? "white" : "rgba(255,255,255,0.4)" }} />
+              <span
+                key={idx}
+                className="transition-all duration-300 block"
+                style={{
+                  width: active === idx ? "10px" : "3px",
+                  height: "3px",
+                  borderRadius: "2px",
+                  background: active === idx ? "white" : "rgba(255,255,255,0.4)",
+                }}
+              />
             ))}
           </div>
         )}
       </div>
-      {/* Info area — same layout as facilities */}
       <div className="p-2">
         <p className="font-black text-[11px] text-slate-800 uppercase tracking-tight leading-tight">{act.name}</p>
         {act.price > 0 ? (
@@ -451,7 +548,67 @@ const ActivityCard = ({
   );
 };
 
-// ─── Always-open Map Section with Google Maps link ────────────────────────────
+// ─── Activities Grid ──────────────────────────────────────────────────────────
+const InlineActivitiesGrid = ({ activities, formatPrice }: { activities: any[]; formatPrice: (n: number) => string }) => {
+  const [modalImages, setModalImages] = useState<string[] | null>(null);
+  const [modalName, setModalName] = useState("");
+  const [modalStart, setModalStart] = useState(0);
+  const [showAll, setShowAll] = useState(false);
+
+  if (!activities?.length) return null;
+
+  const visibleActivities = showAll ? activities : activities.slice(0, 6);
+
+  const openModal = (imgs: string[], name: string, startIdx = 0) => {
+    setModalImages(imgs);
+    setModalName(name);
+    setModalStart(startIdx);
+  };
+
+  return (
+    <>
+      {modalImages && (
+        <ImageGalleryModal
+          images={modalImages}
+          name={modalName}
+          startIndex={modalStart}
+          onClose={() => setModalImages(null)}
+        />
+      )}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-base font-black uppercase tracking-tight" style={{ color: CORAL }}>Activities</h2>
+          {activities.length > 6 && (
+            <button
+              onClick={() => setShowAll((v) => !v)}
+              className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border transition-all"
+              style={{ color: CORAL, borderColor: `${CORAL}40`, background: `${CORAL}0D` }}
+            >
+              {showAll ? "Show Less" : `See All (${activities.length})`}
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {visibleActivities.map((act: any, i: number) => {
+            const imgs: string[] = Array.isArray(act.images) ? act.images.filter(Boolean) : [];
+            return (
+              <ActivityCard
+                key={i}
+                act={act}
+                imgs={imgs}
+                formatPrice={formatPrice}
+                onImageClick={imgs.length > 0 ? () => openModal(imgs, act.name, 0) : undefined}
+              />
+            );
+          })}
+        </div>
+      </section>
+    </>
+  );
+};
+
+// ─── Always-open Map Section ──────────────────────────────────────────────────
 const AlwaysOpenMapSection = ({
   name, latitude, longitude, location, country,
 }: {
@@ -508,8 +665,11 @@ const AlwaysOpenMapSection = ({
 };
 
 const UtilityButton = ({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) => (
-  <Button variant="ghost" onClick={onClick}
-    className="flex-col h-auto py-2.5 bg-slate-50 text-slate-500 rounded-xl border border-slate-100 hover:bg-slate-100 transition-colors flex-1">
+  <Button
+    variant="ghost"
+    onClick={onClick}
+    className="flex-col h-auto py-2.5 bg-slate-50 text-slate-500 rounded-xl border border-slate-100 hover:bg-slate-100 transition-colors flex-1"
+  >
     <div className="mb-0.5">{icon}</div>
     <span className="text-[9px] font-bold uppercase">{label}</span>
   </Button>
@@ -643,7 +803,10 @@ const AdventurePlaceDetail = () => {
         : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${place.name}, ${place.location}`)}`,
       "_blank"
     ),
-    onCopy: async () => { await navigator.clipboard.writeText(getShareLink(resolvedId, "adventure_place", place.name, place.location)); toast({ title: "Link Copied!" }); },
+    onCopy: async () => {
+      await navigator.clipboard.writeText(getShareLink(resolvedId, "adventure_place", place.name, place.location));
+      toast({ title: "Link Copied!" });
+    },
     onShare: async () => {
       const link = getShareLink(resolvedId, "adventure_place", place.name, place.location);
       if (navigator.share) { try { await navigator.share({ title: place.name, url: link }); } catch {} }
@@ -653,8 +816,13 @@ const AdventurePlaceDetail = () => {
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      <DetailNavBar scrolled={scrolled} itemName={place.name} isSaved={isSaved}
-        onSave={() => handleSaveItem(resolvedId, "adventure_place")} onBack={goBack} />
+      <DetailNavBar
+        scrolled={scrolled}
+        itemName={place.name}
+        isSaved={isSaved}
+        onSave={() => handleSaveItem(resolvedId, "adventure_place")}
+        onBack={goBack}
+      />
       <div style={{ height: "calc(56px + env(safe-area-inset-top, 0px))" }} />
 
       {/* Gallery */}
@@ -671,16 +839,21 @@ const AdventurePlaceDetail = () => {
       </div>
 
       <div className="md:hidden container px-4 mt-3 max-w-6xl mx-auto">
-        <QuickNavigationBar hasFacilities={place.facilities?.length > 0} hasActivities={place.activities?.length > 0} hasContact={false} />
+        <QuickNavigationBar
+          hasFacilities={place.facilities?.length > 0}
+          hasActivities={place.activities?.length > 0}
+          hasContact={false}
+        />
       </div>
 
       <main className="container px-4 mt-5 relative z-10 max-w-6xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-[1.8fr,1fr] gap-6">
           <div className="space-y-6">
-            {/* General Amenities — grid wrap, no scroll */}
-            {generalAmenities.length > 0 && <AmenitiesScroll amenities={generalAmenities} accentColor={TEAL} />}
+            {generalAmenities.length > 0 && (
+              <AmenitiesScroll amenities={generalAmenities} accentColor={TEAL} />
+            )}
 
-            {/* Booking card — mobile only, shown before facilities */}
+            {/* Booking card — mobile only */}
             <div className="bg-white rounded-2xl p-5 shadow-lg border border-slate-100 lg:hidden">
               <BookingCard {...bookingCardProps} />
             </div>
@@ -728,8 +901,10 @@ const AdventurePlaceDetail = () => {
       <Footer />
 
       {/* Mobile bottom bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-[100] md:hidden bg-white border-t border-slate-200 shadow-[0_-4px_20px_rgb(0,0,0,0.08)]"
-        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+      <div
+        className="fixed bottom-0 left-0 right-0 z-[100] md:hidden bg-white border-t border-slate-200 shadow-[0_-4px_20px_rgb(0,0,0,0.08)]"
+        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+      >
         <div className="flex items-center justify-between px-4 py-3">
           <div>
             {place.entry_fee && place.entry_fee > 0 ? (
@@ -747,8 +922,11 @@ const AdventurePlaceDetail = () => {
               <span className="text-sm font-bold text-emerald-600">Free Entry</span>
             )}
           </div>
-          <Button onClick={handleCheckAvailability} className="px-6 py-5 rounded-xl text-sm font-bold text-white border-none"
-            style={{ background: `linear-gradient(135deg, ${CORAL_LIGHT} 0%, ${CORAL} 100%)` }}>
+          <Button
+            onClick={handleCheckAvailability}
+            className="px-6 py-5 rounded-xl text-sm font-bold text-white border-none"
+            style={{ background: `linear-gradient(135deg, ${CORAL_LIGHT} 0%, ${CORAL} 100%)` }}
+          >
             Check availability
           </Button>
         </div>
@@ -764,7 +942,10 @@ interface BookingCardProps {
   onCheckAvailability: () => void; onMap: () => void; onCopy: () => void; onShare: () => void;
 }
 
-const BookingCard = ({ place, is24Hours, daysOpened, capacityPerDay, formatPrice, onCheckAvailability, onMap, onCopy, onShare }: BookingCardProps) => (
+const BookingCard = ({
+  place, is24Hours, daysOpened, capacityPerDay, formatPrice,
+  onCheckAvailability, onMap, onCopy, onShare,
+}: BookingCardProps) => (
   <>
     <div>
       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">From</p>
@@ -795,8 +976,13 @@ const BookingCard = ({ place, is24Hours, daysOpened, capacityPerDay, formatPrice
           <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1.5">Available Days</p>
           <div className="flex flex-wrap gap-1">
             {daysOpened.map((day, i) => (
-              <span key={i} className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase border"
-                style={{ background: `${TEAL}12`, color: TEAL, borderColor: `${TEAL}30` }}>{day}</span>
+              <span
+                key={i}
+                className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase border"
+                style={{ background: `${TEAL}12`, color: TEAL, borderColor: `${TEAL}30` }}
+              >
+                {day}
+              </span>
             ))}
           </div>
         </div>
@@ -811,8 +997,11 @@ const BookingCard = ({ place, is24Hours, daysOpened, capacityPerDay, formatPrice
       )}
     </div>
 
-    <Button onClick={onCheckAvailability} className="w-full py-6 rounded-xl text-sm font-bold text-white border-none shadow-md transition-all active:scale-95"
-      style={{ background: `linear-gradient(135deg, ${CORAL_LIGHT} 0%, ${CORAL} 100%)` }}>
+    <Button
+      onClick={onCheckAvailability}
+      className="w-full py-6 rounded-xl text-sm font-bold text-white border-none shadow-md transition-all active:scale-95"
+      style={{ background: `linear-gradient(135deg, ${CORAL_LIGHT} 0%, ${CORAL} 100%)` }}
+    >
       Check availability
     </Button>
 

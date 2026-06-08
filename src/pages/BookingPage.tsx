@@ -221,7 +221,7 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
     y += rowH + 4;
   };
 
-  // HEADER BANNER
+  // Header
   doc.setFillColor(...TEAL_RGB);
   doc.rect(0, 0, W, 96, "F");
   doc.setFillColor(...CORAL_RGB);
@@ -231,11 +231,9 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
   doc.setFont("helvetica", "bold");
   doc.setFontSize(24);
   doc.text("REALTRAVO", M, 40);
-
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.5);
   doc.text("BOOKING CONFIRMATION", M, 56);
-
   doc.setFontSize(7);
   doc.text(`Ref: ${reference}`, M, 70);
   doc.text(`Generated: ${new Date().toLocaleDateString()}`, M, 82);
@@ -310,11 +308,7 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
     tableHeader("TICKET TYPE", "SUBTOTAL");
     ticketSelections.forEach((t: any) => {
       const qty = t.quantity || 1;
-      tableRow(
-        t.name,
-        fmtMoney(t.price * qty),
-        `${qty} person${qty > 1 ? "s" : ""} × ${fmtMoney(t.price)} per ticket`
-      );
+      tableRow(t.name, fmtMoney(t.price * qty), `${qty} person${qty > 1 ? "s" : ""} × ${fmtMoney(t.price)} per ticket`);
     });
     y += 6;
   }
@@ -324,11 +318,7 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
     tableHeader("ACTIVITY  /  PEOPLE", "SUBTOTAL");
     selectedActivities.forEach((a: any) => {
       const ppl = a.numberOfPeople || a.number_of_people || 1;
-      tableRow(
-        a.name,
-        fmtMoney((a.price || 0) * ppl),
-        `${ppl} person${ppl > 1 ? "s" : ""} × ${fmtMoney(a.price || 0)} per person`
-      );
+      tableRow(a.name, fmtMoney((a.price || 0) * ppl), `${ppl} person${ppl > 1 ? "s" : ""} × ${fmtMoney(a.price || 0)} per person`);
     });
     y += 6;
   }
@@ -355,7 +345,6 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
 
   if (hostPhone || hostEmail) {
     section(`${contactLabel.toUpperCase()} CONTACT`);
-
     newPage(60);
     doc.setFillColor(255, 251, 235);
     doc.roundedRect(M, y, CW, 50, 5, 5, "F");
@@ -371,7 +360,6 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
     doc.setFontSize(7);
     doc.text("Please have your booking reference ready when contacting.", M + 10, y + 40);
     y += 58;
-
     infoRow("Phone", hostPhone);
     infoRow("Email", hostEmail);
     y += 6;
@@ -405,14 +393,11 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
     doc.setDrawColor(...TEAL_RGB);
     doc.setLineWidth(0.5);
     doc.roundedRect(M, y, CW, 130, 8, 8, "S");
-
     doc.addImage(qrDataUrl, "PNG", M + 14, y + 15, 100, 100);
-
     doc.setTextColor(...TEAL_RGB);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
     doc.text("BOOKING QR CODE", M + 130, y + 32);
-
     doc.setTextColor(...MUTED_RGB);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
@@ -420,7 +405,6 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
      "your booking. Present this PDF or the QR",
      "code on your mobile device to the host."]
       .forEach((ln, i) => doc.text(ln, M + 130, y + 50 + i * 13));
-
     doc.setTextColor(...SLATE_RGB);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
@@ -434,17 +418,14 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
   doc.setDrawColor(...TEAL_RGB);
   doc.setLineWidth(1.2);
   doc.line(0, footerY - 12, W, footerY - 12);
-
   doc.setFillColor(...TEAL_RGB);
   doc.circle(M, footerY + 10, 3, "F");
   doc.setFillColor(...CORAL_RGB);
   doc.circle(M + 10, footerY + 10, 3, "F");
-
   doc.setTextColor(...TEAL_RGB);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
   doc.text("realtravo.com", W / 2, footerY + 4, { align: "center" });
-
   doc.setTextColor(...MUTED_RGB);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7);
@@ -468,7 +449,7 @@ const PaystackFloatingHeader = ({ itemName, onBack }: { itemName: string; onBack
       <button onClick={onBack} aria-label="Back to checkout" style={{
         width: 36, height: 36, borderRadius: "50%", backgroundColor: "#f1f5f9",
         border: "none", cursor: "pointer", display: "flex", alignItems: "center",
-        justifyContent: "center", flexShrink: 0, transition: "background-color 0.15s",
+        justifyContent: "center", flexShrink: 0,
       }}
         onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e2e8f0")}
         onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f1f5f9")}>
@@ -477,8 +458,8 @@ const PaystackFloatingHeader = ({ itemName, onBack }: { itemName: string; onBack
         </svg>
       </button>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ margin: 0, fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.08em", lineHeight: 1.2 }}>Back to Checkout</p>
-        <p style={{ margin: 0, fontSize: 15, fontWeight: 900, color: COLORS.TEAL, textTransform: "uppercase", letterSpacing: "-0.03em", lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{itemName}</p>
+        <p style={{ margin: 0, fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.08em" }}>Back to Checkout</p>
+        <p style={{ margin: 0, fontSize: 15, fontWeight: 900, color: COLORS.TEAL, textTransform: "uppercase", letterSpacing: "-0.03em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{itemName}</p>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 5, backgroundColor: "#f0fdfa", color: "#0f766e", fontSize: 11, fontWeight: 700, padding: "6px 12px", borderRadius: 999, flexShrink: 0 }}>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -491,7 +472,6 @@ const PaystackFloatingHeader = ({ itemName, onBack }: { itemName: string; onBack
   );
 
 // ── Main page ─────────────────────────────────────────────────────────────────
-
 const BookingPage = () => {
   const { type, id } = useParams<{ type: string; id: string }>();
   const navigate     = useNavigate();
@@ -509,9 +489,8 @@ const BookingPage = () => {
   const [paymentReference, setPaymentReference] = useState("");
   const [completedBookingData, setCompletedBookingData] = useState<any>(null);
 
-  // Parse facilityIndex from URL — used when tapping a facility card on detail page
-  const facilityIndexParam = searchParams.get("facilityIndex");
-  const preselectedFacilityIndex = facilityIndexParam !== null ? parseInt(facilityIndexParam, 10) : null;
+  // ── Read pre-selected facility from URL param ──────────────────
+  const preSelectedFacilityName = searchParams.get("facilityName") || "";
 
   const { initiatePayment, launchPaystack, isLoading: isPaymentLoading, showPaystackContainer } =
     usePaystackPopup({
@@ -733,8 +712,6 @@ const BookingPage = () => {
   if (!item) return null;
 
   const getMultiStepProps = () => {
-    const isFacilityOnly = searchParams.get("skipToFacility") === "true";
-
     const baseProps = {
       onSubmit: handleBookingSubmit,
       isProcessing: isProcessing || isPaymentLoading,
@@ -745,8 +722,8 @@ const BookingPage = () => {
       onPaymentSuccess: () => setIsCompleted(true),
       primaryColor: COLORS.TEAL,
       accentColor:  COLORS.CORAL,
-      // No image shown in multistep booking
-      showItemImage: false,
+      // ── pass pre-selected facility ──────────────────────────────
+      preSelectedFacilityName,
     };
 
     if (type === "trip" || type === "event") {
@@ -769,27 +746,15 @@ const BookingPage = () => {
     }
 
     if (type === "adventure_place" || type === "adventure") {
-      // Build preselected facilities array if coming from a facility card tap
-      const rawFacilities: any[] = Array.isArray(item.facilities) ? item.facilities : [];
-      const preselectedFacilities =
-        preselectedFacilityIndex !== null && rawFacilities[preselectedFacilityIndex]
-          ? [{ ...rawFacilities[preselectedFacilityIndex], selected: true }]
-          : undefined;
-
       return {
         ...baseProps, bookingType: "adventure_place",
         priceAdult: item.entry_fee || 0, priceChild: item.entry_fee || 0,
         entranceType: item.entry_fee_type || "paid",
-        // Strip images from facilities before passing to multistep
-        facilities: rawFacilities.map((f: any) => ({ ...f, images: [] })),
-        // Strip images from activities too
-        activities: (Array.isArray(item.activities) ? item.activities : []).map((a: any) => ({ ...a, images: [] })),
+        facilities:   item.facilities    || [],
+        activities:   item.activities    || [],
         totalCapacity: item.available_slots || 0,
         workingDays:  item.days_opened   || [],
         skipDateSelection: false,
-        // Preselect a specific facility if coming from facility card
-        preselectedFacilities,
-        skipToFacility: isFacilityOnly,
       };
     }
 
@@ -797,9 +762,8 @@ const BookingPage = () => {
       return {
         ...baseProps, bookingType: "hotel",
         priceAdult: 0, priceChild: 0, entranceType: "free",
-        // Strip images from facilities and activities
-        facilities: (Array.isArray(item.facilities) ? item.facilities : []).map((f: any) => ({ ...f, images: [] })),
-        activities: (Array.isArray(item.activities) ? item.activities : []).map((a: any) => ({ ...a, images: [] })),
+        facilities:   item.facilities   || [],
+        activities:   item.activities   || [],
         totalCapacity: item.available_rooms || 0,
         workingDays:  item.days_opened  || [],
       };

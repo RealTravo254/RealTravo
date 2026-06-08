@@ -869,4 +869,4 @@ const BookingCard = ({ place, is24Hours, daysOpened, capacityPerDay, formatPrice
   </>
 );
 
-export default AdventurePlaceDetail; 
+export default AdventurePlaceDetail;

@@ -31,10 +31,6 @@ const fmtShort = (d: string) =>
     year: "numeric", month: "short", day: "numeric",
   });
 
-/**
- * Determine human-readable type + organizer contact label.
- * For trips: check guided flag from item data or form data.
- */
 const getBookingMeta = (
   bookingType: string,
   bookingDetails?: any
@@ -63,7 +59,7 @@ const getBookingMeta = (
   }
 };
 
-// ── QR code via free canvas API ───────────────────────────────────────────────
+// ── QR code ───────────────────────────────────────────────────────────────────
 const generateQRDataUrl = (text: string, size = 120): Promise<string> =>
   new Promise((resolve) => {
     try {
@@ -82,19 +78,17 @@ const generateQRDataUrl = (text: string, size = 120): Promise<string> =>
     } catch { resolve(""); }
   });
 
-// ── PDF generator (exported so PaymentSuccessDialog can call it too) ──────────
+// ── PDF generator ─────────────────────────────────────────────────────────────
 export const generateBookingPDF = async (bookingData: any, reference: string) => {
   const d   = bookingData?.booking_details || bookingData || {};
   const rawType = bookingData?.booking_type || d.booking_type || "booking";
   const { typeLabel, contactLabel } = getBookingMeta(rawType, d);
 
-  // ── Listing identity from creation form fields ────────────────
   const itemName =
     d.item_name     || d.name       ||
     d.trip_name     || d.event_name ||
     d.hotel_name    || d.place_name || "Booking";
 
-  // Location details saved into booking_details by BookingPage
   const listingLocation = d.location      || d.locationName  || "";
   const listingPlace    = d.place         || "";
   const listingCountry  = d.country       || "";
@@ -105,10 +99,6 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
   const registrationNum = d.registration_number || d.registrationNumber || "";
   const entranceFeeType = d.entry_fee_type || d.entranceFeeType || "";
 
-  // ── Contact: resolved from every possible nesting depth ────────
-  // BookingPage stores host_phone / host_email at top level AND in emailData
-  // CreateTripEvent:  phone_number  / email   (trips & events)
-  // CreateAdventure:  phone_numbers[] / email (adventure places)
   const hostPhone =
     bookingData?.host_phone      ||
     d.host_phone                 ||
@@ -126,18 +116,15 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
     d.email                      ||
     "";
 
-  // ── Guest details ─────────────────────────────────────────────
   const gName  = bookingData?.guest_name  || d.guest_name;
   const gEmail = bookingData?.guest_email || d.guest_email;
   const gPhone = bookingData?.guest_phone || d.guest_phone;
 
-  // ── Line items ────────────────────────────────────────────────
   const ticketSelections   = d.ticketSelections   || d.ticket_selections   || [];
   const selectedActivities = d.selectedActivities || d.selected_activities || d.activities || [];
   const selectedFacilities = d.selectedFacilities || d.selected_facilities || d.facilities || [];
   const visitDate          = bookingData?.visit_date || d.visit_date || d.date || "";
 
-  // ── jsPDF init ────────────────────────────────────────────────
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const W   = doc.internal.pageSize.getWidth();
   const H   = doc.internal.pageSize.getHeight();
@@ -154,7 +141,6 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
   const M  = 36;
   const CW = W - M * 2;
 
-  // ── Helpers ───────────────────────────────────────────────────
   const newPage = (need = 40) => {
     if (y > H - need - 60) { doc.addPage(); y = 40; }
   };
@@ -235,7 +221,7 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
     y += rowH + 4;
   };
 
-  // ── HEADER BANNER ─────────────────────────────────────────────
+  // HEADER BANNER
   doc.setFillColor(...TEAL_RGB);
   doc.rect(0, 0, W, 96, "F");
   doc.setFillColor(...CORAL_RGB);
@@ -256,7 +242,6 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
 
   y = 108;
 
-  // ── STATUS BADGE ──────────────────────────────────────────────
   doc.setFillColor(16, 185, 129);
   doc.roundedRect(W - 132, 98, 96, 22, 11, 11, "F");
   doc.setTextColor(...WHITE);
@@ -264,7 +249,6 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
   doc.setFontSize(8);
   doc.text("CONFIRMED", W - 84, 113, { align: "center" });
 
-  // ── ITEM NAME + LISTING SUB-INFO ──────────────────────────────
   doc.setTextColor(...TEAL_RGB);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(19);
@@ -290,9 +274,6 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
   doc.line(M, y, W - M, y);
   y += 14;
 
-  // ─────────────────────────────────────────────────────────────
-  // 1. BOOKING INFORMATION
-  // ─────────────────────────────────────────────────────────────
   section("BOOKING INFORMATION");
   infoRow("Payment Reference", reference);
   infoRow("Payment Status",    "PAID");
@@ -307,9 +288,6 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
                                infoRow("Open Days",      daysOpened.join(", "));
   y += 6;
 
-  // ─────────────────────────────────────────────────────────────
-  // 2. GUEST DETAILS
-  // ─────────────────────────────────────────────────────────────
   if (gName || gEmail || gPhone) {
     section("GUEST DETAILS");
     infoRow("Name",  gName);
@@ -318,9 +296,6 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
     y += 6;
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // 3. BOOKING DETAILS
-  // ─────────────────────────────────────────────────────────────
   const adults   = d.adults   || d.num_adults;
   const children = d.children || d.num_children;
   section("BOOKING DETAILS");
@@ -330,9 +305,6 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
   infoRow("Location",     d.location || d.locationName);
   y += 6;
 
-  // ─────────────────────────────────────────────────────────────
-  // 4. TICKETS
-  // ─────────────────────────────────────────────────────────────
   if (ticketSelections.length) {
     section("TICKETS");
     tableHeader("TICKET TYPE", "SUBTOTAL");
@@ -347,9 +319,6 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
     y += 6;
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // 5. ACTIVITIES  (name · number of people · price per person · subtotal)
-  // ─────────────────────────────────────────────────────────────
   if (selectedActivities.length) {
     section("ACTIVITIES");
     tableHeader("ACTIVITY  /  PEOPLE", "SUBTOTAL");
@@ -364,9 +333,6 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
     y += 6;
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // 6. FACILITIES  (name · from date → to date · days · price/day · total)
-  // ─────────────────────────────────────────────────────────────
   if (selectedFacilities.length) {
     section("FACILITIES");
     tableHeader("FACILITY  /  DATES", "PRICE");
@@ -387,9 +353,6 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
     y += 6;
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // 7. HOST / ORGANIZER CONTACT  (phone + email from creation form)
-  // ─────────────────────────────────────────────────────────────
   if (hostPhone || hostEmail) {
     section(`${contactLabel.toUpperCase()} CONTACT`);
 
@@ -414,9 +377,6 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
     y += 6;
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // 8. TOTAL HIGHLIGHT BOX
-  // ─────────────────────────────────────────────────────────────
   newPage(60);
   y += 10;
   doc.setFillColor(...TEAL_RGB);
@@ -435,9 +395,6 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
   doc.text(fmtMoney(bookingData?.total_amount ?? 0), W - M - 14, y + 32, { align: "right" });
   y += 62;
 
-  // ─────────────────────────────────────────────────────────────
-  // 9. QR CODE
-  // ─────────────────────────────────────────────────────────────
   const qrText = `REALTRAVO|${reference}|${itemName}|${gName || ""}|KES ${Math.round(bookingData?.total_amount ?? 0)}|${visitDate || new Date().toISOString().split("T")[0]}`;
   const qrDataUrl = await generateQRDataUrl(qrText, 120);
   if (qrDataUrl) {
@@ -471,9 +428,6 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
     y += 146;
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // 10. FOOTER
-  // ─────────────────────────────────────────────────────────────
   const footerY = H - 52;
   doc.setFillColor(240, 253, 250);
   doc.rect(0, footerY - 12, W, 64, "F");
@@ -500,7 +454,7 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
   doc.save(`realtravo-booking-${reference.slice(0, 8)}.pdf`);
 };
 
-// ── Portal header — floats above Paystack's z-index:2147483647 iframes ────────
+// ── Portal header ─────────────────────────────────────────────────────────────
 const PaystackFloatingHeader = ({ itemName, onBack }: { itemName: string; onBack: () => void }) =>
   createPortal(
     <div style={{
@@ -554,6 +508,10 @@ const BookingPage = () => {
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [paymentReference, setPaymentReference] = useState("");
   const [completedBookingData, setCompletedBookingData] = useState<any>(null);
+
+  // Parse facilityIndex from URL — used when tapping a facility card on detail page
+  const facilityIndexParam = searchParams.get("facilityIndex");
+  const preselectedFacilityIndex = facilityIndexParam !== null ? parseInt(facilityIndexParam, 10) : null;
 
   const { initiatePayment, launchPaystack, isLoading: isPaymentLoading, showPaystackContainer } =
     usePaystackPopup({
@@ -640,9 +598,6 @@ const BookingPage = () => {
     return "attraction";
   };
 
-  // ── Resolve host contact from item (creation form data) ───────
-  // trips/events:        phone_number  + email  (CreateTripEvent)
-  // adventure / hotel:   phone_numbers[] + email (CreateAdventure)
   const getHostContact = () => {
     if (!item) return { phone: "", email: "" };
     if (type === "trip" || type === "event") {
@@ -652,7 +607,6 @@ const BookingPage = () => {
     return { phone: phones[0] || "", email: item.email || "" };
   };
 
-  // Human-readable type label for the header
   const getItemTypeLabel = () => {
     if (!item || !type) return "Booking";
     const isGuided = type === "trip" && (item.type === "guided" || item.is_guided === true);
@@ -715,7 +669,6 @@ const BookingPage = () => {
         total_amount: totalAmount,
         booking_details: {
           ...formData,
-          // ── Listing fields from creation form (so PDF can render them) ──
           item_name:      item.name,
           name:           item.name,
           location:       item.location,
@@ -725,12 +678,11 @@ const BookingPage = () => {
           closing_hours:  item.closing_hours  || "",
           days_opened:    item.days_opened    || [],
           email:          item.email          || "",
-          phone_number:   item.phone_number   || "",          // trips/events
-          phone_numbers:  item.phone_numbers  || [],          // adventure/hotel
+          phone_number:   item.phone_number   || "",
+          phone_numbers:  item.phone_numbers  || [],
           event_category: item.event_category || "",
           registration_number: item.registration_number || "",
           entry_fee_type: item.entry_fee_type || "",
-          // ── Booking form fields ──
           is_facility_only: isFacilityOnly,
           adults:    formData.num_adults,
           children:  formData.num_children,
@@ -746,7 +698,6 @@ const BookingPage = () => {
         slots_booked:     slotsBooked,
         host_id:          item.created_by,
         referral_tracking_id: getReferralTrackingId(),
-        // ── Top-level host contact for both PDF and email ──
         host_phone: hostContact.phone,
         host_email: hostContact.email,
         emailData: {
@@ -782,6 +733,8 @@ const BookingPage = () => {
   if (!item) return null;
 
   const getMultiStepProps = () => {
+    const isFacilityOnly = searchParams.get("skipToFacility") === "true";
+
     const baseProps = {
       onSubmit: handleBookingSubmit,
       isProcessing: isProcessing || isPaymentLoading,
@@ -792,6 +745,8 @@ const BookingPage = () => {
       onPaymentSuccess: () => setIsCompleted(true),
       primaryColor: COLORS.TEAL,
       accentColor:  COLORS.CORAL,
+      // No image shown in multistep booking
+      showItemImage: false,
     };
 
     if (type === "trip" || type === "event") {
@@ -814,15 +769,27 @@ const BookingPage = () => {
     }
 
     if (type === "adventure_place" || type === "adventure") {
+      // Build preselected facilities array if coming from a facility card tap
+      const rawFacilities: any[] = Array.isArray(item.facilities) ? item.facilities : [];
+      const preselectedFacilities =
+        preselectedFacilityIndex !== null && rawFacilities[preselectedFacilityIndex]
+          ? [{ ...rawFacilities[preselectedFacilityIndex], selected: true }]
+          : undefined;
+
       return {
         ...baseProps, bookingType: "adventure_place",
         priceAdult: item.entry_fee || 0, priceChild: item.entry_fee || 0,
         entranceType: item.entry_fee_type || "paid",
-        facilities:   item.facilities    || [],
-        activities:   item.activities    || [],
+        // Strip images from facilities before passing to multistep
+        facilities: rawFacilities.map((f: any) => ({ ...f, images: [] })),
+        // Strip images from activities too
+        activities: (Array.isArray(item.activities) ? item.activities : []).map((a: any) => ({ ...a, images: [] })),
         totalCapacity: item.available_slots || 0,
         workingDays:  item.days_opened   || [],
         skipDateSelection: false,
+        // Preselect a specific facility if coming from facility card
+        preselectedFacilities,
+        skipToFacility: isFacilityOnly,
       };
     }
 
@@ -830,8 +797,9 @@ const BookingPage = () => {
       return {
         ...baseProps, bookingType: "hotel",
         priceAdult: 0, priceChild: 0, entranceType: "free",
-        facilities:   item.facilities   || [],
-        activities:   item.activities   || [],
+        // Strip images from facilities and activities
+        facilities: (Array.isArray(item.facilities) ? item.facilities : []).map((f: any) => ({ ...f, images: [] })),
+        activities: (Array.isArray(item.activities) ? item.activities : []).map((a: any) => ({ ...a, images: [] })),
         totalCapacity: item.available_rooms || 0,
         workingDays:  item.days_opened  || [],
       };

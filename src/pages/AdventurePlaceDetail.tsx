@@ -200,17 +200,14 @@ const MobileCarousel = ({ images, name }: { images: string[]; name: string }) =>
   );
 };
 
-// ─── General Amenities — small chips with horizontal scroll on mobile ─────────
+// ─── General Amenities ────────────────────────────────────────────────────────
 const AmenitiesScroll = ({ amenities, accentColor }: { amenities: string[]; accentColor: string }) => {
   if (!amenities.length) return null;
   return (
     <section className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
       <h2 className="text-base font-black uppercase tracking-tight mb-3" style={{ color: accentColor }}>General Amenities</h2>
-
-      {/* Mobile: horizontal scroll */}
       <div className="sm:hidden">
-        <div
-          className="flex gap-2 overflow-x-auto pb-1"
+        <div className="flex gap-2 overflow-x-auto pb-1"
           style={{ scrollbarWidth: "thin", scrollbarColor: `${accentColor}40 transparent`, WebkitOverflowScrolling: "touch", marginLeft: "-16px", marginRight: "-16px", paddingLeft: "16px", paddingRight: "16px" }}>
           {amenities.map((fId, i) => (
             <div key={i} className="flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-full border"
@@ -223,8 +220,6 @@ const AmenitiesScroll = ({ amenities, accentColor }: { amenities: string[]; acce
           ))}
         </div>
       </div>
-
-      {/* Desktop: wrap */}
       <div className="hidden sm:flex flex-wrap gap-2">
         {amenities.map((fId, i) => (
           <div key={i} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border"
@@ -240,259 +235,218 @@ const AmenitiesScroll = ({ amenities, accentColor }: { amenities: string[]; acce
   );
 };
 
-// ─── Facilities — horizontal scroll on mobile, grid on desktop ────────────────
-const InlineFacilitiesGrid = ({ facilities, accentColor }: { facilities: any[]; accentColor: string }) => {
-  const [modalImages, setModalImages] = useState<string[] | null>(null);
-  const [modalName, setModalName] = useState("");
-  const [showAll, setShowAll] = useState(false);
+// ─── Facilities — small uniform cards, tap-to-book ────────────────────────────
+// CARD_SIZE: fixed 130×130px on both mobile and desktop for uniform sizing
+const CARD_W = 130;
+const CARD_H = 130;
 
+const InlineFacilitiesGrid = ({
+  facilities,
+  accentColor,
+  onFacilityBook,
+}: {
+  facilities: any[];
+  accentColor: string;
+  onFacilityBook: (facilityIndex: number) => void;
+}) => {
+  const [showAll, setShowAll] = useState(false);
   if (!facilities?.length) return null;
 
-  const visibleFacilities = showAll ? facilities : facilities.slice(0, 6);
+  const visibleFacilities = showAll ? facilities : facilities.slice(0, 8);
 
   return (
-    <>
-      {modalImages && <ImageGalleryModal images={modalImages} name={modalName} onClose={() => setModalImages(null)} />}
-      <section>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-black uppercase tracking-tight" style={{ color: accentColor }}>Facilities</h2>
-          {facilities.length > 6 && (
-            <button
-              onClick={() => setShowAll((v) => !v)}
-              className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border transition-all"
-              style={{ color: accentColor, borderColor: `${accentColor}40`, background: `${accentColor}0D` }}>
-              {showAll ? "Show Less" : `See All (${facilities.length})`}
-            </button>
-          )}
-        </div>
-
-        {/* Mobile: horizontal scroll */}
-        <div className="sm:hidden">
-          <div
-            className="flex gap-3 overflow-x-auto pb-3"
-            style={{ scrollbarWidth: "thin", scrollbarColor: `${accentColor}40 transparent`, WebkitOverflowScrolling: "touch", marginLeft: "-16px", marginRight: "-16px", paddingLeft: "16px", paddingRight: "16px" }}>
-            {visibleFacilities.map((fac: any, i: number) => {
-              const imgs: string[] = Array.isArray(fac.images) ? fac.images.filter(Boolean) : [];
-              return (
-                <div key={i} className="flex-shrink-0 bg-white overflow-hidden shadow-sm border border-slate-100" style={{ borderRadius: 0, width: 180 }}>
-                  {imgs.length > 0 ? (
-                    <div className="relative">
-                      <FacSlideshow images={imgs} name={fac.name} />
-                      {imgs.length > 1 && (
-                        <button onClick={() => { setModalImages(imgs); setModalName(fac.name); }}
-                          className="absolute top-2 right-2 z-20 flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white text-[9px] font-bold px-2 py-1 rounded-full hover:bg-black/70 transition-all">
-                          <Grid2X2 className="h-2.5 w-2.5" /> See All ({imgs.length})
-                        </button>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="h-36 bg-slate-100 flex items-center justify-center">
-                      <MapPin className="h-6 w-6 text-slate-300" />
-                    </div>
-                  )}
-                  <div className="p-3">
-                    <p className="font-black text-sm text-slate-800 uppercase tracking-tight">{fac.name}</p>
-                    {fac.capacity && (
-                      <p className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1"><Users className="h-3 w-3" /> Capacity: {fac.capacity}</p>
-                    )}
-                    {fac.price > 0 && (
-                      <p className="text-[11px] font-bold mt-0.5" style={{ color: accentColor }}>KSh {fac.price?.toLocaleString()}</p>
-                    )}
-                    {Array.isArray(fac.amenities) && fac.amenities.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {fac.amenities.map((a: string, ai: number) => (
-                          <span key={ai} className="text-[9px] font-bold uppercase px-2 py-0.5 rounded"
-                            style={{ background: `${accentColor}12`, color: accentColor }}>{a}</span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Desktop: 2-column grid */}
-        <div className="hidden sm:grid grid-cols-2 gap-4">
-          {visibleFacilities.map((fac: any, i: number) => {
-            const imgs: string[] = Array.isArray(fac.images) ? fac.images.filter(Boolean) : [];
-            return (
-              <div key={i} className="bg-white overflow-hidden shadow-sm border border-slate-100" style={{ borderRadius: 0 }}>
-                {imgs.length > 0 ? (
-                  <div className="relative">
-                    <FacSlideshow images={imgs} name={fac.name} />
-                    {imgs.length > 1 && (
-                      <button onClick={() => { setModalImages(imgs); setModalName(fac.name); }}
-                        className="absolute top-2 right-2 z-20 flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white text-[9px] font-bold px-2 py-1 rounded-full hover:bg-black/70 transition-all">
-                        <Grid2X2 className="h-2.5 w-2.5" /> See All ({imgs.length})
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  <div className="h-36 bg-slate-100 flex items-center justify-center">
-                    <MapPin className="h-6 w-6 text-slate-300" />
-                  </div>
-                )}
-                <div className="p-3">
-                  <p className="font-black text-sm text-slate-800 uppercase tracking-tight">{fac.name}</p>
-                  {fac.capacity && (
-                    <p className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1"><Users className="h-3 w-3" /> Capacity: {fac.capacity}</p>
-                  )}
-                  {fac.price > 0 && (
-                    <p className="text-[11px] font-bold mt-0.5" style={{ color: accentColor }}>KSh {fac.price?.toLocaleString()}</p>
-                  )}
-                  {Array.isArray(fac.amenities) && fac.amenities.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {fac.amenities.map((a: string, ai: number) => (
-                        <span key={ai} className="text-[9px] font-bold uppercase px-2 py-0.5 rounded"
-                          style={{ background: `${accentColor}12`, color: accentColor }}>{a}</span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-    </>
-  );
-};
-
-const FacSlideshow = ({ images, name }: { images: string[]; name: string }) => {
-  const [active, setActive] = useState(0);
-  useEffect(() => {
-    if (images.length <= 1) return;
-    const iv = setInterval(() => setActive((p) => (p + 1) % images.length), 3000);
-    return () => clearInterval(iv);
-  }, [images.length]);
-  return (
-    <div className="relative h-36 overflow-hidden" style={{ borderRadius: 0 }}>
-      {images.map((img, idx) => (
-        <img key={idx} src={img} alt={name}
-          className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
-          style={{ opacity: active === idx ? 1 : 0, borderRadius: 0 }} />
-      ))}
-      {images.length > 1 && (
-        <div className="absolute bottom-1.5 left-0 right-0 flex justify-center gap-1 pointer-events-none z-10">
-          {images.map((_, idx) => (
-            <span key={idx} className="transition-all duration-300 block"
-              style={{ width: active === idx ? "12px" : "4px", height: "4px", borderRadius: "2px", background: active === idx ? "white" : "rgba(255,255,255,0.4)" }} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
-
-// ─── Activities — horizontal scroll on mobile, grid on desktop ────────────────
-const InlineActivitiesGrid = ({ activities, formatPrice }: { activities: any[]; formatPrice: (n: number) => string }) => {
-  const [modalImages, setModalImages] = useState<string[] | null>(null);
-  const [modalName, setModalName] = useState("");
-  const [showAll, setShowAll] = useState(false);
-
-  if (!activities?.length) return null;
-
-  const visibleActivities = showAll ? activities : activities.slice(0, 6);
-
-  return (
-    <>
-      {modalImages && <ImageGalleryModal images={modalImages} name={modalName} onClose={() => setModalImages(null)} />}
-      <section>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-black uppercase tracking-tight" style={{ color: CORAL }}>Activities</h2>
-          {activities.length > 6 && (
-            <button
-              onClick={() => setShowAll((v) => !v)}
-              className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border transition-all"
-              style={{ color: CORAL, borderColor: `${CORAL}40`, background: `${CORAL}0D` }}>
-              {showAll ? "Show Less" : `See All (${activities.length})`}
-            </button>
-          )}
-        </div>
-
-        {/* Mobile: horizontal scroll */}
-        <div className="sm:hidden">
-          <div
-            className="flex gap-3 overflow-x-auto pb-3"
-            style={{ scrollbarWidth: "thin", scrollbarColor: `${CORAL}40 transparent`, WebkitOverflowScrolling: "touch", marginLeft: "-16px", marginRight: "-16px", paddingLeft: "16px", paddingRight: "16px" }}>
-            {visibleActivities.map((act: any, i: number) => {
-              const imgs: string[] = Array.isArray(act.images) ? act.images.filter(Boolean) : [];
-              return (
-                <div key={i} className="flex-shrink-0" style={{ width: 150 }}>
-                  <ActivityCard act={act} imgs={imgs} formatPrice={formatPrice}
-                    onSeeAll={imgs.length > 1 ? () => { setModalImages(imgs); setModalName(act.name); } : undefined} />
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Desktop: 2-3 column grid */}
-        <div className="hidden sm:grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {visibleActivities.map((act: any, i: number) => {
-            const imgs: string[] = Array.isArray(act.images) ? act.images.filter(Boolean) : [];
-            return (
-              <ActivityCard key={i} act={act} imgs={imgs} formatPrice={formatPrice}
-                onSeeAll={imgs.length > 1 ? () => { setModalImages(imgs); setModalName(act.name); } : undefined} />
-            );
-          })}
-        </div>
-      </section>
-    </>
-  );
-};
-
-const ActivityCard = ({ act, imgs, formatPrice, onSeeAll }: { act: any; imgs: string[]; formatPrice: (n: number) => string; onSeeAll?: () => void }) => {
-  const [active, setActive] = useState(0);
-  useEffect(() => {
-    if (imgs.length <= 1) return;
-    const iv = setInterval(() => setActive((p) => (p + 1) % imgs.length), 3200);
-    return () => clearInterval(iv);
-  }, [imgs.length]);
-  return (
-    <div className="relative overflow-hidden" style={{ aspectRatio: "3/4", borderRadius: 0 }}>
-      {imgs.length > 0 ? (
-        imgs.map((img, idx) => (
-          <img key={idx} src={img} alt={act.name}
-            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
-            style={{ opacity: active === idx ? 1 : 0, borderRadius: 0 }} />
-        ))
-      ) : (
-        <div className="absolute inset-0 bg-slate-200 flex items-center justify-center">
-          <MapPin className="h-6 w-6 text-slate-300" />
-        </div>
-      )}
-      <div className="absolute inset-0 pointer-events-none"
-        style={{ background: "linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.1) 50%, transparent 100%)" }} />
-      {onSeeAll && (
-        <button onClick={onSeeAll}
-          className="absolute top-2 right-2 z-20 flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white text-[9px] font-bold px-2 py-1 rounded-full hover:bg-black/70 transition-all">
-          <Grid2X2 className="h-2.5 w-2.5" /> All
-        </button>
-      )}
-      <div className="absolute bottom-0 left-0 right-0 z-10 px-3 pb-3">
-        <p className="text-white font-black text-sm uppercase tracking-tight leading-tight drop-shadow">{act.name}</p>
-        {act.price > 0 ? (
-          <p className="text-[11px] font-bold mt-0.5" style={{ color: CORAL_LIGHT }}>{formatPrice(Number(act.price))}</p>
-        ) : (
-          <p className="text-[11px] font-bold mt-0.5 text-emerald-300">Free</p>
+    <section>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-base font-black uppercase tracking-tight" style={{ color: accentColor }}>Facilities</h2>
+        {facilities.length > 8 && (
+          <button
+            onClick={() => setShowAll((v) => !v)}
+            className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border transition-all"
+            style={{ color: accentColor, borderColor: `${accentColor}40`, background: `${accentColor}0D` }}>
+            {showAll ? "Show Less" : `See All (${facilities.length})`}
+          </button>
         )}
       </div>
-      {imgs.length > 1 && (
-        <div className="absolute bottom-1.5 right-2 flex gap-1 z-20 pointer-events-none">
-          {imgs.map((_, idx) => (
-            <span key={idx} className="transition-all duration-300 block"
-              style={{ width: active === idx ? "10px" : "4px", height: "4px", borderRadius: "2px", background: active === idx ? "white" : "rgba(255,255,255,0.4)" }} />
-          ))}
-        </div>
-      )}
-    </div>
+
+      {/* Horizontal scroll on both mobile and desktop — uniform small cards */}
+      <div
+        className="flex gap-2.5 overflow-x-auto pb-2"
+        style={{
+          scrollbarWidth: "thin",
+          scrollbarColor: `${accentColor}40 transparent`,
+          WebkitOverflowScrolling: "touch",
+          marginLeft: "-16px",
+          marginRight: "-16px",
+          paddingLeft: "16px",
+          paddingRight: "16px",
+        }}>
+        {visibleFacilities.map((fac: any, i: number) => (
+          <FacilitySmallCard
+            key={i}
+            fac={fac}
+            accentColor={accentColor}
+            onBook={() => onFacilityBook(i)}
+          />
+        ))}
+      </div>
+    </section>
   );
 };
 
-// ─── Always-open Map Section with Google Maps link ────────────────────────────
+// Small uniform facility card — no image shown per requirement
+const FacilitySmallCard = ({
+  fac,
+  accentColor,
+  onBook,
+}: {
+  fac: any;
+  accentColor: string;
+  onBook: () => void;
+}) => (
+  <button
+    onClick={onBook}
+    className="flex-shrink-0 flex flex-col justify-between bg-white border border-slate-100 shadow-sm transition-all active:scale-95 hover:shadow-md hover:border-opacity-50 text-left"
+    style={{
+      width: CARD_W,
+      height: CARD_H,
+      borderRadius: 12,
+      padding: "10px",
+      borderColor: `${accentColor}25`,
+    }}>
+    {/* Icon placeholder */}
+    <div
+      className="flex items-center justify-center rounded-lg"
+      style={{
+        width: 32,
+        height: 32,
+        background: `${accentColor}15`,
+        flexShrink: 0,
+      }}>
+      <MapPin className="h-4 w-4" style={{ color: accentColor }} />
+    </div>
+
+    {/* Name */}
+    <p
+      className="font-black text-slate-800 uppercase tracking-tight leading-tight"
+      style={{ fontSize: 10, marginTop: 6, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+      {fac.name}
+    </p>
+
+    {/* Price or capacity row */}
+    <div className="flex items-center justify-between w-full mt-auto pt-1" style={{ borderTop: `0.5px solid ${accentColor}20` }}>
+      {fac.price > 0 ? (
+        <span style={{ fontSize: 9, fontWeight: 700, color: accentColor }}>
+          KSh {fac.price?.toLocaleString()}
+        </span>
+      ) : (
+        <span style={{ fontSize: 9, fontWeight: 700, color: "#10b981" }}>Free</span>
+      )}
+      {fac.capacity ? (
+        <span style={{ fontSize: 8, color: "#94a3b8", fontWeight: 600 }}>
+          {fac.capacity} cap
+        </span>
+      ) : null}
+    </div>
+  </button>
+);
+
+// ─── Activities — small uniform cards ────────────────────────────────────────
+const InlineActivitiesGrid = ({
+  activities,
+  formatPrice,
+}: {
+  activities: any[];
+  formatPrice: (n: number) => string;
+}) => {
+  const [showAll, setShowAll] = useState(false);
+  if (!activities?.length) return null;
+
+  const visibleActivities = showAll ? activities : activities.slice(0, 8);
+
+  return (
+    <section>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-base font-black uppercase tracking-tight" style={{ color: CORAL }}>Activities</h2>
+        {activities.length > 8 && (
+          <button
+            onClick={() => setShowAll((v) => !v)}
+            className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border transition-all"
+            style={{ color: CORAL, borderColor: `${CORAL}40`, background: `${CORAL}0D` }}>
+            {showAll ? "Show Less" : `See All (${activities.length})`}
+          </button>
+        )}
+      </div>
+
+      {/* Horizontal scroll — uniform small cards, no images */}
+      <div
+        className="flex gap-2.5 overflow-x-auto pb-2"
+        style={{
+          scrollbarWidth: "thin",
+          scrollbarColor: `${CORAL}40 transparent`,
+          WebkitOverflowScrolling: "touch",
+          marginLeft: "-16px",
+          marginRight: "-16px",
+          paddingLeft: "16px",
+          paddingRight: "16px",
+        }}>
+        {visibleActivities.map((act: any, i: number) => (
+          <ActivitySmallCard key={i} act={act} formatPrice={formatPrice} />
+        ))}
+      </div>
+    </section>
+  );
+};
+
+// Small uniform activity card — no image
+const ActivitySmallCard = ({
+  act,
+  formatPrice,
+}: {
+  act: any;
+  formatPrice: (n: number) => string;
+}) => (
+  <div
+    className="flex-shrink-0 flex flex-col justify-between bg-white border border-slate-100 shadow-sm"
+    style={{
+      width: CARD_W,
+      height: CARD_H,
+      borderRadius: 12,
+      padding: "10px",
+      borderColor: `${CORAL}25`,
+    }}>
+    {/* Icon placeholder */}
+    <div
+      className="flex items-center justify-center rounded-lg"
+      style={{
+        width: 32,
+        height: 32,
+        background: `${CORAL}15`,
+        flexShrink: 0,
+      }}>
+      <CheckCircle2 className="h-4 w-4" style={{ color: CORAL }} />
+    </div>
+
+    {/* Name */}
+    <p
+      className="font-black text-slate-800 uppercase tracking-tight leading-tight"
+      style={{ fontSize: 10, marginTop: 6, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+      {act.name}
+    </p>
+
+    {/* Price row */}
+    <div className="flex items-center w-full mt-auto pt-1" style={{ borderTop: `0.5px solid ${CORAL}20` }}>
+      {act.price > 0 ? (
+        <span style={{ fontSize: 9, fontWeight: 700, color: CORAL }}>
+          {formatPrice(Number(act.price))}
+        </span>
+      ) : (
+        <span style={{ fontSize: 9, fontWeight: 700, color: "#10b981" }}>Free</span>
+      )}
+    </div>
+  </div>
+);
+
+// ─── Always-open Map Section ───────────────────────────────────────────────────
 const AlwaysOpenMapSection = ({
   name, latitude, longitude, location, country,
 }: {
@@ -509,7 +463,6 @@ const AlwaysOpenMapSection = ({
 
   return (
     <section className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100">
-      {/* Header */}
       <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100">
         <div className="flex items-center gap-2">
           <MapPin className="h-4 w-4" style={{ color: TEAL }} />
@@ -523,14 +476,11 @@ const AlwaysOpenMapSection = ({
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-white text-[10px] font-bold transition-all hover:opacity-90 active:scale-95"
-          style={{ background: `linear-gradient(135deg, ${TEAL}, #005f5f)` }}
-        >
+          style={{ background: `linear-gradient(135deg, ${TEAL}, #005f5f)` }}>
           <ExternalLink className="h-3 w-3" />
           View on Google Maps
         </a>
       </div>
-
-      {/* Map iframe — always open */}
       <div style={{ height: "300px", position: "relative" }}>
         <iframe
           title={`Map of ${name}`}
@@ -542,7 +492,6 @@ const AlwaysOpenMapSection = ({
           loading="lazy"
           referrerPolicy="no-referrer-when-downgrade"
         />
-        {/* Location name overlay pin */}
         <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 bg-white/95 backdrop-blur-sm shadow-md rounded-full px-3 py-1.5 pointer-events-none">
           <MapPin className="h-3 w-3" style={{ color: CORAL }} />
           <span className="text-[10px] font-black uppercase tracking-tight text-slate-700">{name}</span>
@@ -660,6 +609,11 @@ const AdventurePlaceDetail = () => {
     navigateToBooking(`/booking/adventure_place/${resolvedId}`);
   };
 
+  // Navigate to booking page with skipToFacility flag + selected facility index
+  const handleFacilityBook = (facilityIndex: number) => {
+    navigateToBooking(`/booking/adventure_place/${resolvedId}?skipToFacility=true&facilityIndex=${facilityIndex}`);
+  };
+
   if (loading) return <TealLoader />;
   if (!place) return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-4">
@@ -722,18 +676,22 @@ const AdventurePlaceDetail = () => {
       <main className="container px-4 mt-5 relative z-10 max-w-6xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-[1.8fr,1fr] gap-6">
           <div className="space-y-6">
-            {/* General Amenities — small chips */}
+            {/* General Amenities */}
             {generalAmenities.length > 0 && <AmenitiesScroll amenities={generalAmenities} accentColor={TEAL} />}
 
-            {/* Booking card — mobile only, shown before facilities */}
+            {/* Booking card — mobile only */}
             <div className="bg-white rounded-2xl p-5 shadow-lg border border-slate-100 lg:hidden">
               <BookingCard {...bookingCardProps} />
             </div>
 
-            {/* Facilities */}
+            {/* Facilities — tap to book */}
             {place.facilities?.length > 0 && (
               <div id="facilities-section">
-                <InlineFacilitiesGrid facilities={place.facilities} accentColor={TEAL} />
+                <InlineFacilitiesGrid
+                  facilities={place.facilities}
+                  accentColor={TEAL}
+                  onFacilityBook={handleFacilityBook}
+                />
               </div>
             )}
 
@@ -744,7 +702,7 @@ const AdventurePlaceDetail = () => {
               </div>
             )}
 
-            {/* Description — BELOW facilities and activities */}
+            {/* Description */}
             {place.description && (
               <section className="bg-white rounded-2xl px-5 py-4 shadow-sm border border-slate-100">
                 <h2 className="text-base font-black uppercase tracking-tight mb-3" style={{ color: TEAL }}>About this Place</h2>
@@ -752,7 +710,7 @@ const AdventurePlaceDetail = () => {
               </section>
             )}
 
-            {/* Map — always open, with Google Maps link */}
+            {/* Map */}
             <AlwaysOpenMapSection
               name={place.name}
               latitude={place.latitude}

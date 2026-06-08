@@ -217,13 +217,15 @@ const PublicManualBooking = () => {
         .eq('item_id', itemId)
         .in('visit_date', dateStrings);
       
-      const availabilityMap = new Map(
+      // Explicitly type the Map keys and values as strings and numbers
+      const availabilityMap = new Map<string, number>(
         (availability || []).map(a => [a.visit_date, a.booked_slots])
       );
       
       let allAvailable = true;
       for (const dateStr of dateStrings) {
         const bookedSlots = availabilityMap.get(dateStr) || 0;
+        // TypeScript now knows bookedSlots is safely a number
         if (bookedSlots >= itemDetails.capacity) {
           allAvailable = false;
           break;

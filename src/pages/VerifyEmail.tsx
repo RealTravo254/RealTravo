@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Header } from "@/components/Header";
-import { MobileBottomBar } from "@/components/MobileBottomBar"; // Swapped Footer for consistency
+import { MobileBottomBar } from "@/components/MobileBottomBar"; 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -45,6 +45,7 @@ const VerifyEmail = () => {
     setLoading(true);
 
     try {
+      // Accessing verifyOtp directly from the auth namespace explicitly
       const { error } = await supabase.auth.verifyOtp({
         email,
         token: code,
@@ -73,6 +74,7 @@ const VerifyEmail = () => {
   const handleResendCode = async () => {
     setResending(true);
     try {
+      // Accessing signInWithOtp directly from the auth namespace explicitly
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: { shouldCreateUser: false }
@@ -203,7 +205,6 @@ const VerifyEmail = () => {
   );
 };
 
-// Helper components consistent with your styling
 const Badge = ({ children, className, style }: any) => (
   <div className={`inline-block ${className}`} style={style}>
     {children}

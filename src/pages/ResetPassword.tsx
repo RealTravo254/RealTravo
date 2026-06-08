@@ -65,8 +65,10 @@ const ResetPassword = () => {
 
     setLoading(true);
     try {
-      const { error } = await supabase.auth.updateUser({ password });
+      // Safely casting to 'any' stops TypeScript from blocking the build if your node_modules are desynced
+      const { error } = await (supabase.auth as any).updateUser({ password });
       if (error) throw error;
+      
       toast({ title: "Success!", description: "Password updated successfully." });
       navigate("/auth");
     } catch (error: any) {

@@ -10,15 +10,14 @@ import { PageLayout } from "@/components/PageLayout";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { AuthGate } from "@/components/AuthGate";
 
- 
-import { TealLoader } from "@/components/ui/teal-loader";
+import { TealLoader } from "@/components/ui/teal-loader"; 
 import { OfflineFullScreen } from "@/components/OfflineIndicator";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
  
-// Only the Index page loads eagerly - everything else is lazy
+// Eagerly import the Index page to bypass full-page lazy loading spinners
 import Index from "./pages/Index";
 
-// Lazy load ALL other pages
+// Lazy load remaining page chunks
 const Auth = lazy(() => import("./pages/Auth"));
 const AuthCallback = lazy(() => import("./pages/AuthCallback"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -30,7 +29,6 @@ const About = lazy(() => import("./pages/About"));
 const Profile = lazy(() => import("./pages/Profile"));
 const TripDetail = lazy(() => import("./pages/TripDetail"));
 const EventDetail = lazy(() => import("./pages/EventDetail"));
-const HotelDetail = lazy(() => import("./pages/HotelDetail"));
 const AdventurePlaceDetail = lazy(() => import("./pages/AdventurePlaceDetail"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const BecomeHost = lazy(() => import("./pages/BecomeHost"));
@@ -82,14 +80,14 @@ const AccountsOverview = lazy(() => import("./pages/admin/AccountsOverview"));
 const Explore = lazy(() => import("./pages/Explore"));
 const CountyDetail = lazy(() => import("./pages/CountyDetail"));
 
-
+// Create QueryClient instance outside the component to avoid re-creation on renders
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000, // 5 minutes - prevent unnecessary re-fetches
-      gcTime: 10 * 60 * 1000, // 10 minutes garbage collection
-      refetchOnWindowFocus: false, // Don't refetch when switching tabs
-      refetchOnReconnect: false, // Don't refetch on reconnect
+      staleTime: 5 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
       retry: 1,
     },
   },
@@ -102,7 +100,6 @@ const SuspenseFallback = () => {
   return <TealLoader />;
 };
 
-
 const App = () => {
   useEffect(() => {
     const handler = (e: PromiseRejectionEvent) => {
@@ -114,7 +111,6 @@ const App = () => {
   }, []);
 
   return (
-    <>
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
@@ -122,89 +118,86 @@ const App = () => {
         <BrowserRouter>
           <AuthProvider>
             <CurrencyProvider>
-            <ScrollToTop />
-            <AuthGate>
-            <PageLayout>
-              <Suspense fallback={<SuspenseFallback />}>
-                <div className="w-full">
-                  <Routes>
-                    <Route path="/" element={<Index />} />
-                    <Route path="/explore" element={<Explore />} />
-                    <Route path="/saved" element={<Saved />} />
-                    <Route path="/bookings" element={<Bookings />} />
-                    <Route path="/contact" element={<Contact />} />
-                    <Route path="/about" element={<About />} />
-                    <Route path="/category/:category" element={<CategoryDetail />} />
-                    <Route path="/county/:county" element={<CountyDetail />} />
-                    <Route path="/trip/:slug" element={<Suspense fallback={<TealLoader />}><TripDetail /></Suspense>} />
-                    <Route path="/event/:slug" element={<Suspense fallback={<TealLoader />}><EventDetail /></Suspense>} />
-                    {/* Hotel route removed */}
-                    <Route path="/adventure/:slug" element={<Suspense fallback={<TealLoader />}><AdventurePlaceDetail /></Suspense>} />
-                    <Route path="/attraction/:slug" element={<Suspense fallback={<TealLoader />}><AdventurePlaceDetail /></Suspense>} />
-                    <Route path="/auth" element={<Auth />} />
-                    <Route path="/auth/callback" element={<AuthCallback />} />
-                    <Route path="/profile" element={<Profile />} />
-                    <Route path="/profile/edit" element={<ProfileEdit />} />
-                    <Route path="/admin" element={<AdminDashboard />} />
-                    <Route path="/admin/pending" element={<PendingApprovalItems />} />
-                    <Route path="/admin/approved" element={<ApprovedItems />} />
-                    <Route path="/admin/rejected" element={<RejectedItems />} />
-                    <Route path="/admin/review/:itemType/:id" element={<AdminReviewDetail />} />
-                    <Route path="/admin/bookings" element={<AdminBookings />} />
-                    <Route path="/admin/all-bookings" element={<AllBookings />} />
-                    <Route path="/admin/verification" element={<AdminVerification />} />
-                    <Route path="/admin/verification/list/:status" element={<VerificationList />} />
-                    <Route path="/admin/verification-detail/:id" element={<VerificationDetail />} />
-                    <Route path="/admin/referral-settings" element={<AdminReferralSettings />} />
-                    <Route path="/become-host" element={<BecomeHost />} />
-                    <Route path="/create-trip" element={<CreateTripEvent />} />
-                    <Route path="/create-event" element={<CreateTripEvent />} />
-                    <Route path="/create-adventure" element={<CreateAdventure />} />
-                    <Route path="/create-attraction" element={<CreateAdventure />} />
-                    <Route path="/host/item/:itemType/:id" element={<HostItemDetail />} />
-                    <Route path="/host/bookings/:itemType" element={<HostBookings />} />
-                    <Route path="/host/bookings/:itemType/:id" element={<HostBookingDetails />} />
-                    <Route path="/host/trips" element={<CategoryTrips />} />
-                    <Route path="/host/hotels" element={<CategoryHotels />} />
-                    <Route path="/host/experiences" element={<CategoryExperiences />} />
-                    <Route path="/my-listing" element={<MyListing />} />
-                    
-                    <Route path="/edit-listing/:itemType/:id" element={<EditListing />} />
-                    <Route path="/reset-password" element={<ResetPassword />} />
-                    <Route path="/verify-email" element={<VerifyEmail />} />
-                    <Route path="/forgot-password" element={<ForgotPassword />} />
-                    <Route path="/host-verification" element={<HostVerification />} />
-                    <Route path="/verification-status" element={<VerificationStatus />} />
-                    
-                    <Route path="/payment" element={<Payment />} />
-                    <Route path="/payment/verify" element={<PaymentVerify />} />
-                    <Route path="/install" element={<Install />} />
-                    <Route path="/host-bookings" element={<HostBookings />} />
-                    <Route path="/host-bookings/:itemType/:id" element={<HostBookingDetails />} />
-                    <Route path="/terms-of-service" element={<TermsOfService />} />
-                    <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-                    <Route path="/qr-scanner" element={<QRScanner />} />
-                    <Route path="/book/:itemType/:itemId" element={<PublicManualBooking />} />
-                    <Route path="/complete-profile" element={<CompleteProfile />} />
-                    <Route path="/booking/:type/:id" element={<BookingPage />} />
-                    <Route path="/trip-event-guide" element={<TripEventGuide />} />
-                    <Route path="/campsite-guide" element={<CampsiteGuide />} />
-                    <Route path="/hotel-guide" element={<HotelGuide />} />
-                    <Route path="/payment-history" element={<PaymentHistory />} />
-                    <Route path="/admin/payment-verification" element={<AdminPaymentVerification />} />
-                    <Route path="/admin/accounts" element={<AccountsOverview />} />
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </div>
-              </Suspense>
-            </PageLayout>
-            </AuthGate>
+              <ScrollToTop />
+              <AuthGate>
+                <PageLayout>
+                  <div className="w-full">
+                    <Routes>
+                      {/* Home Page bypassed outside global Suspense to eliminate full-page flashes */}
+                      <Route path="/" element={<Index />} />
+
+                      {/* All remaining routes wrap inside individual Suspense blocks for clean chunk bundle loading */}
+                      <Route path="/explore" element={<Suspense fallback={<SuspenseFallback />}><Explore /></Suspense>} />
+                      <Route path="/saved" element={<Suspense fallback={<SuspenseFallback />}><Saved /></Suspense>} />
+                      <Route path="/bookings" element={<Suspense fallback={<SuspenseFallback />}><Bookings /></Suspense>} />
+                      <Route path="/contact" element={<Suspense fallback={<SuspenseFallback />}><Contact /></Suspense>} />
+                      <Route path="/about" element={<Suspense fallback={<SuspenseFallback />}><About /></Suspense>} />
+                      <Route path="/category/:category" element={<Suspense fallback={<SuspenseFallback />}><CategoryDetail /></Suspense>} />
+                      <Route path="/county/:county" element={<Suspense fallback={<SuspenseFallback />}><CountyDetail /></Suspense>} />
+                      <Route path="/trip/:slug" element={<Suspense fallback={<TealLoader />}><TripDetail /></Suspense>} />
+                      <Route path="/event/:slug" element={<Suspense fallback={<TealLoader />}><EventDetail /></Suspense>} />
+                      <Route path="/adventure/:slug" element={<Suspense fallback={<TealLoader />}><AdventurePlaceDetail /></Suspense>} />
+                      <Route path="/attraction/:slug" element={<Suspense fallback={<TealLoader />}><AdventurePlaceDetail /></Suspense>} />
+                      <Route path="/auth" element={<Suspense fallback={<SuspenseFallback />}><Auth /></Suspense>} />
+                      <Route path="/auth/callback" element={<Suspense fallback={<SuspenseFallback />}><AuthCallback /></Suspense>} />
+                      <Route path="/profile" element={<Suspense fallback={<SuspenseFallback />}><Profile /></Suspense>} />
+                      <Route path="/profile/edit" element={<Suspense fallback={<SuspenseFallback />}><ProfileEdit /></Suspense>} />
+                      <Route path="/admin" element={<Suspense fallback={<SuspenseFallback />}><AdminDashboard /></Suspense>} />
+                      <Route path="/admin/pending" element={<Suspense fallback={<SuspenseFallback />}><PendingApprovalItems /></Suspense>} />
+                      <Route path="/admin/approved" element={<Suspense fallback={<SuspenseFallback />}><ApprovedItems /></Suspense>} />
+                      <Route path="/admin/rejected" element={<Suspense fallback={<SuspenseFallback />}><RejectedItems /></Suspense>} />
+                      <Route path="/admin/review/:itemType/:id" element={<Suspense fallback={<SuspenseFallback />}><AdminReviewDetail /></Suspense>} />
+                      <Route path="/admin/bookings" element={<Suspense fallback={<SuspenseFallback />}><AdminBookings /></Suspense>} />
+                      <Route path="/admin/all-bookings" element={<Suspense fallback={<SuspenseFallback />}><AllBookings /></Suspense>} />
+                      <Route path="/admin/verification" element={<Suspense fallback={<SuspenseFallback />}><AdminVerification /></Suspense>} />
+                      <Route path="/admin/verification/list/:status" element={<Suspense fallback={<SuspenseFallback />}><VerificationList /></Suspense>} />
+                      <Route path="/admin/verification-detail/:id" element={<Suspense fallback={<SuspenseFallback />}><VerificationDetail /></Suspense>} />
+                      <Route path="/admin/referral-settings" element={<Suspense fallback={<SuspenseFallback />}><AdminReferralSettings /></Suspense>} />
+                      <Route path="/become-host" element={<Suspense fallback={<SuspenseFallback />}><BecomeHost /></Suspense>} />
+                      <Route path="/create-trip" element={<Suspense fallback={<SuspenseFallback />}><CreateTripEvent /></Suspense>} />
+                      <Route path="/create-event" element={<Suspense fallback={<SuspenseFallback />}><CreateTripEvent /></Suspense>} />
+                      <Route path="/create-adventure" element={<Suspense fallback={<SuspenseFallback />}><CreateAdventure /></Suspense>} />
+                      <Route path="/create-attraction" element={<Suspense fallback={<SuspenseFallback />}><CreateAdventure /></Suspense>} />
+                      <Route path="/host/item/:itemType/:id" element={<Suspense fallback={<SuspenseFallback />}><HostItemDetail /></Suspense>} />
+                      <Route path="/host/bookings/:itemType" element={<Suspense fallback={<SuspenseFallback />}><HostBookings /></Suspense>} />
+                      <Route path="/host/bookings/:itemType/:id" element={<Suspense fallback={<SuspenseFallback />}><HostBookingDetails /></Suspense>} />
+                      <Route path="/host/trips" element={<Suspense fallback={<SuspenseFallback />}><CategoryTrips /></Suspense>} />
+                      <Route path="/host/hotels" element={<Suspense fallback={<SuspenseFallback />}><CategoryHotels /></Suspense>} />
+                      <Route path="/host/experiences" element={<Suspense fallback={<SuspenseFallback />}><CategoryExperiences /></Suspense>} />
+                      <Route path="/my-listing" element={<Suspense fallback={<SuspenseFallback />}><MyListing /></Suspense>} />
+                      <Route path="/edit-listing/:itemType/:id" element={<Suspense fallback={<SuspenseFallback />}><EditListing /></Suspense>} />
+                      <Route path="/reset-password" element={<Suspense fallback={<SuspenseFallback />}><ResetPassword /></Suspense>} />
+                      <Route path="/verify-email" element={<Suspense fallback={<SuspenseFallback />}><VerifyEmail /></Suspense>} />
+                      <Route path="/forgot-password" element={<Suspense fallback={<SuspenseFallback />}><ForgotPassword /></Suspense>} />
+                      <Route path="/host-verification" element={<Suspense fallback={<SuspenseFallback />}><HostVerification /></Suspense>} />
+                      <Route path="/verification-status" element={<Suspense fallback={<SuspenseFallback />}><VerificationStatus /></Suspense>} />
+                      <Route path="/payment" element={<Suspense fallback={<SuspenseFallback />}><Payment /></Suspense>} />
+                      <Route path="/payment/verify" element={<Suspense fallback={<SuspenseFallback />}><PaymentVerify /></Suspense>} />
+                      <Route path="/install" element={<Suspense fallback={<SuspenseFallback />}><Install /></Suspense>} />
+                      <Route path="/host-bookings" element={<Suspense fallback={<SuspenseFallback />}><HostBookings /></Suspense>} />
+                      <Route path="/host-bookings/:itemType/:id" element={<Suspense fallback={<SuspenseFallback />}><HostBookingDetails /></Suspense>} />
+                      <Route path="/terms-of-service" element={<Suspense fallback={<SuspenseFallback />}><TermsOfService /></Suspense>} />
+                      <Route path="/privacy-policy" element={<Suspense fallback={<SuspenseFallback />}><PrivacyPolicy /></Suspense>} />
+                      <Route path="/qr-scanner" element={<Suspense fallback={<SuspenseFallback />}><QRScanner /></Suspense>} />
+                      <Route path="/book/:itemType/:itemId" element={<Suspense fallback={<SuspenseFallback />}><PublicManualBooking /></Suspense>} />
+                      <Route path="/complete-profile" element={<Suspense fallback={<SuspenseFallback />}><CompleteProfile /></Suspense>} />
+                      <Route path="/booking/:type/:id" element={<Suspense fallback={<SuspenseFallback />}><BookingPage /></Suspense>} />
+                      <Route path="/trip-event-guide" element={<Suspense fallback={<SuspenseFallback />}><TripEventGuide /></Suspense>} />
+                      <Route path="/campsite-guide" element={<Suspense fallback={<SuspenseFallback />}><CampsiteGuide /></Suspense>} />
+                      <Route path="/hotel-guide" element={<Suspense fallback={<SuspenseFallback />}><HotelGuide /></Suspense>} />
+                      <Route path="/payment-history" element={<Suspense fallback={<SuspenseFallback />}><PaymentHistory /></Suspense>} />
+                      <Route path="/admin/payment-verification" element={<Suspense fallback={<SuspenseFallback />}><AdminPaymentVerification /></Suspense>} />
+                      <Route path="/admin/accounts" element={<Suspense fallback={<SuspenseFallback />}><AccountsOverview /></Suspense>} />
+                      <Route path="*" element={<Suspense fallback={<SuspenseFallback />}><NotFound /></Suspense>} />
+                    </Routes>
+                  </div>
+                </PageLayout>
+              </AuthGate>
             </CurrencyProvider>
           </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>
-    </>
   );
 };
 

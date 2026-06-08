@@ -113,7 +113,7 @@ const DesktopGallery = ({ images, name }: { images: string[]; name: string }) =>
     <>
       {modalOpen && <ImageGalleryModal images={images} name={name} startIndex={modalStart} onClose={() => setModalOpen(false)} />}
       <div className="hidden md:block max-w-6xl mx-auto px-4 pt-4">
-        <div style={{ display: "grid", gridTemplateColumns: "1.55fr 1fr", gridTemplateRows: "200px 130px", gap: "3px", borderRadius: "16px", overflow: "hidden" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1.55fr 1fr", gridTemplateRows: "200px 130px", gap: "3px", borderRadius: "16px", overflow: "hidden", border: "2px solid rgba(0,0,0,0.08)" }}>
           <div style={{ gridRow: "1 / 3", overflow: "hidden", borderRadius: 0, cursor: "pointer" }} onClick={() => open(0)}>
             <img src={images[0]} alt={name} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" style={{ borderRadius: 0 }} />
           </div>
@@ -163,8 +163,8 @@ const MobileCarousel = ({ images, name }: { images: string[]; name: string }) =>
   return (
     <>
       {modalOpen && <ImageGalleryModal images={images} name={name} startIndex={modalStart} onClose={() => setModalOpen(false)} />}
-      <div className="md:hidden relative overflow-hidden bg-slate-900 mx-4"
-        style={{ height: "45vh", minHeight: "200px", maxHeight: "360px", borderRadius: "16px" }}>
+      <div className="md:hidden relative overflow-hidden bg-slate-900"
+        style={{ height: "45vh", minHeight: "200px", maxHeight: "360px" }}>
         {images.map((img, idx) => (
           <img key={idx} src={img} alt={`${name} ${idx + 1}`}
             className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700"

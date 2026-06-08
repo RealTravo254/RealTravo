@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
   MapPin, Clock, Share2, Copy, Navigation, AlertCircle,
-  Users, CheckCircle2, ChevronLeft, ChevronRight, Grid2X2, ExternalLink,
+  Users, CheckCircle2, ChevronLeft, ChevronRight, Grid2X2, ExternalLink, X,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSavedItems } from "@/hooks/useSavedItems";
@@ -61,7 +61,13 @@ const ImageGalleryModal = ({
         <span className="text-white/60 text-xs font-bold uppercase tracking-widest">{name}</span>
         <div className="flex items-center gap-3">
           <span className="text-white/50 text-xs font-bold">{current + 1} / {images.length}</span>
-          <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors text-white text-lg font-bold">✕</button>
+          <button
+            onClick={onClose}
+            className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center hover:bg-white/30 transition-colors text-white border border-white/20"
+            aria-label="Close gallery"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
       </div>
       <div className="flex-1 relative flex items-center justify-center overflow-hidden px-4">
@@ -230,7 +236,6 @@ const AmenitiesScroll = ({ amenities, accentColor }: { amenities: string[]; acce
 };
 
 // ─── Shared small card dimensions ────────────────────────────────────────────
-// Mobile: 140px wide, Desktop: 2-col grid — same image height & info layout for both
 const CARD_IMG_HEIGHT = 100; // px — uniform image height for facilities & activities
 
 // ─── Facilities — uniform small cards, 2-col grid on mobile & desktop ─────────
@@ -245,7 +250,13 @@ const InlineFacilitiesGrid = ({ facilities, accentColor }: { facilities: any[]; 
 
   return (
     <>
-      {modalImages && <ImageGalleryModal images={modalImages} name={modalName} onClose={() => setModalImages(null)} />}
+      {modalImages && (
+        <ImageGalleryModal
+          images={modalImages}
+          name={modalName}
+          onClose={() => setModalImages(null)}
+        />
+      )}
       <section>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-base font-black uppercase tracking-tight" style={{ color: accentColor }}>Facilities</h2>
@@ -264,10 +275,10 @@ const InlineFacilitiesGrid = ({ facilities, accentColor }: { facilities: any[]; 
           {visibleFacilities.map((fac: any, i: number) => {
             const imgs: string[] = Array.isArray(fac.images) ? fac.images.filter(Boolean) : [];
             return (
-              <div key={i} className="bg-white overflow-hidden shadow-sm border border-slate-100" style={{ borderRadius: 12 }}>
-                {/* Image area — fixed height */}
+              <div key={i} className="bg-white overflow-hidden shadow-sm border border-slate-100" style={{ borderRadius: 0 }}>
+                {/* Image area — fixed height, no border radius */}
                 {imgs.length > 0 ? (
-                  <div className="relative overflow-hidden" style={{ height: CARD_IMG_HEIGHT, borderRadius: "12px 12px 0 0" }}>
+                  <div className="relative overflow-hidden" style={{ height: CARD_IMG_HEIGHT, borderRadius: 0 }}>
                     <FacSlideshow images={imgs} name={fac.name} height={CARD_IMG_HEIGHT} />
                     {imgs.length > 1 && (
                       <button onClick={() => { setModalImages(imgs); setModalName(fac.name); }}
@@ -318,7 +329,7 @@ const FacSlideshow = ({ images, name, height }: { images: string[]; name: string
     return () => clearInterval(iv);
   }, [images.length]);
   return (
-    <div className="relative overflow-hidden" style={{ height, borderRadius: "12px 12px 0 0" }}>
+    <div className="relative overflow-hidden" style={{ height, borderRadius: 0 }}>
       {images.map((img, idx) => (
         <img key={idx} src={img} alt={name}
           className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
@@ -348,7 +359,13 @@ const InlineActivitiesGrid = ({ activities, formatPrice }: { activities: any[]; 
 
   return (
     <>
-      {modalImages && <ImageGalleryModal images={modalImages} name={modalName} onClose={() => setModalImages(null)} />}
+      {modalImages && (
+        <ImageGalleryModal
+          images={modalImages}
+          name={modalName}
+          onClose={() => setModalImages(null)}
+        />
+      )}
       <section>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-base font-black uppercase tracking-tight" style={{ color: CORAL }}>Activities</h2>
@@ -390,9 +407,9 @@ const ActivityCard = ({
   }, [imgs.length]);
 
   return (
-    <div className="bg-white overflow-hidden shadow-sm border border-slate-100" style={{ borderRadius: 12 }}>
-      {/* Image area — same fixed height as facilities */}
-      <div className="relative overflow-hidden" style={{ height: CARD_IMG_HEIGHT, borderRadius: "12px 12px 0 0" }}>
+    <div className="bg-white overflow-hidden shadow-sm border border-slate-100" style={{ borderRadius: 0 }}>
+      {/* Image area — same fixed height as facilities, no border radius */}
+      <div className="relative overflow-hidden" style={{ height: CARD_IMG_HEIGHT, borderRadius: 0 }}>
         {imgs.length > 0 ? (
           imgs.map((img, idx) => (
             <img key={idx} src={img} alt={act.name}

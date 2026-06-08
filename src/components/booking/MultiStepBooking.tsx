@@ -232,12 +232,12 @@ export const MultiStepBooking = ({
 
     if (!skipFacilitiesAndActivities) {
       if (separateActivitiesAndFacilities) {
-        // ── NEW: separate steps ──────────────────────────────────
-        if (activities.length > 0) {
-          steps.push({ id: "step_activities", title: "Activities" });
-        }
+        // ── NEW: separate steps — Facilities first, then Activities ─
         if (facilities.length > 0) {
           steps.push({ id: "step_facilities", title: "Facilities" });
+        }
+        if (activities.length > 0) {
+          steps.push({ id: "step_activities", title: "Activities" });
         }
       } else {
         // ── ORIGINAL: combined extras step ──────────────────────

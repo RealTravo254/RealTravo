@@ -84,8 +84,15 @@ const ImageGalleryModal = ({
           <div className="flex gap-2 w-max mx-auto">
             {images.map((img, idx) => (
               <button key={idx} onClick={() => setCurrent(idx)} className="flex-shrink-0 transition-all"
-                style={{ width: 56, height: 42, outline: idx === current ? `2px solid ${CORAL}` : "2px solid transparent", outlineOffset: 1, opacity: idx === current ? 1 : 0.5 }}>
-                <img src={img} alt="" className="w-full h-full object-cover" style={{ borderRadius: 0 }} />
+                style={{
+                  width: 56, height: 42,
+                  border: idx === current ? `2px solid ${CORAL}` : "2px solid rgba(255,255,255,0.25)",
+                  outline: "none",
+                  opacity: idx === current ? 1 : 0.55,
+                  padding: 0,
+                  boxSizing: "border-box",
+                }}>
+                <img src={img} alt="" className="w-full h-full object-cover" style={{ borderRadius: 4, display: "block" }} />
               </button>
             ))}
           </div>
@@ -106,7 +113,7 @@ const DesktopGallery = ({ images, name }: { images: string[]; name: string }) =>
     <>
       {modalOpen && <ImageGalleryModal images={images} name={name} startIndex={modalStart} onClose={() => setModalOpen(false)} />}
       <div className="hidden md:block max-w-6xl mx-auto px-4 pt-4">
-        <div style={{ display: "grid", gridTemplateColumns: "1.55fr 1fr", gridTemplateRows: "200px 130px", gap: "3px", borderRadius: 0 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1.55fr 1fr", gridTemplateRows: "200px 130px", gap: "3px", borderRadius: "16px", overflow: "hidden" }}>
           <div style={{ gridRow: "1 / 3", overflow: "hidden", borderRadius: 0, cursor: "pointer" }} onClick={() => open(0)}>
             <img src={images[0]} alt={name} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" style={{ borderRadius: 0 }} />
           </div>
@@ -156,8 +163,8 @@ const MobileCarousel = ({ images, name }: { images: string[]; name: string }) =>
   return (
     <>
       {modalOpen && <ImageGalleryModal images={images} name={name} startIndex={modalStart} onClose={() => setModalOpen(false)} />}
-      <div className="md:hidden w-full relative overflow-hidden bg-slate-900"
-        style={{ height: "45vh", minHeight: "200px", maxHeight: "360px", borderRadius: 0 }}>
+      <div className="md:hidden relative overflow-hidden bg-slate-900 mx-4"
+        style={{ height: "45vh", minHeight: "200px", maxHeight: "360px", borderRadius: "16px" }}>
         {images.map((img, idx) => (
           <img key={idx} src={img} alt={`${name} ${idx + 1}`}
             className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700"
@@ -257,10 +264,10 @@ const InlineFacilitiesGrid = ({ facilities, accentColor }: { facilities: any[]; 
           {visibleFacilities.map((fac: any, i: number) => {
             const imgs: string[] = Array.isArray(fac.images) ? fac.images.filter(Boolean) : [];
             return (
-              <div key={i} className="bg-white overflow-hidden shadow-sm border border-slate-100" style={{ borderRadius: 0 }}>
+              <div key={i} className="bg-white overflow-hidden shadow-sm border border-slate-100" style={{ borderRadius: 12 }}>
                 {/* Image area — fixed height */}
                 {imgs.length > 0 ? (
-                  <div className="relative" style={{ height: CARD_IMG_HEIGHT }}>
+                  <div className="relative overflow-hidden" style={{ height: CARD_IMG_HEIGHT, borderRadius: "12px 12px 0 0" }}>
                     <FacSlideshow images={imgs} name={fac.name} height={CARD_IMG_HEIGHT} />
                     {imgs.length > 1 && (
                       <button onClick={() => { setModalImages(imgs); setModalName(fac.name); }}
@@ -311,7 +318,7 @@ const FacSlideshow = ({ images, name, height }: { images: string[]; name: string
     return () => clearInterval(iv);
   }, [images.length]);
   return (
-    <div className="relative overflow-hidden" style={{ height, borderRadius: 0 }}>
+    <div className="relative overflow-hidden" style={{ height, borderRadius: "12px 12px 0 0" }}>
       {images.map((img, idx) => (
         <img key={idx} src={img} alt={name}
           className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
@@ -383,9 +390,9 @@ const ActivityCard = ({
   }, [imgs.length]);
 
   return (
-    <div className="bg-white overflow-hidden shadow-sm border border-slate-100" style={{ borderRadius: 0 }}>
+    <div className="bg-white overflow-hidden shadow-sm border border-slate-100" style={{ borderRadius: 12 }}>
       {/* Image area — same fixed height as facilities */}
-      <div className="relative" style={{ height: CARD_IMG_HEIGHT }}>
+      <div className="relative overflow-hidden" style={{ height: CARD_IMG_HEIGHT, borderRadius: "12px 12px 0 0" }}>
         {imgs.length > 0 ? (
           imgs.map((img, idx) => (
             <img key={idx} src={img} alt={act.name}

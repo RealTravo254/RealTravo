@@ -215,6 +215,29 @@ export const MultiStepBooking = ({
     !!getFacilityDateValidationError(facility)
   );
 
+  const calculateTotal = () => {
+    let total = 0;
+
+    if (!isFacilityOnlyMode) {
+      if (hasTicketTypes) {
+        ticketSelections.forEach(t => total += t.price * t.quantity);
+      } else {
+        total = numAdults * priceAdult + numChildren * priceChild;
+      }
+    }
+
+    selectedActivities.forEach((a) => (total += a.price * a.numberOfPeople));
+    selectedFacilities.forEach((f) => {
+      if (f.startDate && f.endDate) {
+        const days = Math.max(1, Math.ceil((new Date(f.endDate).getTime() - new Date(f.startDate).getTime()) / (1000 * 60 * 60 * 24)));
+        total += f.price * days;
+      }
+    });
+    return total;
+  };
+
+  const getTotalTickets = () => ticketSelections.reduce((sum, t) => sum + t.quantity, 0);
+
   const currentTotalAmount = calculateTotal();
   const canSkipExtras = currentTotalAmount > 0 || selectedActivities.length > 0 || selectedFacilities.length > 0 || getTotalTickets() > 0 || (!hasTicketTypes && numAdults + numChildren > 0);
 
@@ -268,29 +291,6 @@ export const MultiStepBooking = ({
     }
     steps.push({ id: "review", title: "Review" });
   }
-
-  const calculateTotal = () => {
-    let total = 0;
-
-    if (!isFacilityOnlyMode) {
-      if (hasTicketTypes) {
-        ticketSelections.forEach(t => total += t.price * t.quantity);
-      } else {
-        total = numAdults * priceAdult + numChildren * priceChild;
-      }
-    }
-
-    selectedActivities.forEach((a) => (total += a.price * a.numberOfPeople));
-    selectedFacilities.forEach((f) => {
-      if (f.startDate && f.endDate) {
-        const days = Math.max(1, Math.ceil((new Date(f.endDate).getTime() - new Date(f.startDate).getTime()) / (1000 * 60 * 60 * 24)));
-        total += f.price * days;
-      }
-    });
-    return total;
-  };
-
-  const getTotalTickets = () => ticketSelections.reduce((sum, t) => sum + t.quantity, 0);
 
   const handleNext = () => {
     if (currentStep < steps.length - 1) setCurrentStep(currentStep + 1);

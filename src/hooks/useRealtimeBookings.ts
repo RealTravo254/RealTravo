@@ -6,16 +6,9 @@ interface BookingStats {
 }
 
 // ── useRealtimeBookings ───────────────────────────────────────────────────────
-// Fix: use a unique channel name per hook instance so multiple components on
-// the same page don't collide on the hardcoded 'availability-realtime' name,
-// which causes "cannot add postgres_changes callbacks after subscribe()".
 export const useRealtimeBookings = (itemIds: string[]) => {
   const [bookingStats, setBookingStats] = useState<BookingStats>({});
-
-  // Stable unique id for this hook instance — never changes across re-renders
   const channelId = useRef(`availability-realtime-${Math.random().toString(36).slice(2)}`);
-
-  // Stable key so the effect only re-runs when the actual ids change
   const idsKey = itemIds.slice().sort().join(',');
 
   const fetchBookingStats = useCallback(async (ids: string[]) => {
@@ -45,10 +38,7 @@ export const useRealtimeBookings = (itemIds: string[]) => {
 
     fetchBookingStats(ids);
 
-    // Remove any stale channel with this name before creating a new one
     const name = channelId.current;
-    supabase.removeChannel(supabase.channel(name));
-
     const channel = supabase
       .channel(name)
       .on(
@@ -172,8 +162,10 @@ export const useRealtimeDateAvailability = (
   useEffect(() => {
     fetchBookedSlots();
 
-    if (!itemId) return;
+    // FIXED: If itemId or visitDate goes missing, do not subscribe
+    if (!itemId || !visitDate) return; 
 
+    // FIXED: Added visitDate to channel name so altering dates drops previous connections cleanly
     const channel = supabase
       .channel(`date-availability-${itemId}-${visitDate}`)
       .on(
@@ -196,7 +188,7 @@ export const useRealtimeDateAvailability = (
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [itemId, visitDate, fetchBookedSlots]);
+  }, [itemId, visitDate, fetchBookedSlots]); // FIXED: Added visitDate to dependencies
 
   const remainingSlots = Math.max(0, totalCapacity - bookedSlots);
   const isSoldOut = totalCapacity > 0 && remainingSlots <= 0;

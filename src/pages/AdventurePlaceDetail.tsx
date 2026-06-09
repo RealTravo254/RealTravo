@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useParams, useNavigate } from "react-router-dom";
 import { useSafeBack } from "@/hooks/useSafeBack";
 import { useBookingNavigate } from "@/hooks/useBookingNavigate";
@@ -37,12 +38,14 @@ const facilityLabel = (id: string) =>
   FACILITY_LABELS[id] ?? id.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
 // ─── Image Gallery Modal ──────────────────────────────────────────────────────
+// Rendered via portal so it sits above ALL stacking contexts (nav, sticky bars, etc.)
 const ImageGalleryModal = ({
   images, name, startIndex = 0, onClose,
 }: {
   images: string[]; name: string; startIndex?: number; onClose: () => void;
 }) => {
   const [current, setCurrent] = useState(startIndex);
+
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -50,84 +53,162 @@ const ImageGalleryModal = ({
       if (e.key === "ArrowLeft") setCurrent((p) => (p - 1 + images.length) % images.length);
     };
     window.addEventListener("keydown", handleKey);
+    // Lock body scroll AND prevent iOS rubber-band bleed-through
+    const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    return () => { window.removeEventListener("keydown", handleKey); document.body.style.overflow = ""; };
+    return () => {
+      window.removeEventListener("keydown", handleKey);
+      document.body.style.overflow = prev;
+    };
   }, [images.length, onClose]);
 
-  return (
+  const modal = (
     <div
-      className="fixed inset-0 bg-black/95 flex flex-col"
       style={{
-        zIndex: 9999,
-        paddingTop: "env(safe-area-inset-top,0px)",
-        paddingBottom: "env(safe-area-inset-bottom,0px)",
+        position: "fixed",
+        inset: 0,
+        // Solid black — no transparency so page content never bleeds through
+        background: "#000000",
+        display: "flex",
+        flexDirection: "column",
+        zIndex: 2147483647, // max possible z-index, above any portal/nav
+        paddingTop: "env(safe-area-inset-top, 0px)",
+        paddingBottom: "env(safe-area-inset-bottom, 0px)",
       }}
     >
-      {/* Header — overlaid */}
-      <div className="flex items-center justify-between px-4 py-3 flex-shrink-0">
-        <span className="text-white/60 text-xs font-bold uppercase tracking-widest">{name}</span>
-        <div className="flex items-center gap-3">
-          <span className="text-white/50 text-xs font-bold">{current + 1} / {images.length}</span>
+      {/* ── Top bar: name left · counter + close right ── */}
+      <div
+        style={{
+          flexShrink: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "12px 16px",
+        }}
+      >
+        <span style={{ color: "rgba(255,255,255,0.55)", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em" }}>
+          {name}
+        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, fontWeight: 700 }}>
+            {current + 1} / {images.length}
+          </span>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors text-white text-lg font-bold"
             aria-label="Close gallery"
+            style={{
+              width: 32, height: 32, borderRadius: "50%",
+              background: "rgba(255,255,255,0.12)",
+              border: "none", cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              color: "#fff", fontSize: 16, fontWeight: 700,
+              transition: "background 0.15s",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.22)")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.12)")}
           >
             ✕
           </button>
         </div>
       </div>
 
-      {/* Main image — no border radius */}
-      <div className="flex-1 relative flex items-center justify-center overflow-hidden px-4">
+      {/* ── Main image ── */}
+      <div
+        style={{
+          flex: 1,
+          position: "relative",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          overflow: "hidden",
+          padding: "0 48px",
+        }}
+      >
         <img
+          key={current}
           src={images[current]}
           alt={`${name} ${current + 1}`}
-          className="max-h-full max-w-full object-contain select-none"
-          style={{ borderRadius: 0 }}
+          style={{
+            maxHeight: "100%",
+            maxWidth: "100%",
+            objectFit: "contain",
+            borderRadius: 0,
+            userSelect: "none",
+            display: "block",
+          }}
         />
+
         {images.length > 1 && (
           <>
             <button
               onClick={() => setCurrent((p) => (p - 1 + images.length) % images.length)}
-              className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center hover:bg-white/20 transition-all"
+              style={{
+                position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)",
+                width: 40, height: 40, borderRadius: "50%",
+                background: "rgba(255,255,255,0.10)", backdropFilter: "blur(4px)",
+                border: "none", cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                transition: "background 0.15s",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.20)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.10)")}
             >
-              <ChevronLeft className="h-5 w-5 text-white" />
+              <ChevronLeft style={{ width: 20, height: 20, color: "#fff" }} />
             </button>
             <button
               onClick={() => setCurrent((p) => (p + 1) % images.length)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center hover:bg-white/20 transition-all"
+              style={{
+                position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)",
+                width: 40, height: 40, borderRadius: "50%",
+                background: "rgba(255,255,255,0.10)", backdropFilter: "blur(4px)",
+                border: "none", cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                transition: "background 0.15s",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.20)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.10)")}
             >
-              <ChevronRight className="h-5 w-5 text-white" />
+              <ChevronRight style={{ width: 20, height: 20, color: "#fff" }} />
             </button>
           </>
         )}
       </div>
 
-      {/* Thumbnails — no border radius */}
+      {/* ── Thumbnails strip ── */}
       {images.length > 1 && (
-        <div className="flex-shrink-0 px-4 py-3 overflow-x-auto">
-          <div className="flex gap-2 w-max mx-auto">
+        <div
+          style={{
+            flexShrink: 0,
+            padding: "10px 16px",
+            overflowX: "auto",
+            overflowY: "hidden",
+          }}
+        >
+          <div style={{ display: "flex", gap: 6, width: "max-content", margin: "0 auto" }}>
             {images.map((img, idx) => (
               <button
                 key={idx}
                 onClick={() => setCurrent(idx)}
-                className="flex-shrink-0 transition-all"
                 style={{
+                  flexShrink: 0,
                   width: 56, height: 42,
-                  border: idx === current ? `2px solid ${CORAL}` : "2px solid rgba(255,255,255,0.25)",
-                  outline: "none",
-                  opacity: idx === current ? 1 : 0.55,
                   padding: 0,
-                  boxSizing: "border-box",
+                  border: idx === current
+                    ? `2px solid ${CORAL}`
+                    : "2px solid rgba(255,255,255,0.22)",
                   borderRadius: 0,
+                  outline: "none",
+                  opacity: idx === current ? 1 : 0.5,
+                  cursor: "pointer",
+                  overflow: "hidden",
+                  boxSizing: "border-box",
+                  transition: "opacity 0.15s, border-color 0.15s",
                 }}
               >
                 <img
                   src={img}
                   alt=""
-                  className="w-full h-full object-cover"
-                  style={{ borderRadius: 0, display: "block" }}
+                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", borderRadius: 0 }}
                 />
               </button>
             ))}
@@ -136,6 +217,9 @@ const ImageGalleryModal = ({
       )}
     </div>
   );
+
+  // Mount at document.body so no parent stacking context can clip it
+  return createPortal(modal, document.body);
 };
 
 // ─── Desktop gallery grid ─────────────────────────────────────────────────────
@@ -155,13 +239,13 @@ const DesktopGallery = ({ images, name }: { images: string[]; name: string }) =>
           onClose={() => setModalOpen(false)}
         />
       )}
-      <div className="hidden md:block max-w-6xl mx-auto px-4 pt-4">
+      <div className="hidden md:block max-w-6xl mx-auto px-4 pt-4" style={{ borderRadius: 0 }}>
         <div style={{
           display: "grid",
           gridTemplateColumns: "1.55fr 1fr",
           gridTemplateRows: "200px 130px",
           gap: "3px",
-          borderRadius: "16px",
+          borderRadius: 0,
           overflow: "hidden",
           border: "2px solid rgba(0,0,0,0.08)",
         }}>

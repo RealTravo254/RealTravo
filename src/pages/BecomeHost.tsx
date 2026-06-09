@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import { Plane, Plus, ArrowLeft, LayoutDashboard, Map, Building2, Tent } from "lucide-react";
+import { Plus, ArrowLeft, LayoutDashboard, Map, Building2, Tent, Lock } from "lucide-react";
 
 const COLORS = {
   TEAL: "#008080",
@@ -30,6 +30,7 @@ const BecomeHost = () => {
   const [hasCompany, setHasCompany] = useState(false);
   const [companyStatus, setCompanyStatus] = useState<string | null>(null);
   const [hostingCategory, setHostingCategory] = useState<HostingCategory>(null);
+  const [hasExistingAdventure, setHasExistingAdventure] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -67,27 +68,33 @@ const BecomeHost = () => {
           .eq("user_id", user.id)
           .single();
 
+        // Check if this user already has an adventure place listed
+        const { data: existingAdventures } = await supabase
+          .from("hotels")
+          .select("id")
+          .eq("created_by", user.id)
+          .limit(1);
+
         if (cancelled) return;
 
         const hasV = verification && !verificationError;
         const currentCategory = verification?.hosting_category as HostingCategory || null;
+        const alreadyHasAdventure = (existingAdventures?.length ?? 0) > 0;
         
         setVerificationStatus(verification?.status || null);
         setHostingCategory(currentCategory);
         setHasCompany(!!company);
         setCompanyStatus(company?.verification_status || null);
+        setHasExistingAdventure(alreadyHasAdventure);
 
-        // Adventure hosts bypass verification hurdles completely
         const isAdventureHost = currentCategory === 'adventure';
 
-        // Direct to selection panel if they are entirely new
         if (!hasV && !company) {
           setShowTypeSelection(true);
           setLoading(false);
           return;
         }
 
-        // Enforce approval restrictions only for non-adventure pathways
         if (!isAdventureHost) {
           const isApprovedGuide = verification?.status === 'approved';
           const isApprovedCompany = company?.verification_status === 'approved';
@@ -99,7 +106,6 @@ const BecomeHost = () => {
           }
         }
 
-        // Populate dashboard assets
         const [trips, hotels] = await Promise.all([
           supabase.from("trips").select("id,name,type").eq("created_by", user.id),
           supabase.from("hotels").select("id,name,category").eq("created_by", user.id),
@@ -184,6 +190,70 @@ const BecomeHost = () => {
     );
   }
 
+  // Adventure host dashboard — locked to one listing
+  if (hostingCategory === 'adventure') {
+    return (
+      <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
+        <Header />
+        <main className="flex-1 container px-4 py-12 mx-auto mb-24">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
+            <h1 className="text-4xl font-black uppercase tracking-tighter text-slate-900">
+              Manage <span style={{ color: COLORS.CORAL }}>Inventory</span>
+            </h1>
+            <div className="bg-white p-4 rounded-[24px] shadow-sm border flex items-center gap-3">
+              <LayoutDashboard className="h-5 w-5 text-[#857F3E]" />
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Active Assets</p>
+                <p className="text-xl font-black text-slate-800">{myContent.length}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Adventure card — disabled if listing already exists */}
+            {hasExistingAdventure ? (
+              <LockedCard
+                title="Adventure Places"
+                subtitle="Campsites & Parks"
+                image="/images/category-campsite.webp"
+                icon={<Tent className="h-8 w-8" />}
+                count={myContent.filter(i => i.contentType === 'hotel').length}
+                onManage={() => navigate("/host/hotels")}
+                accentColor={COLORS.KHAKI_DARK}
+                lockMessage="You can only host one adventure place per account."
+              />
+            ) : (
+              <HostCategoryCard
+                title="Adventure Places"
+                subtitle="Campsites & Parks"
+                image="/images/category-campsite.webp"
+                icon={<Tent className="h-8 w-8" />}
+                count={myContent.filter(i => i.contentType === 'hotel').length}
+                onManage={() => navigate("/host/hotels")}
+                onAdd={() => navigate("/create-adventure")}
+                accentColor={COLORS.KHAKI_DARK}
+              />
+            )}
+
+            {/* Trips & Tours locked for adventure hosts */}
+            <LockedCard
+              title="Trips & Tours"
+              subtitle="Guided Experiences"
+              image="/images/category-trips.webp"
+              icon={<Map className="h-8 w-8" />}
+              count={0}
+              onManage={() => {}}
+              accentColor={COLORS.TEAL}
+              lockMessage="Adventure hosts cannot host trips or guided tours."
+            />
+          </div>
+        </main>
+        <MobileBottomBar />
+      </div>
+    );
+  }
+
+  // Standard host dashboard
   return (
     <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
       <Header />
@@ -202,34 +272,17 @@ const BecomeHost = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Adventure Dashboard Card */}
-          {hostingCategory === 'adventure' && (
+          {(verificationStatus === 'approved' || companyStatus === 'approved') && (
             <HostCategoryCard
-              title="Adventure Places"
-              subtitle="Campsites & Parks"
-              image="/images/category-campsite.webp"
-              icon={<Tent className="h-8 w-8" />}
-              count={myContent.filter(i => i.contentType === 'hotel').length}
-              onManage={() => navigate("/host/hotels")}
-              onAdd={() => navigate("/create-adventure")}
-              accentColor={COLORS.KHAKI_DARK}
+              title="Trips & Tours"
+              subtitle="Guided Experiences"
+              image="/images/category-trips.webp"
+              icon={<Map className="h-8 w-8" />}
+              count={myContent.filter(i => i.contentType === 'trip').length}
+              onManage={() => navigate("/host/trips")}
+              onAdd={() => navigate("/create-trip")}
+              accentColor={COLORS.TEAL}
             />
-          )}
-
-          {/* Standard Host Dashboard Card */}
-          {hostingCategory !== 'adventure' && (verificationStatus === 'approved' || companyStatus === 'approved') && (
-            <>
-              <HostCategoryCard
-                title="Trips & Tours"
-                subtitle="Guided Experiences"
-                image="/images/category-trips.webp"
-                icon={<Map className="h-8 w-8" />}
-                count={myContent.filter(i => i.contentType === 'trip').length}
-                onManage={() => navigate("/host/trips")}
-                onAdd={() => navigate("/create-trip")}
-                accentColor={COLORS.TEAL}
-              />
-            </>
           )}
         </div>
       </main>
@@ -278,6 +331,37 @@ const HostCategoryCard = ({ title, subtitle, image, icon, count, onManage, onAdd
       >
         <Plus className="h-3 w-3 mr-1 stroke-[3px]" /> Add {title.split(' ')[0]}
       </Button>
+    </div>
+  </div>
+);
+
+// Locked card — shows manage button but no add button, with a lock notice
+const LockedCard = ({ title, subtitle, image, icon, count, onManage, accentColor, lockMessage }: any) => (
+  <div className="group bg-white rounded-[24px] overflow-hidden shadow-xl border border-slate-100 flex flex-col h-[320px] md:h-[160px] md:flex-row opacity-80">
+    <div className="relative h-1/2 md:h-full md:w-56 md:shrink-0 overflow-hidden">
+      <img src={image} alt={title} className="w-full h-full object-cover grayscale" />
+      <div className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-black/80 via-black/40 to-transparent" />
+      <div className="absolute top-2 left-2 md:top-3 md:left-3">
+        <Badge className="bg-white/20 backdrop-blur-md text-white border-none text-[9px] font-black uppercase">{count} Listings</Badge>
+      </div>
+      <div className="absolute bottom-2 left-3 md:bottom-3 md:left-3">
+        <p className="text-[8px] font-black text-white/70 uppercase tracking-widest">{subtitle}</p>
+        <h2 className="text-base md:text-lg font-black text-white uppercase tracking-tighter">{title}</h2>
+      </div>
+    </div>
+    <div className="p-4 md:px-6 md:py-4 flex flex-col justify-between flex-1">
+      <div className="flex items-center justify-between">
+        <div className="p-2 rounded-xl bg-slate-100 text-slate-400">
+          <div className="scale-75 origin-center">{icon}</div>
+        </div>
+        {count > 0 && (
+          <Button variant="ghost" onClick={onManage} className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 px-2">All →</Button>
+        )}
+      </div>
+      <div className="flex items-center gap-2 bg-slate-50 border border-dashed border-slate-200 rounded-xl px-3 py-2.5">
+        <Lock className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide leading-tight">{lockMessage}</p>
+      </div>
     </div>
   </div>
 );

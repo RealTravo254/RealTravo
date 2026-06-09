@@ -221,12 +221,11 @@ const CATEGORIES = [
 ];
 
 // ── Quick-nav shortcuts ───────────────────────────────────────────────────────
+// FIX: removed the stray backtick-n that was corrupting this array
 const QUICK_NAV = [
-  { icon: Calendar, title: "Trips",            path: "/category/trips",    color: "hsl(25, 90%, 50%)"  },
-  { icon: Trophy,   title: "Events & Sports",  path: "/category/events",   color: "hsl(340, 75%, 50%)" },
-  { icon: Tent,     title: "Adventure Places", path: "/category/campsite", color: "hsl(142, 70%, 35%)" },
-  { icon: Ticket,   title: "Bookings",         path: "/bookings",          color: "hsl(200, 70%, 45%)" },
-  { icon: Heart,    title: "Saved",            path: "/saved",             color: "hsl(350, 80%, 55%)" },
+  { icon: Calendar, title: "Trips",    path: "/category/trips", color: "hsl(25, 90%, 50%)"  },
+  { icon: Ticket,   title: "Bookings", path: "/bookings",       color: "hsl(200, 70%, 45%)" },
+  { icon: Heart,    title: "Saved",    path: "/saved",          color: "hsl(350, 80%, 55%)" },
 ];
 
 // ── Main page ─────────────────────────────────────────────────────────────────

@@ -1,7 +1,16 @@
+// @ts-nocheck
+/// <reference lib="deno.window" />
+
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "https://esm.sh/resend@4.0.0";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
+
+declare const Deno: {
+  env: {
+    get(key: string): string | undefined;
+  };
+};
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -154,9 +163,10 @@ const handler = async (req: Request): Promise<Response> => {
     let validatedData;
     try {
       validatedData = bookingConfirmationSchema.parse(rawData);
-    } catch (validationError) {
+    } catch (validationError: unknown) {
       if (validationError instanceof z.ZodError) {
-        return new Response(JSON.stringify({ error: "Invalid input", details: validationError.errors }),
+        const zErr = validationError as z.ZodError;
+        return new Response(JSON.stringify({ error: "Invalid input", details: zErr.issues ?? zErr.errors }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       throw validationError;
@@ -190,6 +200,7 @@ const handler = async (req: Request): Promise<Response> => {
     const guestPhone = bookingDetails?.phone || booking.guest_phone || '';
 
     // Resolve host contact info from item + profile
+    const bookingDetailsObject = typeof bookingDetails === 'string' ? JSON.parse(bookingDetails) : (bookingDetails || {});
     let hostInfo: { name?: string; email?: string; phone?: string } = {};
     try {
       let hostTable = 'trips';
@@ -202,8 +213,13 @@ const handler = async (req: Request): Promise<Response> => {
         const { data: hostProfile } = await supabaseClient.from('profiles').select('email,name,phone_number').eq('id', itemRow.created_by).single();
         hostInfo = {
           name: hostProfile?.name || undefined,
-          email: (itemRow as any).email || hostProfile?.email || undefined,
-          phone: itemPhone || hostProfile?.phone_number || undefined,
+          email: bookingDetailsObject.host_email || (itemRow as any).email || hostProfile?.email || undefined,
+          phone: bookingDetailsObject.host_phone || itemPhone || hostProfile?.phone_number || undefined,
+        };
+      } else {
+        hostInfo = {
+          email: bookingDetailsObject.host_email || (itemRow as any).email || undefined,
+          phone: bookingDetailsObject.host_phone || itemPhone || undefined,
         };
       }
     } catch (e) { console.error('Host info lookup failed:', e); }

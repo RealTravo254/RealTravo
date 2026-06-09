@@ -202,6 +202,22 @@ export const MultiStepBooking = ({
     return !ranges.some(r => startDate < r.endDate && endDate > r.startDate);
   }, [facilityBookedRanges]);
 
+  const getFacilityDateValidationError = (facility: { name: string; startDate?: string; endDate?: string }) => {
+    if (!facility.startDate || !facility.endDate) return "Please choose both a start and end date.";
+    if (facility.endDate <= facility.startDate) return "Check-out must be after check-in.";
+    if (!isFacilityRangeAvailable(facility.name, facility.startDate, facility.endDate)) {
+      return "The selected dates overlap with an existing booking.";
+    }
+    return "";
+  };
+
+  const hasInvalidSelectedFacilityDates = selectedFacilities.some((facility) =>
+    !!getFacilityDateValidationError(facility)
+  );
+
+  const currentTotalAmount = calculateTotal();
+  const canSkipExtras = currentTotalAmount > 0 || selectedActivities.length > 0 || selectedFacilities.length > 0 || getTotalTickets() > 0 || (!hasTicketTypes && numAdults + numChildren > 0);
+
   // ─────────────────────────────────────────────────────────────────────────────
   // STEP DEFINITIONS
   // Key change: when separateActivitiesAndFacilities=true, "extras" is replaced
@@ -355,14 +371,23 @@ export const MultiStepBooking = ({
         return total > 0 && total <= 20;
       }
       case "facilities":
-        return selectedFacilities.length > 0 &&
-          selectedFacilities.some(f => f.startDate && f.endDate && f.endDate > f.startDate) &&
-          !dateConflictWarning;
-      // Separate steps — both optional, always valid to proceed
-      case "step_activities": return true;
-      case "step_facilities": return true;
-      case "activities": return true;
-      case "extras": return true;
+      case "step_facilities": {
+        if (selectedFacilities.length === 0) return true;
+        return selectedFacilities.every((f) => !getFacilityDateValidationError(f)) && !dateConflictWarning;
+      }
+      case "activities":
+      case "step_activities": {
+        if (selectedActivities.length === 0 && selectedFacilities.length === 0) {
+          return canSkipExtras;
+        }
+        return true;
+      }
+      case "extras": {
+        if (selectedFacilities.length === 0 && selectedActivities.length === 0) {
+          return canSkipExtras;
+        }
+        return selectedFacilities.every((f) => !getFacilityDateValidationError(f)) && !dateConflictWarning;
+      }
       case "details": return guestName.trim() !== "" && guestEmail.trim() !== "" && guestPhone.trim() !== "";
       case "review": return true;
       default: return true;
@@ -433,6 +458,8 @@ export const MultiStepBooking = ({
       {facilities.map((facility) => {
         const isSelected = selectedFacilities.some((f) => f.name === facility.name);
         const selected = selectedFacilities.find((f) => f.name === facility.name);
+        const bookedRanges = facilityBookedRanges[facility.name] || [];
+        const facilityError = selected ? getFacilityDateValidationError(selected) : "";
         return (
           <div
             key={facility.name}
@@ -501,10 +528,30 @@ export const MultiStepBooking = ({
                   </div>
                 </div>
 
-                {dateConflictWarning && (
+                {facilityError && (
+                  <div className="flex items-center gap-2 text-xs text-red-500 bg-red-50 p-2 rounded-xl">
+                    <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                    <span>{facilityError}</span>
+                  </div>
+                )}
+
+                {dateConflictWarning && !facilityError && (
                   <div className="flex items-center gap-2 text-xs text-red-500 bg-red-50 p-2 rounded-xl">
                     <AlertCircle className="h-3 w-3 flex-shrink-0" />
                     <span>{dateConflictWarning}</span>
+                  </div>
+                )}
+
+                {bookedRanges.length > 0 && (
+                  <div className="rounded-2xl bg-slate-50 border border-slate-200 p-3 text-xs text-slate-600">
+                    <p className="font-bold uppercase tracking-[0.2em] mb-2">Booked dates</p>
+                    <div className="space-y-1">
+                      {bookedRanges.map((range, index) => (
+                        <div key={index} className="text-[11px]">
+                          {format(parseISO(range.startDate), "MMM d, yyyy")} — {format(parseISO(range.endDate), "MMM d, yyyy")}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
 
@@ -572,9 +619,15 @@ export const MultiStepBooking = ({
       {/* ── FACILITY-ONLY MODE: Facilities with dates ─────────────────────── */}
       {currentStepId === "facilities" && isFacilityOnlyMode && (
         <div className="space-y-4">
-          <p className="text-sm text-muted-foreground mb-4">
-            Select check-in and check-out dates for your selected facility.
-          </p>
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-sm text-slate-600">
+            Select the facility dates you need. If you do not want a facility add-on, leave this step empty and continue.
+            Selected facilities require both start and end dates before proceeding.
+          </div>
+          {currentTotalAmount <= 0 && selectedFacilities.length === 0 && (
+            <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-sm text-amber-700">
+              Your booking currently has no payable items. Please select a facility or activity so the total amount is above KES 0.
+            </div>
+          )}
           {renderFacilitiesList()}
         </div>
       )}
@@ -721,9 +774,15 @@ export const MultiStepBooking = ({
       {/* ── SEPARATE ACTIVITIES STEP ──────────────────────────────────────── */}
       {currentStepId === "step_activities" && (
         <div className="space-y-4">
-          <p className="text-sm text-muted-foreground mb-2">
-            Choose any activities you'd like to add. (Optional)
-          </p>
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-sm text-slate-600">
+            No activities selected? You can skip this section if you do not want activities.
+            Your booking will still proceed as long as the total amount is greater than KES 0.
+          </div>
+          {currentTotalAmount <= 0 && selectedActivities.length === 0 && selectedFacilities.length === 0 && (
+            <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-sm text-amber-700">
+              Your booking currently has no payable items. Please select an activity, facility, or ticket so the total is above KES 0.
+            </div>
+          )}
           {renderActivitiesList()}
           {selectedActivities.length > 0 && (
             <div className="p-4 rounded-2xl bg-[#008080]/5 border border-[#008080]/20 flex justify-between items-center">
@@ -739,9 +798,15 @@ export const MultiStepBooking = ({
       {/* ── SEPARATE FACILITIES STEP ──────────────────────────────────────── */}
       {currentStepId === "step_facilities" && (
         <div className="space-y-4">
-          <p className="text-sm text-muted-foreground mb-2">
-            Choose any facilities you'd like to book. Select dates for each one. (Optional)
-          </p>
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-sm text-slate-600">
+            No facilities selected? You can skip this step if you do not need any facility booking.
+            If you select a facility, both the start and end dates must be completed before proceeding.
+          </div>
+          {currentTotalAmount <= 0 && selectedFacilities.length === 0 && (
+            <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-sm text-amber-700">
+              Your booking currently has no payable items. Please select a facility, activity, or ticket so the total amount is above KES 0.
+            </div>
+          )}
           {renderFacilitiesList()}
           {selectedFacilities.filter(f => f.startDate && f.endDate).length > 0 && (
             <div className="p-4 rounded-2xl bg-[#008080]/5 border border-[#008080]/20 flex justify-between items-center">
@@ -761,6 +826,15 @@ export const MultiStepBooking = ({
       {/* ── ORIGINAL COMBINED EXTRAS STEP ────────────────────────────────── */}
       {currentStepId === "extras" && (
         <div className="space-y-6">
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-sm text-slate-600">
+            No extras selected? You can skip this step if you do not want facility or activity add-ons.
+            Your booking can still proceed if the total amount is above KES 0.
+          </div>
+          {currentTotalAmount <= 0 && selectedActivities.length === 0 && selectedFacilities.length === 0 && (
+            <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-sm text-amber-700">
+              Your booking currently has no payable items. Please choose at least one ticket, activity, or facility before continuing.
+            </div>
+          )}
           {activities.length > 0 && (
             <div>
               <h3 className="font-black text-sm uppercase tracking-tight mb-3" style={{ color: TEAL }}>Activities</h3>

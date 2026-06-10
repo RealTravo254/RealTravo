@@ -11,7 +11,7 @@ import {
   MapPin, Mail, Phone, Clock, ArrowLeft, CheckCircle2, XCircle,
   ShieldAlert, Users, Tag, Globe, Navigation, Ban, FileImage,
   ChevronLeft, ChevronRight, Grid2X2, Eye, ExternalLink, Zap,
-  Copy, Share2, Landmark, Calendar, Info,
+  Copy, Share2, Landmark, Calendar, Info, ShieldCheck, AlertTriangle,
 } from "lucide-react";
 import { approvalStatusSchema } from "@/lib/validation";
 import { TealLoader } from "@/components/ui/teal-loader";
@@ -20,7 +20,7 @@ const TEAL        = "#008080";
 const CORAL       = "#FF7F50";
 const CORAL_LIGHT = "#FF9E7A";
 
-// ── Facility label map (from AdventurePlaceDetail) ──────────────────────────
+// ── Facility label map ──────────────────────────────────────────────────────
 const FACILITY_LABELS: Record<string, string> = {
   wifi: "Free Wi-Fi", parking: "On-site Parking", toilet: "Flush Toilets",
   shower: "Hot Showers", camping: "Camping Area", picnic: "Picnic Tables",
@@ -33,7 +33,7 @@ const FACILITY_LABELS: Record<string, string> = {
 const facilityLabel = (id: string) =>
   FACILITY_LABELS[id] ?? id.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
-// ── Image Gallery Modal (portal, same as AdventurePlaceDetail) ──────────────
+// ── Image Gallery Modal ─────────────────────────────────────────────────────
 const ImageGalleryModal = ({
   images, name, startIndex = 0, onClose,
 }: {
@@ -66,7 +66,6 @@ const ImageGalleryModal = ({
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
       }}
     >
-      {/* Top bar */}
       <div style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px" }}>
         <span style={{ color: "rgba(255,255,255,0.55)", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em" }}>{name}</span>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -85,7 +84,6 @@ const ImageGalleryModal = ({
         </div>
       </div>
 
-      {/* Main image */}
       <div style={{ flex: 1, position: "relative", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", padding: "0 48px" }}>
         <img key={current} src={images[current]} alt={`${name} ${current + 1}`}
           style={{ maxHeight: "100%", maxWidth: "100%", objectFit: "contain", borderRadius: 0, userSelect: "none", display: "block" }} />
@@ -107,7 +105,6 @@ const ImageGalleryModal = ({
         )}
       </div>
 
-      {/* Thumbnails */}
       {images.length > 1 && (
         <div style={{ flexShrink: 0, padding: "10px 16px", overflowX: "auto", overflowY: "hidden" }}>
           <div style={{ display: "flex", gap: 6, width: "max-content", margin: "0 auto" }}>
@@ -233,7 +230,7 @@ const MobileCarousel = ({ images, name }: { images: string[]; name: string }) =>
   );
 };
 
-// ── General Amenities (adventure) ───────────────────────────────────────────
+// ── General Amenities ───────────────────────────────────────────────────────
 const AmenitiesScroll = ({ amenities }: { amenities: string[] }) => {
   if (!amenities.length) return null;
   return (
@@ -279,7 +276,7 @@ const FacSlideshow = ({ images, name, height, onClick }: { images: string[]; nam
   );
 };
 
-// ── Facilities Grid (adventure) ─────────────────────────────────────────────
+// ── Facilities Grid ─────────────────────────────────────────────────────────
 const InlineFacilitiesGrid = ({ facilities }: { facilities: any[] }) => {
   const [modalImages, setModalImages] = useState<string[] | null>(null);
   const [modalName, setModalName]     = useState("");
@@ -358,7 +355,7 @@ const InlineFacilitiesGrid = ({ facilities }: { facilities: any[] }) => {
   );
 };
 
-// ── Activity Card (adventure) ───────────────────────────────────────────────
+// ── Activity Card ───────────────────────────────────────────────────────────
 const ActivityCard = ({ act, imgs, onImageClick }: { act: any; imgs: string[]; onImageClick?: () => void }) => {
   const [active, setActive] = useState(0);
   useEffect(() => {
@@ -402,7 +399,7 @@ const ActivityCard = ({ act, imgs, onImageClick }: { act: any; imgs: string[]; o
   );
 };
 
-// ── Activities Grid (adventure) ─────────────────────────────────────────────
+// ── Activities Grid ─────────────────────────────────────────────────────────
 const InlineActivitiesGrid = ({ activities }: { activities: any[] }) => {
   const [modalImages, setModalImages] = useState<string[] | null>(null);
   const [modalName, setModalName]     = useState("");
@@ -535,24 +532,64 @@ const MapSection = ({
   );
 };
 
+// ── Host Verification Status Banner ────────────────────────────────────────
+const HostVerificationBanner = ({ hostVerification }: { hostVerification: any | null }) => {
+  if (!hostVerification) {
+    return (
+      <div className="flex items-start gap-3 p-4 rounded-2xl border-2 border-dashed border-red-200 bg-red-50">
+        <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+        <div>
+          <p className="text-sm font-black uppercase tracking-tight text-red-700">Host Not Verified</p>
+          <p className="text-xs text-red-500 mt-0.5">This host has no verification record. Adventure place cannot be approved for public view until host is verified.</p>
+        </div>
+      </div>
+    );
+  }
+  const statusMap: Record<string, { color: string; bg: string; border: string; icon: React.ReactNode; label: string }> = {
+    approved: { color: "#065f46", bg: "#ecfdf5", border: "#6ee7b7", icon: <ShieldCheck className="h-5 w-5 text-emerald-600 flex-shrink-0 mt-0.5" />, label: "Host Verified & Approved" },
+    pending:  { color: "#92400e", bg: "#fffbeb", border: "#fcd34d", icon: <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />, label: "Host Verification Pending" },
+    rejected: { color: "#991b1b", bg: "#fef2f2", border: "#fca5a5", icon: <XCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />, label: "Host Verification Rejected" },
+  };
+  const s = statusMap[hostVerification.status] ?? statusMap.pending;
+  return (
+    <div className="flex items-start gap-3 p-4 rounded-2xl border-2" style={{ background: s.bg, borderColor: s.border }}>
+      {s.icon}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-black uppercase tracking-tight" style={{ color: s.color }}>{s.label}</p>
+        <p className="text-xs mt-0.5" style={{ color: s.color, opacity: 0.8 }}>
+          Category: <span className="font-bold uppercase">{hostVerification.hosting_category || "—"}</span>
+        </p>
+        {hostVerification.status !== "approved" && (
+          <p className="text-xs mt-1 font-semibold" style={{ color: s.color }}>
+            ⚠ Adventure place cannot be approved for public view until host verification is approved.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // ── Admin Sidebar Card ──────────────────────────────────────────────────────
 interface AdminCardProps {
   item: any;
   creator: any;
   isBanned: boolean;
   type: string;
-  formatPrice?: (n: number) => string;
+  hostVerification: any | null;
   onOpenMaps: () => void;
   onApprove: () => void;
   onReject: () => void;
   onToggleBan: () => void;
 }
 
-const AdminSideCard = ({ item, creator, isBanned, type, onOpenMaps, onApprove, onReject, onToggleBan }: AdminCardProps) => {
+const AdminSideCard = ({ item, creator, isBanned, type, hostVerification, onOpenMaps, onApprove, onReject, onToggleBan }: AdminCardProps) => {
   const isAdventure = type === "adventure" || type === "adventure_place";
   const price = item.entry_fee ?? item.price ?? item.price_adult ?? 0;
   const childPrice = item.child_entry_fee ?? item.price_child;
   const isApproved = item.approval_status === "approved";
+  // Adventure places require host to be verified before approval
+  const hostIsVerified = !isAdventure || (hostVerification?.status === "approved");
+  const canApprove = !isApproved && hostIsVerified;
 
   return (
     <div className="bg-white rounded-2xl p-6 shadow-lg border border-slate-200 space-y-4 lg:sticky lg:top-24">
@@ -563,6 +600,11 @@ const AdminSideCard = ({ item, creator, isBanned, type, onOpenMaps, onApprove, o
           {item.approval_status || "Pending"}
         </span>
       </div>
+
+      {/* Host verification status for adventure places */}
+      {isAdventure && (
+        <HostVerificationBanner hostVerification={hostVerification} />
+      )}
 
       {/* Pricing */}
       <div>
@@ -601,7 +643,6 @@ const AdminSideCard = ({ item, creator, isBanned, type, onOpenMaps, onApprove, o
             </div>
           </div>
         )}
-        {/* Trip-specific: date + slots */}
         {item.date && (
           <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-200">
             <span className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-1"><Calendar className="h-3 w-3" /> Date</span>
@@ -618,7 +659,6 @@ const AdminSideCard = ({ item, creator, isBanned, type, onOpenMaps, onApprove, o
             <span className="text-xs font-black text-slate-700">{item.available_tickets} available</span>
           </div>
         )}
-        {/* Adventure-specific: capacity */}
         {(item.daily_capacity ?? item.capacity_per_day ?? item.capacity) != null && (
           <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-200">
             <span className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-1"><Users className="h-3 w-3" /> Daily Capacity</span>
@@ -669,15 +709,16 @@ const AdminSideCard = ({ item, creator, isBanned, type, onOpenMaps, onApprove, o
         </div>
       )}
 
-      {/* Approve */}
+      {/* Approve — blocked if adventure host not verified */}
       <Button
         onClick={onApprove}
-        disabled={isApproved}
+        disabled={!canApprove}
+        title={!hostIsVerified ? "Host must be verified before approving this adventure place" : undefined}
         className="w-full py-6 rounded-xl text-sm font-bold text-white border-none shadow-md transition-all active:scale-95"
-        style={{ background: isApproved ? "#94a3b8" : `linear-gradient(135deg, #2dd4bf 0%, ${TEAL} 100%)` }}
+        style={{ background: canApprove ? `linear-gradient(135deg, #2dd4bf 0%, ${TEAL} 100%)` : "#94a3b8" }}
       >
         <CheckCircle2 className="mr-2 h-4 w-4" />
-        {isApproved ? "Already Approved" : "Approve Entry"}
+        {isApproved ? "Already Approved" : !hostIsVerified ? "Verify Host First" : "Approve Entry"}
       </Button>
 
       {!isApproved && (
@@ -696,6 +737,86 @@ const AdminSideCard = ({ item, creator, isBanned, type, onOpenMaps, onApprove, o
   );
 };
 
+// ── Adventure Place Identity Panel ─────────────────────────────────────────
+// Shows name, phone, registration number, TRA license prominently for admin review
+const AdventureIdentityPanel = ({ item, creator }: { item: any; creator: any }) => {
+  const registrationNumber = item.registration_number || creator?.registration_number;
+  const traLicenseUrl = item.tra_license_url || creator?.tra_license_url;
+  const name = creator?.name || item.contact_name || "Unknown Host";
+  const phone = item.phone_number || creator?.phone_number;
+  const email = item.email || creator?.email;
+
+  return (
+    <section className="bg-white rounded-2xl p-5 shadow-sm border-2 border-amber-200 space-y-4">
+      {/* Header */}
+      <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+        <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-amber-50">
+          <ShieldAlert className="h-4 w-4 text-amber-600" />
+        </div>
+        <div>
+          <h2 className="text-sm font-black uppercase tracking-tight text-amber-700">Adventure Place — Identity & Compliance</h2>
+          <p className="text-[10px] text-slate-400 font-medium">Verify these details before approving</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Host Name */}
+        <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Host / Contact Name</p>
+          <p className="text-sm font-black text-slate-800 uppercase">{name}</p>
+        </div>
+
+        {/* Phone */}
+        <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1">
+            <Phone className="h-3 w-3" /> Phone Number
+          </p>
+          <p className="text-sm font-bold text-slate-700">{phone || "Not provided"}</p>
+        </div>
+
+        {/* Email */}
+        <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1">
+            <Mail className="h-3 w-3" /> Email Address
+          </p>
+          <p className="text-sm font-bold text-slate-700 break-all">{email || "Not provided"}</p>
+        </div>
+
+        {/* Registration Number */}
+        <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1">
+            <Landmark className="h-3 w-3" /> Registration / License No.
+          </p>
+          {registrationNumber
+            ? <p className="text-sm font-black text-slate-800">{registrationNumber}</p>
+            : <p className="text-sm text-slate-400 italic font-medium">Not provided</p>}
+        </div>
+      </div>
+
+      {/* TRA License Image */}
+      {traLicenseUrl ? (
+        <div>
+          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1">
+            <FileImage className="h-3 w-3" /> TRA License / Permit
+          </p>
+          <div className="rounded-xl overflow-hidden border-2 border-amber-100 bg-slate-50">
+            <img src={traLicenseUrl} alt="TRA License" className="w-full h-56 object-contain" />
+          </div>
+          <Button variant="link" className="mt-1 text-[10px] font-black uppercase text-teal-600 px-0"
+            onClick={() => window.open(traLicenseUrl, "_blank")}>
+            View Full Size →
+          </Button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 p-3 rounded-xl bg-red-50 border border-red-100">
+          <AlertTriangle className="h-4 w-4 text-red-400 flex-shrink-0" />
+          <p className="text-xs font-bold text-red-500 uppercase tracking-wide">No TRA License uploaded</p>
+        </div>
+      )}
+    </section>
+  );
+};
+
 // ── Main Component ──────────────────────────────────────────────────────────
 const AdminReviewDetail = () => {
   const { itemType: type, id } = useParams();
@@ -703,12 +824,13 @@ const AdminReviewDetail = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const [item, setItem]       = useState<any>(null);
-  const [creator, setCreator] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isBanned, setIsBanned] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
+  const [item, setItem]                       = useState<any>(null);
+  const [creator, setCreator]                 = useState<any>(null);
+  const [hostVerification, setHostVerification] = useState<any | null>(null);
+  const [loading, setLoading]                 = useState(true);
+  const [isAdmin, setIsAdmin]                 = useState(false);
+  const [isBanned, setIsBanned]               = useState(false);
+  const [scrolled, setScrolled]               = useState(false);
 
   useEffect(() => { checkAdminStatus(); }, [user]);
 
@@ -746,6 +868,14 @@ const AdminReviewDetail = () => {
         const { data: profile } = await supabase.from("profiles").select("*").eq("id", itemData.created_by).maybeSingle();
         setCreator(profile);
         setIsBanned(profile?.is_banned || false);
+
+        // Fetch host verification record for this creator
+        const { data: verification } = await supabase
+          .from("host_verifications")
+          .select("*")
+          .eq("user_id", itemData.created_by)
+          .maybeSingle();
+        setHostVerification(verification || null);
       }
     } catch {
       toast({ title: "Error loading item", variant: "destructive" });
@@ -754,6 +884,17 @@ const AdminReviewDetail = () => {
 
   const updateApprovalStatus = async (status: string) => {
     try {
+      // For adventure places, block approval if host is not verified
+      const isAdventure = type === "adventure" || type === "adventure_place";
+      if (isAdventure && status === "approved" && hostVerification?.status !== "approved") {
+        toast({
+          title: "Cannot Approve",
+          description: "The host must be verified before this adventure place can be approved for public view.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const validatedStatus = approvalStatusSchema.parse(status);
       const { error } = await supabase.from(item.tableName).update({
         approval_status: validatedStatus,
@@ -796,7 +937,6 @@ const AdminReviewDetail = () => {
   const isAdventure = type === "adventure" || type === "adventure_place";
   const isTrip      = type === "trip" || type === "event";
 
-  // Build all images exactly as detail pages do
   const facilityImgs = isAdventure
     ? (Array.isArray(item.facilities) ? item.facilities : []).flatMap((f: any) => Array.isArray(f.images) ? f.images : [])
     : [];
@@ -818,6 +958,7 @@ const AdminReviewDetail = () => {
 
   const adminCardProps: AdminCardProps = {
     item, creator, isBanned, type: type || "",
+    hostVerification,
     onOpenMaps: openInMaps,
     onApprove: () => updateApprovalStatus("approved"),
     onReject: () => updateApprovalStatus("rejected"),
@@ -848,7 +989,7 @@ const AdminReviewDetail = () => {
         </div>
       </div>
 
-      {/* Gallery — identical to detail pages */}
+      {/* Gallery */}
       <MobileCarousel images={allImages} name={item.name} />
       <DesktopGallery images={allImages} name={item.name} />
 
@@ -876,6 +1017,11 @@ const AdminReviewDetail = () => {
               <AdminSideCard {...adminCardProps} />
             </div>
 
+            {/* ── ADVENTURE PLACE: Identity & Compliance panel (always first) ── */}
+            {isAdventure && (
+              <AdventureIdentityPanel item={item} creator={creator} />
+            )}
+
             {/* ── ADVENTURE PLACE SECTIONS ── */}
             {isAdventure && (
               <>
@@ -900,7 +1046,6 @@ const AdminReviewDetail = () => {
               <>
                 {item.activities?.length > 0 && <HighlightsTags activities={item.activities} />}
 
-                {/* Inclusions & Exclusions */}
                 {((item.inclusions?.length > 0) || (item.exclusions?.length > 0)) && (
                   <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
                     <h2 className="text-base font-black uppercase tracking-tight mb-4" style={{ color: TEAL }}>Package Details</h2>
@@ -929,7 +1074,6 @@ const AdminReviewDetail = () => {
                   </div>
                 )}
 
-                {/* Trip children & pickup info */}
                 <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
                   <h2 className="text-base font-black uppercase tracking-tight mb-4" style={{ color: TEAL }}>Trip Details</h2>
                   <div className="space-y-2">
@@ -967,7 +1111,7 @@ const AdminReviewDetail = () => {
               </>
             )}
 
-            {/* Description — both types */}
+            {/* Description */}
             {item.description && (
               <section className="bg-white rounded-2xl px-5 py-4 shadow-sm border border-slate-100">
                 <h2 className="text-base font-black uppercase tracking-tight mb-3" style={{ color: TEAL }}>
@@ -977,7 +1121,7 @@ const AdminReviewDetail = () => {
               </section>
             )}
 
-            {/* Map — both types */}
+            {/* Map */}
             <MapSection
               name={item.name}
               latitude={item.latitude}
@@ -1040,8 +1184,8 @@ const AdminReviewDetail = () => {
               </div>
             )}
 
-            {/* TRA License */}
-            {item.tra_license_url && (
+            {/* TRA License (non-adventure, if present at item level) */}
+            {!isAdventure && item.tra_license_url && (
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
                 <h2 className="text-sm font-black uppercase tracking-tight mb-4 flex items-center gap-2" style={{ color: TEAL }}>
                   <FileImage className="h-4 w-4" /> TRA License

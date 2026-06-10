@@ -9,9 +9,6 @@ import { createDetailPath } from "@/lib/slugUtils";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 
 // ── Price label logic ─────────────────────────────────────────────────────────
-// - Guided tours (flexible-date trips) → "/group"
-// - Hotels / Accommodations            → "/night"
-// - Everything else                    → "/person"
 const getPriceLabel = (type: string, isFlexibleDate: boolean, isTrip: boolean) => {
   if (isFlexibleDate && isTrip) return "/group";
   if (["HOTEL", "ACCOMMODATION"].includes(type)) return "/night";
@@ -78,6 +75,12 @@ export interface ListingCardProps {
   images?: string[];
   openingHours?: string;
   closingHours?: string;
+  /**
+   * approval_status — used to gate visibility of ADVENTURE PLACE listings.
+   * If the type is "ADVENTURE PLACE" and this is not "approved", the card
+   * returns null and is not rendered. Pass this from your data queries.
+   */
+  approvalStatus?: string;
 }
 
 const ListingCardComponent = ({
@@ -87,7 +90,8 @@ const ListingCardComponent = ({
   priority = false, compact = false, avgRating, reviewCount, place,
   isFlexibleDate = false, hidePrice = false, description, categoryColor,
   galleryImages, images: extraImages, country,
-  openingHours, closingHours
+  openingHours, closingHours,
+  approvalStatus,
 }: ListingCardProps) => {
   const navigate = useNavigate();
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -98,6 +102,12 @@ const ListingCardComponent = ({
 
   const { ref: cardRef, isIntersecting } = useIntersectionObserver({ rootMargin: '300px', triggerOnce: true });
   const shouldLoad = priority || isIntersecting;
+
+  // ── GATE: Adventure places that are not approved are invisible to public ──
+  const isAdventurePlace = type === "ADVENTURE PLACE";
+  if (isAdventurePlace && approvalStatus !== "approved") {
+    return null;
+  }
 
   const allSlideImages = useMemo(() => {
     const imgs = [imageUrl];
@@ -115,7 +125,6 @@ const ListingCardComponent = ({
   const fewSlotsRemaining = tracksAvailability && remainingTickets > 0 && remainingTickets <= 10;
   const isUnavailable = isOutdated || isSoldOut;
 
-  // A flexible-date trip = Guided Tour
   const isGuidedTour = isFlexibleDate && isTrip;
 
   const displayType = useMemo(() => {
@@ -234,7 +243,7 @@ const ListingCardComponent = ({
           ))}
         </div>
 
-        {/* Category badge on image */}
+        {/* Category badge */}
         <div className="absolute top-2 left-2 z-20 flex items-center gap-1.5">
           <span
             className={cn(
@@ -262,7 +271,7 @@ const ListingCardComponent = ({
           </button>
         )}
 
-        {/* Navigation arrows (desktop only, on hover) */}
+        {/* Navigation arrows */}
         {allSlideImages.length > 1 && (
           <>
             {currentSlide > 0 && (
@@ -315,20 +324,17 @@ const ListingCardComponent = ({
         )}
       </div>
 
-      {/* Content below image */}
+      {/* Content */}
       <div className="flex flex-col gap-1 p-2.5 min-w-0">
-        {/* Title */}
         <h3 className="line-clamp-2 text-xs font-bold leading-snug text-slate-900">
           {formattedName}
         </h3>
 
-        {/* Location */}
         <div className="flex items-center gap-1 text-slate-500">
           <MapPin className="h-2.5 w-2.5 flex-shrink-0" />
           <span className="text-[10px] font-medium truncate capitalize">{locationString.toLowerCase()}</span>
         </div>
 
-        {/* Price — guided tours show /group, hotels /night, everything else /person */}
         {!hidePrice && price != null && price > 0 && (
           <PriceText
             price={price}
@@ -339,7 +345,6 @@ const ListingCardComponent = ({
           />
         )}
 
-        {/* Date row */}
         {(date || isFlexibleDate) && (
           <div className="flex items-center gap-0.5 text-slate-500">
             <Calendar className="h-2.5 w-2.5" />
@@ -349,7 +354,6 @@ const ListingCardComponent = ({
           </div>
         )}
 
-        {/* Hours available */}
         {hoursText && (
           <div className="flex items-center gap-0.5 text-slate-500">
             <Clock className="h-2.5 w-2.5" />
@@ -357,7 +361,6 @@ const ListingCardComponent = ({
           </div>
         )}
 
-        {/* Bottom row - rating */}
         {avgRating != null && avgRating > 0 && (
           <div className="flex items-center gap-0.5 pt-0.5">
             <Star className="h-2.5 w-2.5 fill-slate-800 text-slate-800" />

@@ -156,7 +156,6 @@ const TraLicenceUpload = ({
   file: File | null; preview: string; onAdd: (f: File) => void; onRemove: () => void; isInvalid?: boolean;
 }) => (
   <div className="mt-6 pt-6 border-t border-slate-100">
-    {/* Header row */}
     <div className="flex items-center gap-3 mb-4">
       <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: "linear-gradient(135deg,#008080,#005f5f)" }}>
         <ShieldCheck className="h-4.5 w-4.5 text-white h-[18px] w-[18px]" />
@@ -169,14 +168,11 @@ const TraLicenceUpload = ({
     </div>
 
     {preview ? (
-      /* ── Uploaded state ── */
       <div className={`relative rounded-2xl overflow-hidden border-2 transition-all ${isInvalid ? "border-red-300" : "border-teal-200"}`} style={{ background: "linear-gradient(135deg,#f0fdfa,#e6fffa)" }}>
         <div className="flex items-center gap-4 p-4">
-          {/* Thumbnail */}
           <div className="relative shrink-0 w-20 h-20 rounded-xl overflow-hidden border border-teal-200 shadow-md">
             <img src={preview} alt="TRA Licence" className="w-full h-full object-cover" />
           </div>
-          {/* Info */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <CheckCircle2 className="h-4 w-4 text-teal-600 shrink-0" />
@@ -185,7 +181,6 @@ const TraLicenceUpload = ({
             <p className="text-[11px] text-teal-600 truncate font-medium">{file?.name}</p>
             <p className="text-[10px] text-slate-400 mt-0.5">{file ? `${(file.size / 1024).toFixed(0)} KB` : ""}</p>
           </div>
-          {/* Actions */}
           <div className="flex flex-col gap-2 shrink-0">
             <label className="flex items-center gap-1.5 text-[11px] font-bold text-teal-700 border border-teal-300 bg-white rounded-lg px-3 py-1.5 cursor-pointer hover:bg-teal-50 transition-colors">
               <Upload className="h-3 w-3" /> Replace
@@ -196,18 +191,15 @@ const TraLicenceUpload = ({
             </button>
           </div>
         </div>
-        {/* Green accent bar */}
         <div className="h-1 w-full" style={{ background: "linear-gradient(90deg,#008080,#00b3b3)" }} />
       </div>
     ) : (
-      /* ── Empty upload zone ── */
       <label className={cn(
         "flex flex-col items-center justify-center gap-3 w-full rounded-2xl border-2 border-dashed cursor-pointer transition-all py-10 px-6 group",
         isInvalid
           ? "border-red-300 bg-red-50/40 hover:bg-red-50"
           : "border-slate-200 bg-slate-50/50 hover:border-teal-400 hover:bg-teal-50/30"
       )}>
-        {/* Icon circle */}
         <div className={cn(
           "w-14 h-14 rounded-2xl flex items-center justify-center transition-all",
           isInvalid ? "bg-red-100" : "bg-slate-100 group-hover:bg-teal-100"
@@ -232,7 +224,6 @@ const TraLicenceUpload = ({
       </label>
     )}
 
-    {/* Helper note */}
     <div className="mt-3 flex items-start gap-2 px-1">
       <Info className="h-3.5 w-3.5 text-slate-400 mt-0.5 shrink-0" />
       <p className="text-[10px] text-slate-400 leading-relaxed">
@@ -383,7 +374,6 @@ const FacilityBuilder = ({ items, onChange, showErrors, onValidationFail }: {
 };
 
 // ─── Activity Builder ─────────────────────────────────────────────────────────
-// Activities: user must upload at least 1 image (max 5) before saving.
 const ActivityBuilder = ({ items, onChange, showErrors, onValidationFail }: {
   items: ActivityItem[]; onChange: (items: ActivityItem[]) => void;
   showErrors: boolean; onValidationFail: (msg: string) => void;
@@ -409,7 +399,6 @@ const ActivityBuilder = ({ items, onChange, showErrors, onValidationFail }: {
     update(id, { images: updated, previewUrls: updated.map(safeObjectUrl) });
   };
 
-  // ── CHANGED: require at least 1 image before saving ──
   const saveItem = (a: ActivityItem) => {
     if (!a.name.trim()) { onValidationFail("Please enter an activity name."); return; }
     if (a.images.length === 0) { onValidationFail("Please upload at least 1 photo for this activity."); return; }
@@ -423,7 +412,6 @@ const ActivityBuilder = ({ items, onChange, showErrors, onValidationFail }: {
         <div key={item.id} className={cn("rounded-xl border overflow-hidden transition-all", item.saved ? "border-indigo-200 bg-indigo-50/30" : "border-slate-200 bg-white")}>
           {item.saved ? (
             <div className="p-4 flex items-center gap-4">
-              {/* Show up to 3 thumbnails */}
               <div className="flex gap-2 shrink-0">
                 {item.previewUrls.length > 0
                   ? item.previewUrls.slice(0, 3).map((url, i) =>
@@ -463,10 +451,8 @@ const ActivityBuilder = ({ items, onChange, showErrors, onValidationFail }: {
                 </div>
               </div>
 
-              {/* Activity photo grid — 1 to 5 images (min 1 required) */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  {/* ── CHANGED: label updated to reflect min 1 requirement ── */}
                   <FieldLabel required>
                     Photos (min 1, max 5)
                     {showErrors && item.images.length === 0 && (
@@ -480,7 +466,6 @@ const ActivityBuilder = ({ items, onChange, showErrors, onValidationFail }: {
                   )}
                 </div>
 
-                {/* Uploaded thumbnails row */}
                 {item.previewUrls.length > 0 && (
                   <div className="flex flex-wrap gap-2 mb-3">
                     {item.previewUrls.map((url, i) => (
@@ -494,7 +479,6 @@ const ActivityBuilder = ({ items, onChange, showErrors, onValidationFail }: {
                         <div className="absolute bottom-0.5 left-0.5 bg-black/60 text-white text-[8px] font-bold px-1 py-0.5 rounded">#{i + 1}</div>
                       </div>
                     ))}
-                    {/* Add more slot — shown if < 5 */}
                     {item.images.length < 5 && (
                       <label className="w-16 h-16 rounded-xl border-2 border-dashed border-indigo-200 bg-indigo-50/50 flex flex-col items-center justify-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-all">
                         <Plus className="h-4 w-4 text-indigo-400" />
@@ -505,7 +489,6 @@ const ActivityBuilder = ({ items, onChange, showErrors, onValidationFail }: {
                   </div>
                 )}
 
-                {/* ── CHANGED: empty upload zone now shows red border when showErrors and no images ── */}
                 {item.previewUrls.length === 0 && (
                   <label className={cn(
                     "flex flex-col items-center justify-center gap-2 w-full rounded-xl border-2 border-dashed cursor-pointer transition-all py-7 px-4 group",
@@ -537,7 +520,6 @@ const ActivityBuilder = ({ items, onChange, showErrors, onValidationFail }: {
                   </label>
                 )}
 
-                {/* Cap notice */}
                 {item.images.length >= 5 && (
                   <p className="text-[10px] text-slate-400 mt-1.5 flex items-center gap-1">
                     <CheckCircle2 className="h-3 w-3 text-emerald-500" /> Maximum 5 photos reached
@@ -632,10 +614,8 @@ const CreateAdventure = () => {
     locationLink: "",
   });
 
-  // TRA licence state
   const [traLicenceFile, setTraLicenceFile] = useState<File | null>(null);
   const [traLicencePreview, setTraLicencePreview] = useState<string>("");
-
   const [locationMode, setLocationMode] = useState<"link" | "gps" | null>(null);
   const [workingDays, setWorkingDays] = useState({ Mon: true, Tue: true, Wed: true, Thu: true, Fri: true, Sat: true, Sun: true });
   const [generalFacilities, setGeneralFacilities] = useState<string[]>([]);
@@ -659,7 +639,6 @@ const CreateAdventure = () => {
     });
   }, [user, navigate, toast]);
 
-  // TRA licence handlers
   const handleTraLicenceAdd = (file: File) => {
     setTraLicenceFile(file);
     setTraLicencePreview(safeObjectUrl(file));
@@ -748,7 +727,6 @@ const CreateAdventure = () => {
     setActivities((prev) =>
       prev.map((a) => {
         if (a.saved) return a;
-        // ── CHANGED: auto-save activity on Next only if it has name AND at least 1 image ──
         if (a.name.trim() && a.images.length >= 1) return { ...a, saved: true };
         return a;
       })
@@ -802,6 +780,7 @@ const CreateAdventure = () => {
     return supabase.storage.from("listing-images").getPublicUrl(path).data.publicUrl;
   };
 
+  // ─── Submit ───────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     if (!user) { navigate("/auth"); return; }
     setShowErrors(true);
@@ -843,6 +822,7 @@ const CreateAdventure = () => {
       );
       const selectedDays = Object.entries(workingDays).filter(([, v]) => v).map(([k]) => k);
 
+      // ── Insert the adventure place ────────────────────────────────────────
       const { error } = await supabase.from("adventure_places").insert([{
         id: friendlySlug, slug: friendlySlug, name: formData.registrationName,
         registration_number: formData.registrationNumber,
@@ -863,6 +843,20 @@ const CreateAdventure = () => {
         created_by: user.id, approval_status: "pending",
       }]);
       if (error) throw error;
+
+      // ── Mark this user as an adventure host so BecomeHost shows the
+      //    pending card immediately after redirect. The verification status
+      //    is set to "approved" because adventure hosts are self-verified;
+      //    the actual pending approval lives on adventure_places.approval_status.
+      await supabase.from("host_verifications").upsert(
+        {
+          user_id: user.id,
+          hosting_category: "adventure",
+          status: "approved",
+        },
+        { onConflict: "user_id" }
+      );
+
       toast({ title: "Experience Submitted", description: `Ref: ${friendlySlug} — Pending admin review.`, duration: 5000 });
       navigate("/become-host");
     } catch (err: any) {
@@ -952,7 +946,6 @@ const CreateAdventure = () => {
                     </div>
                   </div>
 
-                  {/* ── TRA Licence Upload ── */}
                   <TraLicenceUpload
                     file={traLicenceFile}
                     preview={traLicencePreview}

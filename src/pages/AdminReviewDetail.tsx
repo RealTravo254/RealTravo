@@ -1,1161 +1,1093 @@
-import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
-import { useSafeBack } from "@/hooks/useSafeBack";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { MobileBottomBar } from "@/components/MobileBottomBar";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useBanCheck } from "@/hooks/useBanCheck";
+import { useToast } from "@/hooks/use-toast";
 import {
-  MapPin, Navigation, Clock, X, Plus, Camera, CheckCircle2, Info, ArrowLeft, Loader2,
-  DollarSign, ChevronLeft, ChevronRight, Link2, ShieldCheck, FileImage, Upload,
+  MapPin, Mail, Phone, Clock, ArrowLeft, CheckCircle2, XCircle,
+  ShieldAlert, Users, Tag, Globe, Navigation, Ban, FileImage,
+  ChevronLeft, ChevronRight, Grid2X2, Eye, ExternalLink, Zap,
+  Copy, Share2, Landmark, Calendar, Info,
 } from "lucide-react";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import { CountrySelector } from "@/components/creation/CountrySelector";
-import { CountySelector } from "@/components/creation/CountySelector";
-import { PhoneInput } from "@/components/creation/PhoneInput";
-import { compressImages } from "@/lib/imageCompression";
-import { OperatingHoursSection } from "@/components/creation/OperatingHoursSection";
-import { ReviewStep } from "@/components/creation/ReviewStep";
-import { GeneralFacilitiesSelector } from "@/components/creation/GeneralFacilitiesSelector";
-import { CreateFormStepper } from "@/components/creation/CreateFormStepper";
-import { cn } from "@/lib/utils";
-import { useCurrency } from "@/contexts/CurrencyContext";
+import { approvalStatusSchema } from "@/lib/validation";
+import { TealLoader } from "@/components/ui/teal-loader";
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-const COLORS = { TEAL: "#008080", CORAL: "#FF7F50", KHAKI: "#F0E68C", KHAKI_DARK: "#857F3E" };
-let _idCounter = 0;
-const makeId = () => `item-${Date.now()}-${++_idCounter}`;
-const generateFriendlySlug = (name: string): string => {
-  const cleanName = name.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-").substring(0, 30);
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  let code = "";
-  for (let i = 0; i < 4; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
-  return `${cleanName}-${code}`;
+const TEAL        = "#008080";
+const CORAL       = "#FF7F50";
+const CORAL_LIGHT = "#FF9E7A";
+
+// ── Facility label map (from AdventurePlaceDetail) ──────────────────────────
+const FACILITY_LABELS: Record<string, string> = {
+  wifi: "Free Wi-Fi", parking: "On-site Parking", toilet: "Flush Toilets",
+  shower: "Hot Showers", camping: "Camping Area", picnic: "Picnic Tables",
+  braai: "Braai / BBQ Facilities", playground: "Children's Playground",
+  restaurant: "Restaurant / Café", swimming: "Swimming Pool",
+  security: "24-Hour Security", accessibility: "Wheelchair Accessible",
+  pets: "Pet Friendly", guided: "Guided Tours Available",
+  first_aid: "First-Aid Station", shop: "On-site Shop / Curio",
 };
-const safeObjectUrl = (file: File): string => { try { return URL.createObjectURL(file); } catch { return ""; } };
+const facilityLabel = (id: string) =>
+  FACILITY_LABELS[id] ?? id.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-interface FacilityItem {
-  id: string; name: string; amenities: string[]; amenityInput: string;
-  price: string; capacity: string; images: File[]; previewUrls: string[]; saved: boolean;
-}
-interface ActivityItem {
-  id: string; name: string; price: string;
-  images: File[]; previewUrls: string[]; saved: boolean;
-}
-const emptyFacility = (): FacilityItem => ({ id: makeId(), name: "", amenities: [], amenityInput: "", price: "", capacity: "", images: [], previewUrls: [], saved: false });
-const emptyActivity = (): ActivityItem => ({ id: makeId(), name: "", price: "", images: [], previewUrls: [], saved: false });
-
-const STEP_NAMES = ["Registration", "Location", "Contact & About", "Access & Pricing", "Facilities", "Gallery", "Review"];
-
-// ─── Shared UI Atoms ──────────────────────────────────────────────────────────
-const FieldLabel = ({ children, required }: { children: React.ReactNode; required?: boolean }) => (
-  <label className="block text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-1.5">
-    {children}{required && <span className="text-red-400 ml-0.5">*</span>}
-  </label>
-);
-
-const StyledInput = ({ className = "", isInvalid = false, ...props }: React.ComponentProps<typeof Input> & { isInvalid?: boolean }) => (
-  <Input
-    className={`h-11 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-800 placeholder:text-slate-400 placeholder:font-normal focus:ring-2 focus:ring-[#008080]/20 focus:border-[#008080] transition-all ${isInvalid ? "border-red-400 ring-2 ring-red-100 bg-red-50" : ""} ${className}`}
-    {...props}
-  />
-);
-
-const SectionCard = ({ title, subtitle, icon: Icon, children, accent = COLORS.TEAL }: {
-  title?: string; subtitle?: string; icon?: any; children: React.ReactNode; accent?: string;
-}) => (
-  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-    {title && (
-      <div className="px-8 py-5 border-b border-slate-100 flex items-center gap-3">
-        {Icon && (
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${accent}12` }}>
-            <Icon className="h-4 w-4" style={{ color: accent }} />
-          </div>
-        )}
-        <div>
-          <h3 className="text-sm font-bold text-slate-800">{title}</h3>
-          {subtitle && <p className="text-[11px] text-slate-400 mt-0.5">{subtitle}</p>}
-        </div>
-      </div>
-    )}
-    <div className="px-8 py-6">{children}</div>
-  </div>
-);
-
-// ─── Kenya Flag Phone Wrapper ─────────────────────────────────────────────────
-const KenyaPhoneWrapper = ({ children, isInvalid }: { children: React.ReactNode; isInvalid?: boolean }) => (
-  <div className={`flex items-center gap-2 h-11 rounded-xl border bg-white px-3 transition-all ${isInvalid ? "border-red-400 ring-2 ring-red-100" : "border-slate-200 focus-within:ring-2 focus-within:ring-[#008080]/20 focus-within:border-[#008080]"}`}>
-    <div className="flex items-center gap-1.5 shrink-0 pr-2 border-r border-slate-200">
-      <svg width="22" height="15" viewBox="0 0 22 15" fill="none" xmlns="http://www.w3.org/2000/svg" className="rounded-sm">
-        <rect width="22" height="5" fill="#006600" />
-        <rect y="5" width="22" height="5" fill="#BB0000" />
-        <rect y="10" width="22" height="5" fill="#006600" />
-        <rect y="4" width="22" height="7" fill="#000000" />
-        <rect y="5" width="22" height="5" fill="#BB0000" />
-        <rect y="4" width="22" height="1" fill="white" />
-        <rect y="10" width="22" height="1" fill="white" />
-        <ellipse cx="11" cy="7.5" rx="2.5" ry="4" fill="white" />
-        <ellipse cx="11" cy="7.5" rx="1.8" ry="3.2" fill="#BB0000" />
-        <line x1="11" y1="3.5" x2="11" y2="11.5" stroke="white" strokeWidth="0.5" />
-      </svg>
-      <span className="text-xs font-bold text-slate-600">+254</span>
-    </div>
-    <div className="flex-1 [&_input]:border-none [&_input]:bg-transparent [&_input]:shadow-none [&_input]:h-full [&_input]:px-0 [&_input]:focus:ring-0 [&_*]:border-none">
-      {children}
-    </div>
-  </div>
-);
-
-// ─── Image Gallery Grid ───────────────────────────────────────────────────────
-const ImageGalleryGrid = ({
-  images, previews, onRemove, onAdd, isInvalid, slots = 5,
+// ── Image Gallery Modal (portal, same as AdventurePlaceDetail) ──────────────
+const ImageGalleryModal = ({
+  images, name, startIndex = 0, onClose,
 }: {
-  images: File[]; previews: string[]; onRemove: (i: number) => void;
-  onAdd: (files: FileList | null) => void; isInvalid?: boolean; slots?: number;
-}) => (
-  <div
-    className={`grid gap-3 p-4 rounded-xl border-2 border-dashed transition-all ${isInvalid ? "border-red-400 bg-red-50/30" : "border-slate-200 bg-slate-50/40"}`}
-    style={{ gridTemplateColumns: `repeat(${Math.min(slots, 5)}, minmax(0, 1fr))` }}
-  >
-    {Array.from({ length: slots }).map((_, i) => {
-      const url = previews[i];
-      if (url) return (
-        <div key={i} className="relative group aspect-square rounded-xl overflow-hidden border border-slate-200 shadow-sm">
-          <img src={url} className="w-full h-full object-cover" alt={`Photo ${i + 1}`} />
-          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
-            <button type="button" onClick={() => onRemove(i)} className="opacity-0 group-hover:opacity-100 bg-red-500 text-white rounded-full p-1 shadow-lg transition-all scale-75 group-hover:scale-100">
-              <X className="h-3 w-3" />
-            </button>
-          </div>
-          <div className="absolute bottom-1 left-1 bg-black/60 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md">{i === 0 ? "Cover" : `#${i + 1}`}</div>
-        </div>
-      );
-      return (
-        <label key={i} className={`aspect-square rounded-xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all hover:bg-slate-100 ${isInvalid ? "border-red-300 bg-red-50" : "border-slate-200 hover:border-slate-300"}`}>
-          <Camera className={`h-5 w-5 mb-1 ${isInvalid ? "text-red-400" : "text-slate-300"}`} />
-          <span className={`text-[9px] font-bold uppercase ${isInvalid ? "text-red-400" : "text-slate-300"}`}>{i === 0 ? "Cover" : `#${i + 1}`}</span>
-          <input type="file" multiple className="hidden" accept="image/*" onChange={(e) => onAdd(e.target.files)} />
-        </label>
-      );
-    })}
-  </div>
-);
-
-// ─── TRA Licence Upload ───────────────────────────────────────────────────────
-const TraLicenceUpload = ({
-  file, preview, onAdd, onRemove, isInvalid,
-}: {
-  file: File | null; preview: string; onAdd: (f: File) => void; onRemove: () => void; isInvalid?: boolean;
-}) => (
-  <div className="mt-6 pt-6 border-t border-slate-100">
-    <div className="flex items-center gap-3 mb-4">
-      <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: "linear-gradient(135deg,#008080,#005f5f)" }}>
-        <ShieldCheck className="h-4.5 w-4.5 text-white h-[18px] w-[18px]" />
-      </div>
-      <div>
-        <p className="text-sm font-black text-slate-800 tracking-tight">TRA Licence</p>
-        <p className="text-[11px] text-slate-400 mt-0.5">Upload a clear photo or scan of your Tax Registration Authority licence</p>
-      </div>
-      <span className="ml-auto shrink-0 text-[10px] font-bold uppercase tracking-widest bg-amber-50 text-amber-600 border border-amber-200 px-2.5 py-1 rounded-full">Required</span>
-    </div>
-
-    {preview ? (
-      <div className={`relative rounded-2xl overflow-hidden border-2 transition-all ${isInvalid ? "border-red-300" : "border-teal-200"}`} style={{ background: "linear-gradient(135deg,#f0fdfa,#e6fffa)" }}>
-        <div className="flex items-center gap-4 p-4">
-          <div className="relative shrink-0 w-20 h-20 rounded-xl overflow-hidden border border-teal-200 shadow-md">
-            <img src={preview} alt="TRA Licence" className="w-full h-full object-cover" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <CheckCircle2 className="h-4 w-4 text-teal-600 shrink-0" />
-              <span className="text-sm font-black text-teal-700">Licence Uploaded</span>
-            </div>
-            <p className="text-[11px] text-teal-600 truncate font-medium">{file?.name}</p>
-            <p className="text-[10px] text-slate-400 mt-0.5">{file ? `${(file.size / 1024).toFixed(0)} KB` : ""}</p>
-          </div>
-          <div className="flex flex-col gap-2 shrink-0">
-            <label className="flex items-center gap-1.5 text-[11px] font-bold text-teal-700 border border-teal-300 bg-white rounded-lg px-3 py-1.5 cursor-pointer hover:bg-teal-50 transition-colors">
-              <Upload className="h-3 w-3" /> Replace
-              <input type="file" className="hidden" accept="image/*,application/pdf" onChange={(e) => { if (e.target.files?.[0]) onAdd(e.target.files[0]); }} />
-            </label>
-            <button type="button" onClick={onRemove} className="flex items-center gap-1.5 text-[11px] font-bold text-red-500 border border-red-200 bg-white rounded-lg px-3 py-1.5 hover:bg-red-50 transition-colors">
-              <X className="h-3 w-3" /> Remove
-            </button>
-          </div>
-        </div>
-        <div className="h-1 w-full" style={{ background: "linear-gradient(90deg,#008080,#00b3b3)" }} />
-      </div>
-    ) : (
-      <label className={cn(
-        "flex flex-col items-center justify-center gap-3 w-full rounded-2xl border-2 border-dashed cursor-pointer transition-all py-10 px-6 group",
-        isInvalid
-          ? "border-red-300 bg-red-50/40 hover:bg-red-50"
-          : "border-slate-200 bg-slate-50/50 hover:border-teal-400 hover:bg-teal-50/30"
-      )}>
-        <div className={cn(
-          "w-14 h-14 rounded-2xl flex items-center justify-center transition-all",
-          isInvalid ? "bg-red-100" : "bg-slate-100 group-hover:bg-teal-100"
-        )}>
-          <FileImage className={cn("h-6 w-6 transition-colors", isInvalid ? "text-red-400" : "text-slate-400 group-hover:text-teal-600")} />
-        </div>
-        <div className="text-center">
-          <p className={cn("text-sm font-bold mb-0.5", isInvalid ? "text-red-500" : "text-slate-600 group-hover:text-teal-700")}>
-            {isInvalid ? "TRA Licence is required" : "Upload TRA Licence"}
-          </p>
-          <p className="text-[11px] text-slate-400">JPG, PNG or PDF · Max 5 MB</p>
-        </div>
-        <div className={cn(
-          "flex items-center gap-2 px-5 py-2.5 rounded-xl text-[12px] font-bold transition-all",
-          isInvalid
-            ? "bg-red-500 text-white"
-            : "bg-[#008080] text-white group-hover:bg-[#005f5f]"
-        )}>
-          <Upload className="h-3.5 w-3.5" /> Choose File
-        </div>
-        <input type="file" className="hidden" accept="image/*,application/pdf" onChange={(e) => { if (e.target.files?.[0]) onAdd(e.target.files[0]); }} />
-      </label>
-    )}
-
-    <div className="mt-3 flex items-start gap-2 px-1">
-      <Info className="h-3.5 w-3.5 text-slate-400 mt-0.5 shrink-0" />
-      <p className="text-[10px] text-slate-400 leading-relaxed">
-        Your TRA licence is used for identity verification only and will not be publicly visible. Accepted formats: JPG, PNG, PDF.
-      </p>
-    </div>
-  </div>
-);
-
-// ─── Amenity Tag Input ────────────────────────────────────────────────────────
-const AmenityTagInput = ({ tags, input, onInputChange, onAdd, onRemove, hasError }: {
-  tags: string[]; input: string; onInputChange: (v: string) => void;
-  onAdd: () => void; onRemove: (i: number) => void; hasError: boolean;
-}) => (
-  <div className={cn(
-    "min-h-[44px] flex flex-wrap gap-1.5 items-center px-3 py-2 rounded-xl border bg-white transition-all",
-    hasError ? "border-red-400 ring-2 ring-red-100" : "border-slate-200 focus-within:ring-2 focus-within:ring-[#008080]/20 focus-within:border-[#008080]"
-  )}>
-    {tags.map((tag, i) => (
-      <span key={i} className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[11px] font-bold" style={{ background: `${COLORS.TEAL}10`, color: COLORS.TEAL }}>
-        {tag}
-        <button type="button" onClick={() => onRemove(i)} className="hover:text-red-500 transition-colors"><X className="h-2.5 w-2.5" /></button>
-      </span>
-    ))}
-    <input
-      value={input}
-      onChange={(e) => onInputChange(e.target.value)}
-      onKeyDown={(e) => {
-        if (e.key === "," || e.key === "Enter" || e.key === ".") { e.preventDefault(); onAdd(); }
-        if (e.key === "Backspace" && !input && tags.length > 0) onRemove(tags.length - 1);
-      }}
-      onBlur={onAdd}
-      placeholder={tags.length === 0 ? "Type amenity, press comma..." : "Add more..."}
-      className="flex-1 min-w-[120px] text-sm font-medium outline-none bg-transparent placeholder:text-slate-300 placeholder:font-normal"
-    />
-  </div>
-);
-
-// ─── Facility Builder ─────────────────────────────────────────────────────────
-const FacilityBuilder = ({ items, onChange, showErrors, onValidationFail }: {
-  items: FacilityItem[]; onChange: (items: FacilityItem[]) => void;
-  showErrors: boolean; onValidationFail: (msg: string) => void;
+  images: string[]; name: string; startIndex?: number; onClose: () => void;
 }) => {
-  const { usdHint } = useCurrency();
-  const update = (id: string, patch: Partial<FacilityItem>) => onChange(items.map((f) => f.id === id ? { ...f, ...patch } : f));
-  const addItem = () => onChange([...items, emptyFacility()]);
-  const removeItem = (id: string) => onChange(items.filter((f) => f.id !== id));
-  const addAmenityTag = (item: FacilityItem) => {
-    const val = item.amenityInput.replace(/,/g, "").trim();
-    if (!val) return;
-    update(item.id, { amenities: [...item.amenities, val], amenityInput: "" });
-  };
-  const removeAmenityTag = (item: FacilityItem, idx: number) => update(item.id, { amenities: item.amenities.filter((_, i) => i !== idx) });
-  const handleImages = async (id: string, fileList: FileList | null, existing: File[]) => {
-    if (!fileList || fileList.length === 0) return;
-    const slots = 5 - existing.length; if (slots <= 0) return;
-    const incoming = Array.from(fileList).slice(0, slots);
-    let merged: File[];
-    try { const compressed = await compressImages(incoming); merged = [...existing, ...compressed.map((c) => c.file)].slice(0, 5); }
-    catch { merged = [...existing, ...incoming].slice(0, 5); }
-    update(id, { images: merged, previewUrls: merged.map(safeObjectUrl) });
-  };
-  const removeImage = (id: string, idx: number, existing: File[]) => {
-    const updated = existing.filter((_, i) => i !== idx);
-    update(id, { images: updated, previewUrls: updated.map(safeObjectUrl) });
-  };
-  const saveItem = (f: FacilityItem) => {
-    if (!f.name.trim()) { onValidationFail("Please enter a facility name."); return; }
-    if (f.amenities.length === 0) { onValidationFail("Please add at least one amenity."); return; }
-    if (!f.capacity.trim()) { onValidationFail("Please enter the facility capacity."); return; }
-    if (f.images.length < 2) { onValidationFail("Please add at least 2 photos for this facility."); return; }
-    update(f.id, { saved: true });
-  };
-
-  return (
-    <div className="space-y-4">
-      <FieldLabel>Facilities (with photos)</FieldLabel>
-      {items.map((item) => (
-        <div key={item.id} className={cn("rounded-xl border overflow-hidden transition-all", item.saved ? "border-[#FF7F50]/30 bg-[#FF7F50]/5" : "border-slate-200 bg-white")}>
-          {item.saved ? (
-            <div className="p-4 flex items-center gap-4">
-              <div className="flex gap-2 shrink-0">
-                {item.previewUrls.slice(0, 3).map((url, i) => url
-                  ? <img key={i} src={url} className="w-12 h-12 rounded-xl object-cover border border-slate-200" alt="" />
-                  : <div key={i} className="w-12 h-12 rounded-xl bg-slate-200" />
-                )}
-                {item.previewUrls.length > 3 && (
-                  <div className="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-xs font-bold text-slate-500">+{item.previewUrls.length - 3}</div>
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-bold text-sm text-slate-800 truncate">{item.name}</p>
-                <p className="text-[11px] text-slate-500 truncate">{item.amenities.join(", ")}</p>
-                <div className="flex gap-3 mt-0.5">
-                  {item.capacity && <p className="text-[11px] text-slate-400">Capacity: {item.capacity}</p>}
-                  {item.price && <p className="text-[11px] font-semibold" style={{ color: COLORS.CORAL }}>KSh {item.price} <span className="text-blue-500">{usdHint(parseFloat(item.price))}</span></p>}
-                </div>
-              </div>
-              <div className="flex gap-2 shrink-0">
-                <button type="button" onClick={() => update(item.id, { saved: false })} className="text-[11px] font-bold uppercase tracking-wide border rounded-lg px-3 py-1.5 hover:bg-orange-50 transition-colors" style={{ color: COLORS.CORAL, borderColor: `${COLORS.CORAL}40` }}>Edit</button>
-                <button type="button" onClick={() => removeItem(item.id)} className="text-[11px] font-bold uppercase tracking-wide text-red-500 border border-red-200 rounded-lg px-3 py-1.5 hover:bg-red-50 transition-colors">Remove</button>
-              </div>
-            </div>
-          ) : (
-            <div className="p-5 space-y-4">
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-                <div className="space-y-1">
-                  <FieldLabel required>Name</FieldLabel>
-                  <StyledInput value={item.name} onChange={(e) => update(item.id, { name: e.target.value })} placeholder="e.g. Campsite A" isInvalid={showErrors && !item.name.trim()} />
-                </div>
-                <div className="space-y-1">
-                  <FieldLabel>Price (KSh)</FieldLabel>
-                  <StyledInput type="number" value={item.price} onChange={(e) => update(item.id, { price: e.target.value })} placeholder="0" />
-                  {item.price && parseFloat(item.price) > 0 && <p className="text-[9px] text-blue-500 font-semibold mt-0.5">{usdHint(parseFloat(item.price))}</p>}
-                </div>
-                <div className="space-y-1">
-                  <FieldLabel required>Capacity</FieldLabel>
-                  <StyledInput type="number" min={1} value={item.capacity} onChange={(e) => update(item.id, { capacity: e.target.value.replace(/[^0-9]/g, "") })} placeholder="e.g. 20" isInvalid={showErrors && !item.capacity.trim()} />
-                </div>
-              </div>
-              <div className="space-y-1">
-                <FieldLabel required>
-                  Amenities{showErrors && item.amenities.length === 0 && <span className="text-red-400 text-[10px] normal-case font-normal"> — at least one required</span>}
-                </FieldLabel>
-                <AmenityTagInput tags={item.amenities} input={item.amenityInput} onInputChange={(v) => update(item.id, { amenityInput: v })} onAdd={() => addAmenityTag(item)} onRemove={(i) => removeAmenityTag(item, i)} hasError={showErrors && item.amenities.length === 0} />
-              </div>
-              <div>
-                <FieldLabel>
-                  Photos (min 2, max 5){showErrors && item.images.length < 2 && <span className="text-red-400 text-[10px] normal-case font-normal"> — at least 2 required</span>}
-                </FieldLabel>
-                <ImageGalleryGrid images={item.images} previews={item.previewUrls} onRemove={(i) => removeImage(item.id, i, item.images)} onAdd={(files) => handleImages(item.id, files, item.images)} isInvalid={showErrors && item.images.length < 2} slots={5} />
-              </div>
-              <div className="flex gap-3 pt-1">
-                <button type="button" onClick={() => saveItem(item)} className="flex-1 h-10 rounded-xl text-white text-[12px] font-bold hover:opacity-90 transition-all" style={{ background: `linear-gradient(135deg, ${COLORS.CORAL}, #e06040)` }}>Save Facility</button>
-                {items.length > 1 && (
-                  <button type="button" onClick={() => removeItem(item.id)} className="h-10 px-4 rounded-xl text-red-400 hover:text-red-600 hover:bg-red-50 transition-all"><X className="h-4 w-4" /></button>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      ))}
-      <button type="button" onClick={addItem} className="w-full h-11 rounded-xl text-[11px] font-bold uppercase tracking-wide border-2 border-dashed border-slate-200 text-slate-400 hover:border-[#FF7F50] hover:text-[#FF7F50] transition-all flex items-center justify-center gap-2">
-        <Plus className="h-4 w-4" /> Add Facility
-      </button>
-    </div>
-  );
-};
-
-// ─── Activity Builder ─────────────────────────────────────────────────────────
-const ActivityBuilder = ({ items, onChange, showErrors, onValidationFail }: {
-  items: ActivityItem[]; onChange: (items: ActivityItem[]) => void;
-  showErrors: boolean; onValidationFail: (msg: string) => void;
-}) => {
-  const { usdHint } = useCurrency();
-  const update = (id: string, patch: Partial<ActivityItem>) => onChange(items.map((a) => a.id === id ? { ...a, ...patch } : a));
-  const addItem = () => onChange([...items, emptyActivity()]);
-  const removeItem = (id: string) => onChange(items.filter((a) => a.id !== id));
-
-  const handleImages = async (id: string, fileList: FileList | null, existing: File[]) => {
-    if (!fileList || fileList.length === 0) return;
-    const slots = 5 - existing.length;
-    if (slots <= 0) return;
-    const incoming = Array.from(fileList).slice(0, slots);
-    let merged: File[];
-    try { const compressed = await compressImages(incoming); merged = [...existing, ...compressed.map((c) => c.file)].slice(0, 5); }
-    catch { merged = [...existing, ...incoming].slice(0, 5); }
-    update(id, { images: merged, previewUrls: merged.map(safeObjectUrl) });
-  };
-
-  const removeImage = (id: string, idx: number, existing: File[]) => {
-    const updated = existing.filter((_, i) => i !== idx);
-    update(id, { images: updated, previewUrls: updated.map(safeObjectUrl) });
-  };
-
-  const saveItem = (a: ActivityItem) => {
-    if (!a.name.trim()) { onValidationFail("Please enter an activity name."); return; }
-    if (a.images.length === 0) { onValidationFail("Please upload at least 1 photo for this activity."); return; }
-    update(a.id, { saved: true });
-  };
-
-  return (
-    <div className="space-y-4">
-      <FieldLabel>Activities (with photos)</FieldLabel>
-      {items.map((item) => (
-        <div key={item.id} className={cn("rounded-xl border overflow-hidden transition-all", item.saved ? "border-indigo-200 bg-indigo-50/30" : "border-slate-200 bg-white")}>
-          {item.saved ? (
-            <div className="p-4 flex items-center gap-4">
-              <div className="flex gap-2 shrink-0">
-                {item.previewUrls.length > 0
-                  ? item.previewUrls.slice(0, 3).map((url, i) =>
-                      url ? <img key={i} src={url} className="w-12 h-12 rounded-xl object-cover border border-slate-200" alt="" /> : null
-                    )
-                  : (
-                    <div className="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center">
-                      <Camera className="h-5 w-5 text-slate-300" />
-                    </div>
-                  )
-                }
-                {item.previewUrls.length > 3 && (
-                  <div className="w-12 h-12 rounded-xl bg-indigo-100 border border-indigo-200 flex items-center justify-center text-xs font-bold text-indigo-500">+{item.previewUrls.length - 3}</div>
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-bold text-sm text-slate-800 truncate">{item.name}</p>
-                {item.price && <p className="text-[11px] font-semibold text-indigo-500">KSh {item.price} <span className="text-blue-500">{usdHint(parseFloat(item.price))}</span></p>}
-                <p className="text-[10px] text-slate-400 mt-0.5">{item.previewUrls.length > 0 ? `${item.previewUrls.length} photo${item.previewUrls.length > 1 ? "s" : ""}` : "No photos"}</p>
-              </div>
-              <div className="flex gap-2 shrink-0">
-                <button type="button" onClick={() => update(item.id, { saved: false })} className="text-[11px] font-bold uppercase tracking-wide text-indigo-500 border border-indigo-200 rounded-lg px-3 py-1.5 hover:bg-indigo-50 transition-colors">Edit</button>
-                <button type="button" onClick={() => removeItem(item.id)} className="text-[11px] font-bold uppercase tracking-wide text-red-500 border border-red-200 rounded-lg px-3 py-1.5 hover:bg-red-50 transition-colors">Remove</button>
-              </div>
-            </div>
-          ) : (
-            <div className="p-5 space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <FieldLabel required>Activity Name</FieldLabel>
-                  <StyledInput value={item.name} onChange={(e) => update(item.id, { name: e.target.value })} placeholder="e.g. Hiking" isInvalid={showErrors && !item.name.trim()} />
-                </div>
-                <div className="space-y-1">
-                  <FieldLabel>Price (KSh)</FieldLabel>
-                  <StyledInput type="number" value={item.price} onChange={(e) => update(item.id, { price: e.target.value })} placeholder="0 = Free" />
-                  {item.price && parseFloat(item.price) > 0 && <p className="text-[9px] text-blue-500 font-semibold mt-0.5">{usdHint(parseFloat(item.price))}</p>}
-                </div>
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <FieldLabel required>
-                    Photos (min 1, max 5)
-                    {showErrors && item.images.length === 0 && (
-                      <span className="text-red-400 text-[10px] normal-case font-normal"> — at least 1 required</span>
-                    )}
-                  </FieldLabel>
-                  {item.images.length > 0 && (
-                    <span className="text-[10px] font-bold text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
-                      {item.images.length}/5 uploaded
-                    </span>
-                  )}
-                </div>
-
-                {item.previewUrls.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {item.previewUrls.map((url, i) => (
-                      <div key={i} className="relative group w-16 h-16 rounded-xl overflow-hidden border border-slate-200 shadow-sm">
-                        <img src={url} className="w-full h-full object-cover" alt={`Activity ${i + 1}`} />
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
-                          <button type="button" onClick={() => removeImage(item.id, i, item.images)} className="opacity-0 group-hover:opacity-100 bg-red-500 text-white rounded-full p-1 transition-all scale-75 group-hover:scale-100">
-                            <X className="h-2.5 w-2.5" />
-                          </button>
-                        </div>
-                        <div className="absolute bottom-0.5 left-0.5 bg-black/60 text-white text-[8px] font-bold px-1 py-0.5 rounded">#{i + 1}</div>
-                      </div>
-                    ))}
-                    {item.images.length < 5 && (
-                      <label className="w-16 h-16 rounded-xl border-2 border-dashed border-indigo-200 bg-indigo-50/50 flex flex-col items-center justify-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-all">
-                        <Plus className="h-4 w-4 text-indigo-400" />
-                        <span className="text-[8px] font-bold text-indigo-400 uppercase mt-0.5">Add</span>
-                        <input type="file" multiple className="hidden" accept="image/*" onChange={(e) => handleImages(item.id, e.target.files, item.images)} />
-                      </label>
-                    )}
-                  </div>
-                )}
-
-                {item.previewUrls.length === 0 && (
-                  <label className={cn(
-                    "flex flex-col items-center justify-center gap-2 w-full rounded-xl border-2 border-dashed cursor-pointer transition-all py-7 px-4 group",
-                    showErrors && item.images.length === 0
-                      ? "border-red-300 bg-red-50/40 hover:border-red-400 hover:bg-red-50"
-                      : "border-indigo-200 bg-indigo-50/30 hover:border-indigo-400 hover:bg-indigo-50/50"
-                  )}>
-                    <div className={cn(
-                      "w-11 h-11 rounded-xl flex items-center justify-center transition-colors",
-                      showErrors && item.images.length === 0
-                        ? "bg-red-100 group-hover:bg-red-200"
-                        : "bg-indigo-100 group-hover:bg-indigo-200"
-                    )}>
-                      <Camera className={cn(
-                        "h-5 w-5",
-                        showErrors && item.images.length === 0 ? "text-red-400" : "text-indigo-500"
-                      )} />
-                    </div>
-                    <div className="text-center">
-                      <p className={cn(
-                        "text-sm font-bold",
-                        showErrors && item.images.length === 0 ? "text-red-500" : "text-indigo-600"
-                      )}>
-                        {showErrors && item.images.length === 0 ? "At least 1 photo is required" : "Upload Activity Photos"}
-                      </p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">1 to 5 images · JPG or PNG</p>
-                    </div>
-                    <input type="file" multiple className="hidden" accept="image/*" onChange={(e) => handleImages(item.id, e.target.files, item.images)} />
-                  </label>
-                )}
-
-                {item.images.length >= 5 && (
-                  <p className="text-[10px] text-slate-400 mt-1.5 flex items-center gap-1">
-                    <CheckCircle2 className="h-3 w-3 text-emerald-500" /> Maximum 5 photos reached
-                  </p>
-                )}
-              </div>
-
-              <div className="flex gap-3 pt-1">
-                <button type="button" onClick={() => saveItem(item)} className="flex-1 h-10 rounded-xl text-white text-[12px] font-bold hover:opacity-90 transition-all" style={{ background: "linear-gradient(135deg, #6366f1, #4f46e5)" }}>Save Activity</button>
-                {items.length > 1 && (
-                  <button type="button" onClick={() => removeItem(item.id)} className="h-10 px-4 rounded-xl text-red-400 hover:text-red-600 hover:bg-red-50 transition-all"><X className="h-4 w-4" /></button>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      ))}
-      <button type="button" onClick={addItem} className="w-full h-11 rounded-xl text-[11px] font-bold uppercase tracking-wide border-2 border-dashed border-slate-200 text-slate-400 hover:border-indigo-400 hover:text-indigo-400 transition-all flex items-center justify-center gap-2">
-        <Plus className="h-4 w-4" /> Add Activity
-      </button>
-    </div>
-  );
-};
-
-// ─── Step Sidebar ─────────────────────────────────────────────────────────────
-const StepSidebar = ({ steps, currentStep, onStepClick }: { steps: any[]; currentStep: number; onStepClick?: (i: number) => void; }) => (
-  <aside className="hidden lg:flex flex-col w-72 shrink-0 sticky top-24 self-start">
-    <div className="rounded-2xl overflow-hidden mb-6 relative h-44">
-      <img src="/images/category-campsite.webp" className="w-full h-full object-cover" alt="" />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-      <div className="absolute bottom-4 left-5 right-5">
-        <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: COLORS.KHAKI }}>Adventure Place</span>
-        <h2 className="text-white text-xl font-black uppercase tracking-tight leading-tight mt-0.5">Create Adventure</h2>
-      </div>
-    </div>
-    <nav className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-      <div className="px-5 py-4 border-b border-slate-100">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Your progress</p>
-      </div>
-      <ul className="p-3 space-y-1">
-        {steps.map((step, i) => {
-          const num = i + 1;
-          const isActive = currentStep === num;
-          const isDone = step.isComplete && currentStep > num;
-          const isPast = currentStep > num;
-          return (
-            <li key={i}>
-              <button
-                type="button"
-                onClick={() => isPast && onStepClick?.(num)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all ${isActive ? "bg-[#008080] text-white shadow-md" : isPast ? "hover:bg-slate-50 cursor-pointer" : "cursor-default"}`}
-              >
-                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-black shrink-0 ${isActive ? "bg-white text-[#008080]" : isDone ? "bg-emerald-100 text-emerald-600" : "bg-slate-100 text-slate-400"}`}>
-                  {isDone ? <CheckCircle2 className="h-3.5 w-3.5" /> : num}
-                </div>
-                <div className="min-w-0">
-                  <p className={`text-[12px] font-bold truncate ${isActive ? "text-white" : isDone ? "text-emerald-700" : "text-slate-500"}`}>{step.name}</p>
-                  {isActive && <p className="text-[10px] text-white/70 mt-0.5">Current step</p>}
-                </div>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-    </nav>
-    <div className="mt-4 bg-slate-50 rounded-2xl p-5 border border-slate-100">
-      <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1">Need help?</p>
-      <p className="text-xs text-slate-400 leading-relaxed">Fill each step carefully. Your listing will be reviewed before going live.</p>
-    </div>
-  </aside>
-);
-
-// ─── Main Component ───────────────────────────────────────────────────────────
-const CreateAdventure = () => {
-  const navigate = useNavigate();
-  const goBack = useSafeBack("/become-host");
-  const { toast } = useToast();
-  const { user } = useAuth();
-  const { usdHint } = useCurrency();
-  useBanCheck();
-
-  const [loading, setLoading] = useState(false);
-  const [showErrors, setShowErrors] = useState(false);
-  const [currentStep, setCurrentStep] = useState(1);
-
-  const [formData, setFormData] = useState({
-    registrationName: "", registrationNumber: "", locationName: "", place: "",
-    country: "", description: "", email: "", phoneNumber: "",
-    openingHours: "00:00", closingHours: "23:59",
-    entranceFeeType: "free", adultPrice: "0", childPrice: "0",
-    latitude: null as number | null, longitude: null as number | null,
-    locationLink: "",
-  });
-
-  const [traLicenceFile, setTraLicenceFile] = useState<File | null>(null);
-  const [traLicencePreview, setTraLicencePreview] = useState<string>("");
-  const [locationMode, setLocationMode] = useState<"link" | "gps" | null>(null);
-  const [workingDays, setWorkingDays] = useState({ Mon: true, Tue: true, Wed: true, Thu: true, Fri: true, Sat: true, Sun: true });
-  const [generalFacilities, setGeneralFacilities] = useState<string[]>([]);
-  const [facilities, setFacilities] = useState<FacilityItem[]>(() => [emptyFacility()]);
-  const [activities, setActivities] = useState<ActivityItem[]>(() => [emptyActivity()]);
-  const [galleryImages, setGalleryImages] = useState<File[]>([]);
-  const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
-
-  const onValidationFail = useCallback((msg: string) => toast({ title: "Required", description: msg, variant: "destructive" }), [toast]);
+  const [current, setCurrent] = useState(startIndex);
 
   useEffect(() => {
-    if (!user) return;
-    supabase.from("profiles").select("country").eq("id", user.id).single().then(({ data }) => {
-      if (data?.country) setFormData((p) => ({ ...p, country: data.country }));
-    });
-    supabase.from("companies").select("verification_status").eq("user_id", user.id).maybeSingle().then(({ data }) => {
-      if (data && (data.verification_status === "approved" || data.verification_status === "verified")) {
-        toast({ title: "Not Allowed", description: "Verified companies cannot host adventure places.", variant: "destructive" });
-        navigate("/become-host");
-      }
-    });
-  }, [user, navigate, toast]);
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowRight") setCurrent((p) => (p + 1) % images.length);
+      if (e.key === "ArrowLeft") setCurrent((p) => (p - 1 + images.length) % images.length);
+    };
+    window.addEventListener("keydown", handleKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", handleKey);
+      document.body.style.overflow = prev;
+    };
+  }, [images.length, onClose]);
 
-  const handleTraLicenceAdd = (file: File) => {
-    setTraLicenceFile(file);
-    setTraLicencePreview(safeObjectUrl(file));
-  };
-  const handleTraLicenceRemove = () => {
-    setTraLicenceFile(null);
-    setTraLicencePreview("");
-  };
-
-  const isStep1Complete = !!formData.registrationName.trim() && !!formData.registrationNumber.trim() && !!formData.country && !!traLicenceFile;
-  const isStep2Complete = !!formData.locationName.trim() && !!formData.place.trim() && (!!formData.latitude || !!formData.locationLink.trim());
-  const isStep3Complete = !!formData.description.trim();
-  const isStep4Complete = true;
-  const isStep5Complete = facilities.every((f) => f.saved);
-  const isStep6Complete = galleryImages.length >= 5;
-
-  const steps = [
-    { name: STEP_NAMES[0], isComplete: isStep1Complete },
-    { name: STEP_NAMES[1], isComplete: isStep2Complete },
-    { name: STEP_NAMES[2], isComplete: isStep3Complete },
-    { name: STEP_NAMES[3], isComplete: isStep4Complete },
-    { name: STEP_NAMES[4], isComplete: isStep5Complete },
-    { name: STEP_NAMES[5], isComplete: isStep6Complete },
-    { name: STEP_NAMES[6], isComplete: isStep1Complete && isStep2Complete && isStep3Complete && isStep6Complete },
-  ];
-
-  const isMissing = (v: any) => {
-    if (!showErrors) return false;
-    if (typeof v === "string") return !v.trim();
-    return v === null || v === undefined;
-  };
-
-  const validateCurrentStep = (): boolean => {
-    if (currentStep === 1) {
-      if (!formData.registrationName.trim() || !formData.registrationNumber.trim() || !formData.country) {
-        setShowErrors(true);
-        toast({ title: "Complete this step", description: "Fill all required fields", variant: "destructive" });
-        return false;
-      }
-      if (!traLicenceFile) {
-        setShowErrors(true);
-        toast({ title: "TRA Licence Required", description: "Please upload your TRA licence to continue", variant: "destructive" });
-        return false;
-      }
-    } else if (currentStep === 2) {
-      if (!formData.locationName.trim() || !formData.place.trim() || (!formData.latitude && !formData.locationLink.trim())) {
-        setShowErrors(true);
-        toast({ title: "Complete this step", description: "Fill location and provide a link or GPS", variant: "destructive" });
-        return false;
-      }
-    } else if (currentStep === 3) {
-      if (!formData.description.trim()) {
-        setShowErrors(true);
-        toast({ title: "Complete this step", description: "Description is required", variant: "destructive" });
-        return false;
-      }
-    } else if (currentStep === 5) {
-      if (facilities.some((f) => !f.saved)) {
-        toast({ title: "Unsaved Facility", description: "Please save all facilities", variant: "destructive" });
-        return false;
-      }
-    } else if (currentStep === 6) {
-      if (galleryImages.length < 5) {
-        setShowErrors(true);
-        toast({ title: "Photos Required", description: `Upload ${5 - galleryImages.length} more photos`, variant: "destructive" });
-        return false;
-      }
-    }
-    return true;
-  };
-
-  const handleNext = () => {
-    setFacilities((prev) =>
-      prev.map((f) => {
-        if (f.saved) return f;
-        let next = { ...f };
-        if (f.amenityInput.trim()) {
-          const val = f.amenityInput.replace(/,/g, "").trim();
-          next = { ...next, amenities: [...next.amenities, val], amenityInput: "" };
-        }
-        if (next.name.trim() && next.amenities.length > 0 && next.capacity.trim() && next.images.length >= 2)
-          next.saved = true;
-        return next;
-      })
-    );
-    setActivities((prev) =>
-      prev.map((a) => {
-        if (a.saved) return a;
-        if (a.name.trim() && a.images.length >= 1) return { ...a, saved: true };
-        return a;
-      })
-    );
-    if (!validateCurrentStep()) return;
-    setShowErrors(false);
-    setCurrentStep((prev) => Math.min(prev + 1, 7));
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-  const handlePrev = () => {
-    setShowErrors(false);
-    setCurrentStep((prev) => Math.max(prev - 1, 1));
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-  const getCurrentLocation = () => {
-    if (!("geolocation" in navigator)) return;
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) => {
-        setFormData((p) => ({ ...p, latitude: coords.latitude, longitude: coords.longitude }));
-        toast({ title: "Location captured", description: `${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}` });
-      },
-      () => toast({ title: "GPS Error", description: "Could not get location.", variant: "destructive" })
-    );
-  };
-
-  const handleGalleryUpload = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    const slots = 5 - galleryImages.length;
-    if (slots <= 0) return;
-    const incoming = Array.from(files).slice(0, slots);
-    let merged: File[];
-    try { const compressed = await compressImages(incoming); merged = [...galleryImages, ...compressed.map((c) => c.file)].slice(0, 5); }
-    catch { merged = [...galleryImages, ...incoming].slice(0, 5); }
-    setGalleryImages(merged);
-    setGalleryPreviews(merged.map(safeObjectUrl));
-  };
-
-  const removeGalleryImage = (idx: number) => {
-    const updated = galleryImages.filter((_, i) => i !== idx);
-    setGalleryImages(updated);
-    setGalleryPreviews(updated.map(safeObjectUrl));
-  };
-
-  const uploadFile = async (file: File, prefix: string): Promise<string> => {
-    const ext = file.name.split(".").pop() || "jpg";
-    const path = `${user!.id}/${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-    const { error } = await supabase.storage.from("listing-images").upload(path, file);
-    if (error) throw error;
-    return supabase.storage.from("listing-images").getPublicUrl(path).data.publicUrl;
-  };
-
-  // ─── Submit ───────────────────────────────────────────────────────────────
-  const handleSubmit = async () => {
-    if (!user) { navigate("/auth"); return; }
-    setShowErrors(true);
-    if (
-      !formData.registrationName.trim() || !formData.registrationNumber.trim() || !formData.country ||
-      !formData.locationName.trim() || !formData.place.trim() || !formData.latitude ||
-      !formData.description.trim() || galleryImages.length < 5 || !traLicenceFile
-    ) {
-      toast({ title: "Action Required", description: "Please complete all steps including TRA licence upload.", variant: "destructive" });
-      return;
-    }
-    if (facilities.some((f) => !f.saved)) {
-      toast({ title: "Unsaved Facility", description: "Please save all facilities.", variant: "destructive" });
-      return;
-    }
-    setLoading(true);
-    try {
-      const friendlySlug = generateFriendlySlug(formData.registrationName);
-
-      // Upload TRA licence
-      const traLicenceUrl = traLicenceFile ? await uploadFile(traLicenceFile, "tra-licence") : "";
-
-      const galleryUrls = await Promise.all(galleryImages.map((f) => uploadFile(f, "gallery")));
-      const facilitiesForDB = await Promise.all(
-        facilities.map(async (fac) => ({
-          name: fac.name, amenities: fac.amenities,
-          capacity: fac.capacity ? parseInt(fac.capacity, 10) || 0 : 0,
-          price: fac.price ? parseFloat(fac.price) || 0 : 0,
-          images: await Promise.all(fac.images.map((f) => uploadFile(f, "fac"))),
-        }))
-      );
-      const savedActivities = activities.filter((a) => a.name.trim());
-      const activitiesForDB = await Promise.all(
-        savedActivities.map(async (act) => ({
-          name: act.name,
-          price: act.price ? parseFloat(act.price) || 0 : 0,
-          images: await Promise.all(act.images.map((f) => uploadFile(f, "act"))),
-        }))
-      );
-      const selectedDays = Object.entries(workingDays).filter(([, v]) => v).map(([k]) => k);
-
-      // ── Insert the adventure place ────────────────────────────────────────
-      const { error } = await supabase.from("adventure_places").insert([{
-        id: friendlySlug, slug: friendlySlug, name: formData.registrationName,
-        registration_number: formData.registrationNumber,
-        tra_license_url: traLicenceUrl,
-        location: formData.locationName, place: formData.place, country: formData.country,
-        description: formData.description, email: formData.email,
-        phone_numbers: formData.phoneNumber ? [formData.phoneNumber] : [],
-        map_link: formData.latitude
-          ? `https://www.google.com/maps?q=${formData.latitude},${formData.longitude}`
-          : (formData.locationLink || ""),
-        latitude: formData.latitude, longitude: formData.longitude,
-        opening_hours: formData.openingHours, closing_hours: formData.closingHours, days_opened: selectedDays,
-        image_url: galleryUrls[0] ?? "", gallery_images: galleryUrls,
-        entry_fee_type: formData.entranceFeeType,
-        entry_fee: formData.entranceFeeType === "paid" ? parseFloat(formData.adultPrice) || 0 : 0,
-        child_entry_fee: formData.entranceFeeType === "paid" ? parseFloat(formData.childPrice) || 0 : 0,
-        amenities: generalFacilities, facilities: facilitiesForDB, activities: activitiesForDB,
-        created_by: user.id, approval_status: "pending",
-      }]);
-      if (error) throw error;
-
-      // ── Mark this user as an adventure host so BecomeHost shows the
-      //    pending card immediately after redirect. The verification status
-      //    is set to "approved" because adventure hosts are self-verified;
-      //    the actual pending approval lives on adventure_places.approval_status.
-      await supabase.from("host_verifications").upsert(
-        {
-          user_id: user.id,
-          hosting_category: "adventure",
-          status: "approved",
-        },
-        { onConflict: "user_id" }
-      );
-
-      toast({ title: "Experience Submitted", description: `Ref: ${friendlySlug} — Pending admin review.`, duration: 5000 });
-      navigate("/become-host");
-    } catch (err: any) {
-      toast({ title: "Submission Error", description: err?.message ?? "Something went wrong.", variant: "destructive" });
-    } finally { setLoading(false); }
-  };
-
-  const locationModeOptions: { mode: "link" | "gps"; label: string; icon: React.ElementType }[] = [
-    { mode: "link", label: "Paste Map Link", icon: Link2 },
-    { mode: "gps",  label: "Use My GPS",     icon: Navigation },
-  ];
-
-  return (
-    <div className="min-h-screen bg-slate-50 pb-24">
-      <Header />
-
-      {/* Mobile Hero */}
-      <div className="lg:hidden relative h-36 overflow-hidden bg-slate-900">
-        <img src="/images/category-campsite.webp" className="absolute inset-0 w-full h-full object-cover opacity-60" alt="" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex flex-col justify-end p-5">
-          <Button onClick={goBack} className="absolute top-4 left-4 rounded-full bg-black/30 backdrop-blur-md text-white border-none w-10 h-10 p-0">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <h1 className="text-xl font-black text-white uppercase tracking-tight">
-            Create <span style={{ color: COLORS.KHAKI }}>Adventure</span>
-          </h1>
-          <p className="text-white/60 text-xs font-semibold mt-0.5">Step {currentStep} of {STEP_NAMES.length}</p>
+  const modal = (
+    <div
+      style={{
+        position: "fixed", inset: 0, background: "#000000",
+        display: "flex", flexDirection: "column",
+        zIndex: 2147483647,
+        paddingTop: "env(safe-area-inset-top, 0px)",
+        paddingBottom: "env(safe-area-inset-bottom, 0px)",
+      }}
+    >
+      {/* Top bar */}
+      <div style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px" }}>
+        <span style={{ color: "rgba(255,255,255,0.55)", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em" }}>{name}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, fontWeight: 700 }}>{current + 1} / {images.length}</span>
+          <button
+            onClick={onClose}
+            aria-label="Close gallery"
+            style={{
+              width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.12)",
+              border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+              color: "#fff", fontSize: 16, fontWeight: 700, transition: "background 0.15s",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.22)")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.12)")}
+          >✕</button>
         </div>
       </div>
 
-      <main className="max-w-screen-xl mx-auto px-4 lg:px-8 py-6 lg:py-10">
-        <div className="flex gap-8 items-start">
-          <StepSidebar steps={steps} currentStep={currentStep} onStepClick={(n) => { setShowErrors(false); setCurrentStep(n); }} />
+      {/* Main image */}
+      <div style={{ flex: 1, position: "relative", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", padding: "0 48px" }}>
+        <img key={current} src={images[current]} alt={`${name} ${current + 1}`}
+          style={{ maxHeight: "100%", maxWidth: "100%", objectFit: "contain", borderRadius: 0, userSelect: "none", display: "block" }} />
+        {images.length > 1 && (
+          <>
+            <button onClick={() => setCurrent((p) => (p - 1 + images.length) % images.length)}
+              style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", width: 40, height: 40, borderRadius: "50%", background: "rgba(255,255,255,0.10)", backdropFilter: "blur(4px)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "background 0.15s" }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.20)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.10)")}>
+              <ChevronLeft style={{ width: 20, height: 20, color: "#fff" }} />
+            </button>
+            <button onClick={() => setCurrent((p) => (p + 1) % images.length)}
+              style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", width: 40, height: 40, borderRadius: "50%", background: "rgba(255,255,255,0.10)", backdropFilter: "blur(4px)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "background 0.15s" }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.20)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.10)")}>
+              <ChevronRight style={{ width: 20, height: 20, color: "#fff" }} />
+            </button>
+          </>
+        )}
+      </div>
 
-          <div className="flex-1 min-w-0 space-y-5">
-            {/* Desktop title */}
-            <div className="hidden lg:flex items-center justify-between mb-2">
-              <div className="flex items-center gap-3">
-                <button onClick={goBack} className="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-all shadow-sm">
-                  <ArrowLeft className="h-4 w-4 text-slate-600" />
-                </button>
-                <div>
-                  <h1 className="text-2xl font-black text-slate-900 tracking-tight">{STEP_NAMES[currentStep - 1]}</h1>
-                  <p className="text-sm text-slate-400 font-medium mt-0.5">Step {currentStep} of {STEP_NAMES.length}</p>
+      {/* Thumbnails */}
+      {images.length > 1 && (
+        <div style={{ flexShrink: 0, padding: "10px 16px", overflowX: "auto", overflowY: "hidden" }}>
+          <div style={{ display: "flex", gap: 6, width: "max-content", margin: "0 auto" }}>
+            {images.map((img, idx) => (
+              <button key={idx} onClick={() => setCurrent(idx)}
+                style={{
+                  flexShrink: 0, width: 56, height: 42, padding: 0,
+                  border: idx === current ? `2px solid ${CORAL}` : "2px solid rgba(255,255,255,0.22)",
+                  borderRadius: 0, outline: "none", opacity: idx === current ? 1 : 0.5,
+                  cursor: "pointer", overflow: "hidden", boxSizing: "border-box", transition: "opacity 0.15s, border-color 0.15s",
+                }}>
+                <img src={img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", borderRadius: 0 }} />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  return createPortal(modal, document.body);
+};
+
+// ── Desktop gallery grid ────────────────────────────────────────────────────
+const DesktopGallery = ({ images, name }: { images: string[]; name: string }) => {
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalStart, setModalStart] = useState(0);
+  const open = (idx: number) => { setModalStart(idx); setModalOpen(true); };
+  if (!images.length) return null;
+  return (
+    <>
+      {modalOpen && <ImageGalleryModal images={images} name={name} startIndex={modalStart} onClose={() => setModalOpen(false)} />}
+      <div className="hidden md:block max-w-6xl mx-auto px-4 pt-4">
+        <div style={{ display: "grid", gridTemplateColumns: "1.55fr 1fr", gridTemplateRows: "200px 130px", gap: "3px", borderRadius: 0, overflow: "hidden", border: "2px solid rgba(0,0,0,0.08)" }}>
+          <div style={{ gridRow: "1 / 3", overflow: "hidden", borderRadius: 0, cursor: "pointer" }} onClick={() => open(0)}>
+            <img src={images[0]} alt={name} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" style={{ borderRadius: 0 }} />
+          </div>
+          <div style={{ overflow: "hidden", borderRadius: 0, cursor: "pointer" }} onClick={() => open(1)}>
+            {images[1]
+              ? <img src={images[1]} alt={`${name} 2`} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" style={{ borderRadius: 0 }} />
+              : <div className="w-full h-full bg-slate-200" />}
+          </div>
+          <div style={{ overflow: "hidden", borderRadius: 0, position: "relative", cursor: "pointer" }} onClick={() => open(2)}>
+            {images[2]
+              ? <img src={images[2]} alt={`${name} 3`} className="w-full h-full object-cover" style={{ borderRadius: 0 }} />
+              : <div className="w-full h-full bg-slate-200" />}
+            {images.length > 3 && (
+              <div className="absolute inset-0 bg-black/52 flex items-center justify-center backdrop-blur-[1px]">
+                <div className="text-center">
+                  <span className="text-white text-2xl font-black">+{images.length - 3}</span>
+                  <p className="text-white text-[10px] font-black uppercase tracking-widest mt-0.5">See All</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <div className="w-40 h-2 bg-slate-200 rounded-full overflow-hidden">
-                  <div className="h-full rounded-full transition-all duration-500"
-                    style={{ width: `${((currentStep - 1) / (STEP_NAMES.length - 1)) * 100}%`, background: COLORS.TEAL }} />
-                </div>
-                <span className="text-xs font-bold text-slate-400">{Math.round(((currentStep - 1) / (STEP_NAMES.length - 1)) * 100)}%</span>
-              </div>
-            </div>
-
-            {/* Mobile stepper */}
-            <div className="lg:hidden"><CreateFormStepper steps={steps} currentStep={currentStep} /></div>
-
-            {/* ══ STEP 1: Registration ══ */}
-            {currentStep === 1 && (
-              <SectionCard title="Registration Details" subtitle="Official government registration information" icon={Info}>
-                <div className="grid gap-5">
-                  <div>
-                    <FieldLabel required>Registration Name</FieldLabel>
-                    <StyledInput
-                      value={formData.registrationName}
-                      onChange={(e) => setFormData({ ...formData, registrationName: e.target.value })}
-                      placeholder="Official Government Name"
-                      isInvalid={isMissing(formData.registrationName)}
-                    />
-                  </div>
-                  <div className="grid lg:grid-cols-2 gap-4">
-                    <div>
-                      <FieldLabel required>Registration Number</FieldLabel>
-                      <StyledInput
-                        value={formData.registrationNumber}
-                        onChange={(e) => setFormData({ ...formData, registrationNumber: e.target.value })}
-                        placeholder="e.g. BN-X12345"
-                        isInvalid={isMissing(formData.registrationNumber)}
-                      />
-                    </div>
-                    <div>
-                      <FieldLabel required>Country</FieldLabel>
-                      <div className={cn("rounded-xl", isMissing(formData.country) && "ring-2 ring-red-300")}>
-                        <CountrySelector value={formData.country} onChange={(v) => setFormData({ ...formData, country: v, place: v === "Other" ? "" : formData.place })} />
-                      </div>
-                    </div>
-                  </div>
-
-                  <TraLicenceUpload
-                    file={traLicenceFile}
-                    preview={traLicencePreview}
-                    onAdd={handleTraLicenceAdd}
-                    onRemove={handleTraLicenceRemove}
-                    isInvalid={showErrors && !traLicenceFile}
-                  />
-                </div>
-              </SectionCard>
             )}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+};
 
-            {/* ══ STEP 2: Location ══ */}
-            {currentStep === 2 && (
-              <SectionCard title="Location Details" subtitle="Where is your adventure place located?" icon={MapPin}>
-                <div className="grid gap-5">
-                  <div className="grid lg:grid-cols-2 gap-4">
-                    <div>
-                      <FieldLabel required>Location Name</FieldLabel>
-                      <StyledInput value={formData.locationName} onChange={(e) => setFormData({ ...formData, locationName: e.target.value })} placeholder="Area / Forest / Beach" isInvalid={isMissing(formData.locationName)} />
-                    </div>
-                    <div>
-                      <FieldLabel required>{formData.country === "Other" ? "Region / City" : "County"}</FieldLabel>
-                      <div className={cn("rounded-xl", isMissing(formData.place) && "ring-2 ring-red-300")}>
-                        {formData.country === "Other"
-                          ? <StyledInput value={formData.place} onChange={(e) => setFormData({ ...formData, place: e.target.value })} placeholder="e.g. Dar es Salaam" isInvalid={isMissing(formData.place)} />
-                          : <CountySelector value={formData.place} onChange={(v) => setFormData({ ...formData, place: v })} />
-                        }
-                      </div>
-                    </div>
-                  </div>
-                  <div>
-                    <FieldLabel required>Map Location</FieldLabel>
-                    <p className="text-[11px] text-slate-400 mb-3">Paste a map link or capture your GPS coordinates</p>
-                    <div className="flex gap-3 mb-4">
-                      {locationModeOptions.map(({ mode, label, icon: Icon }) => (
-                        <button key={mode} type="button" onClick={() => setLocationMode(mode)}
-                          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[12px] font-bold transition-all ${locationMode === mode ? "text-white shadow-md" : "bg-slate-50 border border-slate-200 text-slate-500 hover:bg-slate-100"}`}
-                          style={locationMode === mode ? { background: COLORS.TEAL } : {}}>
-                          <Icon className="h-3.5 w-3.5" /> {label}
-                        </button>
-                      ))}
-                    </div>
-                    {locationMode === "link" && (
-                      <StyledInput value={formData.locationLink} onChange={(e) => setFormData({ ...formData, locationLink: e.target.value })} placeholder="https://maps.google.com/..." />
-                    )}
-                    {locationMode === "gps" && (
-                      <button type="button" onClick={getCurrentLocation}
-                        className="flex items-center gap-2.5 px-6 py-3 rounded-xl text-white text-sm font-bold transition-all active:scale-[0.98] shadow-md hover:opacity-90"
-                        style={{ background: formData.latitude ? "#16a34a" : COLORS.KHAKI_DARK }}>
-                        {formData.latitude
-                          ? <><CheckCircle2 className="h-4 w-4" /> Location Captured — {formData.latitude.toFixed(4)}, {formData.longitude?.toFixed(4)}</>
-                          : <><Navigation className="h-4 w-4" /> Tap to Capture GPS Location</>
-                        }
+// ── Mobile carousel ─────────────────────────────────────────────────────────
+const MobileCarousel = ({ images, name }: { images: string[]; name: string }) => {
+  const [active, setActive] = useState(0);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalStart, setModalStart] = useState(0);
+
+  useEffect(() => {
+    if (images.length <= 1) return;
+    const iv = setInterval(() => setActive((p) => (p + 1) % images.length), 4000);
+    return () => clearInterval(iv);
+  }, [images.length]);
+
+  const go = (idx: number) => setActive((idx + images.length) % images.length);
+
+  if (!images.length) return (
+    <div className="md:hidden w-full bg-slate-200 flex items-center justify-center text-slate-400 font-black uppercase text-xs" style={{ height: "45vh", minHeight: "200px", maxHeight: "360px" }}>
+      No Image
+    </div>
+  );
+
+  return (
+    <>
+      {modalOpen && <ImageGalleryModal images={images} name={name} startIndex={modalStart} onClose={() => setModalOpen(false)} />}
+      <div className="md:hidden relative overflow-hidden bg-slate-900" style={{ height: "45vh", minHeight: "200px", maxHeight: "360px" }}>
+        {images.map((img, idx) => (
+          <img key={idx} src={img} alt={`${name} ${idx + 1}`}
+            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700"
+            style={{ opacity: active === idx ? 1 : 0, borderRadius: 0 }} />
+        ))}
+        <div className="absolute bottom-0 left-0 right-0 h-20 pointer-events-none z-10" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.5), transparent)" }} />
+        {images.length > 1 && (
+          <>
+            <button onClick={() => go(active - 1)} className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
+              <ChevronLeft className="h-4 w-4 text-white" />
+            </button>
+            <button onClick={() => go(active + 1)} className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
+              <ChevronRight className="h-4 w-4 text-white" />
+            </button>
+          </>
+        )}
+        {images.length > 1 && (
+          <div className="absolute bottom-3 left-0 right-0 z-20 flex justify-center gap-1.5 pointer-events-none">
+            {images.slice(0, 6).map((_, idx) => (
+              <span key={idx} className="transition-all duration-300 block pointer-events-auto cursor-pointer" onClick={() => go(idx)}
+                style={{ width: active === idx ? "20px" : "6px", height: "6px", borderRadius: "3px", background: active === idx ? "white" : "rgba(255,255,255,0.45)" }} />
+            ))}
+          </div>
+        )}
+        <div className="absolute top-3 right-3 z-20 flex items-center gap-2">
+          {images.length > 1 && (
+            <button onClick={() => { setModalStart(active); setModalOpen(true); }}
+              className="flex items-center gap-1.5 bg-black/50 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full hover:bg-black/70 transition-all">
+              <Grid2X2 className="h-3 w-3" /> See All
+            </button>
+          )}
+          <div className="bg-black/50 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
+            {active + 1} / {images.length}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+};
+
+// ── General Amenities (adventure) ───────────────────────────────────────────
+const AmenitiesScroll = ({ amenities }: { amenities: string[] }) => {
+  if (!amenities.length) return null;
+  return (
+    <section className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+      <h2 className="text-base font-black uppercase tracking-tight mb-3" style={{ color: TEAL }}>General Amenities</h2>
+      <div className="flex flex-wrap gap-1.5">
+        {amenities.map((fId, i) => (
+          <div key={i} className="flex items-center gap-1 px-2 py-1 rounded-full border" style={{ background: `${TEAL}10`, borderColor: `${TEAL}30` }}>
+            <CheckCircle2 className="h-2.5 w-2.5 flex-shrink-0" style={{ color: TEAL }} />
+            <span className="text-[9px] font-bold uppercase tracking-tight whitespace-nowrap" style={{ color: TEAL }}>{facilityLabel(fId)}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+};
+
+// ── FacSlideshow ────────────────────────────────────────────────────────────
+const CARD_IMG_HEIGHT = 100;
+const FacSlideshow = ({ images, name, height, onClick }: { images: string[]; name: string; height: number; onClick?: () => void }) => {
+  const [active, setActive] = useState(0);
+  useEffect(() => {
+    if (images.length <= 1) return;
+    const iv = setInterval(() => setActive((p) => (p + 1) % images.length), 3000);
+    return () => clearInterval(iv);
+  }, [images.length]);
+  return (
+    <div className="relative overflow-hidden" style={{ height, borderRadius: 0, cursor: onClick ? "pointer" : "default" }} onClick={onClick}>
+      {images.map((img, idx) => (
+        <img key={idx} src={img} alt={name}
+          className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
+          style={{ opacity: active === idx ? 1 : 0, borderRadius: 0 }} />
+      ))}
+      {images.length > 1 && (
+        <div className="absolute bottom-1 left-0 right-0 flex justify-center gap-0.5 pointer-events-none z-10">
+          {images.map((_, idx) => (
+            <span key={idx} className="transition-all duration-300 block"
+              style={{ width: active === idx ? "10px" : "3px", height: "3px", borderRadius: "2px", background: active === idx ? "white" : "rgba(255,255,255,0.4)" }} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ── Facilities Grid (adventure) ─────────────────────────────────────────────
+const InlineFacilitiesGrid = ({ facilities }: { facilities: any[] }) => {
+  const [modalImages, setModalImages] = useState<string[] | null>(null);
+  const [modalName, setModalName]     = useState("");
+  const [modalStart, setModalStart]   = useState(0);
+  const [showAll, setShowAll]         = useState(false);
+  if (!facilities?.length) return null;
+
+  const visibleFacilities = showAll ? facilities : facilities.slice(0, 6);
+  const allFacilityImages: string[] = facilities.flatMap((f: any) =>
+    Array.isArray(f.images) ? f.images.filter(Boolean) : []
+  );
+  const openCardGallery = (imgs: string[], name: string, startIdx = 0) => { setModalImages(imgs); setModalName(name); setModalStart(startIdx); };
+  const openSectionGallery = () => { if (allFacilityImages.length > 0) { setModalImages(allFacilityImages); setModalName("All Facilities"); setModalStart(0); } };
+
+  return (
+    <>
+      {modalImages && <ImageGalleryModal images={modalImages} name={modalName} startIndex={modalStart} onClose={() => setModalImages(null)} />}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-base font-black uppercase tracking-tight" style={{ color: TEAL }}>Facilities</h2>
+          <div className="flex items-center gap-2">
+            {allFacilityImages.length > 0 && (
+              <button onClick={openSectionGallery}
+                className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border transition-all"
+                style={{ color: TEAL, borderColor: `${TEAL}40`, background: `${TEAL}0D` }}>
+                <Grid2X2 className="h-3 w-3" /> See All Photos
+              </button>
+            )}
+            {facilities.length > 6 && (
+              <button onClick={() => setShowAll((v) => !v)}
+                className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border transition-all"
+                style={{ color: TEAL, borderColor: `${TEAL}40`, background: `${TEAL}0D` }}>
+                {showAll ? "Show Less" : `All (${facilities.length})`}
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {visibleFacilities.map((fac: any, i: number) => {
+            const imgs: string[] = Array.isArray(fac.images) ? fac.images.filter(Boolean) : [];
+            return (
+              <div key={i} className="bg-white overflow-hidden shadow-sm border border-slate-100" style={{ borderRadius: 0 }}>
+                {imgs.length > 0 ? (
+                  <div className="relative overflow-hidden" style={{ height: CARD_IMG_HEIGHT, borderRadius: 0 }}>
+                    <FacSlideshow images={imgs} name={fac.name} height={CARD_IMG_HEIGHT} onClick={() => openCardGallery(imgs, fac.name, 0)} />
+                    {imgs.length > 1 && (
+                      <button onClick={(e) => { e.stopPropagation(); openCardGallery(imgs, fac.name, 0); }}
+                        className="absolute top-1.5 right-1.5 z-20 flex items-center gap-0.5 bg-black/50 backdrop-blur-sm text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full hover:bg-black/70 transition-all">
+                        <Grid2X2 className="h-2 w-2" /> {imgs.length}
                       </button>
                     )}
                   </div>
+                ) : (
+                  <div className="flex items-center justify-center bg-slate-100" style={{ height: CARD_IMG_HEIGHT }}>
+                    <MapPin className="h-5 w-5 text-slate-300" />
+                  </div>
+                )}
+                <div className="p-2">
+                  <p className="font-black text-[11px] text-slate-800 uppercase tracking-tight leading-tight">{fac.name}</p>
+                  {fac.capacity && <p className="text-[9px] text-slate-500 mt-0.5 flex items-center gap-0.5"><Users className="h-2.5 w-2.5" /> {fac.capacity}</p>}
+                  {fac.price > 0 && <p className="text-[10px] font-bold mt-0.5" style={{ color: TEAL }}>KSh {fac.price?.toLocaleString()}</p>}
+                  {Array.isArray(fac.amenities) && fac.amenities.length > 0 && (
+                    <div className="flex flex-wrap gap-0.5 mt-1">
+                      {fac.amenities.slice(0, 3).map((a: string, ai: number) => (
+                        <span key={ai} className="text-[8px] font-bold uppercase px-1.5 py-0.5 rounded" style={{ background: `${TEAL}12`, color: TEAL }}>{a}</span>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </SectionCard>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    </>
+  );
+};
+
+// ── Activity Card (adventure) ───────────────────────────────────────────────
+const ActivityCard = ({ act, imgs, onImageClick }: { act: any; imgs: string[]; onImageClick?: () => void }) => {
+  const [active, setActive] = useState(0);
+  useEffect(() => {
+    if (imgs.length <= 1) return;
+    const iv = setInterval(() => setActive((p) => (p + 1) % imgs.length), 3200);
+    return () => clearInterval(iv);
+  }, [imgs.length]);
+  return (
+    <div className="bg-white overflow-hidden shadow-sm border border-slate-100" style={{ borderRadius: 0 }}>
+      <div className="relative overflow-hidden" style={{ height: CARD_IMG_HEIGHT, borderRadius: 0, cursor: imgs.length > 0 ? "pointer" : "default" }} onClick={imgs.length > 0 ? onImageClick : undefined}>
+        {imgs.length > 0
+          ? imgs.map((img, idx) => (
+              <img key={idx} src={img} alt={act.name}
+                className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
+                style={{ opacity: active === idx ? 1 : 0, borderRadius: 0 }} />
+            ))
+          : <div className="absolute inset-0 bg-slate-200 flex items-center justify-center"><MapPin className="h-5 w-5 text-slate-300" /></div>}
+        <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.45) 0%, transparent 55%)" }} />
+        {imgs.length > 1 && (
+          <button onClick={(e) => { e.stopPropagation(); onImageClick?.(); }}
+            className="absolute top-1.5 right-1.5 z-20 flex items-center gap-0.5 bg-black/50 backdrop-blur-sm text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full hover:bg-black/70 transition-all">
+            <Grid2X2 className="h-2 w-2" /> {imgs.length}
+          </button>
+        )}
+        {imgs.length > 1 && (
+          <div className="absolute bottom-1 right-1.5 flex gap-0.5 z-20 pointer-events-none">
+            {imgs.map((_, idx) => (
+              <span key={idx} className="transition-all duration-300 block"
+                style={{ width: active === idx ? "10px" : "3px", height: "3px", borderRadius: "2px", background: active === idx ? "white" : "rgba(255,255,255,0.4)" }} />
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="p-2">
+        <p className="font-black text-[11px] text-slate-800 uppercase tracking-tight leading-tight">{act.name}</p>
+        {act.price > 0
+          ? <p className="text-[10px] font-bold mt-0.5" style={{ color: CORAL }}>KSh {Number(act.price).toLocaleString()}</p>
+          : <p className="text-[10px] font-bold mt-0.5 text-emerald-600">Free</p>}
+      </div>
+    </div>
+  );
+};
+
+// ── Activities Grid (adventure) ─────────────────────────────────────────────
+const InlineActivitiesGrid = ({ activities }: { activities: any[] }) => {
+  const [modalImages, setModalImages] = useState<string[] | null>(null);
+  const [modalName, setModalName]     = useState("");
+  const [modalStart, setModalStart]   = useState(0);
+  const [showAll, setShowAll]         = useState(false);
+  if (!activities?.length) return null;
+
+  const visibleActivities = showAll ? activities : activities.slice(0, 6);
+  const allActivityImages: string[] = activities.flatMap((a: any) =>
+    Array.isArray(a.images) ? a.images.filter(Boolean) : []
+  );
+  const openCardGallery = (imgs: string[], name: string, startIdx = 0) => { setModalImages(imgs); setModalName(name); setModalStart(startIdx); };
+  const openSectionGallery = () => { if (allActivityImages.length > 0) { setModalImages(allActivityImages); setModalName("All Activities"); setModalStart(0); } };
+
+  return (
+    <>
+      {modalImages && <ImageGalleryModal images={modalImages} name={modalName} startIndex={modalStart} onClose={() => setModalImages(null)} />}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-base font-black uppercase tracking-tight" style={{ color: CORAL }}>Activities</h2>
+          <div className="flex items-center gap-2">
+            {allActivityImages.length > 0 && (
+              <button onClick={openSectionGallery}
+                className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border transition-all"
+                style={{ color: CORAL, borderColor: `${CORAL}40`, background: `${CORAL}0D` }}>
+                <Grid2X2 className="h-3 w-3" /> See All Photos
+              </button>
+            )}
+            {activities.length > 6 && (
+              <button onClick={() => setShowAll((v) => !v)}
+                className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border transition-all"
+                style={{ color: CORAL, borderColor: `${CORAL}40`, background: `${CORAL}0D` }}>
+                {showAll ? "Show Less" : `All (${activities.length})`}
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {visibleActivities.map((act: any, i: number) => {
+            const imgs: string[] = Array.isArray(act.images) ? act.images.filter(Boolean) : [];
+            return (
+              <ActivityCard key={i} act={act} imgs={imgs}
+                onImageClick={imgs.length > 0 ? () => openCardGallery(imgs, act.name, 0) : undefined} />
+            );
+          })}
+        </div>
+      </section>
+    </>
+  );
+};
+
+// ── Trip Highlights Tags ────────────────────────────────────────────────────
+const HighlightsTags = ({ activities }: { activities: any[] }) => {
+  if (!activities?.length) return null;
+  const palettes = [
+    { bg: "#FFF0EB", border: "#FFD5C2", text: "#C24D1A", dot: CORAL },
+    { bg: "#E6F7F7", border: "#B2E4E4", text: "#006666", dot: TEAL },
+    { bg: "#FFF8E6", border: "#FFE5A0", text: "#8A6200", dot: "#F0A500" },
+    { bg: "#F0F4FF", border: "#C7D4FF", text: "#3A56C4", dot: "#5B7BE8" },
+    { bg: "#F3F0FF", border: "#D4C9FF", text: "#5B3FC4", dot: "#7B5EE8" },
+    { bg: "#EFFFF5", border: "#B6EDD0", text: "#1A7A45", dot: "#2DB461" },
+  ];
+  return (
+    <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+      <div className="flex items-center gap-2 mb-4">
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: `${CORAL}18` }}>
+          <Zap className="h-3.5 w-3.5" style={{ color: CORAL }} />
+        </div>
+        <h2 className="text-base font-black uppercase tracking-tight" style={{ color: CORAL }}>Highlights</h2>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {activities.map((act: any, i: number) => {
+          const p = palettes[i % palettes.length];
+          return (
+            <div key={i} className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border transition-all hover:scale-[1.03] hover:shadow-sm"
+              style={{ background: p.bg, borderColor: p.border }}>
+              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: p.dot }} />
+              <span className="text-[12px] font-black uppercase tracking-tight leading-none" style={{ color: p.text }}>{act.name}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// ── Map Section ─────────────────────────────────────────────────────────────
+const MapSection = ({
+  name, latitude, longitude, location, country, mapLink,
+}: {
+  name: string; latitude?: number | null; longitude?: number | null; location?: string; country?: string; mapLink?: string;
+}) => {
+  const hasCoords = latitude != null && longitude != null;
+  const coordMatch = mapLink?.match(/[?&]q=([-\d.]+),([-\d.]+)/);
+  const searchQuery = encodeURIComponent([name, location, country].filter(Boolean).join(", "));
+  const googleMapsUrl = hasCoords
+    ? `https://www.google.com/maps?q=${latitude},${longitude}`
+    : mapLink || `https://www.google.com/maps/search/?api=1&query=${searchQuery}`;
+  const embedUrl = hasCoords
+    ? `https://maps.google.com/maps?q=${latitude},${longitude}&z=15&output=embed`
+    : coordMatch
+      ? `https://maps.google.com/maps?q=${coordMatch[1]},${coordMatch[2]}&z=15&output=embed`
+      : `https://maps.google.com/maps?q=${searchQuery}&z=13&output=embed`;
+
+  return (
+    <section className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100">
+      <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100">
+        <div className="flex items-center gap-2">
+          <MapPin className="h-4 w-4" style={{ color: TEAL }} />
+          <div>
+            <h2 className="text-sm font-black uppercase tracking-tight" style={{ color: TEAL }}>Location</h2>
+            <p className="text-[10px] text-slate-400 font-medium">{[name, location, country].filter(Boolean).join(", ")}</p>
+          </div>
+        </div>
+        <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-white text-[10px] font-bold transition-all hover:opacity-90 active:scale-95"
+          style={{ background: `linear-gradient(135deg, ${TEAL}, #005f5f)` }}>
+          <ExternalLink className="h-3 w-3" /> View on Google Maps
+        </a>
+      </div>
+      <div style={{ height: "300px", position: "relative" }}>
+        <iframe title={`Map of ${name}`} src={embedUrl} width="100%" height="100%"
+          style={{ border: 0, display: "block" }} allowFullScreen loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
+        <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 bg-white/95 backdrop-blur-sm shadow-md rounded-full px-3 py-1.5 pointer-events-none">
+          <MapPin className="h-3 w-3" style={{ color: CORAL }} />
+          <span className="text-[10px] font-black uppercase tracking-tight text-slate-700">{name}</span>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+// ── Admin Sidebar Card ──────────────────────────────────────────────────────
+interface AdminCardProps {
+  item: any;
+  creator: any;
+  isBanned: boolean;
+  type: string;
+  formatPrice?: (n: number) => string;
+  onOpenMaps: () => void;
+  onApprove: () => void;
+  onReject: () => void;
+  onToggleBan: () => void;
+}
+
+const AdminSideCard = ({ item, creator, isBanned, type, onOpenMaps, onApprove, onReject, onToggleBan }: AdminCardProps) => {
+  const isAdventure = type === "adventure" || type === "adventure_place";
+  const price = item.entry_fee ?? item.price ?? item.price_adult ?? 0;
+  const childPrice = item.child_entry_fee ?? item.price_child;
+  const isApproved = item.approval_status === "approved";
+
+  return (
+    <div className="bg-white rounded-2xl p-6 shadow-lg border border-slate-200 space-y-4 lg:sticky lg:top-24">
+      {/* Status badge */}
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Approval Status</span>
+        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${isApproved ? "bg-emerald-100 text-emerald-700" : item.approval_status === "rejected" ? "bg-red-100 text-red-600" : "bg-amber-100 text-amber-700"}`}>
+          {item.approval_status || "Pending"}
+        </span>
+      </div>
+
+      {/* Pricing */}
+      <div>
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{isAdventure ? "Entry Fee" : "Ticket Price"}</p>
+        {price > 0
+          ? <div className="flex items-baseline gap-1">
+              <span className="text-3xl font-black text-slate-900">KSh {Number(price).toLocaleString()}</span>
+              <span className="text-sm text-slate-500">/ {isAdventure ? "person" : "adult"}</span>
+            </div>
+          : <span className="text-xl font-bold text-emerald-600">Free Entry</span>}
+        {childPrice != null && childPrice > 0 && (
+          <p className="text-sm text-slate-600 mt-0.5">Child: KSh {Number(childPrice).toLocaleString()}</p>
+        )}
+      </div>
+
+      {/* Hours & Days */}
+      <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+        {(item.opening_hours || item.closing_hours) && (
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-1"><Clock className="h-3 w-3" /> Hours</span>
+            <span className="text-xs font-black text-slate-700">
+              {item.opening_hours === "00:00" && item.closing_hours === "23:59"
+                ? "Open 24 Hours"
+                : `${item.opening_hours || "08:00"} – ${item.closing_hours || "18:00"}`}
+            </span>
+          </div>
+        )}
+        {Array.isArray(item.days_opened) && item.days_opened.length > 0 && (
+          <div>
+            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1.5">Available Days</p>
+            <div className="flex flex-wrap gap-1">
+              {item.days_opened.map((day: string, i: number) => (
+                <span key={i} className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase border"
+                  style={{ background: `${TEAL}12`, color: TEAL, borderColor: `${TEAL}30` }}>{day}</span>
+              ))}
+            </div>
+          </div>
+        )}
+        {/* Trip-specific: date + slots */}
+        {item.date && (
+          <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-200">
+            <span className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-1"><Calendar className="h-3 w-3" /> Date</span>
+            <span className="text-xs font-black text-slate-700">
+              {item.is_custom_date
+                ? <span className="text-emerald-600">Flexible</span>
+                : new Date(item.date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+            </span>
+          </div>
+        )}
+        {item.available_tickets != null && (
+          <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-200">
+            <span className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-1"><Users className="h-3 w-3" /> Slots</span>
+            <span className="text-xs font-black text-slate-700">{item.available_tickets} available</span>
+          </div>
+        )}
+        {/* Adventure-specific: capacity */}
+        {(item.daily_capacity ?? item.capacity_per_day ?? item.capacity) != null && (
+          <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-200">
+            <span className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-1"><Users className="h-3 w-3" /> Daily Capacity</span>
+            <span className="text-xs font-black text-slate-700">{item.daily_capacity ?? item.capacity_per_day ?? item.capacity} guests</span>
+          </div>
+        )}
+      </div>
+
+      {/* Submitter Info */}
+      <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-2">
+        <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Submitter</p>
+        <p className="text-sm font-black text-slate-800 uppercase">{creator?.name || "Unknown Host"}</p>
+        {isBanned && (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-600 text-[9px] font-black uppercase">
+            <Ban className="h-3 w-3" /> Banned
+          </span>
+        )}
+        <div className="flex items-center gap-2 text-xs text-slate-500">
+          <Mail className="h-3 w-3 text-teal-600" />
+          <span>{item.email || creator?.email || "No Email"}</span>
+        </div>
+        <div className="flex items-center gap-2 text-xs text-slate-500">
+          <Phone className="h-3 w-3 text-teal-600" />
+          <span>{item.phone_number || creator?.phone_number || "No Phone"}</span>
+        </div>
+      </div>
+
+      {/* Utility buttons */}
+      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
+        <Button variant="ghost" onClick={onOpenMaps} className="flex-col h-auto py-2.5 bg-slate-50 text-slate-500 rounded-xl border border-slate-100 hover:bg-slate-100 transition-colors">
+          <Navigation className="h-4 w-4 mb-0.5" />
+          <span className="text-[9px] font-bold uppercase">Verify Map</span>
+        </Button>
+        <Button variant="ghost" onClick={() => window.open(`/${type}/${item.id}`, "_blank")} className="flex-col h-auto py-2.5 bg-slate-50 text-slate-500 rounded-xl border border-slate-100 hover:bg-slate-100 transition-colors">
+          <Eye className="h-4 w-4 mb-0.5" />
+          <span className="text-[9px] font-bold uppercase">Live View</span>
+        </Button>
+      </div>
+
+      {/* Registration */}
+      {item.registration_number && (
+        <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-xl border border-slate-100">
+          <Landmark className="h-4 w-4 text-slate-400 flex-shrink-0" />
+          <div>
+            <p className="text-[9px] font-black text-slate-400 uppercase">Reg / License No.</p>
+            <p className="text-xs font-black text-slate-700">{item.registration_number}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Approve */}
+      <Button
+        onClick={onApprove}
+        disabled={isApproved}
+        className="w-full py-6 rounded-xl text-sm font-bold text-white border-none shadow-md transition-all active:scale-95"
+        style={{ background: isApproved ? "#94a3b8" : `linear-gradient(135deg, #2dd4bf 0%, ${TEAL} 100%)` }}
+      >
+        <CheckCircle2 className="mr-2 h-4 w-4" />
+        {isApproved ? "Already Approved" : "Approve Entry"}
+      </Button>
+
+      {!isApproved && (
+        <Button variant="ghost" onClick={onReject}
+          className="w-full py-4 text-xs font-black uppercase tracking-widest text-red-500 hover:bg-red-50 rounded-xl">
+          <XCircle className="mr-2 h-4 w-4" /> Reject Submission
+        </Button>
+      )}
+
+      <Button variant="ghost" onClick={onToggleBan}
+        className={`w-full py-4 text-xs font-black uppercase tracking-widest rounded-xl ${isBanned ? "text-green-600 hover:bg-green-50 border border-green-200" : "text-orange-500 hover:bg-orange-50 border border-orange-200"}`}>
+        <Ban className="mr-2 h-4 w-4" />
+        {isBanned ? "Unban User" : "Ban User"}
+      </Button>
+    </div>
+  );
+};
+
+// ── Main Component ──────────────────────────────────────────────────────────
+const AdminReviewDetail = () => {
+  const { itemType: type, id } = useParams();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const [item, setItem]       = useState<any>(null);
+  const [creator, setCreator] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isBanned, setIsBanned] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => { checkAdminStatus(); }, [user]);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 300);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const checkAdminStatus = async () => {
+    if (!user) { navigate("/auth"); return; }
+    const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", user.id);
+    const hasAdminRole = roles?.some((r) => r.role === "admin");
+    if (!hasAdminRole) { toast({ title: "Access Denied", variant: "destructive" }); navigate("/"); return; }
+    setIsAdmin(true);
+    fetchItemDetails();
+  };
+
+  const fetchItemDetails = async () => {
+    try {
+      let itemData: any = null;
+      let tableName = "";
+      if (type === "trip" || type === "event") tableName = "trips";
+      else if (type === "hotel") tableName = "hotels";
+      else if (type === "adventure" || type === "adventure_place") tableName = "adventure_places";
+
+      if (tableName) {
+        const { data } = await supabase.from(tableName as "trips" | "hotels" | "adventure_places").select("*").eq("id", id).maybeSingle();
+        itemData = data;
+      }
+      if (!itemData) { toast({ title: "Item not found", variant: "destructive" }); navigate("/admin"); return; }
+      setItem({ ...itemData, type, tableName });
+
+      if (itemData.created_by) {
+        const { data: profile } = await supabase.from("profiles").select("*").eq("id", itemData.created_by).maybeSingle();
+        setCreator(profile);
+        setIsBanned(profile?.is_banned || false);
+      }
+    } catch {
+      toast({ title: "Error loading item", variant: "destructive" });
+    } finally { setLoading(false); }
+  };
+
+  const updateApprovalStatus = async (status: string) => {
+    try {
+      const validatedStatus = approvalStatusSchema.parse(status);
+      const { error } = await supabase.from(item.tableName).update({
+        approval_status: validatedStatus,
+        approved_by: validatedStatus === "approved" ? user?.id : null,
+        approved_at: validatedStatus === "approved" ? new Date().toISOString() : null,
+        is_hidden: validatedStatus === "approved" ? false : item.is_hidden,
+      }).eq("id", id);
+      if (error) throw error;
+      toast({ title: `Item ${status} successfully` });
+      navigate("/admin");
+    } catch {
+      toast({ title: "Update failed", variant: "destructive" });
+    }
+  };
+
+  const toggleBanUser = async () => {
+    if (!item?.created_by) return;
+    const newBanStatus = !isBanned;
+    try {
+      const { error } = await supabase.from("profiles").update({ is_banned: newBanStatus }).eq("id", item.created_by);
+      if (error) throw error;
+      setIsBanned(newBanStatus);
+      toast({ title: newBanStatus ? "User Banned" : "User Unbanned" });
+    } catch {
+      toast({ title: "Failed to update ban status", variant: "destructive" });
+    }
+  };
+
+  const openInMaps = () => {
+    if (!item) return;
+    const query = encodeURIComponent(`${item.name}, ${item.location || item.place || ""}`);
+    const url = item.latitude && item.longitude
+      ? `https://www.google.com/maps?q=${item.latitude},${item.longitude}`
+      : item.map_link || item.location_link || `https://www.google.com/maps/search/?api=1&query=${query}`;
+    window.open(url, "_blank");
+  };
+
+  if (loading || !isAdmin || !item) return <TealLoader text="Loading review details..." />;
+
+  const isAdventure = type === "adventure" || type === "adventure_place";
+  const isTrip      = type === "trip" || type === "event";
+
+  // Build all images exactly as detail pages do
+  const facilityImgs = isAdventure
+    ? (Array.isArray(item.facilities) ? item.facilities : []).flatMap((f: any) => Array.isArray(f.images) ? f.images : [])
+    : [];
+  const activityImgs = isAdventure
+    ? (Array.isArray(item.activities) ? item.activities : []).flatMap((a: any) => Array.isArray(a.images) ? a.images : [])
+    : [];
+  const allImages = [
+    item.image_url,
+    ...(item.gallery_images || []),
+    ...(item.images || []),
+    ...facilityImgs,
+    ...activityImgs,
+    ...(item.photo_urls || []),
+  ].filter(Boolean).filter((v: any, i: number, a: any[]) => a.indexOf(v) === i).slice(0, 12);
+
+  const generalAmenities: string[] = isAdventure
+    ? (Array.isArray(item.amenities) ? item.amenities.map((a: any) => typeof a === "string" ? a : a.name || "") : [])
+    : [];
+
+  const adminCardProps: AdminCardProps = {
+    item, creator, isBanned, type: type || "",
+    onOpenMaps: openInMaps,
+    onApprove: () => updateApprovalStatus("approved"),
+    onReject: () => updateApprovalStatus("rejected"),
+    onToggleBan: toggleBanUser,
+  };
+
+  return (
+    <div className="min-h-screen bg-background pb-32">
+      <Header className="hidden md:block" />
+
+      {/* Nav back bar */}
+      <div
+        className={`sticky top-0 z-[90] transition-all duration-300 ${scrolled ? "bg-white/95 backdrop-blur-md shadow-sm" : "bg-transparent"}`}
+        style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
+      >
+        <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+          <button onClick={() => navigate(-1)}
+            className="flex items-center gap-2 text-sm font-black uppercase tracking-tight text-slate-700 hover:text-teal-600 transition-colors">
+            <ArrowLeft className="h-5 w-5" /> Back to Admin
+          </button>
+          <div className="flex items-center gap-2">
+            <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest text-white"
+              style={{ background: CORAL }}>{type?.replace("_", " ")}</span>
+            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${item.approval_status === "approved" ? "bg-emerald-500 text-white" : item.approval_status === "rejected" ? "bg-red-500 text-white" : "bg-amber-400 text-white"}`}>
+              {item.approval_status || "Pending"}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Gallery — identical to detail pages */}
+      <MobileCarousel images={allImages} name={item.name} />
+      <DesktopGallery images={allImages} name={item.name} />
+
+      {/* Name + location */}
+      <div className="max-w-6xl mx-auto px-4 pt-4 pb-1 bg-background relative z-10">
+        {isTrip && (
+          <span className="inline-block mb-2 px-3 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest text-white" style={{ background: CORAL }}>Trip</span>
+        )}
+        <h1 className="text-2xl font-black uppercase tracking-tighter leading-tight text-foreground">{item.name}</h1>
+        <div className="flex items-center gap-1.5 mt-1 text-muted-foreground">
+          <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
+          <span className="text-sm font-semibold">{[item.place, item.location, item.country].filter(Boolean).join(", ")}</span>
+        </div>
+      </div>
+
+      {/* Main content */}
+      <main className="container px-4 mt-5 relative z-10 max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-[1.8fr,1fr] gap-6">
+
+          {/* ── Left column ── */}
+          <div className="space-y-6">
+
+            {/* Mobile admin card first */}
+            <div className="lg:hidden">
+              <AdminSideCard {...adminCardProps} />
+            </div>
+
+            {/* ── ADVENTURE PLACE SECTIONS ── */}
+            {isAdventure && (
+              <>
+                {generalAmenities.length > 0 && <AmenitiesScroll amenities={generalAmenities} />}
+
+                {item.facilities?.length > 0 && (
+                  <div id="facilities-section">
+                    <InlineFacilitiesGrid facilities={item.facilities} />
+                  </div>
+                )}
+
+                {item.activities?.length > 0 && (
+                  <div id="activities-section">
+                    <InlineActivitiesGrid activities={item.activities} />
+                  </div>
+                )}
+              </>
             )}
 
-            {/* ══ STEP 3: Contact & About ══ */}
-            {currentStep === 3 && (
-              <SectionCard title="Contact & About" subtitle="How visitors can reach you and your description" icon={CheckCircle2}>
-                <div className="space-y-5">
-                  <div className="grid lg:grid-cols-2 gap-5">
-                    <div>
-                      <FieldLabel>Business Email</FieldLabel>
-                      <StyledInput type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="contact@business.com" />
-                    </div>
-                    <div>
-                      <FieldLabel>WhatsApp / Phone</FieldLabel>
-                      <KenyaPhoneWrapper>
-                        <PhoneInput value={formData.phoneNumber} onChange={(v) => setFormData({ ...formData, phoneNumber: v })} country={formData.country} />
-                      </KenyaPhoneWrapper>
-                    </div>
-                  </div>
-                  <div>
-                    <FieldLabel required>Description (max 20 words)</FieldLabel>
-                    <Textarea
-                      value={formData.description}
-                      onChange={(e) => {
-                        const words = e.target.value.trim().split(/\s+/);
-                        if (e.target.value.trim() === "" || words.length <= 20)
-                          setFormData({ ...formData, description: e.target.value });
-                      }}
-                      placeholder="Describe your adventure place in 20 words or less..."
-                      rows={4}
-                      className={cn("rounded-xl border text-sm font-medium resize-none transition-all", isMissing(formData.description) ? "border-red-400 ring-2 ring-red-100 bg-red-50" : "border-slate-200 focus:ring-2 focus:ring-[#008080]/20 focus:border-[#008080]")}
-                    />
-                    <p className="text-[10px] text-slate-400 mt-1">{formData.description.trim() ? formData.description.trim().split(/\s+/).length : 0}/20 words</p>
-                  </div>
-                </div>
-              </SectionCard>
-            )}
+            {/* ── TRIP SECTIONS ── */}
+            {isTrip && (
+              <>
+                {item.activities?.length > 0 && <HighlightsTags activities={item.activities} />}
 
-            {/* ══ STEP 4: Access & Pricing ══ */}
-            {currentStep === 4 && (
-              <SectionCard title="Access & Pricing" subtitle="Operating hours and entrance fees" icon={Clock}>
-                <div className="space-y-8">
-                  <OperatingHoursSection
-                    openingHours={formData.openingHours} closingHours={formData.closingHours}
-                    workingDays={workingDays}
-                    onOpeningChange={(v) => setFormData({ ...formData, openingHours: v })}
-                    onClosingChange={(v) => setFormData({ ...formData, closingHours: v })}
-                    onDaysChange={setWorkingDays} accentColor={COLORS.TEAL}
-                  />
-                  <div className="grid lg:grid-cols-3 gap-4">
-                    <div>
-                      <FieldLabel>Entrance Fee</FieldLabel>
-                      <Select value={formData.entranceFeeType} onValueChange={(v) => setFormData({ ...formData, entranceFeeType: v })}>
-                        <SelectTrigger className="rounded-xl h-11 font-semibold border-slate-200"><SelectValue /></SelectTrigger>
-                        <SelectContent className="bg-white rounded-xl">
-                          <SelectItem value="free">Free Access</SelectItem>
-                          <SelectItem value="paid">Paid Admission</SelectItem>
-                        </SelectContent>
-                      </Select>
+                {/* Inclusions & Exclusions */}
+                {((item.inclusions?.length > 0) || (item.exclusions?.length > 0)) && (
+                  <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+                    <h2 className="text-base font-black uppercase tracking-tight mb-4" style={{ color: TEAL }}>Package Details</h2>
+                    <div className="grid grid-cols-2 gap-6">
+                      {item.inclusions?.length > 0 && (
+                        <div>
+                          <p className="text-[10px] font-black uppercase text-emerald-600 tracking-widest mb-2">✓ Included</p>
+                          <ul className="space-y-1.5">
+                            {item.inclusions.map((inc: string, i: number) => (
+                              <li key={i} className="flex items-start gap-2 text-sm text-emerald-700"><span className="text-emerald-500 mt-0.5">✓</span><span>{inc}</span></li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {item.exclusions?.length > 0 && (
+                        <div>
+                          <p className="text-[10px] font-black uppercase text-red-500 tracking-widest mb-2">✗ Not Included</p>
+                          <ul className="space-y-1.5">
+                            {item.exclusions.map((exc: string, i: number) => (
+                              <li key={i} className="flex items-start gap-2 text-sm text-red-600"><span className="text-red-400 mt-0.5">✗</span><span>{exc}</span></li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </div>
-                    {formData.entranceFeeType === "paid" && (
-                      <>
-                        <div>
-                          <FieldLabel>Adult Entry (KSh)</FieldLabel>
-                          <StyledInput type="number" value={formData.adultPrice} onChange={(e) => setFormData({ ...formData, adultPrice: e.target.value })} />
-                          {parseFloat(formData.adultPrice) > 0 && <p className="text-[9px] text-blue-500 font-semibold mt-1">{usdHint(parseFloat(formData.adultPrice))}</p>}
-                        </div>
-                        <div>
-                          <FieldLabel>Child Entry (KSh)</FieldLabel>
-                          <StyledInput type="number" min="0" value={formData.childPrice} onChange={(e) => setFormData({ ...formData, childPrice: e.target.value })} />
-                          {parseFloat(formData.childPrice) > 0 && <p className="text-[9px] text-blue-500 font-semibold mt-1">{usdHint(parseFloat(formData.childPrice))}</p>}
-                        </div>
-                      </>
+                  </div>
+                )}
+
+                {/* Trip children & pickup info */}
+                <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+                  <h2 className="text-base font-black uppercase tracking-tight mb-4" style={{ color: TEAL }}>Trip Details</h2>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-xs font-bold uppercase tracking-tight">
+                      <span className="text-slate-400">Children</span>
+                      <span className={item.allow_children === false ? "text-red-500" : "text-emerald-600"}>
+                        {item.allow_children === false ? "Not Allowed" : "Allowed"}
+                      </span>
+                    </div>
+                    {item.allow_children !== false && item.price_child != null && (
+                      <div className="flex justify-between text-xs font-bold uppercase tracking-tight">
+                        <span className="text-slate-400">Child Price (Under 12)</span>
+                        <span className="text-slate-700">KSh {Number(item.price_child).toLocaleString()}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-start text-xs font-bold uppercase tracking-tight gap-2">
+                      <span className="text-slate-400 flex items-center gap-1 flex-shrink-0"><Navigation className="h-3 w-3" /> Pickup</span>
+                      {item.pickup_location
+                        ? <span className="text-slate-700 text-right normal-case font-semibold max-w-[60%] leading-snug capitalize">{item.pickup_location}</span>
+                        : <span className="text-slate-400 italic font-semibold normal-case">Not Available</span>}
+                    </div>
+                    {item.ticket_types?.length > 0 && (
+                      <div className="pt-2 border-t border-slate-100">
+                        <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1.5">Ticket Types</p>
+                        {item.ticket_types.map((ticket: any, i: number) => (
+                          <div key={i} className="flex justify-between text-xs font-bold uppercase tracking-tight py-0.5">
+                            <span className="text-slate-500">{ticket.name}</span>
+                            <span className="text-slate-700">KSh {Number(ticket.price).toLocaleString()}</span>
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </div>
                 </div>
-              </SectionCard>
+              </>
             )}
 
-            {/* ══ STEP 5: Facilities ══ */}
-            {currentStep === 5 && (
-              <SectionCard title="Amenities, Facilities & Activities" subtitle="What can visitors enjoy at your adventure place?" icon={DollarSign}>
-                <div className="space-y-8">
-                  <GeneralFacilitiesSelector selected={generalFacilities} onChange={setGeneralFacilities} accentColor={COLORS.TEAL} />
-                  <FacilityBuilder items={facilities} onChange={setFacilities} showErrors={showErrors} onValidationFail={onValidationFail} />
-                  <ActivityBuilder items={activities} onChange={setActivities} showErrors={showErrors} onValidationFail={onValidationFail} />
+            {/* Description — both types */}
+            {item.description && (
+              <section className="bg-white rounded-2xl px-5 py-4 shadow-sm border border-slate-100">
+                <h2 className="text-base font-black uppercase tracking-tight mb-3" style={{ color: TEAL }}>
+                  {isAdventure ? "About this Place" : "About this Trip"}
+                </h2>
+                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{item.description}</p>
+              </section>
+            )}
+
+            {/* Map — both types */}
+            <MapSection
+              name={item.name}
+              latitude={item.latitude}
+              longitude={item.longitude}
+              location={item.location}
+              country={item.country}
+              mapLink={item.map_link || item.location_link}
+            />
+
+            {/* Admin-only: Full submitter info panel */}
+            <section className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+              <h2 className="text-base font-black uppercase tracking-tight mb-4" style={{ color: TEAL }}>Submitter Information</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase">Contact Name</p>
+                  <p className="text-sm font-black uppercase">{creator?.name || "Unknown Host"}</p>
+                  {isBanned && (
+                    <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-red-100 text-red-600 text-[9px] font-black uppercase">
+                      <Ban className="h-3 w-3" /> Banned
+                    </span>
+                  )}
                 </div>
-              </SectionCard>
-            )}
-
-            {/* ══ STEP 6: Gallery ══ */}
-            {currentStep === 6 && (
-              <SectionCard
-                title={`Photo Gallery — ${galleryImages.length}/5 uploaded`}
-                subtitle={galleryImages.length < 5 ? `You need ${5 - galleryImages.length} more photos to continue` : "All 5 photos ready ✓"}
-                icon={Camera}
-              >
-                {galleryImages.length < 5 && showErrors && (
-                  <div className="mb-4 flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-xl">
-                    <span className="text-red-500">⚠</span>
-                    <p className="text-red-600 text-xs font-semibold">Upload at least {5 - galleryImages.length} more photos</p>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase">Email</p>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <Mail className="h-3 w-3 text-teal-600" />
+                    <p className="text-xs font-bold">{item.email || creator?.email || "No Email"}</p>
                   </div>
-                )}
-                <ImageGalleryGrid images={galleryImages} previews={galleryPreviews} onRemove={removeGalleryImage} onAdd={handleGalleryUpload} isInvalid={showErrors && galleryImages.length < 5} slots={5} />
-                <p className="text-[10px] text-slate-400 mt-3 font-medium">First photo becomes your cover image. Use landscape photos for best results.</p>
-              </SectionCard>
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase">Phone</p>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <Phone className="h-3 w-3 text-teal-600" />
+                    <p className="text-xs font-bold">{item.phone_number || creator?.phone_number || "No Phone"}</p>
+                  </div>
+                </div>
+              </div>
+              {item.registration_number && (
+                <div className="mt-4 pt-4 border-t border-slate-100 flex items-center gap-2">
+                  <Landmark className="h-4 w-4 text-slate-400" />
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase">Reg / License No.</p>
+                    <p className="text-sm font-black">{item.registration_number}</p>
+                  </div>
+                </div>
+              )}
+            </section>
+
+            {/* Event Certificate */}
+            {item.event_certificate_url && (
+              <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+                <h2 className="text-sm font-black uppercase tracking-tight mb-4 flex items-center gap-2" style={{ color: TEAL }}>
+                  <FileImage className="h-4 w-4" /> Event Certificate / Permit
+                </h2>
+                <div className="rounded-xl overflow-hidden border-2 border-slate-100">
+                  <img src={item.event_certificate_url} alt="Event Certificate" className="w-full h-64 object-contain bg-slate-50" />
+                </div>
+                <Button variant="link" className="mt-2 text-[10px] font-black uppercase text-teal-600"
+                  onClick={() => window.open(item.event_certificate_url, "_blank")}>View Full Size →</Button>
+              </div>
             )}
 
-            {/* ══ STEP 7: Review ══ */}
-            {currentStep === 7 && (
-              <ReviewStep
-                type="adventure"
-                accentColor={COLORS.TEAL}
-                data={{
-                  name: formData.registrationName, registrationName: formData.registrationName,
-                  registrationNumber: formData.registrationNumber,
-                  locationName: formData.locationName, place: formData.place, country: formData.country,
-                  description: formData.description, email: formData.email, phoneNumber: formData.phoneNumber,
-                  openingHours: formData.openingHours, closingHours: formData.closingHours,
-                  workingDays: Object.entries(workingDays).filter(([, v]) => v).map(([k]) => k),
-                  entranceFeeType: formData.entranceFeeType, adultPrice: formData.adultPrice, childPrice: formData.childPrice,
-                  latitude: formData.latitude, longitude: formData.longitude, generalFacilities,
-                  facilities: facilities.filter((f) => f.saved).map((f) => ({ name: f.name, price: parseFloat(f.price) || 0, capacity: parseInt(f.capacity) || null, amenities: f.amenities, images: f.previewUrls })),
-                  activities: activities.filter((a) => a.saved && a.name.trim()).map((a) => ({ name: a.name, price: parseFloat(a.price) || 0, images: a.previewUrls })),
-                  galleryPreviewUrls: galleryPreviews,
-                }}
-                creatorEmail={user?.email}
-              />
+            {/* TRA License */}
+            {item.tra_license_url && (
+              <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+                <h2 className="text-sm font-black uppercase tracking-tight mb-4 flex items-center gap-2" style={{ color: TEAL }}>
+                  <FileImage className="h-4 w-4" /> TRA License
+                </h2>
+                <div className="rounded-xl overflow-hidden border-2 border-slate-100">
+                  <img src={item.tra_license_url} alt="TRA License" className="w-full h-64 object-contain bg-slate-50" />
+                </div>
+                <Button variant="link" className="mt-2 text-[10px] font-black uppercase text-teal-600"
+                  onClick={() => window.open(item.tra_license_url, "_blank")}>View Full Size →</Button>
+              </div>
             )}
+          </div>
 
-            {/* ── Navigation buttons ── */}
-            <div className="flex gap-3 pt-2">
-              {currentStep > 1 && (
-                <button type="button" onClick={handlePrev} className="flex items-center gap-2 px-6 py-3.5 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm">
-                  <ChevronLeft className="h-4 w-4" /> Back
-                </button>
-              )}
-              {currentStep < 7 ? (
-                <button type="button" onClick={handleNext} className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-white text-sm font-bold shadow-lg hover:opacity-90 transition-all active:scale-[0.99]" style={{ background: `linear-gradient(135deg, ${COLORS.TEAL}, #005f5f)` }}>
-                  Continue to {STEP_NAMES[currentStep]} <ChevronRight className="h-4 w-4" />
-                </button>
-              ) : (
-                <button type="button" onClick={handleSubmit} disabled={loading} className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-white text-sm font-bold shadow-lg hover:opacity-90 transition-all active:scale-[0.99] disabled:opacity-60" style={{ background: `linear-gradient(135deg, ${COLORS.CORAL}, #e06040)` }}>
-                  {loading ? <><Loader2 className="h-4 w-4 animate-spin" /> Submitting...</> : <><CheckCircle2 className="h-4 w-4" /> Submit for Approval</>}
-                </button>
-              )}
-            </div>
+          {/* ── Right column: Admin card, desktop only ── */}
+          <div className="hidden lg:block">
+            <AdminSideCard {...adminCardProps} />
           </div>
         </div>
       </main>
+
+      {/* Mobile bottom admin bar */}
+      <div className="fixed bottom-0 left-0 right-0 z-[100] md:hidden bg-black/90 backdrop-blur-xl border-t border-white/10 shadow-2xl"
+        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+        <div className="flex items-center justify-between px-4 py-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl" style={{ background: "#F59E0B" }}>
+              <ShieldAlert className="h-4 w-4 text-black" />
+            </div>
+            <div>
+              <p className="text-[8px] font-black text-white/50 uppercase tracking-widest">Admin Review</p>
+              <p className="text-[10px] font-black text-white uppercase tracking-tight">{item.approval_status || "Pending"}</p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" onClick={() => updateApprovalStatus("approved")}
+              className="h-9 rounded-xl text-[10px] font-black px-4 border-none text-white"
+              style={{ background: `linear-gradient(135deg, #2dd4bf 0%, ${TEAL} 100%)` }}>APPROVE</Button>
+            <Button size="sm" variant="destructive" onClick={() => updateApprovalStatus("rejected")}
+              className="h-9 rounded-xl text-[10px] font-black px-4">REJECT</Button>
+          </div>
+        </div>
+      </div>
+
       <MobileBottomBar />
     </div>
   );
 };
 
-export default CreateAdventure;
+export default AdminReviewDetail;

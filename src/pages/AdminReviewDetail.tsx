@@ -616,18 +616,21 @@ const AdminReviewDetail = () => {
     try {
       const validatedStatus = approvalStatusSchema.parse(status);
 
-      const { error } = await supabase
-        .from("adventure_places")
-        .update({ approval_status: validatedStatus })
-        .eq("id", id);
+      // RPC with SECURITY DEFINER bypasses the trigger + RLS completely
+      // Cast to any because the generated Supabase types don't include this new function yet
+      const { error } = await (supabase as any).rpc("admin_update_approval_status", {
+        p_id: id,
+        p_table: item.tableName,
+        p_status: validatedStatus,
+      });
 
       if (error) {
-        console.error("approval update error:", error);
+        console.error("RPC approval error:", error);
         toast({ title: "Update failed", description: error.message, variant: "destructive" });
         return;
       }
 
-      // Update local state so badge reflects immediately without re-fetch
+      // Update local state so badge reflects immediately
       setItem((prev: any) => ({ ...prev, approval_status: validatedStatus }));
       toast({ title: validatedStatus === "approved" ? "✅ Approved successfully" : "❌ Rejected successfully" });
       navigate("/admin");

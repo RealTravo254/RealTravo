@@ -840,19 +840,19 @@ const CreateAdventure = () => {
         entry_fee: formData.entranceFeeType === "paid" ? parseFloat(formData.adultPrice) || 0 : 0,
         child_entry_fee: formData.entranceFeeType === "paid" ? parseFloat(formData.childPrice) || 0 : 0,
         amenities: generalFacilities, facilities: facilitiesForDB, activities: activitiesForDB,
-        created_by: user.id, approval_status: "pending",
+        created_by: user.id,
+        approval_status: "pending", // ✅ Always pending — requires admin approval
       }]);
       if (error) throw error;
 
       // ── Mark this user as an adventure host so BecomeHost shows the
-      //    pending card immediately after redirect. The verification status
-      //    is set to "approved" because adventure hosts are self-verified;
-      //    the actual pending approval lives on adventure_places.approval_status.
+      //    pending card immediately after redirect. Status is "pending"
+      //    so the host dashboard reflects awaiting-review state correctly.
       await supabase.from("host_verifications").upsert(
         {
           user_id: user.id,
           hosting_category: "adventure",
-          status: "approved",
+          status: "pending", // ✅ Changed from "approved" — admin must review
         },
         { onConflict: "user_id" }
       );

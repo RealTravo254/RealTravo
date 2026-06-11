@@ -14,7 +14,8 @@ export default defineConfig(({ mode }) => ({
     sourcemap: false,
     rollupOptions: {
       output: {
-        manualChunks(id) {
+        // FIXED: Added the explicit ": string" type declaration to the id parameter here
+        manualChunks(id: string) {
           // Let mapbox-gl be code-split naturally via dynamic imports
           if (id.includes('mapbox-gl')) {
             return 'mapbox';

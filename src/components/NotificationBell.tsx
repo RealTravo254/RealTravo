@@ -21,14 +21,12 @@ interface Notification {
   created_at: string;
 }
 
-const NOTIFICATION_SOUND_URL = "/audio/notification.mp3";
-
 // ── Icon + colour per notification type ──────────────────────────────────────
 const TYPE_META: Record<
   string,
   { icon: React.ElementType; bg: string; iconColor: string; accent: string }
 > = {
-  host_verification:    { icon: ShieldCheck,   bg: "bg-emerald-50",  iconColor: "text-emerald-600", accent: "#059669" },
+  host_verification:     { icon: ShieldCheck,   bg: "bg-emerald-50",  iconColor: "text-emerald-600", accent: "#059669" },
   payment_verification: { icon: CreditCard,    bg: "bg-blue-50",     iconColor: "text-blue-600",    accent: "#2563eb" },
   withdrawal_success:   { icon: Wallet,        bg: "bg-teal-50",     iconColor: "text-teal-600",    accent: "#0d9488" },
   withdrawal_failed:    { icon: Wallet,        bg: "bg-red-50",      iconColor: "text-red-500",     accent: "#ef4444" },
@@ -80,7 +78,6 @@ export const NotificationBell = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const [animateBell, setAnimateBell] = useState(false);
 
   // ── Deep-link map ────────────────────────────────────────────────────────
@@ -107,17 +104,6 @@ export const NotificationBell = () => {
     }
   }, []);
 
-  // ── Audio setup ──────────────────────────────────────────────────────────
-  useEffect(() => {
-    audioRef.current = new Audio(NOTIFICATION_SOUND_URL);
-    audioRef.current.volume = 0.5;
-    return () => { audioRef.current = null; };
-  }, []);
-
-  const playSound = useCallback(() => {
-    audioRef.current?.play().catch(() => {});
-  }, []);
-
   // ── Fetch ────────────────────────────────────────────────────────────────
   const fetchNotifications = useCallback(async () => {
     if (!user) return;
@@ -131,19 +117,27 @@ export const NotificationBell = () => {
     setUnreadCount(data?.filter((n) => !n.is_read).length ?? 0);
   }, [user]);
 
-  // ── Realtime ─────────────────────────────────────────────────────────────
+  // ── Realtime Setup with Cleanup to prevent duplication ───────────────────
   useEffect(() => {
     if (!user) return;
+    
+    // Fetch initial list
     fetchNotifications();
-    const channel = supabase
-      .channel(`notif-${user.id}-${Date.now()}`)
+
+    // Create a distinct runtime channel ID
+    const channelId = `bell-notif-${user.id}`;
+    const channel = supabase.channel(channelId);
+
+    channel
       .on("postgres_changes", {
-        event: "INSERT", schema: "public", table: "notifications",
+        event: "INSERT", 
+        schema: "public", 
+        table: "notifications",
         filter: `user_id=eq.${user.id}`,
       }, (payload) => {
-        playSound();
         setAnimateBell(true);
         setTimeout(() => setAnimateBell(false), 1000);
+        
         if (payload.new) {
           const n = payload.new as Notification;
           toast({ title: n.title, description: n.message });
@@ -151,12 +145,18 @@ export const NotificationBell = () => {
         fetchNotifications();
       })
       .on("postgres_changes", {
-        event: "UPDATE", schema: "public", table: "notifications",
+        event: "UPDATE", 
+        schema: "public", 
+        table: "notifications",
         filter: `user_id=eq.${user.id}`,
       }, fetchNotifications)
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [user?.id, fetchNotifications, playSound]);
+
+    // REMOVES the active channel channel instantly when dependencies change or components unmount
+    return () => { 
+      supabase.removeChannel(channel); 
+    };
+  }, [user?.id, fetchNotifications]);
 
   // ── Actions ──────────────────────────────────────────────────────────────
   const markAsRead = useCallback(async (id: string) => {
@@ -210,7 +210,6 @@ export const NotificationBell = () => {
           side="right"
           className="w-[88vw] max-w-[360px] p-0 border-none shadow-2xl [&>button]:hidden"
         >
-          {/* inner wrapper carries the safe-area padding + background */}
           <div
             className="flex flex-col h-full"
             style={{
@@ -225,7 +224,6 @@ export const NotificationBell = () => {
             className="relative flex-shrink-0 px-5 pt-5 pb-4"
             style={{ background: "linear-gradient(135deg, #008080 0%, #005f5f 100%)" }}
           >
-            {/* close */}
             <button
               onClick={() => setIsOpen(false)}
               className="absolute top-4 right-4 h-7 w-7 rounded-full bg-white/15 flex items-center justify-center hover:bg-white/25 transition-colors"
@@ -233,7 +231,6 @@ export const NotificationBell = () => {
               <X className="h-3.5 w-3.5 text-white" />
             </button>
 
-            {/* title row */}
             <div className="flex items-end justify-between pr-8">
               <div>
                 <p className="text-[9px] font-black uppercase tracking-[0.3em] text-white/50 mb-0.5">
@@ -244,7 +241,6 @@ export const NotificationBell = () => {
                 </h2>
               </div>
 
-              {/* unread pill */}
               {unreadCount > 0 && (
                 <div className="flex flex-col items-end gap-1.5">
                   <span className="text-[22px] font-black text-white leading-none">
@@ -257,7 +253,6 @@ export const NotificationBell = () => {
               )}
             </div>
 
-            {/* mark all read */}
             {unreadCount > 0 && (
               <button
                 onClick={markAllAsRead}
@@ -268,7 +263,6 @@ export const NotificationBell = () => {
               </button>
             )}
 
-            {/* bottom wave */}
             <div className="absolute bottom-0 left-0 right-0 overflow-hidden h-3 pointer-events-none">
               <svg viewBox="0 0 360 12" preserveAspectRatio="none" className="w-full h-full">
                 <path d="M0,0 C90,12 270,12 360,0 L360,12 L0,12 Z" fill="#f8fafc" />
@@ -279,7 +273,6 @@ export const NotificationBell = () => {
           {/* ── Body ── */}
           <div className="flex-1 overflow-y-auto px-3 pt-3 pb-4 space-y-4">
             {notifications.length === 0 ? (
-              /* Empty state */
               <div className="flex flex-col items-center justify-center py-20 text-center px-6">
                 <div className="relative mb-5">
                   <div className="h-16 w-16 rounded-2xl bg-white shadow-sm border border-slate-100 flex items-center justify-center">
@@ -295,7 +288,6 @@ export const NotificationBell = () => {
             ) : (
               grouped.map((group) => (
                 <div key={group.title}>
-                  {/* Date label */}
                   <div className="flex items-center gap-2 mb-2 px-1">
                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.22em]">
                       {group.title}
@@ -303,7 +295,6 @@ export const NotificationBell = () => {
                     <div className="flex-1 h-px bg-slate-200" />
                   </div>
 
-                  {/* Cards */}
                   <div className="space-y-2">
                     {group.items.map((n) => {
                       const meta = getMeta(n.type);
@@ -322,12 +313,10 @@ export const NotificationBell = () => {
                             }`}
                         >
                           <div className="flex items-start gap-3 p-3.5">
-                            {/* icon */}
                             <div className={`h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0 ${meta.bg}`}>
                               <Icon className={`h-4 w-4 ${meta.iconColor}`} />
                             </div>
 
-                            {/* text */}
                             <div className="flex-1 min-w-0">
                               <div className="flex items-start justify-between gap-2">
                                 <p className={`text-[12px] font-bold leading-tight truncate ${
@@ -343,9 +332,7 @@ export const NotificationBell = () => {
                                 {n.message}
                               </p>
 
-                              {/* footer row */}
                               <div className="flex items-center justify-between mt-2">
-                                {/* type badge */}
                                 <span
                                   className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full"
                                   style={{
@@ -357,14 +344,12 @@ export const NotificationBell = () => {
                                 </span>
 
                                 <div className="flex items-center gap-1.5">
-                                  {/* unread dot */}
                                   {isUnread && (
                                     <span
                                       className="h-1.5 w-1.5 rounded-full flex-shrink-0"
                                       style={{ background: meta.accent }}
                                     />
                                   )}
-                                  {/* arrow if has link */}
                                   {hasLink && (
                                     <ChevronRight
                                       className="h-3 w-3 text-slate-300 group-hover:text-slate-500 group-hover:translate-x-0.5 transition-all"
@@ -375,7 +360,6 @@ export const NotificationBell = () => {
                             </div>
                           </div>
 
-                          {/* accent bottom bar for unread */}
                           {isUnread && (
                             <div
                               className="h-0.5 rounded-b-2xl"
@@ -399,11 +383,10 @@ export const NotificationBell = () => {
               </p>
             </div>
           )}
-          </div>{/* end inner wrapper */}
+          </div>
         </SheetContent>
       </Sheet>
 
-      {/* Bell wiggle keyframe injected once */}
       <style>{`
         @keyframes wiggle {
           0%,100% { transform: rotate(0deg); }

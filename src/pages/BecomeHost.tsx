@@ -293,12 +293,9 @@ const BecomeHost = () => {
         setCompanyStatus(company?.verification_status || null);
 
         // ── 3. Adventure host path ────────────────────────────────────────
-        // Any user whose hosting_category is "adventure" lands here regardless
-        // of approval status (pending, approved, rejected).
         if (currentCategory === "adventure") {
           let place: any = null;
 
-          // Try adventure_places first, fall back to hotels with category=adventure
           const { data: advPlaces } = await supabase
             .from("adventure_places")
             .select("id, name, image_url, gallery_images, images, location, place, approval_status")
@@ -319,6 +316,13 @@ const BecomeHost = () => {
           }
 
           if (cancelled) return;
+
+          // ── KEY CHANGE: if approved, go straight to /my-listing ──────────
+          if (place?.approval_status === "approved") {
+            navigate("/my-listing");
+            return;
+          }
+
           setAdventurePlace(place || null);
           setLoading(false);
           return;
@@ -399,61 +403,91 @@ const BecomeHost = () => {
   );
 
   // ── Type selection ───────────────────────────────────────────────────────
-  if (showTypeSelection) return (
-    <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
-      <Header />
-      <main className="flex-1 container px-4 py-8 mx-auto mb-24">
-        <div className="flex items-center gap-3 mb-6">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/")} className="rounded-full bg-white shadow-sm border">
-            <ArrowLeft className="h-5 w-5 text-slate-600" />
-          </Button>
-          <Badge className="bg-[#008080] text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
-            Become a Host
-          </Badge>
-        </div>
+  // NOTE: We only show Guide/Company cards when there is NO existing adventure place.
+  // If the user already has an adventure listing (any status), they only see the Adventure card.
+  if (showTypeSelection) {
+    const hasAdventureCategory = hostingCategory === "adventure";
 
-        <h1 className="text-3xl md:text-4xl font-black uppercase tracking-tighter text-slate-900 mb-4">
-          Choose your <span style={{ color: COLORS.CORAL }}>Hosting Type</span>
-        </h1>
+    return (
+      <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
+        <Header />
+        <main className="flex-1 container px-4 py-8 mx-auto mb-24">
+          <div className="flex items-center gap-3 mb-6">
+            <Button variant="ghost" size="icon" onClick={() => navigate("/")} className="rounded-full bg-white shadow-sm border">
+              <ArrowLeft className="h-5 w-5 text-slate-600" />
+            </Button>
+            <Badge className="bg-[#008080] text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
+              Become a Host
+            </Badge>
+          </div>
 
-        <div className="flex items-start gap-2.5 p-3.5 rounded-2xl bg-amber-50 border border-amber-200 mb-8">
-          <Info className="h-4 w-4 text-amber-500 flex-shrink-0 mt-0.5" />
-          <p className="text-[11px] text-amber-700 font-medium leading-relaxed">
-            <span className="font-black uppercase">Note:</span> An Adventure Place is a standalone hosting type — it cannot be combined with Tour Guide or Company hosting. Each account is limited to one adventure place listing.
-          </p>
-        </div>
+          <h1 className="text-3xl md:text-4xl font-black uppercase tracking-tighter text-slate-900 mb-4">
+            Choose your <span style={{ color: COLORS.CORAL }}>Hosting Type</span>
+          </h1>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <SelectionCard
-            icon={<Tent className="h-8 w-8 text-emerald-600" />}
-            title="Adventure Place"
-            desc="List your campsite, park, or private adventure destination. One listing per account — standalone only."
-            onClick={() => handleHostTypeSelect("adventure")}
-            bg="bg-emerald-50"
-          />
-          <SelectionCard
-            icon={<Map className="h-8 w-8 text-blue-600" />}
-            title="Tour Guide"
-            desc="Host flexible trips and guided tours."
-            onClick={() => handleHostTypeSelect("guide")}
-            bg="bg-blue-50"
-          />
-          <SelectionCard
-            icon={<Building2 className="h-8 w-8 text-orange-600" />}
-            title="Register Company"
-            desc="Host fixed-date trips and hotels via your business."
-            onClick={() => handleHostTypeSelect("company")}
-            bg="bg-orange-50"
-          />
-        </div>
-      </main>
-      <MobileBottomBar />
-    </div>
-  );
+          {/* Only show the note banner when all hosting types are available */}
+          {!hasAdventureCategory && (
+            <div className="flex items-start gap-2.5 p-3.5 rounded-2xl bg-amber-50 border border-amber-200 mb-8">
+              <Info className="h-4 w-4 text-amber-500 flex-shrink-0 mt-0.5" />
+              <p className="text-[11px] text-amber-700 font-medium leading-relaxed">
+                <span className="font-black uppercase">Note:</span> An Adventure Place is a standalone hosting type — it cannot be combined with Tour Guide or Company hosting. Each account is limited to one adventure place listing.
+              </p>
+            </div>
+          )}
+
+          {hasAdventureCategory ? (
+            /* ── User already has adventure category but place not yet approved ── */
+            /* Only show the adventure card so they can't switch to guide/company */
+            <div className="max-w-sm">
+              <SelectionCard
+                icon={<Tent className="h-8 w-8 text-emerald-600" />}
+                title="Adventure Place"
+                desc="Fix your details and resubmit your campsite, park, or adventure destination."
+                onClick={() => navigate("/create-adventure")}
+                bg="bg-emerald-50"
+              />
+            </div>
+          ) : (
+            /* ── No existing category — show all three options ── */
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <SelectionCard
+                icon={<Tent className="h-8 w-8 text-emerald-600" />}
+                title="Adventure Place"
+                desc="List your campsite, park, or private adventure destination. One listing per account — standalone only."
+                onClick={() => handleHostTypeSelect("adventure")}
+                bg="bg-emerald-50"
+              />
+              <SelectionCard
+                icon={<Map className="h-8 w-8 text-blue-600" />}
+                title="Tour Guide"
+                desc="Host flexible trips and guided tours."
+                onClick={() => handleHostTypeSelect("guide")}
+                bg="bg-blue-50"
+              />
+              <SelectionCard
+                icon={<Building2 className="h-8 w-8 text-orange-600" />}
+                title="Register Company"
+                desc="Host fixed-date trips and hotels via your business."
+                onClick={() => handleHostTypeSelect("company")}
+                bg="bg-orange-50"
+              />
+            </div>
+          )}
+        </main>
+        <MobileBottomBar />
+      </div>
+    );
+  }
 
   // ── Adventure host dashboard ─────────────────────────────────────────────
   if (hostingCategory === "adventure") {
     const approvalStatus = adventurePlace?.approval_status || null;
+
+    // ── APPROVED: redirect to /my-listing (handled in useEffect, this is a safety fallback) ─
+    if (approvalStatus === "approved") {
+      navigate("/my-listing");
+      return null;
+    }
 
     // ── PENDING: locked — only show pending card, no other options ────────
     if (approvalStatus === "pending") return (
@@ -474,7 +508,6 @@ const BecomeHost = () => {
           {adventurePlace
             ? <AdventurePendingCard place={adventurePlace} />
             : (
-              /* Edge case: category=adventure but no place found — shouldn't normally happen */
               <div className="bg-white rounded-[28px] p-8 text-center shadow-lg border border-amber-100">
                 <Clock className="h-10 w-10 text-amber-400 mx-auto mb-3" />
                 <p className="text-sm font-bold text-amber-700">Your submission is under review. Check back soon.</p>
@@ -486,43 +519,7 @@ const BecomeHost = () => {
       </div>
     );
 
-    // ── APPROVED: show listing card with Edit + View Live ─────────────────
-    if (approvalStatus === "approved") return (
-      <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
-        <Header />
-        <main className="flex-1 container px-4 py-12 mx-auto mb-24 max-w-2xl">
-          <div className="flex items-center gap-3 mb-8">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/")} className="rounded-full bg-white shadow-sm border">
-              <ArrowLeft className="h-5 w-5 text-slate-600" />
-            </Button>
-            <div>
-              <h1 className="text-3xl font-black uppercase tracking-tighter text-slate-900">
-                My <span style={{ color: COLORS.CORAL }}>Adventure Place</span>
-              </h1>
-              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Host Dashboard</p>
-            </div>
-          </div>
-          <AdventureApprovedCard
-            place={adventurePlace}
-            onEdit={() => navigate(`/edit-listing/adventure/${adventurePlace.id}`)}
-            onView={() => navigate(`/adventure/${adventurePlace.id}`)}
-          />
-          {/* Quick link to bookings */}
-          <div className="mt-4">
-            <Button
-              onClick={() => navigate(`/host/bookings/adventure/${adventurePlace.id}`)}
-              variant="ghost"
-              className="w-full py-3 rounded-2xl border-2 border-dashed border-slate-200 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:border-teal-300 hover:text-teal-600 transition-all"
-            >
-              View Bookings & Sales →
-            </Button>
-          </div>
-        </main>
-        <MobileBottomBar />
-      </div>
-    );
-
-    // ── REJECTED: show rejection notice + allow resubmit or choose other type
+    // ── REJECTED: show rejection notice + allow resubmit only (no guide/company options) ─────
     if (approvalStatus === "rejected") return (
       <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
         <Header />
@@ -548,7 +545,7 @@ const BecomeHost = () => {
                     Your adventure place was rejected
                   </h2>
                   <p className="text-[12px] text-red-600 font-medium leading-relaxed mb-3">
-                    Your submission for <span className="font-black">{adventurePlace.name}</span> did not meet our listing requirements. Please review your details and resubmit, or choose a different hosting type below.
+                    Your submission for <span className="font-black">{adventurePlace.name}</span> did not meet our listing requirements. Please review your details and resubmit.
                   </p>
                   <Button
                     onClick={() => navigate(`/edit-listing/adventure/${adventurePlace.id}?resubmit=true`)}
@@ -563,31 +560,18 @@ const BecomeHost = () => {
             </div>
           )}
 
+          {/* Only show the adventure place card — no guide/company options since they're an adventure host */}
           <h2 className="text-xl font-black uppercase tracking-tight text-slate-900 mb-4">
-            Or choose a different <span style={{ color: COLORS.CORAL }}>hosting type</span>
+            Fix and <span style={{ color: COLORS.CORAL }}>resubmit</span> your listing
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="max-w-sm">
             <SelectionCard
               icon={<Tent className="h-8 w-8 text-emerald-600" />}
               title="Adventure Place"
               desc="Fix your details and resubmit your campsite, park, or adventure destination."
               onClick={() => navigate("/create-adventure")}
               bg="bg-emerald-50"
-            />
-            <SelectionCard
-              icon={<Map className="h-8 w-8 text-blue-600" />}
-              title="Tour Guide"
-              desc="Host flexible trips and guided tours."
-              onClick={() => handleHostTypeSelect("guide")}
-              bg="bg-blue-50"
-            />
-            <SelectionCard
-              icon={<Building2 className="h-8 w-8 text-orange-600" />}
-              title="Register Company"
-              desc="Host fixed-date trips and hotels via your business."
-              onClick={() => handleHostTypeSelect("company")}
-              bg="bg-orange-50"
             />
           </div>
         </main>

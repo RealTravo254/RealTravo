@@ -123,21 +123,14 @@ const MyListing = () => {
     const isLegacyVerified  = hVStatus === "approved" && !hCategory;
 
     const shouldFetchTrips      = isGuideApproved || isCompanyApproved || isLegacyVerified;
-    const shouldFetchHotels     = isCompanyApproved || isLegacyVerified;
     const shouldFetchAdventures = hAdventure || isLegacyVerified;
 
-    const [tripsRes, hotelsRes, adventuresRes, hotelsAdminRes, adventuresAdminRes] = await Promise.all([
+    const [tripsRes, adventuresRes, adventuresAdminRes] = await Promise.all([
       shouldFetchTrips
         ? supabase.from("trips").select("id,name,location,country,image_url,price,approval_status,is_hidden,type").eq("created_by", user!.id).range(range[0], range[1])
         : Promise.resolve({ data: [] }),
-      shouldFetchHotels
-        ? supabase.from("hotels").select("id,name,location,country,image_url,approval_status,is_hidden,created_by").eq("created_by", user!.id).range(range[0], range[1])
-        : Promise.resolve({ data: [] }),
       shouldFetchAdventures
         ? supabase.from("adventure_places").select("id,name,location,country,image_url,entry_fee,approval_status,is_hidden,created_by").eq("created_by", user!.id).range(range[0], range[1])
-        : Promise.resolve({ data: [] }),
-      shouldFetchHotels && userEmail
-        ? supabase.from("hotels").select("id,name,location,country,image_url,approval_status,is_hidden,created_by").contains("allowed_admin_emails", [userEmail]).range(range[0], range[1])
         : Promise.resolve({ data: [] }),
       shouldFetchAdventures && userEmail
         ? supabase.from("adventure_places").select("id,name,location,country,image_url,entry_fee,approval_status,is_hidden,created_by").contains("allowed_admin_emails", [userEmail]).range(range[0], range[1])
@@ -145,15 +138,12 @@ const MyListing = () => {
     ]);
 
     let filteredTrips = tripsRes.data || [];
-    if (!shouldFetchTrips && (isGuideApproved || isCompanyApproved)) {
-      filteredTrips = filteredTrips.filter((t: any) => t.type === "event");
-    }
+    // Only keep actual trips (exclude events)
+    filteredTrips = filteredTrips.filter((t: any) => t.type !== "event");
 
     const allContent = [
-      ...(filteredTrips.map((t: any) => ({ ...t, type: t.type === "event" ? "event" : "trip", isCreator: true }))),
-      ...(hotelsRes.data?.map((h: any) => ({ ...h, type: "hotel", isCreator: true })) || []),
+      ...(filteredTrips.map((t: any) => ({ ...t, type: "trip", isCreator: true }))),
       ...(adventuresRes.data?.map((a: any) => ({ ...a, type: "adventure", isCreator: true })) || []),
-      ...(hotelsAdminRes.data?.filter((h: any) => h.created_by !== user!.id).map((h: any) => ({ ...h, type: "hotel", isCreator: false })) || []),
       ...(adventuresAdminRes.data?.filter((a: any) => a.created_by !== user!.id).map((a: any) => ({ ...a, type: "adventure", isCreator: false })) || []),
     ];
 
@@ -214,9 +204,7 @@ const MyListing = () => {
   const isLegacyVerified  = verificationStatus === "approved" && !hostingCategory;
 
   const showTrips      = isGuideApproved || isCompanyApproved || isLegacyVerified;
-  const showHotels     = isCompanyApproved || isLegacyVerified;
   const showAdventures = isAdventureHost || isLegacyVerified;
-  const showEvents     = isGuideApproved || isCompanyApproved || isAdventureHost || isLegacyVerified;
 
   const renderListings = (category: string) => {
     const items = myContent.filter(item => item.type === category);
@@ -291,7 +279,7 @@ const MyListing = () => {
                       </div>
                     )}
                     <Button
-                      onClick={() => navigate(`/edit-listing/${item.type === "event" ? "trip" : item.type}/${item.id}`)}
+                      onClick={() => navigate(`/edit-listing/${item.type}/${item.id}`)}
                       size="sm"
                       className="h-9 px-4 rounded-xl font-black uppercase text-[10px] tracking-widest text-white transition-transform active:scale-95 shadow-lg shadow-teal-900/10 border-none"
                       style={{ backgroundColor: COLORS.TEAL }}
@@ -463,30 +451,6 @@ const MyListing = () => {
               </section>
             )}
 
-            {showEvents && (
-              <section>
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-black uppercase tracking-tight" style={{ color: COLORS.KHAKI_DARK }}>Events</h2>
-                  <div className="bg-white px-4 py-1 rounded-full shadow-sm border border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-500">
-                    {getCategoryCount("event")} Total
-                  </div>
-                </div>
-                {renderListings("event")}
-              </section>
-            )}
-
-            {showHotels && (
-              <section>
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-black uppercase tracking-tight" style={{ color: COLORS.TEAL }}>Hotels & Stays</h2>
-                  <div className="bg-white px-4 py-1 rounded-full shadow-sm border border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-500">
-                    {getCategoryCount("hotel")} Total
-                  </div>
-                </div>
-                {renderListings("hotel")}
-              </section>
-            )}
-
             {showAdventures && (
               <section>
                 <div className="flex items-center justify-between mb-6">
@@ -529,30 +493,6 @@ const MyListing = () => {
                   </span>
                 </div>
                 {renderBookings("trip")}
-              </section>
-            )}
-
-            {showEvents && (
-              <section>
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-black uppercase tracking-tight" style={{ color: COLORS.CORAL }}>Event Bookings</h2>
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                    {getBookingCount("event")} Received
-                  </span>
-                </div>
-                {renderBookings("event")}
-              </section>
-            )}
-
-            {showHotels && (
-              <section>
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-black uppercase tracking-tight" style={{ color: COLORS.CORAL }}>Stay Bookings</h2>
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                    {getBookingCount("hotel")} Received
-                  </span>
-                </div>
-                {renderBookings("hotel")}
               </section>
             )}
 

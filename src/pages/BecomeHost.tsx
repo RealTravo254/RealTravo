@@ -348,6 +348,7 @@ const BecomeHost = () => {
   );
 
   // ── Adventure: Pending ───────────────────────────────────────────────────
+  // Shows ONLY the pending card — no other hosting options whatsoever.
   if (view.screen === "adventure-pending") return (
     <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
       <Header />
@@ -370,6 +371,7 @@ const BecomeHost = () => {
   );
 
   // ── Adventure: Rejected ──────────────────────────────────────────────────
+  // Shows ONLY the rejection notice and the resubmit card — no Guide/Company options.
   if (view.screen === "adventure-rejected") return (
     <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
       <Header />
@@ -378,9 +380,12 @@ const BecomeHost = () => {
           <Button variant="ghost" size="icon" onClick={() => navigate("/")} className="rounded-full bg-white shadow-sm border">
             <ArrowLeft className="h-5 w-5 text-slate-600" />
           </Button>
-          <Badge className="bg-red-500 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
-            Submission Rejected
-          </Badge>
+          <div>
+            <h1 className="text-3xl font-black uppercase tracking-tighter text-slate-900">
+              My <span style={{ color: COLORS.CORAL }}>Adventure Place</span>
+            </h1>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Host Dashboard</p>
+          </div>
         </div>
 
         <div className="mb-8 bg-white rounded-[24px] p-5 border border-red-100 shadow-sm">
@@ -407,6 +412,7 @@ const BecomeHost = () => {
           </div>
         </div>
 
+        {/* Only the adventure resubmit card — no Guide/Company options shown */}
         <h2 className="text-xl font-black uppercase tracking-tight text-slate-900 mb-4">
           Or start a <span style={{ color: COLORS.CORAL }}>new submission</span>
         </h2>

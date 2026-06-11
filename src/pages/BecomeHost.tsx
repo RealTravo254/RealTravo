@@ -8,8 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import {
   Plus, ArrowLeft, LayoutDashboard, Map, Building2, Tent,
-  Clock, CheckCircle2, XCircle, Eye, MapPin, Edit3,
-  RefreshCw, Ban, Info,
+  Clock, CheckCircle2, XCircle, MapPin, RefreshCw, Ban, Info,
 } from "lucide-react";
 
 const COLORS = {
@@ -19,14 +18,17 @@ const COLORS = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Single discriminated union drives ALL rendering — no boolean state flags.
+// Discriminated union — every screen is explicit and exhaustive.
+// type-selection is ONLY reachable when:
+//   • no adventure_places row exists for this user, AND
+//   • user is not an approved guide or company
 // ─────────────────────────────────────────────────────────────────────────────
 type ViewState =
   | { screen: "loading" }
   | { screen: "banned" }
   | { screen: "redirect"; to: string }
   | { screen: "type-selection" }
-  | { screen: "adventure-pending";  place: any }
+  | { screen: "adventure-pending"; place: any }
   | { screen: "adventure-no-place" }
   | { screen: "adventure-rejected"; place: any }
   | { screen: "guide-company-dashboard"; content: any[]; verificationStatus: string | null; companyStatus: string | null };
@@ -161,7 +163,7 @@ const BecomeHost = () => {
 
     const init = async () => {
       try {
-        // ── 1. Profile check ────────────────────────────────────────────────
+        // ── 1. Profile check ─────────────────────────────────────────────────
         const { data: profileData } = await supabase
           .from("profiles")
           .select("profile_completed, is_banned")
@@ -169,12 +171,13 @@ const BecomeHost = () => {
           .single();
 
         if (cancelled) return;
-        if (profileData?.is_banned)                    { setView({ screen: "banned" }); return; }
+        if (profileData?.is_banned) { setView({ screen: "banned" }); return; }
         if (profileData && !profileData.profile_completed) { navigate("/complete-profile"); return; }
 
-        // ── 2. Check adventure_places FIRST — bypasses hosting_category ────
-        // This is necessary because hosting_category is NULL for adventure
-        // hosts — they never get a host_verifications row with category set.
+        // ── 2. Adventure place check — always wins over everything else ──────
+        // If ANY adventure_places row exists for this user, we never show
+        // type-selection or the guide/company dashboard. Route is 100% driven
+        // by approval_status. Unknown/null status falls to pending (safe default).
         const { data: advPlaces } = await supabase
           .from("adventure_places")
           .select("id, name, image_url, gallery_images, location, place, approval_status")
@@ -186,28 +189,25 @@ const BecomeHost = () => {
 
         const adventurePlace = advPlaces?.[0] ?? null;
 
-        if (adventurePlace) {
-          // User has an adventure place — route entirely based on its approval_status.
-          // Never show type-selection or guide/company dashboard for these users.
-          const status = adventurePlace.approval_status;
+        if (adventurePlace !== null) {
+          const status = (adventurePlace.approval_status ?? "").toLowerCase().trim();
 
           if (status === "approved") {
-            // Go straight to /my-listing — no dashboard shown here
             setView({ screen: "redirect", to: "/my-listing" });
-            return;
-          }
-          if (status === "pending") {
-            setView({ screen: "adventure-pending", place: adventurePlace });
             return;
           }
           if (status === "rejected") {
             setView({ screen: "adventure-rejected", place: adventurePlace });
             return;
           }
-          // Any other status (null, unknown) — treat as no place
+          // "pending", null, unknown, or anything else → show pending screen.
+          // This ensures the user is NEVER shown type-selection or host cards
+          // when an adventure place row exists.
+          setView({ screen: "adventure-pending", place: adventurePlace });
+          return;
         }
 
-        // ── 3. No adventure place — check guide/company verification ───────
+        // ── 3. No adventure place row — check guide/company verification ─────
         const [{ data: verification }, { data: company }] = await Promise.all([
           supabase.from("host_verifications").select("status, hosting_category").eq("user_id", user.id).maybeSingle(),
           supabase.from("companies").select("verification_status").eq("user_id", user.id).maybeSingle(),
@@ -215,8 +215,8 @@ const BecomeHost = () => {
 
         if (cancelled) return;
 
-        const verStatus   = verification?.status ?? null;
-        const compStatus  = company?.verification_status ?? null;
+        const verStatus  = verification?.status ?? null;
+        const compStatus = company?.verification_status ?? null;
         const isApprovedGuide   = verStatus === "approved";
         const isApprovedCompany = compStatus === "approved";
 
@@ -249,20 +249,20 @@ const BecomeHost = () => {
     return () => { cancelled = true; };
   }, [user, navigate]);
 
-  // ── Redirect ─────────────────────────────────────────────────────────────
+  // ── Redirect ──────────────────────────────────────────────────────────────
   if (view.screen === "redirect") {
     navigate(view.to);
     return null;
   }
 
-  // ── Loading ──────────────────────────────────────────────────────────────
+  // ── Loading ───────────────────────────────────────────────────────────────
   if (view.screen === "loading") return (
     <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
       <div className="h-10 w-10 border-4 border-[#008080] border-t-transparent rounded-full animate-spin" />
     </div>
   );
 
-  // ── Banned ───────────────────────────────────────────────────────────────
+  // ── Banned ────────────────────────────────────────────────────────────────
   if (view.screen === "banned") return (
     <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
       <Header />
@@ -294,7 +294,8 @@ const BecomeHost = () => {
     </div>
   );
 
-  // ── Type Selection (new users — no adventure place, not yet verified) ────
+  // ── Type Selection ────────────────────────────────────────────────────────
+  // Only reachable when: no adventure place row AND not an approved guide/company.
   if (view.screen === "type-selection") return (
     <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
       <Header />
@@ -347,8 +348,8 @@ const BecomeHost = () => {
     </div>
   );
 
-  // ── Adventure: Pending ───────────────────────────────────────────────────
-  // Shows ONLY the pending card — no other hosting options whatsoever.
+  // ── Adventure: Pending ────────────────────────────────────────────────────
+  // Shows ONLY the pending card. No other options. Dead end until approved/rejected.
   if (view.screen === "adventure-pending") return (
     <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
       <Header />
@@ -370,8 +371,8 @@ const BecomeHost = () => {
     </div>
   );
 
-  // ── Adventure: Rejected ──────────────────────────────────────────────────
-  // Shows ONLY the rejection notice and the resubmit card — no Guide/Company options.
+  // ── Adventure: Rejected ───────────────────────────────────────────────────
+  // Shows ONLY the rejection notice + adventure resubmit card. No Guide/Company options.
   if (view.screen === "adventure-rejected") return (
     <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
       <Header />
@@ -412,7 +413,6 @@ const BecomeHost = () => {
           </div>
         </div>
 
-        {/* Only the adventure resubmit card — no Guide/Company options shown */}
         <h2 className="text-xl font-black uppercase tracking-tight text-slate-900 mb-4">
           Or start a <span style={{ color: COLORS.CORAL }}>new submission</span>
         </h2>
@@ -430,7 +430,7 @@ const BecomeHost = () => {
     </div>
   );
 
-  // ── Adventure: No place submitted yet ────────────────────────────────────
+  // ── Adventure: No place submitted yet ─────────────────────────────────────
   if (view.screen === "adventure-no-place") return (
     <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
       <Header />
@@ -465,7 +465,7 @@ const BecomeHost = () => {
     </div>
   );
 
-  // ── Guide / Company dashboard ────────────────────────────────────────────
+  // ── Guide / Company dashboard ─────────────────────────────────────────────
   if (view.screen === "guide-company-dashboard") {
     const { content, verificationStatus, companyStatus } = view;
     return (

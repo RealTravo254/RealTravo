@@ -126,6 +126,16 @@ export const NotificationBell = () => {
 
     // Create a distinct runtime channel ID
     const channelId = `bell-notif-${user.id}`;
+
+    // Ensure any prior channel with the same id is removed first to avoid
+    // adding callbacks after a channel has already been subscribed.
+    try {
+      const existing = supabase.channel(channelId);
+      supabase.removeChannel(existing);
+    } catch (e) {
+      // ignore - removeChannel may throw if nothing exists yet
+    }
+
     const channel = supabase.channel(channelId);
 
     // 1. Attach 'postgres_changes' event listeners FIRST

@@ -41,6 +41,8 @@ const MyListing = () => {
   const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
   const [hasCompany, setHasCompany] = useState(false);
   const [companyStatus, setCompanyStatus] = useState<string | null>(null);
+  // Adventure host — detected via adventure_places table, not hosting_category
+  const [isAdventureHost, setIsAdventureHost] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -53,66 +55,61 @@ const MyListing = () => {
   const fetchHostStatus = async () => {
     setLoading(true);
     try {
+      // ── Check adventure_places FIRST — hosting_category is NULL for adventure hosts ──
+      const { data: advPlaces } = await supabase
+        .from("adventure_places")
+        .select("id, approval_status")
+        .eq("created_by", user!.id)
+        .limit(1);
+
+      const hasAdventurePlace = advPlaces && advPlaces.length > 0;
+
       const [verRes, companyRes] = await Promise.all([
         supabase.from("host_verifications").select("status, hosting_category").eq("user_id", user!.id).maybeSingle(),
         supabase.from("companies").select("verification_status").eq("user_id", user!.id).maybeSingle(),
       ]);
 
       const hCategory = verRes.data?.hosting_category || null;
-      const vStatus = verRes.data?.status || null;
-      const hCompany = !!companyRes.data;
-      const cStatus = companyRes.data?.verification_status || null;
+      const vStatus   = verRes.data?.status || null;
+      const hCompany  = !!companyRes.data;
+      const cStatus   = companyRes.data?.verification_status || null;
 
       setHostingCategory(hCategory);
       setVerificationStatus(vStatus);
       setHasCompany(hCompany);
       setCompanyStatus(cStatus);
+      setIsAdventureHost(hasAdventurePlace);
 
-      await fetchData(0, 0, hCategory, vStatus, hCompany, cStatus);
+      // ── Guard: only redirect to become-host if truly no hosting at all ──
+      const isGuideApproved   = vStatus === "approved";
+      const isCompanyApproved = cStatus === "approved";
+
+      if (!hasAdventurePlace && !isGuideApproved && !isCompanyApproved) {
+        navigate("/become-host");
+        return;
+      }
+
+      await fetchData(0, 0, hCategory, vStatus, hCompany, cStatus, hasAdventurePlace);
     } catch (error) {
       console.error("Error fetching host status:", error);
       setLoading(false);
     }
   };
 
-  // Determine which content types to fetch based on host type
-  const getContentTypesToFetch = (
-    category: string | null, 
-    vStatus: string | null, 
-    isCompany: boolean, 
-    cStatus: string | null
-  ) => {
-    const types: string[] = [];
-    const isGuideApproved = vStatus === "approved" && category === "guide";
-    const isCompanyApproved = isCompany && cStatus === "approved";
-    const isCampsite = category === "campsite";
-
-    // Trips: guides (flexible) and companies (fixed)
-    if (isGuideApproved || isCompanyApproved) types.push("trip");
-    // Hotels: companies only
-    if (isCompanyApproved) types.push("hotel");
-    // Adventures: campsite hosts
-    if (isCampsite) types.push("adventure");
-    // Events: all verified host types can host events (events are trips with type='event')
-    if (isGuideApproved || isCompanyApproved || isCampsite) types.push("event");
-
-    return types;
-  };
-
   const fetchData = async (
-    listingsFetchOffset: number, 
+    listingsFetchOffset: number,
     bookingsFetchOffset: number,
     category?: string | null,
     vStatus?: string | null,
     isCompany?: boolean,
-    cStatus?: string | null
+    cStatus?: string | null,
+    adventureHost?: boolean
   ) => {
-    const hCategory = category ?? hostingCategory;
-    const hVStatus = vStatus ?? verificationStatus;
-    const hCompany = isCompany ?? hasCompany;
-    const hCStatus = cStatus ?? companyStatus;
-    
-    const contentTypes = getContentTypesToFetch(hCategory, hVStatus, hCompany, hCStatus);
+    const hCategory  = category      ?? hostingCategory;
+    const hVStatus   = vStatus       ?? verificationStatus;
+    const hCompany   = isCompany     ?? hasCompany;
+    const hCStatus   = cStatus       ?? companyStatus;
+    const hAdventure = adventureHost ?? isAdventureHost;
 
     if (listingsFetchOffset === 0 && bookingsFetchOffset === 0) {
       setLoading(true);
@@ -121,42 +118,43 @@ const MyListing = () => {
     const userEmail = user?.email;
     const range = [listingsFetchOffset, listingsFetchOffset + ITEMS_PER_PAGE - 1] as const;
 
-    // Fetch only relevant content types
-    const shouldFetchTrips = contentTypes.includes("trip") || contentTypes.includes("event");
-    const shouldFetchHotels = contentTypes.includes("hotel");
-    const shouldFetchAdventures = contentTypes.includes("adventure");
+    const isGuideApproved   = hVStatus === "approved" && hCategory === "guide";
+    const isCompanyApproved = hCompany && hCStatus === "approved";
+    const isLegacyVerified  = hVStatus === "approved" && !hCategory;
+
+    const shouldFetchTrips      = isGuideApproved || isCompanyApproved || isLegacyVerified;
+    const shouldFetchHotels     = isCompanyApproved || isLegacyVerified;
+    const shouldFetchAdventures = hAdventure || isLegacyVerified;
 
     const [tripsRes, hotelsRes, adventuresRes, hotelsAdminRes, adventuresAdminRes] = await Promise.all([
-      shouldFetchTrips 
+      shouldFetchTrips
         ? supabase.from("trips").select("id,name,location,country,image_url,price,approval_status,is_hidden,type").eq("created_by", user!.id).range(range[0], range[1])
         : Promise.resolve({ data: [] }),
-      shouldFetchHotels 
+      shouldFetchHotels
         ? supabase.from("hotels").select("id,name,location,country,image_url,approval_status,is_hidden,created_by").eq("created_by", user!.id).range(range[0], range[1])
         : Promise.resolve({ data: [] }),
-      shouldFetchAdventures 
+      shouldFetchAdventures
         ? supabase.from("adventure_places").select("id,name,location,country,image_url,entry_fee,approval_status,is_hidden,created_by").eq("created_by", user!.id).range(range[0], range[1])
         : Promise.resolve({ data: [] }),
-      shouldFetchHotels && userEmail 
-        ? supabase.from("hotels").select("id,name,location,country,image_url,approval_status,is_hidden,created_by").contains("allowed_admin_emails", [userEmail]).range(range[0], range[1]) 
+      shouldFetchHotels && userEmail
+        ? supabase.from("hotels").select("id,name,location,country,image_url,approval_status,is_hidden,created_by").contains("allowed_admin_emails", [userEmail]).range(range[0], range[1])
         : Promise.resolve({ data: [] }),
-      shouldFetchAdventures && userEmail 
-        ? supabase.from("adventure_places").select("id,name,location,country,image_url,entry_fee,approval_status,is_hidden,created_by").contains("allowed_admin_emails", [userEmail]).range(range[0], range[1]) 
-        : Promise.resolve({ data: [] })
+      shouldFetchAdventures && userEmail
+        ? supabase.from("adventure_places").select("id,name,location,country,image_url,entry_fee,approval_status,is_hidden,created_by").contains("allowed_admin_emails", [userEmail]).range(range[0], range[1])
+        : Promise.resolve({ data: [] }),
     ]);
 
-    // Filter trips based on host type
     let filteredTrips = tripsRes.data || [];
-    if (!contentTypes.includes("trip") && contentTypes.includes("event")) {
-      // Only show events (type='event')
+    if (!shouldFetchTrips && (isGuideApproved || isCompanyApproved)) {
       filteredTrips = filteredTrips.filter((t: any) => t.type === "event");
     }
 
     const allContent = [
-      ...(filteredTrips.map((t: any) => ({ ...t, type: t.type === "event" ? "event" : "trip", isCreator: true })) || []),
+      ...(filteredTrips.map((t: any) => ({ ...t, type: t.type === "event" ? "event" : "trip", isCreator: true }))),
       ...(hotelsRes.data?.map((h: any) => ({ ...h, type: "hotel", isCreator: true })) || []),
       ...(adventuresRes.data?.map((a: any) => ({ ...a, type: "adventure", isCreator: true })) || []),
       ...(hotelsAdminRes.data?.filter((h: any) => h.created_by !== user!.id).map((h: any) => ({ ...h, type: "hotel", isCreator: false })) || []),
-      ...(adventuresAdminRes.data?.filter((a: any) => a.created_by !== user!.id).map((a: any) => ({ ...a, type: "adventure", isCreator: false })) || [])
+      ...(adventuresAdminRes.data?.filter((a: any) => a.created_by !== user!.id).map((a: any) => ({ ...a, type: "adventure", isCreator: false })) || []),
     ];
 
     if (listingsFetchOffset === 0) {
@@ -164,11 +162,14 @@ const MyListing = () => {
     } else {
       setMyContent(prev => [...prev, ...allContent]);
     }
-    
+
     setListingsOffset(listingsFetchOffset + ITEMS_PER_PAGE);
     setHasMoreListings(allContent.length >= ITEMS_PER_PAGE);
 
-    const allIds = listingsFetchOffset === 0 ? allContent.map(c => c.id) : [...myContent, ...allContent].map(c => c.id);
+    const allIds = listingsFetchOffset === 0
+      ? allContent.map(c => c.id)
+      : [...myContent, ...allContent].map(c => c.id);
+
     if (allIds.length > 0) {
       const { data } = await supabase
         .from("creator_booking_summary")
@@ -176,7 +177,7 @@ const MyListing = () => {
         .in("item_id", allIds)
         .order("created_at", { ascending: false })
         .range(bookingsFetchOffset, bookingsFetchOffset + ITEMS_PER_PAGE - 1);
-      
+
       if (bookingsFetchOffset === 0) {
         setBookings(data || []);
       } else {
@@ -185,7 +186,7 @@ const MyListing = () => {
       setBookingsOffset(bookingsFetchOffset + ITEMS_PER_PAGE);
       setHasMoreBookings((data || []).length >= ITEMS_PER_PAGE);
     }
-    
+
     setLoading(false);
     setLoadingMoreListings(false);
     setLoadingMoreBookings(false);
@@ -206,25 +207,26 @@ const MyListing = () => {
   };
 
   const getCategoryCount = (category: string) => myContent.filter(item => item.type === category).length;
-  const getBookingCount = (category: string) => bookings.filter(b => b.booking_type === category).length;
+  const getBookingCount  = (category: string) => bookings.filter(b => b.booking_type === category).length;
 
-  // Determine visible sections
-  const isGuideApproved = verificationStatus === "approved" && hostingCategory === "guide";
+  const isGuideApproved   = verificationStatus === "approved" && hostingCategory === "guide";
   const isCompanyApproved = hasCompany && companyStatus === "approved";
-  const isCampsite = hostingCategory === "campsite";
-  // Legacy verified users without hosting_category get full access
-  const isLegacyVerified = verificationStatus === "approved" && !hostingCategory;
+  const isLegacyVerified  = verificationStatus === "approved" && !hostingCategory;
 
-  const showTrips = isGuideApproved || isCompanyApproved || isLegacyVerified;
-  const showHotels = isCompanyApproved || isLegacyVerified;
-  const showAdventures = isCampsite || isLegacyVerified;
-  const showEvents = isGuideApproved || isCompanyApproved || isCampsite || isLegacyVerified;
+  const showTrips      = isGuideApproved || isCompanyApproved || isLegacyVerified;
+  const showHotels     = isCompanyApproved || isLegacyVerified;
+  const showAdventures = isAdventureHost || isLegacyVerified;
+  const showEvents     = isGuideApproved || isCompanyApproved || isAdventureHost || isLegacyVerified;
 
   const renderListings = (category: string) => {
     const items = myContent.filter(item => item.type === category);
-    
+
     if (items.length === 0) {
-      return <div className="p-8 text-center bg-white rounded-[28px] border border-dashed border-slate-200 text-slate-400 font-bold uppercase text-xs tracking-widest">No {category}s found</div>;
+      return (
+        <div className="p-8 text-center bg-white rounded-[28px] border border-dashed border-slate-200 text-slate-400 font-bold uppercase text-xs tracking-widest">
+          No {category}s found
+        </div>
+      );
     }
 
     return (
@@ -234,7 +236,7 @@ const MyListing = () => {
             <div className="flex flex-col md:flex-row gap-5">
               <div className="relative w-full md:w-40 h-32 shrink-0">
                 <img
-                  src={item.image_url || item.photo_urls?.[0] || 'https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&q=80'}
+                  src={item.image_url || item.photo_urls?.[0] || "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&q=80"}
                   alt={item.name}
                   className="w-full h-full object-cover rounded-2xl"
                 />
@@ -247,7 +249,7 @@ const MyListing = () => {
                 <div className="flex justify-between items-start">
                   <div>
                     <h3 className="font-black text-lg uppercase tracking-tight text-slate-800 leading-tight">
-                        {item.name || item.local_name || item.location_name}
+                      {item.name || item.local_name || item.location_name}
                     </h3>
                     <div className="flex items-center gap-1.5 mt-1 text-slate-400">
                       <MapPin className="h-3 w-3" />
@@ -256,42 +258,48 @@ const MyListing = () => {
                       </span>
                     </div>
                   </div>
-                  <div className="flex flex-col gap-2 items-end">
-                    <Badge 
-                      className="rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-widest border-none"
-                      style={{ 
-                        backgroundColor: item.approval_status === 'approved' ? `${COLORS.TEAL}20` : item.approval_status === 'pending' ? '#F0E68C' : '#FFEBEB',
-                        color: item.approval_status === 'approved' ? COLORS.TEAL : item.approval_status === 'pending' ? COLORS.KHAKI_DARK : COLORS.RED
-                      }}
-                    >
-                      {item.approval_status}
-                    </Badge>
-                  </div>
+                  <Badge
+                    className="rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-widest border-none"
+                    style={{
+                      backgroundColor:
+                        item.approval_status === "approved" ? `${COLORS.TEAL}20`
+                        : item.approval_status === "pending" ? "#F0E68C"
+                        : "#FFEBEB",
+                      color:
+                        item.approval_status === "approved" ? COLORS.TEAL
+                        : item.approval_status === "pending" ? COLORS.KHAKI_DARK
+                        : COLORS.RED,
+                    }}
+                  >
+                    {item.approval_status}
+                  </Badge>
                 </div>
-                
+
                 <div className="flex items-center justify-between pt-2 border-t border-slate-50">
-                   <div className="flex flex-col">
-                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Base Rate</span>
-                      <span className="text-sm font-black text-[#FF0000]">KSh {item.price || item.price_adult || item.entry_fee || 0}</span>
-                   </div>
-                   
-                   <div className="flex gap-2 flex-wrap">
+                  <div className="flex flex-col">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Base Rate</span>
+                    <span className="text-sm font-black text-[#FF0000]">
+                      KSh {item.price || item.price_adult || item.entry_fee || 0}
+                    </span>
+                  </div>
+
+                  <div className="flex gap-2 flex-wrap items-center">
                     {item.is_hidden && (
-                        <div className="flex items-center gap-1 bg-yellow-50 px-2 py-1 rounded-lg">
-                            <EyeOff className="h-3 w-3 text-yellow-600" />
-                            <span className="text-[8px] font-black text-yellow-700 uppercase">Hidden</span>
-                        </div>
+                      <div className="flex items-center gap-1 bg-yellow-50 px-2 py-1 rounded-lg">
+                        <EyeOff className="h-3 w-3 text-yellow-600" />
+                        <span className="text-[8px] font-black text-yellow-700 uppercase">Hidden</span>
+                      </div>
                     )}
                     <Button
-                        onClick={() => navigate(`/edit-listing/${item.type === 'event' ? 'trip' : item.type}/${item.id}`)}
-                        size="sm"
-                        className="h-9 px-4 rounded-xl font-black uppercase text-[10px] tracking-widest text-white transition-transform active:scale-95 shadow-lg shadow-teal-900/10 border-none"
-                        style={{ backgroundColor: COLORS.TEAL }}
+                      onClick={() => navigate(`/edit-listing/${item.type === "event" ? "trip" : item.type}/${item.id}`)}
+                      size="sm"
+                      className="h-9 px-4 rounded-xl font-black uppercase text-[10px] tracking-widest text-white transition-transform active:scale-95 shadow-lg shadow-teal-900/10 border-none"
+                      style={{ backgroundColor: COLORS.TEAL }}
                     >
-                        <Edit3 className="h-3 w-3 mr-2" />
-                        Edit
+                      <Edit3 className="h-3 w-3 mr-2" />
+                      Edit
                     </Button>
-                   </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -303,33 +311,52 @@ const MyListing = () => {
 
   const renderBookings = (category: string) => {
     const items = bookings.filter(b => b.booking_type === category);
-    
+
     if (items.length === 0) {
-      return <div className="p-8 text-center bg-white rounded-[28px] border border-dashed border-slate-200 text-slate-400 font-bold uppercase text-xs tracking-widest">No bookings yet</div>;
+      return (
+        <div className="p-8 text-center bg-white rounded-[28px] border border-dashed border-slate-200 text-slate-400 font-bold uppercase text-xs tracking-widest">
+          No bookings yet
+        </div>
+      );
     }
 
     return (
       <div className="grid gap-3">
         {items.map((booking) => (
-          <Card key={booking.id} className="p-5 bg-white rounded-2xl border border-slate-100 shadow-sm flex justify-between items-center group hover:border-[#FF7F50]/30 transition-colors">
+          <Card
+            key={booking.id}
+            className="p-5 bg-white rounded-2xl border border-slate-100 shadow-sm flex justify-between items-center hover:border-[#FF7F50]/30 transition-colors"
+          >
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <p className="font-black text-xs uppercase tracking-tighter text-slate-800">Booking #{booking.id.slice(0, 8)}</p>
-                <Badge variant="outline" className="text-[8px] font-black uppercase tracking-widest border-slate-200">{booking.status}</Badge>
+                <p className="font-black text-xs uppercase tracking-tighter text-slate-800">
+                  Booking #{booking.id.slice(0, 8)}
+                </p>
+                <Badge variant="outline" className="text-[8px] font-black uppercase tracking-widest border-slate-200">
+                  {booking.status}
+                </Badge>
               </div>
               <div className="flex items-center gap-3">
-                 <div className="flex items-center gap-1 text-slate-400">
-                    <Calendar className="h-3 w-3" />
-                    <span className="text-[10px] font-bold">{new Date(booking.created_at).toLocaleDateString()}</span>
-                 </div>
-                 <span className="text-[10px] font-black text-[#FF0000] uppercase tracking-widest">KSh {booking.total_amount}</span>
+                <div className="flex items-center gap-1 text-slate-400">
+                  <Calendar className="h-3 w-3" />
+                  <span className="text-[10px] font-bold">
+                    {new Date(booking.created_at).toLocaleDateString()}
+                  </span>
+                </div>
+                <span className="text-[10px] font-black text-[#FF0000] uppercase tracking-widest">
+                  KSh {booking.total_amount}
+                </span>
               </div>
             </div>
-            <div className="text-right">
-              <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-md ${booking.payment_status === 'paid' ? 'bg-green-50 text-green-600' : 'bg-orange-50 text-orange-600'}`}>
-                {booking.payment_status}
-              </span>
-            </div>
+            <span
+              className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-md ${
+                booking.payment_status === "paid"
+                  ? "bg-green-50 text-green-600"
+                  : "bg-orange-50 text-orange-600"
+              }`}
+            >
+              {booking.payment_status}
+            </span>
           </Card>
         ))}
       </div>
@@ -340,19 +367,16 @@ const MyListing = () => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F8F9FA]">
         <div className="relative">
-            <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2" style={{ borderColor: COLORS.TEAL }}></div>
-            <div className="absolute inset-0 flex items-center justify-center">
-                <div className="h-2 w-2 rounded-full bg-[#FF7F50] animate-pulse"></div>
-            </div>
+          <div
+            className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2"
+            style={{ borderColor: COLORS.TEAL }}
+          />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="h-2 w-2 rounded-full bg-[#FF7F50] animate-pulse" />
+          </div>
         </div>
       </div>
     );
-  }
-
-  // If user has no verification at all, redirect to become-host
-  if (!verificationStatus && !hasCompany) {
-    navigate("/become-host");
-    return null;
   }
 
   return (
@@ -360,65 +384,82 @@ const MyListing = () => {
       <Header />
       <main className="flex-1 container mx-auto px-4 py-8">
         <header className="mb-10">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate("/become-host")}
-              className="mb-3 rounded-lg text-[9px] font-bold uppercase tracking-widest px-3 h-7"
-            >
-              <ArrowLeft className="mr-1 h-3 w-3" /> Host Dashboard
-            </Button>
-            <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 rounded-xl bg-white shadow-sm">
-                    <LayoutDashboard className="h-5 w-5" style={{ color: COLORS.TEAL }} />
-                </div>
-                <p className="text-[10px] font-black text-[#FF7F50] uppercase tracking-[0.3em]">Management</p>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate("/become-host")}
+            className="mb-3 rounded-lg text-[9px] font-bold uppercase tracking-widest px-3 h-7"
+          >
+            <ArrowLeft className="mr-1 h-3 w-3" /> Host Dashboard
+          </Button>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2 rounded-xl bg-white shadow-sm">
+              <LayoutDashboard className="h-5 w-5" style={{ color: COLORS.TEAL }} />
             </div>
-            <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tighter leading-none text-slate-900">
-                My <span style={{ color: COLORS.TEAL }}>Listings</span>
-            </h1>
-            {hostingCategory && (
-              <Badge className="mt-3 rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-widest" style={{ backgroundColor: `${COLORS.TEAL}15`, color: COLORS.TEAL }}>
-                {hostingCategory === 'guide' ? '🗺️ Tour Guide' : hostingCategory === 'campsite' ? '⛺ Campsite Host' : '🏢 Company'}
+            <p className="text-[10px] font-black text-[#FF7F50] uppercase tracking-[0.3em]">Management</p>
+          </div>
+          <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tighter leading-none text-slate-900">
+            My <span style={{ color: COLORS.TEAL }}>Listings</span>
+          </h1>
+          <div className="flex flex-wrap gap-2 mt-3">
+            {isAdventureHost && (
+              <Badge
+                className="rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-widest"
+                style={{ backgroundColor: `${COLORS.TEAL}15`, color: COLORS.TEAL }}
+              >
+                ⛺ Adventure Host
               </Badge>
             )}
-            {hasCompany && companyStatus === 'approved' && !hostingCategory && (
-              <Badge className="mt-3 rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-widest" style={{ backgroundColor: `${COLORS.CORAL}15`, color: COLORS.CORAL }}>
+            {isGuideApproved && (
+              <Badge
+                className="rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-widest"
+                style={{ backgroundColor: `${COLORS.TEAL}15`, color: COLORS.TEAL }}
+              >
+                🗺️ Tour Guide
+              </Badge>
+            )}
+            {isCompanyApproved && (
+              <Badge
+                className="rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-widest"
+                style={{ backgroundColor: `${COLORS.CORAL}15`, color: COLORS.CORAL }}
+              >
                 🏢 Company Host
               </Badge>
             )}
+          </div>
         </header>
 
         <Tabs defaultValue="listings" className="w-full">
           <TabsList className="grid w-full grid-cols-2 h-14 p-1.5 bg-slate-200/50 rounded-2xl mb-8">
-            <TabsTrigger 
-                value="listings" 
-                className="rounded-xl font-black uppercase text-[11px] tracking-widest data-[state=active]:bg-white data-[state=active]:text-[#008080] data-[state=active]:shadow-sm transition-all"
+            <TabsTrigger
+              value="listings"
+              className="rounded-xl font-black uppercase text-[11px] tracking-widest data-[state=active]:bg-white data-[state=active]:text-[#008080] data-[state=active]:shadow-sm transition-all"
             >
-                <Star className="h-3.5 w-3.5 mr-2" />
-                Live Content
+              <Star className="h-3.5 w-3.5 mr-2" />
+              Live Content
             </TabsTrigger>
-            <TabsTrigger 
-                value="bookings" 
-                className="rounded-xl font-black uppercase text-[11px] tracking-widest data-[state=active]:bg-white data-[state=active]:text-[#FF7F50] data-[state=active]:shadow-sm transition-all"
+            <TabsTrigger
+              value="bookings"
+              className="rounded-xl font-black uppercase text-[11px] tracking-widest data-[state=active]:bg-white data-[state=active]:text-[#FF7F50] data-[state=active]:shadow-sm transition-all"
             >
-                <ReceiptText className="h-3.5 w-3.5 mr-2" />
-                Sales Feed
+              <ReceiptText className="h-3.5 w-3.5 mr-2" />
+              Sales Feed
             </TabsTrigger>
           </TabsList>
 
+          {/* ── Listings tab ── */}
           <TabsContent value="listings" className="space-y-12 animate-in fade-in slide-in-from-bottom-2 duration-500">
             {showTrips && (
               <section>
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-xl font-black uppercase tracking-tight" style={{ color: COLORS.TEAL }}>
-                    {isGuideApproved ? 'Guided Tours' : 'Fixed Trips'}
+                    {isGuideApproved ? "Guided Tours" : "Fixed Trips"}
                   </h2>
                   <div className="bg-white px-4 py-1 rounded-full shadow-sm border border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-500">
-                      {getCategoryCount('trip')} Total
+                    {getCategoryCount("trip")} Total
                   </div>
                 </div>
-                {renderListings('trip')}
+                {renderListings("trip")}
               </section>
             )}
 
@@ -427,10 +468,10 @@ const MyListing = () => {
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-xl font-black uppercase tracking-tight" style={{ color: COLORS.KHAKI_DARK }}>Events</h2>
                   <div className="bg-white px-4 py-1 rounded-full shadow-sm border border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-500">
-                      {getCategoryCount('event')} Total
+                    {getCategoryCount("event")} Total
                   </div>
                 </div>
-                {renderListings('event')}
+                {renderListings("event")}
               </section>
             )}
 
@@ -439,25 +480,25 @@ const MyListing = () => {
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-xl font-black uppercase tracking-tight" style={{ color: COLORS.TEAL }}>Hotels & Stays</h2>
                   <div className="bg-white px-4 py-1 rounded-full shadow-sm border border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-500">
-                      {getCategoryCount('hotel')} Total
+                    {getCategoryCount("hotel")} Total
                   </div>
                 </div>
-                {renderListings('hotel')}
+                {renderListings("hotel")}
               </section>
             )}
 
             {showAdventures && (
               <section>
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-black uppercase tracking-tight" style={{ color: COLORS.TEAL }}>Campsites</h2>
+                  <h2 className="text-xl font-black uppercase tracking-tight" style={{ color: COLORS.TEAL }}>Adventure Places</h2>
                   <div className="bg-white px-4 py-1 rounded-full shadow-sm border border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-500">
-                      {getCategoryCount('adventure')} Total
+                    {getCategoryCount("adventure")} Total
                   </div>
                 </div>
-                {renderListings('adventure')}
+                {renderListings("adventure")}
               </section>
             )}
-            
+
             {hasMoreListings && (
               <div className="flex justify-center mt-10">
                 <Button
@@ -466,62 +507,67 @@ const MyListing = () => {
                   className="rounded-2xl font-black uppercase text-[10px] tracking-widest h-12 px-8"
                   style={{ background: COLORS.TEAL }}
                 >
-                  {loadingMoreListings ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Loading...
-                    </>
-                  ) : (
-                    "Load More Listings"
-                  )}
+                  {loadingMoreListings
+                    ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Loading...</>
+                    : "Load More Listings"
+                  }
                 </Button>
               </div>
             )}
           </TabsContent>
 
+          {/* ── Bookings tab ── */}
           <TabsContent value="bookings" className="space-y-12 animate-in fade-in slide-in-from-bottom-2 duration-500">
             {showTrips && (
               <section>
-                  <div className="flex items-center justify-between mb-6">
-                      <h2 className="text-xl font-black uppercase tracking-tight" style={{ color: COLORS.CORAL }}>
-                        {isGuideApproved ? 'Tour Bookings' : 'Trip Bookings'}
-                      </h2>
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{getBookingCount('trip')} Received</span>
-                  </div>
-                  {renderBookings('trip')}
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-black uppercase tracking-tight" style={{ color: COLORS.CORAL }}>
+                    {isGuideApproved ? "Tour Bookings" : "Trip Bookings"}
+                  </h2>
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    {getBookingCount("trip")} Received
+                  </span>
+                </div>
+                {renderBookings("trip")}
               </section>
             )}
 
             {showEvents && (
               <section>
-                  <div className="flex items-center justify-between mb-6">
-                      <h2 className="text-xl font-black uppercase tracking-tight" style={{ color: COLORS.CORAL }}>Event Bookings</h2>
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{getBookingCount('event')} Received</span>
-                  </div>
-                  {renderBookings('event')}
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-black uppercase tracking-tight" style={{ color: COLORS.CORAL }}>Event Bookings</h2>
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    {getBookingCount("event")} Received
+                  </span>
+                </div>
+                {renderBookings("event")}
               </section>
             )}
 
             {showHotels && (
               <section>
-                  <div className="flex items-center justify-between mb-6">
-                      <h2 className="text-xl font-black uppercase tracking-tight" style={{ color: COLORS.CORAL }}>Stay Bookings</h2>
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{getBookingCount('hotel')} Received</span>
-                  </div>
-                  {renderBookings('hotel')}
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-black uppercase tracking-tight" style={{ color: COLORS.CORAL }}>Stay Bookings</h2>
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    {getBookingCount("hotel")} Received
+                  </span>
+                </div>
+                {renderBookings("hotel")}
               </section>
             )}
 
             {showAdventures && (
               <section>
-                  <div className="flex items-center justify-between mb-6">
-                      <h2 className="text-xl font-black uppercase tracking-tight" style={{ color: COLORS.CORAL }}>Campground Bookings</h2>
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{getBookingCount('adventure_place')} Received</span>
-                  </div>
-                  {renderBookings('adventure_place')}
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-black uppercase tracking-tight" style={{ color: COLORS.CORAL }}>Adventure Bookings</h2>
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    {getBookingCount("adventure_place")} Received
+                  </span>
+                </div>
+                {renderBookings("adventure_place")}
               </section>
             )}
-            
+
             {hasMoreBookings && (
               <div className="flex justify-center mt-10">
                 <Button
@@ -530,14 +576,10 @@ const MyListing = () => {
                   className="rounded-2xl font-black uppercase text-[10px] tracking-widest h-12 px-8"
                   style={{ background: COLORS.CORAL }}
                 >
-                  {loadingMoreBookings ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Loading...
-                    </>
-                  ) : (
-                    "Load More Bookings"
-                  )}
+                  {loadingMoreBookings
+                    ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Loading...</>
+                    : "Load More Bookings"
+                  }
                 </Button>
               </div>
             )}

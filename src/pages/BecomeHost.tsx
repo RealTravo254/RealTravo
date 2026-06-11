@@ -340,17 +340,17 @@ const BecomeHost = () => {
           .from("host_verifications")
           .select("status, hosting_category")
           .eq("user_id", user.id)
-          .single();
+          .maybeSingle();
 
         const { data: company } = await supabase
           .from("companies")
           .select("verification_status")
           .eq("user_id", user.id)
-          .single();
+          .maybeSingle();
 
         if (cancelled) return;
 
-        const hasV = verification && !verificationError;
+        const hasV = !!verification;
         const currentCategory = (verification?.hosting_category as HostingCategory) || null;
 
         setVerificationStatus(verification?.status || null);
@@ -358,7 +358,9 @@ const BecomeHost = () => {
         setHasCompany(!!company);
         setCompanyStatus(company?.verification_status || null);
 
-        // ── Adventure host path ────────────────────────────────────────────
+        // ── Adventure host path — always takes priority if category is set ──
+        // This fires even when status is "pending" or "rejected" so the user
+        // never lands on the type-selection screen after submitting an adventure.
         if (currentCategory === "adventure") {
           let place: any = null;
 

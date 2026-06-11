@@ -41,6 +41,10 @@ const generateFriendlySlug = (name: string): string => {
 };
 const safeObjectUrl = (file: File): string => { try { return URL.createObjectURL(file); } catch { return ""; } };
 
+// ─── Image-only validation ────────────────────────────────────────────────────
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"];
+const isImageFile = (file: File) => ALLOWED_IMAGE_TYPES.includes(file.type) || file.type.startsWith("image/");
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface FacilityItem {
   id: string; name: string; amenities: string[]; amenityInput: string;
@@ -142,6 +146,7 @@ const ImageGalleryGrid = ({
         <label key={i} className={`aspect-square rounded-xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all hover:bg-slate-100 ${isInvalid ? "border-red-300 bg-red-50" : "border-slate-200 hover:border-slate-300"}`}>
           <Camera className={`h-5 w-5 mb-1 ${isInvalid ? "text-red-400" : "text-slate-300"}`} />
           <span className={`text-[9px] font-bold uppercase ${isInvalid ? "text-red-400" : "text-slate-300"}`}>{i === 0 ? "Cover" : `#${i + 1}`}</span>
+          {/* Images only — no PDF, no video */}
           <input type="file" multiple className="hidden" accept="image/*" onChange={(e) => onAdd(e.target.files)} />
         </label>
       );
@@ -150,88 +155,118 @@ const ImageGalleryGrid = ({
 );
 
 // ─── TRA Licence Upload ───────────────────────────────────────────────────────
+// Images only (JPG / PNG / WEBP). PDF and video are rejected with a clear message.
 const TraLicenceUpload = ({
-  file, preview, onAdd, onRemove, isInvalid,
+  file, preview, onAdd, onRemove, onReject, isInvalid,
 }: {
-  file: File | null; preview: string; onAdd: (f: File) => void; onRemove: () => void; isInvalid?: boolean;
-}) => (
-  <div className="mt-6 pt-6 border-t border-slate-100">
-    <div className="flex items-center gap-3 mb-4">
-      <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: "linear-gradient(135deg,#008080,#005f5f)" }}>
-        <ShieldCheck className="h-4.5 w-4.5 text-white h-[18px] w-[18px]" />
-      </div>
-      <div>
-        <p className="text-sm font-black text-slate-800 tracking-tight">TRA Licence</p>
-        <p className="text-[11px] text-slate-400 mt-0.5">Upload a clear photo or scan of your Tax Registration Authority licence</p>
-      </div>
-      <span className="ml-auto shrink-0 text-[10px] font-bold uppercase tracking-widest bg-amber-50 text-amber-600 border border-amber-200 px-2.5 py-1 rounded-full">Required</span>
-    </div>
+  file: File | null;
+  preview: string;
+  onAdd: (f: File) => void;
+  onRemove: () => void;
+  /** Called when the user picks a non-image file so the parent can toast */
+  onReject: (reason: string) => void;
+  isInvalid?: boolean;
+}) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = e.target.files?.[0];
+    if (!picked) return;
+    // Reset input so the same file can be re-selected after removal
+    e.target.value = "";
+    if (!isImageFile(picked)) {
+      onReject(
+        picked.type.startsWith("video/")
+          ? "Videos are not supported. Please upload a JPG or PNG image of your TRA licence."
+          : picked.type === "application/pdf"
+          ? "PDFs are not supported. Please upload a JPG or PNG photo of your TRA licence."
+          : "Only JPG and PNG images are accepted for the TRA licence."
+      );
+      return;
+    }
+    onAdd(picked);
+  };
 
-    {preview ? (
-      <div className={`relative rounded-2xl overflow-hidden border-2 transition-all ${isInvalid ? "border-red-300" : "border-teal-200"}`} style={{ background: "linear-gradient(135deg,#f0fdfa,#e6fffa)" }}>
-        <div className="flex items-center gap-4 p-4">
-          <div className="relative shrink-0 w-20 h-20 rounded-xl overflow-hidden border border-teal-200 shadow-md">
-            <img src={preview} alt="TRA Licence" className="w-full h-full object-cover" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <CheckCircle2 className="h-4 w-4 text-teal-600 shrink-0" />
-              <span className="text-sm font-black text-teal-700">Licence Uploaded</span>
+  return (
+    <div className="mt-6 pt-6 border-t border-slate-100">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: "linear-gradient(135deg,#008080,#005f5f)" }}>
+          <ShieldCheck className="h-[18px] w-[18px] text-white" />
+        </div>
+        <div>
+          <p className="text-sm font-black text-slate-800 tracking-tight">TRA Licence</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">Upload a clear photo of your Tax Registration Authority licence</p>
+        </div>
+        <span className="ml-auto shrink-0 text-[10px] font-bold uppercase tracking-widest bg-amber-50 text-amber-600 border border-amber-200 px-2.5 py-1 rounded-full">Required</span>
+      </div>
+
+      {preview ? (
+        <div className={`relative rounded-2xl overflow-hidden border-2 transition-all ${isInvalid ? "border-red-300" : "border-teal-200"}`} style={{ background: "linear-gradient(135deg,#f0fdfa,#e6fffa)" }}>
+          <div className="flex items-center gap-4 p-4">
+            <div className="relative shrink-0 w-20 h-20 rounded-xl overflow-hidden border border-teal-200 shadow-md">
+              <img src={preview} alt="TRA Licence" className="w-full h-full object-cover" />
             </div>
-            <p className="text-[11px] text-teal-600 truncate font-medium">{file?.name}</p>
-            <p className="text-[10px] text-slate-400 mt-0.5">{file ? `${(file.size / 1024).toFixed(0)} KB` : ""}</p>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <CheckCircle2 className="h-4 w-4 text-teal-600 shrink-0" />
+                <span className="text-sm font-black text-teal-700">Licence Uploaded</span>
+              </div>
+              <p className="text-[11px] text-teal-600 truncate font-medium">{file?.name}</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">{file ? `${(file.size / 1024).toFixed(0)} KB` : ""}</p>
+            </div>
+            <div className="flex flex-col gap-2 shrink-0">
+              <label className="flex items-center gap-1.5 text-[11px] font-bold text-teal-700 border border-teal-300 bg-white rounded-lg px-3 py-1.5 cursor-pointer hover:bg-teal-50 transition-colors">
+                <Upload className="h-3 w-3" /> Replace
+                {/* Images only */}
+                <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
+              </label>
+              <button type="button" onClick={onRemove} className="flex items-center gap-1.5 text-[11px] font-bold text-red-500 border border-red-200 bg-white rounded-lg px-3 py-1.5 hover:bg-red-50 transition-colors">
+                <X className="h-3 w-3" /> Remove
+              </button>
+            </div>
           </div>
-          <div className="flex flex-col gap-2 shrink-0">
-            <label className="flex items-center gap-1.5 text-[11px] font-bold text-teal-700 border border-teal-300 bg-white rounded-lg px-3 py-1.5 cursor-pointer hover:bg-teal-50 transition-colors">
-              <Upload className="h-3 w-3" /> Replace
-              <input type="file" className="hidden" accept="image/*,application/pdf" onChange={(e) => { if (e.target.files?.[0]) onAdd(e.target.files[0]); }} />
-            </label>
-            <button type="button" onClick={onRemove} className="flex items-center gap-1.5 text-[11px] font-bold text-red-500 border border-red-200 bg-white rounded-lg px-3 py-1.5 hover:bg-red-50 transition-colors">
-              <X className="h-3 w-3" /> Remove
-            </button>
-          </div>
+          <div className="h-1 w-full" style={{ background: "linear-gradient(90deg,#008080,#00b3b3)" }} />
         </div>
-        <div className="h-1 w-full" style={{ background: "linear-gradient(90deg,#008080,#00b3b3)" }} />
-      </div>
-    ) : (
-      <label className={cn(
-        "flex flex-col items-center justify-center gap-3 w-full rounded-2xl border-2 border-dashed cursor-pointer transition-all py-10 px-6 group",
-        isInvalid
-          ? "border-red-300 bg-red-50/40 hover:bg-red-50"
-          : "border-slate-200 bg-slate-50/50 hover:border-teal-400 hover:bg-teal-50/30"
-      )}>
-        <div className={cn(
-          "w-14 h-14 rounded-2xl flex items-center justify-center transition-all",
-          isInvalid ? "bg-red-100" : "bg-slate-100 group-hover:bg-teal-100"
-        )}>
-          <FileImage className={cn("h-6 w-6 transition-colors", isInvalid ? "text-red-400" : "text-slate-400 group-hover:text-teal-600")} />
-        </div>
-        <div className="text-center">
-          <p className={cn("text-sm font-bold mb-0.5", isInvalid ? "text-red-500" : "text-slate-600 group-hover:text-teal-700")}>
-            {isInvalid ? "TRA Licence is required" : "Upload TRA Licence"}
-          </p>
-          <p className="text-[11px] text-slate-400">JPG, PNG or PDF · Max 5 MB</p>
-        </div>
-        <div className={cn(
-          "flex items-center gap-2 px-5 py-2.5 rounded-xl text-[12px] font-bold transition-all",
+      ) : (
+        <label className={cn(
+          "flex flex-col items-center justify-center gap-3 w-full rounded-2xl border-2 border-dashed cursor-pointer transition-all py-10 px-6 group",
           isInvalid
-            ? "bg-red-500 text-white"
-            : "bg-[#008080] text-white group-hover:bg-[#005f5f]"
+            ? "border-red-300 bg-red-50/40 hover:bg-red-50"
+            : "border-slate-200 bg-slate-50/50 hover:border-teal-400 hover:bg-teal-50/30"
         )}>
-          <Upload className="h-3.5 w-3.5" /> Choose File
-        </div>
-        <input type="file" className="hidden" accept="image/*,application/pdf" onChange={(e) => { if (e.target.files?.[0]) onAdd(e.target.files[0]); }} />
-      </label>
-    )}
+          <div className={cn(
+            "w-14 h-14 rounded-2xl flex items-center justify-center transition-all",
+            isInvalid ? "bg-red-100" : "bg-slate-100 group-hover:bg-teal-100"
+          )}>
+            <FileImage className={cn("h-6 w-6 transition-colors", isInvalid ? "text-red-400" : "text-slate-400 group-hover:text-teal-600")} />
+          </div>
+          <div className="text-center">
+            <p className={cn("text-sm font-bold mb-0.5", isInvalid ? "text-red-500" : "text-slate-600 group-hover:text-teal-700")}>
+              {isInvalid ? "TRA Licence is required" : "Upload TRA Licence"}
+            </p>
+            {/* PDF removed — images only */}
+            <p className="text-[11px] text-slate-400">JPG or PNG only · Max 5 MB</p>
+          </div>
+          <div className={cn(
+            "flex items-center gap-2 px-5 py-2.5 rounded-xl text-[12px] font-bold transition-all",
+            isInvalid
+              ? "bg-red-500 text-white"
+              : "bg-[#008080] text-white group-hover:bg-[#005f5f]"
+          )}>
+            <Upload className="h-3.5 w-3.5" /> Choose Image
+          </div>
+          {/* Images only — accept attribute and runtime validation both enforce this */}
+          <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
+        </label>
+      )}
 
-    <div className="mt-3 flex items-start gap-2 px-1">
-      <Info className="h-3.5 w-3.5 text-slate-400 mt-0.5 shrink-0" />
-      <p className="text-[10px] text-slate-400 leading-relaxed">
-        Your TRA licence is used for identity verification only and will not be publicly visible. Accepted formats: JPG, PNG, PDF.
-      </p>
+      <div className="mt-3 flex items-start gap-2 px-1">
+        <Info className="h-3.5 w-3.5 text-slate-400 mt-0.5 shrink-0" />
+        <p className="text-[10px] text-slate-400 leading-relaxed">
+          Only JPG and PNG images are accepted. PDFs and videos are not supported. Your licence is used for identity verification only and will not be publicly visible.
+        </p>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 // ─── Amenity Tag Input ────────────────────────────────────────────────────────
 const AmenityTagInput = ({ tags, input, onInputChange, onAdd, onRemove, hasError }: {
@@ -277,15 +312,24 @@ const FacilityBuilder = ({ items, onChange, showErrors, onValidationFail }: {
     update(item.id, { amenities: [...item.amenities, val], amenityInput: "" });
   };
   const removeAmenityTag = (item: FacilityItem, idx: number) => update(item.id, { amenities: item.amenities.filter((_, i) => i !== idx) });
+
   const handleImages = async (id: string, fileList: FileList | null, existing: File[]) => {
     if (!fileList || fileList.length === 0) return;
-    const slots = 5 - existing.length; if (slots <= 0) return;
+    const slots = 5 - existing.length;
+    if (slots <= 0) return;
     const incoming = Array.from(fileList).slice(0, slots);
+    // Reject non-image files
+    const rejected = incoming.filter((f) => !isImageFile(f));
+    if (rejected.length > 0) {
+      onValidationFail("Only image files (JPG, PNG) are accepted. PDFs and videos are not supported.");
+      return;
+    }
     let merged: File[];
     try { const compressed = await compressImages(incoming); merged = [...existing, ...compressed.map((c) => c.file)].slice(0, 5); }
     catch { merged = [...existing, ...incoming].slice(0, 5); }
     update(id, { images: merged, previewUrls: merged.map(safeObjectUrl) });
   };
+
   const removeImage = (id: string, idx: number, existing: File[]) => {
     const updated = existing.filter((_, i) => i !== idx);
     update(id, { images: updated, previewUrls: updated.map(safeObjectUrl) });
@@ -388,6 +432,12 @@ const ActivityBuilder = ({ items, onChange, showErrors, onValidationFail }: {
     const slots = 5 - existing.length;
     if (slots <= 0) return;
     const incoming = Array.from(fileList).slice(0, slots);
+    // Reject non-image files
+    const rejected = incoming.filter((f) => !isImageFile(f));
+    if (rejected.length > 0) {
+      onValidationFail("Only image files (JPG, PNG) are accepted. PDFs and videos are not supported.");
+      return;
+    }
     let merged: File[];
     try { const compressed = await compressImages(incoming); merged = [...existing, ...compressed.map((c) => c.file)].slice(0, 5); }
     catch { merged = [...existing, ...incoming].slice(0, 5); }
@@ -514,7 +564,7 @@ const ActivityBuilder = ({ items, onChange, showErrors, onValidationFail }: {
                       )}>
                         {showErrors && item.images.length === 0 ? "At least 1 photo is required" : "Upload Activity Photos"}
                       </p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">1 to 5 images · JPG or PNG</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">JPG or PNG · 1 to 5 images</p>
                     </div>
                     <input type="file" multiple className="hidden" accept="image/*" onChange={(e) => handleImages(item.id, e.target.files, item.images)} />
                   </label>
@@ -639,6 +689,7 @@ const CreateAdventure = () => {
     });
   }, [user, navigate, toast]);
 
+  // ── TRA Licence handlers ────────────────────────────────────────────────────
   const handleTraLicenceAdd = (file: File) => {
     setTraLicenceFile(file);
     setTraLicencePreview(safeObjectUrl(file));
@@ -646,6 +697,10 @@ const CreateAdventure = () => {
   const handleTraLicenceRemove = () => {
     setTraLicenceFile(null);
     setTraLicencePreview("");
+  };
+  // Called by TraLicenceUpload when a non-image file is selected
+  const handleTraLicenceReject = (reason: string) => {
+    toast({ title: "File type not supported", description: reason, variant: "destructive" });
   };
 
   const isStep1Complete = !!formData.registrationName.trim() && !!formData.registrationNumber.trim() && !!formData.country && !!traLicenceFile;
@@ -680,7 +735,7 @@ const CreateAdventure = () => {
       }
       if (!traLicenceFile) {
         setShowErrors(true);
-        toast({ title: "TRA Licence Required", description: "Please upload your TRA licence to continue", variant: "destructive" });
+        toast({ title: "TRA Licence Required", description: "Please upload a JPG or PNG photo of your TRA licence to continue.", variant: "destructive" });
         return false;
       }
     } else if (currentStep === 2) {
@@ -759,6 +814,16 @@ const CreateAdventure = () => {
     const slots = 5 - galleryImages.length;
     if (slots <= 0) return;
     const incoming = Array.from(files).slice(0, slots);
+    // Reject non-image files
+    const rejected = incoming.filter((f) => !isImageFile(f));
+    if (rejected.length > 0) {
+      toast({
+        title: "File type not supported",
+        description: "Only JPG and PNG images are accepted. PDFs and videos are not supported.",
+        variant: "destructive",
+      });
+      return;
+    }
     let merged: File[];
     try { const compressed = await compressImages(incoming); merged = [...galleryImages, ...compressed.map((c) => c.file)].slice(0, 5); }
     catch { merged = [...galleryImages, ...incoming].slice(0, 5); }
@@ -800,7 +865,6 @@ const CreateAdventure = () => {
     try {
       const friendlySlug = generateFriendlySlug(formData.registrationName);
 
-      // Upload TRA licence
       const traLicenceUrl = traLicenceFile ? await uploadFile(traLicenceFile, "tra-licence") : "";
 
       const galleryUrls = await Promise.all(galleryImages.map((f) => uploadFile(f, "gallery")));
@@ -822,7 +886,6 @@ const CreateAdventure = () => {
       );
       const selectedDays = Object.entries(workingDays).filter(([, v]) => v).map(([k]) => k);
 
-      // ── Insert the adventure place ────────────────────────────────────────
       const { error } = await supabase.from("adventure_places").insert([{
         id: friendlySlug, slug: friendlySlug, name: formData.registrationName,
         registration_number: formData.registrationNumber,
@@ -841,19 +904,12 @@ const CreateAdventure = () => {
         child_entry_fee: formData.entranceFeeType === "paid" ? parseFloat(formData.childPrice) || 0 : 0,
         amenities: generalFacilities, facilities: facilitiesForDB, activities: activitiesForDB,
         created_by: user.id,
-        approval_status: "pending", // ✅ Always pending — requires admin approval
+        approval_status: "pending",
       }]);
       if (error) throw error;
 
-      // ── Mark this user as an adventure host so BecomeHost shows the
-      //    pending card immediately after redirect. Status is "pending"
-      //    so the host dashboard reflects awaiting-review state correctly.
       await supabase.from("host_verifications").upsert(
-        {
-          user_id: user.id,
-          hosting_category: "adventure",
-          status: "pending", // ✅ Changed from "approved" — admin must review
-        },
+        { user_id: user.id, hosting_category: "adventure", status: "pending" },
         { onConflict: "user_id" }
       );
 
@@ -951,6 +1007,7 @@ const CreateAdventure = () => {
                     preview={traLicencePreview}
                     onAdd={handleTraLicenceAdd}
                     onRemove={handleTraLicenceRemove}
+                    onReject={handleTraLicenceReject}
                     isInvalid={showErrors && !traLicenceFile}
                   />
                 </div>
@@ -1107,7 +1164,7 @@ const CreateAdventure = () => {
                   </div>
                 )}
                 <ImageGalleryGrid images={galleryImages} previews={galleryPreviews} onRemove={removeGalleryImage} onAdd={handleGalleryUpload} isInvalid={showErrors && galleryImages.length < 5} slots={5} />
-                <p className="text-[10px] text-slate-400 mt-3 font-medium">First photo becomes your cover image. Use landscape photos for best results.</p>
+                <p className="text-[10px] text-slate-400 mt-3 font-medium">JPG or PNG only. First photo becomes your cover image. Use landscape photos for best results.</p>
               </SectionCard>
             )}
 

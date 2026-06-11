@@ -117,7 +117,7 @@ export const NotificationBell = () => {
     setUnreadCount(data?.filter((n) => !n.is_read).length ?? 0);
   }, [user]);
 
-  // ── Realtime Setup with Cleanup to prevent duplication ───────────────────
+  // ── Realtime Setup with Explicit Sequence ───────────────────────────
   useEffect(() => {
     if (!user) return;
     
@@ -128,6 +128,7 @@ export const NotificationBell = () => {
     const channelId = `bell-notif-${user.id}`;
     const channel = supabase.channel(channelId);
 
+    // 1. Attach 'postgres_changes' event listeners FIRST
     channel
       .on("postgres_changes", {
         event: "INSERT", 
@@ -149,10 +150,12 @@ export const NotificationBell = () => {
         schema: "public", 
         table: "notifications",
         filter: `user_id=eq.${user.id}`,
-      }, fetchNotifications)
-      .subscribe();
+      }, fetchNotifications);
 
-    // REMOVES the active channel channel instantly when dependencies change or components unmount
+    // 2. Trigger active subscription LAST
+    channel.subscribe();
+
+    // Clean up channel instantly when dependencies change or components unmount
     return () => { 
       supabase.removeChannel(channel); 
     };

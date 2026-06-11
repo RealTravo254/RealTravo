@@ -127,6 +127,8 @@ const ListingCardComponent = ({
     return type.replace('_', ' ');
   }, [isEventOrSport, type, isGuidedTour]);
 
+  const showCategoryBadge = type !== "ADVENTURE PLACE";
+
   const formattedName = useMemo(() => name.toLowerCase().replace(/\b\w/g, c => c.toUpperCase()), [name]);
   const locationString = useMemo(() => [place, location].filter(Boolean).join(', '), [place, location]);
 
@@ -236,15 +238,17 @@ const ListingCardComponent = ({
 
         {/* Category badge on image */}
         <div className="absolute top-2 left-2 z-20 flex items-center gap-1.5">
-          <span
-            className={cn(
-              "text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md shadow-sm backdrop-blur-sm",
-              !categoryColor && "text-primary-foreground bg-primary/90"
-            )}
-            style={categoryColor ? { color: '#fff', backgroundColor: `${categoryColor}dd` } : undefined}
-          >
-            {displayType}
-          </span>
+          {showCategoryBadge && (
+            <span
+              className={cn(
+                "text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md shadow-sm backdrop-blur-sm",
+                !categoryColor && "text-primary-foreground bg-primary/90"
+              )}
+              style={categoryColor ? { color: '#fff', backgroundColor: `${categoryColor}dd` } : undefined}
+            >
+              {displayType}
+            </span>
+          )}
           {urgencyBadge && (
             <span className={cn("text-[8px] font-bold px-1.5 py-0.5 rounded-full border backdrop-blur-sm", urgencyBadge.color)}>
               {urgencyBadge.text}

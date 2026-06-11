@@ -477,6 +477,12 @@ const InlineFacilitiesGrid = ({ facilities, accentColor }: { facilities: any[]; 
     setModalStart(startIdx);
   };
 
+  const facilityAmenityLabel = (amenity: any) => {
+    if (!amenity) return "";
+    const key = typeof amenity === "string" ? amenity : amenity.name || String(amenity);
+    return facilityLabel(key);
+  };
+
   const openSectionGallery = () => {
     if (allFacilityImages.length > 0) {
       setModalImages(allFacilityImages);
@@ -567,13 +573,13 @@ const InlineFacilitiesGrid = ({ facilities, accentColor }: { facilities: any[]; 
                   )}
                   {Array.isArray(fac.amenities) && fac.amenities.length > 0 && (
                     <div className="flex flex-wrap gap-0.5 mt-1">
-                      {fac.amenities.slice(0, 3).map((a: string, ai: number) => (
+                      {fac.amenities.slice(0, 3).map((a: any, ai: number) => (
                         <span
                           key={ai}
                           className="text-[8px] font-bold uppercase px-1.5 py-0.5 rounded"
                           style={{ background: `${accentColor}12`, color: accentColor }}
                         >
-                          {a}
+                          {facilityAmenityLabel(a)}
                         </span>
                       ))}
                     </div>

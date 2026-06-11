@@ -146,7 +146,6 @@ const ImageGalleryGrid = ({
         <label key={i} className={`aspect-square rounded-xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all hover:bg-slate-100 ${isInvalid ? "border-red-300 bg-red-50" : "border-slate-200 hover:border-slate-300"}`}>
           <Camera className={`h-5 w-5 mb-1 ${isInvalid ? "text-red-400" : "text-slate-300"}`} />
           <span className={`text-[9px] font-bold uppercase ${isInvalid ? "text-red-400" : "text-slate-300"}`}>{i === 0 ? "Cover" : `#${i + 1}`}</span>
-          {/* Images only — no PDF, no video */}
           <input type="file" multiple className="hidden" accept="image/*" onChange={(e) => onAdd(e.target.files)} />
         </label>
       );
@@ -155,22 +154,15 @@ const ImageGalleryGrid = ({
 );
 
 // ─── TRA Licence Upload ───────────────────────────────────────────────────────
-// Images only (JPG / PNG / WEBP). PDF and video are rejected with a clear message.
 const TraLicenceUpload = ({
   file, preview, onAdd, onRemove, onReject, isInvalid,
 }: {
-  file: File | null;
-  preview: string;
-  onAdd: (f: File) => void;
-  onRemove: () => void;
-  /** Called when the user picks a non-image file so the parent can toast */
-  onReject: (reason: string) => void;
-  isInvalid?: boolean;
+  file: File | null; preview: string; onAdd: (f: File) => void; onRemove: () => void;
+  onReject: (reason: string) => void; isInvalid?: boolean;
 }) => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const picked = e.target.files?.[0];
     if (!picked) return;
-    // Reset input so the same file can be re-selected after removal
     e.target.value = "";
     if (!isImageFile(picked)) {
       onReject(
@@ -215,7 +207,6 @@ const TraLicenceUpload = ({
             <div className="flex flex-col gap-2 shrink-0">
               <label className="flex items-center gap-1.5 text-[11px] font-bold text-teal-700 border border-teal-300 bg-white rounded-lg px-3 py-1.5 cursor-pointer hover:bg-teal-50 transition-colors">
                 <Upload className="h-3 w-3" /> Replace
-                {/* Images only */}
                 <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
               </label>
               <button type="button" onClick={onRemove} className="flex items-center gap-1.5 text-[11px] font-bold text-red-500 border border-red-200 bg-white rounded-lg px-3 py-1.5 hover:bg-red-50 transition-colors">
@@ -232,28 +223,18 @@ const TraLicenceUpload = ({
             ? "border-red-300 bg-red-50/40 hover:bg-red-50"
             : "border-slate-200 bg-slate-50/50 hover:border-teal-400 hover:bg-teal-50/30"
         )}>
-          <div className={cn(
-            "w-14 h-14 rounded-2xl flex items-center justify-center transition-all",
-            isInvalid ? "bg-red-100" : "bg-slate-100 group-hover:bg-teal-100"
-          )}>
+          <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center transition-all", isInvalid ? "bg-red-100" : "bg-slate-100 group-hover:bg-teal-100")}>
             <FileImage className={cn("h-6 w-6 transition-colors", isInvalid ? "text-red-400" : "text-slate-400 group-hover:text-teal-600")} />
           </div>
           <div className="text-center">
             <p className={cn("text-sm font-bold mb-0.5", isInvalid ? "text-red-500" : "text-slate-600 group-hover:text-teal-700")}>
               {isInvalid ? "TRA Licence is required" : "Upload TRA Licence"}
             </p>
-            {/* PDF removed — images only */}
             <p className="text-[11px] text-slate-400">JPG or PNG only · Max 5 MB</p>
           </div>
-          <div className={cn(
-            "flex items-center gap-2 px-5 py-2.5 rounded-xl text-[12px] font-bold transition-all",
-            isInvalid
-              ? "bg-red-500 text-white"
-              : "bg-[#008080] text-white group-hover:bg-[#005f5f]"
-          )}>
+          <div className={cn("flex items-center gap-2 px-5 py-2.5 rounded-xl text-[12px] font-bold transition-all", isInvalid ? "bg-red-500 text-white" : "bg-[#008080] text-white group-hover:bg-[#005f5f]")}>
             <Upload className="h-3.5 w-3.5" /> Choose Image
           </div>
-          {/* Images only — accept attribute and runtime validation both enforce this */}
           <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
         </label>
       )}
@@ -318,12 +299,8 @@ const FacilityBuilder = ({ items, onChange, showErrors, onValidationFail }: {
     const slots = 5 - existing.length;
     if (slots <= 0) return;
     const incoming = Array.from(fileList).slice(0, slots);
-    // Reject non-image files
     const rejected = incoming.filter((f) => !isImageFile(f));
-    if (rejected.length > 0) {
-      onValidationFail("Only image files (JPG, PNG) are accepted. PDFs and videos are not supported.");
-      return;
-    }
+    if (rejected.length > 0) { onValidationFail("Only image files (JPG, PNG) are accepted."); return; }
     let merged: File[];
     try { const compressed = await compressImages(incoming); merged = [...existing, ...compressed.map((c) => c.file)].slice(0, 5); }
     catch { merged = [...existing, ...incoming].slice(0, 5); }
@@ -334,6 +311,7 @@ const FacilityBuilder = ({ items, onChange, showErrors, onValidationFail }: {
     const updated = existing.filter((_, i) => i !== idx);
     update(id, { images: updated, previewUrls: updated.map(safeObjectUrl) });
   };
+
   const saveItem = (f: FacilityItem) => {
     if (!f.name.trim()) { onValidationFail("Please enter a facility name."); return; }
     if (f.amenities.length === 0) { onValidationFail("Please add at least one amenity."); return; }
@@ -432,12 +410,8 @@ const ActivityBuilder = ({ items, onChange, showErrors, onValidationFail }: {
     const slots = 5 - existing.length;
     if (slots <= 0) return;
     const incoming = Array.from(fileList).slice(0, slots);
-    // Reject non-image files
     const rejected = incoming.filter((f) => !isImageFile(f));
-    if (rejected.length > 0) {
-      onValidationFail("Only image files (JPG, PNG) are accepted. PDFs and videos are not supported.");
-      return;
-    }
+    if (rejected.length > 0) { onValidationFail("Only image files (JPG, PNG) are accepted."); return; }
     let merged: File[];
     try { const compressed = await compressImages(incoming); merged = [...existing, ...compressed.map((c) => c.file)].slice(0, 5); }
     catch { merged = [...existing, ...incoming].slice(0, 5); }
@@ -464,14 +438,8 @@ const ActivityBuilder = ({ items, onChange, showErrors, onValidationFail }: {
             <div className="p-4 flex items-center gap-4">
               <div className="flex gap-2 shrink-0">
                 {item.previewUrls.length > 0
-                  ? item.previewUrls.slice(0, 3).map((url, i) =>
-                      url ? <img key={i} src={url} className="w-12 h-12 rounded-xl object-cover border border-slate-200" alt="" /> : null
-                    )
-                  : (
-                    <div className="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center">
-                      <Camera className="h-5 w-5 text-slate-300" />
-                    </div>
-                  )
+                  ? item.previewUrls.slice(0, 3).map((url, i) => url ? <img key={i} src={url} className="w-12 h-12 rounded-xl object-cover border border-slate-200" alt="" /> : null)
+                  : <div className="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center"><Camera className="h-5 w-5 text-slate-300" /></div>
                 }
                 {item.previewUrls.length > 3 && (
                   <div className="w-12 h-12 rounded-xl bg-indigo-100 border border-indigo-200 flex items-center justify-center text-xs font-bold text-indigo-500">+{item.previewUrls.length - 3}</div>
@@ -500,31 +468,23 @@ const ActivityBuilder = ({ items, onChange, showErrors, onValidationFail }: {
                   {item.price && parseFloat(item.price) > 0 && <p className="text-[9px] text-blue-500 font-semibold mt-0.5">{usdHint(parseFloat(item.price))}</p>}
                 </div>
               </div>
-
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <FieldLabel required>
                     Photos (min 1, max 5)
-                    {showErrors && item.images.length === 0 && (
-                      <span className="text-red-400 text-[10px] normal-case font-normal"> — at least 1 required</span>
-                    )}
+                    {showErrors && item.images.length === 0 && <span className="text-red-400 text-[10px] normal-case font-normal"> — at least 1 required</span>}
                   </FieldLabel>
                   {item.images.length > 0 && (
-                    <span className="text-[10px] font-bold text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
-                      {item.images.length}/5 uploaded
-                    </span>
+                    <span className="text-[10px] font-bold text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">{item.images.length}/5 uploaded</span>
                   )}
                 </div>
-
                 {item.previewUrls.length > 0 && (
                   <div className="flex flex-wrap gap-2 mb-3">
                     {item.previewUrls.map((url, i) => (
                       <div key={i} className="relative group w-16 h-16 rounded-xl overflow-hidden border border-slate-200 shadow-sm">
                         <img src={url} className="w-full h-full object-cover" alt={`Activity ${i + 1}`} />
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
-                          <button type="button" onClick={() => removeImage(item.id, i, item.images)} className="opacity-0 group-hover:opacity-100 bg-red-500 text-white rounded-full p-1 transition-all scale-75 group-hover:scale-100">
-                            <X className="h-2.5 w-2.5" />
-                          </button>
+                          <button type="button" onClick={() => removeImage(item.id, i, item.images)} className="opacity-0 group-hover:opacity-100 bg-red-500 text-white rounded-full p-1 transition-all scale-75 group-hover:scale-100"><X className="h-2.5 w-2.5" /></button>
                         </div>
                         <div className="absolute bottom-0.5 left-0.5 bg-black/60 text-white text-[8px] font-bold px-1 py-0.5 rounded">#{i + 1}</div>
                       </div>
@@ -538,7 +498,6 @@ const ActivityBuilder = ({ items, onChange, showErrors, onValidationFail }: {
                     )}
                   </div>
                 )}
-
                 {item.previewUrls.length === 0 && (
                   <label className={cn(
                     "flex flex-col items-center justify-center gap-2 w-full rounded-xl border-2 border-dashed cursor-pointer transition-all py-7 px-4 group",
@@ -546,22 +505,11 @@ const ActivityBuilder = ({ items, onChange, showErrors, onValidationFail }: {
                       ? "border-red-300 bg-red-50/40 hover:border-red-400 hover:bg-red-50"
                       : "border-indigo-200 bg-indigo-50/30 hover:border-indigo-400 hover:bg-indigo-50/50"
                   )}>
-                    <div className={cn(
-                      "w-11 h-11 rounded-xl flex items-center justify-center transition-colors",
-                      showErrors && item.images.length === 0
-                        ? "bg-red-100 group-hover:bg-red-200"
-                        : "bg-indigo-100 group-hover:bg-indigo-200"
-                    )}>
-                      <Camera className={cn(
-                        "h-5 w-5",
-                        showErrors && item.images.length === 0 ? "text-red-400" : "text-indigo-500"
-                      )} />
+                    <div className={cn("w-11 h-11 rounded-xl flex items-center justify-center transition-colors", showErrors && item.images.length === 0 ? "bg-red-100 group-hover:bg-red-200" : "bg-indigo-100 group-hover:bg-indigo-200")}>
+                      <Camera className={cn("h-5 w-5", showErrors && item.images.length === 0 ? "text-red-400" : "text-indigo-500")} />
                     </div>
                     <div className="text-center">
-                      <p className={cn(
-                        "text-sm font-bold",
-                        showErrors && item.images.length === 0 ? "text-red-500" : "text-indigo-600"
-                      )}>
+                      <p className={cn("text-sm font-bold", showErrors && item.images.length === 0 ? "text-red-500" : "text-indigo-600")}>
                         {showErrors && item.images.length === 0 ? "At least 1 photo is required" : "Upload Activity Photos"}
                       </p>
                       <p className="text-[10px] text-slate-400 mt-0.5">JPG or PNG · 1 to 5 images</p>
@@ -569,14 +517,12 @@ const ActivityBuilder = ({ items, onChange, showErrors, onValidationFail }: {
                     <input type="file" multiple className="hidden" accept="image/*" onChange={(e) => handleImages(item.id, e.target.files, item.images)} />
                   </label>
                 )}
-
                 {item.images.length >= 5 && (
                   <p className="text-[10px] text-slate-400 mt-1.5 flex items-center gap-1">
                     <CheckCircle2 className="h-3 w-3 text-emerald-500" /> Maximum 5 photos reached
                   </p>
                 )}
               </div>
-
               <div className="flex gap-3 pt-1">
                 <button type="button" onClick={() => saveItem(item)} className="flex-1 h-10 rounded-xl text-white text-[12px] font-bold hover:opacity-90 transition-all" style={{ background: "linear-gradient(135deg, #6366f1, #4f46e5)" }}>Save Activity</button>
                 {items.length > 1 && (
@@ -676,20 +622,68 @@ const CreateAdventure = () => {
 
   const onValidationFail = useCallback((msg: string) => toast({ title: "Required", description: msg, variant: "destructive" }), [toast]);
 
+  // ── Guard: block if already has pending/approved adventure place ──────────
   useEffect(() => {
     if (!user) return;
-    supabase.from("profiles").select("country").eq("id", user.id).single().then(({ data }) => {
-      if (data?.country) setFormData((p) => ({ ...p, country: data.country }));
-    });
-    supabase.from("companies").select("verification_status").eq("user_id", user.id).maybeSingle().then(({ data }) => {
-      if (data && (data.verification_status === "approved" || data.verification_status === "verified")) {
-        toast({ title: "Not Allowed", description: "Verified companies cannot host adventure places.", variant: "destructive" });
-        navigate("/become-host");
-      }
-    });
+
+    // Pre-fill country from profile
+    supabase
+      .from("profiles")
+      .select("country")
+      .eq("id", user.id)
+      .single()
+      .then(({ data }) => {
+        if (data?.country) setFormData((p) => ({ ...p, country: data.country }));
+      });
+
+    // Guard 1: Verified companies cannot host adventure places
+    supabase
+      .from("companies")
+      .select("verification_status")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (
+          data &&
+          (data.verification_status === "approved" ||
+            data.verification_status === "verified")
+        ) {
+          toast({
+            title: "Not Allowed",
+            description: "Verified companies cannot host adventure places.",
+            variant: "destructive",
+          });
+          navigate("/become-host");
+        }
+      });
+
+    // Guard 2: Prevent duplicate submission.
+    // If user already has a pending or approved adventure place, send them back.
+    supabase
+      .from("adventure_places")
+      .select("id, approval_status")
+      .eq("created_by", user.id)
+      .in("approval_status", ["pending", "approved"])
+      .limit(1)
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          toast({
+            title:
+              data[0].approval_status === "approved"
+                ? "Already Live"
+                : "Already Submitted",
+            description:
+              data[0].approval_status === "approved"
+                ? "Your adventure place is already live. Edit it from your dashboard."
+                : "Your adventure place is under review. You can't submit another one yet.",
+            variant: "destructive",
+          });
+          navigate("/become-host");
+        }
+      });
   }, [user, navigate, toast]);
 
-  // ── TRA Licence handlers ────────────────────────────────────────────────────
+  // ── TRA Licence handlers ──────────────────────────────────────────────────
   const handleTraLicenceAdd = (file: File) => {
     setTraLicenceFile(file);
     setTraLicencePreview(safeObjectUrl(file));
@@ -698,7 +692,6 @@ const CreateAdventure = () => {
     setTraLicenceFile(null);
     setTraLicencePreview("");
   };
-  // Called by TraLicenceUpload when a non-image file is selected
   const handleTraLicenceReject = (reason: string) => {
     toast({ title: "File type not supported", description: reason, variant: "destructive" });
   };
@@ -814,14 +807,9 @@ const CreateAdventure = () => {
     const slots = 5 - galleryImages.length;
     if (slots <= 0) return;
     const incoming = Array.from(files).slice(0, slots);
-    // Reject non-image files
     const rejected = incoming.filter((f) => !isImageFile(f));
     if (rejected.length > 0) {
-      toast({
-        title: "File type not supported",
-        description: "Only JPG and PNG images are accepted. PDFs and videos are not supported.",
-        variant: "destructive",
-      });
+      toast({ title: "File type not supported", description: "Only JPG and PNG images are accepted.", variant: "destructive" });
       return;
     }
     let merged: File[];
@@ -861,12 +849,29 @@ const CreateAdventure = () => {
       toast({ title: "Unsaved Facility", description: "Please save all facilities.", variant: "destructive" });
       return;
     }
+
+    // Final duplicate check before insert
+    const { data: existingCheck } = await supabase
+      .from("adventure_places")
+      .select("id, approval_status")
+      .eq("created_by", user.id)
+      .in("approval_status", ["pending", "approved"])
+      .limit(1);
+
+    if (existingCheck && existingCheck.length > 0) {
+      toast({
+        title: "Already Submitted",
+        description: "You already have an adventure place that is pending or approved.",
+        variant: "destructive",
+      });
+      navigate("/become-host");
+      return;
+    }
+
     setLoading(true);
     try {
       const friendlySlug = generateFriendlySlug(formData.registrationName);
-
       const traLicenceUrl = traLicenceFile ? await uploadFile(traLicenceFile, "tra-licence") : "";
-
       const galleryUrls = await Promise.all(galleryImages.map((f) => uploadFile(f, "gallery")));
       const facilitiesForDB = await Promise.all(
         facilities.map(async (fac) => ({
@@ -977,22 +982,12 @@ const CreateAdventure = () => {
                 <div className="grid gap-5">
                   <div>
                     <FieldLabel required>Registration Name</FieldLabel>
-                    <StyledInput
-                      value={formData.registrationName}
-                      onChange={(e) => setFormData({ ...formData, registrationName: e.target.value })}
-                      placeholder="Official Government Name"
-                      isInvalid={isMissing(formData.registrationName)}
-                    />
+                    <StyledInput value={formData.registrationName} onChange={(e) => setFormData({ ...formData, registrationName: e.target.value })} placeholder="Official Government Name" isInvalid={isMissing(formData.registrationName)} />
                   </div>
                   <div className="grid lg:grid-cols-2 gap-4">
                     <div>
                       <FieldLabel required>Registration Number</FieldLabel>
-                      <StyledInput
-                        value={formData.registrationNumber}
-                        onChange={(e) => setFormData({ ...formData, registrationNumber: e.target.value })}
-                        placeholder="e.g. BN-X12345"
-                        isInvalid={isMissing(formData.registrationNumber)}
-                      />
+                      <StyledInput value={formData.registrationNumber} onChange={(e) => setFormData({ ...formData, registrationNumber: e.target.value })} placeholder="e.g. BN-X12345" isInvalid={isMissing(formData.registrationNumber)} />
                     </div>
                     <div>
                       <FieldLabel required>Country</FieldLabel>
@@ -1001,14 +996,10 @@ const CreateAdventure = () => {
                       </div>
                     </div>
                   </div>
-
                   <TraLicenceUpload
-                    file={traLicenceFile}
-                    preview={traLicencePreview}
-                    onAdd={handleTraLicenceAdd}
-                    onRemove={handleTraLicenceRemove}
-                    onReject={handleTraLicenceReject}
-                    isInvalid={showErrors && !traLicenceFile}
+                    file={traLicenceFile} preview={traLicencePreview}
+                    onAdd={handleTraLicenceAdd} onRemove={handleTraLicenceRemove}
+                    onReject={handleTraLicenceReject} isInvalid={showErrors && !traLicenceFile}
                   />
                 </div>
               </SectionCard>
@@ -1164,7 +1155,7 @@ const CreateAdventure = () => {
                   </div>
                 )}
                 <ImageGalleryGrid images={galleryImages} previews={galleryPreviews} onRemove={removeGalleryImage} onAdd={handleGalleryUpload} isInvalid={showErrors && galleryImages.length < 5} slots={5} />
-                <p className="text-[10px] text-slate-400 mt-3 font-medium">JPG or PNG only. First photo becomes your cover image. Use landscape photos for best results.</p>
+                <p className="text-[10px] text-slate-400 mt-3 font-medium">JPG or PNG only. First photo becomes your cover image.</p>
               </SectionCard>
             )}
 

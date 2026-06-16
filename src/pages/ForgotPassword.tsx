@@ -43,7 +43,6 @@ const ForgotPassword = () => {
     }
   }, [countdown]);
 
-  // Forces Auth page to initialize on Slide 3 (LoginForm/SignupForm split view)
   const handleBackToAuthForm = () => {
     navigate("/auth", { state: { returnToSlideIndex: 3 } });
   };
@@ -114,20 +113,22 @@ const ForgotPassword = () => {
   );
 
   return (
+    /* FIXED OVERLAY WRAPPER: Force breaks out of any buggy layout components or injected global bottom tabs */
     <div 
-      className="min-h-screen flex flex-col justify-center items-center relative overflow-hidden bg-[#070A13] text-slate-100 antialiased font-sans selection:bg-teal-500/20 px-4 py-8"
+      className="fixed inset-0 z-[9999] w-screen h-screen flex flex-col justify-center items-center overflow-hidden bg-[#070A13] text-slate-100 antialiased font-sans selection:bg-teal-500/20 px-4"
       style={{
         backgroundImage: "url('/images/category-campsite.webp')",
         backgroundSize: "cover",
         backgroundPosition: "center",
       }}
     >
-      {/* Soft Vignette Background Overlay */}
+      {/* Absolute Dark Vignette Layer over image background */}
       <div className="absolute inset-0 bg-gradient-to-b from-[#070A13]/95 via-[#070A13]/85 to-[#070A13]/95 lg:bg-gradient-to-tr lg:from-[#070A13]/95 lg:via-[#070A13]/75 lg:to-black/40 z-0" />
 
-      {/* Global Brand Navigation Header Control */}
+      {/* Top Navigation Header Controls */}
       <div className="absolute top-0 inset-x-0 z-10 flex items-center justify-between p-4 lg:p-8">
         <button
+          type="button"
           onClick={handleBackToAuthForm}
           className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900/40 border border-white/10 text-slate-300 hover:text-white hover:bg-slate-900/80 hover:border-white/20 backdrop-blur-md transition-all duration-200 shadow-sm group"
         >
@@ -141,19 +142,20 @@ const ForgotPassword = () => {
         </div>
       </div>
 
-      {/* Glassmorphic Form Container Layer */}
+      {/* Main Glassmorphic Form Card Assembly */}
       <div className="relative z-10 w-full max-w-[420px]">
-        <div className="bg-slate-950/45 backdrop-blur-2xl border border-white/10 rounded-xl p-6 lg:p-8 space-y-4 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.7)] transform transition-all duration-500 scale-[1.01] h-auto max-h-[85vh] flex flex-col overflow-hidden">
+        <div className="bg-slate-950/45 backdrop-blur-2xl border border-white/10 rounded-xl p-6 lg:p-8 space-y-4 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.7)] transform transition-all duration-500 scale-[1.01] h-auto max-h-[80vh] flex flex-col overflow-hidden">
           
-          {/* Section Breadcrumb Actions */}
+          {/* Internal Step Routing Return Link */}
           <button 
+            type="button"
             onClick={() => step === 'email' ? handleBackToAuthForm() : setStep('email')}
             className="text-[10px] font-semibold text-slate-400 hover:text-[rgb(0,128,128)] flex items-center gap-1 transition-colors flex-shrink-0 w-max"
           >
             <ArrowLeft className="w-3 h-3" /> {step === 'email' ? "Back to sign in" : "Back to recovery input"}
           </button>
 
-          {/* Isolated Internal Form Scroll Chamber */}
+          {/* Secure Form Scrolling Port */}
           <div className="mt-1 text-slate-200 overflow-y-auto pr-1 overflow-x-hidden scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
             
             {step === 'email' && (

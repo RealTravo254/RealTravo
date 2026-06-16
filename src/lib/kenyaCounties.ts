@@ -14,8 +14,8 @@ export const KENYA_COUNTIES = [
 
 // County images stored locally
 export const COUNTY_IMAGES: Record<string, string> = {
-  "Baringo": "/images/counties/baringo.jpg",
-  "Bomet": "/images/counties/bomet.jpg",
+  "Baringo": "/images/counties/baringo.png",
+  "Bomet": "/images/counties/bomet.png",
   "Bungoma": "/images/counties/bungoma.jpg",
   "Busia": "/images/counties/busia.jpg",
   "Elgeyo-Marakwet": "/images/counties/elgeyo-marakwet.jpg",

@@ -38,11 +38,11 @@ export const LoginForm = ({ onSwitchToSignup }: LoginFormProps) => {
 
   const returnTo = (location.state as any)?.returnTo || "/";
 
-  // Shared Design System Tokens - Updated with RealTravo Teal Accents
+  // Shared Design System Tokens - Compressed height to maximize above-the-fold display
   const inputClass =
-    "h-11 rounded-xl bg-black/30 border-white/10 text-white placeholder:text-white/30 focus:border-[rgb(0,128,128)] focus:ring-1 focus:ring-[rgb(0,128,128)] focus:bg-black/50 transition-all duration-200";
-  const labelClass = "text-xs font-semibold uppercase tracking-wider text-slate-400";
-  const errorClass = "text-xs font-medium text-red-300 mt-1";
+    "h-9 rounded-lg bg-black/30 border-white/10 text-xs text-white placeholder:text-white/30 focus:border-[rgb(0,128,128)] focus:ring-1 focus:ring-[rgb(0,128,128)] focus:bg-black/50 transition-all duration-200";
+  const labelClass = "text-[10px] font-semibold uppercase tracking-wider text-slate-400";
+  const errorClass = "text-[10px] font-medium text-red-300 mt-0.5";
 
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
@@ -196,18 +196,18 @@ export const LoginForm = ({ onSwitchToSignup }: LoginFormProps) => {
   /* ================= MODE: OTP VERIFY ================= */
   if (mode === "otp-verify") {
     return (
-      <div className="space-y-8 animate-fade-in">
-        <div className="text-center space-y-3">
-          <div className="mx-auto w-14 h-14 rounded-2xl bg-white/5 border border-[rgb(0,128,128)]/30 flex items-center justify-center shadow-md">
-            <Mail className="h-6 w-6 text-[rgb(0,128,128)]" />
+      <div className="space-y-4 animate-fade-in">
+        <div className="text-center space-y-2">
+          <div className="mx-auto w-10 h-10 rounded-xl bg-white/5 border border-[rgb(0,128,128)]/30 flex items-center justify-center shadow-md">
+            <Mail className="h-5 w-5 text-[rgb(0,128,128)]" />
           </div>
-          <h3 className="text-xl font-bold text-white">Check your mail</h3>
-          <p className="text-sm text-slate-400 leading-relaxed">
+          <h3 className="text-lg font-bold text-white">Check your mail</h3>
+          <p className="text-xs text-slate-400 leading-relaxed">
             We sent a secure code verification packet to <span className="text-[rgb(0,128,128)] font-semibold">{email}</span>
           </p>
         </div>
 
-        <div className="space-y-5">
+        <div className="space-y-3">
           <div className="flex justify-center">
             <InputOTP
               maxLength={6}
@@ -224,7 +224,7 @@ export const LoginForm = ({ onSwitchToSignup }: LoginFormProps) => {
                   <InputOTPSlot 
                     key={i} 
                     index={i} 
-                    className="bg-black/20 text-white border-white/10 focus:border-[rgb(0,128,128)] focus:ring-1 focus:ring-[rgb(0,128,128)]" 
+                    className="w-8 h-9 bg-black/20 text-white text-sm border-white/10 focus:border-[rgb(0,128,128)] focus:ring-1 focus:ring-[rgb(0,128,128)]" 
                   />
                 ))}
               </InputOTPGroup>
@@ -236,19 +236,19 @@ export const LoginForm = ({ onSwitchToSignup }: LoginFormProps) => {
           )}
 
           {otpVerifying && (
-            <div className="flex items-center justify-center gap-2 text-slate-400 text-sm">
-              <Loader2 className="h-4 w-4 animate-spin text-[rgb(0,128,128)]" />
+            <div className="flex items-center justify-center gap-1.5 text-slate-400 text-xs">
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-[rgb(0,128,128)]" />
               Validating session token...
             </div>
           )}
 
           <div className="text-center">
-            <p className="text-xs text-slate-500 mb-0.5">Missed the communication?</p>
+            <p className="text-[10px] text-slate-500">Missed the communication?</p>
             <Button
               variant="link"
               onClick={handleSendOtp}
               disabled={otpSending}
-              className="text-sm p-0 h-auto text-[rgb(0,128,128)] hover:text-teal-400 underline decoration-[rgb(0,128,128)]/20 hover:decoration-teal-400 transition-all"
+              className="text-xs p-0 h-auto text-[rgb(0,128,128)] hover:text-teal-400 underline decoration-[rgb(0,128,128)]/20 hover:decoration-teal-400 transition-all"
             >
               {otpSending ? "Re-issuing packet..." : "Resend code"}
             </Button>
@@ -259,9 +259,9 @@ export const LoginForm = ({ onSwitchToSignup }: LoginFormProps) => {
               setMode("otp-send");
               setOtp("");
             }}
-            className="flex items-center justify-center gap-2 w-full text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-[rgb(0,128,128)] transition-colors py-2"
+            className="flex items-center justify-center gap-1.5 w-full text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-[rgb(0,128,128)] transition-colors py-1"
           >
-            <ArrowLeft className="w-3.5 h-3.5" /> Return to Request Layer
+            <ArrowLeft className="w-3 h-3" /> Return to Request Layer
           </button>
         </div>
       </div>
@@ -271,16 +271,16 @@ export const LoginForm = ({ onSwitchToSignup }: LoginFormProps) => {
   /* ================= MODE: OTP SEND ================= */
   if (mode === "otp-send") {
     return (
-      <div className="space-y-6 animate-fade-in">
-        <div className="text-center space-y-2">
-          <h3 className="text-xl font-bold text-white">Passwordless Entry</h3>
-          <p className="text-sm text-slate-400">
+      <div className="space-y-4 animate-fade-in">
+        <div className="text-center space-y-1">
+          <h3 className="text-lg font-bold text-white">Passwordless Entry</h3>
+          <p className="text-xs text-slate-400">
             Provide your email to receive a dynamic session passphrase code.
           </p>
         </div>
 
-        <div className="space-y-4">
-          <div className="space-y-1.5">
+        <div className="space-y-3">
+          <div className="space-y-1">
             <Label htmlFor="otp-email" className={labelClass}>
               Email address
             </Label>
@@ -292,19 +292,18 @@ export const LoginForm = ({ onSwitchToSignup }: LoginFormProps) => {
               onChange={(e) => setEmail(e.target.value)}
               className={`${inputClass} ${errors.email ? "border-red-400" : ""}`}
               required
-            >
-            </Input>
+            />
             {errors.email && <p className={errorClass}>{errors.email}</p>}
           </div>
 
           <Button
             onClick={handleSendOtp}
-            className="w-full h-11 rounded-xl text-sm font-bold bg-[rgb(0,128,128)] text-white hover:bg-teal-700 transition-all duration-150 shadow-md"
+            className="w-full h-9 rounded-lg text-xs font-bold bg-[rgb(0,128,128)] text-white hover:bg-teal-700 transition-all duration-150 shadow-md"
             disabled={otpSending}
           >
             {otpSending ? (
-              <span className="flex items-center gap-2 justify-center">
-                <Loader2 className="h-4 w-4 animate-spin text-white" />
+              <span className="flex items-center gap-1.5 justify-center">
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-white" />
                 Dispatching Packet...
               </span>
             ) : (
@@ -314,9 +313,9 @@ export const LoginForm = ({ onSwitchToSignup }: LoginFormProps) => {
 
           <button
             onClick={() => setMode("password")}
-            className="flex items-center justify-center gap-2 w-full text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-[rgb(0,128,128)] transition-colors py-2"
+            className="flex items-center justify-center gap-1.5 w-full text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-[rgb(0,128,128)] transition-colors py-1"
           >
-            <ArrowLeft className="w-3.5 h-3.5" /> Back to direct credentials
+            <ArrowLeft className="w-3 h-3" /> Back to direct credentials
           </button>
         </div>
       </div>
@@ -325,19 +324,19 @@ export const LoginForm = ({ onSwitchToSignup }: LoginFormProps) => {
 
   /* ================= MODE: PASSWORD (DEFAULT) ================= */
   return (
-    <div className="space-y-5 animate-fade-in">
+    <div className="space-y-3 animate-fade-in">
       {/* OAuth Action Container */}
-      <div className="grid grid-cols-1 gap-3">
+      <div className="grid grid-cols-1 gap-2">
         <button
           type="button"
           onClick={handleGoogleSignIn}
           disabled={googleLoading}
-          className="flex w-full items-center justify-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-white transition-all duration-200 hover:bg-white/[0.08] hover:border-[rgb(0,128,128)]/40 focus:outline-none disabled:opacity-50"
+          className="flex w-full h-9 items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 text-xs font-semibold text-white transition-all duration-200 hover:bg-white/[0.08] hover:border-[rgb(0,128,128)]/40 focus:outline-none disabled:opacity-50"
         >
           {googleLoading ? (
-            <Loader2 className="h-4 w-4 animate-spin text-white" />
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-white" />
           ) : (
-            <svg className="h-4 w-4" viewBox="0 0 24 24">
+            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
               <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
               <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
@@ -350,26 +349,26 @@ export const LoginForm = ({ onSwitchToSignup }: LoginFormProps) => {
         <button
           type="button"
           onClick={() => setMode("otp-send")}
-          className="flex w-full items-center justify-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-white transition-all duration-200 hover:bg-white/[0.08] hover:border-[rgb(0,128,128)]/40 focus:outline-none"
+          className="flex w-full h-9 items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 text-xs font-semibold text-white transition-all duration-200 hover:bg-white/[0.08] hover:border-[rgb(0,128,128)]/40 focus:outline-none"
         >
-          <ShieldCheck className="h-4 w-4 text-slate-400" />
+          <ShieldCheck className="h-3.5 w-3.5 text-slate-400" />
           <span>Authenticate with Secure Code</span>
         </button>
       </div>
 
       {/* Break Grid Layout Line */}
-      <div className="relative py-2">
+      <div className="relative py-1">
         <div className="absolute inset-0 flex items-center">
           <div className="w-full border-t border-white/5" />
         </div>
-        <div className="relative flex justify-center text-[10px] font-bold uppercase tracking-widest">
-          <span className="bg-transparent px-3 text-slate-500">Secure Direct Credentials</span>
+        <div className="relative flex justify-center text-[9px] font-bold uppercase tracking-widest">
+          <span className="bg-transparent px-2 text-slate-500">Secure Direct Credentials</span>
         </div>
       </div>
 
       {/* Traditional Form Stack */}
-      <form onSubmit={handleLogin} className="space-y-4">
-        <div className="space-y-1.5">
+      <form onSubmit={handleLogin} className="space-y-2.5">
+        <div className="space-y-1">
           <Label htmlFor="email" className={labelClass}>
             Email address
           </Label>
@@ -385,7 +384,7 @@ export const LoginForm = ({ onSwitchToSignup }: LoginFormProps) => {
           {errors.email && <p className={errorClass}>{errors.email}</p>}
         </div>
 
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <div className="flex items-center justify-between">
             <Label htmlFor="password" className={labelClass}>
               Password
@@ -393,7 +392,7 @@ export const LoginForm = ({ onSwitchToSignup }: LoginFormProps) => {
             <button
               type="button"
               onClick={() => navigate("/forgot-password")}
-              className="text-[11px] font-semibold text-slate-500 hover:text-[rgb(0,128,128)] transition-colors"
+              className="text-[10px] font-semibold text-slate-500 hover:text-[rgb(0,128,128)] transition-colors"
             >
               Forgot secret phrase?
             </button>
@@ -405,15 +404,15 @@ export const LoginForm = ({ onSwitchToSignup }: LoginFormProps) => {
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className={`${inputClass} pr-10 ${errors.password ? "border-red-400" : ""}`}
+              className={`${inputClass} pr-8 ${errors.password ? "border-red-400" : ""}`}
               required
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-[rgb(0,128,128)] transition-colors"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-[rgb(0,128,128)] transition-colors"
             >
-              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
             </button>
           </div>
           {errors.password && <p className={errorClass}>{errors.password}</p>}
@@ -421,12 +420,12 @@ export const LoginForm = ({ onSwitchToSignup }: LoginFormProps) => {
 
         <Button
           type="submit"
-          className="w-full h-11 rounded-xl text-sm font-bold bg-[rgb(0,128,128)] text-white hover:bg-teal-700 transition-all duration-150 shadow-md mt-2"
+          className="w-full h-9 rounded-lg text-xs font-bold bg-[rgb(0,128,128)] text-white hover:bg-teal-700 transition-all duration-150 shadow-md mt-1"
           disabled={loading}
         >
           {loading ? (
-            <span className="flex items-center gap-2 justify-center">
-              <Loader2 className="h-4 w-4 animate-spin text-white" />
+            <span className="flex items-center gap-1.5 justify-center">
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-white" />
               Verifying Instance...
             </span>
           ) : (
@@ -436,7 +435,7 @@ export const LoginForm = ({ onSwitchToSignup }: LoginFormProps) => {
       </form>
 
       {/* Interactive Switcher */}
-      <p className="text-center text-xs text-slate-400 font-medium pt-2">
+      <p className="text-center text-[11px] text-slate-400 font-medium pt-1">
         New Explorer?{" "}
         <button
           type="button"

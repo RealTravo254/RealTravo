@@ -217,7 +217,7 @@ GridSection.displayName = "GridSection";
 const CATEGORIES = [
   { icon: Tent,     title: "Adventures",   path: "/category/campsite", bgImage: "/images/category-adventures.jpg" },
   { icon: Calendar, title: "Trips",        path: "/category/trips",    bgImage: "/images/category-trips.jpg"      },
-  { icon: MapPin,   title: "Guided Tours", path: "/category/guided",   bgImage: "/images/nearby-trips.jpg"        },
+  { icon: MapPin,   title: "Guided Tours", path: "/category/guided",   bgImage: "/images/guided.jpg"        },
 ];
 
 // ── Quick-nav shortcuts ───────────────────────────────────────────────────────

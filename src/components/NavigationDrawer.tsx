@@ -112,9 +112,6 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
             </div>
             <div>
               <p className="text-white font-black text-sm">{userName || t("drawer.traveler")}</p>
-              <p className="text-white/60 text-[10px] uppercase tracking-widest font-semibold">
-                Verified Member
-              </p>
             </div>
           </div>
         ) : (
@@ -122,7 +119,7 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
             <p className="text-[10px] font-black uppercase tracking-[0.25em] text-white/40 mb-1">
               Welcome to
             </p>
-            <h2 className="text-2xl font-black text-white tracking-tight italic">RealTravo</h2>
+            <h2 className="text-2xl font-black text-white tracking-tight italic">Real Travo</h2>
             <p className="text-white/60 text-xs mt-0.5">Travel and Hosting</p>
           </div>
         )}

@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { SignupForm } from "@/components/auth/SignupForm";
 import { SEOHead } from "@/components/SEOHead";
-import { ArrowLeft, MapPin, Star, Compass } from "lucide-react";
+import { ArrowLeft, MapPin, Shield, Star, Compass } from "lucide-react";
 
 const Auth = () => {
   const [activeTab, setActiveTab] = useState<"login" | "signup">("login");
@@ -169,19 +169,19 @@ const Auth = () => {
               </div>
             ) : (
               
-              /* Conditional Render: Slide 3 (Isolated Inner Form Scroll Shell) */
-              <div className="bg-slate-950/45 backdrop-blur-2xl border border-white/10 rounded-xl p-6 lg:p-8 space-y-4 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.7)] transform transition-all duration-500 scale-[1.01] h-auto max-h-[85vh] flex flex-col overflow-hidden">
+              /* Conditional Render: Slide 3 (Your Glassmorphic Form Shell) */
+              <div className="bg-slate-950/45 backdrop-blur-2xl border border-white/10 rounded-xl p-6 lg:p-8 space-y-5 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.7)] transform transition-all duration-500 scale-[1.01]">
                 
-                {/* Back to Slides Navigation Link - FIXED POSITION */}
+                {/* Back to Slides Navigation Link */}
                 <button 
                   onClick={() => setSlideIndex(2)}
-                  className="text-[10px] font-semibold text-slate-400 hover:text-[rgb(0,128,128)] flex items-center gap-1 transition-colors flex-shrink-0"
+                  className="text-[10px] font-semibold text-slate-400 hover:text-[rgb(0,128,128)] flex items-center gap-1 transition-colors"
                 >
                   <ArrowLeft className="w-3 h-3" /> Back to onboarding
                 </button>
 
-                {/* Header Blocks - FIXED POSITION */}
-                <div className="space-y-1 text-center lg:text-left flex-shrink-0">
+                {/* Header Blocks */}
+                <div className="space-y-1 text-center lg:text-left">
                   <h2 className="text-2xl font-extrabold text-white tracking-tight">
                     {activeTab === "login" ? "Welcome back" : "Get started"}
                   </h2>
@@ -192,8 +192,8 @@ const Auth = () => {
                   </p>
                 </div>
 
-                {/* Segmented Controller - FIXED POSITION */}
-                <div className="flex bg-black/50 border border-white/5 p-0.5 rounded-lg flex-shrink-0">
+                {/* Segmented Controller */}
+                <div className="flex bg-black/50 border border-white/5 p-0.5 rounded-lg">
                   <button
                     onClick={() => setActiveTab("login")}
                     className={`flex-1 py-2 text-[10px] uppercase tracking-wider font-bold rounded-md transition-all duration-200 ${
@@ -216,8 +216,8 @@ const Auth = () => {
                   </button>
                 </div>
 
-                {/* Interactive Core Form Container - ISOLATED SCROLLABLE INNER LAYER */}
-                <div className="mt-1 text-slate-200 max-h-[340px] overflow-y-auto pr-1 overflow-x-hidden scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+                {/* Interactive Core with Secondary forms intact */}
+                <div className="mt-1 text-slate-200">
                   {activeTab === "login" ? (
                     <LoginForm onSwitchToSignup={() => setActiveTab("signup")} />
                   ) : (

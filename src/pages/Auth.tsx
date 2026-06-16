@@ -17,7 +17,7 @@ const Auth = () => {
     ? location.state.returnToSlideIndex 
     : 0;
 
-  const [activeTab, setActiveTab] = useState<"login" | "signup>("login");
+  const [activeTab, setActiveTab] = useState<"login" | "signup">("login");
   const [slideIndex, setSlideIndex] = useState<number>(initialSlide);
 
   if (!loading && user) {

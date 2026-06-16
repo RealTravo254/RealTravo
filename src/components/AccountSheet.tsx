@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 
 /* ══════════════════════════════════════════════════════════════════
-   GUEST PANEL (COMPACT)
+   GUEST PANEL (COMPACT WITH BOTTOM ROW BUTTONS)
 ══════════════════════════════════════════════════════════════════ */
 const GuestPanel = ({ onClose }: { onClose: () => void }) => {
   const navigate = useNavigate();
@@ -26,77 +26,82 @@ const GuestPanel = ({ onClose }: { onClose: () => void }) => {
   ];
 
   return (
-    <div className="flex flex-col h-full bg-background">
-      {/* Mini Hero Banner */}
-      <div
-        className="relative px-4 pt-6 pb-4 flex-shrink-0 overflow-hidden"
-        style={{ background: "linear-gradient(135deg,#008080 0%,#005f5f 100%)" }}
-      >
-        <div className="pointer-events-none absolute -top-6 -right-6 h-20 w-20 rounded-full border border-white/10" />
-
-        {/* Single Integrated Close Button */}
-        <button
-          onClick={onClose}
-          aria-label="Close"
-          className="absolute top-3 right-3 h-6 w-6 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/25 transition-colors"
+    <div className="flex flex-col h-full bg-background justify-between">
+      <div>
+        {/* Mini Hero Banner */}
+        <div
+          className="relative px-4 pt-6 pb-4 flex-shrink-0 overflow-hidden"
+          style={{ background: "linear-gradient(135deg,#008080 0%,#005f5f 100%)" }}
         >
-          <X className="h-3 w-3 text-white" />
-        </button>
+          <div className="pointer-events-none absolute -top-6 -right-6 h-20 w-20 rounded-full border border-white/10" />
 
-        <div className="flex items-center gap-1.5 mb-2">
-          <Sparkles className="h-4 w-4 text-white" />
-          <span className="text-white font-extrabold text-base tracking-tight italic">Real Travo</span>
+          {/* Single Integrated Close Button */}
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="absolute top-3 right-3 h-6 w-6 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/25 transition-colors"
+          >
+            <X className="h-3 w-3 text-white" />
+          </button>
+
+          <div className="flex items-center gap-1.5 mb-2">
+            <Sparkles className="h-4 w-4 text-white" />
+            <span className="text-white font-extrabold text-base tracking-tight italic">Real Travo</span>
+          </div>
+
+          <h2 className="text-lg font-black text-white leading-tight mb-0.5">
+            Travel smarter, host better.
+          </h2>
+          <p className="text-white/60 text-[11px] font-medium">
+            Join thousands of travellers &amp; hosts.
+          </p>
         </div>
 
-        <h2 className="text-lg font-black text-white leading-tight mb-0.5">
-          Travel smarter, host better.
-        </h2>
-        <p className="text-white/60 text-[11px] font-medium">
-          Join thousands of travellers &amp; hosts.
-        </p>
-      </div>
-
-      {/* Perks + CTAs */}
-      <div className="px-3 py-3 flex-1 overflow-y-auto space-y-4">
-        <div>
-          <p className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-1.5">
-            What you unlock
-          </p>
-          <div className="space-y-1">
-            {perks.map(({ icon: Icon, text }) => (
-              <div
-                key={text}
-                className="flex items-center gap-2.5 p-2 rounded-lg bg-muted/40 border border-border/30"
-              >
-                <div className="h-6 w-6 rounded bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <Icon className="h-3 w-3 text-primary" />
+        {/* Perks Content Area */}
+        <div className="px-3 py-3 space-y-4">
+          <div>
+            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-1.5">
+              What you unlock
+            </p>
+            <div className="space-y-1">
+              {perks.map(({ icon: Icon, text }) => (
+                <div
+                  key={text}
+                  className="flex items-center gap-2.5 p-2 rounded-lg bg-muted/40 border border-border/30"
+                >
+                  <div className="h-6 w-6 rounded bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <Icon className="h-3 w-3 text-primary" />
+                  </div>
+                  <p className="text-[11px] font-medium text-foreground leading-tight">{text}</p>
                 </div>
-                <p className="text-[11px] font-medium text-foreground leading-tight">{text}</p>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
+      </div>
 
-        <div className="space-y-1.5">
+      {/* Persistent Bottom Action Footer */}
+      <div className="p-3 border-t bg-muted/20 space-y-2 mt-auto">
+        <div className="flex gap-2">
           <button
             onClick={() => go("/auth?mode=signup")}
-            className="w-full h-10 rounded-lg flex items-center justify-center gap-2 font-black text-xs text-white transition-all active:scale-95"
+            className="flex-1 h-8 rounded-md flex items-center justify-center gap-1.5 font-black text-[11px] text-white transition-all active:scale-95"
             style={{ background: "linear-gradient(135deg,#008080 0%,#005f5f 100%)" }}
           >
-            <UserPlus className="h-3.5 w-3.5" />
-            Create a free account
+            <UserPlus className="h-3 w-3" />
+            Sign Up
           </button>
 
           <button
             onClick={() => go("/auth?mode=login")}
-            className="w-full h-10 rounded-lg flex items-center justify-center gap-2 font-bold text-xs text-foreground border border-border hover:bg-muted transition-all active:scale-95"
+            className="flex-1 h-8 rounded-md flex items-center justify-center gap-1.5 font-bold text-[11px] text-foreground border border-border bg-background hover:bg-muted transition-all active:scale-95"
           >
-            <LogIn className="h-3.5 w-3.5" />
-            Log in to my account
+            <LogIn className="h-3 w-3" />
+            Log In
           </button>
         </div>
 
-        <p className="text-center text-[9px] text-muted-foreground leading-relaxed">
+        <p className="text-center text-[9px] text-muted-foreground leading-none">
           By continuing you agree to our{" "}
           <button
             onClick={() => go("/privacy-policy")}
@@ -112,7 +117,7 @@ const GuestPanel = ({ onClose }: { onClose: () => void }) => {
 };
 
 /* ══════════════════════════════════════════════════════════════════
-   AUTHENTICATED PANEL (COMPACT)
+   AUTHENTICATED PANEL
 ══════════════════════════════════════════════════════════════════ */
 const AuthenticatedPanel = ({ onClose }: { onClose: () => void }) => {
   const { user, signOut } = useAuth();
@@ -201,7 +206,6 @@ const AuthenticatedPanel = ({ onClose }: { onClose: () => void }) => {
 
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* Compact User Header */}
       <div className="bg-primary px-4 pt-5 pb-3.5 relative flex-shrink-0">
         <button
           onClick={onClose}
@@ -249,7 +253,6 @@ const AuthenticatedPanel = ({ onClose }: { onClose: () => void }) => {
         )}
       </div>
 
-      {/* Tiny Scrollable List */}
       <div className="flex-1 overflow-y-auto bg-background py-2 px-2 space-y-2">
         {menuItems
           .filter((s) => s.section !== "Admin Control")
@@ -270,7 +273,6 @@ const AuthenticatedPanel = ({ onClose }: { onClose: () => void }) => {
             );
           })}
 
-        {/* Amber Tinted Admin Control */}
         {!loading && menuItems
           .filter((s) => s.section === "Admin Control")
           .map((section, idx) => {
@@ -302,7 +304,6 @@ const AuthenticatedPanel = ({ onClose }: { onClose: () => void }) => {
             );
           })}
 
-        {/* Micro Log Out Action */}
         <button
           onClick={handleLogout}
           className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-destructive/10 bg-destructive/5 hover:bg-destructive/10 transition-colors group"
@@ -317,10 +318,7 @@ const AuthenticatedPanel = ({ onClose }: { onClose: () => void }) => {
   );
 };
 
-/* ══════════════════════════════════════════════════════════════════
-   ACCOUNT SHEET LAYER CONTROL
-══════════════════════════════════════════════════════════════════ */
-interface AccountSheetProps {
+export interface AccountSheetProps {
   children: ReactNode;
 }
 

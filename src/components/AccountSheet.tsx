@@ -12,11 +12,10 @@ import {
 } from "lucide-react";
 
 /* ══════════════════════════════════════════════════════════════════
-   GUEST PANEL
+   GUEST PANEL (COMPACT)
 ══════════════════════════════════════════════════════════════════ */
 const GuestPanel = ({ onClose }: { onClose: () => void }) => {
   const navigate = useNavigate();
-
   const go = (path: string) => { onClose(); navigate(path); };
 
   const perks = [
@@ -28,77 +27,76 @@ const GuestPanel = ({ onClose }: { onClose: () => void }) => {
 
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* Hero banner */}
+      {/* Mini Hero Banner */}
       <div
-        className="relative px-5 pt-10 pb-8 flex-shrink-0 overflow-hidden"
+        className="relative px-4 pt-6 pb-4 flex-shrink-0 overflow-hidden"
         style={{ background: "linear-gradient(135deg,#008080 0%,#005f5f 100%)" }}
       >
-        <div className="pointer-events-none absolute -top-6 -right-6 h-28 w-28 rounded-full border-[3px] border-white/10" />
-        <div className="pointer-events-none absolute -bottom-4 -left-4 h-20 w-20 rounded-full border-[2px] border-white/10" />
+        <div className="pointer-events-none absolute -top-6 -right-6 h-20 w-20 rounded-full border border-white/10" />
 
+        {/* Single Integrated Close Button */}
         <button
           onClick={onClose}
           aria-label="Close"
-          className="absolute top-4 right-4 h-7 w-7 rounded-full bg-white/15 flex items-center justify-center hover:bg-white/25 transition-colors"
+          className="absolute top-3 right-3 h-6 w-6 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/25 transition-colors"
         >
-          <X className="h-3.5 w-3.5 text-white" />
+          <X className="h-3 w-3 text-white" />
         </button>
 
-        <div className="flex items-center gap-2 mb-5">
-          <div className="h-9 w-9 rounded-xl bg-white/20 flex items-center justify-center">
-            <Sparkles className="h-[18px] w-[18px] text-white" />
-          </div>
-          <span className="text-white font-extrabold text-lg tracking-tight italic">RealTravo</span>
+        <div className="flex items-center gap-1.5 mb-2">
+          <Sparkles className="h-4 w-4 text-white" />
+          <span className="text-white font-extrabold text-base tracking-tight italic">Real Travo</span>
         </div>
 
-        <h2 className="text-2xl font-black text-white leading-tight mb-1.5">
-          Travel smarter,<br />host better.
+        <h2 className="text-lg font-black text-white leading-tight mb-0.5">
+          Travel smarter, host better.
         </h2>
-        <p className="text-white/60 text-xs font-medium">
+        <p className="text-white/60 text-[11px] font-medium">
           Join thousands of travellers &amp; hosts.
         </p>
       </div>
 
       {/* Perks + CTAs */}
-      <div className="px-4 py-5 flex-1 overflow-y-auto">
-        <p className="text-[10px] font-black uppercase tracking-[0.25em] text-muted-foreground mb-3">
-          What you unlock
-        </p>
-
-        <div className="space-y-2 mb-6">
-          {perks.map(({ icon: Icon, text }) => (
-            <div
-              key={text}
-              className="flex items-center gap-3 p-3 rounded-xl bg-muted/50 border border-border/40"
-            >
-              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <Icon className="h-3.5 w-3.5 text-primary" />
+      <div className="px-3 py-3 flex-1 overflow-y-auto space-y-4">
+        <div>
+          <p className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-1.5">
+            What you unlock
+          </p>
+          <div className="space-y-1">
+            {perks.map(({ icon: Icon, text }) => (
+              <div
+                key={text}
+                className="flex items-center gap-2.5 p-2 rounded-lg bg-muted/40 border border-border/30"
+              >
+                <div className="h-6 w-6 rounded bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <Icon className="h-3 w-3 text-primary" />
+                </div>
+                <p className="text-[11px] font-medium text-foreground leading-tight">{text}</p>
               </div>
-              <p className="text-xs font-semibold text-foreground leading-snug">{text}</p>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
 
-        <div className="space-y-2.5">
+        <div className="space-y-1.5">
           <button
             onClick={() => go("/auth?mode=signup")}
-            className="w-full h-12 rounded-xl flex items-center justify-center gap-2.5 font-black text-sm text-white transition-all active:scale-95"
+            className="w-full h-10 rounded-lg flex items-center justify-center gap-2 font-black text-xs text-white transition-all active:scale-95"
             style={{ background: "linear-gradient(135deg,#008080 0%,#005f5f 100%)" }}
           >
-            <UserPlus className="h-4 w-4" />
+            <UserPlus className="h-3.5 w-3.5" />
             Create a free account
           </button>
 
           <button
             onClick={() => go("/auth?mode=login")}
-            className="w-full h-12 rounded-xl flex items-center justify-center gap-2.5 font-bold text-sm text-foreground border border-border hover:bg-muted transition-all active:scale-95"
+            className="w-full h-10 rounded-lg flex items-center justify-center gap-2 font-bold text-xs text-foreground border border-border hover:bg-muted transition-all active:scale-95"
           >
-            <LogIn className="h-4 w-4" />
+            <LogIn className="h-3.5 w-3.5" />
             Log in to my account
           </button>
         </div>
 
-        <p className="text-center text-[10px] text-muted-foreground mt-4 leading-relaxed">
+        <p className="text-center text-[9px] text-muted-foreground leading-relaxed">
           By continuing you agree to our{" "}
           <button
             onClick={() => go("/privacy-policy")}
@@ -114,7 +112,7 @@ const GuestPanel = ({ onClose }: { onClose: () => void }) => {
 };
 
 /* ══════════════════════════════════════════════════════════════════
-   AUTHENTICATED PANEL — full original with all tool sections
+   AUTHENTICATED PANEL (COMPACT)
 ══════════════════════════════════════════════════════════════════ */
 const AuthenticatedPanel = ({ onClose }: { onClose: () => void }) => {
   const { user, signOut } = useAuth();
@@ -161,9 +159,9 @@ const AuthenticatedPanel = ({ onClose }: { onClose: () => void }) => {
     {
       section: "Creator Tools",
       items: [
-        { icon: Briefcase,      label: "Become a Host",     path: "/become-host",   show: true },
-        { icon: LayoutDashboard,label: "My Listings",       path: "/my-listing",    show: true },
-        { icon: CalendarCheck,  label: "My Host Bookings",  path: "/host-bookings", show: true },
+        { icon: Briefcase,       label: "Become a Host",     path: "/become-host",   show: true },
+        { icon: LayoutDashboard, label: "My Listings",        path: "/my-listing",    show: true },
+        { icon: CalendarCheck,   label: "My Host Bookings",  path: "/host-bookings", show: true },
       ],
     },
     {
@@ -176,62 +174,58 @@ const AuthenticatedPanel = ({ onClose }: { onClose: () => void }) => {
     {
       section: "Admin Control",
       items: [
-        { icon: Shield,       label: "Admin Dashboard",      path: "/admin",                        show: userRole === "admin" },
-        { icon: UserCog,      label: "Host Verification",    path: "/admin/verification",            show: userRole === "admin" },
-        { icon: CreditCard,   label: "Payment Verification", path: "/admin/payment-verification",   show: userRole === "admin" },
-        { icon: Users,        label: "Accounts Overview",    path: "/admin/accounts",               show: userRole === "admin" },
-        { icon: Settings,     label: "Referral Settings",    path: "/admin/referral-settings",      show: userRole === "admin" },
-        { icon: CalendarCheck,label: "All Bookings",         path: "/admin/all-bookings",           show: userRole === "admin" },
+        { icon: Shield,        label: "Admin Dashboard",      path: "/admin",                        show: userRole === "admin" },
+        { icon: UserCog,       label: "Host Verification",    path: "/admin/verification",           show: userRole === "admin" },
+        { icon: CreditCard,    label: "Payment Verification", path: "/admin/payment-verification",   show: userRole === "admin" },
+        { icon: Users,         label: "Accounts Overview",    path: "/admin/accounts",               show: userRole === "admin" },
+        { icon: Settings,      label: "Referral Settings",    path: "/admin/referral-settings",      show: userRole === "admin" },
+        { icon: CalendarCheck, label: "All Bookings",         path: "/admin/all-bookings",           show: userRole === "admin" },
       ],
     },
   ];
 
-  /* Generic menu row */
   const MenuRow = ({ item }: { item: { icon: any; label: string; path: string } }) => (
     <button
       onClick={() => go(item.path)}
-      className="w-full flex items-center justify-between px-3 py-2 hover:bg-muted/60 transition-colors group"
+      className="w-full flex items-center justify-between px-2.5 py-1.5 hover:bg-muted/60 transition-colors group"
     >
-      <div className="flex items-center gap-2.5">
-        <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
-          <item.icon className="h-3 w-3 text-primary" />
+      <div className="flex items-center gap-2">
+        <div className="h-5 w-5 rounded bg-primary/10 flex items-center justify-center flex-shrink-0">
+          <item.icon className="h-2.5 w-2.5 text-primary" />
         </div>
-        <span className="text-xs font-medium text-foreground">{item.label}</span>
+        <span className="text-[11px] font-medium text-foreground">{item.label}</span>
       </div>
-      <ChevronRight className="h-3 w-3 text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
+      <ChevronRight className="h-2.5 w-2.5 text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
     </button>
   );
 
   return (
     <div className="flex flex-col h-full bg-background">
-
-      {/* ── Header ── */}
-      <div className="bg-primary px-4 pt-4 pb-4 relative flex-shrink-0">
+      {/* Compact User Header */}
+      <div className="bg-primary px-4 pt-5 pb-3.5 relative flex-shrink-0">
         <button
           onClick={onClose}
           aria-label="Close"
-          className="absolute top-3.5 right-3.5 h-6 w-6 rounded-full bg-primary-foreground/15 flex items-center justify-center hover:bg-primary-foreground/25 transition-colors"
+          className="absolute top-3 right-3 h-6 w-6 rounded-full bg-primary-foreground/10 flex items-center justify-center hover:bg-primary-foreground/20 transition-colors"
         >
           <X className="h-3 w-3 text-primary-foreground" />
         </button>
 
-        <p className="text-[9px] font-black uppercase tracking-[0.3em] text-primary-foreground/40 mb-2.5">
+        <p className="text-[9px] font-black uppercase tracking-[0.25em] text-primary-foreground/40 mb-2">
           My Account
         </p>
 
         {loading ? (
-          <div className="flex items-center gap-2.5">
-            <Skeleton className="h-10 w-10 rounded-xl bg-primary-foreground/20" />
-            <div className="space-y-1.5">
-              <Skeleton className="h-3 w-24 bg-primary-foreground/20 rounded" />
-              <Skeleton className="h-2 w-14 bg-primary-foreground/20 rounded" />
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-8 w-8 rounded-lg bg-primary-foreground/20" />
+            <div className="space-y-1">
+              <Skeleton className="h-2.5 w-20 bg-primary-foreground/20 rounded" />
             </div>
           </div>
         ) : (
-          <div className="flex items-center gap-2.5">
-            {/* Avatar */}
+          <div className="flex items-center gap-2">
             <div className="relative flex-shrink-0">
-              <div className="h-10 w-10 rounded-xl bg-primary-foreground/20 flex items-center justify-center overflow-hidden border border-primary-foreground/20">
+              <div className="h-8 w-8 rounded-lg bg-primary-foreground/20 flex items-center justify-center overflow-hidden border border-primary-foreground/15">
                 {userAvatar ? (
                   <img
                     src={userAvatar}
@@ -240,36 +234,23 @@ const AuthenticatedPanel = ({ onClose }: { onClose: () => void }) => {
                     referrerPolicy="no-referrer"
                   />
                 ) : (
-                  <span className="text-xs font-black text-primary-foreground">{initials}</span>
+                  <span className="text-[11px] font-black text-primary-foreground">{initials}</span>
                 )}
               </div>
-              {/* Online dot */}
-              <div className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-green-400 border-[1.5px] border-primary" />
+              <div className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-green-400 border border-primary" />
             </div>
 
-            {/* Name + role badge */}
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-extrabold text-primary-foreground truncate leading-tight">
+              <p className="text-xs font-extrabold text-primary-foreground truncate leading-tight">
                 {userName}
               </p>
-              <span
-                className={`inline-block mt-0.5 px-1.5 py-px rounded-full text-[9px] font-black uppercase tracking-wider ${
-                  userRole === "admin"
-                    ? "bg-yellow-400/25 text-yellow-200"
-                    : "bg-primary-foreground/15 text-primary-foreground/55"
-                }`}
-              >
-                {userRole === "admin" ? "Admin" : "Member"}
-              </span>
             </div>
           </div>
         )}
       </div>
 
-      {/* ── Scrollable menu ── */}
-      <div className="flex-1 overflow-y-auto bg-background py-2.5 px-2.5 space-y-2.5">
-
-        {/* Creator Tools + Personal */}
+      {/* Tiny Scrollable List */}
+      <div className="flex-1 overflow-y-auto bg-background py-2 px-2 space-y-2">
         {menuItems
           .filter((s) => s.section !== "Admin Control")
           .map((section, idx) => {
@@ -277,10 +258,10 @@ const AuthenticatedPanel = ({ onClose }: { onClose: () => void }) => {
             if (!visible.length) return null;
             return (
               <div key={idx}>
-                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.22em] px-1 mb-1">
+                <p className="text-[8px] font-black text-muted-foreground uppercase tracking-[0.18em] px-1 mb-0.5">
                   {section.section}
                 </p>
-                <div className="rounded-xl overflow-hidden border border-border bg-card divide-y divide-border/50">
+                <div className="rounded-lg overflow-hidden border border-border bg-card divide-y divide-border/40">
                   {visible.map((item) => (
                     <MenuRow key={item.path} item={item} />
                   ))}
@@ -289,64 +270,55 @@ const AuthenticatedPanel = ({ onClose }: { onClose: () => void }) => {
             );
           })}
 
-        {/* Admin Control — amber tinted, only shown to admins */}
-        {loading ? (
-          <Skeleton className="h-10 w-full rounded-xl" />
-        ) : (
-          menuItems
-            .filter((s) => s.section === "Admin Control")
-            .map((section, idx) => {
-              const visible = section.items.filter((i) => i.show);
-              if (!visible.length) return null;
-              return (
-                <div key={`admin-${idx}`}>
-                  <p className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.22em] px-1 mb-1">
-                    {section.section}
-                  </p>
-                  <div className="rounded-xl overflow-hidden border border-amber-200/60 bg-amber-50/30 dark:bg-amber-900/10 dark:border-amber-700/30 divide-y divide-amber-100/60 dark:divide-amber-800/30">
-                    {visible.map((item) => (
-                      <button
-                        key={item.path}
-                        onClick={() => go(item.path)}
-                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors group"
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <div className="h-6 w-6 rounded-md bg-amber-400/20 flex items-center justify-center flex-shrink-0">
-                            <item.icon className="h-3 w-3 text-amber-600 dark:text-amber-400" />
-                          </div>
-                          <span className="text-xs font-medium text-foreground">{item.label}</span>
+        {/* Amber Tinted Admin Control */}
+        {!loading && menuItems
+          .filter((s) => s.section === "Admin Control")
+          .map((section, idx) => {
+            const visible = section.items.filter((i) => i.show);
+            if (!visible.length) return null;
+            return (
+              <div key={`admin-${idx}`}>
+                <p className="text-[8px] font-black text-muted-foreground uppercase tracking-[0.18em] px-1 mb-0.5">
+                  {section.section}
+                </p>
+                <div className="rounded-lg overflow-hidden border border-amber-200/40 bg-amber-50/20 dark:bg-amber-900/5 dark:border-amber-700/20 divide-y divide-amber-100/40 dark:divide-amber-800/20">
+                  {visible.map((item) => (
+                    <button
+                      key={item.path}
+                      onClick={() => go(item.path)}
+                      className="w-full flex items-center justify-between px-2.5 py-1.5 hover:bg-amber-50/60 dark:hover:bg-amber-900/10 transition-colors group"
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="h-5 w-5 rounded bg-amber-400/15 flex items-center justify-center flex-shrink-0">
+                          <item.icon className="h-2.5 w-2.5 text-amber-600 dark:text-amber-400" />
                         </div>
-                        <ChevronRight className="h-3 w-3 text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
-                      </button>
-                    ))}
-                  </div>
+                        <span className="text-[11px] font-medium text-foreground">{item.label}</span>
+                      </div>
+                      <ChevronRight className="h-2.5 w-2.5 text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
+                    </button>
+                  ))}
                 </div>
-              );
-            })
-        )}
+              </div>
+            );
+          })}
 
-        {/* Log Out */}
+        {/* Micro Log Out Action */}
         <button
           onClick={handleLogout}
-          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl border border-destructive/20 bg-destructive/5 hover:bg-destructive/10 transition-colors group"
+          className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-destructive/10 bg-destructive/5 hover:bg-destructive/10 transition-colors group"
         >
-          <div className="h-6 w-6 rounded-md bg-destructive/10 group-hover:bg-destructive flex items-center justify-center flex-shrink-0 transition-colors">
-            <LogOut className="h-3 w-3 text-destructive group-hover:text-destructive-foreground transition-colors" />
+          <div className="h-5 w-5 rounded bg-destructive/10 group-hover:bg-destructive flex items-center justify-center flex-shrink-0 transition-colors">
+            <LogOut className="h-2.5 w-2.5 text-destructive group-hover:text-destructive-foreground transition-colors" />
           </div>
-          <span className="text-xs font-semibold text-destructive">Log Out</span>
+          <span className="text-[11px] font-semibold text-destructive">Log Out</span>
         </button>
-
-        <div className="h-1" />
       </div>
     </div>
   );
 };
 
 /* ══════════════════════════════════════════════════════════════════
-   ACCOUNT SHEET — main export
-   • w-[85vw] max-w-[360px] — constrained on desktop, no full stretch
-   • GuestPanel for logged-out users (styled sheet, no popover)
-   • AuthenticatedPanel with all original tool sections for logged-in users
+   ACCOUNT SHEET LAYER CONTROL
 ══════════════════════════════════════════════════════════════════ */
 interface AccountSheetProps {
   children: ReactNode;
@@ -362,7 +334,7 @@ export const AccountSheet = ({ children }: AccountSheetProps) => {
 
       <SheetContent
         side="right"
-        className="w-[85vw] max-w-[360px] p-0 border-none flex flex-col [&>button]:hidden"
+        className="w-[80vw] max-w-[310px] p-0 border-none flex flex-col [&>button]:hidden"
         style={{
           paddingTop: "env(safe-area-inset-top, 0px)",
           paddingBottom: "env(safe-area-inset-bottom, 0px)",

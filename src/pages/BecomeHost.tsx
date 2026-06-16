@@ -17,12 +17,6 @@ const COLORS = {
   KHAKI_DARK: "#857F3E",
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Discriminated union — every screen is explicit and exhaustive.
-// type-selection is ONLY reachable when:
-//   • no adventure_places row exists for this user, AND
-//   • user is not an approved guide or company
-// ─────────────────────────────────────────────────────────────────────────────
 type ViewState =
   | { screen: "loading" }
   | { screen: "banned" }
@@ -31,7 +25,7 @@ type ViewState =
   | { screen: "adventure-pending"; place: any }
   | { screen: "adventure-no-place" }
   | { screen: "adventure-rejected"; place: any }
-  | { screen: "guide-company-dashboard"; content: any[]; verificationStatus: string | null; companyStatus: string | null };
+  | { screen: "guide-company-dashboard"; content: any[] };
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -174,10 +168,39 @@ const BecomeHost = () => {
         if (profileData?.is_banned) { setView({ screen: "banned" }); return; }
         if (profileData && !profileData.profile_completed) { navigate("/complete-profile"); return; }
 
-        // ── 2. Adventure place check — always wins over everything else ──────
-        // If ANY adventure_places row exists for this user, we never show
-        // type-selection or the guide/company dashboard. Route is 100% driven
-        // by approval_status. Unknown/null status falls to pending (safe default).
+        // ── 2. Guide/company check FIRST ─────────────────────────────────────
+        // Approved guides and companies always go straight to the trips dashboard.
+        // Adventure place logic is completely separate and does not interfere.
+        const [{ data: verification }, { data: company }] = await Promise.all([
+          supabase.from("host_verifications").select("status, hosting_category").eq("user_id", user.id).maybeSingle(),
+          supabase.from("companies").select("verification_status").eq("user_id", user.id).maybeSingle(),
+        ]);
+
+        if (cancelled) return;
+
+        const verStatus  = verification?.status ?? null;
+        const compStatus = company?.verification_status ?? null;
+        const isApprovedGuide   = verStatus === "approved";
+        const isApprovedCompany = compStatus === "approved";
+
+        if (isApprovedGuide || isApprovedCompany) {
+          const [trips, hotels] = await Promise.all([
+            supabase.from("trips").select("id,name,type").eq("created_by", user.id),
+            supabase.from("hotels").select("id,name,category").eq("created_by", user.id),
+          ]);
+
+          if (cancelled) return;
+
+          const allContent = [
+            ...(trips.data?.map((t) => ({ ...t, contentType: "trip" })) ?? []),
+            ...(hotels.data?.map((h) => ({ ...h, contentType: "hotel" })) ?? []),
+          ];
+
+          setView({ screen: "guide-company-dashboard", content: allContent });
+          return;
+        }
+
+        // ── 3. Not a guide/company — check adventure place ───────────────────
         const { data: advPlaces } = await supabase
           .from("adventure_places")
           .select("id, name, image_url, gallery_images, location, place, approval_status")
@@ -200,46 +223,13 @@ const BecomeHost = () => {
             setView({ screen: "adventure-rejected", place: adventurePlace });
             return;
           }
-          // "pending", null, unknown, or anything else → show pending screen.
-          // This ensures the user is NEVER shown type-selection or host cards
-          // when an adventure place row exists.
+          // pending / unknown → show pending screen
           setView({ screen: "adventure-pending", place: adventurePlace });
           return;
         }
 
-        // ── 3. No adventure place row — check guide/company verification ─────
-        const [{ data: verification }, { data: company }] = await Promise.all([
-          supabase.from("host_verifications").select("status, hosting_category").eq("user_id", user.id).maybeSingle(),
-          supabase.from("companies").select("verification_status").eq("user_id", user.id).maybeSingle(),
-        ]);
-
-        if (cancelled) return;
-
-        const verStatus  = verification?.status ?? null;
-        const compStatus = company?.verification_status ?? null;
-        const isApprovedGuide   = verStatus === "approved";
-        const isApprovedCompany = compStatus === "approved";
-
-        // Not verified anywhere — show type selection
-        if (!isApprovedGuide && !isApprovedCompany) {
-          setView({ screen: "type-selection" });
-          return;
-        }
-
-        // Approved guide or company — load their content
-        const [trips, hotels] = await Promise.all([
-          supabase.from("trips").select("id,name,type").eq("created_by", user.id),
-          supabase.from("hotels").select("id,name,category").eq("created_by", user.id),
-        ]);
-
-        if (cancelled) return;
-
-        const allContent = [
-          ...(trips.data?.map((t) => ({ ...t, contentType: "trip" })) ?? []),
-          ...(hotels.data?.map((h) => ({ ...h, contentType: "hotel" })) ?? []),
-        ];
-
-        setView({ screen: "guide-company-dashboard", content: allContent, verificationStatus: verStatus, companyStatus: compStatus });
+        // ── 4. Nothing matched — show type selection ──────────────────────────
+        setView({ screen: "type-selection" });
       } catch (err) {
         console.error(err);
       }
@@ -295,7 +285,6 @@ const BecomeHost = () => {
   );
 
   // ── Type Selection ────────────────────────────────────────────────────────
-  // Only reachable when: no adventure place row AND not an approved guide/company.
   if (view.screen === "type-selection") return (
     <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
       <Header />
@@ -349,7 +338,6 @@ const BecomeHost = () => {
   );
 
   // ── Adventure: Pending ────────────────────────────────────────────────────
-  // Shows ONLY the pending card. No other options. Dead end until approved/rejected.
   if (view.screen === "adventure-pending") return (
     <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
       <Header />
@@ -372,7 +360,6 @@ const BecomeHost = () => {
   );
 
   // ── Adventure: Rejected ───────────────────────────────────────────────────
-  // Shows ONLY the rejection notice + adventure resubmit card. No Guide/Company options.
   if (view.screen === "adventure-rejected") return (
     <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
       <Header />
@@ -465,39 +452,42 @@ const BecomeHost = () => {
     </div>
   );
 
-  // ── Guide / Company dashboard ─────────────────────────────────────────────
+  // ── Guide / Company dashboard — Trips only ────────────────────────────────
   if (view.screen === "guide-company-dashboard") {
-    const { content, verificationStatus, companyStatus } = view;
+    const { content } = view;
+    const tripCount = content.filter((i) => i.contentType === "trip").length;
+
     return (
       <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
         <Header />
         <main className="flex-1 container px-4 py-12 mx-auto mb-24">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
-            <h1 className="text-4xl font-black uppercase tracking-tighter text-slate-900">
-              Manage <span style={{ color: COLORS.CORAL }}>Inventory</span>
-            </h1>
+            <div>
+              <h1 className="text-4xl font-black uppercase tracking-tighter text-slate-900">
+                Host <span style={{ color: COLORS.CORAL }}>Dashboard</span>
+              </h1>
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-1">Manage your trips & tours</p>
+            </div>
             <div className="bg-white p-4 rounded-[24px] shadow-sm border flex items-center gap-3">
               <LayoutDashboard className="h-5 w-5 text-[#857F3E]" />
               <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Active Assets</p>
-                <p className="text-xl font-black text-slate-800">{content.length}</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Active Trips</p>
+                <p className="text-xl font-black text-slate-800">{tripCount}</p>
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {(verificationStatus === "approved" || companyStatus === "approved") && (
-              <HostCategoryCard
-                title="Trips & Tours"
-                subtitle="Guided Experiences"
-                image="/images/category-trips.webp"
-                icon={<Map className="h-8 w-8" />}
-                count={content.filter((i) => i.contentType === "trip").length}
-                onManage={() => navigate("/host/trips")}
-                onAdd={() => navigate("/create-trip")}
-                accentColor={COLORS.TEAL}
-              />
-            )}
+          <div className="max-w-lg">
+            <HostCategoryCard
+              title="Trips & Tours"
+              subtitle="Guided Experiences"
+              image="/images/category-trips.webp"
+              icon={<Map className="h-8 w-8" />}
+              count={tripCount}
+              onManage={() => navigate("/host/trips")}
+              onAdd={() => navigate("/create-trip")}
+              accentColor={COLORS.TEAL}
+            />
           </div>
         </main>
         <MobileBottomBar />

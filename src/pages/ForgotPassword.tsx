@@ -285,7 +285,6 @@ const ForgotPassword = () => {
   );
 };
 
-// Unified dynamic component form trigger element mapping directly to Auth UI actions
 const PrimaryButton = ({ text, loading, disabled }: { text: string, loading?: boolean, disabled?: boolean }) => (
   <Button 
     type="submit" 

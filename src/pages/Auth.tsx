@@ -4,15 +4,21 @@ import { useAuth } from "@/contexts/AuthContext";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { SignupForm } from "@/components/auth/SignupForm";
 import { SEOHead } from "@/components/SEOHead";
-import { ArrowLeft, MapPin, Shield, Star, Compass } from "lucide-react";
+import { ArrowLeft, MapPin, Star, Compass } from "lucide-react";
 
 const Auth = () => {
-  const [activeTab, setActiveTab] = useState<"login" | "signup">("login");
-  const [slideIndex, setSlideIndex] = useState<number>(0); // Multi-slide track index
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const returnTo = (location.state as any)?.returnTo || "/";
+
+  // Check if a page (like ForgotPassword) requested starting directly on the form slide (index 3)
+  const initialSlide = location.state?.returnToSlideIndex !== undefined 
+    ? location.state.returnToSlideIndex 
+    : 0;
+
+  const [activeTab, setActiveTab] = useState<"login" | "signup>("login");
+  const [slideIndex, setSlideIndex] = useState<number>(initialSlide);
 
   if (!loading && user) {
     navigate(returnTo);
@@ -63,7 +69,7 @@ const Auth = () => {
         <div className="absolute -top-20 -left-20 w-80 h-80 bg-[rgb(0,128,128)]/10 rounded-full blur-[100px]" />
 
         <div className="relative z-10 flex flex-col justify-between p-12 w-full">
-          {/* Brand Identity Typography instead of image */}
+          {/* Brand Identity Typography */}
           <div className="flex flex-col cursor-pointer" onClick={() => navigate("/")}>
             <span className="text-2xl font-black tracking-wider text-[rgb(0,128,128)]">RealTravo</span>
             <span className="text-[10px] font-mono tracking-widest text-slate-500">WWW.REALTRAVO.COM</span>
@@ -111,7 +117,7 @@ const Auth = () => {
             <span className="text-xs font-semibold">Return Home</span>
           </button>
           
-          {/* Mobile Text Branding instead of image */}
+          {/* Mobile Text Branding */}
           <div className="flex flex-col text-right lg:hidden">
             <span className="text-lg font-black text-[rgb(0,128,128)] tracking-wide">RealTravo</span>
             <span className="text-[8px] text-slate-500 font-mono">WWW.REALTRAVO.COM</span>
@@ -169,19 +175,19 @@ const Auth = () => {
               </div>
             ) : (
               
-              /* Conditional Render: Slide 3 (Your Glassmorphic Form Shell) */
-              <div className="bg-slate-950/45 backdrop-blur-2xl border border-white/10 rounded-xl p-6 lg:p-8 space-y-5 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.7)] transform transition-all duration-500 scale-[1.01]">
+              /* Conditional Render: Slide 3 (Isolated Inner Form Scroll Shell) */
+              <div className="bg-slate-950/45 backdrop-blur-2xl border border-white/10 rounded-xl p-6 lg:p-8 space-y-4 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.7)] transform transition-all duration-500 scale-[1.01] h-auto max-h-[85vh] flex flex-col overflow-hidden">
                 
-                {/* Back to Slides Navigation Link */}
+                {/* Back to Slides Navigation Link - FIXED POSITION */}
                 <button 
                   onClick={() => setSlideIndex(2)}
-                  className="text-[10px] font-semibold text-slate-400 hover:text-[rgb(0,128,128)] flex items-center gap-1 transition-colors"
+                  className="text-[10px] font-semibold text-slate-400 hover:text-[rgb(0,128,128)] flex items-center gap-1 transition-colors flex-shrink-0 w-max"
                 >
                   <ArrowLeft className="w-3 h-3" /> Back to onboarding
                 </button>
 
-                {/* Header Blocks */}
-                <div className="space-y-1 text-center lg:text-left">
+                {/* Header Blocks - FIXED POSITION */}
+                <div className="space-y-1 text-center lg:text-left flex-shrink-0">
                   <h2 className="text-2xl font-extrabold text-white tracking-tight">
                     {activeTab === "login" ? "Welcome back" : "Get started"}
                   </h2>
@@ -192,8 +198,8 @@ const Auth = () => {
                   </p>
                 </div>
 
-                {/* Segmented Controller */}
-                <div className="flex bg-black/50 border border-white/5 p-0.5 rounded-lg">
+                {/* Segmented Controller - FIXED POSITION */}
+                <div className="flex bg-black/50 border border-white/5 p-0.5 rounded-lg flex-shrink-0">
                   <button
                     onClick={() => setActiveTab("login")}
                     className={`flex-1 py-2 text-[10px] uppercase tracking-wider font-bold rounded-md transition-all duration-200 ${
@@ -216,8 +222,8 @@ const Auth = () => {
                   </button>
                 </div>
 
-                {/* Interactive Core with Secondary forms intact */}
-                <div className="mt-1 text-slate-200">
+                {/* Interactive Core Form Container - ISOLATED SCROLLABLE INNER LAYER */}
+                <div className="mt-1 text-slate-200 max-h-[340px] overflow-y-auto pr-1 overflow-x-hidden scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
                   {activeTab === "login" ? (
                     <LoginForm onSwitchToSignup={() => setActiveTab("signup")} />
                   ) : (

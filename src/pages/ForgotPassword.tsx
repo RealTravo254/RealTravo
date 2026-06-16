@@ -1,26 +1,14 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Header } from "@/components/Header";
-import { MobileBottomBar } from "@/components/MobileBottomBar"; // Swapped Footer for BottomBar for consistency
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff, Mail, Lock, Clock, Sparkles, AlertTriangle, Loader2, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, Sparkles, AlertTriangle, Loader2, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { PasswordStrength } from "@/components/ui/password-strength";
 import { generateStrongPassword } from "@/lib/passwordUtils";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
-
-const COLORS = {
-  TEAL: "#008080",
-  CORAL: "#FF7F50",
-  CORAL_LIGHT: "#FF9E7A",
-  KHAKI: "#F0E68C",
-  KHAKI_DARK: "#857F3E",
-  RED: "#FF0000",
-  SOFT_GRAY: "#F8F9FA"
-};
 
 const ForgotPassword = () => {
   const [step, setStep] = useState<'email' | 'verify' | 'reset'>('email');
@@ -54,6 +42,11 @@ const ForgotPassword = () => {
       setCanResend(true);
     }
   }, [countdown]);
+
+  // Forces Auth page to initialize on Slide 3 (LoginForm/SignupForm split view)
+  const handleBackToAuthForm = () => {
+    navigate("/auth", { state: { returnToSlideIndex: 3 } });
+  };
 
   const handleSendCode = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,155 +101,198 @@ const ForgotPassword = () => {
     }
   };
 
-  // Shared Header for the Auth Steps
   const AuthHeader = ({ icon: Icon, title, subtitle }: { icon: any, title: string, subtitle: string }) => (
-    <div className="flex flex-col items-center mb-8">
-      <div className="bg-[#008080]/10 p-4 rounded-2xl mb-4">
-        <Icon className="h-8 w-8 text-[#008080]" />
+    <div className="flex flex-col items-center mb-4 flex-shrink-0">
+      <div className="bg-[rgb(0,128,128)]/10 p-3 rounded-full mb-3 shadow-inner">
+        <Icon className="h-6 w-6 text-[rgb(0,128,128)]" />
       </div>
-      <h1 className="text-3xl font-black uppercase tracking-tighter text-slate-800 text-center">{title}</h1>
-      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-2 text-center px-4">
+      <h1 className="text-xl font-extrabold text-white tracking-tight text-center">{title}</h1>
+      <p className="text-xs font-medium text-slate-400 mt-1 text-center px-2 leading-relaxed">
         {subtitle}
       </p>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] pb-24">
-      <Header className="hidden md:block" />
-      
-      <main className="container px-4 pt-12 max-w-lg mx-auto relative z-10">
-        <Button 
-          variant="ghost" 
-          onClick={() => step === 'email' ? navigate("/auth") : setStep('email')}
-          className="mb-6 hover:bg-slate-100 rounded-xl font-bold uppercase text-[10px] tracking-widest text-slate-500"
+    <div 
+      className="min-h-screen flex flex-col justify-center items-center relative overflow-hidden bg-[#070A13] text-slate-100 antialiased font-sans selection:bg-teal-500/20 px-4 py-8"
+      style={{
+        backgroundImage: "url('/images/category-campsite.webp')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }}
+    >
+      {/* Soft Vignette Background Overlay */}
+      <div className="absolute inset-0 bg-gradient-to-b from-[#070A13]/95 via-[#070A13]/85 to-[#070A13]/95 lg:bg-gradient-to-tr lg:from-[#070A13]/95 lg:via-[#070A13]/75 lg:to-black/40 z-0" />
+
+      {/* Global Brand Navigation Header Control */}
+      <div className="absolute top-0 inset-x-0 z-10 flex items-center justify-between p-4 lg:p-8">
+        <button
+          onClick={handleBackToAuthForm}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900/40 border border-white/10 text-slate-300 hover:text-white hover:bg-slate-900/80 hover:border-white/20 backdrop-blur-md transition-all duration-200 shadow-sm group"
         >
-          <ArrowLeft className="mr-2 h-4 w-4" /> Back
-        </Button>
-
-        <div className="bg-white rounded-[32px] p-8 md:p-10 shadow-2xl border border-slate-100 transition-all duration-500">
-          
-          {step === 'email' && (
-            <form onSubmit={handleSendCode} className="space-y-6">
-              <AuthHeader icon={Mail} title="Recovery" subtitle="Enter your email to receive a secure access code" />
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Email Address</Label>
-                <Input 
-                  type="email" 
-                  className="rounded-2xl border-slate-100 bg-slate-50 h-14 focus:ring-[#008080]" 
-                  placeholder="name@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-              <PrimaryButton loading={loading} text="Send Secure Code" disabled={!email} />
-            </form>
-          )}
-
-          {step === 'verify' && (
-            <div className="space-y-8">
-              <AuthHeader icon={CheckCircle2} title="Verify" subtitle={`We've sent a code to ${email}`} />
-              
-              <div className="flex justify-center">
-                <InputOTP maxLength={6} value={otp} onChange={(v) => { setOtp(v); if (v.length === 6) handleVerifyOtp(v); }}>
-                  <InputOTPGroup className="gap-2">
-                    {[0,1,2,3,4,5].map((i) => (
-                      <InputOTPSlot 
-                        key={i} 
-                        index={i} 
-                        className="w-12 h-14 rounded-xl border-slate-200 text-lg font-black text-[#008080]" 
-                      />
-                    ))}
-                  </InputOTPGroup>
-                </InputOTP>
-              </div>
-
-              {verifying && <div className="flex justify-center items-center gap-2 text-[10px] font-black text-[#008080] uppercase tracking-widest"><Loader2 className="h-4 w-4 animate-spin" /> Verifying</div>}
-
-              <div className="text-center space-y-4">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">
-                  Didn't receive code? {countdown > 0 ? `Wait ${countdown}s` : ""}
-                </p>
-                <Button 
-                  variant="ghost" 
-                  disabled={!canResend} 
-                  onClick={handleSendCode}
-                  className="text-[#008080] font-black uppercase text-[10px] tracking-widest h-auto py-0 hover:bg-transparent"
-                >
-                  Resend Code
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {step === 'reset' && (
-            <form onSubmit={handleResetPassword} className="space-y-5">
-              <AuthHeader icon={Lock} title="New Password" subtitle="Choose a strong, unique password for your account" />
-              
-              <div className="space-y-4">
-                <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">New Password</Label>
-                        <button type="button" onClick={() => {
-                             const p = generateStrongPassword();
-                             setNewPassword(p); setConfirmPassword(p);
-                        }} className="text-[9px] font-black text-[#FF7F50] uppercase tracking-widest flex items-center gap-1"><Sparkles className="h-3 w-3"/> Auto-Generate</button>
-                    </div>
-                  <div className="relative">
-                    <Input 
-                      type={showPassword ? "text" : "password"} 
-                      className="rounded-2xl border-slate-100 bg-slate-50 h-14 pr-12"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      required
-                    />
-                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300">
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                  <PasswordStrength password={newPassword} />
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Confirm Password</Label>
-                  <div className="relative">
-                    <Input 
-                      type={showConfirmPassword ? "text" : "password"} 
-                      className="rounded-2xl border-slate-100 bg-slate-50 h-14"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      required
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {error && <div className="p-3 rounded-xl bg-red-50 border border-red-100 flex items-center gap-2 text-red-600 text-[10px] font-bold uppercase tracking-tight"><AlertTriangle className="h-4 w-4"/> {error}</div>}
-
-              <PrimaryButton loading={loading} text="Update Password" disabled={loading || newPassword !== confirmPassword || !validatePassword(newPassword).valid} />
-            </form>
-          )}
-
+          <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
+          <span className="text-xs font-semibold">Back to Login</span>
+        </button>
+        
+        <div className="flex flex-col text-right">
+          <span className="text-lg lg:text-xl font-black text-[rgb(0,128,128)] tracking-wide">RealTravo</span>
+          <span className="text-[8px] lg:text-[9px] text-slate-500 font-mono">WWW.REALTRAVO.COM</span>
         </div>
-      </main>
-      <MobileBottomBar />
+      </div>
+
+      {/* Glassmorphic Form Container Layer */}
+      <div className="relative z-10 w-full max-w-[420px]">
+        <div className="bg-slate-950/45 backdrop-blur-2xl border border-white/10 rounded-xl p-6 lg:p-8 space-y-4 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.7)] transform transition-all duration-500 scale-[1.01] h-auto max-h-[85vh] flex flex-col overflow-hidden">
+          
+          {/* Section Breadcrumb Actions */}
+          <button 
+            onClick={() => step === 'email' ? handleBackToAuthForm() : setStep('email')}
+            className="text-[10px] font-semibold text-slate-400 hover:text-[rgb(0,128,128)] flex items-center gap-1 transition-colors flex-shrink-0 w-max"
+          >
+            <ArrowLeft className="w-3 h-3" /> {step === 'email' ? "Back to sign in" : "Back to recovery input"}
+          </button>
+
+          {/* Isolated Internal Form Scroll Chamber */}
+          <div className="mt-1 text-slate-200 overflow-y-auto pr-1 overflow-x-hidden scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+            
+            {step === 'email' && (
+              <form onSubmit={handleSendCode} className="space-y-4 pt-1">
+                <AuthHeader icon={Mail} title="Account Recovery" subtitle="Enter your email to receive a temporary 6-digit access token." />
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-0.5">Email Address</Label>
+                  <Input 
+                    type="email" 
+                    className="rounded-lg border-white/10 bg-black/40 text-slate-100 placeholder:text-slate-500 h-11 focus:border-[rgb(0,128,128)] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 transition-colors" 
+                    placeholder="name@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                <PrimaryButton loading={loading} text="Send Recovery Code" disabled={!email} />
+              </form>
+            )}
+
+            {step === 'verify' && (
+              <div className="space-y-6 pt-1">
+                <AuthHeader icon={CheckCircle2} title="Verification" subtitle={`Enter the verification token dispatched to ${email}`} />
+                
+                <div className="flex justify-center py-2">
+                  <InputOTP maxLength={6} value={otp} onChange={(v) => { setOtp(v); if (v.length === 6) handleVerifyOtp(v); }}>
+                    <InputOTPGroup className="gap-1.5">
+                      {[0,1,2,3,4,5].map((i) => (
+                        <InputOTPSlot 
+                          key={i} 
+                          index={i} 
+                          className="w-10 h-12 rounded-lg border-white/10 bg-black/30 text-base font-bold text-[rgb(0,128,128)] focus:border-[rgb(0,128,128)]" 
+                        />
+                      ))}
+                    </InputOTPGroup>
+                  </InputOTP>
+                </div>
+
+                {verifying && (
+                  <div className="flex justify-center items-center gap-2 text-[10px] font-bold text-[rgb(0,128,128)] uppercase tracking-widest animate-pulse">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Verifying Code
+                  </div>
+                )}
+
+                <div className="text-center space-y-2 pt-2">
+                  <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">
+                    Didn't receive code? {countdown > 0 ? `Wait ${countdown}s` : ""}
+                  </p>
+                  <Button 
+                    variant="ghost" 
+                    disabled={!canResend} 
+                    onClick={handleSendCode}
+                    className="text-[rgb(0,128,128)] hover:text-teal-400 font-bold uppercase text-[10px] tracking-widest h-auto py-0 hover:bg-transparent"
+                  >
+                    Resend Code
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {step === 'reset' && (
+              <form onSubmit={handleResetPassword} className="space-y-4 pt-1">
+                <AuthHeader icon={Lock} title="New Password" subtitle="Choose a strong, unique password to secure your updated credentials." />
+                
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-center px-0.5">
+                      <Label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">New Password</Label>
+                      <button 
+                        type="button" 
+                        onClick={() => {
+                          const p = generateStrongPassword();
+                          setNewPassword(p); 
+                          setConfirmPassword(p);
+                        }} 
+                        className="text-[9px] font-extrabold text-teal-400 hover:text-teal-300 uppercase tracking-wider flex items-center gap-1.5 transition-colors"
+                      >
+                        <Sparkles className="h-3 w-3"/> Auto-Generate
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <Input 
+                        type={showPassword ? "text" : "password"} 
+                        className="rounded-lg border-white/10 bg-black/40 text-slate-100 h-11 pr-10 focus:border-[rgb(0,128,128)] focus:ring-0 focus-visible:ring-0 transition-colors"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        required
+                      />
+                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors">
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                    <div className="pt-1 opacity-80">
+                      <PasswordStrength password={newPassword} />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-0.5">Confirm Password</Label>
+                    <div className="relative">
+                      <Input 
+                        type={showConfirmPassword ? "text" : "password"} 
+                        className="rounded-lg border-white/10 bg-black/40 text-slate-100 h-11 pr-10 focus:border-[rgb(0,128,128)] focus:ring-0 focus-visible:ring-0 transition-colors"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        required
+                      />
+                      <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors">
+                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {error && (
+                  <div className="p-2.5 rounded-lg bg-red-950/40 border border-red-500/20 flex items-center gap-2 text-red-400 text-[10px] font-semibold uppercase tracking-tight">
+                    <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" /> {error}
+                  </div>
+                )}
+
+                <PrimaryButton loading={loading} text="Update Password" disabled={loading || newPassword !== confirmPassword || !validatePassword(newPassword).valid} />
+              </form>
+            )}
+
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
 
-// Reusable Button to match Event Detail styling
+// Unified dynamic component form trigger element mapping directly to Auth UI actions
 const PrimaryButton = ({ text, loading, disabled }: { text: string, loading?: boolean, disabled?: boolean }) => (
   <Button 
     type="submit" 
     disabled={disabled || loading}
-    className="w-full py-8 rounded-2xl text-md font-black uppercase tracking-[0.2em] text-white shadow-xl transition-all active:scale-95 border-none"
-    style={{ 
-        background: `linear-gradient(135deg, ${COLORS.CORAL_LIGHT} 0%, ${COLORS.CORAL} 100%)`,
-        boxShadow: `0 12px 24px -8px ${COLORS.CORAL}88`
-    }}
+    className="w-full py-2.5 px-4 rounded-lg text-xs font-bold tracking-wide uppercase bg-[rgb(0,128,128)] text-white hover:bg-teal-700 active:scale-[0.99] transition-all duration-200 shadow-lg shadow-teal-950/50 border-none mt-2 flex items-center justify-center gap-2"
   >
-    {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : text}
+    {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : text}
   </Button>
 );
 

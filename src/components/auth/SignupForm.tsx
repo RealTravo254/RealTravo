@@ -74,8 +74,9 @@ export const SignupForm = ({ onSwitchToLogin }: SignupFormProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  // Shared Design System Tokens - Unified with Brand Teal Focus
   const inputClass =
-    "h-11 rounded-xl bg-black/30 border-white/10 text-white placeholder:text-white/30 focus:border-white/30 focus:bg-black/50 transition-all duration-200";
+    "h-11 rounded-xl bg-black/30 border-white/10 text-white placeholder:text-white/30 focus:border-[rgb(0,128,128)] focus:ring-1 focus:ring-[rgb(0,128,128)] focus:bg-black/50 transition-all duration-200";
   const labelClass = "text-xs font-semibold uppercase tracking-wider text-slate-400";
   const errorClass = "text-xs font-medium text-red-300 mt-1";
 
@@ -187,15 +188,15 @@ export const SignupForm = ({ onSwitchToLogin }: SignupFormProps) => {
     return (
       <div className="space-y-8 animate-fade-in">
         <div className="text-center space-y-3">
-          <div className="mx-auto w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center shadow-md">
-            <Mail className="h-6 w-6 text-slate-200" />
+          <div className="mx-auto w-14 h-14 rounded-2xl bg-white/5 border border-[rgb(0,128,128)]/30 flex items-center justify-center shadow-md">
+            <Mail className="h-6 w-6 text-[rgb(0,128,128)]" />
           </div>
           <h3 className="text-xl font-bold text-white">Check your mail</h3>
           <p className="text-sm text-slate-400 leading-relaxed">
-            We sent a secure code verification packet to <span className="text-white font-semibold">{email}</span>
+            We sent a secure code verification packet to <span className="text-[rgb(0,128,128)] font-semibold">{email}</span>
           </p>
           {generatedUserId && (
-            <p className="text-xs font-mono text-slate-300 bg-black/40 border border-white/5 py-1.5 px-3 rounded-lg inline-block">
+            <p className="text-xs font-mono text-[rgb(0,128,128)] bg-black/40 border border-[rgb(0,128,128)]/10 py-1.5 px-3 rounded-lg inline-block">
               User Key: {generatedUserId}
             </p>
           )}
@@ -208,7 +209,13 @@ export const SignupForm = ({ onSwitchToLogin }: SignupFormProps) => {
               if (value.length === 6) setTimeout(() => handleVerifyOtp(value), 100);
             }}>
               <InputOTPGroup>
-                {[0,1,2,3,4,5].map(i => <InputOTPSlot key={i} index={i} className="bg-black/20 text-white border-white/10" />)}
+                {[0,1,2,3,4,5].map(i => (
+                  <InputOTPSlot 
+                    key={i} 
+                    index={i} 
+                    className="bg-black/20 text-white border-white/10 focus:border-[rgb(0,128,128)] focus:ring-1 focus:ring-[rgb(0,128,128)]" 
+                  />
+                ))}
               </InputOTPGroup>
             </InputOTP>
           </div>
@@ -217,20 +224,20 @@ export const SignupForm = ({ onSwitchToLogin }: SignupFormProps) => {
 
           {verifying && (
             <div className="flex items-center justify-center gap-2 text-slate-400 text-sm">
-              <Loader2 className="h-4 w-4 animate-spin text-white" />Encrypting entry...
+              <Loader2 className="h-4 w-4 animate-spin text-[rgb(0,128,128)]" />Encrypting entry...
             </div>
           )}
 
           <div className="text-center">
             <p className="text-xs text-slate-500 mb-0.5">Missed the communication?</p>
             <Button variant="link" onClick={handleResendCode} disabled={resending}
-              className="text-sm p-0 h-auto text-white underline decoration-white/20 hover:decoration-white transition-all">
+              className="text-sm p-0 h-auto text-[rgb(0,128,128)] hover:text-teal-400 underline decoration-[rgb(0,128,128)]/20 hover:decoration-teal-400 transition-all">
               {resending ? "Re-issuing packet..." : "Resend code"}
             </Button>
           </div>
 
           <button onClick={() => setStep("form")}
-            className="flex items-center justify-center gap-2 w-full text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-white transition-colors py-2">
+            className="flex items-center justify-center gap-2 w-full text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-[rgb(0,128,128)] transition-colors py-2">
             <ArrowLeft className="w-3.5 h-3.5" />Return to Form Configuration
           </button>
         </div>
@@ -242,7 +249,7 @@ export const SignupForm = ({ onSwitchToLogin }: SignupFormProps) => {
     <div className="space-y-5 animate-fade-in">
       {/* OAuth Actions */}
       <button type="button" onClick={handleGoogleSignUp} disabled={googleLoading}
-        className="flex w-full items-center justify-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-white transition-all duration-200 hover:bg-white/[0.08] hover:border-white/20 focus:outline-none disabled:opacity-50">
+        className="flex w-full items-center justify-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-white transition-all duration-200 hover:bg-white/[0.08] hover:border-[rgb(0,128,128)]/40 focus:outline-none disabled:opacity-50">
         {googleLoading ? <Loader2 className="h-4 w-4 animate-spin text-white" /> : (
           <svg className="h-4 w-4" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -275,10 +282,10 @@ export const SignupForm = ({ onSwitchToLogin }: SignupFormProps) => {
           <div className="space-y-1.5">
             <Label htmlFor="gender" className={labelClass}>Gender</Label>
             <Select value={gender} onValueChange={setGender}>
-              <SelectTrigger className="h-11 rounded-xl bg-black/30 border-white/10 text-white focus:bg-black/50">
+              <SelectTrigger className="h-11 rounded-xl bg-black/30 border-white/10 text-white focus:bg-black/50 focus:border-[rgb(0,128,128)] focus:ring-[rgb(0,128,128)]">
                 <SelectValue placeholder="Select" />
               </SelectTrigger>
-              <SelectContent className="bg-slate-900 border-white/10 text-slate-200">
+              <SelectContent className="bg-slate-900 border-white/10 text-slate-200 focus:border-[rgb(0,128,128)]">
                 <SelectItem value="male">Male</SelectItem>
                 <SelectItem value="female">Female</SelectItem>
                 <SelectItem value="other">Other</SelectItem>
@@ -307,7 +314,7 @@ export const SignupForm = ({ onSwitchToLogin }: SignupFormProps) => {
           />
           {errors.date_of_birth && <p className={errorClass}>{errors.date_of_birth}</p>}
           {dateOfBirth && !errors.date_of_birth && isOver18(dateOfBirth) && (
-            <p className="text-[11px] text-emerald-400 font-medium tracking-wide flex items-center gap-1 mt-1">
+            <p className="text-[11px] text-teal-400 font-medium tracking-wide flex items-center gap-1 mt-1">
               ✓ Access verified (Age clearance set)
             </p>
           )}
@@ -327,8 +334,8 @@ export const SignupForm = ({ onSwitchToLogin }: SignupFormProps) => {
           <div className="flex items-center justify-between">
             <Label htmlFor="signup-password" className={labelClass}>Password</Label>
             <button type="button" onClick={handleGeneratePassword}
-              className="flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-white transition-colors">
-              <Sparkles className="h-3 w-3 text-indigo-400" />Generate Secure
+              className="flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-[rgb(0,128,128)] transition-colors">
+              <Sparkles className="h-3 w-3 text-[rgb(0,128,128)]" />Generate Secure
             </button>
           </div>
           <div className="relative">
@@ -336,7 +343,7 @@ export const SignupForm = ({ onSwitchToLogin }: SignupFormProps) => {
               value={password} onChange={e => setPassword(e.target.value)}
               className={`${inputClass} pr-10 ${errors.password ? "border-red-400" : ""}`} required />
             <button type="button" onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors">
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-[rgb(0,128,128)] transition-colors">
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
@@ -353,7 +360,7 @@ export const SignupForm = ({ onSwitchToLogin }: SignupFormProps) => {
               value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
               className={`${inputClass} pr-10 ${errors.confirmPassword ? "border-red-400" : ""}`} required />
             <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors">
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-[rgb(0,128,128)] transition-colors">
               {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
@@ -362,11 +369,11 @@ export const SignupForm = ({ onSwitchToLogin }: SignupFormProps) => {
 
         {/* Submission Executable */}
         <Button type="submit"
-          className="w-full h-11 rounded-xl text-sm font-bold bg-white text-slate-950 hover:bg-slate-100 transition-all duration-150 shadow-md mt-2"
+          className="w-full h-11 rounded-xl text-sm font-bold bg-[rgb(0,128,128)] text-white hover:bg-teal-700 transition-all duration-150 shadow-md mt-2"
           disabled={loading}>
           {loading ? (
             <span className="flex items-center gap-2 justify-center">
-              <Loader2 className="h-4 w-4 animate-spin text-slate-950" />
+              <Loader2 className="h-4 w-4 animate-spin text-white" />
               Provisioning Profile...
             </span>
           ) : "Create Account Instance"}
@@ -375,9 +382,9 @@ export const SignupForm = ({ onSwitchToLogin }: SignupFormProps) => {
         {/* Regulatory Footer Metadata */}
         <p className="text-center text-[11px] text-slate-500 leading-relaxed pt-2">
           By triggering confirmation, you pledge adherence to our legal guidelines via our{" "}
-          <a href="/terms" className="text-slate-400 hover:text-white underline transition-colors">Terms of Service</a>{" "}
+          <a href="/terms" className="text-slate-400 hover:text-[rgb(0,128,128)] underline transition-colors">Terms of Service</a>{" "}
           and standard processing layers highlighted in the{" "}
-          <a href="/privacy" className="text-slate-400 hover:text-white underline transition-colors">Privacy Policy</a>.
+          <a href="/privacy" className="text-slate-400 hover:text-[rgb(0,128,128)] underline transition-colors">Privacy Policy</a>.
         </p>
       </form>
     </div>

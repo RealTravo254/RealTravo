@@ -38,9 +38,9 @@ export const LoginForm = ({ onSwitchToSignup }: LoginFormProps) => {
 
   const returnTo = (location.state as any)?.returnTo || "/";
 
-  // Shared Design System Tokens
+  // Shared Design System Tokens - Updated with RealTravo Teal Accents
   const inputClass =
-    "h-11 rounded-xl bg-black/30 border-white/10 text-white placeholder:text-white/30 focus:border-white/30 focus:bg-black/50 transition-all duration-200";
+    "h-11 rounded-xl bg-black/30 border-white/10 text-white placeholder:text-white/30 focus:border-[rgb(0,128,128)] focus:ring-1 focus:ring-[rgb(0,128,128)] focus:bg-black/50 transition-all duration-200";
   const labelClass = "text-xs font-semibold uppercase tracking-wider text-slate-400";
   const errorClass = "text-xs font-medium text-red-300 mt-1";
 
@@ -174,8 +174,10 @@ export const LoginForm = ({ onSwitchToSignup }: LoginFormProps) => {
     try {
       const { error } = await supabase.auth.verifyOtp({
         email,
-        token: code,
-        type: "email",
+        options: {
+          token: code,
+          type: "email",
+        }
       });
       if (error) throw error;
       navigate(returnTo);
@@ -196,12 +198,12 @@ export const LoginForm = ({ onSwitchToSignup }: LoginFormProps) => {
     return (
       <div className="space-y-8 animate-fade-in">
         <div className="text-center space-y-3">
-          <div className="mx-auto w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center shadow-md">
-            <Mail className="h-6 w-6 text-slate-200" />
+          <div className="mx-auto w-14 h-14 rounded-2xl bg-white/5 border border-[rgb(0,128,128)]/30 flex items-center justify-center shadow-md">
+            <Mail className="h-6 w-6 text-[rgb(0,128,128)]" />
           </div>
           <h3 className="text-xl font-bold text-white">Check your mail</h3>
           <p className="text-sm text-slate-400 leading-relaxed">
-            We sent a secure code verification packet to <span className="text-white font-semibold">{email}</span>
+            We sent a secure code verification packet to <span className="text-[rgb(0,128,128)] font-semibold">{email}</span>
           </p>
         </div>
 
@@ -219,7 +221,11 @@ export const LoginForm = ({ onSwitchToSignup }: LoginFormProps) => {
             >
               <InputOTPGroup>
                 {[0, 1, 2, 3, 4, 5].map((i) => (
-                  <InputOTPSlot key={i} index={i} className="bg-black/20 text-white border-white/10" />
+                  <InputOTPSlot 
+                    key={i} 
+                    index={i} 
+                    className="bg-black/20 text-white border-white/10 focus:border-[rgb(0,128,128)] focus:ring-1 focus:ring-[rgb(0,128,128)]" 
+                  />
                 ))}
               </InputOTPGroup>
             </InputOTP>
@@ -231,7 +237,7 @@ export const LoginForm = ({ onSwitchToSignup }: LoginFormProps) => {
 
           {otpVerifying && (
             <div className="flex items-center justify-center gap-2 text-slate-400 text-sm">
-              <Loader2 className="h-4 w-4 animate-spin text-white" />
+              <Loader2 className="h-4 w-4 animate-spin text-[rgb(0,128,128)]" />
               Validating session token...
             </div>
           )}
@@ -242,7 +248,7 @@ export const LoginForm = ({ onSwitchToSignup }: LoginFormProps) => {
               variant="link"
               onClick={handleSendOtp}
               disabled={otpSending}
-              className="text-sm p-0 h-auto text-white underline decoration-white/20 hover:decoration-white transition-all"
+              className="text-sm p-0 h-auto text-[rgb(0,128,128)] hover:text-teal-400 underline decoration-[rgb(0,128,128)]/20 hover:decoration-teal-400 transition-all"
             >
               {otpSending ? "Re-issuing packet..." : "Resend code"}
             </Button>
@@ -253,7 +259,7 @@ export const LoginForm = ({ onSwitchToSignup }: LoginFormProps) => {
               setMode("otp-send");
               setOtp("");
             }}
-            className="flex items-center justify-center gap-2 w-full text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-white transition-colors py-2"
+            className="flex items-center justify-center gap-2 w-full text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-[rgb(0,128,128)] transition-colors py-2"
           >
             <ArrowLeft className="w-3.5 h-3.5" /> Return to Request Layer
           </button>
@@ -286,18 +292,19 @@ export const LoginForm = ({ onSwitchToSignup }: LoginFormProps) => {
               onChange={(e) => setEmail(e.target.value)}
               className={`${inputClass} ${errors.email ? "border-red-400" : ""}`}
               required
-            />
+            >
+            </Input>
             {errors.email && <p className={errorClass}>{errors.email}</p>}
           </div>
 
           <Button
             onClick={handleSendOtp}
-            className="w-full h-11 rounded-xl text-sm font-bold bg-white text-slate-950 hover:bg-slate-100 transition-all duration-150 shadow-md"
+            className="w-full h-11 rounded-xl text-sm font-bold bg-[rgb(0,128,128)] text-white hover:bg-teal-700 transition-all duration-150 shadow-md"
             disabled={otpSending}
           >
             {otpSending ? (
               <span className="flex items-center gap-2 justify-center">
-                <Loader2 className="h-4 w-4 animate-spin text-slate-950" />
+                <Loader2 className="h-4 w-4 animate-spin text-white" />
                 Dispatching Packet...
               </span>
             ) : (
@@ -307,7 +314,7 @@ export const LoginForm = ({ onSwitchToSignup }: LoginFormProps) => {
 
           <button
             onClick={() => setMode("password")}
-            className="flex items-center justify-center gap-2 w-full text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-white transition-colors py-2"
+            className="flex items-center justify-center gap-2 w-full text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-[rgb(0,128,128)] transition-colors py-2"
           >
             <ArrowLeft className="w-3.5 h-3.5" /> Back to direct credentials
           </button>
@@ -325,7 +332,7 @@ export const LoginForm = ({ onSwitchToSignup }: LoginFormProps) => {
           type="button"
           onClick={handleGoogleSignIn}
           disabled={googleLoading}
-          className="flex w-full items-center justify-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-white transition-all duration-200 hover:bg-white/[0.08] hover:border-white/20 focus:outline-none disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-white transition-all duration-200 hover:bg-white/[0.08] hover:border-[rgb(0,128,128)]/40 focus:outline-none disabled:opacity-50"
         >
           {googleLoading ? (
             <Loader2 className="h-4 w-4 animate-spin text-white" />
@@ -343,7 +350,7 @@ export const LoginForm = ({ onSwitchToSignup }: LoginFormProps) => {
         <button
           type="button"
           onClick={() => setMode("otp-send")}
-          className="flex w-full items-center justify-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-white transition-all duration-200 hover:bg-white/[0.08] hover:border-white/20 focus:outline-none"
+          className="flex w-full items-center justify-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-white transition-all duration-200 hover:bg-white/[0.08] hover:border-[rgb(0,128,128)]/40 focus:outline-none"
         >
           <ShieldCheck className="h-4 w-4 text-slate-400" />
           <span>Authenticate with Secure Code</span>
@@ -386,7 +393,7 @@ export const LoginForm = ({ onSwitchToSignup }: LoginFormProps) => {
             <button
               type="button"
               onClick={() => navigate("/forgot-password")}
-              className="text-[11px] font-semibold text-slate-500 hover:text-white transition-colors"
+              className="text-[11px] font-semibold text-slate-500 hover:text-[rgb(0,128,128)] transition-colors"
             >
               Forgot secret phrase?
             </button>
@@ -404,7 +411,7 @@ export const LoginForm = ({ onSwitchToSignup }: LoginFormProps) => {
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-[rgb(0,128,128)] transition-colors"
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
@@ -414,12 +421,12 @@ export const LoginForm = ({ onSwitchToSignup }: LoginFormProps) => {
 
         <Button
           type="submit"
-          className="w-full h-11 rounded-xl text-sm font-bold bg-white text-slate-950 hover:bg-slate-100 transition-all duration-150 shadow-md mt-2"
+          className="w-full h-11 rounded-xl text-sm font-bold bg-[rgb(0,128,128)] text-white hover:bg-teal-700 transition-all duration-150 shadow-md mt-2"
           disabled={loading}
         >
           {loading ? (
             <span className="flex items-center gap-2 justify-center">
-              <Loader2 className="h-4 w-4 animate-spin text-slate-950" />
+              <Loader2 className="h-4 w-4 animate-spin text-white" />
               Verifying Instance...
             </span>
           ) : (
@@ -434,7 +441,7 @@ export const LoginForm = ({ onSwitchToSignup }: LoginFormProps) => {
         <button
           type="button"
           onClick={onSwitchToSignup}
-          className="text-white underline decoration-white/20 hover:decoration-white font-bold transition-all ml-0.5"
+          className="text-[rgb(0,128,128)] hover:text-teal-400 underline decoration-[rgb(0,128,128)]/20 hover:decoration-teal-400 font-bold transition-all ml-0.5"
         >
           Create an entry instance
         </button>

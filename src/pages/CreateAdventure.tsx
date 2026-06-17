@@ -622,34 +622,21 @@ const CreateAdventure = () => {
 
   const onValidationFail = useCallback((msg: string) => toast({ title: "Required", description: msg, variant: "destructive" }), [toast]);
 
-  // ── Guards ────────────────────────────────────────────────────────────────
+  // ── Guard: block if already has pending/approved adventure place ──────────
   useEffect(() => {
     if (!user) return;
 
-    // Pre-fill country from profile AND check is_licensed in one query
+    // Pre-fill country from profile
     supabase
       .from("profiles")
-      .select("country, is_licensed")
+      .select("country")
       .eq("id", user.id)
       .single()
       .then(({ data }) => {
-        if (data?.country) {
-          setFormData((p) => ({ ...p, country: data.country }));
-        }
-
-        // ── GUARD: Block unlicensed users ──────────────────────────────────
-        if (!data?.is_licensed) {
-          toast({
-            title: "Not Authorized",
-            description: "You must be a licensed host to create an adventure place. Please complete your verification first.",
-            variant: "destructive",
-          });
-          navigate("/become-host");
-          return;
-        }
+        if (data?.country) setFormData((p) => ({ ...p, country: data.country }));
       });
 
-    // Guard: Verified companies cannot host adventure places
+    // Guard 1: Verified companies cannot host adventure places
     supabase
       .from("companies")
       .select("verification_status")
@@ -670,7 +657,8 @@ const CreateAdventure = () => {
         }
       });
 
-    // Guard: Prevent duplicate submission
+    // Guard 2: Prevent duplicate submission.
+    // If user already has a pending or approved adventure place, send them back.
     supabase
       .from("adventure_places")
       .select("id, approval_status")
@@ -874,23 +862,6 @@ const CreateAdventure = () => {
       toast({
         title: "Already Submitted",
         description: "You already have an adventure place that is pending or approved.",
-        variant: "destructive",
-      });
-      navigate("/become-host");
-      return;
-    }
-
-    // Final license check before insert
-    const { data: profileCheck } = await supabase
-      .from("profiles")
-      .select("is_licensed")
-      .eq("id", user.id)
-      .single();
-
-    if (!profileCheck?.is_licensed) {
-      toast({
-        title: "Not Authorized",
-        description: "You must be a licensed host to create an adventure place.",
         variant: "destructive",
       });
       navigate("/become-host");

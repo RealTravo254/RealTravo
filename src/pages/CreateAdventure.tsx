@@ -622,11 +622,20 @@ const CreateAdventure = () => {
 
   const onValidationFail = useCallback((msg: string) => toast({ title: "Required", description: msg, variant: "destructive" }), [toast]);
 
-  // ── Guards (is_licensed check REMOVED — all authenticated users can submit) ─
+  // ── Auth guard + profile pre-fill ────────────────────────────────────────
   useEffect(() => {
-    if (!user) return;
+    // Gatekeeper: redirect unauthenticated users to login
+    if (!user) {
+      toast({
+        title: "Login Required",
+        description: "You must be logged in to host an adventure place.",
+        variant: "destructive",
+      });
+      navigate("/login");
+      return;
+    }
 
-    // Pre-fill country from profile only — no license check
+    // Pre-fill country from profile only
     supabase
       .from("profiles")
       .select("country")
@@ -635,39 +644,6 @@ const CreateAdventure = () => {
       .then(({ data }) => {
         if (data?.country) {
           setFormData((p) => ({ ...p, country: data.country }));
-        }
-      });
-
-    // Guard: Verified companies cannot host adventure places
-    supabase
-      .from("companies")
-      .select("verification_status")
-      .eq("user_id", user.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data && (data.verification_status === "approved" || data.verification_status === "verified")) {
-          toast({ title: "Not Allowed", description: "Verified companies cannot host adventure places.", variant: "destructive" });
-          navigate("/become-host");
-        }
-      });
-
-    // Guard: Prevent duplicate submission (pending or approved)
-    supabase
-      .from("adventure_places")
-      .select("id, approval_status")
-      .eq("created_by", user.id)
-      .in("approval_status", ["pending", "approved"])
-      .limit(1)
-      .then(({ data }) => {
-        if (data && data.length > 0) {
-          toast({
-            title: data[0].approval_status === "approved" ? "Already Live" : "Already Submitted",
-            description: data[0].approval_status === "approved"
-              ? "Your adventure place is already live. Edit it from your dashboard."
-              : "Your adventure place is under review. You can't submit another one yet.",
-            variant: "destructive",
-          });
-          navigate("/become-host");
         }
       });
   }, [user, navigate, toast]);
@@ -824,7 +800,7 @@ const CreateAdventure = () => {
 
   // ─── Submit ───────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
-    if (!user) { navigate("/auth"); return; }
+    if (!user) { navigate("/login"); return; }
     setShowErrors(true);
     if (
       !formData.registrationName.trim() || !formData.registrationNumber.trim() || !formData.country ||
@@ -836,20 +812,6 @@ const CreateAdventure = () => {
     }
     if (facilities.some((f) => !f.saved)) {
       toast({ title: "Unsaved Facility", description: "Please save all facilities.", variant: "destructive" });
-      return;
-    }
-
-    // Final duplicate check before insert
-    const { data: existingCheck } = await supabase
-      .from("adventure_places")
-      .select("id, approval_status")
-      .eq("created_by", user.id)
-      .in("approval_status", ["pending", "approved"])
-      .limit(1);
-
-    if (existingCheck && existingCheck.length > 0) {
-      toast({ title: "Already Submitted", description: "You already have an adventure place that is pending or approved.", variant: "destructive" });
-      navigate("/become-host");
       return;
     }
 

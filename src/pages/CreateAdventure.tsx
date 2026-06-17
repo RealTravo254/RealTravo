@@ -242,7 +242,7 @@ const TraLicenceUpload = ({
       <div className="mt-3 flex items-start gap-2 px-1">
         <Info className="h-3.5 w-3.5 text-slate-400 mt-0.5 shrink-0" />
         <p className="text-[10px] text-slate-400 leading-relaxed">
-          Only JPG and PNG images are accepted. PDFs and videos are not supported. Your licence is used for identity verification only and will not be publicly visible.
+          Only JPG and PNG images are accepted. Your licence is used for identity verification only and will not be publicly visible.
         </p>
       </div>
     </div>
@@ -622,43 +622,36 @@ const CreateAdventure = () => {
 
   const onValidationFail = useCallback((msg: string) => toast({ title: "Required", description: msg, variant: "destructive" }), [toast]);
 
-  // ── Guard: block if already has pending/approved adventure place ──────────
+  // ── Guards (is_licensed check REMOVED — all authenticated users can submit) ─
   useEffect(() => {
     if (!user) return;
 
-    // Pre-fill country from profile
+    // Pre-fill country from profile only — no license check
     supabase
       .from("profiles")
       .select("country")
       .eq("id", user.id)
       .single()
       .then(({ data }) => {
-        if (data?.country) setFormData((p) => ({ ...p, country: data.country }));
+        if (data?.country) {
+          setFormData((p) => ({ ...p, country: data.country }));
+        }
       });
 
-    // Guard 1: Verified companies cannot host adventure places
+    // Guard: Verified companies cannot host adventure places
     supabase
       .from("companies")
       .select("verification_status")
       .eq("user_id", user.id)
       .maybeSingle()
       .then(({ data }) => {
-        if (
-          data &&
-          (data.verification_status === "approved" ||
-            data.verification_status === "verified")
-        ) {
-          toast({
-            title: "Not Allowed",
-            description: "Verified companies cannot host adventure places.",
-            variant: "destructive",
-          });
+        if (data && (data.verification_status === "approved" || data.verification_status === "verified")) {
+          toast({ title: "Not Allowed", description: "Verified companies cannot host adventure places.", variant: "destructive" });
           navigate("/become-host");
         }
       });
 
-    // Guard 2: Prevent duplicate submission.
-    // If user already has a pending or approved adventure place, send them back.
+    // Guard: Prevent duplicate submission (pending or approved)
     supabase
       .from("adventure_places")
       .select("id, approval_status")
@@ -668,14 +661,10 @@ const CreateAdventure = () => {
       .then(({ data }) => {
         if (data && data.length > 0) {
           toast({
-            title:
-              data[0].approval_status === "approved"
-                ? "Already Live"
-                : "Already Submitted",
-            description:
-              data[0].approval_status === "approved"
-                ? "Your adventure place is already live. Edit it from your dashboard."
-                : "Your adventure place is under review. You can't submit another one yet.",
+            title: data[0].approval_status === "approved" ? "Already Live" : "Already Submitted",
+            description: data[0].approval_status === "approved"
+              ? "Your adventure place is already live. Edit it from your dashboard."
+              : "Your adventure place is under review. You can't submit another one yet.",
             variant: "destructive",
           });
           navigate("/become-host");
@@ -839,7 +828,7 @@ const CreateAdventure = () => {
     setShowErrors(true);
     if (
       !formData.registrationName.trim() || !formData.registrationNumber.trim() || !formData.country ||
-      !formData.locationName.trim() || !formData.place.trim() || !formData.latitude ||
+      !formData.locationName.trim() || !formData.place.trim() ||
       !formData.description.trim() || galleryImages.length < 5 || !traLicenceFile
     ) {
       toast({ title: "Action Required", description: "Please complete all steps including TRA licence upload.", variant: "destructive" });
@@ -859,11 +848,7 @@ const CreateAdventure = () => {
       .limit(1);
 
     if (existingCheck && existingCheck.length > 0) {
-      toast({
-        title: "Already Submitted",
-        description: "You already have an adventure place that is pending or approved.",
-        variant: "destructive",
-      });
+      toast({ title: "Already Submitted", description: "You already have an adventure place that is pending or approved.", variant: "destructive" });
       navigate("/become-host");
       return;
     }
@@ -913,6 +898,7 @@ const CreateAdventure = () => {
       }]);
       if (error) throw error;
 
+      // Write hosting_category so BecomeHost/MyListing can detect this user
       await supabase.from("host_verifications").upsert(
         { user_id: user.id, hosting_category: "adventure", status: "pending" },
         { onConflict: "user_id" }
@@ -976,7 +962,7 @@ const CreateAdventure = () => {
             {/* Mobile stepper */}
             <div className="lg:hidden"><CreateFormStepper steps={steps} currentStep={currentStep} /></div>
 
-            {/* ══ STEP 1: Registration ══ */}
+            {/* ══ STEP 1 ══ */}
             {currentStep === 1 && (
               <SectionCard title="Registration Details" subtitle="Official government registration information" icon={Info}>
                 <div className="grid gap-5">
@@ -1005,7 +991,7 @@ const CreateAdventure = () => {
               </SectionCard>
             )}
 
-            {/* ══ STEP 2: Location ══ */}
+            {/* ══ STEP 2 ══ */}
             {currentStep === 2 && (
               <SectionCard title="Location Details" subtitle="Where is your adventure place located?" icon={MapPin}>
                 <div className="grid gap-5">
@@ -1054,7 +1040,7 @@ const CreateAdventure = () => {
               </SectionCard>
             )}
 
-            {/* ══ STEP 3: Contact & About ══ */}
+            {/* ══ STEP 3 ══ */}
             {currentStep === 3 && (
               <SectionCard title="Contact & About" subtitle="How visitors can reach you and your description" icon={CheckCircle2}>
                 <div className="space-y-5">
@@ -1089,7 +1075,7 @@ const CreateAdventure = () => {
               </SectionCard>
             )}
 
-            {/* ══ STEP 4: Access & Pricing ══ */}
+            {/* ══ STEP 4 ══ */}
             {currentStep === 4 && (
               <SectionCard title="Access & Pricing" subtitle="Operating hours and entrance fees" icon={Clock}>
                 <div className="space-y-8">
@@ -1130,7 +1116,7 @@ const CreateAdventure = () => {
               </SectionCard>
             )}
 
-            {/* ══ STEP 5: Facilities ══ */}
+            {/* ══ STEP 5 ══ */}
             {currentStep === 5 && (
               <SectionCard title="Amenities, Facilities & Activities" subtitle="What can visitors enjoy at your adventure place?" icon={DollarSign}>
                 <div className="space-y-8">
@@ -1141,7 +1127,7 @@ const CreateAdventure = () => {
               </SectionCard>
             )}
 
-            {/* ══ STEP 6: Gallery ══ */}
+            {/* ══ STEP 6 ══ */}
             {currentStep === 6 && (
               <SectionCard
                 title={`Photo Gallery — ${galleryImages.length}/5 uploaded`}
@@ -1159,7 +1145,7 @@ const CreateAdventure = () => {
               </SectionCard>
             )}
 
-            {/* ══ STEP 7: Review ══ */}
+            {/* ══ STEP 7 ══ */}
             {currentStep === 7 && (
               <ReviewStep
                 type="adventure"
@@ -1181,7 +1167,7 @@ const CreateAdventure = () => {
               />
             )}
 
-            {/* ── Navigation buttons ── */}
+            {/* ── Navigation ── */}
             <div className="flex gap-3 pt-2">
               {currentStep > 1 && (
                 <button type="button" onClick={handlePrev} className="flex items-center gap-2 px-6 py-3.5 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm">

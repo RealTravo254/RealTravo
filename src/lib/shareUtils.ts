@@ -3,6 +3,7 @@ import { createDetailPath } from "@/lib/slugUtils";
 /**
  * Generate a clean, SEO-friendly share link for an item.
  * No referral parameters — just slug-based URLs.
+ * Always points to the production domain realtravo.com.
  */
 export const getShareLink = (
   itemId: string,
@@ -15,9 +16,14 @@ export const getShareLink = (
     event: "event",
     hotel: "hotel",
     adventure: "adventure",
-    adventure_place: "adventure",
+    adventure_place: "adventure", 
   };
+  
   const type = typeMap[itemType] || itemType;
   const path = createDetailPath(type, itemId, itemName, itemLocation);
-  return `${window.location.origin}${path}`;
+  
+  // Forces the domain to be realtravo.com even when testing on localhost
+  const baseUrl = "https://realtravo.com"; 
+  
+  return `${baseUrl}${path}`;
 };

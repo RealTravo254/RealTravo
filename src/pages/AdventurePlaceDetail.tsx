@@ -37,6 +37,15 @@ const FACILITY_LABELS: Record<string, string> = {
 const facilityLabel = (id: string) =>
   FACILITY_LABELS[id] ?? id.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
+// Converts ANY casing ("MAASAI MARA", "maasai mara") into "Maasai Mara" — first
+// letter of each word capitalised, everything else lower case.
+const toTitleCase = (str?: string) => {
+  if (!str) return "";
+  return str.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+};
+
+const ITEMS_PER_PAGE = 5;
+
 // ─── Image Gallery Modal ──────────────────────────────────────────────────────
 // Rendered via portal so it sits above ALL stacking contexts (nav, sticky bars, etc.)
 const ImageGalleryModal = ({
@@ -460,11 +469,15 @@ const InlineFacilitiesGrid = ({ facilities, accentColor }: { facilities: any[]; 
   const [modalImages, setModalImages] = useState<string[] | null>(null);
   const [modalName, setModalName]     = useState("");
   const [modalStart, setModalStart]   = useState(0);
-  const [showAll, setShowAll]         = useState(false);
+  const [page, setPage]               = useState(0);
+
+  // Reset to page 1 whenever a different place's facilities load in
+  useEffect(() => { setPage(0); }, [facilities]);
 
   if (!facilities?.length) return null;
 
-  const visibleFacilities = showAll ? facilities : facilities.slice(0, 6);
+  const totalPages = Math.ceil(facilities.length / ITEMS_PER_PAGE);
+  const visibleFacilities = facilities.slice(page * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE + ITEMS_PER_PAGE);
 
   // Collect all images from all facilities for the "See All" section gallery
   const allFacilityImages: string[] = facilities.flatMap((f: any) =>
@@ -504,36 +517,26 @@ const InlineFacilitiesGrid = ({ facilities, accentColor }: { facilities: any[]; 
       <section>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-base font-black uppercase tracking-tight" style={{ color: accentColor }}>Facilities</h2>
-          <div className="flex items-center gap-2">
-            {/* "See All Photos" button — opens section-level gallery */}
-            {allFacilityImages.length > 0 && (
-              <button
-                onClick={openSectionGallery}
-                className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border transition-all"
-                style={{ color: accentColor, borderColor: `${accentColor}40`, background: `${accentColor}0D` }}
-              >
-                <Grid2X2 className="h-3 w-3" /> See All Photos
-              </button>
-            )}
-            {facilities.length > 6 && (
-              <button
-                onClick={() => setShowAll((v) => !v)}
-                className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border transition-all"
-                style={{ color: accentColor, borderColor: `${accentColor}40`, background: `${accentColor}0D` }}
-              >
-                {showAll ? "Show Less" : `All (${facilities.length})`}
-              </button>
-            )}
-          </div>
+          {/* "See All Photos" button — opens section-level gallery (covers every facility, not just this page) */}
+          {allFacilityImages.length > 0 && (
+            <button
+              onClick={openSectionGallery}
+              className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border transition-all"
+              style={{ color: accentColor, borderColor: `${accentColor}40`, background: `${accentColor}0D` }}
+            >
+              <Grid2X2 className="h-3 w-3" /> See All Photos
+            </button>
+          )}
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
+        {/* Single scrollable row on small screens; multi-column grid from md up */}
+        <div className="flex gap-2 overflow-x-auto pb-1 md:grid md:grid-cols-3 lg:grid-cols-5 md:overflow-visible md:pb-0">
           {visibleFacilities.map((fac: any, i: number) => {
             const imgs: string[] = Array.isArray(fac.images) ? fac.images.filter(Boolean) : [];
             return (
               <div
                 key={i}
-                className="bg-white overflow-hidden shadow-sm border border-slate-100"
+                className="bg-white overflow-hidden shadow-sm border border-slate-100 flex-shrink-0 w-[150px] md:w-auto"
                 style={{ borderRadius: 0 }}
               >
                 {imgs.length > 0 ? (
@@ -576,7 +579,7 @@ const InlineFacilitiesGrid = ({ facilities, accentColor }: { facilities: any[]; 
                       {fac.amenities.slice(0, 3).map((a: any, ai: number) => (
                         <span
                           key={ai}
-                          className="text-[8px] font-bold uppercase px-1.5 py-0.5 rounded"
+                          className="text-[8px] font-bold px-1.5 py-0.5 rounded normal-case"
                           style={{ background: `${accentColor}12`, color: accentColor }}
                         >
                           {facilityAmenityLabel(a)}
@@ -589,6 +592,33 @@ const InlineFacilitiesGrid = ({ facilities, accentColor }: { facilities: any[]; 
             );
           })}
         </div>
+
+        {/* Pagination — 5 facilities per page */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-3 mt-3">
+            <button
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={page === 0}
+              aria-label="Previous facilities"
+              className="w-7 h-7 rounded-full flex items-center justify-center border transition-all disabled:opacity-30"
+              style={{ borderColor: `${accentColor}40`, color: accentColor }}
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </button>
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+              Page {page + 1} of {totalPages}
+            </span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+              disabled={page === totalPages - 1}
+              aria-label="Next facilities"
+              className="w-7 h-7 rounded-full flex items-center justify-center border transition-all disabled:opacity-30"
+              style={{ borderColor: `${accentColor}40`, color: accentColor }}
+            >
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
       </section>
     </>
   );
@@ -679,16 +709,20 @@ const InlineActivitiesGrid = ({ activities, formatPrice }: { activities: any[]; 
   const [modalImages, setModalImages] = useState<string[] | null>(null);
   const [modalName, setModalName]     = useState("");
   const [modalStart, setModalStart]   = useState(0);
-  const [showAll, setShowAll]         = useState(false);
+  const [page, setPage]               = useState(0);
+
+  // Reset to page 1 whenever a different place's activities load in
+  useEffect(() => { setPage(0); }, [activities]);
 
   if (!activities?.length) return null;
 
-  const visibleActivities = showAll ? activities : activities.slice(0, 6);
+  const totalPages = Math.ceil(activities.length / ITEMS_PER_PAGE);
+  const visibleActivities = activities.slice(page * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE + ITEMS_PER_PAGE);
 
-  // Collect all images from all activities for the section-level gallery
-  const allActivityImages: string[] = activities.flatMap((a: any) =>
-    Array.isArray(a.images) ? a.images.filter(Boolean) : []
-  );
+  // Only one photo per activity — collect just the first image of each for the section gallery
+  const allActivityImages: string[] = activities
+    .map((a: any) => (Array.isArray(a.images) ? a.images.filter(Boolean)[0] : null))
+    .filter(Boolean) as string[];
 
   const openCardGallery = (imgs: string[], name: string, startIdx = 0) => {
     setModalImages(imgs);
@@ -717,43 +751,62 @@ const InlineActivitiesGrid = ({ activities, formatPrice }: { activities: any[]; 
       <section>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-base font-black uppercase tracking-tight" style={{ color: CORAL }}>Activities</h2>
-          <div className="flex items-center gap-2">
-            {/* "See All Photos" button — opens section-level gallery */}
-            {allActivityImages.length > 0 && (
-              <button
-                onClick={openSectionGallery}
-                className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border transition-all"
-                style={{ color: CORAL, borderColor: `${CORAL}40`, background: `${CORAL}0D` }}
-              >
-                <Grid2X2 className="h-3 w-3" /> See All Photos
-              </button>
-            )}
-            {activities.length > 6 && (
-              <button
-                onClick={() => setShowAll((v) => !v)}
-                className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border transition-all"
-                style={{ color: CORAL, borderColor: `${CORAL}40`, background: `${CORAL}0D` }}
-              >
-                {showAll ? "Show Less" : `All (${activities.length})`}
-              </button>
-            )}
-          </div>
+          {/* "See All Photos" button — opens section-level gallery (covers every activity, not just this page) */}
+          {allActivityImages.length > 0 && (
+            <button
+              onClick={openSectionGallery}
+              className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border transition-all"
+              style={{ color: CORAL, borderColor: `${CORAL}40`, background: `${CORAL}0D` }}
+            >
+              <Grid2X2 className="h-3 w-3" /> See All Photos
+            </button>
+          )}
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        {/* Single scrollable row on small screens; multi-column grid from md up */}
+        <div className="flex gap-2 overflow-x-auto pb-1 md:grid md:grid-cols-3 lg:grid-cols-5 md:overflow-visible md:pb-0">
           {visibleActivities.map((act: any, i: number) => {
-            const imgs: string[] = Array.isArray(act.images) ? act.images.filter(Boolean) : [];
+            // Activities only ever fetch a single photo
+            const imgs: string[] = Array.isArray(act.images) ? act.images.filter(Boolean).slice(0, 1) : [];
             return (
-              <ActivityCard
-                key={i}
-                act={act}
-                imgs={imgs}
-                formatPrice={formatPrice}
-                onImageClick={imgs.length > 0 ? () => openCardGallery(imgs, act.name, 0) : undefined}
-              />
+              <div key={i} className="flex-shrink-0 w-[150px] md:w-auto">
+                <ActivityCard
+                  act={act}
+                  imgs={imgs}
+                  formatPrice={formatPrice}
+                  onImageClick={imgs.length > 0 ? () => openCardGallery(imgs, act.name, 0) : undefined}
+                />
+              </div>
             );
           })}
         </div>
+
+        {/* Pagination — 5 activities per page */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-3 mt-3">
+            <button
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={page === 0}
+              aria-label="Previous activities"
+              className="w-7 h-7 rounded-full flex items-center justify-center border transition-all disabled:opacity-30"
+              style={{ borderColor: `${CORAL}40`, color: CORAL }}
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </button>
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+              Page {page + 1} of {totalPages}
+            </span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+              disabled={page === totalPages - 1}
+              aria-label="Next activities"
+              className="w-7 h-7 rounded-full flex items-center justify-center border transition-all disabled:opacity-30"
+              style={{ borderColor: `${CORAL}40`, color: CORAL }}
+            >
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
       </section>
     </>
   );
@@ -935,9 +988,9 @@ const AdventurePlaceDetail = () => {
     </div>
   );
 
-  const facilityImgs = (Array.isArray(place.facilities) ? place.facilities : []).flatMap((f: any) => Array.isArray(f.images) ? f.images : []);
-  const activityImgs = (Array.isArray(place.activities) ? place.activities : []).flatMap((a: any) => Array.isArray(a.images) ? a.images : []);
-  const allImages    = [place.image_url, ...(place.gallery_images || []), ...facilityImgs, ...activityImgs].filter(Boolean).slice(0, 12);
+  // Main hero gallery shows only the place's own photos — facility/activity
+  // photos live in their own "See All Photos" galleries further down the page.
+  const allImages = [place.image_url, ...(place.gallery_images || [])].filter(Boolean).slice(0, 12);
 
   const is24Hours       = place.opening_hours === "00:00" && place.closing_hours === "23:59";
   const resolvedId      = place.id;
@@ -969,7 +1022,7 @@ const AdventurePlaceDetail = () => {
     <div className="min-h-screen bg-background pb-24">
       <DetailNavBar
         scrolled={scrolled}
-        itemName={place.name}
+        itemName={toTitleCase(place.name)}
         isSaved={isSaved}
         onSave={() => handleSaveItem(resolvedId, "adventure_place")}
         onBack={goBack}
@@ -982,7 +1035,7 @@ const AdventurePlaceDetail = () => {
 
       {/* Name / location */}
       <div className="max-w-6xl mx-auto px-4 pt-4 pb-1 bg-background relative z-10">
-        <h1 className="text-2xl font-black uppercase tracking-tighter leading-tight text-foreground">{place.name}</h1>
+        <h1 className="text-2xl font-black tracking-tighter leading-tight text-foreground">{toTitleCase(place.name)}</h1>
         <div className="flex items-center gap-1.5 mt-1 text-muted-foreground">
           <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
           <span className="text-sm font-semibold">{[place.place, place.location, place.country].filter(Boolean).join(", ")}</span>

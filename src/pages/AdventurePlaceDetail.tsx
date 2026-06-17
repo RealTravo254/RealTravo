@@ -479,11 +479,6 @@ const InlineFacilitiesGrid = ({ facilities, accentColor }: { facilities: any[]; 
   const totalPages = Math.ceil(facilities.length / ITEMS_PER_PAGE);
   const visibleFacilities = facilities.slice(page * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE + ITEMS_PER_PAGE);
 
-  // Collect all images from all facilities for the "See All" section gallery
-  const allFacilityImages: string[] = facilities.flatMap((f: any) =>
-    Array.isArray(f.images) ? f.images.filter(Boolean) : []
-  );
-
   const openCardGallery = (imgs: string[], name: string, startIdx = 0) => {
     setModalImages(imgs);
     setModalName(name);
@@ -494,14 +489,6 @@ const InlineFacilitiesGrid = ({ facilities, accentColor }: { facilities: any[]; 
     if (!amenity) return "";
     const key = typeof amenity === "string" ? amenity : amenity.name || String(amenity);
     return facilityLabel(key);
-  };
-
-  const openSectionGallery = () => {
-    if (allFacilityImages.length > 0) {
-      setModalImages(allFacilityImages);
-      setModalName("All Facilities");
-      setModalStart(0);
-    }
   };
 
   return (
@@ -515,19 +502,7 @@ const InlineFacilitiesGrid = ({ facilities, accentColor }: { facilities: any[]; 
         />
       )}
       <section>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-black uppercase tracking-tight" style={{ color: accentColor }}>Facilities</h2>
-          {/* "See All Photos" button — opens section-level gallery (covers every facility, not just this page) */}
-          {allFacilityImages.length > 0 && (
-            <button
-              onClick={openSectionGallery}
-              className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border transition-all"
-              style={{ color: accentColor, borderColor: `${accentColor}40`, background: `${accentColor}0D` }}
-            >
-              <Grid2X2 className="h-3 w-3" /> See All Photos
-            </button>
-          )}
-        </div>
+        <h2 className="text-base font-black uppercase tracking-tight mb-3" style={{ color: accentColor }}>Facilities</h2>
 
         {/* Single scrollable row on small screens; multi-column grid from md up */}
         <div className="flex gap-2 overflow-x-auto pb-1 md:grid md:grid-cols-3 lg:grid-cols-5 md:overflow-visible md:pb-0">
@@ -719,23 +694,10 @@ const InlineActivitiesGrid = ({ activities, formatPrice }: { activities: any[]; 
   const totalPages = Math.ceil(activities.length / ITEMS_PER_PAGE);
   const visibleActivities = activities.slice(page * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE + ITEMS_PER_PAGE);
 
-  // Only one photo per activity — collect just the first image of each for the section gallery
-  const allActivityImages: string[] = activities
-    .map((a: any) => (Array.isArray(a.images) ? a.images.filter(Boolean)[0] : null))
-    .filter(Boolean) as string[];
-
   const openCardGallery = (imgs: string[], name: string, startIdx = 0) => {
     setModalImages(imgs);
     setModalName(name);
     setModalStart(startIdx);
-  };
-
-  const openSectionGallery = () => {
-    if (allActivityImages.length > 0) {
-      setModalImages(allActivityImages);
-      setModalName("All Activities");
-      setModalStart(0);
-    }
   };
 
   return (
@@ -749,19 +711,7 @@ const InlineActivitiesGrid = ({ activities, formatPrice }: { activities: any[]; 
         />
       )}
       <section>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-black uppercase tracking-tight" style={{ color: CORAL }}>Activities</h2>
-          {/* "See All Photos" button — opens section-level gallery (covers every activity, not just this page) */}
-          {allActivityImages.length > 0 && (
-            <button
-              onClick={openSectionGallery}
-              className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border transition-all"
-              style={{ color: CORAL, borderColor: `${CORAL}40`, background: `${CORAL}0D` }}
-            >
-              <Grid2X2 className="h-3 w-3" /> See All Photos
-            </button>
-          )}
-        </div>
+        <h2 className="text-base font-black uppercase tracking-tight mb-3" style={{ color: CORAL }}>Activities</h2>
 
         {/* Single scrollable row on small screens; multi-column grid from md up */}
         <div className="flex gap-2 overflow-x-auto pb-1 md:grid md:grid-cols-3 lg:grid-cols-5 md:overflow-visible md:pb-0">

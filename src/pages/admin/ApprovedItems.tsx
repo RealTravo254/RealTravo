@@ -1,349 +1,392 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
 import { Header } from "@/components/Header";
+import { Footer } from "@/components/Footer";
 import { MobileBottomBar } from "@/components/MobileBottomBar";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { 
-  ChevronRight, 
-  Plane, 
-  Building, 
-  Tent, 
-  MapPin, 
-  Search, 
-  ArrowLeft,
-  CheckCircle2,
-  EyeOff,
-  Eye,
-  Mail,
-  Phone,
-  Globe,
-  Loader2
-} from "lucide-react";
-import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { getUserId } from "@/lib/sessionManager";
+import { useLocation, useNavigate } from "react-router-dom";
+import { Trash2, MapPin, ChevronRight, Loader2, LogIn, Heart } from "lucide-react";
+import { createDetailPath } from "@/lib/slugUtils";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { useSavedItems } from "@/hooks/useSavedItems";
 import { useAuth } from "@/contexts/AuthContext";
-
-// Consistent Color Palette
-const COLORS = {
-  TEAL: "#008080",
-  CORAL: "#FF7F50",
-  CORAL_LIGHT: "#FF9E7A",
-  KHAKI: "#F0E68C",
-  KHAKI_DARK: "#857F3E",
-  RED: "#FF0000",
-  SOFT_GRAY: "#F8F9FA"
-};
+import { getLocalSavedItems, removeItemLocally } from "@/hooks/useLocalSavedItems";
 
 const ITEMS_PER_PAGE = 20;
 
-interface ListingItem {
-  id: string;
-  name: string;
-  type: string;
-  location: string;
-  country: string;
-  created_at: string;
-  is_hidden?: boolean;
-  created_by?: string;
-  creator_email?: string;
-  creator_phone?: string;
-}
-
-const ApprovedItems = () => {
+const Saved = () => {
+  const [savedListings, setSavedListings] = useState<any[]>([]);
+  const { savedItems } = useSavedItems();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const [items, setItems] = useState<ListingItem[]>([]);
-  const [filteredItems, setFilteredItems] = useState<ListingItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [togglingId, setTogglingId] = useState<string | null>(null);
-  const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  const [offset, setOffset] = useState(0);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const { toast } = useToast();
+  const hasFetched = useRef(false);
+  const location = useLocation();
+  const isEmbeddedInSheet = location.pathname !== "/saved";
 
-  const getTableName = (type: string) => {
-    if (type === "trip") return "trips";
-    if (type === "hotel") return "hotels";
-    return "adventure_places";
-  };
+  const deletingRef = useRef<string | null>(null);
 
-  const handleToggleVisibility = async (item: ListingItem, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setTogglingId(item.id);
-    try {
-      const { error } = await supabase
-        .from(getTableName(item.type))
-        .update({ is_hidden: !item.is_hidden })
-        .eq("id", item.id);
-      if (error) throw error;
-      setItems(prev => prev.map(i => i.id === item.id ? { ...i, is_hidden: !i.is_hidden } : i));
-      setFilteredItems(prev => prev.map(i => i.id === item.id ? { ...i, is_hidden: !i.is_hidden } : i));
-      toast({ title: item.is_hidden ? "Listing published" : "Listing hidden" });
-    } catch (error) {
-      toast({ title: "Failed to update visibility", variant: "destructive" });
-    } finally {
-      setTogglingId(null);
+  // Fetch local saved items details for non-logged users
+  const fetchLocalSavedDetails = async () => {
+    setIsLoading(true);
+    const localItems = getLocalSavedItems();
+    if (localItems.length === 0) {
+      setSavedListings([]);
+      setIsLoading(false);
+      return;
     }
+
+    const tripIds = localItems.filter(s => s.item_type === "trip" || s.item_type === "event").map(s => s.item_id);
+    const hotelIds = localItems.filter(s => s.item_type === "hotel").map(s => s.item_id);
+    const adventureIds = localItems.filter(s => s.item_type === "adventure_place" || s.item_type === "attraction").map(s => s.item_id);
+
+    const [tripsRes, hotelsRes, adventuresRes] = await Promise.all([
+      tripIds.length > 0
+        ? supabase
+            .from("trips")
+            .select("id,name,location,image_url,is_hidden,type,approval_status")
+            .in("id", tripIds)
+        : { data: [] },
+      hotelIds.length > 0
+        ? supabase
+            .from("hotels")
+            .select("id,name,location,image_url,is_hidden,approval_status")
+            .in("id", hotelIds)
+        : { data: [] },
+      adventureIds.length > 0
+        ? supabase
+            .from("adventure_places")
+            .select("id,name,location,image_url,is_hidden,approval_status")
+            .in("id", adventureIds)
+        : { data: [] },
+    ]);
+
+    const itemMap = new Map();
+    [...(tripsRes.data || []), ...(hotelsRes.data || []), ...(adventuresRes.data || [])].forEach(item => {
+      // Exclude hidden items and items that are not approved (e.g. rejected or pending)
+      if (item.is_hidden) return;
+      if (item.approval_status && item.approval_status !== "approved") return;
+      const original = localItems.find(s => s.item_id === item.id);
+      itemMap.set(item.id, { ...item, savedType: original?.item_type });
+    });
+
+    const newItems = localItems.map(s => itemMap.get(s.item_id)).filter(Boolean);
+    setSavedListings(newItems);
+    setIsLoading(false);
   };
 
   useEffect(() => {
-    if (!user) {
-      navigate("/auth");
+    const initializeData = async () => {
+      if (authLoading) return;
+      
+      if (!user) {
+        // Not logged in - show local saved items
+        fetchLocalSavedDetails();
+        return;
+      }
+
+      const uid = await getUserId();
+      if (!uid) { setIsLoading(false); return; }
+      setUserId(uid);
+      fetchSavedItems(uid, 0);
+    };
+    initializeData();
+  }, [authLoading, user]);
+
+  useEffect(() => {
+    if (user && userId && hasFetched.current) fetchSavedItems(userId, 0);
+    if (!user) fetchLocalSavedDetails();
+  }, [savedItems]);
+
+  const fetchSavedItems = async (uid: string, fetchOffset: number) => {
+    if (fetchOffset === 0) setIsLoading(true);
+    else setLoadingMore(true);
+
+    const { data: savedData } = await supabase
+      .from("saved_items")
+      .select("item_id, item_type")
+      .eq("user_id", uid)
+      .range(fetchOffset, fetchOffset + ITEMS_PER_PAGE - 1)
+      .order('created_at', { ascending: false });
+
+    if (!savedData || savedData.length === 0) {
+      if (fetchOffset === 0) setSavedListings([]);
+      setHasMore(false);
+      setIsLoading(false);
+      setLoadingMore(false);
       return;
     }
-    fetchApprovedItems(0);
-  }, [user, navigate]);
 
-  const fetchApprovedItems = async (fetchOffset: number) => {
+    setHasMore(savedData.length >= ITEMS_PER_PAGE);
+
+    const tripIds = savedData.filter(s => s.item_type === "trip" || s.item_type === "event").map(s => s.item_id);
+    const hotelIds = savedData.filter(s => s.item_type === "hotel").map(s => s.item_id);
+    const adventureIds = savedData.filter(s => s.item_type === "adventure_place" || s.item_type === "attraction").map(s => s.item_id);
+
+    const [tripsRes, hotelsRes, adventuresRes] = await Promise.all([
+      tripIds.length > 0
+        ? supabase
+            .from("trips")
+            .select("id,name,location,image_url,is_hidden,type,approval_status")
+            .in("id", tripIds)
+        : { data: [] },
+      hotelIds.length > 0
+        ? supabase
+            .from("hotels")
+            .select("id,name,location,image_url,is_hidden,approval_status")
+            .in("id", hotelIds)
+        : { data: [] },
+      adventureIds.length > 0
+        ? supabase
+            .from("adventure_places")
+            .select("id,name,location,image_url,is_hidden,approval_status")
+            .in("id", adventureIds)
+        : { data: [] },
+    ]);
+
+    const itemMap = new Map();
+    [...(tripsRes.data || []), ...(hotelsRes.data || []), ...(adventuresRes.data || [])].forEach(item => {
+      // Exclude hidden items and items that are not approved (e.g. rejected or pending)
+      if (item.is_hidden) return;
+      if (item.approval_status && item.approval_status !== "approved") return;
+      const original = savedData.find(s => s.item_id === item.id);
+      itemMap.set(item.id, { ...item, savedType: original?.item_type });
+    });
+
+    const newItems = savedData.map(s => itemMap.get(s.item_id)).filter(Boolean);
     if (fetchOffset === 0) {
-      setLoading(true);
+      setSavedListings(newItems);
     } else {
-      setLoadingMore(true);
+      setSavedListings(prev => [...prev, ...newItems]);
     }
-    
-    try {
-      const [tripsRes, hotelsRes, adventuresRes] = await Promise.all([
-        supabase.from("trips").select("id, name, location, country, created_at, is_hidden, created_by").eq("approval_status", "approved").range(fetchOffset, fetchOffset + ITEMS_PER_PAGE - 1),
-        supabase.from("hotels").select("id, name, location, country, created_at, is_hidden, created_by").eq("approval_status", "approved").range(fetchOffset, fetchOffset + ITEMS_PER_PAGE - 1),
-        supabase.from("adventure_places").select("id, name, location, country, created_at, is_hidden, created_by").eq("approval_status", "approved").range(fetchOffset, fetchOffset + ITEMS_PER_PAGE - 1),
-      ]);
-
-      const allRawItems = [
-        ...(tripsRes.data?.map(t => ({ ...t, type: "trip" })) || []),
-        ...(hotelsRes.data?.map(h => ({ ...h, type: "hotel" })) || []),
-        ...(adventuresRes.data?.map(a => ({ ...a, type: "adventure" })) || []),
-      ];
-
-      // Fetch creator profiles
-      const creatorIds = [...new Set(allRawItems.map(i => i.created_by).filter(Boolean))];
-      let creatorMap: Record<string, { email?: string; phone_number?: string }> = {};
-      if (creatorIds.length > 0) {
-        const { data: profiles } = await supabase.from("profiles").select("id, email, phone_number").in("id", creatorIds);
-        profiles?.forEach(p => { creatorMap[p.id] = { email: p.email || undefined, phone_number: p.phone_number || undefined }; });
-      }
-
-      const allItems: ListingItem[] = allRawItems.map(item => ({
-        ...item,
-        creator_email: item.created_by ? creatorMap[item.created_by]?.email : undefined,
-        creator_phone: item.created_by ? creatorMap[item.created_by]?.phone_number : undefined,
-      }));
-
-      const sortedItems = allItems.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      
-      if (fetchOffset === 0) {
-        setItems(sortedItems);
-        setFilteredItems(sortedItems);
-      } else {
-        setItems(prev => [...prev, ...sortedItems]);
-        setFilteredItems(prev => [...prev, ...sortedItems]);
-      }
-      
-      setOffset(fetchOffset + ITEMS_PER_PAGE);
-      setHasMore(allItems.length >= ITEMS_PER_PAGE);
-    } catch (error) {
-      console.error("Error fetching approved items:", error);
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
+    setOffset(fetchOffset + ITEMS_PER_PAGE);
+    hasFetched.current = true;
+    setIsLoading(false);
+    setLoadingMore(false);
   };
 
   const loadMore = () => {
-    if (hasMore && !loadingMore) {
-      fetchApprovedItems(offset);
-    }
+    if (!userId || loadingMore || !hasMore) return;
+    fetchSavedItems(userId, offset);
   };
 
-  useEffect(() => {
-    const query = searchQuery.toLowerCase().trim();
-    if (query === "") {
-      setFilteredItems(items);
-    } else {
-      setFilteredItems(items.filter(
-        (item) =>
-          item.name.toLowerCase().includes(query) ||
-          item.location.toLowerCase().includes(query)
-      ));
-    }
-  }, [searchQuery, items]);
+  const handleRemoveSingle = async (itemId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
 
-  const getIcon = (type: string) => {
-    switch (type) {
-      case "trip": return <Plane className="h-5 w-5" />;
-      case "hotel": return <Building className="h-5 w-5" />;
-      case "adventure": return <Tent className="h-5 w-5" />;
-      default: return <MapPin className="h-5 w-5" />;
+    if (!user) {
+      // Remove locally
+      removeItemLocally(itemId);
+      setSavedListings(prev => prev.filter(item => item.id !== itemId));
+      toast({ title: "Removed", description: "Item removed from your collection." });
+      return;
     }
+
+    if (!userId || deletingRef.current === itemId) return;
+
+    deletingRef.current = itemId;
+    setDeletingId(itemId);
+
+    const { error } = await supabase
+      .from("saved_items")
+      .delete()
+      .eq("item_id", itemId)
+      .eq("user_id", userId);
+
+    if (!error) {
+      setSavedListings(prev => prev.filter(item => item.id !== itemId));
+      toast({ title: "Removed", description: "Item removed from your collection." });
+    }
+    deletingRef.current = null;
+    setDeletingId(null);
   };
 
-  if (loading) return <div className="min-h-screen bg-[#F8F9FA] animate-pulse" />;
-
-  return (
-    <div className="min-h-screen bg-[#F8F9FA] pb-24">
-      <Header className="hidden md:block" />
-
-      {/* Bold Header Section */}
-      <div className="bg-white border-b border-slate-100 pt-10 pb-20 px-4">
-        <div className="container mx-auto px-4 space-y-6">
-          <Button 
-            variant="ghost" 
-            onClick={() => navigate(-1)}
-            className="rounded-full hover:bg-slate-100 p-2 h-auto"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-
-          <div className="space-y-2">
-            <Badge className="bg-[#FF7F50] hover:bg-[#FF7F50] border-none px-3 py-1 uppercase font-black tracking-widest text-[10px] rounded-full">
-              Admin Portal
-            </Badge>
-            <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tighter text-slate-900">
-              Approved <span style={{ color: COLORS.TEAL }}>Directory</span>
-            </h1>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">
-              Managing {items.length} verified listings
-            </p>
+  // If not logged in and not embedded, show full-page login prompt
+  if (!user && !authLoading && !isEmbeddedInSheet) {
+    return (
+      <div className="min-h-screen bg-[#F4F7FA] pb-24 font-sans">
+        <Header />
+        <div className="container mx-auto px-4 py-12">
+          <header className="mb-8">
+            <h1 className="text-3xl font-bold tracking-tight text-foreground mb-2">Saved Places</h1>
+            <p className="text-muted-foreground text-sm">Your curated collection of adventures and stays.</p>
+          </header>
+          <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[40px] border border-slate-100">
+            <div className="p-5 rounded-2xl bg-primary/10 mb-6">
+              <Heart className="h-10 w-10 text-primary" />
+            </div>
+            <h2 className="text-xl font-bold text-foreground mb-2">Sign in to see your saved items</h2>
+            <p className="text-sm text-muted-foreground mb-6 text-center max-w-sm">Log in or create an account to save your favourite adventures, stays and events.</p>
+            <Button
+              onClick={() => navigate('/auth')}
+              className="rounded-xl text-sm font-bold gap-2 px-8 py-3"
+            >
+              <LogIn className="h-4 w-4" />
+              Log In / Sign Up
+            </Button>
           </div>
         </div>
+        <Footer />
+        <MobileBottomBar />
+      </div>
+    );
+  }
+
+  return (
+    <div className={isEmbeddedInSheet ? "min-h-full bg-background" : "min-h-screen bg-[#F4F7FA] pb-24 font-sans"}>
+      {!isEmbeddedInSheet && <Header />}
+
+      <div className={isEmbeddedInSheet ? "px-4 py-4" : "container mx-auto px-4 py-12"}>
+        {!isEmbeddedInSheet && (
+          <header className="mb-8">
+            <h1 className="text-3xl font-bold tracking-tight text-foreground mb-2">Saved Places</h1>
+            <p className="text-muted-foreground text-sm">Your curated collection of adventures and stays.</p>
+          </header>
+        )}
+
+        {/* Login banner for non-logged users (embedded sheet) */}
+        {!user && !authLoading && (
+          <div className="mb-6 bg-primary/5 border border-primary/20 rounded-2xl p-4 flex items-center gap-4">
+            <div className="p-3 rounded-xl bg-primary/10 shrink-0">
+              <Heart className="h-5 w-5 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-foreground">Sign in to sync your saved items</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Your locally saved items will be synced to your account when you log in.</p>
+            </div>
+            <Button
+              onClick={() => navigate('/auth')}
+              size="sm"
+              className="shrink-0 rounded-xl text-xs font-bold gap-1.5"
+            >
+              <LogIn className="h-3.5 w-3.5" />
+              Log In
+            </Button>
+          </div>
+        )}
+
+        <main className={isEmbeddedInSheet ? "space-y-3" : "space-y-3"}>
+          {isEmbeddedInSheet && (
+            <div className="mb-2 px-1">
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Your Saved Items
+              </p>
+            </div>
+          )}
+
+          {isLoading ? (
+            <Skeleton className="h-64 w-full rounded-[32px]" />
+          ) : savedListings.length === 0 ? (
+            <div className="bg-white rounded-[40px] p-20 text-center text-slate-400 border border-slate-100">
+              No items saved yet.
+            </div>
+          ) : (
+            <div className="grid gap-3">
+              {savedListings.map((item) => {
+                const href = createDetailPath(item.savedType, item.id, item.name, item.location);
+
+                return (
+                  <div key={item.id} className="flex items-center gap-2">
+                    <button
+                      onClick={(e) => handleRemoveSingle(item.id, e)}
+                      disabled={deletingId === item.id}
+                      className="shrink-0 p-3 rounded-full bg-red-50 text-red-500 active:bg-red-100 active:scale-90 transition-all border border-red-100 select-none"
+                      aria-label="Remove item"
+                      style={{
+                        WebkitTapHighlightColor: 'transparent',
+                        touchAction: 'manipulation',
+                        zIndex: 10,
+                        position: 'relative',
+                      }}
+                    >
+                      {deletingId === item.id
+                        ? <Loader2 size={16} className="animate-spin" />
+                        : <Trash2 size={16} />
+                      }
+                    </button>
+
+                    <a
+                      href={href}
+                      onClick={(e) => {
+                        if (deletingRef.current === item.id) {
+                          e.preventDefault();
+                        }
+                      }}
+                      className="flex-1 flex items-center gap-4 bg-white p-3 sm:p-4 rounded-[24px] border border-slate-100 hover:shadow-md transition-all active:scale-[0.98] min-w-0 group no-underline"
+                      style={{
+                        WebkitTapHighlightColor: 'transparent',
+                        touchAction: 'manipulation',
+                        textDecoration: 'none',
+                      }}
+                      draggable={false}
+                    >
+                      <img
+                        src={item.image_url}
+                        className="h-16 w-16 rounded-xl object-cover shrink-0"
+                        alt=""
+                        draggable={false}
+                      />
+
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[9px] font-bold text-[#007AFF] uppercase mb-0.5">
+                          {item.savedType?.replace('_', ' ')}
+                        </p>
+                        <h3 className="text-sm sm:text-base font-bold text-slate-800 truncate">
+                          {item.name}
+                        </h3>
+                        <div className="flex items-center text-slate-400 text-xs mt-0.5">
+                          <MapPin size={10} className="mr-1 shrink-0" />
+                          <span className="truncate">{item.location}</span>
+                        </div>
+                      </div>
+
+                      <div className="h-8 w-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-300 group-hover:bg-[#007AFF] group-hover:text-white transition-all shrink-0">
+                        <ChevronRight size={16} />
+                      </div>
+                    </a>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {user && hasMore && savedListings.length > 0 && (
+            <div className="flex justify-center mt-6">
+              <Button
+                onClick={loadMore}
+                disabled={loadingMore}
+                variant="outline"
+                className="rounded-2xl font-bold text-xs h-10 px-6"
+              >
+                {loadingMore ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  "Load More"
+                )}
+              </Button>
+            </div>
+          )}
+        </main>
       </div>
 
-      <main className="mx-auto px-4 -mt-10 relative z-10 container">
-        {/* Styled Search Bar */}
-        <div className="relative mb-8 shadow-2xl rounded-2xl">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-          <Input
-            type="text"
-            placeholder="FILTER BY NAME OR LOCATION..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-12 h-16 bg-white border-none rounded-2xl font-black uppercase tracking-wider text-xs placeholder:text-slate-300 focus-visible:ring-2 focus-visible:ring-[#008080]"
-          />
-        </div>
-
-        {filteredItems.length === 0 ? (
-          <Card className="p-16 text-center rounded-[32px] border-dashed border-2 border-slate-200 bg-white/50">
-            <p className="font-black uppercase tracking-widest text-slate-400 text-sm">
-              No matching listings found
-            </p>
-          </Card>
-        ) : (
-          <>
-            <div className="space-y-3">
-              {filteredItems.map((item) => (
-                <div
-                  key={item.id}
-                  className="w-full group relative bg-white hover:bg-slate-50 border border-slate-100 rounded-3xl transition-all duration-300 shadow-sm hover:shadow-xl"
-                >
-                  <button
-                    onClick={() => navigate(`/admin/review/${item.type}/${item.id}`)}
-                    className="w-full flex items-center justify-between p-5"
-                  >
-                    <div className="flex items-center gap-5">
-                      <div 
-                        className="h-14 w-14 rounded-2xl flex items-center justify-center transition-colors group-hover:scale-110 duration-300"
-                        style={{ backgroundColor: `${COLORS.TEAL}10`, color: COLORS.TEAL }}
-                      >
-                        {getIcon(item.type)}
-                      </div>
-                      
-                      <div className="text-left space-y-1">
-                        <p className="font-black uppercase tracking-tight text-slate-800 leading-none">
-                          {item.name}
-                        </p>
-                        <div className="flex items-center gap-1.5">
-                          <MapPin className="h-3 w-3 text-[#FF7F50]" />
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                            {item.location}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <Globe className="h-3 w-3 text-[#008080]" />
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                            {item.country}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <div className="hidden sm:flex flex-col items-end gap-1">
-                        {item.is_hidden && (
-                          <Badge variant="outline" className="text-[9px] border-slate-200 text-slate-400 font-black uppercase tracking-tighter">
-                            <EyeOff className="h-3 w-3 mr-1" /> Hidden
-                          </Badge>
-                        )}
-                        <div className="flex items-center gap-1.5 bg-[#F0E68C]/20 px-3 py-1 rounded-full border border-[#F0E68C]/50">
-                          <CheckCircle2 className="h-3 w-3 text-[#857F3E]" />
-                          <span className="text-[9px] font-black text-[#857F3E] uppercase tracking-widest">Verified</span>
-                        </div>
-                      </div>
-                      <div className="h-10 w-10 rounded-full flex items-center justify-center bg-slate-50 group-hover:bg-[#008080] group-hover:text-white transition-colors">
-                        <ChevronRight className="h-5 w-5" />
-                      </div>
-                    </div>
-                  </button>
-                  
-                  {/* Creator Info & Hide Toggle */}
-                  <div className="px-5 pb-4 pt-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-slate-50">
-                    <div className="flex flex-wrap gap-4 text-[10px] text-slate-500">
-                      {item.creator_email && (
-                        <div className="flex items-center gap-1">
-                          <Mail className="h-3 w-3 text-[#008080]" />
-                          <span className="font-bold">{item.creator_email}</span>
-                        </div>
-                      )}
-                      {item.creator_phone && (
-                        <div className="flex items-center gap-1">
-                          <Phone className="h-3 w-3 text-[#008080]" />
-                          <span className="font-bold">{item.creator_phone}</span>
-                        </div>
-                      )}
-                    </div>
-                    <Button
-                      size="sm"
-                      variant={item.is_hidden ? "default" : "outline"}
-                      onClick={(e) => handleToggleVisibility(item, e)}
-                      disabled={togglingId === item.id}
-                      className="text-[9px] font-black uppercase tracking-widest h-8 rounded-xl"
-                      style={item.is_hidden ? { background: COLORS.TEAL } : {}}
-                    >
-                      {item.is_hidden ? <Eye className="h-3 w-3 mr-1" /> : <EyeOff className="h-3 w-3 mr-1" />}
-                      {item.is_hidden ? "Publish" : "Hide"}
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-            
-            {hasMore && !searchQuery && (
-              <div className="flex justify-center mt-10">
-                <Button
-                  onClick={loadMore}
-                  disabled={loadingMore}
-                  className="rounded-2xl font-black uppercase text-[10px] tracking-widest h-12 px-8"
-                  style={{ background: COLORS.TEAL }}
-                >
-                  {loadingMore ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Loading...
-                    </>
-                  ) : (
-                    "Load More"
-                  )}
-                </Button>
-              </div>
-            )}
-          </>
-        )}
-      </main>
-
-      <MobileBottomBar />
+      {!isEmbeddedInSheet && (
+        <>
+          <Footer />
+          <MobileBottomBar />
+        </>
+      )}
     </div>
   );
 };
 
-export default ApprovedItems;
+export default Saved;

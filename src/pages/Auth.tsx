@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { LoginForm } from "@/components/auth/LoginForm";
@@ -13,16 +13,19 @@ const Auth = () => {
   const returnTo = (location.state as any)?.returnTo || "/";
 
   // Check if a page (like ForgotPassword) requested starting directly on the form slide (index 3)
-  const initialSlide = location.state?.returnToSlideIndex !== undefined 
-    ? location.state.returnToSlideIndex 
+  const initialSlide = location.state?.returnToSlideIndex !== undefined
+    ? location.state.returnToSlideIndex
     : 0;
 
   const [activeTab, setActiveTab] = useState<"login" | "signup">("login");
   const [slideIndex, setSlideIndex] = useState<number>(initialSlide);
 
-  if (!loading && user) {
-    navigate(returnTo);
-  }
+  // Side effects (like navigation) must run in useEffect, not directly in render.
+  useEffect(() => {
+    if (!loading && user) {
+      navigate(returnTo);
+    }
+  }, [loading, user, returnTo, navigate]);
 
   if (loading) {
     return (
@@ -116,7 +119,7 @@ const Auth = () => {
             <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
             <span className="text-xs font-semibold">Return Home</span>
           </button>
-          
+
           {/* Mobile Text Branding */}
           <div className="flex flex-col text-right lg:hidden">
             <span className="text-lg font-black text-[rgb(0,128,128)] tracking-wide">RealTravo</span>
@@ -127,11 +130,14 @@ const Auth = () => {
         {/* Dynamic Card & Onboarding Window Area */}
         <div className="relative z-10 flex-1 flex items-center justify-center px-4 pb-8 lg:px-8">
           <div className="w-full max-w-[420px]">
-            
+
             {/* Conditional Render: Slides 0-2 (Onboarding Content) */}
             {slideIndex < 3 ? (
-              <div className="bg-slate-950/60 backdrop-blur-2xl border border-white/10 rounded-xl p-6 lg:p-8 space-y-6 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)] text-center transition-all duration-300">
-                
+              <div
+                key="onboarding-card"
+                className="bg-slate-950/60 backdrop-blur-2xl border border-white/10 rounded-xl p-6 lg:p-8 space-y-6 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)] text-center transition-all duration-300"
+              >
+
                 {/* Onboarding Icon Asset */}
                 <div className="p-3 bg-white/[0.02] border border-white/5 rounded-full w-20 h-20 flex items-center justify-center mx-auto shadow-inner">
                   {onboardingSlides[slideIndex].icon}
@@ -156,8 +162,8 @@ const Auth = () => {
                         key={idx}
                         onClick={() => setSlideIndex(idx)}
                         className={`h-1.5 rounded-full transition-all duration-300 ${
-                          slideIndex === idx 
-                            ? "bg-[rgb(0,128,128)] w-5" 
+                          slideIndex === idx
+                            ? "bg-[rgb(0,128,128)] w-5"
                             : "bg-white/20 w-1.5 hover:bg-white/40"
                         }`}
                       />
@@ -174,12 +180,15 @@ const Auth = () => {
                 </div>
               </div>
             ) : (
-              
+
               /* Conditional Render: Slide 3 (Isolated Inner Form Scroll Shell) */
-              <div className="bg-slate-950/45 backdrop-blur-2xl border border-white/10 rounded-xl p-6 lg:p-8 space-y-4 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.7)] transform transition-all duration-500 scale-[1.01] h-auto max-h-[85vh] flex flex-col overflow-hidden">
-                
+              <div
+                key="auth-form-card"
+                className="bg-slate-950/45 backdrop-blur-2xl border border-white/10 rounded-xl p-6 lg:p-8 space-y-4 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.7)] transform transition-all duration-500 scale-[1.01] h-auto max-h-[85vh] flex flex-col overflow-hidden"
+              >
+
                 {/* Back to Slides Navigation Link - FIXED POSITION */}
-                <button 
+                <button
                   onClick={() => setSlideIndex(2)}
                   className="text-[10px] font-semibold text-slate-400 hover:text-[rgb(0,128,128)] flex items-center gap-1 transition-colors flex-shrink-0 w-max"
                 >

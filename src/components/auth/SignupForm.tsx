@@ -11,7 +11,7 @@ export const SignupForm = ({ onSwitchToLogin }: { onSwitchToLogin: () => void })
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [name, setName] = useState("");
+  const [name, setName] = useState(""); 
   const [gender, setGender] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);

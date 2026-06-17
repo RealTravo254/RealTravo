@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext"; 
 import { useSavedItems } from "@/hooks/useSavedItems";
 import { trackReferralClick } from "@/lib/referralUtils";
-import { getShareLink } from "@/lib/shareUtils";
+import { getShareLink } from "@/lib/shareUtils"; 
 import { getSlugLookupCandidates } from "@/lib/slugUtils";
 import { useBookingSubmit, BookingFormData } from "@/hooks/useBookingSubmit";
 import { useRealtimeItemAvailability } from "@/hooks/useRealtimeBookings";
@@ -26,6 +26,13 @@ const CORAL       = "#FF7F50";
 const CORAL_LIGHT = "#FF9E7A";
 
 const SELECT_FIELDS = "id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,price,price_child,available_tickets,description,activities,created_by,type,opening_hours,closing_hours,days_opened,map_link,is_flexible_date,inclusions,exclusions,allow_children,ticket_types,slot_limit_type,pickup_location";
+
+// Converts ANY casing ("SAFARI WEEKEND", "safari weekend") into "Safari Weekend" —
+// first letter of each word capitalised, everything else lower case.
+const toTitleCase = (str?: string) => {
+  if (!str) return "";
+  return str.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+};
 
 // ─── Image Gallery Modal ──────────────────────────────────────────────────────
 const ImageGalleryModal = ({
@@ -576,7 +583,7 @@ const TripDetail = () => {
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      <DetailNavBar scrolled={scrolled} itemName={event.name} isSaved={isSaved} onSave={handleSave} onBack={goBack} />
+      <DetailNavBar scrolled={scrolled} itemName={toTitleCase(event.name)} isSaved={isSaved} onSave={handleSave} onBack={goBack} />
 
       <div style={{ height: "calc(56px + env(safe-area-inset-top, 0px))" }} />
 
@@ -589,7 +596,7 @@ const TripDetail = () => {
       {/* ── Name / badge / location ── */}
       <div className="max-w-6xl mx-auto px-4 pt-4 pb-1 bg-background">
         <span className="inline-block mb-2 bg-[#FF7F50] text-white px-3 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest">Trip</span>
-        <h1 className="text-2xl font-black uppercase tracking-tighter leading-tight text-foreground">{event.name}</h1>
+        <h1 className="text-2xl font-black tracking-tighter leading-tight text-foreground">{toTitleCase(event.name)}</h1>
         <button onClick={openInMaps} className="flex items-center gap-1.5 mt-1 text-muted-foreground hover:text-[#008080] transition-colors">
           <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
           <span className="text-sm font-semibold">{[event.place, event.location, event.country].filter(Boolean).join(", ")}</span>

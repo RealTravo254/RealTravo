@@ -8,10 +8,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// ── Correct Paystack Kenya bank codes (verified against Paystack docs) ────────
-// Source: https://paystack.com/docs/transfers/single-transfers/#supported-banks
 const KENYA_BANK_CODES: Record<string, string> = {
-  // Full name → code
   "kenya commercial bank": "068",
   "kcb": "068",
   "kcb bank": "068",
@@ -64,13 +61,13 @@ const KENYA_BANK_CODES: Record<string, string> = {
 };
 
 function getBankCode(bankName: string): string {
+  if (!bankName) return "";
   const normalized = bankName.toLowerCase().trim();
-  // If it's already a numeric code, return as-is
+  // Already a numeric code — return as-is
   if (/^\d+$/.test(normalized)) return bankName.trim();
   return KENYA_BANK_CODES[normalized] || normalized;
 }
 
-// ── Format M-Pesa number to Paystack's required format (254XXXXXXXXX) ─────────
 function formatMpesaNumber(phone: string): string {
   let cleaned = phone.replace(/\D/g, "");
   if (cleaned.startsWith("0")) cleaned = "254" + cleaned.slice(1);
@@ -96,7 +93,7 @@ serve(async (req: Request) => {
     const body = await req.json().catch(() => ({}));
     const { action } = body;
 
-    // ── SCHEDULED PAYOUTS (cron / internal) ──────────────────────────────────
+    // ── SCHEDULED PAYOUTS ────────────────────────────────────────────────────
     if (action === "process_scheduled" || !action) {
       const internalKey = req.headers.get("x-internal-key");
       const expectedKey = Deno.env.get("INTERNAL_CRON_KEY") || supabaseServiceKey;
@@ -127,7 +124,7 @@ serve(async (req: Request) => {
                 type: "mobile_money",
                 name: payout.account_name,
                 account_number: formatMpesaNumber(payout.account_number),
-                bank_code: "MPESA", // Paystack Kenya M-Pesa code
+                bank_code: "MPESA",
                 currency: "KES",
               }
             : {
@@ -204,7 +201,7 @@ serve(async (req: Request) => {
 
     // ── MANUAL WITHDRAWAL ────────────────────────────────────────────────────
     if (action === "withdraw") {
-      // Verify JWT — never trust user_id from request body
+      // Verify JWT
       const authHeader = req.headers.get("Authorization");
       if (!authHeader?.startsWith("Bearer ")) {
         return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -221,14 +218,38 @@ serve(async (req: Request) => {
       }
       const user_id = user.id;
 
-      const { amount, payment_method, mpesa_number, bank_code, account_number, account_name } = body;
+      // ── Safely extract and coerce all fields — null/undefined both treated as empty ──
+      const {
+        amount,
+        payment_method,
+        mpesa_number,
+        bank_code,
+        account_number,
+        account_name,
+      } = body;
 
-      if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) throw new Error("A valid amount is required");
-      if (!payment_method || !["mpesa", "bank"].includes(payment_method)) throw new Error("payment_method must be 'mpesa' or 'bank'");
-      if (payment_method === "mpesa" && !mpesa_number) throw new Error("M-Pesa phone number is required");
-      if (payment_method === "bank" && (!bank_code || !account_number || !account_name)) throw new Error("Bank name, account number and account name are all required");
+      const safeMpesa    = mpesa_number   ? String(mpesa_number).trim()   : "";
+      const safeBank     = bank_code      ? String(bank_code).trim()      : "";
+      const safeAccNum   = account_number ? String(account_number).trim() : "";
+      const safeAccName  = account_name   ? String(account_name).trim()   : "";
 
-      // ── Calculate REAL available balance (gross earnings – service fees – already withdrawn) ──
+      // ── Validate inputs ────────────────────────────────────────────────────
+      if (!amount || isNaN(Number(amount)) || Number(amount) <= 0)
+        throw new Error("A valid amount is required");
+
+      if (!payment_method || !["mpesa", "bank"].includes(payment_method))
+        throw new Error("payment_method must be 'mpesa' or 'bank'");
+
+      if (payment_method === "mpesa" && !safeMpesa)
+        throw new Error("M-Pesa phone number is required");
+
+      if (payment_method === "bank") {
+        if (!safeBank)    throw new Error("Please select a bank");
+        if (!safeAccNum)  throw new Error("Account number is required");
+        if (!safeAccName) throw new Error("Account holder name is required");
+      }
+
+      // ── Calculate available balance ────────────────────────────────────────
       const { data: allBookings } = await supabase
         .from("bookings")
         .select("id, total_amount, item_id, booking_type, payment_status")
@@ -236,7 +257,6 @@ serve(async (req: Request) => {
 
       const { data: settings } = await supabase.from("referral_settings").select("*").single();
 
-      // Sum all completed bookings for items owned by this user
       let grossHostEarnings = 0;
       let totalServiceFees = 0;
 
@@ -264,7 +284,6 @@ serve(async (req: Request) => {
 
       const netHostEarnings = grossHostEarnings - totalServiceFees;
 
-      // Subtract already-processed/pending withdrawals so the same KES can't be withdrawn twice
       const { data: existingPayouts } = await supabase
         .from("payouts")
         .select("amount, status")
@@ -273,68 +292,73 @@ serve(async (req: Request) => {
 
       const alreadyWithdrawn = (existingPayouts || []).reduce((s: number, p: any) => s + Number(p.amount), 0);
 
-      // Referral commissions not yet withdrawn
       const { data: commissions } = await supabase
         .from("referral_commissions")
         .select("commission_amount")
         .eq("referrer_id", user_id)
         .eq("status", "paid")
         .is("withdrawn_at", null);
-      const refBalance = (commissions || []).reduce((s: number, c: any) => s + Number(c.commission_amount), 0);
 
+      const refBalance = (commissions || []).reduce((s: number, c: any) => s + Number(c.commission_amount), 0);
       const availableBalance = Math.max(0, netHostEarnings - alreadyWithdrawn + refBalance);
       const requestedAmount = Number(amount);
 
       if (requestedAmount > availableBalance) {
-        throw new Error(`Insufficient balance. Available: KES ${availableBalance.toFixed(2)}, Requested: KES ${requestedAmount.toFixed(2)}`);
+        throw new Error(
+          `Insufficient balance. Available: KES ${availableBalance.toFixed(2)}, Requested: KES ${requestedAmount.toFixed(2)}`
+        );
       }
 
-      // ── Resolve payout account details ────────────────────────────────────
+      // ── Build Paystack recipient payload ───────────────────────────────────
       let recipientPayload: Record<string, string>;
 
       if (payment_method === "mpesa") {
-        const formattedPhone = formatMpesaNumber(mpesa_number);
+        const formattedPhone = formatMpesaNumber(safeMpesa);
         recipientPayload = {
           type: "mobile_money",
           name: user.email || "M-Pesa Withdrawal",
           account_number: formattedPhone,
-          bank_code: "MPESA",   // Paystack's required code for Kenya M-Pesa
+          bank_code: "MPESA",
           currency: "KES",
         };
       } else {
-        // Bank transfer — look up the numeric code
-        const resolvedCode = getBankCode(bank_code);
-        if (!/^\d+$/.test(resolvedCode)) {
-          throw new Error(`Bank "${bank_code}" was not found in our supported banks list. Please update your withdrawal details with a recognised bank name.`);
+        const resolvedCode = getBankCode(safeBank);
+        if (!resolvedCode || !/^\d+$/.test(resolvedCode)) {
+          throw new Error(
+            `Bank "${safeBank}" was not recognised. Please select a valid bank from the list.`
+          );
         }
         recipientPayload = {
           type: "nuban",
-          name: account_name,
-          account_number: account_number,
+          name: safeAccName,
+          account_number: safeAccNum,
           bank_code: resolvedCode,
           currency: "KES",
         };
       }
 
-      // ── Create payout record ───────────────────────────────────────────────
-      const { data: payout, error: payoutError } = await supabase
+      // ── Insert payout record ───────────────────────────────────────────────
+      const { data: payout, error: payoutInsertError } = await supabase
         .from("payouts")
         .insert({
           recipient_id: user_id,
           recipient_type: "combined",
           amount: requestedAmount,
           status: "pending",
-          bank_code: payment_method === "mpesa" ? "mpesa" : getBankCode(bank_code),
-          account_number: payment_method === "mpesa" ? formatMpesaNumber(mpesa_number) : account_number,
-          account_name: payment_method === "mpesa" ? (user.email || "M-Pesa") : account_name,
+          bank_code: payment_method === "mpesa" ? "mpesa" : getBankCode(safeBank),
+          account_number: payment_method === "mpesa" ? formatMpesaNumber(safeMpesa) : safeAccNum,
+          account_name: payment_method === "mpesa" ? (user.email || "M-Pesa") : safeAccName,
           scheduled_for: new Date().toISOString(),
         })
         .select()
         .single();
 
-      if (payoutError) throw new Error(`Error creating payout record: ${payoutError.message}`);
+      if (payoutInsertError) {
+        console.error("Payout insert error:", JSON.stringify(payoutInsertError));
+        throw new Error(`Error creating payout record: ${payoutInsertError.message}`);
+      }
 
-      // ── Create Paystack transfer recipient ────────────────────────────────
+      // ── Create Paystack transfer recipient ─────────────────────────────────
       const recipientResponse = await fetch("https://api.paystack.co/transferrecipient", {
         method: "POST",
         headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`, "Content-Type": "application/json" },
@@ -354,13 +378,13 @@ serve(async (req: Request) => {
 
       const recipientCode = recipientData.data.recipient_code;
 
-      // ── Initiate the transfer ─────────────────────────────────────────────
+      // ── Initiate transfer ──────────────────────────────────────────────────
       const transferResponse = await fetch("https://api.paystack.co/transfer", {
         method: "POST",
         headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           source: "balance",
-          amount: Math.round(requestedAmount * 100), // Paystack expects kobo/cents
+          amount: Math.round(requestedAmount * 100),
           recipient: recipientCode,
           reason: `Withdrawal via ${payment_method === "mpesa" ? "M-Pesa" : "Bank Transfer"}`,
           reference: `WITHDRAW_${payout.id}_${Date.now()}`,
@@ -376,14 +400,14 @@ serve(async (req: Request) => {
         throw new Error(transferData.message || "Failed to initiate transfer. Please try again.");
       }
 
-      // ── Update payout to processing ───────────────────────────────────────
+      // ── Update payout to processing ────────────────────────────────────────
       await supabase.from("payouts").update({
         status: "processing",
         transfer_code: transferData.data.transfer_code,
         reference: transferData.data.reference,
       }).eq("id", payout.id);
 
-      // ── Mark referral commissions withdrawn ───────────────────────────────
+      // ── Mark referral commissions as withdrawn ─────────────────────────────
       if (refBalance > 0) {
         await supabase
           .from("referral_commissions")

@@ -15,8 +15,6 @@ import { toast } from "sonner";
 
 const COLORS = { TEAL: "#008080", CORAL: "#FF7F50" };
 
-// ── Paystack-verified Kenya bank list (name → numeric code) ──────────────────
-// These codes come directly from the Paystack Transfers API for Kenya.
 export const KENYA_BANKS = [
   { name: "Kenya Commercial Bank (KCB)", code: "068" },
   { name: "Equity Bank", code: "049" },
@@ -69,16 +67,14 @@ export const WithdrawalDialog = ({
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [mpesaNumber, setMpesaNumber] = useState("");
 
-  // Bank fields — store the numeric code, not the display name
-  const [bankCode, setBankCode] = useState("");      // numeric e.g. "068"
-  const [bankName, setBankName] = useState("");      // display name
+  const [bankCode, setBankCode] = useState("");
+  const [bankName, setBankName] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
   const [accountName, setAccountName] = useState("");
 
   const [withdrawing, setWithdrawing] = useState(false);
   const [detailsLoaded, setDetailsLoaded] = useState(false);
 
-  // Pre-fill from saved details
   useEffect(() => {
     if (!userId || detailsLoaded || !open) return;
     const load = async () => {
@@ -92,7 +88,6 @@ export const WithdrawalDialog = ({
 
       if (bankRes.data) {
         const savedBankName = bankRes.data.bank_name || "";
-        // Resolve the code from name if saved as name, or use directly if already a code
         const match = KENYA_BANKS.find(
           (b) => b.name === savedBankName || b.code === savedBankName
         );
@@ -111,7 +106,7 @@ export const WithdrawalDialog = ({
 
   const resetForm = () => {
     setWithdrawAmount("");
-    setDetailsLoaded(false); // reload on next open
+    setDetailsLoaded(false);
   };
 
   const handleBankSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -141,20 +136,30 @@ export const WithdrawalDialog = ({
 
     setWithdrawing(true);
     try {
+      const requestBody: Record<string, any> = {
+        action: "withdraw",
+        user_id: userId,
+        amount,
+        payout_type: "combined",
+        payment_method: withdrawMethod,
+      };
+
+      // Only include the relevant fields — send null explicitly so the edge
+      // function receives them and can safely guard against undefined
+      if (withdrawMethod === "mpesa") {
+        requestBody.mpesa_number = mpesaNumber.trim();
+        requestBody.bank_code = null;
+        requestBody.account_number = null;
+        requestBody.account_name = null;
+      } else {
+        requestBody.mpesa_number = null;
+        requestBody.bank_code = bankCode;
+        requestBody.account_number = accountNumber.trim();
+        requestBody.account_name = accountName.trim();
+      }
+
       const { data, error } = await supabase.functions.invoke("process-payouts", {
-        body: {
-          action: "withdraw",
-          user_id: userId,
-          amount,
-          payout_type: "combined",
-          payment_method: withdrawMethod,
-          // M-Pesa
-          mpesa_number: withdrawMethod === "mpesa" ? mpesaNumber : undefined,
-          // Bank — send the numeric code, NOT the display name
-          bank_code: withdrawMethod === "bank" ? bankCode : undefined,
-          account_number: withdrawMethod === "bank" ? accountNumber : undefined,
-          account_name: withdrawMethod === "bank" ? accountName : undefined,
-        },
+        body: requestBody,
       });
 
       if (error) {
@@ -165,13 +170,16 @@ export const WithdrawalDialog = ({
       }
       if (!data?.success) throw new Error(data?.error || "Withdrawal failed");
 
-      await supabase.from("notifications").insert({
-        user_id: userId,
-        type: "withdrawal_success",
-        title: "Withdrawal Successful",
-        message: `Your withdrawal of KES ${amount.toLocaleString()} to ${withdrawMethod === "mpesa" ? "M-Pesa" : bankName} has been initiated.`,
-        data: { amount, method: withdrawMethod, reference: data.reference },
-      });
+      // Safe notification insert — no .catch() on Supabase client
+      try {
+        await supabase.from("notifications").insert({
+          user_id: userId,
+          type: "withdrawal_success",
+          title: "Withdrawal Successful",
+          message: `Your withdrawal of KES ${amount.toLocaleString()} to ${withdrawMethod === "mpesa" ? "M-Pesa" : bankName} has been initiated.`,
+          data: { amount, method: withdrawMethod, reference: data.reference },
+        });
+      } catch (_) { /* notification failure is non-critical */ }
 
       toast.success(`Withdrawal of KES ${amount.toLocaleString()} initiated!`);
       resetForm();
@@ -179,13 +187,18 @@ export const WithdrawalDialog = ({
       onSuccess?.();
     } catch (err: any) {
       console.error("Withdrawal error:", err);
-      await supabase.from("notifications").insert({
-        user_id: userId,
-        type: "withdrawal_failed",
-        title: "Withdrawal Failed",
-        message: err.message || "Your withdrawal could not be processed.",
-        data: { amount, method: withdrawMethod, reason: err.message },
-      }).catch(() => {});
+
+      // Safe failure notification — no .catch() on Supabase client
+      try {
+        await supabase.from("notifications").insert({
+          user_id: userId,
+          type: "withdrawal_failed",
+          title: "Withdrawal Failed",
+          message: err.message || "Your withdrawal could not be processed.",
+          data: { amount, method: withdrawMethod, reason: err.message },
+        });
+      } catch (_) { /* notification failure is non-critical */ }
+
       toast.error(err.message || "Failed to process withdrawal");
     } finally {
       setWithdrawing(false);
@@ -213,7 +226,6 @@ export const WithdrawalDialog = ({
             <p className="text-3xl font-black text-white">KES {availableBalance.toLocaleString()}</p>
           </div>
 
-          {/* No balance warning */}
           {availableBalance <= 0 && (
             <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 px-4 py-3 rounded-xl">
               <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
@@ -273,7 +285,6 @@ export const WithdrawalDialog = ({
           {/* Bank fields */}
           {withdrawMethod === "bank" && (
             <div className="space-y-4">
-              {/* Bank dropdown — native select so we store numeric code */}
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Bank Name</Label>
                 <div className={`rounded-xl border h-11 px-3 flex items-center bg-white transition-all focus-within:ring-2 focus-within:ring-[#008080]/20 focus-within:border-[#008080] ${!bankCode && "border-slate-200"}`}>
@@ -316,7 +327,6 @@ export const WithdrawalDialog = ({
                 />
               </div>
 
-              {/* Info note */}
               <div className="flex items-start gap-2 bg-blue-50 border border-blue-100 px-3 py-2.5 rounded-xl">
                 <Info className="h-3.5 w-3.5 text-blue-500 mt-0.5 shrink-0" />
                 <p className="text-[10px] text-blue-600 leading-relaxed">

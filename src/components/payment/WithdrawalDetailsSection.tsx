@@ -13,13 +13,10 @@ interface WithdrawalDetailsSectionProps {
 
 export const WithdrawalDetailsSection = ({ userId }: WithdrawalDetailsSectionProps) => {
   const [mpesaNumber, setMpesaNumber] = useState("");
-
-  // Bank — always store the numeric Paystack code internally
-  const [bankCode, setBankCode] = useState("");      // numeric e.g. "068"
-  const [bankDisplayName, setBankDisplayName] = useState(""); // human label
+  const [bankCode, setBankCode] = useState("");
+  const [bankDisplayName, setBankDisplayName] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
   const [accountName, setAccountName] = useState("");
-
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -37,7 +34,6 @@ export const WithdrawalDetailsSection = ({ userId }: WithdrawalDetailsSectionPro
 
       if (bankRes.data) {
         const savedValue = bankRes.data.bank_name || "";
-        // Resolve whether it was saved as a name or as a code
         const match = KENYA_BANKS.find(
           (b) => b.code === savedValue || b.name === savedValue
         );
@@ -66,15 +62,13 @@ export const WithdrawalDetailsSection = ({ userId }: WithdrawalDetailsSectionPro
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Save the NUMERIC code to bank_details.bank_name so the edge function
-      // can resolve it directly without another lookup
       if (bankCode || accountNumber || accountName) {
         const { data: existing } = await supabase
           .from("bank_details").select("id").eq("user_id", userId).maybeSingle();
 
         if (existing) {
           await supabase.from("bank_details").update({
-            bank_name: bankCode,           // store numeric code
+            bank_name: bankCode,
             account_number: accountNumber,
             account_holder_name: accountName,
             last_updated: new Date().toISOString(),
@@ -82,7 +76,7 @@ export const WithdrawalDetailsSection = ({ userId }: WithdrawalDetailsSectionPro
         } else {
           await supabase.from("bank_details").insert({
             user_id: userId,
-            bank_name: bankCode,           // store numeric code
+            bank_name: bankCode,
             account_number: accountNumber,
             account_holder_name: accountName,
           });
@@ -105,7 +99,6 @@ export const WithdrawalDetailsSection = ({ userId }: WithdrawalDetailsSectionPro
 
   if (!loaded) return null;
 
-  // ── Read-only view ──────────────────────────────────────────────────────────
   if (hasSavedDetails && !isEditing) {
     return (
       <div className="bg-card rounded-xl p-4 border border-border mb-4">
@@ -147,7 +140,6 @@ export const WithdrawalDetailsSection = ({ userId }: WithdrawalDetailsSectionPro
     );
   }
 
-  // ── Edit form ───────────────────────────────────────────────────────────────
   return (
     <div className="bg-card rounded-xl p-4 border border-border mb-4">
       <h2 className="text-sm font-black uppercase tracking-tight text-foreground mb-0.5">Withdrawal Details</h2>
@@ -156,7 +148,6 @@ export const WithdrawalDetailsSection = ({ userId }: WithdrawalDetailsSectionPro
       </p>
 
       <div className="space-y-4">
-        {/* M-Pesa */}
         <div className="space-y-1.5">
           <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
             <Smartphone className="h-3 w-3" /> M-Pesa Number
@@ -170,7 +161,6 @@ export const WithdrawalDetailsSection = ({ userId }: WithdrawalDetailsSectionPro
           />
         </div>
 
-        {/* Bank dropdown */}
         <div className="space-y-1.5">
           <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
             <Building2 className="h-3 w-3" /> Bank Name
@@ -195,7 +185,6 @@ export const WithdrawalDetailsSection = ({ userId }: WithdrawalDetailsSectionPro
           )}
         </div>
 
-        {/* Account number + name */}
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1.5">
             <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Account No.</Label>

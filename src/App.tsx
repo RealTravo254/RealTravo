@@ -9,7 +9,7 @@ import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import { PageLayout } from "@/components/PageLayout";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { AuthGate } from "@/components/AuthGate";
-
+<Route path="/app-auth" element={<AppAuthHandler />} />
 import { TealLoader } from "@/components/ui/teal-loader"; 
 import { OfflineFullScreen } from "@/components/OfflineIndicator";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";

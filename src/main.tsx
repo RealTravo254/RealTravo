@@ -16,7 +16,6 @@ root.render(
   </React.StrictMode>
 );
 
-
 /**
  * Service Worker Registration - deferred until after first render
  * This prevents SW registration from blocking the initial paint.
@@ -25,7 +24,7 @@ if ('serviceWorker' in navigator) {
   const registerSW = () => {
     navigator.serviceWorker.register('/sw.js')
       .then((registration) => {
-        console.log('SW registered with scope:', registration.scope);
+        console.log('SW registered successfully with scope:', registration.scope);
         
         // Check for updates every 60 seconds
         setInterval(() => {

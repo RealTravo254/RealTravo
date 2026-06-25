@@ -8,7 +8,7 @@ import {
   X, MapPin, Compass, Heart, Ticket, LogIn, UserPlus, Sparkles,
   User, LogOut, Briefcase, ChevronRight,
   CreditCard, Shield, UserCog, CalendarCheck,
-  Settings, LayoutDashboard, Users,
+  Settings, LayoutDashboard, Users, Wallet,
 } from "lucide-react";
 
 /* ══════════════════════════════════════════════════════════════════
@@ -179,12 +179,13 @@ const AuthenticatedPanel = ({ onClose }: { onClose: () => void }) => {
     {
       section: "Admin Control",
       items: [
-        { icon: Shield,        label: "Admin Dashboard",      path: "/admin",                        show: userRole === "admin" },
-        { icon: UserCog,       label: "Host Verification",    path: "/admin/verification",           show: userRole === "admin" },
-        { icon: CreditCard,    label: "Payment Verification", path: "/admin/payment-verification",   show: userRole === "admin" },
-        { icon: Users,         label: "Accounts Overview",    path: "/admin/accounts",               show: userRole === "admin" },
-        { icon: Settings,      label: "Referral Settings",    path: "/admin/referral-settings",      show: userRole === "admin" },
-        { icon: CalendarCheck, label: "All Bookings",         path: "/admin/all-bookings",           show: userRole === "admin" },
+        { icon: Shield,        label: "Admin Dashboard",        path: "/admin",                       show: userRole === "admin" },
+        { icon: UserCog,       label: "Host Verification",      path: "/admin/verification",          show: userRole === "admin" },
+        { icon: CreditCard,    label: "Payment Verification",   path: "/admin/payment-verification",  show: userRole === "admin" },
+        { icon: Users,         label: "Accounts Overview",      path: "/admin/accounts",              show: userRole === "admin" },
+        { icon: Settings,      label: "Referral Settings",      path: "/admin/referral-settings",     show: userRole === "admin" },
+        { icon: CalendarCheck, label: "All Bookings",           path: "/admin/all-bookings",          show: userRole === "admin" },
+        { icon: Wallet,        label: "Withdrawal Requests",    path: "/admin/withdrawals",           show: userRole === "admin" },
       ],
     },
   ];

@@ -164,7 +164,7 @@ const AuthenticatedPanel = ({ onClose }: { onClose: () => void }) => {
     {
       section: "Creator Tools",
       items: [
-        { icon: Briefcase,       label: "Become a Host",     path: "/become-host",   show: true },
+        { icon: Briefcase,       label: "Become a Host",    path: "/become-host",   show: true },
         { icon: LayoutDashboard, label: "My Listings",        path: "/my-listing",    show: true },
         { icon: CalendarCheck,   label: "My Host Bookings",  path: "/host-bookings", show: true },
       ],
@@ -179,7 +179,7 @@ const AuthenticatedPanel = ({ onClose }: { onClose: () => void }) => {
     {
       section: "Admin Control",
       items: [
-        { icon: Shield,        label: "Admin Dashboard",        path: "/admin",                       show: userRole === "admin" },
+        { icon: Shield,        label: "Admin Dashboard",        path: "/admin",                                       show: userRole === "admin" },
         { icon: UserCog,       label: "Host Verification",      path: "/admin/verification",          show: userRole === "admin" },
         { icon: CreditCard,    label: "Payment Verification",   path: "/admin/payment-verification",  show: userRole === "admin" },
         { icon: Users,         label: "Accounts Overview",      path: "/admin/accounts",              show: userRole === "admin" },
@@ -334,16 +334,21 @@ export const AccountSheet = ({ children }: AccountSheetProps) => {
       <SheetContent
         side="right"
         className="w-[80vw] max-w-[310px] p-0 border-none flex flex-col [&>button]:hidden"
-        style={{
-          paddingTop: "env(safe-area-inset-top, 0px)",
-          paddingBottom: "env(safe-area-inset-bottom, 0px)",
-        }}
       >
-        {user ? (
-          <AuthenticatedPanel onClose={() => setOpen(false)} />
-        ) : (
-          <GuestPanel onClose={() => setOpen(false)} />
-        )}
+        {/* Wrapper div applied here to correctly type safe-area padding styles */}
+        <div 
+          className="flex flex-col h-full w-full"
+          style={{
+            paddingTop: "env(safe-area-inset-top, 0px)",
+            paddingBottom: "env(safe-area-inset-bottom, 0px)",
+          }}
+        >
+          {user ? (
+            <AuthenticatedPanel onClose={() => setOpen(false)} />
+          ) : (
+            <GuestPanel onClose={() => setOpen(false)} />
+          )}
+        </div>
       </SheetContent>
     </Sheet>
   );

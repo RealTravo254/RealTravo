@@ -2,14 +2,16 @@ import React, { lazy, Suspense, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+
+// Explicitly grabbing QueryClient and the Provider cleanly from the package core
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import { PageLayout } from "@/components/PageLayout";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { AuthGate } from "@/components/AuthGate";
-<Route path="/app-auth" element={<AppAuthHandler />} />
 import { TealLoader } from "@/components/ui/teal-loader"; 
 import { OfflineFullScreen } from "@/components/OfflineIndicator";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
@@ -20,6 +22,7 @@ import Index from "./pages/Index";
 // Lazy load remaining page chunks
 const Auth = lazy(() => import("./pages/Auth"));
 const AuthCallback = lazy(() => import("./pages/AuthCallback"));
+const AppAuthHandler = lazy(() => import("./pages/AppAuthHandler"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const CategoryDetail = lazy(() => import("./pages/CategoryDetail"));
 const Saved = lazy(() => import("./pages/Saved"));
@@ -80,7 +83,7 @@ const AccountsOverview = lazy(() => import("./pages/admin/AccountsOverview"));
 const Explore = lazy(() => import("./pages/Explore"));
 const CountyDetail = lazy(() => import("./pages/CountyDetail"));
 
-// Create QueryClient instance outside the component to avoid re-creation on renders
+// Initialize the client cleanly outside components
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -140,6 +143,10 @@ const App = () => {
                       <Route path="/attraction/:slug" element={<Suspense fallback={<TealLoader />}><AdventurePlaceDetail /></Suspense>} />
                       <Route path="/auth" element={<Suspense fallback={<SuspenseFallback />}><Auth /></Suspense>} />
                       <Route path="/auth/callback" element={<Suspense fallback={<SuspenseFallback />}><AuthCallback /></Suspense>} />
+                      
+                      {/* Properly registered AppAuthHandler route */}
+                      <Route path="/app-auth" element={<Suspense fallback={<SuspenseFallback />}><AppAuthHandler /></Suspense>} />
+                      
                       <Route path="/profile" element={<Suspense fallback={<SuspenseFallback />}><Profile /></Suspense>} />
                       <Route path="/profile/edit" element={<Suspense fallback={<SuspenseFallback />}><ProfileEdit /></Suspense>} />
                       <Route path="/admin" element={<Suspense fallback={<SuspenseFallback />}><AdminDashboard /></Suspense>} />
@@ -159,7 +166,7 @@ const App = () => {
                       <Route path="/create-adventure" element={<Suspense fallback={<SuspenseFallback />}><CreateAdventure /></Suspense>} />
                       <Route path="/create-attraction" element={<Suspense fallback={<SuspenseFallback />}><CreateAdventure /></Suspense>} />
                       <Route path="/host/item/:itemType/:id" element={<Suspense fallback={<SuspenseFallback />}><HostItemDetail /></Suspense>} />
-                      <Route path="/host/bookings/:itemType" element={<Suspense fallback={<SuspenseFallback />}><HostBookings /></Suspense>} />
+                      <Route path="/host/bookings/:itemType" element={<Suspense fallback={<HostBookings />}><HostBookings /></Suspense>} />
                       <Route path="/host/bookings/:itemType/:id" element={<Suspense fallback={<SuspenseFallback />}><HostBookingDetails /></Suspense>} />
                       <Route path="/host/trips" element={<Suspense fallback={<SuspenseFallback />}><CategoryTrips /></Suspense>} />
                       <Route path="/host/hotels" element={<Suspense fallback={<SuspenseFallback />}><CategoryHotels /></Suspense>} />

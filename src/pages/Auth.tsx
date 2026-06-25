@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { SignupForm } from "@/components/auth/SignupForm";
 import { SEOHead } from "@/components/SEOHead";
-import { ArrowLeft, MapPin, Star, Compass } from "lucide-react";
+import { ArrowLeft, Compass } from "lucide-react";
 
 const Auth = () => {
   const { user, loading } = useAuth();
@@ -12,15 +12,9 @@ const Auth = () => {
   const location = useLocation();
   const returnTo = (location.state as any)?.returnTo || "/";
 
-  // Check if a page (like ForgotPassword) requested starting directly on the form slide (index 3)
-  const initialSlide = location.state?.returnToSlideIndex !== undefined
-    ? location.state.returnToSlideIndex
-    : 0;
-
   const [activeTab, setActiveTab] = useState<"login" | "signup">("login");
-  const [slideIndex, setSlideIndex] = useState<number>(initialSlide);
 
-  // Side effects (like navigation) must run in useEffect, not directly in render.
+  // Automatically redirect authenticated users
   useEffect(() => {
     if (!loading && user) {
       navigate(returnTo);
@@ -35,30 +29,6 @@ const Auth = () => {
     );
   }
 
-  const onboardingSlides = [
-    {
-      title: "Discover Activities & Guides",
-      description: "Uncover hidden activities and hire experienced local experts to turn your trips into true stories.",
-      icon: <Compass className="w-12 h-12 text-[rgb(0,128,128)] mx-auto" />
-    },
-    {
-      title: "Trips, Hotels & Campsites",
-      description: "Plan your stays seamlessly. Book luxury hotels, boutique rooms, or secure your pitch under the stars at peaceful campsites.",
-      icon: <MapPin className="w-12 h-12 text-[rgb(0,128,128)] mx-auto" />
-    },
-    {
-      title: "Host & Share Your Items",
-      description: "Monetize your gear, spaces, campsites, properties, or guiding skills by hosting directly on our open marketplace.",
-      icon: <Star className="w-12 h-12 text-[rgb(0,128,128)] mx-auto" />
-    }
-  ];
-
-  const handleNextSlide = () => {
-    if (slideIndex < 3) {
-      setSlideIndex((prev) => prev + 1);
-    }
-  };
-
   return (
     <div className="min-h-screen flex flex-col lg:flex-row bg-[#070A13] text-slate-100 antialiased font-sans selection:bg-teal-500/20">
       <SEOHead
@@ -66,7 +36,7 @@ const Auth = () => {
         description="Explore custom activities, book unique hotels or campsites, and easily host your assets on Realtravo."
       />
 
-      {/* Left Panel - Premium Branding & Onboarding Container */}
+      {/* Left Panel - Premium Branding & Identity Container */}
       <div className="hidden lg:flex lg:w-[42%] relative overflow-hidden bg-gradient-to-br from-[#121131] via-[#090D1A] to-[#03050B]">
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff02_1px,transparent_1px),linear-gradient(to_bottom,#ffffff02_1px,transparent_1px)] bg-[size:40px_40px]" />
         <div className="absolute -top-20 -left-20 w-80 h-80 bg-[rgb(0,128,128)]/10 rounded-full blur-[100px]" />
@@ -98,7 +68,7 @@ const Auth = () => {
         </div>
       </div>
 
-      {/* Right Panel - Dynamic Interchanging Card & Slider Space */}
+      {/* Right Panel - Direct Authentication UI Area */}
       <div
         className="flex-1 flex flex-col min-h-screen relative overflow-hidden"
         style={{
@@ -127,120 +97,59 @@ const Auth = () => {
           </div>
         </div>
 
-        {/* Dynamic Card & Onboarding Window Area */}
+        {/* Dynamic Card Area containing Forms */}
         <div className="relative z-10 flex-1 flex items-center justify-center px-4 pb-8 lg:px-8">
           <div className="w-full max-w-[420px]">
-
-            {/* Conditional Render: Slides 0-2 (Onboarding Content) */}
-            {slideIndex < 3 ? (
-              <div
-                key="onboarding-card"
-                className="bg-slate-950/60 backdrop-blur-2xl border border-white/10 rounded-xl p-6 lg:p-8 space-y-6 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)] text-center transition-all duration-300"
-              >
-
-                {/* Onboarding Icon Asset */}
-                <div className="p-3 bg-white/[0.02] border border-white/5 rounded-full w-20 h-20 flex items-center justify-center mx-auto shadow-inner">
-                  {onboardingSlides[slideIndex].icon}
-                </div>
-
-                {/* Onboarding Metadata Text */}
-                <div className="space-y-2">
-                  <h2 className="text-xl font-extrabold text-white tracking-tight">
-                    {onboardingSlides[slideIndex].title}
-                  </h2>
-                  <p className="text-slate-300 text-xs leading-relaxed font-medium">
-                    {onboardingSlides[slideIndex].description}
-                  </p>
-                </div>
-
-                {/* Unified Footer Actions & Slide Navigation UI */}
-                <div className="space-y-4 pt-2">
-                  {/* Slider Progress Bar Dots */}
-                  <div className="flex justify-center gap-1.5">
-                    {[0, 1, 2, 3].map((idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => setSlideIndex(idx)}
-                        className={`h-1.5 rounded-full transition-all duration-300 ${
-                          slideIndex === idx
-                            ? "bg-[rgb(0,128,128)] w-5"
-                            : "bg-white/20 w-1.5 hover:bg-white/40"
-                        }`}
-                      />
-                    ))}
-                  </div>
-
-                  {/* Primary Multi-slide Button */}
-                  <button
-                    onClick={handleNextSlide}
-                    className="w-full py-2.5 px-4 rounded-lg text-xs font-bold tracking-wide uppercase bg-[rgb(0,128,128)] text-white hover:bg-teal-700 active:scale-[0.99] transition-all duration-200 shadow-lg shadow-teal-950/50"
-                  >
-                    Continue
-                  </button>
-                </div>
+            
+            <div
+              key="auth-form-card"
+              className="bg-slate-950/45 backdrop-blur-2xl border border-white/10 rounded-xl p-6 lg:p-8 space-y-4 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.7)] transform transition-all duration-500 scale-[1.01] h-auto max-h-[85vh] flex flex-col overflow-hidden"
+            >
+              {/* Header Blocks */}
+              <div className="space-y-1 text-center lg:text-left flex-shrink-0">
+                <h2 className="text-2xl font-extrabold text-white tracking-tight">
+                  {activeTab === "login" ? "Welcome back" : "Get started"}
+                </h2>
+                <p className="text-slate-400 text-xs font-medium">
+                  {activeTab === "login"
+                    ? "Sign in to plan and access your luxury portals"
+                    : "Create an account to embark on custom journeys"}
+                </p>
               </div>
-            ) : (
 
-              /* Conditional Render: Slide 3 (Isolated Inner Form Scroll Shell) */
-              <div
-                key="auth-form-card"
-                className="bg-slate-950/45 backdrop-blur-2xl border border-white/10 rounded-xl p-6 lg:p-8 space-y-4 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.7)] transform transition-all duration-500 scale-[1.01] h-auto max-h-[85vh] flex flex-col overflow-hidden"
-              >
-
-                {/* Back to Slides Navigation Link - FIXED POSITION */}
+              {/* Segmented Tab Controller */}
+              <div className="flex bg-black/50 border border-white/5 p-0.5 rounded-lg flex-shrink-0">
                 <button
-                  onClick={() => setSlideIndex(2)}
-                  className="text-[10px] font-semibold text-slate-400 hover:text-[rgb(0,128,128)] flex items-center gap-1 transition-colors flex-shrink-0 w-max"
+                  onClick={() => setActiveTab("login")}
+                  className={`flex-1 py-2 text-[10px] uppercase tracking-wider font-bold rounded-md transition-all duration-200 ${
+                    activeTab === "login"
+                      ? "bg-[rgb(0,128,128)] text-white shadow-md scale-[1.01]"
+                      : "text-slate-400 hover:text-white"
+                  }`}
                 >
-                  <ArrowLeft className="w-3 h-3" /> Back to onboarding
+                  Sign In
                 </button>
-
-                {/* Header Blocks - FIXED POSITION */}
-                <div className="space-y-1 text-center lg:text-left flex-shrink-0">
-                  <h2 className="text-2xl font-extrabold text-white tracking-tight">
-                    {activeTab === "login" ? "Welcome back" : "Get started"}
-                  </h2>
-                  <p className="text-slate-400 text-xs font-medium">
-                    {activeTab === "login"
-                      ? "Sign in to plan and access your luxury portals"
-                      : "Create an account to embark on custom journeys"}
-                  </p>
-                </div>
-
-                {/* Segmented Controller - FIXED POSITION */}
-                <div className="flex bg-black/50 border border-white/5 p-0.5 rounded-lg flex-shrink-0">
-                  <button
-                    onClick={() => setActiveTab("login")}
-                    className={`flex-1 py-2 text-[10px] uppercase tracking-wider font-bold rounded-md transition-all duration-200 ${
-                      activeTab === "login"
-                        ? "bg-[rgb(0,128,128)] text-white shadow-md scale-[1.01]"
-                        : "text-slate-400 hover:text-white"
-                    }`}
-                  >
-                    Sign In
-                  </button>
-                  <button
-                    onClick={() => setActiveTab("signup")}
-                    className={`flex-1 py-2 text-[10px] uppercase tracking-wider font-bold rounded-md transition-all duration-200 ${
-                      activeTab === "signup"
-                        ? "bg-[rgb(0,128,128)] text-white shadow-md scale-[1.01]"
-                        : "text-slate-400 hover:text-white"
-                    }`}
-                  >
-                    Sign Up
-                  </button>
-                </div>
-
-                {/* Interactive Core Form Container - ISOLATED SCROLLABLE INNER LAYER */}
-                <div className="mt-1 text-slate-200 max-h-[340px] overflow-y-auto pr-1 overflow-x-hidden scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
-                  {activeTab === "login" ? (
-                    <LoginForm onSwitchToSignup={() => setActiveTab("signup")} />
-                  ) : (
-                    <SignupForm onSwitchToLogin={() => setActiveTab("login")} />
-                  )}
-                </div>
+                <button
+                  onClick={() => setActiveTab("signup")}
+                  className={`flex-1 py-2 text-[10px] uppercase tracking-wider font-bold rounded-md transition-all duration-200 ${
+                    activeTab === "signup"
+                      ? "bg-[rgb(0,128,128)] text-white shadow-md scale-[1.01]"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  Sign Up
+                </button>
               </div>
-            )}
+
+              {/* Core Form Container Layer */}
+              <div className="mt-1 text-slate-200 max-h-[340px] overflow-y-auto pr-1 overflow-x-hidden scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+                {activeTab === "login" ? (
+                  <LoginForm onSwitchToSignup={() => setActiveTab("signup")} />
+                ) : (
+                  <SignupForm onSwitchToLogin={() => setActiveTab("login")} />
+                )}
+              </div>
+            </div>
 
           </div>
         </div>

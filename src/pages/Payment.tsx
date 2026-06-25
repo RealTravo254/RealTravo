@@ -95,12 +95,17 @@ export default function Payment() {
         }
       }
 
-      // Deduct completed withdrawals from balance
+      // Deduct both completed and pending withdrawals from active balance limits
       const completedWithdrawals = (withdrawalRes.data || [])
         .filter(w => w.status === 'completed')
         .reduce((s: number, w: any) => s + Number(w.amount), 0);
 
-      const netHostEarnings = grossHostEarnings - totalServiceFee - completedWithdrawals;
+      const pendingWithdrawals = (withdrawalRes.data || [])
+        .filter(w => w.status === 'pending')
+        .reduce((s: number, w: any) => s + Number(w.amount), 0);
+
+      // The base balance subtracts everything finalized or currently locked in a transaction state
+      const netHostEarnings = grossHostEarnings - totalServiceFee - completedWithdrawals - pendingWithdrawals;
 
       if (isVerifiedHost) {
         const [refRes, comRes] = await Promise.all([
@@ -209,7 +214,7 @@ export default function Payment() {
         )}
         {stats.withdrawableBalance <= 0 && (
           <p className="text-[9px] text-muted-foreground font-bold text-center mb-4 mt-1">
-            No balance available for withdrawal yet.
+            No balance available for withdrawal yet (or pending review).
           </p>
         )}
         {canWithdraw && (
@@ -322,10 +327,10 @@ export default function Payment() {
               <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Track your performance</p>
             </div>
             <div className="grid grid-cols-2 gap-2 mb-4">
-              <StatCard icon={<Users className="h-4 w-4" />} label="People Referred" value={stats.totalReferred} />
-              <StatCard icon={<TrendingUp className="h-4 w-4" />} label="Conversions" value={stats.totalBookings} />
-              <StatCard icon={<DollarSign className="h-4 w-4" />} label="From Bookings" value={formatPrice(stats.bookingEarnings)} />
-              <StatCard icon={<Wallet className="h-4 w-4" />} label="Total Earned" value={formatPrice(stats.totalCommission)} />
+              <FactorCard icon={<Users className="h-4 w-4" />} label="People Referred" value={stats.totalReferred} />
+              <FactorCard icon={<TrendingUp className="h-4 w-4" />} label="Conversions" value={stats.totalBookings} />
+              <FactorCard icon={<DollarSign className="h-4 w-4" />} label="From Bookings" value={formatPrice(stats.bookingEarnings)} />
+              <FactorCard icon={<Wallet className="h-4 w-4" />} label="Total Earned" value={formatPrice(stats.totalCommission)} />
             </div>
 
             {recentCommissions.length > 0 && (
@@ -408,6 +413,16 @@ const StatCard = ({ icon, label, value }: { icon: React.ReactNode; label: string
   <div className="bg-card rounded-xl p-3 border border-border">
     <div className="flex items-center gap-2 mb-1">
       <div className="text-primary">{icon}</div>
+      <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest">{label}</span>
+    </div>
+    <p className="text-sm font-black text-foreground">{value}</p>
+  </div>
+);
+
+const FactorCard = ({ icon, label, value }: { icon: React.ReactNode; label: string; value: string | number }) => (
+  <div className="bg-card rounded-xl p-3 border border-border">
+    <div className="flex items-center gap-2 mb-1">
+      <div className="text-[#008080]">{icon}</div>
       <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest">{label}</span>
     </div>
     <p className="text-sm font-black text-foreground">{value}</p>

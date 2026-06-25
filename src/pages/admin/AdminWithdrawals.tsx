@@ -9,7 +9,7 @@ import { SEOHead } from "@/components/SEOHead";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import {
   ArrowLeft, CheckCircle2, XCircle, Clock, Wallet,
-  Search, Filter, Copy, RefreshCw,
+  Search, Filter, Copy, RefreshCw, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
@@ -32,6 +32,8 @@ type WithdrawalRequest = {
   user_email?: string;
 };
 
+const PAGE_SIZE = 15;
+
 const METHOD_LABELS: Record<string, string> = {
   bank_transfer: "Bank Transfer",
   mpesa: "M-Pesa",
@@ -52,57 +54,117 @@ export default function AdminWithdrawals() {
 
   const [loading, setLoading] = useState(true);
   const [requests, setRequests] = useState<WithdrawalRequest[]>([]);
-  const [filtered, setFiltered] = useState<WithdrawalRequest[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(0); // 0-indexed
+
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
   const [selectedRequest, setSelectedRequest] = useState<WithdrawalRequest | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [adminNote, setAdminNote] = useState("");
   const [dialogAction, setDialogAction] = useState<"complete" | "reject" | null>(null);
 
+  // Summary stats (fetched separately, unaffected by pagination)
+  const [summaryStats, setSummaryStats] = useState({ pendingCount: 0, totalPending: 0, allTime: 0, completed: 0 });
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setPage(0); // reset to first page on new search
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Reset page when filter changes
+  useEffect(() => {
+    setPage(0);
+  }, [statusFilter]);
+
   useEffect(() => {
     if (!user) { navigate("/auth"); return; }
     fetchRequests();
-  }, [user]);
+  }, [user, page, statusFilter, debouncedSearch]);
 
   useEffect(() => {
-    let data = [...requests];
-    if (statusFilter !== "all") data = data.filter(r => r.status === statusFilter);
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      data = data.filter(r =>
-        r.user_name?.toLowerCase().includes(q) ||
-        r.user_email?.toLowerCase().includes(q) ||
-        r.withdrawal_method.includes(q) ||
-        JSON.stringify(r.withdrawal_details).toLowerCase().includes(q)
-      );
+    if (!user) return;
+    fetchSummaryStats();
+  }, [user]);
+
+  const fetchSummaryStats = async () => {
+    try {
+      // Pending count + total
+      const { data: pendingData } = await (supabase as any)
+        .from("withdrawal_requests")
+        .select("amount")
+        .eq("status", "pending");
+
+      // All time + completed count
+      const { count: allTime } = await (supabase as any)
+        .from("withdrawal_requests")
+        .select("*", { count: "exact", head: true });
+
+      const { count: completed } = await (supabase as any)
+        .from("withdrawal_requests")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "completed");
+
+      const pendingCount = (pendingData || []).length;
+      const totalPending = (pendingData || []).reduce((s: number, r: any) => s + Number(r.amount), 0);
+
+      setSummaryStats({ pendingCount, totalPending, allTime: allTime || 0, completed: completed || 0 });
+    } catch (e) {
+      // fail silently for stats
     }
-    setFiltered(data);
-  }, [requests, statusFilter, searchQuery]);
+  };
 
   const fetchRequests = async () => {
     setLoading(true);
     try {
-      const { data, error } = await (supabase as any)
+      const from = page * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+
+      let query = (supabase as any)
         .from("withdrawal_requests")
-        .select("*")
-        .order("requested_at", { ascending: false });
+        .select("*", { count: "exact" })
+        .order("requested_at", { ascending: false })
+        .range(from, to);
+
+      if (statusFilter !== "all") {
+        query = query.eq("status", statusFilter);
+      }
+
+      // Server-side search on withdrawal_method; client-side enrich will handle user name/email below
+      // For a full-text user search you'd need a DB view/join — we search on available columns here
+      if (debouncedSearch) {
+        const q = debouncedSearch.toLowerCase();
+        // Supabase ilike on withdrawal_method; withdrawal_details is JSONB so cast to text
+        query = query.or(
+          `withdrawal_method.ilike.%${q}%,withdrawal_details::text.ilike.%${q}%`
+        );
+      }
+
+      const { data, error, count } = await query;
 
       if (error) throw error;
 
-      // Fetch user profiles
-      const userIds = [...new Set((data || []).map(r => r.user_id))];
+      setTotalCount(count || 0);
+
+      // Fetch user profiles for this page only
+      const userIds = [...new Set((data || []).map((r: any) => r.user_id))];
       const { data: profiles } = await supabase
         .from("profiles")
         .select("id, name, email")
         .in("id", userIds);
 
-      const profileMap = new Map((profiles || []).map(p => [p.id, p as { id: string; name: string; email: string }]));
+      const profileMap = new Map((profiles || []).map((p: any) => [p.id, p]));
 
       const enriched = (data || []).map((r: any) => ({
         ...r,
-        user_name: profileMap.get(r.user_id)?.name || "Unknown",
-        user_email: profileMap.get(r.user_id)?.email || "",
+        user_name: (profileMap.get(r.user_id) as any)?.name || "Unknown",
+        user_email: (profileMap.get(r.user_id) as any)?.email || "",
       }));
 
       setRequests(enriched);
@@ -150,6 +212,7 @@ export default function AdminWithdrawals() {
       setSelectedRequest(null);
       setDialogAction(null);
       fetchRequests();
+      fetchSummaryStats(); // refresh summary after action
     } catch (e: any) {
       toast({ title: "Action failed", description: e.message, variant: "destructive" });
     } finally {
@@ -162,8 +225,9 @@ export default function AdminWithdrawals() {
     toast({ title: "Copied!" });
   };
 
-  const pendingCount = requests.filter(r => r.status === "pending").length;
-  const totalPending = requests.filter(r => r.status === "pending").reduce((s, r) => s + Number(r.amount), 0);
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+  const hasPrev = page > 0;
+  const hasNext = page < totalPages - 1;
 
   const renderDetails = (method: string, details: Record<string, string>) => {
     if (method === "bank_transfer") return (
@@ -200,7 +264,7 @@ export default function AdminWithdrawals() {
     return <p className="text-[9px] text-muted-foreground">{JSON.stringify(details)}</p>;
   };
 
-  if (loading) return (
+  if (loading && requests.length === 0) return (
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="flex items-center gap-2">
         {[0, 1, 2].map(i => (
@@ -223,7 +287,7 @@ export default function AdminWithdrawals() {
             <h1 className="text-lg font-black uppercase tracking-tight text-foreground">Withdrawal Requests</h1>
             <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Review & process manually</p>
           </div>
-          <Button variant="outline" size="sm" onClick={fetchRequests} className="rounded-lg h-7 px-3">
+          <Button variant="outline" size="sm" onClick={() => { fetchRequests(); fetchSummaryStats(); }} className="rounded-lg h-7 px-3">
             <RefreshCw className="h-3 w-3" />
           </Button>
         </div>
@@ -232,13 +296,13 @@ export default function AdminWithdrawals() {
         <div className="grid grid-cols-2 gap-2 mb-4">
           <div className="bg-amber-50 dark:bg-amber-950/20 rounded-xl p-3 border border-amber-200 dark:border-amber-800">
             <p className="text-[8px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">Pending</p>
-            <p className="text-xl font-black text-amber-700 dark:text-amber-300">{pendingCount}</p>
-            <p className="text-[9px] font-bold text-amber-600 dark:text-amber-400">{formatPrice(totalPending)} total</p>
+            <p className="text-xl font-black text-amber-700 dark:text-amber-300">{summaryStats.pendingCount}</p>
+            <p className="text-[9px] font-bold text-amber-600 dark:text-amber-400">{formatPrice(summaryStats.totalPending)} total</p>
           </div>
           <div className="bg-card rounded-xl p-3 border border-border">
             <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground">All Time</p>
-            <p className="text-xl font-black text-foreground">{requests.length}</p>
-            <p className="text-[9px] font-bold text-muted-foreground">{requests.filter(r => r.status === 'completed').length} completed</p>
+            <p className="text-xl font-black text-foreground">{summaryStats.allTime}</p>
+            <p className="text-[9px] font-bold text-muted-foreground">{summaryStats.completed} completed</p>
           </div>
         </div>
 
@@ -247,7 +311,7 @@ export default function AdminWithdrawals() {
           <div className="relative flex-1">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
             <Input
-              placeholder="Search user, method, details..."
+              placeholder="Search method, details..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className="pl-7 rounded-xl text-xs h-8"
@@ -268,75 +332,118 @@ export default function AdminWithdrawals() {
         </div>
 
         {/* Requests List */}
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div className="flex justify-center py-10">
+            <div className="flex items-center gap-2">
+              {[0, 1, 2].map(i => (
+                <div key={i} className="w-2 h-2 rounded-full bg-primary animate-pulse" style={{ animationDelay: `${i * 0.2}s` }} />
+              ))}
+            </div>
+          </div>
+        ) : requests.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
             <Wallet className="h-8 w-8 mx-auto mb-2 opacity-30" />
             <p className="text-xs font-bold">No withdrawal requests found</p>
           </div>
         ) : (
-          <div className="space-y-2">
-            {filtered.map(req => {
-              const cfg = STATUS_CONFIG[req.status] || STATUS_CONFIG.pending;
-              return (
-                <div key={req.id} className="bg-card rounded-xl border border-border p-3">
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <p className="text-xs font-black text-foreground truncate">{req.user_name}</p>
-                        <span className={`flex items-center gap-0.5 text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full ${cfg.color}`}>
-                          {cfg.icon} {req.status}
-                        </span>
+          <>
+            <div className="space-y-2">
+              {requests.map(req => {
+                const cfg = STATUS_CONFIG[req.status] || STATUS_CONFIG.pending;
+                return (
+                  <div key={req.id} className="bg-card rounded-xl border border-border p-3">
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <p className="text-xs font-black text-foreground truncate">{req.user_name}</p>
+                          <span className={`flex items-center gap-0.5 text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full ${cfg.color}`}>
+                            {cfg.icon} {req.status}
+                          </span>
+                        </div>
+                        <p className="text-[9px] text-muted-foreground">{req.user_email}</p>
+                        <p className="text-[8px] text-muted-foreground mt-0.5">
+                          {new Date(req.requested_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </p>
                       </div>
-                      <p className="text-[9px] text-muted-foreground">{req.user_email}</p>
-                      <p className="text-[8px] text-muted-foreground mt-0.5">
-                        {new Date(req.requested_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-black text-foreground">{formatPrice(Number(req.amount))}</p>
+                        <p className="text-[9px] font-bold text-muted-foreground">{METHOD_LABELS[req.withdrawal_method] || req.withdrawal_method}</p>
+                      </div>
+                    </div>
+
+                    {/* Payment Details */}
+                    <div className="bg-muted/40 rounded-lg p-2 mb-2">
+                      {renderDetails(req.withdrawal_method, req.withdrawal_details)}
+                    </div>
+
+                    {req.admin_note && (
+                      <p className="text-[9px] text-muted-foreground italic mb-2">Note: {req.admin_note}</p>
+                    )}
+
+                    {req.status === "pending" && (
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => openAction(req, "complete")}
+                          className="flex-1 rounded-lg h-7 text-[9px] font-black uppercase tracking-widest bg-emerald-600 hover:bg-emerald-700"
+                        >
+                          <CheckCircle2 className="h-3 w-3 mr-1" /> Mark Completed
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openAction(req, "reject")}
+                          className="flex-1 rounded-lg h-7 text-[9px] font-black uppercase tracking-widest border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                        >
+                          <XCircle className="h-3 w-3 mr-1" /> Reject
+                        </Button>
+                      </div>
+                    )}
+
+                    {req.resolved_at && (
+                      <p className="text-[8px] text-muted-foreground text-right mt-1">
+                        Resolved {new Date(req.resolved_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                       </p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-sm font-black text-foreground">{formatPrice(Number(req.amount))}</p>
-                      <p className="text-[9px] font-bold text-muted-foreground">{METHOD_LABELS[req.withdrawal_method] || req.withdrawal_method}</p>
-                    </div>
+                    )}
                   </div>
+                );
+              })}
+            </div>
 
-                  {/* Payment Details */}
-                  <div className="bg-muted/40 rounded-lg p-2 mb-2">
-                    {renderDetails(req.withdrawal_method, req.withdrawal_details)}
-                  </div>
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-4 pt-3 border-t border-border">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(p => p - 1)}
+                  disabled={!hasPrev || loading}
+                  className="rounded-lg h-7 px-3 text-[9px] font-black uppercase tracking-widest"
+                >
+                  <ChevronLeft className="h-3 w-3 mr-1" /> Prev
+                </Button>
 
-                  {req.admin_note && (
-                    <p className="text-[9px] text-muted-foreground italic mb-2">Note: {req.admin_note}</p>
-                  )}
-
-                  {/* Actions — only for pending */}
-                  {req.status === "pending" && (
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        onClick={() => openAction(req, "complete")}
-                        className="flex-1 rounded-lg h-7 text-[9px] font-black uppercase tracking-widest bg-emerald-600 hover:bg-emerald-700"
-                      >
-                        <CheckCircle2 className="h-3 w-3 mr-1" /> Mark Completed
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => openAction(req, "reject")}
-                        className="flex-1 rounded-lg h-7 text-[9px] font-black uppercase tracking-widest border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                      >
-                        <XCircle className="h-3 w-3 mr-1" /> Reject
-                      </Button>
-                    </div>
-                  )}
-
-                  {req.resolved_at && (
-                    <p className="text-[8px] text-muted-foreground text-right mt-1">
-                      Resolved {new Date(req.resolved_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                    </p>
-                  )}
+                <div className="text-center">
+                  <p className="text-[9px] font-black text-foreground uppercase tracking-widest">
+                    Page {page + 1} of {totalPages}
+                  </p>
+                  <p className="text-[8px] text-muted-foreground">
+                    {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalCount)} of {totalCount}
+                  </p>
                 </div>
-              );
-            })}
-          </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(p => p + 1)}
+                  disabled={!hasNext || loading}
+                  className="rounded-lg h-7 px-3 text-[9px] font-black uppercase tracking-widest"
+                >
+                  Next <ChevronRight className="h-3 w-3 ml-1" />
+                </Button>
+              </div>
+            )}
+          </>
         )}
       </main>
 

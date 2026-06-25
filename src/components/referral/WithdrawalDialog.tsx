@@ -8,12 +8,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
-  Loader2, Smartphone, Building2, AlertCircle, CheckCircle, Info, Clock,
+  Loader2, Smartphone, Building2, AlertCircle, CheckCircle, Info, Clock, Percent, ShieldAlert
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 const COLORS = { TEAL: "#008080", CORAL: "#FF7F50" };
+
+// Adjust your dynamic processing values here
+const SERVICE_FEE_PERCENT = 2.5; 
+const COMMISSION_FEE_PERCENT = 1.5;
 
 export const KENYA_BANKS = [
   { name: "Kenya Commercial Bank (KCB)", code: "068" },
@@ -118,11 +122,17 @@ export const WithdrawalDialog = ({
     }
   };
 
+  // Live calculations based on user inputs
+  const parsedAmount = parseFloat(withdrawAmount) || 0;
+  const serviceFeeDeduction = (parsedAmount * SERVICE_FEE_PERCENT) / 100;
+  const commissionDeduction = (parsedAmount * COMMISSION_FEE_PERCENT) / 100;
+  const netWithdrawableAmount = Math.max(0, parsedAmount - serviceFeeDeduction - commissionDeduction);
+
   const handleWithdraw = async () => {
     const amount = parseFloat(withdrawAmount);
 
     if (isNaN(amount) || amount <= 0) { toast.error("Please enter a valid amount"); return; }
-    if (amount > availableBalance) { toast.error(`Maximum withdrawable: KES ${availableBalance.toLocaleString()}`); return; }
+    if (amount > availableBalance) { toast.error(`Maximum withdrawable context: KES ${availableBalance.toLocaleString()}`); return; }
     if (amount < 100) { toast.error("Minimum withdrawal is KES 100"); return; }
 
     if (withdrawMethod === "mpesa") {
@@ -137,7 +147,6 @@ export const WithdrawalDialog = ({
 
     setWithdrawing(true);
     try {
-      // Build details object based on method
       const withdrawalDetails =
         withdrawMethod === "mpesa"
           ? { phone: mpesaNumber.trim() }
@@ -154,11 +163,14 @@ export const WithdrawalDialog = ({
         withdrawal_method: withdrawMethod === "mpesa" ? "mpesa" : "bank_transfer",
         withdrawal_details: withdrawalDetails,
         status: "pending",
+        // Storing meta fee metrics for administrative transparency
+        service_fee_applied: serviceFeeDeduction,
+        commission_applied: commissionDeduction,
+        net_amount_settled: netWithdrawableAmount
       });
 
       if (error) throw error;
 
-      // Non-critical notification
       try {
         await supabase.from("notifications").insert({
           user_id: userId,
@@ -166,12 +178,12 @@ export const WithdrawalDialog = ({
           title: "Withdrawal Request Submitted",
           message: `Your withdrawal request of KES ${amount.toLocaleString()} via ${
             withdrawMethod === "mpesa" ? "M-Pesa" : bankName
-          } has been submitted. Admin will process it shortly.`,
+          } has been submitted. Net payout after processing fees will be KES ${netWithdrawableAmount.toLocaleString()}.`,
           data: { amount, method: withdrawMethod },
         });
       } catch (_) { /* non-critical */ }
 
-      toast.success(`Withdrawal request of KES ${amount.toLocaleString()} submitted! Admin will process it shortly.`);
+      toast.success(`Withdrawal request of KES ${amount.toLocaleString()} submitted!`);
       resetForm();
       onOpenChange(false);
       onSuccess?.();
@@ -189,6 +201,7 @@ export const WithdrawalDialog = ({
         className="sm:max-w-md rounded-3xl max-h-[90vh] overflow-y-auto"
         style={{ zIndex: 200 }}
       >
+        <DialogContent style={{ display: 'none' }} />
         <DialogHeader>
           <DialogTitle className="text-xl font-black uppercase tracking-tight">Withdraw Funds</DialogTitle>
           <DialogDescription>
@@ -200,7 +213,7 @@ export const WithdrawalDialog = ({
 
           {/* Balance pill */}
           <div className="rounded-2xl p-4" style={{ background: "linear-gradient(135deg,#008080,#005f5f)" }}>
-            <p className="text-[10px] font-bold text-white/70 uppercase tracking-widest mb-0.5">Available Balance</p>
+            <p className="text-[10px] font-bold text-white/70 uppercase tracking-widest mb-0.5">Available (Excluding Pending Requests)</p>
             <p className="text-3xl font-black text-white">KES {availableBalance.toLocaleString()}</p>
           </div>
 
@@ -215,7 +228,7 @@ export const WithdrawalDialog = ({
           {availableBalance <= 0 && (
             <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 px-4 py-3 rounded-xl">
               <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
-              <p className="text-xs font-medium text-amber-700">No funds available to withdraw</p>
+              <p className="text-xs font-medium text-amber-700">No funds available or you have transactions pending verification.</p>
             </div>
           )}
 
@@ -322,7 +335,7 @@ export const WithdrawalDialog = ({
             </div>
           )}
 
-          {/* Amount */}
+          {/* Amount Input */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
@@ -347,6 +360,34 @@ export const WithdrawalDialog = ({
             />
             <p className="text-[10px] text-slate-400">Minimum: KES 100</p>
           </div>
+
+          {/* Dynamic Deductions Breakdown Card */}
+          {parsedAmount >= 100 && (
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2">
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                <Percent className="h-3 w-3 text-slate-400" /> Fee Deductions Breakdown
+              </p>
+              <div className="text-xs space-y-1 text-slate-600">
+                <div className="flex justify-between">
+                  <span>Requested Amount:</span>
+                  <span className="font-semibold text-slate-800">KES {parsedAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                </div>
+                <div className="flex justify-between text-amber-700">
+                  <span>Service Fee ({SERVICE_FEE_PERCENT}%):</span>
+                  <span>- KES {serviceFeeDeduction.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                </div>
+                <div className="flex justify-between text-amber-700">
+                  <span>Commission Fee ({COMMISSION_FEE_PERCENT}%):</span>
+                  <span>- KES {commissionDeduction.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                </div>
+                <div className="h-px bg-slate-200 my-1.5" />
+                <div className="flex justify-between font-bold text-emerald-700 text-sm">
+                  <span>Net Amount Disbursed:</span>
+                  <span>KES {netWithdrawableAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         <DialogFooter className="gap-2 pt-2">
@@ -355,7 +396,7 @@ export const WithdrawalDialog = ({
           </Button>
           <Button
             onClick={handleWithdraw}
-            disabled={withdrawing || !withdrawAmount || availableBalance <= 0}
+            disabled={withdrawing || !withdrawAmount || parsedAmount < 100 || parsedAmount > availableBalance}
             className="rounded-xl flex-1 font-black uppercase tracking-wide"
             style={{ backgroundColor: COLORS.TEAL }}
           >

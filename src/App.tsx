@@ -203,7 +203,7 @@ const App = () => {
                       <Route path="/hotel-guide" element={<Suspense fallback={<HotelGuide />}><HotelGuide /></Suspense>} />
                       <Route path="/payment-history" element={<Suspense fallback={<SuspenseFallback />}><PaymentHistory /></Suspense>} />
                       <Route path="/admin/payment-verification" element={<Suspense fallback={<SuspenseFallback />}><AdminPaymentVerification /></Suspense>} />
-                      <Route path="/admin/accounts" element={<Suspense fallback={<SuspenseFallback />}><AccountsOverview /></AccountsOverview>} />
+                      <Route path="/admin/accounts" element={<Suspense fallback={<SuspenseFallback />}><AccountsOverview /></Suspense>} />
                       <Route path="*" element={<Suspense fallback={<SuspenseFallback />}><NotFound /></Suspense>} />
                     </Routes>
                   </div>

@@ -17,9 +17,6 @@ const PRECACHE_ASSETS = [
   '/images/category-trips.webp',
   '/images/category-events.webp',
   '/images/hero-background.webp',
-
-  // Audio
-  '/audio/notification.mp3',
 ];
 
 const IMAGE_PATTERNS = [
@@ -63,11 +60,9 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
   // SPA navigations: Cache-first with network update in background
-  // This prevents blank screens and auto-refresh by serving cached HTML immediately
   if (event.request.mode === 'navigate') {
     event.respondWith(
       caches.match('/index.html').then((cachedResponse) => {
-        // Always try to update in background
         const networkFetch = fetch(event.request)
           .then((networkResponse) => {
             if (networkResponse && networkResponse.status === 200) {
@@ -78,15 +73,13 @@ self.addEventListener('fetch', (event) => {
           })
           .catch(() => cachedResponse);
 
-        // Return cached immediately if available, otherwise wait for network
         return cachedResponse || networkFetch;
       })
     );
     return;
   }
 
-  // For JS/CSS with hashed filenames (e.g., assets/index-abc123.js): Cache-first
-  // Vite uses content hashing, so cached versions are always valid
+  // For JS/CSS with hashed filenames: Cache-first
   if (
     (event.request.destination === 'script' || event.request.destination === 'style') &&
     url.pathname.includes('/assets/')
@@ -126,7 +119,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Images: Cache-first (images don't change often)
+  // Images: Cache-first
   const isImage =
     IMAGE_PATTERNS.some((p) => p.test(url.href)) ||
     event.request.destination === 'image';
@@ -147,7 +140,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Supabase API data: Stale-while-revalidate (serve cached, update in background)
+  // Supabase API data: Stale-while-revalidate
   if (url.pathname.includes('/rest/v1/')) {
     event.respondWith(
       caches.match(event.request).then((cachedResponse) => {
@@ -185,32 +178,9 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// --- PUSH NOTIFICATIONS ---
-self.addEventListener('push', (event) => {
-  if (!event.data) return;
-  const data = event.data.json();
-  const options = {
-    body: data.body || 'New update from Realtravo',
-    icon: '/fulllogo.png',
-    badge: '/favicon.ico',
-    vibrate: [100, 50, 100],
-    data: { url: data.url || '/' }
-  };
-  event.waitUntil(self.registration.showNotification(data.title || 'Realtravo', options));
-});
-
-self.addEventListener('notificationclick', (event) => {
-  event.notification.close();
-  event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      const url = event.notification.data.url;
-      for (const client of clientList) {
-        if (client.url.includes(self.location.origin) && 'focus' in client) {
-          client.navigate(url);
-          return client.focus();
-        }
-      }
-      if (clients.openWindow) return clients.openWindow(url);
-    })
-  );
+// Message listener for auto-updates from main application thread
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });

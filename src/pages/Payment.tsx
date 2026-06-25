@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, DollarSign, Wallet, TrendingUp, Award, Percent,
-  Link2, Users, ArrowUpRight, CreditCard
+  Users, ArrowUpRight, CreditCard, Clock, CheckCircle2, XCircle,
 } from "lucide-react";
 import { useHostVerificationStatus } from "@/hooks/useHostVerificationStatus";
 import { WithdrawalDialog } from "@/components/referral/WithdrawalDialog";
@@ -16,6 +16,12 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 
 const MIN_WITHDRAWAL = 100;
 
+const STATUS_CONFIG: Record<string, { icon: React.ReactNode; color: string; label: string }> = {
+  pending:   { icon: <Clock className="h-3 w-3" />,         color: "text-amber-600 dark:text-amber-400",  label: "Pending"   },
+  completed: { icon: <CheckCircle2 className="h-3 w-3" />,  color: "text-emerald-600",                    label: "Completed" },
+  rejected:  { icon: <XCircle className="h-3 w-3" />,       color: "text-destructive",                    label: "Rejected"  },
+};
+
 export default function Payment() {
   const { formatPrice } = useCurrency();
   const navigate = useNavigate();
@@ -24,6 +30,7 @@ export default function Payment() {
   const { isVerifiedHost, status: verificationStatus, loading: verificationLoading } = useHostVerificationStatus();
   const [loading, setLoading] = useState(true);
   const [showWithdrawDialog, setShowWithdrawDialog] = useState(false);
+  const [withdrawalRequests, setWithdrawalRequests] = useState<any[]>([]);
 
   const [stats, setStats] = useState({
     totalReferred: 0, totalBookings: 0, totalCommission: 0,
@@ -40,15 +47,21 @@ export default function Payment() {
 
   const fetchData = async () => {
     try {
-      const [bookingsRes, settingsRes] = await Promise.all([
+      const [bookingsRes, settingsRes, withdrawalRes] = await Promise.all([
         supabase.from("bookings")
           .select("total_amount, item_id, booking_type, payment_status, service_fee_amount, referral_tracking_id")
           .eq("payment_status", "completed"),
         supabase.from("referral_settings").select("*").single(),
+        (supabase as any).from("withdrawal_requests")
+          .select("*")
+          .eq("user_id", user!.id)
+          .order("requested_at", { ascending: false })
+          .limit(10),
       ]);
 
       const bookings = bookingsRes.data || [];
       const settings = settingsRes.data;
+      setWithdrawalRequests(withdrawalRes.data || []);
 
       const itemIds = [...new Set(bookings.map(b => b.item_id))];
       const [tripsRes, hotelsRes, adventuresRes] = await Promise.all([
@@ -78,12 +91,16 @@ export default function Payment() {
             else if (b.booking_type === 'adventure' || b.booking_type === 'adventure_place') serviceFeeRate = Number(settings.adventure_place_service_fee || 0);
             else if (b.booking_type === 'attraction') serviceFeeRate = Number(settings.attraction_service_fee || 0);
           }
-
           totalServiceFee += (amount * serviceFeeRate) / 100;
         }
       }
 
-      const netHostEarnings = grossHostEarnings - totalServiceFee;
+      // Deduct completed withdrawals from balance
+      const completedWithdrawals = (withdrawalRes.data || [])
+        .filter(w => w.status === 'completed')
+        .reduce((s: number, w: any) => s + Number(w.amount), 0);
+
+      const netHostEarnings = grossHostEarnings - totalServiceFee - completedWithdrawals;
 
       if (isVerifiedHost) {
         const [refRes, comRes] = await Promise.all([
@@ -108,13 +125,13 @@ export default function Payment() {
           bookingEarnings: bookE,
           grossBalance: grossHostEarnings,
           serviceFeeDeducted: totalServiceFee,
-          withdrawableBalance: netHostEarnings + withdrawableCommissions,
+          withdrawableBalance: Math.max(0, netHostEarnings + withdrawableCommissions),
         });
       } else {
         setStats(prev => ({
           ...prev,
           hostEarnings: grossHostEarnings,
-          withdrawableBalance: netHostEarnings,
+          withdrawableBalance: Math.max(0, netHostEarnings),
           grossBalance: grossHostEarnings,
           serviceFeeDeducted: totalServiceFee,
         }));
@@ -123,7 +140,7 @@ export default function Payment() {
     } catch (e) { console.error(e); setLoading(false); }
   };
 
-  const handleWithdrawalSuccess = () => { setLoading(true); window.location.reload(); };
+  const handleWithdrawalSuccess = () => { setLoading(true); fetchData(); };
 
   const canWithdraw = stats.withdrawableBalance >= MIN_WITHDRAWAL;
 
@@ -136,6 +153,13 @@ export default function Payment() {
       </div>
     </div>
   );
+
+  const pendingRequests = withdrawalRequests.filter(w => w.status === 'pending');
+  const methodLabel: Record<string, string> = {
+    bank_transfer: "Bank Transfer",
+    mpesa: "M-Pesa",
+    paystack: "Paystack",
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -177,7 +201,7 @@ export default function Payment() {
           </div>
         </div>
 
-        {/* Minimum withdrawal hint */}
+        {/* Hints */}
         {stats.withdrawableBalance > 0 && !canWithdraw && (
           <p className="text-[9px] text-amber-600 dark:text-amber-400 font-bold text-center mb-4 mt-1">
             Minimum withdrawal is {formatPrice(MIN_WITHDRAWAL)}. You need {formatPrice(MIN_WITHDRAWAL - stats.withdrawableBalance)} more.
@@ -190,11 +214,71 @@ export default function Payment() {
         )}
         {canWithdraw && (
           <p className="text-[9px] text-muted-foreground font-bold text-center mb-4 mt-1">
-            Processed via Paystack · Transfers usually arrive within minutes.
+            Admin reviews requests manually · Transfers usually arrive within 24 hrs.
           </p>
         )}
 
         <WithdrawalDetailsSection userId={user?.id || ""} />
+
+        {/* ── Withdrawal Requests Section ── */}
+        {withdrawalRequests.length > 0 && (
+          <>
+            <div className="mb-3 mt-2">
+              <h2 className="text-sm font-black uppercase tracking-tight text-foreground">Withdrawal Requests</h2>
+              <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">
+                {pendingRequests.length > 0
+                  ? `${pendingRequests.length} pending · admin will process soon`
+                  : "All requests processed"}
+              </p>
+            </div>
+
+            <div className="bg-card rounded-xl border border-border overflow-hidden mb-4">
+              {withdrawalRequests.map((w, i) => {
+                const cfg = STATUS_CONFIG[w.status] || STATUS_CONFIG.pending;
+                const details = w.withdrawal_details || {};
+                let detailLine = "";
+                if (w.withdrawal_method === "bank_transfer") detailLine = `${details.bank_name || ""} · ${details.account_number || ""}`;
+                else if (w.withdrawal_method === "mpesa") detailLine = details.phone || "";
+                else if (w.withdrawal_method === "paystack") detailLine = details.email || "";
+
+                return (
+                  <div key={w.id} className={`flex items-center justify-between p-3 ${i !== withdrawalRequests.length - 1 ? 'border-b border-border' : ''}`}>
+                    <div className="flex items-center gap-2.5">
+                      <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${
+                        w.status === 'completed' ? 'bg-emerald-50 dark:bg-emerald-950/30' :
+                        w.status === 'rejected'  ? 'bg-red-50 dark:bg-red-950/30' :
+                        'bg-amber-50 dark:bg-amber-950/30'
+                      }`}>
+                        <Wallet className={`h-3.5 w-3.5 ${
+                          w.status === 'completed' ? 'text-emerald-600' :
+                          w.status === 'rejected'  ? 'text-destructive' :
+                          'text-amber-600'
+                        }`} />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-foreground">{methodLabel[w.withdrawal_method] || w.withdrawal_method}</p>
+                        <p className="text-[9px] text-muted-foreground">{detailLine}</p>
+                        <p className="text-[8px] text-muted-foreground">
+                          {new Date(w.requested_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        </p>
+                        {w.admin_note && w.status === 'rejected' && (
+                          <p className="text-[8px] text-destructive font-bold mt-0.5">Note: {w.admin_note}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs font-black text-foreground">{formatPrice(Number(w.amount))}</p>
+                      <div className={`flex items-center justify-end gap-1 text-[8px] font-black uppercase ${cfg.color}`}>
+                        {cfg.icon}
+                        {cfg.label}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
 
         {/* Not verified host prompt */}
         {!isVerifiedHost && !verificationLoading && (
@@ -244,7 +328,6 @@ export default function Payment() {
               <StatCard icon={<Wallet className="h-4 w-4" />} label="Total Earned" value={formatPrice(stats.totalCommission)} />
             </div>
 
-            {/* Recent Commission Activity */}
             {recentCommissions.length > 0 && (
               <>
                 <div className="mb-3">
@@ -277,7 +360,6 @@ export default function Payment() {
               </>
             )}
 
-            {/* Per-item referral rates */}
             <div className="mb-3">
               <h2 className="text-sm font-black uppercase tracking-tight text-foreground">Referral Rates by Category</h2>
               <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Commission rates per item type</p>
@@ -308,9 +390,9 @@ const ReferralRatesSection = () => {
   }, []);
   if (!rates) return null;
   const items = [
-    { label: "Trips", value: `${rates.trip_commission_rate}%` },
-    { label: "Events", value: `${rates.event_commission_rate}%` },
-    { label: "Hotels", value: `${rates.hotel_commission_rate}%` },
+    { label: "Trips",      value: `${rates.trip_commission_rate}%` },
+    { label: "Events",     value: `${rates.event_commission_rate}%` },
+    { label: "Hotels",     value: `${rates.hotel_commission_rate}%` },
     { label: "Adventures", value: `${rates.adventure_place_commission_rate}%` },
   ];
   return (

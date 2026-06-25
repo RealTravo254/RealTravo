@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
-  Loader2, Smartphone, Building2, AlertCircle, CheckCircle, Info,
+  Loader2, Smartphone, Building2, AlertCircle, CheckCircle, Info, Clock,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -75,6 +75,7 @@ export const WithdrawalDialog = ({
   const [withdrawing, setWithdrawing] = useState(false);
   const [detailsLoaded, setDetailsLoaded] = useState(false);
 
+  // Pre-fill saved bank/phone details
   useEffect(() => {
     if (!userId || detailsLoaded || !open) return;
     const load = async () => {
@@ -136,70 +137,47 @@ export const WithdrawalDialog = ({
 
     setWithdrawing(true);
     try {
-      const requestBody: Record<string, any> = {
-        action: "withdraw",
+      // Build details object based on method
+      const withdrawalDetails =
+        withdrawMethod === "mpesa"
+          ? { phone: mpesaNumber.trim() }
+          : {
+              bank_name: bankName,
+              bank_code: bankCode,
+              account_number: accountNumber.trim(),
+              account_name: accountName.trim(),
+            };
+
+      const { error } = await (supabase as any).from("withdrawal_requests").insert({
         user_id: userId,
         amount,
-        payout_type: "combined",
-        payment_method: withdrawMethod,
-      };
-
-      // Only include the relevant fields — send null explicitly so the edge
-      // function receives them and can safely guard against undefined
-      if (withdrawMethod === "mpesa") {
-        requestBody.mpesa_number = mpesaNumber.trim();
-        requestBody.bank_code = null;
-        requestBody.account_number = null;
-        requestBody.account_name = null;
-      } else {
-        requestBody.mpesa_number = null;
-        requestBody.bank_code = bankCode;
-        requestBody.account_number = accountNumber.trim();
-        requestBody.account_name = accountName.trim();
-      }
-
-      const { data, error } = await supabase.functions.invoke("process-payouts", {
-        body: requestBody,
+        withdrawal_method: withdrawMethod === "mpesa" ? "mpesa" : "bank_transfer",
+        withdrawal_details: withdrawalDetails,
+        status: "pending",
       });
 
-      if (error) {
-        const body = typeof (error as any).context?.json === "function"
-          ? await (error as any).context.json().catch(() => null)
-          : null;
-        throw new Error(body?.error || (error as any).message || "Withdrawal failed");
-      }
-      if (!data?.success) throw new Error(data?.error || "Withdrawal failed");
+      if (error) throw error;
 
-      // Safe notification insert — no .catch() on Supabase client
+      // Non-critical notification
       try {
         await supabase.from("notifications").insert({
           user_id: userId,
-          type: "withdrawal_success",
-          title: "Withdrawal Successful",
-          message: `Your withdrawal of KES ${amount.toLocaleString()} to ${withdrawMethod === "mpesa" ? "M-Pesa" : bankName} has been initiated.`,
-          data: { amount, method: withdrawMethod, reference: data.reference },
+          type: "withdrawal_requested",
+          title: "Withdrawal Request Submitted",
+          message: `Your withdrawal request of KES ${amount.toLocaleString()} via ${
+            withdrawMethod === "mpesa" ? "M-Pesa" : bankName
+          } has been submitted. Admin will process it shortly.`,
+          data: { amount, method: withdrawMethod },
         });
-      } catch (_) { /* notification failure is non-critical */ }
+      } catch (_) { /* non-critical */ }
 
-      toast.success(`Withdrawal of KES ${amount.toLocaleString()} initiated!`);
+      toast.success(`Withdrawal request of KES ${amount.toLocaleString()} submitted! Admin will process it shortly.`);
       resetForm();
       onOpenChange(false);
       onSuccess?.();
     } catch (err: any) {
-      console.error("Withdrawal error:", err);
-
-      // Safe failure notification — no .catch() on Supabase client
-      try {
-        await supabase.from("notifications").insert({
-          user_id: userId,
-          type: "withdrawal_failed",
-          title: "Withdrawal Failed",
-          message: err.message || "Your withdrawal could not be processed.",
-          data: { amount, method: withdrawMethod, reason: err.message },
-        });
-      } catch (_) { /* notification failure is non-critical */ }
-
-      toast.error(err.message || "Failed to process withdrawal");
+      console.error("Withdrawal request error:", err);
+      toast.error(err.message || "Failed to submit withdrawal request");
     } finally {
       setWithdrawing(false);
     }
@@ -214,7 +192,7 @@ export const WithdrawalDialog = ({
         <DialogHeader>
           <DialogTitle className="text-xl font-black uppercase tracking-tight">Withdraw Funds</DialogTitle>
           <DialogDescription>
-            Choose your preferred withdrawal method and enter the details below.
+            Choose your preferred withdrawal method. Your request will be reviewed and processed by admin manually.
           </DialogDescription>
         </DialogHeader>
 
@@ -224,6 +202,14 @@ export const WithdrawalDialog = ({
           <div className="rounded-2xl p-4" style={{ background: "linear-gradient(135deg,#008080,#005f5f)" }}>
             <p className="text-[10px] font-bold text-white/70 uppercase tracking-widest mb-0.5">Available Balance</p>
             <p className="text-3xl font-black text-white">KES {availableBalance.toLocaleString()}</p>
+          </div>
+
+          {/* Manual processing notice */}
+          <div className="flex items-start gap-2 bg-blue-50 border border-blue-100 px-3 py-2.5 rounded-xl">
+            <Clock className="h-3.5 w-3.5 text-blue-500 mt-0.5 shrink-0" />
+            <p className="text-[10px] text-blue-600 leading-relaxed">
+              Withdrawals are processed manually by our team. Once confirmed, funds are transferred within 24 hours. You can track the status on your Payment Dashboard.
+            </p>
           </div>
 
           {availableBalance <= 0 && (
@@ -330,7 +316,7 @@ export const WithdrawalDialog = ({
               <div className="flex items-start gap-2 bg-blue-50 border border-blue-100 px-3 py-2.5 rounded-xl">
                 <Info className="h-3.5 w-3.5 text-blue-500 mt-0.5 shrink-0" />
                 <p className="text-[10px] text-blue-600 leading-relaxed">
-                  Account name must match exactly what is registered with your bank. Mismatches will cause the transfer to be rejected by Paystack.
+                  Account name must match exactly what is registered with your bank to avoid transfer issues.
                 </p>
               </div>
             </div>
@@ -374,9 +360,9 @@ export const WithdrawalDialog = ({
             style={{ backgroundColor: COLORS.TEAL }}
           >
             {withdrawing ? (
-              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processing…</>
+              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Submitting…</>
             ) : (
-              "Confirm Withdrawal"
+              "Submit Request"
             )}
           </Button>
         </DialogFooter>

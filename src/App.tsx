@@ -80,6 +80,7 @@ const AdminPaymentVerification = lazy(() => import("./pages/AdminPaymentVerifica
 const AccountsOverview = lazy(() => import("./pages/admin/AccountsOverview"));
 const Explore = lazy(() => import("./pages/Explore"));
 const CountyDetail = lazy(() => import("./pages/CountyDetail"));
+const AdminWithdrawals = lazy(() => import("./pages/admin/AdminWithdrawals"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -169,6 +170,7 @@ const App = () => {
                       <Route path="/admin/verification/list/:status" element={<Suspense fallback={<SuspenseFallback />}><VerificationList /></Suspense>} />
                       <Route path="/admin/verification-detail/:id" element={<Suspense fallback={<SuspenseFallback />}><VerificationDetail /></Suspense>} />
                       <Route path="/admin/referral-settings" element={<Suspense fallback={<SuspenseFallback />}><AdminReferralSettings /></Suspense>} />
+                      <Route path="/admin/withdrawals" element={<Suspense fallback={<SuspenseFallback />}><AdminWithdrawals /></Suspense>} />
                       <Route path="/become-host" element={<Suspense fallback={<SuspenseFallback />}><BecomeHost /></Suspense>} />
                       <Route path="/create-trip" element={<Suspense fallback={<SuspenseFallback />}><CreateTripEvent /></Suspense>} />
                       <Route path="/create-event" element={<Suspense fallback={<SuspenseFallback />}><CreateTripEvent /></Suspense>} />

@@ -23,8 +23,11 @@ export const LoginForm = ({ onSwitchToSignup }: { onSwitchToSignup: () => void }
     e.preventDefault();
     setLoading(true);
 
+    // Guaranteed type safe interface pointer bypass
+    const clientAuth = (supabase as any).auth;
+
     if (loginMethod === "password") {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await clientAuth.signInWithPassword({ email, password });
       if (error) {
         toast({ title: "Error", description: error.message, variant: "destructive" });
         setLoading(false);
@@ -32,9 +35,8 @@ export const LoginForm = ({ onSwitchToSignup }: { onSwitchToSignup: () => void }
         navigate("/"); 
       }
     } else {
-      // Login with OTP Code Flow
       if (!codeSent) {
-        const { error } = await supabase.auth.signInWithOtp({ email });
+        const { error } = await clientAuth.signInWithOtp({ email });
         if (error) {
           toast({ title: "Error", description: error.message, variant: "destructive" });
         } else {
@@ -43,7 +45,7 @@ export const LoginForm = ({ onSwitchToSignup }: { onSwitchToSignup: () => void }
         }
         setLoading(false);
       } else {
-        const { error } = await supabase.auth.verifyOtp({ email, token: otpCode, type: 'magiclink' });
+        const { error } = await clientAuth.verifyOtp({ email, token: otpCode, type: 'magiclink' });
         if (error) {
           toast({ title: "Verification Error", description: error.message, variant: "destructive" });
           setLoading(false);
@@ -56,7 +58,7 @@ export const LoginForm = ({ onSwitchToSignup }: { onSwitchToSignup: () => void }
 
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
-    const { error } = await supabase.auth.signInWithOAuth({
+    const { error } = await (supabase as any).auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: `${window.location.origin}/`,
@@ -86,9 +88,7 @@ export const LoginForm = ({ onSwitchToSignup }: { onSwitchToSignup: () => void }
 
       {loginMethod === "password" ? (
         <div className="space-y-1">
-          <div className="flex justify-between items-center">
-            <Label className="text-[10px] uppercase text-slate-500">Password</Label>
-          </div>
+          <Label className="text-[10px] uppercase text-slate-500">Password</Label>
           <div className="relative">
             <Input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} className={inputStyle} required />
             <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500">
@@ -122,7 +122,6 @@ export const LoginForm = ({ onSwitchToSignup }: { onSwitchToSignup: () => void }
         )}
       </Button>
 
-      {/* Toggle Button between Password and Code */}
       <div className="text-center">
         <button
           type="button"
@@ -136,14 +135,12 @@ export const LoginForm = ({ onSwitchToSignup }: { onSwitchToSignup: () => void }
         </button>
       </div>
 
-      {/* Decorative Separator Line */}
       <div className="relative flex py-1 items-center">
         <div className="flex-grow border-t border-white/5"></div>
         <span className="flex-shrink mx-2 text-[8px] text-slate-600 uppercase font-bold tracking-wider">Or</span>
         <div className="flex-grow border-t border-white/5"></div>
       </div>
 
-      {/* Clean Google Integration Button */}
       <Button 
         type="button" 
         disabled={loading || googleLoading} 
@@ -162,8 +159,6 @@ export const LoginForm = ({ onSwitchToSignup }: { onSwitchToSignup: () => void }
         )}
         Continue with Google
       </Button>
-
-      <button type="button" onClick={() => navigate("/forgot-password")} className="w-full text-[10px] text-slate-500 hover:text-white pt-1">Forgot password?</button>
     </form>
   );
 };

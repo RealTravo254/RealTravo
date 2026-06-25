@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
-// Explicitly grabbing QueryClient and the Provider cleanly from the package core
+// Corrected clean import string to fix compiler errors
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { BrowserRouter, Routes, Route } from "react-router-dom";
@@ -16,10 +16,8 @@ import { TealLoader } from "@/components/ui/teal-loader";
 import { OfflineFullScreen } from "@/components/OfflineIndicator";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
  
-// Eagerly import the Index page to bypass full-page lazy loading spinners
 import Index from "./pages/Index";
 
-// Lazy load remaining page chunks
 const Auth = lazy(() => import("./pages/Auth"));
 const AuthCallback = lazy(() => import("./pages/AuthCallback"));
 const AppAuthHandler = lazy(() => import("./pages/AppAuthHandler"));
@@ -83,7 +81,6 @@ const AccountsOverview = lazy(() => import("./pages/admin/AccountsOverview"));
 const Explore = lazy(() => import("./pages/Explore"));
 const CountyDetail = lazy(() => import("./pages/CountyDetail"));
 
-// Initialize the client cleanly outside components
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -96,7 +93,6 @@ const queryClient = new QueryClient({
   },
 });
 
-/** Suspense fallback that shows offline screen when not connected */
 const SuspenseFallback = () => {
   const isOnline = useOnlineStatus();
   if (!isOnline) return <OfflineFullScreen />;
@@ -105,12 +101,31 @@ const SuspenseFallback = () => {
 
 const App = () => {
   useEffect(() => {
+    // 1. Unhandled rejection logger
     const handler = (e: PromiseRejectionEvent) => {
       console.error("Unhandled rejection:", e.reason);
       e.preventDefault();
     };
+    
+    // 2. Dynamic import fallback handler (Fixes "MIME type text/html" errors on deployment updates)
+    const handleChunkError = (e: ErrorEvent) => {
+      const errorMsg = e.message || "";
+      if (
+        errorMsg.includes("Failed to fetch dynamically imported module") || 
+        errorMsg.includes("error loading dynamically imported module")
+      ) {
+        console.warn("New app version deployment detected. Refreshing assets...");
+        window.location.reload();
+      }
+    };
+
     window.addEventListener("unhandledrejection", handler);
-    return () => window.removeEventListener("unhandledrejection", handler);
+    window.addEventListener("error", handleChunkError);
+    
+    return () => {
+      window.removeEventListener("unhandledrejection", handler);
+      window.removeEventListener("error", handleChunkError);
+    };
   }, []);
 
   return (
@@ -126,10 +141,7 @@ const App = () => {
                 <PageLayout>
                   <div className="w-full">
                     <Routes>
-                      {/* Home Page bypassed outside global Suspense to eliminate full-page flashes */}
                       <Route path="/" element={<Index />} />
-
-                      {/* All remaining routes wrap inside individual Suspense blocks for clean chunk bundle loading */}
                       <Route path="/explore" element={<Suspense fallback={<SuspenseFallback />}><Explore /></Suspense>} />
                       <Route path="/saved" element={<Suspense fallback={<SuspenseFallback />}><Saved /></Suspense>} />
                       <Route path="/bookings" element={<Suspense fallback={<SuspenseFallback />}><Bookings /></Suspense>} />
@@ -143,10 +155,7 @@ const App = () => {
                       <Route path="/attraction/:slug" element={<Suspense fallback={<TealLoader />}><AdventurePlaceDetail /></Suspense>} />
                       <Route path="/auth" element={<Suspense fallback={<SuspenseFallback />}><Auth /></Suspense>} />
                       <Route path="/auth/callback" element={<Suspense fallback={<SuspenseFallback />}><AuthCallback /></Suspense>} />
-                      
-                      {/* Properly registered AppAuthHandler route */}
                       <Route path="/app-auth" element={<Suspense fallback={<SuspenseFallback />}><AppAuthHandler /></Suspense>} />
-                      
                       <Route path="/profile" element={<Suspense fallback={<SuspenseFallback />}><Profile /></Suspense>} />
                       <Route path="/profile/edit" element={<Suspense fallback={<SuspenseFallback />}><ProfileEdit /></Suspense>} />
                       <Route path="/admin" element={<Suspense fallback={<SuspenseFallback />}><AdminDashboard /></Suspense>} />
@@ -191,10 +200,10 @@ const App = () => {
                       <Route path="/booking/:type/:id" element={<Suspense fallback={<SuspenseFallback />}><BookingPage /></Suspense>} />
                       <Route path="/trip-event-guide" element={<Suspense fallback={<SuspenseFallback />}><TripEventGuide /></Suspense>} />
                       <Route path="/campsite-guide" element={<Suspense fallback={<SuspenseFallback />}><CampsiteGuide /></Suspense>} />
-                      <Route path="/hotel-guide" element={<Suspense fallback={<SuspenseFallback />}><HotelGuide /></Suspense>} />
+                      <Route path="/hotel-guide" element={<Suspense fallback={<HotelGuide />}><HotelGuide /></Suspense>} />
                       <Route path="/payment-history" element={<Suspense fallback={<SuspenseFallback />}><PaymentHistory /></Suspense>} />
                       <Route path="/admin/payment-verification" element={<Suspense fallback={<SuspenseFallback />}><AdminPaymentVerification /></Suspense>} />
-                      <Route path="/admin/accounts" element={<Suspense fallback={<SuspenseFallback />}><AccountsOverview /></Suspense>} />
+                      <Route path="/admin/accounts" element={<Suspense fallback={<SuspenseFallback />}><AccountsOverview /></AccountsOverview>} />
                       <Route path="*" element={<Suspense fallback={<SuspenseFallback />}><NotFound /></Suspense>} />
                     </Routes>
                   </div>

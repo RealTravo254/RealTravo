@@ -39,16 +39,6 @@ interface Booking {
 const TEAL = "#008080";
 const RESCHEDULABLE_TYPES = ["trip", "event", "hotel", "adventure_place", "adventure"];
 
-// Only show bookings that are fully completed/confirmed and paid
-const isCompletedBooking = (booking: Booking) => {
-  const status = booking.status?.toLowerCase();
-  const payment = booking.payment_status?.toLowerCase();
-  return (
-    (status === "confirmed" || status === "completed") &&
-    (payment === "paid" || payment === "completed")
-  );
-};
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const isReschedulable = (booking: Booking) => {
@@ -105,7 +95,7 @@ const getBookingMeta = (booking: Booking): { typeLabel: string; contactLabel: st
   }
 };
 
-// ── QR Code generator ─────────────────────────────────────────────────────────
+// ── QR Code generator (canvas via free API — no extra dependency) ─────────────
 const generateQRDataUrl = (text: string, size = 120): Promise<string> =>
   new Promise((resolve) => {
     try {
@@ -129,7 +119,6 @@ const generateQRDataUrl = (text: string, size = 120): Promise<string> =>
 const StatusPill = ({ status }: { status: string }) => {
   const map: Record<string, string> = {
     confirmed: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    completed: "bg-emerald-50 text-emerald-700 border-emerald-200",
     pending:   "bg-amber-50 text-amber-700 border-amber-200",
     cancelled: "bg-red-50 text-red-600 border-red-200",
     paid:      "bg-emerald-50 text-emerald-700 border-emerald-200",
@@ -164,13 +153,23 @@ const downloadBooking = async (booking: Booking) => {
     d.item_name || d.trip_name || d.event_name ||
     d.hotel_name || d.place_name || "Booking";
 
+  // ── Resolve ALL contact fields from every possible location ──────────────
   const hostPhone =
-    booking.host_phone || d.host_phone || d.emailData?.hostPhone ||
-    d.phone_number || (Array.isArray(d.phone_numbers) ? d.phone_numbers[0] : "") || "";
+    booking.host_phone ||
+    d.host_phone ||
+    d.emailData?.hostPhone ||
+    d.phone_number ||
+    (Array.isArray(d.phone_numbers) ? d.phone_numbers[0] : "") ||
+    "";
 
   const hostEmail =
-    booking.host_email || d.host_email || d.emailData?.hostEmail || d.email || "";
+    booking.host_email ||
+    d.host_email ||
+    d.emailData?.hostEmail ||
+    d.email ||
+    "";
 
+  // Listing details captured from the creation form
   const listingName     = d.item_name    || d.name    || itemName;
   const listingLocation = d.location     || d.locationName || "";
   const listingPlace    = d.place        || "";
@@ -199,6 +198,7 @@ const downloadBooking = async (booking: Booking) => {
   const M = 36;
   const CW = W - M * 2;
 
+  // ── Helpers ───────────────────────────────────────────────────
   const newPage = (need = 40) => {
     if (y > H - need - 60) { doc.addPage(); y = 40; }
   };
@@ -243,6 +243,7 @@ const downloadBooking = async (booking: Booking) => {
     y += rowH + 5;
   };
 
+  // Table header row (teal bg)
   const tableHeader = (left: string, right: string) => {
     newPage(22);
     doc.setFillColor(...TEAL_RGB);
@@ -255,6 +256,7 @@ const downloadBooking = async (booking: Booking) => {
     y += 22;
   };
 
+  // Table data row
   const tableRow = (left: string, right: string, sub?: string) => {
     newPage(32);
     const rowH = sub ? 32 : 22;
@@ -301,8 +303,9 @@ const downloadBooking = async (booking: Booking) => {
 
   y = 108;
 
+  // ── STATUS BADGE ──────────────────────────────────────────────
   const sColors: Record<string,[number,number,number]> = {
-    confirmed:[16,185,129], paid:[16,185,129], completed:[16,185,129],
+    confirmed:[16,185,129], paid:[16,185,129],
     pending:[245,158,11],   cancelled:[239,68,68],
   };
   const sc = sColors[booking.status?.toLowerCase()] ?? [100,116,139];
@@ -313,6 +316,7 @@ const downloadBooking = async (booking: Booking) => {
   doc.setFontSize(8);
   doc.text((booking.status || "").toUpperCase(), W - 84, 113, { align: "center" });
 
+  // ── ITEM NAME ─────────────────────────────────────────────────
   doc.setTextColor(...TEAL_RGB);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(19);
@@ -325,6 +329,7 @@ const downloadBooking = async (booking: Booking) => {
   doc.text(`${typeLabel.toUpperCase()} BOOKING`, M, y);
   y += 10;
 
+  // Sub-info line: location · country
   if (listingLocation || listingPlace || listingCountry) {
     const loc = [listingLocation, listingPlace, listingCountry].filter(Boolean).join(", ");
     doc.setFontSize(7.5);
@@ -333,11 +338,15 @@ const downloadBooking = async (booking: Booking) => {
   }
   y += 10;
 
+  // ── DIVIDER ───────────────────────────────────────────────────
   doc.setDrawColor(...TEAL_RGB);
   doc.setLineWidth(0.4);
   doc.line(M, y, W - M, y);
   y += 14;
 
+  // ─────────────────────────────────────────────────────────────
+  // 1. BOOKING INFORMATION
+  // ─────────────────────────────────────────────────────────────
   section("BOOKING INFORMATION");
   infoRow("Booking ID",      booking.id);
   infoRow("Payment Status",  (booking.payment_status || "").toUpperCase());
@@ -354,6 +363,9 @@ const downloadBooking = async (booking: Booking) => {
                              infoRow("Open Days",      daysOpened.join(", "));
   y += 6;
 
+  // ─────────────────────────────────────────────────────────────
+  // 2. GUEST DETAILS
+  // ─────────────────────────────────────────────────────────────
   const gName  = booking.guest_name  || d.guest_name;
   const gEmail = booking.guest_email || d.guest_email;
   const gPhone = booking.guest_phone || d.guest_phone;
@@ -365,6 +377,9 @@ const downloadBooking = async (booking: Booking) => {
     y += 6;
   }
 
+  // ─────────────────────────────────────────────────────────────
+  // 3. BOOKING DETAILS
+  // ─────────────────────────────────────────────────────────────
   const adults   = d.adults   || d.num_adults;
   const children = d.children || d.num_children;
   section("BOOKING DETAILS");
@@ -374,28 +389,46 @@ const downloadBooking = async (booking: Booking) => {
   infoRow("Location",     d.location || d.locationName);
   y += 6;
 
+  // ─────────────────────────────────────────────────────────────
+  // 4. TICKETS
+  // ─────────────────────────────────────────────────────────────
   const tickets = d.ticketSelections || d.ticket_selections;
   if (tickets?.length) {
     section("TICKETS");
     tableHeader("TICKET TYPE", "SUBTOTAL");
     tickets.forEach((t: any) => {
       const qty = t.quantity || 1;
-      tableRow(t.name, fmtMoney(t.price * qty), `${qty} person${qty > 1 ? "s" : ""} × ${fmtMoney(t.price)} per ticket`);
+      tableRow(
+        t.name,
+        fmtMoney(t.price * qty),
+        `${qty} person${qty > 1 ? "s" : ""} × ${fmtMoney(t.price)} per ticket`
+      );
     });
     y += 6;
   }
 
+  // ─────────────────────────────────────────────────────────────
+  // 5. ACTIVITIES
+  // ─────────────────────────────────────────────────────────────
   const acts = d.selectedActivities || d.activities;
   if (acts?.length) {
     section("ACTIVITIES");
     tableHeader("ACTIVITY  /  PEOPLE", "SUBTOTAL");
     acts.forEach((a: any) => {
       const ppl = a.numberOfPeople || a.number_of_people || 1;
-      tableRow(a.name, fmtMoney((a.price || 0) * ppl), `${ppl} person${ppl > 1 ? "s" : ""} × ${fmtMoney(a.price || 0)} per person`);
+      const sub = (a.price || 0) * ppl;
+      tableRow(
+        a.name,
+        fmtMoney(sub),
+        `${ppl} person${ppl > 1 ? "s" : ""} × ${fmtMoney(a.price || 0)} per person`
+      );
     });
     y += 6;
   }
 
+  // ─────────────────────────────────────────────────────────────
+  // 6. FACILITIES
+  // ─────────────────────────────────────────────────────────────
   const facs = d.selectedFacilities || d.facilities;
   if (facs?.length) {
     section("FACILITIES");
@@ -417,8 +450,13 @@ const downloadBooking = async (booking: Booking) => {
     y += 6;
   }
 
+  // ─────────────────────────────────────────────────────────────
+  // 7. HOST / ORGANIZER CONTACT  (amber notice + phone + email)
+  // ─────────────────────────────────────────────────────────────
   if (hostPhone || hostEmail) {
     section(`${contactLabel.toUpperCase()} CONTACT`);
+
+    // Amber notice banner
     newPage(60);
     doc.setFillColor(255, 251, 235);
     doc.roundedRect(M, y, CW, 46, 5, 5, "F");
@@ -434,11 +472,15 @@ const downloadBooking = async (booking: Booking) => {
     doc.setFontSize(7);
     doc.text("Please have your Booking ID ready.", M + 10, y + 38);
     y += 54;
+
     infoRow("Phone", hostPhone);
     infoRow("Email", hostEmail);
     y += 6;
   }
 
+  // ─────────────────────────────────────────────────────────────
+  // 8. TOTAL HIGHLIGHT BOX
+  // ─────────────────────────────────────────────────────────────
   newPage(60);
   y += 10;
   doc.setFillColor(...TEAL_RGB);
@@ -457,25 +499,37 @@ const downloadBooking = async (booking: Booking) => {
   doc.text(fmtMoney(booking.total_amount), W - M - 14, y + 32, { align: "right" });
   y += 62;
 
+  // ─────────────────────────────────────────────────────────────
+  // 9. QR CODE
+  // ─────────────────────────────────────────────────────────────
   const qrText = `REALTRAVO|${booking.id}|${listingName}|${gName || ""}|KES ${Math.round(booking.total_amount)}|${booking.visit_date || d.date || booking.created_at}`;
   const qrDataUrl = await generateQRDataUrl(qrText, 120);
   if (qrDataUrl) {
+    // Calculate box height: base 130 + extra rows if contact present
     const hasContact = !!(hostPhone || hostEmail);
     const contactRows = (hostPhone ? 1 : 0) + (hostEmail ? 1 : 0);
     const boxH = hasContact ? 130 + 18 + contactRows * 22 + 10 : 130;
+
     newPage(boxH + 10);
     y += 8;
+
     doc.setFillColor(...LIGHT_RGB);
     doc.roundedRect(M, y, CW, boxH, 8, 8, "F");
     doc.setDrawColor(...TEAL_RGB);
     doc.setLineWidth(0.5);
     doc.roundedRect(M, y, CW, boxH, 8, 8, "S");
+
+    // QR image (left side)
     doc.addImage(qrDataUrl, "PNG", M + 14, y + 15, 100, 100);
+
+    // Right-side text block
     const rx = M + 130;
+
     doc.setTextColor(...TEAL_RGB);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
     doc.text("BOOKING QR CODE", rx, y + 32);
+
     doc.setTextColor(...MUTED_RGB);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
@@ -483,38 +537,56 @@ const downloadBooking = async (booking: Booking) => {
      "your booking. Present this PDF or the QR",
      "code on your mobile device to the host."]
       .forEach((ln, i) => doc.text(ln, rx, y + 50 + i * 13));
+
     doc.setTextColor(...SLATE_RGB);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
     doc.text(`Booking ID: ${booking.id}`, rx, y + 108);
 
+    // ── HOST CONTACT BLOCK (below QR, inside the same card) ──────────────
     if (hasContact) {
       const contactY = y + 130 + 6;
+
+      // Thin teal divider across full card width (inset)
       doc.setDrawColor(...TEAL_RGB);
       doc.setLineWidth(0.3);
       doc.line(M + 10, contactY, M + CW - 10, contactY);
+
+      // Section label
       doc.setTextColor(...TEAL_RGB);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(7);
-      doc.text(`${contactLabel.toUpperCase()} CONTACT`, M + 14, contactY + 12);
+      doc.text(
+        `${contactLabel.toUpperCase()} CONTACT`,
+        M + 14,
+        contactY + 12
+      );
+
       let cy = contactY + 24;
+
       if (hostPhone) {
+        // Phone pill
         doc.setFillColor(240, 253, 250);
         doc.roundedRect(M + 14, cy - 9, (CW - 28) / 2 - 4, 18, 4, 4, "F");
         doc.setDrawColor(...TEAL_RGB);
         doc.setLineWidth(0.3);
         doc.roundedRect(M + 14, cy - 9, (CW - 28) / 2 - 4, 18, 4, 4, "S");
+
+        // Phone icon (simple circle + lines)
         doc.setFillColor(...TEAL_RGB);
         doc.circle(M + 22, cy, 3.5, "F");
         doc.setTextColor(...WHITE);
         doc.setFont("helvetica", "bold");
         doc.setFontSize(5.5);
         doc.text("📞", M + 20, cy + 2);
+
         doc.setTextColor(...TEAL_RGB);
         doc.setFont("helvetica", "bold");
         doc.setFontSize(7.5);
         doc.text(hostPhone, M + 30, cy + 1.5);
+
         if (hostEmail) {
+          // Email pill (second column)
           const ex = M + 14 + (CW - 28) / 2 + 4;
           const ew = (CW - 28) / 2 - 4;
           doc.setFillColor(240, 253, 250);
@@ -522,6 +594,7 @@ const downloadBooking = async (booking: Booking) => {
           doc.setDrawColor(...TEAL_RGB);
           doc.setLineWidth(0.3);
           doc.roundedRect(ex, cy - 9, ew, 18, 4, 4, "S");
+
           doc.setTextColor(...TEAL_RGB);
           doc.setFont("helvetica", "bold");
           doc.setFontSize(7.5);
@@ -530,11 +603,13 @@ const downloadBooking = async (booking: Booking) => {
         }
         cy += 22;
       } else if (hostEmail) {
+        // Email only — full-width pill
         doc.setFillColor(240, 253, 250);
         doc.roundedRect(M + 14, cy - 9, CW - 28, 18, 4, 4, "F");
         doc.setDrawColor(...TEAL_RGB);
         doc.setLineWidth(0.3);
         doc.roundedRect(M + 14, cy - 9, CW - 28, 18, 4, 4, "S");
+
         doc.setTextColor(...TEAL_RGB);
         doc.setFont("helvetica", "bold");
         doc.setFontSize(7.5);
@@ -542,23 +617,30 @@ const downloadBooking = async (booking: Booking) => {
         cy += 22;
       }
     }
+
     y += boxH + 10;
   }
 
+  // ─────────────────────────────────────────────────────────────
+  // 10. FOOTER
+  // ─────────────────────────────────────────────────────────────
   const footerY = H - 52;
   doc.setFillColor(240, 253, 250);
   doc.rect(0, footerY - 12, W, 64, "F");
   doc.setDrawColor(...TEAL_RGB);
   doc.setLineWidth(1.2);
   doc.line(0, footerY - 12, W, footerY - 12);
+
   doc.setFillColor(...TEAL_RGB);
   doc.circle(M, footerY + 10, 3, "F");
   doc.setFillColor(...CORAL_RGB);
   doc.circle(M + 10, footerY + 10, 3, "F");
+
   doc.setTextColor(...TEAL_RGB);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
   doc.text("realtravo.com", W / 2, footerY + 4, { align: "center" });
+
   doc.setTextColor(...MUTED_RGB);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7);
@@ -614,6 +696,7 @@ const RescheduleModal = ({
             <X className="h-3.5 w-3.5 text-slate-500" />
           </button>
         </div>
+
         <div className="p-5">
           {done ? (
             <div className="flex flex-col items-center py-6 gap-2 text-center">
@@ -667,15 +750,16 @@ const BookingDetail = ({ booking, onReschedule }: { booking: Booking; onReschedu
 
   const name = d.item_name || d.trip_name || d.event_name || d.hotel_name || d.place_name || "Booking";
 
+  // Resolve host contact from every possible location
   const hostPhone =
     booking.host_phone || d.host_phone || d.emailData?.hostPhone ||
     d.phone_number || (Array.isArray(d.phone_numbers) ? d.phone_numbers[0] : "") || "";
   const hostEmail =
     booking.host_email || d.host_email || d.emailData?.hostEmail || d.email || "";
 
-  const acts    = d.selectedActivities || d.activities;
-  const facs    = d.selectedFacilities || d.facilities;
-  const tickets = d.ticketSelections   || d.ticket_selections;
+  const acts = d.selectedActivities || d.activities;
+  const facs = d.selectedFacilities || d.facilities;
+  const tickets = d.ticketSelections || d.ticket_selections;
 
   const handleDownload = async () => {
     setDownloading(true);
@@ -704,6 +788,7 @@ const BookingDetail = ({ booking, onReschedule }: { booking: Booking; onReschedu
       {booking.slots_booked           && <Row icon={Ticket} label="Slots"    value={booking.slots_booked}          />}
       {(d.location || d.locationName) && <Row icon={MapPin} label="Location" value={d.location || d.locationName} />}
 
+      {/* Tickets */}
       {tickets?.length > 0 && (
         <div className="py-2 border-b border-dashed border-slate-100">
           <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 flex items-center gap-1">
@@ -723,6 +808,7 @@ const BookingDetail = ({ booking, onReschedule }: { booking: Booking; onReschedu
         </div>
       )}
 
+      {/* Activities */}
       {acts?.length > 0 && (
         <div className="py-2 border-b border-dashed border-slate-100">
           <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 flex items-center gap-1">
@@ -745,6 +831,7 @@ const BookingDetail = ({ booking, onReschedule }: { booking: Booking; onReschedu
         </div>
       )}
 
+      {/* Facilities */}
       {facs?.length > 0 && (
         <div className="py-2 border-b border-dashed border-slate-100">
           <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 flex items-center gap-1">
@@ -777,6 +864,7 @@ const BookingDetail = ({ booking, onReschedule }: { booking: Booking; onReschedu
         </div>
       )}
 
+      {/* Host / Organizer Contact */}
       {(hostPhone || hostEmail) && (
         <div className="mt-3 rounded-xl overflow-hidden border border-amber-200">
           <div className="flex items-center gap-2 px-3 py-2.5 bg-amber-50 border-b border-amber-100">
@@ -801,6 +889,7 @@ const BookingDetail = ({ booking, onReschedule }: { booking: Booking; onReschedu
         </div>
       )}
 
+      {/* Actions */}
       <div className="flex gap-2 pt-4">
         <button onClick={handleDownload} disabled={downloading}
           className="flex-1 flex items-center justify-center gap-1.5 border border-slate-200 text-slate-600 rounded-xl py-2 text-xs font-bold hover:border-teal-400 hover:text-teal-700 transition-all disabled:opacity-50">
@@ -882,6 +971,8 @@ const Bookings = () => {
   const [rescheduling, setRescheduling] = useState<Booking | null>(null);
   const [filter, setFilter]             = useState<"all" | "upcoming" | "past">("all");
 
+  // No more forced redirect to /auth — guests can view bookings stored
+  // locally on this device instead.
   useEffect(() => {
     if (authLoading) return;
     if (user) {
@@ -895,12 +986,8 @@ const Bookings = () => {
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from("bookings")
-        .select("*")
+        .from("bookings").select("*")
         .eq("user_id", user?.id)
-        // Only fetch confirmed/completed AND paid bookings from the DB
-        .in("status", ["confirmed", "completed"])
-        .in("payment_status", ["paid", "completed"])
         .order("created_at", { ascending: false });
       if (error) throw error;
       setBookings(data || []);
@@ -912,9 +999,7 @@ const Bookings = () => {
     setLoading(true);
     try {
       const local = getLocalBookings();
-      // Filter local bookings to only show completed/confirmed + paid
-      const completed = (local as unknown as Booking[]).filter(isCompletedBooking);
-      setBookings(completed);
+      setBookings(local as unknown as Booking[]);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };
@@ -944,7 +1029,7 @@ const Bookings = () => {
   });
 
   const counts = {
-    all:      bookings.length,
+    all: bookings.length,
     upcoming: bookings.filter((b) => { const d = b.visit_date || b.booking_details?.date; return d && new Date(d) >= now; }).length,
     past:     bookings.filter((b) => { const d = b.visit_date || b.booking_details?.date; return !d || new Date(d) < now; }).length,
   };
@@ -952,7 +1037,7 @@ const Bookings = () => {
   if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-[#F8F9FA] pb-20 md:pb-0">
-        <Header __fromLayout />
+        <Header />
         <main className="container px-4 py-12 flex flex-col items-center justify-center gap-3">
           <div className="w-10 h-10 rounded-full border-2 border-teal-200 border-t-teal-600 animate-spin" />
           <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 animate-pulse">Loading…</p>
@@ -964,15 +1049,15 @@ const Bookings = () => {
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] pb-20 md:pb-0">
-      <Header __fromLayout />
-      <main className="container max-w-2xl mx-auto px-4 py-6 mt-14">
+      <Header />
+      <main className="container max-w-2xl mx-auto px-4 py-6">
         <div className="mb-6">
           <p className="text-[9px] font-bold uppercase tracking-widest text-teal-600 mb-0.5">My Account</p>
           <h1 className="text-2xl font-black text-slate-800 tracking-tight">Bookings</h1>
-          <p className="text-xs text-slate-400 mt-0.5">{bookings.length} confirmed booking{bookings.length !== 1 ? "s" : ""}</p>
+          <p className="text-xs text-slate-400 mt-0.5">{bookings.length} booking{bookings.length !== 1 ? "s" : ""}</p>
         </div>
 
-        {/* Guest notice */}
+        {/* Guest notice — bookings only live on this device until they log in */}
         {!user && (
           <div className="mb-5 flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-xl px-3.5 py-3">
             <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0 mt-0.5" />
@@ -1007,8 +1092,8 @@ const Bookings = () => {
         {bookings.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
             <div className="w-14 h-14 rounded-2xl bg-teal-50 flex items-center justify-center text-3xl">🗺️</div>
-            <h2 className="text-lg font-black text-slate-700">No Confirmed Bookings Yet</h2>
-            <p className="text-slate-400 text-xs max-w-xs">Only confirmed and paid bookings appear here. Complete a booking to see it.</p>
+            <h2 className="text-lg font-black text-slate-700">No Bookings Yet</h2>
+            <p className="text-slate-400 text-xs max-w-xs">Your trips, events, and reservations will appear here once you book something.</p>
             <button onClick={() => navigate("/")} className="mt-1 text-white font-bold rounded-xl px-5 py-2.5 text-xs hover:opacity-90 transition-opacity" style={{ backgroundColor: TEAL }}>
               Explore Now
             </button>

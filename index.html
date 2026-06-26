@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    
-    <meta name="theme-color" content="#f8f9fa" />
+     
+    <meta name="theme-color" content="#008080" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Realtravo" />
@@ -16,7 +16,6 @@
     <meta name="keywords" content="Realtravo, Real Travo, travel booking, book hotels, travel experiences, adventure trips, become a host" />
     
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="preconnect" href="https://lmkxpzemfvmffxppxzky.supabase.co" crossorigin />
 
@@ -27,19 +26,62 @@
     <meta property="og:image" content="https://realtravo.com/fulllogo.png" />
 
     <style>
-      body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background-color: #f4f7f6; }
-      #root { min-height: 100vh; }
+      /* Teal (#008080) safe-zone fills for status bar and home indicator */
+      html {
+        background-color: #008080;
+      }
+
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, sans-serif;
+        background-color: #f4f7f6;
+      }
+
+      #root {
+        min-height: 100vh;
+      }
+
+      /* Status bar safe zone — teal strip at top */
+      body::before {
+        content: "";
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: env(safe-area-inset-top, 0px);
+        background-color: #008080;
+        z-index: 99999;
+        pointer-events: none;
+      }
+
+      /* Home indicator safe zone — teal strip at bottom */
+      body::after {
+        content: "";
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: env(safe-area-inset-bottom, 0px);
+        background-color: #008080;
+        z-index: 99999;
+        pointer-events: none;
+      }
+
       .glass-effect {
-        background-color: rgba(255, 255, 255, 0.5); 
+        background-color: rgba(255, 255, 255, 0.5);
         backdrop-filter: blur(12px);
         -webkit-backdrop-filter: blur(12px);
         border-bottom: 1px solid rgba(255, 255, 255, 0.2);
       }
-      @media (prefers-color-scheme: dark) { 
-        body { background-color: #1a2332; } 
-        .glass-effect { background-color: rgba(26, 35, 50, 0.7); border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
+
+      @media (prefers-color-scheme: dark) {
+        body { background-color: #1a2332; }
+        .glass-effect {
+          background-color: rgba(26, 35, 50, 0.7);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
       }
-      /* Screen reader only class instead of display:none for better SEO accessibility */
+
       .sr-only {
         position: absolute;
         width: 1px;
@@ -55,7 +97,6 @@
   </head>
 
   <body>
-
     <header class="sr-only">
       <h1>Realtravo - Book Trips, Events, Sports, Hotels & Adventures</h1>
       <nav>

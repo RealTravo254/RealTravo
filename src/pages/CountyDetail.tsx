@@ -6,7 +6,7 @@ import { ListingCard } from "@/components/ListingCard";
 import { ListingSkeleton } from "@/components/ui/listing-skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { useSavedItems } from "@/hooks/useSavedItems";
+import { useSavedItems } from "@/hooks/useSavedItems"; 
 import { useGeolocation, calculateDistance } from "@/hooks/useGeolocation";
 import { useRatings, sortByRating } from "@/hooks/useRatings";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -97,7 +97,6 @@ const CountyDetail = () => {
 
   useEffect(() => { setCurrentPage(1); }, [activeTab, searchQuery]);
 
-  // Show skeleton when: actively loading OR no items yet and no active filter/search
   const isFiltering = searchQuery.length > 0 || activeTab !== "All";
   const showSkeleton = loading || (!loading && filtered.length === 0 && !isFiltering);
 
@@ -141,8 +140,11 @@ const CountyDetail = () => {
   return (
     <div className="bg-background">
 
-      {/* ── Teal sticky search header ── */}
-      <div className="sticky top-0 z-50 bg-primary shadow-md">
+      {/* ── Teal sticky header with safe zone ── */}
+      <div
+        className="sticky top-0 z-50 bg-primary shadow-md"
+        style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
+      >
         <div className="container mx-auto px-4 py-3">
           <SearchBarWithSuggestions
             value={searchQuery}
@@ -183,20 +185,14 @@ const CountyDetail = () => {
 
         {showSkeleton ? (
           <>
-            {/* Mobile skeletons */}
             <div className="md:hidden grid grid-cols-2 gap-2.5">
               {[...Array(SKELETON_COUNT_MOBILE)].map((_, i) => (
-                <div key={i} className="w-full">
-                  <ListingSkeleton />
-                </div>
+                <div key={i} className="w-full"><ListingSkeleton /></div>
               ))}
             </div>
-            {/* Desktop skeletons */}
             <div className="hidden md:grid grid-cols-4 lg:grid-cols-5 gap-4">
               {[...Array(SKELETON_COUNT_DESKTOP)].map((_, i) => (
-                <div key={i} className="w-full">
-                  <ListingSkeleton />
-                </div>
+                <div key={i} className="w-full"><ListingSkeleton /></div>
               ))}
             </div>
           </>

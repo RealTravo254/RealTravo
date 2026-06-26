@@ -184,8 +184,16 @@ const Explore = () => {
     <div className="min-h-screen bg-background flex flex-col">
       <SEOHead title="Explore - RealTravo" description="Search and discover trips, adventures and events" />
 
-      {/* Search header */}
-      <div className="sticky top-0 z-50 bg-primary shadow-md">
+      {/* 
+        Sticky header — bg-primary is teal (hsl 180 100% 25% = #008080).
+        pt-[env(safe-area-inset-top,0px)] extends the teal header colour
+        into the status-bar safe zone on Capacitor iOS/Android so the
+        status bar and header appear as one seamless teal block.
+      */}
+      <div
+        className="sticky top-0 z-50 bg-primary shadow-md"
+        style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
+      >
         <div className="container mx-auto px-4 py-3">
           <SearchBarWithSuggestions
             value={searchQuery}
@@ -226,7 +234,7 @@ const Explore = () => {
         )}
       </div>
 
-      {/* Results — removed opacity-20 so cards are never dimmed */}
+      {/* Results */}
       <main className="flex-1 container mx-auto px-4 py-4 pb-24 md:pb-8">
         <p className="text-xs text-muted-foreground mb-3 font-medium">
           {searchQuery ? `Results for "${searchQuery}"` : "Discover"}
@@ -236,7 +244,6 @@ const Explore = () => {
         {loading ? (
           skeletonGrid
         ) : paginatedListings.length === 0 ? (
-          /* Show skeleton mock-up when no results found */
           skeletonGrid
         ) : (
           <>

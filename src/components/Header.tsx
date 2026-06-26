@@ -80,7 +80,7 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
             { to: "/",         icon: <Home    className="h-4 w-4" />, label: t("nav.home")     },
             { to: "/explore",  icon: <Compass className="h-4 w-4" />, label: "Explore"          },
             { to: "/bookings", icon: <Ticket  className="h-4 w-4" />, label: t("nav.bookings") },
-            { to: "/saved",    icon: <Heart   className="h-4 w-4" />, label: t("nav.wishlist") },
+            { to: "/saved",    icon: <Heart   className="h-4 w-4" />, label: t("nav.saved") },
           ].map(item => (
             <Link
               key={item.to}

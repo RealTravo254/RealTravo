@@ -17,14 +17,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Eye, EyeOff, MapPin, ExternalLink, Search, ChevronLeft, ChevronRight,
-  Loader2, Inbox, Mountain, Hotel as HotelIcon, Calendar,
+  Loader2, Inbox, Mountain, Calendar,
 } from "lucide-react";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const TEAL = "#008080";
 const ITEMS_PER_PAGE = 10;
 
-type ItemType = "trip" | "event" | "hotel" | "adventure_place";
+type ItemType = "trip" | "adventure_place";
 type FilterType = "all" | ItemType;
 
 interface ListingRow {
@@ -39,29 +39,23 @@ interface ListingRow {
   created_at?: string | null;
 }
 
-const TYPE_TABLE_MAP: Record<"trip_event" | "hotel" | "adventure_place", string> = {
-  trip_event: "trips",
-  hotel: "hotels",
+const TYPE_TABLE_MAP: Record<ItemType, string> = {
+  trip: "trips",
   adventure_place: "adventure_places",
 };
 
 const TYPE_LABELS: Record<ItemType, string> = {
   trip: "Trip",
-  event: "Event",
-  hotel: "Hotel",
   adventure_place: "Adventure Place",
 };
 
 const TYPE_BADGE_COLORS: Record<ItemType, { bg: string; text: string }> = {
   trip: { bg: "#E6F7F7", text: "#006666" },
-  event: { bg: "#FFF0EB", text: "#C24D1A" },
-  hotel: { bg: "#F0F4FF", text: "#3A56C4" },
   adventure_place: { bg: "#EFFFF5", text: "#1A7A45" },
 };
 
 const TypeIcon = ({ type, className }: { type: ItemType; className?: string }) => {
-  if (type === "hotel") return <HotelIcon className={className} />;
-  if (type === "trip" || type === "event") return <Calendar className={className} />;
+  if (type === "trip") return <Calendar className={className} />;
   return <Mountain className={className} />;
 };
 
@@ -183,71 +177,81 @@ const AdminApproved = () => {
   const fetchAllApproved = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [tripsRes, hotelsRes, adventuresRes] = await Promise.all([
+      // NOTE: we don't filter approval_status in the query itself — instead we
+      // pull everything and filter client-side after lower-casing/trimming.
+      // This avoids silently returning 0 rows just because the stored value
+      // is "Approved" / " approved " / etc. instead of an exact "approved".
+      const [tripsRes, adventuresRes] = await Promise.all([
         supabase
           .from("trips")
-          .select("id,name,location,place,country,image_url,is_hidden,type,created_at")
-          .eq("approval_status", "approved")
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("hotels")
-          .select("id,name,location,place,country,image_url,is_hidden,created_at")
-          .eq("approval_status", "approved")
+          .select("id,name,location,place,country,image_url,is_hidden,type,approval_status,created_at")
           .order("created_at", { ascending: false }),
         supabase
           .from("adventure_places")
-          .select("id,name,location,place,country,image_url,is_hidden,created_at")
-          .eq("approval_status", "approved")
+          .select("id,name,location,place,country,image_url,is_hidden,approval_status,created_at")
           .order("created_at", { ascending: false }),
       ]);
 
       if (tripsRes.error) throw tripsRes.error;
-      if (hotelsRes.error) throw hotelsRes.error;
       if (adventuresRes.error) throw adventuresRes.error;
 
-      const trips: ListingRow[] = (tripsRes.data || []).map((t: any) => ({
-        id: t.id,
-        name: t.name,
-        location: t.location,
-        place: t.place,
-        country: t.country,
-        image_url: t.image_url,
-        is_hidden: !!t.is_hidden,
-        itemType: t.type === "event" ? "event" : "trip",
-        created_at: t.created_at,
-      }));
+      const isApproved = (status: unknown) =>
+        typeof status === "string" && status.trim().toLowerCase() === "approved";
 
-      const hotels: ListingRow[] = (hotelsRes.data || []).map((h: any) => ({
-        id: h.id,
-        name: h.name,
-        location: h.location,
-        place: h.place,
-        country: h.country,
-        image_url: h.image_url,
-        is_hidden: !!h.is_hidden,
-        itemType: "hotel",
-        created_at: h.created_at,
-      }));
+      const tripsRaw = tripsRes.data || [];
+      const adventuresRaw = adventuresRes.data || [];
 
-      const adventures: ListingRow[] = (adventuresRes.data || []).map((a: any) => ({
-        id: a.id,
-        name: a.name,
-        location: a.location,
-        place: a.place,
-        country: a.country,
-        image_url: a.image_url,
-        is_hidden: !!a.is_hidden,
-        itemType: "adventure_place",
-        created_at: a.created_at,
-      }));
+      // Diagnostics — check your browser console if the page still shows 0 items.
+      console.log("[AdminApproved] trips fetched:", tripsRaw.length, "approved:", tripsRaw.filter((t: any) => isApproved(t.approval_status)).length);
+      console.log("[AdminApproved] adventure_places fetched:", adventuresRaw.length, "approved:", adventuresRaw.filter((a: any) => isApproved(a.approval_status)).length);
+      if (tripsRaw.length > 0) console.log("[AdminApproved] sample trip approval_status value:", JSON.stringify(tripsRaw[0].approval_status));
+      if (adventuresRaw.length > 0) console.log("[AdminApproved] sample adventure_place approval_status value:", JSON.stringify(adventuresRaw[0].approval_status));
 
-      const merged = [...trips, ...hotels, ...adventures].sort((a, b) => {
+      // Only trips (events excluded entirely)
+      const trips: ListingRow[] = tripsRaw
+        .filter((t: any) => isApproved(t.approval_status) && t.type !== "event")
+        .map((t: any) => ({
+          id: t.id,
+          name: t.name,
+          location: t.location,
+          place: t.place,
+          country: t.country,
+          image_url: t.image_url,
+          is_hidden: !!t.is_hidden,
+          itemType: "trip" as const,
+          created_at: t.created_at,
+        }));
+
+      const adventures: ListingRow[] = adventuresRaw
+        .filter((a: any) => isApproved(a.approval_status))
+        .map((a: any) => ({
+          id: a.id,
+          name: a.name,
+          location: a.location,
+          place: a.place,
+          country: a.country,
+          image_url: a.image_url,
+          is_hidden: !!a.is_hidden,
+          itemType: "adventure_place" as const,
+          created_at: a.created_at,
+        }));
+
+      const merged = [...trips, ...adventures].sort((a, b) => {
         const da = a.created_at ? new Date(a.created_at).getTime() : 0;
         const db = b.created_at ? new Date(b.created_at).getTime() : 0;
         return db - da;
       });
 
       setListings(merged);
+
+      if (merged.length === 0 && (tripsRaw.length > 0 || adventuresRaw.length > 0)) {
+        toast({
+          title: "No approved items matched",
+          description:
+            "Rows exist in your tables, but none matched approval_status === \"approved\". Check the browser console for the exact stored value.",
+          variant: "destructive",
+        });
+      }
     } catch (err: any) {
       toast({
         title: "Failed to load listings",
@@ -268,11 +272,7 @@ const AdminApproved = () => {
     setPage(1);
   }, [filterType, searchQuery]);
 
-  const tableForType = (itemType: ItemType): string => {
-    if (itemType === "trip" || itemType === "event") return TYPE_TABLE_MAP.trip_event;
-    if (itemType === "hotel") return TYPE_TABLE_MAP.hotel;
-    return TYPE_TABLE_MAP.adventure_place;
-  };
+  const tableForType = (itemType: ItemType): string => TYPE_TABLE_MAP[itemType];
 
   const requestToggleVisibility = (item: ListingRow) => {
     setPendingItem(item);
@@ -342,8 +342,6 @@ const AdminApproved = () => {
     return {
       all: listings.length,
       trip: listings.filter((l) => l.itemType === "trip").length,
-      event: listings.filter((l) => l.itemType === "event").length,
-      hotel: listings.filter((l) => l.itemType === "hotel").length,
       adventure_place: listings.filter((l) => l.itemType === "adventure_place").length,
       hidden: listings.filter((l) => l.is_hidden).length,
     };
@@ -357,7 +355,7 @@ const AdminApproved = () => {
         <header className="mb-6">
           <h1 className="text-3xl font-bold tracking-tight text-foreground mb-2">Approved Listings</h1>
           <p className="text-muted-foreground text-sm">
-            Manage visibility of all approved trips, events, hotels and adventure places.
+            Manage visibility of all approved trips and adventure places.
             {counts.hidden > 0 && (
               <span className="ml-1 font-semibold text-red-500">
                 {counts.hidden} currently hidden from the public.
@@ -388,8 +386,6 @@ const AdminApproved = () => {
                 <SelectContent className="bg-white rounded-xl">
                   <SelectItem value="all">All Types ({counts.all})</SelectItem>
                   <SelectItem value="trip">Trips ({counts.trip})</SelectItem>
-                  <SelectItem value="event">Events ({counts.event})</SelectItem>
-                  <SelectItem value="hotel">Hotels ({counts.hotel})</SelectItem>
                   <SelectItem value="adventure_place">Adventure Places ({counts.adventure_place})</SelectItem>
                 </SelectContent>
               </Select>
@@ -403,12 +399,6 @@ const AdminApproved = () => {
             </FilterPill>
             <FilterPill active={filterType === "trip"} onClick={() => setFilterType("trip")}>
               Trips ({counts.trip})
-            </FilterPill>
-            <FilterPill active={filterType === "event"} onClick={() => setFilterType("event")}>
-              Events ({counts.event})
-            </FilterPill>
-            <FilterPill active={filterType === "hotel"} onClick={() => setFilterType("hotel")}>
-              Hotels ({counts.hotel})
             </FilterPill>
             <FilterPill active={filterType === "adventure_place"} onClick={() => setFilterType("adventure_place")}>
               Adventure Places ({counts.adventure_place})
@@ -527,4 +517,4 @@ const AdminApproved = () => {
   );
 };
 
-export default AdminApproved;
+export default ApprovedItems;

@@ -1,3 +1,19 @@
+interface AuthGateProps {
+  children: React.ReactNode;
+}
+
+/**
+ * Previously required login when running as PWA or Capacitor native app.
+ * Now allows free guest browsing on all platforms (browser, PWA, Capacitor).
+ * Protected actions (booking, hosting, saved items, etc.) still redirect
+ * individually to /auth via each page/component's own check
+ * (e.g. NavigationDrawer's `go(path, isProtected)`).
+ */
+export const AuthGate = ({ children }: AuthGateProps) => {
+  return <>{children}</>;
+};
+
+/**```previous for authentication to login in app pwa or capacitor
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsPwa } from "@/hooks/useIsPwa";
 import { useIsCapacitor } from "@/hooks/useIsCapacitor";
@@ -12,7 +28,7 @@ interface AuthGateProps {
  * Wraps the app to require login when running as PWA or Capacitor native app.
  * Browser users can browse freely without logging in.
  */
-export const AuthGate = ({ children }: AuthGateProps) => {
+/*export const AuthGate = ({ children }: AuthGateProps) => {
   const { user, loading } = useAuth();
   const isPwa = useIsPwa();
   const isCapacitor = useIsCapacitor();
@@ -36,3 +52,5 @@ export const AuthGate = ({ children }: AuthGateProps) => {
 
   return <>{children}</>;
 };
+
+``` */

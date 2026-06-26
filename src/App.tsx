@@ -97,8 +97,8 @@ const RealtravoBrandLoader = () => (
       letterSpacing: "-0.5px",
       lineHeight: 1,
     }}>
-      <span style={{ color: "#0d2b4e" }}>Real</span>
-      <span style={{ color: "#008080" }}>travo</span>
+      <span style={{ color: "#0d2b4e" }}>Real </span>
+      <span style={{ color: "#008080" }}>Travo</span>
     </span>
   </div>
 );

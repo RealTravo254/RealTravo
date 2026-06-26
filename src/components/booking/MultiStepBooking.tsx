@@ -74,6 +74,19 @@ const TEAL = "#008080";
 const TEAL_DARK = "#006666";
 const CORAL = "#FF7F50";
 
+// ── Validation helpers ───────────────────────────────────────────────────────
+const isValidEmail = (email: string) =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim());
+
+const isValidPhone = (phone: string) => {
+  const digits = phone.replace(/\s+/g, "");
+  // 10-digit local: must start with 07 or 01
+  if (digits.length === 10) return /^(07|01)\d{8}$/.test(digits);
+  // 13-char international: + followed by 12 digits
+  if (digits.length === 13) return /^\+\d{12}$/.test(digits);
+  return false;
+};
+
 export const MultiStepBooking = ({
   onSubmit,
   isProcessing,
@@ -243,13 +256,10 @@ export const MultiStepBooking = ({
 
   // ─────────────────────────────────────────────────────────────────────────────
   // STEP DEFINITIONS
-  // Key change: when separateActivitiesAndFacilities=true, "extras" is replaced
-  // by two independent steps: "step_activities" and "step_facilities".
   // ─────────────────────────────────────────────────────────────────────────────
   const steps = [];
 
   if (isFacilityOnlyMode) {
-    // Facility-only deep-link mode (unchanged)
     steps.push({ id: "facilities", title: "Select Dates" });
     if (activities.length > 0) {
       steps.push({ id: "activities", title: "Add Activities" });
@@ -271,7 +281,6 @@ export const MultiStepBooking = ({
 
     if (!skipFacilitiesAndActivities) {
       if (separateActivitiesAndFacilities) {
-        // ── NEW: separate steps — Facilities first, then Activities ─
         if (facilities.length > 0) {
           steps.push({ id: "step_facilities", title: "Facilities" });
         }
@@ -279,7 +288,6 @@ export const MultiStepBooking = ({
           steps.push({ id: "step_activities", title: "Activities" });
         }
       } else {
-        // ── ORIGINAL: combined extras step ──────────────────────
         if (activities.length > 0 || facilities.length > 0) {
           steps.push({ id: "extras", title: "Extras" });
         }
@@ -388,7 +396,12 @@ export const MultiStepBooking = ({
         }
         return selectedFacilities.every((f) => !getFacilityDateValidationError(f)) && !dateConflictWarning;
       }
-      case "details": return guestName.trim() !== "" && guestEmail.trim() !== "" && guestPhone.trim() !== "";
+      case "details":
+        return (
+          guestName.trim() !== "" &&
+          isValidEmail(guestEmail) &&
+          isValidPhone(guestPhone)
+        );
       case "review": return true;
       default: return true;
     }
@@ -855,18 +868,52 @@ export const MultiStepBooking = ({
         <div className="space-y-4">
           <div>
             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Full Name</Label>
-            <Input className="rounded-xl h-12 mt-1" value={guestName}
-              onChange={(e) => setGuestName(e.target.value)} placeholder="Enter your full name" />
+            <Input
+              className="rounded-xl h-12 mt-1"
+              value={guestName}
+              onChange={(e) => setGuestName(e.target.value)}
+              placeholder="Enter your full name"
+            />
           </div>
+
           <div>
             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Email</Label>
-            <Input className="rounded-xl h-12 mt-1" type="email" value={guestEmail}
-              onChange={(e) => setGuestEmail(e.target.value)} placeholder="Enter your email" />
+            <Input
+              className={cn(
+                "rounded-xl h-12 mt-1",
+                guestEmail && !isValidEmail(guestEmail) && "border-red-400 focus-visible:ring-red-300"
+              )}
+              type="email"
+              value={guestEmail}
+              onChange={(e) => setGuestEmail(e.target.value)}
+              placeholder="name@domain.com"
+            />
+            {guestEmail && !isValidEmail(guestEmail) && (
+              <p className="flex items-center gap-1 text-xs text-red-500 mt-1">
+                <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                Enter a valid email address (e.g. name@gmail.com)
+              </p>
+            )}
           </div>
+
           <div>
             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Phone</Label>
-            <Input className="rounded-xl h-12 mt-1" type="tel" value={guestPhone}
-              onChange={(e) => setGuestPhone(e.target.value)} placeholder="Enter your phone number" />
+            <Input
+              className={cn(
+                "rounded-xl h-12 mt-1",
+                guestPhone && !isValidPhone(guestPhone) && "border-red-400 focus-visible:ring-red-300"
+              )}
+              type="tel"
+              value={guestPhone}
+              onChange={(e) => setGuestPhone(e.target.value)}
+              placeholder="07XXXXXXXX or +254XXXXXXXXX"
+            />
+            {guestPhone && !isValidPhone(guestPhone) && (
+              <p className="flex items-center gap-1 text-xs text-red-500 mt-1">
+                <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                Use 07/01 + 8 digits (e.g. 0712345678) or +[country code] + 9 digits (e.g. +254712345678)
+              </p>
+            )}
           </div>
         </div>
       )}

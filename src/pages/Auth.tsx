@@ -14,7 +14,6 @@ const Auth = () => {
 
   const [activeTab, setActiveTab] = useState<"login" | "signup">("login");
 
-  // Automatically redirect authenticated users
   useEffect(() => {
     if (!loading && user) {
       navigate(returnTo);
@@ -36,19 +35,17 @@ const Auth = () => {
         description="Explore custom activities, book unique hotels or campsites, and easily host your assets on Realtravo."
       />
 
-      {/* Left Panel - Premium Branding & Identity Container */}
+      {/* Left Panel */}
       <div className="hidden lg:flex lg:w-[42%] relative overflow-hidden bg-gradient-to-br from-[#121131] via-[#090D1A] to-[#03050B]">
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff02_1px,transparent_1px),linear-gradient(to_bottom,#ffffff02_1px,transparent_1px)] bg-[size:40px_40px]" />
         <div className="absolute -top-20 -left-20 w-80 h-80 bg-[rgb(0,128,128)]/10 rounded-full blur-[100px]" />
 
         <div className="relative z-10 flex flex-col justify-between p-12 w-full">
-          {/* Brand Identity Typography */}
           <div className="flex flex-col cursor-pointer" onClick={() => navigate("/")}>
             <span className="text-2xl font-black tracking-wider text-[rgb(0,128,128)]">RealTravo</span>
             <span className="text-[10px] font-mono tracking-widest text-slate-500">WWW.REALTRAVO.COM</span>
           </div>
 
-          {/* Static High-End Branding Pitch */}
           <div className="space-y-4 my-auto max-w-sm">
             <h1 className="text-4xl font-black text-white leading-[1.1] tracking-tight">
               Discover.<br />
@@ -68,7 +65,7 @@ const Auth = () => {
         </div>
       </div>
 
-      {/* Right Panel - Direct Authentication UI Area */}
+      {/* Right Panel */}
       <div
         className="flex-1 flex flex-col min-h-screen relative overflow-hidden"
         style={{
@@ -77,10 +74,10 @@ const Auth = () => {
           backgroundPosition: "center",
         }}
       >
-        {/* Soft Vignette Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#070A13]/95 via-[#070A13]/85 to-[#070A13]/95 lg:bg-gradient-to-tr lg:from-[#070A13]/95 lg:via-[#070A13]/75 lg:to-black/40 z-0" />
+        {/* Reduced overlay — image now clearly visible */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#070A13]/20 via-transparent to-[#070A13]/20 lg:bg-gradient-to-tr lg:from-[#070A13]/20 lg:via-transparent lg:to-transparent z-0" />
 
-        {/* Global Navigation Header Controls */}
+        {/* Navigation Header */}
         <div className="relative z-10 flex items-center justify-between p-4 lg:p-8">
           <button
             onClick={() => navigate("/")}
@@ -90,22 +87,19 @@ const Auth = () => {
             <span className="text-xs font-semibold">Return Home</span>
           </button>
 
-          {/* Mobile Text Branding */}
           <div className="flex flex-col text-right lg:hidden">
             <span className="text-lg font-black text-[rgb(0,128,128)] tracking-wide">RealTravo</span>
             <span className="text-[8px] text-slate-500 font-mono">WWW.REALTRAVO.COM</span>
           </div>
         </div>
 
-        {/* Dynamic Card Area containing Forms */}
+        {/* Form Area */}
         <div className="relative z-10 flex-1 flex items-center justify-center px-4 pb-8 lg:px-8">
           <div className="w-full max-w-[420px]">
-            
             <div
               key="auth-form-card"
               className="bg-slate-950/45 backdrop-blur-2xl border border-white/10 rounded-xl p-6 lg:p-8 space-y-4 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.7)] transform transition-all duration-500 scale-[1.01] h-auto max-h-[85vh] flex flex-col overflow-hidden"
             >
-              {/* Header Blocks */}
               <div className="space-y-1 text-center lg:text-left flex-shrink-0">
                 <h2 className="text-2xl font-extrabold text-white tracking-tight">
                   {activeTab === "login" ? "Welcome back" : "Get started"}
@@ -117,7 +111,6 @@ const Auth = () => {
                 </p>
               </div>
 
-              {/* Segmented Tab Controller */}
               <div className="flex bg-black/50 border border-white/5 p-0.5 rounded-lg flex-shrink-0">
                 <button
                   onClick={() => setActiveTab("login")}
@@ -141,7 +134,6 @@ const Auth = () => {
                 </button>
               </div>
 
-              {/* Core Form Container Layer */}
               <div className="mt-1 text-slate-200 max-h-[340px] overflow-y-auto pr-1 overflow-x-hidden scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
                 {activeTab === "login" ? (
                   <LoginForm onSwitchToSignup={() => setActiveTab("signup")} />
@@ -150,11 +142,9 @@ const Auth = () => {
                 )}
               </div>
             </div>
-
           </div>
         </div>
 
-        {/* Mobile Minimal Layout Disclaimer */}
         <div className="relative z-10 p-4 text-center lg:hidden">
           <p className="text-[10px] text-slate-600 font-medium">
             © {new Date().getFullYear()} Realtravo. All rights reserved.

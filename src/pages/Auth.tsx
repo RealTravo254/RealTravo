@@ -42,7 +42,7 @@ const Auth = () => {
 
         <div className="relative z-10 flex flex-col justify-between p-12 w-full">
           <div className="flex flex-col cursor-pointer" onClick={() => navigate("/")}>
-            <span className="text-2xl font-black tracking-wider text-[rgb(0,128,128)]">RealTravo</span>
+            <span className="text-2xl font-black tracking-wider text-[rgb(0,128,128)]">Real Travo</span>
             <span className="text-[10px] font-mono tracking-widest text-slate-500">WWW.REALTRAVO.COM</span>
           </div>
 
@@ -60,7 +60,7 @@ const Auth = () => {
           </div>
 
           <p className="text-slate-600 text-[10px] font-mono tracking-widest uppercase">
-            © {new Date().getFullYear()} Realtravo Inc.
+            © {new Date().getFullYear()} Real Travo Inc.
           </p>
         </div>
       </div>
@@ -88,7 +88,7 @@ const Auth = () => {
           </button>
 
           <div className="flex flex-col text-right lg:hidden">
-            <span className="text-lg font-black text-[rgb(0,128,128)] tracking-wide">RealTravo</span>
+            <span className="text-lg font-black text-[rgb(0,128,128)] tracking-wide">RealT ravo</span>
             <span className="text-[8px] text-slate-500 font-mono">WWW.REALTRAVO.COM</span>
           </div>
         </div>
@@ -147,7 +147,7 @@ const Auth = () => {
 
         <div className="relative z-10 p-4 text-center lg:hidden">
           <p className="text-[10px] text-slate-600 font-medium">
-            © {new Date().getFullYear()} Realtravo. All rights reserved.
+            © {new Date().getFullYear()} Real Travo. All rights reserved.
           </p>
         </div>
       </div>

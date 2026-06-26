@@ -81,8 +81,14 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
   );
 
   return (
-    <div className="flex flex-col h-full bg-background justify-between">
-      
+    <div
+      className="flex flex-col h-full bg-background justify-between"
+      style={{
+        paddingTop: "env(safe-area-inset-top, 0px)",
+        paddingBottom: "env(safe-area-inset-bottom, 0px)",
+      }}
+    >
+
       {/* Scrollable Upper Area */}
       <div className="flex-1 overflow-y-auto">
         {/* ── Compact Header / Profile Banner ── */}

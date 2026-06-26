@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import { Header } from "@/components/Header";
-import { Footer } from "@/components/Footer";
 import { MobileBottomBar } from "@/components/MobileBottomBar";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -200,7 +199,6 @@ const Saved = () => {
             </Button>
           </div>
         </div>
-        <Footer />
         <MobileBottomBar />
       </div>
     );
@@ -271,7 +269,7 @@ const Saved = () => {
                         touchAction: 'manipulation',
                         zIndex: 10,
                         position: 'relative',
-                      }}
+                  }}
                     >
                       {deletingId === item.id
                         ? <Loader2 size={16} className="animate-spin" />
@@ -345,12 +343,7 @@ const Saved = () => {
         </main>
       </div>
 
-      {!isEmbeddedInSheet && (
-        <>
-          <Footer />
-          <MobileBottomBar />
-        </>
-      )}
+      {!isEmbeddedInSheet && <MobileBottomBar />}
     </div>
   );
 };

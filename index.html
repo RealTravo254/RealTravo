@@ -26,7 +26,6 @@
     <meta property="og:image" content="https://realtravo.com/fulllogo.png" />
 
     <style>
-      /* Teal (#008080) safe-zone fills for status bar and home indicator */
       html {
         background-color: #008080;
       }
@@ -41,7 +40,6 @@
         min-height: 100vh;
       }
 
-      /* Status bar safe zone — teal strip at top */
       body::before {
         content: "";
         position: fixed;
@@ -54,7 +52,6 @@
         pointer-events: none;
       }
 
-      /* Home indicator safe zone — teal strip at bottom */
       body::after {
         content: "";
         position: fixed;
@@ -93,6 +90,42 @@
         white-space: nowrap;
         border-width: 0;
       }
+
+      #splash {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        background-color: #f4f7f6;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        #splash {
+          background-color: #1a2332;
+        }
+      }
+
+      #splash-logo {
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 2.6rem;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+        line-height: 1;
+      }
+
+      #splash-logo .real {
+        color: #0d2b4e;
+      }
+
+      #splash-logo .travo {
+        color: #008080;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        #splash-logo .real {
+          color: #e8f0f8;
+        }
+      }
     </style>
   </head>
 
@@ -106,7 +139,14 @@
       </nav>
     </header>
 
-    <div id="root"></div>
+    <div id="root">
+      <div id="splash">
+        <span id="splash-logo">
+          <span class="real">Real</span><span class="travo">travo</span>
+        </span>
+      </div>
+    </div>
+
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

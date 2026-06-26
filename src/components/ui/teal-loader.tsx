@@ -1,8 +1,8 @@
 /**
  * Minimalist Teal Dot Loader
- * Three teal dots with staggered wave animation
+ * Three teal dots with staggered wave animation + page name
  */
-export const TealLoader = ({ text = "Loading details..." }: { text?: string }) => (
+export const TealLoader = ({ text }: { text?: string }) => (
   <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-6">
     <div className="flex items-center gap-3">
       {[0, 1, 2].map((i) => (
@@ -13,8 +13,10 @@ export const TealLoader = ({ text = "Loading details..." }: { text?: string }) =
         />
       ))}
     </div>
-    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground">
-      {text}
-    </p>
+    {text && (
+      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground">
+        {text}
+      </p>
+    )}
   </div>
 );

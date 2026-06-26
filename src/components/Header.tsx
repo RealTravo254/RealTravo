@@ -69,7 +69,7 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
 
           <Link to="/" className="flex items-center gap-2 group ml-1">
             <span className="font-bold text-lg tracking-tight italic text-white hidden md:inline">
-              RealTravo
+              Real Travo
             </span>
           </Link>
         </div>

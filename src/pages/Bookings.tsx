@@ -7,11 +7,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { jsPDF } from "jspdf";
+import { getLocalBookings, updateLocalBooking } from "@/lib/localBookings";
 import {
   Calendar, Users, MapPin, CalendarClock,
   X, CheckCircle, Download, ChevronDown, ChevronUp,
   Activity, Building2, Ticket, Phone,
-  Mail, AlertTriangle,
+  Mail, AlertTriangle, LogIn,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -970,10 +971,19 @@ const Bookings = () => {
   const [rescheduling, setRescheduling] = useState<Booking | null>(null);
   const [filter, setFilter]             = useState<"all" | "upcoming" | "past">("all");
 
-  useEffect(() => { if (!authLoading && !user) navigate("/auth"); }, [user, authLoading, navigate]);
-  useEffect(() => { if (user) fetchBookings(); }, [user]);
+  // No more forced redirect to /auth — guests can view bookings stored
+  // locally on this device instead.
+  useEffect(() => {
+    if (authLoading) return;
+    if (user) {
+      fetchBookings();
+    } else {
+      loadLocalBookings();
+    }
+  }, [user, authLoading]);
 
   const fetchBookings = async () => {
+    setLoading(true);
     try {
       const { data, error } = await supabase
         .from("bookings").select("*")
@@ -985,12 +995,27 @@ const Bookings = () => {
     finally { setLoading(false); }
   };
 
+  const loadLocalBookings = () => {
+    setLoading(true);
+    try {
+      const local = getLocalBookings();
+      setBookings(local as unknown as Booking[]);
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
+  };
+
   const handleReschedule = async (id: string, newDate: string) => {
     const booking = bookings.find((b) => b.id === id);
     if (!booking) return;
     const updated = { ...booking.booking_details, date: newDate, rescheduled_at: new Date().toISOString() };
-    const { error } = await supabase.from("bookings").update({ booking_details: updated }).eq("id", id);
-    if (error) { toast({ title: "Failed", description: error.message, variant: "destructive" }); throw error; }
+
+    if (user) {
+      const { error } = await supabase.from("bookings").update({ booking_details: updated }).eq("id", id);
+      if (error) { toast({ title: "Failed", description: error.message, variant: "destructive" }); throw error; }
+    } else {
+      updateLocalBooking(id, { booking_details: updated });
+    }
+
     setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, booking_details: updated } : b)));
     toast({ title: "Rescheduled ✓", description: `Moved to ${fmt(newDate)}` });
   };
@@ -1031,6 +1056,26 @@ const Bookings = () => {
           <h1 className="text-2xl font-black text-slate-800 tracking-tight">Bookings</h1>
           <p className="text-xs text-slate-400 mt-0.5">{bookings.length} booking{bookings.length !== 1 ? "s" : ""}</p>
         </div>
+
+        {/* Guest notice — bookings only live on this device until they log in */}
+        {!user && (
+          <div className="mb-5 flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-xl px-3.5 py-3">
+            <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-xs font-bold text-amber-700">Saved on this device only</p>
+              <p className="text-[11px] text-amber-600 mt-0.5 leading-relaxed">
+                You're not logged in, so these bookings are stored locally and won't appear on another device or after the app is uninstalled.
+              </p>
+              <button
+                onClick={() => navigate("/auth")}
+                className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-bold text-white rounded-lg px-3 py-1.5 hover:opacity-90 transition-opacity"
+                style={{ backgroundColor: TEAL }}
+              >
+                <LogIn className="h-3 w-3" /> Log in to keep them safe
+              </button>
+            </div>
+          </div>
+        )}
 
         {bookings.length > 0 && (
           <div className="flex gap-1.5 mb-5 bg-white rounded-xl p-1 border border-slate-100">

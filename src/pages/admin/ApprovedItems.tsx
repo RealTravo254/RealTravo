@@ -1,392 +1,530 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { MobileBottomBar } from "@/components/MobileBottomBar";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { getUserId } from "@/lib/sessionManager";
-import { useLocation, useNavigate } from "react-router-dom";
-import { Trash2, MapPin, ChevronRight, Loader2, LogIn, Heart } from "lucide-react";
 import { createDetailPath } from "@/lib/slugUtils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { useSavedItems } from "@/hooks/useSavedItems";
-import { useAuth } from "@/contexts/AuthContext";
-import { getLocalSavedItems, removeItemLocally } from "@/hooks/useLocalSavedItems";
+import { Input } from "@/components/ui/input";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Eye, EyeOff, MapPin, ExternalLink, Search, ChevronLeft, ChevronRight,
+  Loader2, Inbox, Mountain, Hotel as HotelIcon, Calendar,
+} from "lucide-react";
 
-const ITEMS_PER_PAGE = 20;
+// ─── Constants ────────────────────────────────────────────────────────────────
+const TEAL = "#008080";
+const ITEMS_PER_PAGE = 10;
 
-const Saved = () => {
-  const [savedListings, setSavedListings] = useState<any[]>([]);
-  const { savedItems } = useSavedItems();
-  const { user, loading: authLoading } = useAuth();
-  const navigate = useNavigate();
-  const [userId, setUserId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  const [offset, setOffset] = useState(0);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const { toast } = useToast();
-  const hasFetched = useRef(false);
-  const location = useLocation();
-  const isEmbeddedInSheet = location.pathname !== "/saved";
+type ItemType = "trip" | "event" | "hotel" | "adventure_place";
+type FilterType = "all" | ItemType;
 
-  const deletingRef = useRef<string | null>(null);
+interface ListingRow {
+  id: string;
+  name: string;
+  location: string | null;
+  place?: string | null;
+  country?: string | null;
+  image_url: string | null;
+  is_hidden: boolean;
+  itemType: ItemType;
+  created_at?: string | null;
+}
 
-  // Fetch local saved items details for non-logged users
-  const fetchLocalSavedDetails = async () => {
-    setIsLoading(true);
-    const localItems = getLocalSavedItems();
-    if (localItems.length === 0) {
-      setSavedListings([]);
-      setIsLoading(false);
-      return;
-    }
+const TYPE_TABLE_MAP: Record<"trip_event" | "hotel" | "adventure_place", string> = {
+  trip_event: "trips",
+  hotel: "hotels",
+  adventure_place: "adventure_places",
+};
 
-    const tripIds = localItems.filter(s => s.item_type === "trip" || s.item_type === "event").map(s => s.item_id);
-    const hotelIds = localItems.filter(s => s.item_type === "hotel").map(s => s.item_id);
-    const adventureIds = localItems.filter(s => s.item_type === "adventure_place" || s.item_type === "attraction").map(s => s.item_id);
+const TYPE_LABELS: Record<ItemType, string> = {
+  trip: "Trip",
+  event: "Event",
+  hotel: "Hotel",
+  adventure_place: "Adventure Place",
+};
 
-    const [tripsRes, hotelsRes, adventuresRes] = await Promise.all([
-      tripIds.length > 0
-        ? supabase
-            .from("trips")
-            .select("id,name,location,image_url,is_hidden,type,approval_status")
-            .in("id", tripIds)
-        : { data: [] },
-      hotelIds.length > 0
-        ? supabase
-            .from("hotels")
-            .select("id,name,location,image_url,is_hidden,approval_status")
-            .in("id", hotelIds)
-        : { data: [] },
-      adventureIds.length > 0
-        ? supabase
-            .from("adventure_places")
-            .select("id,name,location,image_url,is_hidden,approval_status")
-            .in("id", adventureIds)
-        : { data: [] },
-    ]);
+const TYPE_BADGE_COLORS: Record<ItemType, { bg: string; text: string }> = {
+  trip: { bg: "#E6F7F7", text: "#006666" },
+  event: { bg: "#FFF0EB", text: "#C24D1A" },
+  hotel: { bg: "#F0F4FF", text: "#3A56C4" },
+  adventure_place: { bg: "#EFFFF5", text: "#1A7A45" },
+};
 
-    const itemMap = new Map();
-    [...(tripsRes.data || []), ...(hotelsRes.data || []), ...(adventuresRes.data || [])].forEach(item => {
-      // Exclude hidden items and items that are not approved (e.g. rejected or pending)
-      if (item.is_hidden) return;
-      if (item.approval_status && item.approval_status !== "approved") return;
-      const original = localItems.find(s => s.item_id === item.id);
-      itemMap.set(item.id, { ...item, savedType: original?.item_type });
-    });
+const TypeIcon = ({ type, className }: { type: ItemType; className?: string }) => {
+  if (type === "hotel") return <HotelIcon className={className} />;
+  if (type === "trip" || type === "event") return <Calendar className={className} />;
+  return <Mountain className={className} />;
+};
 
-    const newItems = localItems.map(s => itemMap.get(s.item_id)).filter(Boolean);
-    setSavedListings(newItems);
-    setIsLoading(false);
-  };
+// ─── Filter Pill ──────────────────────────────────────────────────────────────
+const FilterPill = ({
+  active, onClick, children,
+}: { active: boolean; onClick: () => void; children: React.ReactNode }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={`px-4 py-2 rounded-xl text-[12px] font-bold whitespace-nowrap transition-all ${
+      active ? "text-white shadow-md" : "bg-white border border-slate-200 text-slate-500 hover:bg-slate-50"
+    }`}
+    style={active ? { background: TEAL } : {}}
+  >
+    {children}
+  </button>
+);
 
-  useEffect(() => {
-    const initializeData = async () => {
-      if (authLoading) return;
-      
-      if (!user) {
-        // Not logged in - show local saved items
-        fetchLocalSavedDetails();
-        return;
-      }
-
-      const uid = await getUserId();
-      if (!uid) { setIsLoading(false); return; }
-      setUserId(uid);
-      fetchSavedItems(uid, 0);
-    };
-    initializeData();
-  }, [authLoading, user]);
-
-  useEffect(() => {
-    if (user && userId && hasFetched.current) fetchSavedItems(userId, 0);
-    if (!user) fetchLocalSavedDetails();
-  }, [savedItems]);
-
-  const fetchSavedItems = async (uid: string, fetchOffset: number) => {
-    if (fetchOffset === 0) setIsLoading(true);
-    else setLoadingMore(true);
-
-    const { data: savedData } = await supabase
-      .from("saved_items")
-      .select("item_id, item_type")
-      .eq("user_id", uid)
-      .range(fetchOffset, fetchOffset + ITEMS_PER_PAGE - 1)
-      .order('created_at', { ascending: false });
-
-    if (!savedData || savedData.length === 0) {
-      if (fetchOffset === 0) setSavedListings([]);
-      setHasMore(false);
-      setIsLoading(false);
-      setLoadingMore(false);
-      return;
-    }
-
-    setHasMore(savedData.length >= ITEMS_PER_PAGE);
-
-    const tripIds = savedData.filter(s => s.item_type === "trip" || s.item_type === "event").map(s => s.item_id);
-    const hotelIds = savedData.filter(s => s.item_type === "hotel").map(s => s.item_id);
-    const adventureIds = savedData.filter(s => s.item_type === "adventure_place" || s.item_type === "attraction").map(s => s.item_id);
-
-    const [tripsRes, hotelsRes, adventuresRes] = await Promise.all([
-      tripIds.length > 0
-        ? supabase
-            .from("trips")
-            .select("id,name,location,image_url,is_hidden,type,approval_status")
-            .in("id", tripIds)
-        : { data: [] },
-      hotelIds.length > 0
-        ? supabase
-            .from("hotels")
-            .select("id,name,location,image_url,is_hidden,approval_status")
-            .in("id", hotelIds)
-        : { data: [] },
-      adventureIds.length > 0
-        ? supabase
-            .from("adventure_places")
-            .select("id,name,location,image_url,is_hidden,approval_status")
-            .in("id", adventureIds)
-        : { data: [] },
-    ]);
-
-    const itemMap = new Map();
-    [...(tripsRes.data || []), ...(hotelsRes.data || []), ...(adventuresRes.data || [])].forEach(item => {
-      // Exclude hidden items and items that are not approved (e.g. rejected or pending)
-      if (item.is_hidden) return;
-      if (item.approval_status && item.approval_status !== "approved") return;
-      const original = savedData.find(s => s.item_id === item.id);
-      itemMap.set(item.id, { ...item, savedType: original?.item_type });
-    });
-
-    const newItems = savedData.map(s => itemMap.get(s.item_id)).filter(Boolean);
-    if (fetchOffset === 0) {
-      setSavedListings(newItems);
-    } else {
-      setSavedListings(prev => [...prev, ...newItems]);
-    }
-    setOffset(fetchOffset + ITEMS_PER_PAGE);
-    hasFetched.current = true;
-    setIsLoading(false);
-    setLoadingMore(false);
-  };
-
-  const loadMore = () => {
-    if (!userId || loadingMore || !hasMore) return;
-    fetchSavedItems(userId, offset);
-  };
-
-  const handleRemoveSingle = async (itemId: string, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    if (!user) {
-      // Remove locally
-      removeItemLocally(itemId);
-      setSavedListings(prev => prev.filter(item => item.id !== itemId));
-      toast({ title: "Removed", description: "Item removed from your collection." });
-      return;
-    }
-
-    if (!userId || deletingRef.current === itemId) return;
-
-    deletingRef.current = itemId;
-    setDeletingId(itemId);
-
-    const { error } = await supabase
-      .from("saved_items")
-      .delete()
-      .eq("item_id", itemId)
-      .eq("user_id", userId);
-
-    if (!error) {
-      setSavedListings(prev => prev.filter(item => item.id !== itemId));
-      toast({ title: "Removed", description: "Item removed from your collection." });
-    }
-    deletingRef.current = null;
-    setDeletingId(null);
-  };
-
-  // If not logged in and not embedded, show full-page login prompt
-  if (!user && !authLoading && !isEmbeddedInSheet) {
-    return (
-      <div className="min-h-screen bg-[#F4F7FA] pb-24 font-sans">
-        <Header />
-        <div className="container mx-auto px-4 py-12">
-          <header className="mb-8">
-            <h1 className="text-3xl font-bold tracking-tight text-foreground mb-2">Saved Places</h1>
-            <p className="text-muted-foreground text-sm">Your curated collection of adventures and stays.</p>
-          </header>
-          <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[40px] border border-slate-100">
-            <div className="p-5 rounded-2xl bg-primary/10 mb-6">
-              <Heart className="h-10 w-10 text-primary" />
-            </div>
-            <h2 className="text-xl font-bold text-foreground mb-2">Sign in to see your saved items</h2>
-            <p className="text-sm text-muted-foreground mb-6 text-center max-w-sm">Log in or create an account to save your favourite adventures, stays and events.</p>
-            <Button
-              onClick={() => navigate('/auth')}
-              className="rounded-xl text-sm font-bold gap-2 px-8 py-3"
-            >
-              <LogIn className="h-4 w-4" />
-              Log In / Sign Up
-            </Button>
-          </div>
-        </div>
-        <Footer />
-        <MobileBottomBar />
-      </div>
-    );
-  }
+// ─── Listing Row Card ─────────────────────────────────────────────────────────
+const ListingCard = ({
+  item, onToggleVisibility, isUpdating,
+}: {
+  item: ListingRow;
+  onToggleVisibility: (item: ListingRow) => void;
+  isUpdating: boolean;
+}) => {
+  const badge = TYPE_BADGE_COLORS[item.itemType];
+  const detailHref = createDetailPath(item.itemType, item.id, item.name, item.location || "");
 
   return (
-    <div className={isEmbeddedInSheet ? "min-h-full bg-background" : "min-h-screen bg-[#F4F7FA] pb-24 font-sans"}>
-      {!isEmbeddedInSheet && <Header />}
-
-      <div className={isEmbeddedInSheet ? "px-4 py-4" : "container mx-auto px-4 py-12"}>
-        {!isEmbeddedInSheet && (
-          <header className="mb-8">
-            <h1 className="text-3xl font-bold tracking-tight text-foreground mb-2">Saved Places</h1>
-            <p className="text-muted-foreground text-sm">Your curated collection of adventures and stays.</p>
-          </header>
+    <div
+      className={`flex items-center gap-3 bg-white p-3 sm:p-4 rounded-2xl border transition-all ${
+        item.is_hidden ? "border-red-100 bg-red-50/30" : "border-slate-100"
+      }`}
+    >
+      <div className="h-16 w-16 rounded-xl overflow-hidden bg-slate-100 shrink-0 flex items-center justify-center">
+        {item.image_url ? (
+          <img src={item.image_url} className="h-full w-full object-cover" alt="" />
+        ) : (
+          <TypeIcon type={item.itemType} className="h-6 w-6 text-slate-300" />
         )}
-
-        {/* Login banner for non-logged users (embedded sheet) */}
-        {!user && !authLoading && (
-          <div className="mb-6 bg-primary/5 border border-primary/20 rounded-2xl p-4 flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-primary/10 shrink-0">
-              <Heart className="h-5 w-5 text-primary" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-foreground">Sign in to sync your saved items</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Your locally saved items will be synced to your account when you log in.</p>
-            </div>
-            <Button
-              onClick={() => navigate('/auth')}
-              size="sm"
-              className="shrink-0 rounded-xl text-xs font-bold gap-1.5"
-            >
-              <LogIn className="h-3.5 w-3.5" />
-              Log In
-            </Button>
-          </div>
-        )}
-
-        <main className={isEmbeddedInSheet ? "space-y-3" : "space-y-3"}>
-          {isEmbeddedInSheet && (
-            <div className="mb-2 px-1">
-              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Your Saved Items
-              </p>
-            </div>
-          )}
-
-          {isLoading ? (
-            <Skeleton className="h-64 w-full rounded-[32px]" />
-          ) : savedListings.length === 0 ? (
-            <div className="bg-white rounded-[40px] p-20 text-center text-slate-400 border border-slate-100">
-              No items saved yet.
-            </div>
-          ) : (
-            <div className="grid gap-3">
-              {savedListings.map((item) => {
-                const href = createDetailPath(item.savedType, item.id, item.name, item.location);
-
-                return (
-                  <div key={item.id} className="flex items-center gap-2">
-                    <button
-                      onClick={(e) => handleRemoveSingle(item.id, e)}
-                      disabled={deletingId === item.id}
-                      className="shrink-0 p-3 rounded-full bg-red-50 text-red-500 active:bg-red-100 active:scale-90 transition-all border border-red-100 select-none"
-                      aria-label="Remove item"
-                      style={{
-                        WebkitTapHighlightColor: 'transparent',
-                        touchAction: 'manipulation',
-                        zIndex: 10,
-                        position: 'relative',
-                      }}
-                    >
-                      {deletingId === item.id
-                        ? <Loader2 size={16} className="animate-spin" />
-                        : <Trash2 size={16} />
-                      }
-                    </button>
-
-                    <a
-                      href={href}
-                      onClick={(e) => {
-                        if (deletingRef.current === item.id) {
-                          e.preventDefault();
-                        }
-                      }}
-                      className="flex-1 flex items-center gap-4 bg-white p-3 sm:p-4 rounded-[24px] border border-slate-100 hover:shadow-md transition-all active:scale-[0.98] min-w-0 group no-underline"
-                      style={{
-                        WebkitTapHighlightColor: 'transparent',
-                        touchAction: 'manipulation',
-                        textDecoration: 'none',
-                      }}
-                      draggable={false}
-                    >
-                      <img
-                        src={item.image_url}
-                        className="h-16 w-16 rounded-xl object-cover shrink-0"
-                        alt=""
-                        draggable={false}
-                      />
-
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[9px] font-bold text-[#007AFF] uppercase mb-0.5">
-                          {item.savedType?.replace('_', ' ')}
-                        </p>
-                        <h3 className="text-sm sm:text-base font-bold text-slate-800 truncate">
-                          {item.name}
-                        </h3>
-                        <div className="flex items-center text-slate-400 text-xs mt-0.5">
-                          <MapPin size={10} className="mr-1 shrink-0" />
-                          <span className="truncate">{item.location}</span>
-                        </div>
-                      </div>
-
-                      <div className="h-8 w-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-300 group-hover:bg-[#007AFF] group-hover:text-white transition-all shrink-0">
-                        <ChevronRight size={16} />
-                      </div>
-                    </a>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          {user && hasMore && savedListings.length > 0 && (
-            <div className="flex justify-center mt-6">
-              <Button
-                onClick={loadMore}
-                disabled={loadingMore}
-                variant="outline"
-                className="rounded-2xl font-bold text-xs h-10 px-6"
-              >
-                {loadingMore ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Loading...
-                  </>
-                ) : (
-                  "Load More"
-                )}
-              </Button>
-            </div>
-          )}
-        </main>
       </div>
 
-      {!isEmbeddedInSheet && (
-        <>
-          <Footer />
-          <MobileBottomBar />
-        </>
-      )}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-0.5">
+          <span
+            className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-md"
+            style={{ background: badge.bg, color: badge.text }}
+          >
+            {TYPE_LABELS[item.itemType]}
+          </span>
+          {item.is_hidden && (
+            <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-md bg-red-100 text-red-600">
+              Hidden
+            </span>
+          )}
+        </div>
+        <h3 className="text-sm sm:text-base font-bold text-slate-800 truncate">{item.name}</h3>
+        <div className="flex items-center text-slate-400 text-xs mt-0.5">
+          <MapPin size={10} className="mr-1 shrink-0" />
+          <span className="truncate">
+            {[item.location, item.place, item.country].filter(Boolean).join(", ") || "—"}
+          </span>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 shrink-0">
+        <a
+          href={detailHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="h-9 w-9 rounded-full bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-slate-400 transition-all"
+          aria-label="View listing"
+        >
+          <ExternalLink size={14} />
+        </a>
+
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={isUpdating}
+          onClick={() => onToggleVisibility(item)}
+          className={`rounded-xl text-[11px] font-bold gap-1.5 h-9 ${
+            item.is_hidden
+              ? "border-emerald-200 text-emerald-600 hover:bg-emerald-50"
+              : "border-red-200 text-red-500 hover:bg-red-50"
+          }`}
+        >
+          {isUpdating ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : item.is_hidden ? (
+            <Eye size={14} />
+          ) : (
+            <EyeOff size={14} />
+          )}
+          {item.is_hidden ? "Show" : "Hide"}
+        </Button>
+      </div>
     </div>
   );
 };
 
-export default Saved;
+// ─── Main Component ───────────────────────────────────────────────────────────
+const AdminApproved = () => {
+  const { toast } = useToast();
+
+  const [listings, setListings] = useState<ListingRow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [filterType, setFilterType] = useState<FilterType>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  // Confirm-dialog state
+  const [pendingItem, setPendingItem] = useState<ListingRow | null>(null);
+
+  const fetchAllApproved = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const [tripsRes, hotelsRes, adventuresRes] = await Promise.all([
+        supabase
+          .from("trips")
+          .select("id,name,location,place,country,image_url,is_hidden,type,created_at")
+          .eq("approval_status", "approved")
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("hotels")
+          .select("id,name,location,place,country,image_url,is_hidden,created_at")
+          .eq("approval_status", "approved")
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("adventure_places")
+          .select("id,name,location,place,country,image_url,is_hidden,created_at")
+          .eq("approval_status", "approved")
+          .order("created_at", { ascending: false }),
+      ]);
+
+      if (tripsRes.error) throw tripsRes.error;
+      if (hotelsRes.error) throw hotelsRes.error;
+      if (adventuresRes.error) throw adventuresRes.error;
+
+      const trips: ListingRow[] = (tripsRes.data || []).map((t: any) => ({
+        id: t.id,
+        name: t.name,
+        location: t.location,
+        place: t.place,
+        country: t.country,
+        image_url: t.image_url,
+        is_hidden: !!t.is_hidden,
+        itemType: t.type === "event" ? "event" : "trip",
+        created_at: t.created_at,
+      }));
+
+      const hotels: ListingRow[] = (hotelsRes.data || []).map((h: any) => ({
+        id: h.id,
+        name: h.name,
+        location: h.location,
+        place: h.place,
+        country: h.country,
+        image_url: h.image_url,
+        is_hidden: !!h.is_hidden,
+        itemType: "hotel",
+        created_at: h.created_at,
+      }));
+
+      const adventures: ListingRow[] = (adventuresRes.data || []).map((a: any) => ({
+        id: a.id,
+        name: a.name,
+        location: a.location,
+        place: a.place,
+        country: a.country,
+        image_url: a.image_url,
+        is_hidden: !!a.is_hidden,
+        itemType: "adventure_place",
+        created_at: a.created_at,
+      }));
+
+      const merged = [...trips, ...hotels, ...adventures].sort((a, b) => {
+        const da = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const db = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return db - da;
+      });
+
+      setListings(merged);
+    } catch (err: any) {
+      toast({
+        title: "Failed to load listings",
+        description: err?.message ?? "Something went wrong.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    fetchAllApproved();
+  }, [fetchAllApproved]);
+
+  // Reset to page 1 whenever filters change
+  useEffect(() => {
+    setPage(1);
+  }, [filterType, searchQuery]);
+
+  const tableForType = (itemType: ItemType): string => {
+    if (itemType === "trip" || itemType === "event") return TYPE_TABLE_MAP.trip_event;
+    if (itemType === "hotel") return TYPE_TABLE_MAP.hotel;
+    return TYPE_TABLE_MAP.adventure_place;
+  };
+
+  const requestToggleVisibility = (item: ListingRow) => {
+    setPendingItem(item);
+  };
+
+  const confirmToggleVisibility = async () => {
+    if (!pendingItem) return;
+    const item = pendingItem;
+    const nextHidden = !item.is_hidden;
+
+    setUpdatingId(item.id);
+    setPendingItem(null);
+
+    try {
+      const table = tableForType(item.itemType);
+      const { error } = await supabase
+        .from(table)
+        .update({ is_hidden: nextHidden })
+        .eq("id", item.id);
+
+      if (error) throw error;
+
+      setListings((prev) =>
+        prev.map((l) => (l.id === item.id && l.itemType === item.itemType ? { ...l, is_hidden: nextHidden } : l))
+      );
+
+      toast({
+        title: nextHidden ? "Listing hidden" : "Listing visible again",
+        description: nextHidden
+          ? `"${item.name}" is now hidden from public view.`
+          : `"${item.name}" is now visible to the public.`,
+      });
+    } catch (err: any) {
+      toast({
+        title: "Update failed",
+        description: err?.message ?? "Could not update visibility.",
+        variant: "destructive",
+      });
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  // ── Filtering ──────────────────────────────────────────────────────────────
+  const filtered = useMemo(() => {
+    let rows = listings;
+    if (filterType !== "all") {
+      rows = rows.filter((l) => l.itemType === filterType);
+    }
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      rows = rows.filter((l) =>
+        [l.name, l.location, l.place, l.country].filter(Boolean).join(" ").toLowerCase().includes(q)
+      );
+    }
+    return rows;
+  }, [listings, filterType, searchQuery]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
+  const currentPage = Math.min(page, totalPages);
+  const pageItems = filtered.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    (currentPage - 1) * ITEMS_PER_PAGE + ITEMS_PER_PAGE
+  );
+
+  const counts = useMemo(() => {
+    return {
+      all: listings.length,
+      trip: listings.filter((l) => l.itemType === "trip").length,
+      event: listings.filter((l) => l.itemType === "event").length,
+      hotel: listings.filter((l) => l.itemType === "hotel").length,
+      adventure_place: listings.filter((l) => l.itemType === "adventure_place").length,
+      hidden: listings.filter((l) => l.is_hidden).length,
+    };
+  }, [listings]);
+
+  return (
+    <div className="min-h-screen bg-[#F4F7FA] pb-24 font-sans">
+      <Header />
+
+      <div className="container mx-auto px-4 py-8 lg:py-12">
+        <header className="mb-6">
+          <h1 className="text-3xl font-bold tracking-tight text-foreground mb-2">Approved Listings</h1>
+          <p className="text-muted-foreground text-sm">
+            Manage visibility of all approved trips, events, hotels and adventure places.
+            {counts.hidden > 0 && (
+              <span className="ml-1 font-semibold text-red-500">
+                {counts.hidden} currently hidden from the public.
+              </span>
+            )}
+          </p>
+        </header>
+
+        {/* Filters */}
+        <div className="bg-white rounded-2xl border border-slate-100 p-4 mb-5 space-y-4">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by name or location..."
+                className="pl-9 h-11 rounded-xl border-slate-200"
+              />
+            </div>
+
+            {/* Mobile: select dropdown for type */}
+            <div className="sm:hidden">
+              <Select value={filterType} onValueChange={(v) => setFilterType(v as FilterType)}>
+                <SelectTrigger className="h-11 rounded-xl border-slate-200 font-semibold">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-white rounded-xl">
+                  <SelectItem value="all">All Types ({counts.all})</SelectItem>
+                  <SelectItem value="trip">Trips ({counts.trip})</SelectItem>
+                  <SelectItem value="event">Events ({counts.event})</SelectItem>
+                  <SelectItem value="hotel">Hotels ({counts.hotel})</SelectItem>
+                  <SelectItem value="adventure_place">Adventure Places ({counts.adventure_place})</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Desktop: pill filters */}
+          <div className="hidden sm:flex items-center gap-2 overflow-x-auto pb-0.5">
+            <FilterPill active={filterType === "all"} onClick={() => setFilterType("all")}>
+              All ({counts.all})
+            </FilterPill>
+            <FilterPill active={filterType === "trip"} onClick={() => setFilterType("trip")}>
+              Trips ({counts.trip})
+            </FilterPill>
+            <FilterPill active={filterType === "event"} onClick={() => setFilterType("event")}>
+              Events ({counts.event})
+            </FilterPill>
+            <FilterPill active={filterType === "hotel"} onClick={() => setFilterType("hotel")}>
+              Hotels ({counts.hotel})
+            </FilterPill>
+            <FilterPill active={filterType === "adventure_place"} onClick={() => setFilterType("adventure_place")}>
+              Adventure Places ({counts.adventure_place})
+            </FilterPill>
+          </div>
+        </div>
+
+        {/* List */}
+        <main className="space-y-3">
+          {isLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-[88px] w-full rounded-2xl" />
+              ))}
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="bg-white rounded-[32px] p-16 text-center border border-slate-100">
+              <Inbox className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+              <p className="text-slate-400 font-semibold">
+                {searchQuery || filterType !== "all" ? "No listings match your filters." : "No approved listings yet."}
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="grid gap-3">
+                {pageItems.map((item) => (
+                  <ListingCard
+                    key={`${item.itemType}-${item.id}`}
+                    item={item}
+                    onToggleVisibility={requestToggleVisibility}
+                    isUpdating={updatingId === item.id}
+                  />
+                ))}
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between pt-4">
+                  <p className="text-xs font-semibold text-slate-400">
+                    Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}–
+                    {Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)} of {filtered.length}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={currentPage === 1}
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      className="rounded-xl h-9 w-9 p-0"
+                      aria-label="Previous page"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="text-xs font-bold text-slate-600 px-2">
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={currentPage === totalPages}
+                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      className="rounded-xl h-9 w-9 p-0"
+                      aria-label="Next page"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </main>
+      </div>
+
+      {/* Confirm dialog */}
+      <AlertDialog open={!!pendingItem} onOpenChange={(open) => !open && setPendingItem(null)}>
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pendingItem?.is_hidden ? "Show this listing?" : "Hide this listing?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingItem?.is_hidden ? (
+                <>
+                  <span className="font-semibold text-slate-700">"{pendingItem?.name}"</span> will become
+                  visible to the public again on the site.
+                </>
+              ) : (
+                <>
+                  <span className="font-semibold text-slate-700">"{pendingItem?.name}"</span> will be hidden
+                  from the public immediately. Users will no longer be able to find or view this listing,
+                  but it will remain in the database and can be made visible again at any time.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmToggleVisibility}
+              className={`rounded-xl ${
+                pendingItem?.is_hidden
+                  ? "bg-emerald-600 hover:bg-emerald-700"
+                  : "bg-red-500 hover:bg-red-600"
+              }`}
+            >
+              {pendingItem?.is_hidden ? "Show Listing" : "Hide Listing"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Footer />
+      <MobileBottomBar />
+    </div>
+  );
+};
+
+export default AdminApproved;

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { MobileBottomBar } from "@/components/MobileBottomBar";
@@ -77,18 +78,28 @@ const FilterPill = ({
 
 // ─── Listing Row Card ─────────────────────────────────────────────────────────
 const ListingCard = ({
-  item, onToggleVisibility, isUpdating,
+  item, onToggleVisibility, isUpdating, onOpenReview,
 }: {
   item: ListingRow;
   onToggleVisibility: (item: ListingRow) => void;
   isUpdating: boolean;
+  onOpenReview: (item: ListingRow) => void;
 }) => {
   const badge = TYPE_BADGE_COLORS[item.itemType];
   const detailHref = createDetailPath(item.itemType, item.id, item.name, item.location || "");
 
   return (
     <div
-      className={`flex items-center gap-3 bg-white p-3 sm:p-4 rounded-2xl border transition-all ${
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpenReview(item)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpenReview(item);
+        }
+      }}
+      className={`flex items-center gap-3 bg-white p-3 sm:p-4 rounded-2xl border transition-all cursor-pointer hover:shadow-md hover:border-slate-200 ${
         item.is_hidden ? "border-red-100 bg-red-50/30" : "border-slate-100"
       }`}
     >
@@ -128,8 +139,10 @@ const ListingCard = ({
           href={detailHref}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
           className="h-9 w-9 rounded-full bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-slate-400 transition-all"
-          aria-label="View listing"
+          aria-label="View live listing"
+          title="View live public page"
         >
           <ExternalLink size={14} />
         </a>
@@ -139,7 +152,10 @@ const ListingCard = ({
           size="sm"
           variant="outline"
           disabled={isUpdating}
-          onClick={() => onToggleVisibility(item)}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleVisibility(item);
+          }}
           className={`rounded-xl text-[11px] font-bold gap-1.5 h-9 ${
             item.is_hidden
               ? "border-emerald-200 text-emerald-600 hover:bg-emerald-50"
@@ -163,6 +179,7 @@ const ListingCard = ({
 // ─── Main Component ───────────────────────────────────────────────────────────
 const AdminApproved = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const [listings, setListings] = useState<ListingRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -176,6 +193,15 @@ const AdminApproved = () => {
 
   const [rlsSuspected, setRlsSuspected] = useState(false);
   const [debugInfo, setDebugInfo] = useState<{ tripsCount: number; adventuresCount: number } | null>(null);
+
+  // Navigate to the same admin review/approve page used for pending items.
+  // AdminReviewDetail reads useParams() as { itemType, id }, and itemType
+  // must be one of "trip" | "event" | "hotel" | "adventure" | "adventure_place".
+  // Our ListingRow.itemType is already "trip" or "adventure_place", which
+  // matches AdminReviewDetail's checks directly — no transform needed.
+  const onOpenReview = useCallback((item: ListingRow) => {
+    navigate(`/admin/review/${item.itemType}/${item.id}`);
+  }, [navigate]);
 
   const fetchAllApproved = useCallback(async () => {
     setIsLoading(true);
@@ -502,6 +528,7 @@ create policy "Admins can view all adventure places"
                     item={item}
                     onToggleVisibility={requestToggleVisibility}
                     isUpdating={updatingId === item.id}
+                    onOpenReview={onOpenReview}
                   />
                 ))}
               </div>

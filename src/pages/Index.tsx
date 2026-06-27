@@ -215,7 +215,7 @@ GridSection.displayName = "GridSection";
 
 // ── Category cards ────────────────────────────────────────────────────────────
 const CATEGORIES = [
-  { icon: Tent,     title: "Adventures",   path: "/category/campsite", bgImage: "/images/category-adventures.jpg" },
+  { icon: Tent,     title: "Experiences & stays",   path: "/category/campsite", bgImage: "/images/category-adventures.jpg" },
   { icon: Calendar, title: "Trips",        path: "/category/trips",    bgImage: "/images/category-trips.jpg"      },
   { icon: MapPin,   title: "Guided Tours", path: "/category/guided",   bgImage: "/images/guided.png"        },
 ];

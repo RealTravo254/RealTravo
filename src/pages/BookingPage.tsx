@@ -217,6 +217,7 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
     y += rowH + 4;
   };
 
+  // ── HEADER BANNER ────────────────────────────────────────────
   doc.setFillColor(...TEAL_RGB);
   doc.rect(0, 0, W, 96, "F");
   doc.setFillColor(...CORAL_RGB);
@@ -298,7 +299,8 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
     tableHeader("TICKET TYPE", "SUBTOTAL");
     ticketSelections.forEach((t: any) => {
       const qty = t.quantity || 1;
-      tableRow(t.name, fmtMoney(t.price * qty), `${qty} person${qty > 1 ? "s" : ""} × ${fmtMoney(t.price)} per ticket`);
+      tableRow(t.name, fmtMoney(t.price * qty),
+        `${qty} person${qty > 1 ? "s" : ""} × ${fmtMoney(t.price)} per ticket`);
     });
     y += 6;
   }
@@ -308,7 +310,8 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
     tableHeader("ACTIVITY  /  PEOPLE", "SUBTOTAL");
     selectedActivities.forEach((a: any) => {
       const ppl = a.numberOfPeople || a.number_of_people || 1;
-      tableRow(a.name, fmtMoney((a.price || 0) * ppl), `${ppl} person${ppl > 1 ? "s" : ""} × ${fmtMoney(a.price || 0)} per person`);
+      tableRow(a.name, fmtMoney((a.price || 0) * ppl),
+        `${ppl} person${ppl > 1 ? "s" : ""} × ${fmtMoney(a.price || 0)} per person`);
     });
     y += 6;
   }
@@ -421,16 +424,16 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
   doc.setFontSize(7);
   doc.text("Thank you for booking with Realtravo!  ·  support@realtravo.com", W / 2, footerY + 18, { align: "center" });
   doc.text(`Booking Ref: ${reference}`, W / 2, footerY + 30, { align: "center" });
-
   doc.save(`realtravo-booking-${reference.slice(0, 8)}.pdf`);
 };
 
-// ── Portal header — safe zone aware ──────────────────────────────────────────
+// ── Portal header — teal with safe zone ──────────────────────────────────────
 const PaystackFloatingHeader = ({ itemName, onBack }: { itemName: string; onBack: () => void }) =>
   createPortal(
     <div style={{
       position: "fixed", top: 0, left: 0, right: 0, zIndex: 2147483647,
-      pointerEvents: "auto", backgroundColor: "#008080",
+      pointerEvents: "auto",
+      backgroundColor: "#008080",
       borderBottom: "1px solid rgba(255,255,255,0.15)",
       boxShadow: "0 1px 8px rgba(0,0,0,0.12)",
       // ✅ Safe zone: teal fills status bar area
@@ -441,22 +444,40 @@ const PaystackFloatingHeader = ({ itemName, onBack }: { itemName: string; onBack
       <button onClick={onBack} aria-label="Back to checkout" style={{
         width: 36, height: 36, borderRadius: "50%",
         backgroundColor: "rgba(255,255,255,0.2)",
-        border: "none", cursor: "pointer", display: "flex", alignItems: "center",
-        justifyContent: "center", flexShrink: 0, transition: "background-color 0.15s",
+        border: "none", cursor: "pointer", display: "flex",
+        alignItems: "center", justifyContent: "center",
+        flexShrink: 0, transition: "background-color 0.15s",
       }}
         onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.3)")}
         onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.2)")}>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+          stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <polyline points="15 18 9 12 15 6" />
         </svg>
       </button>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ margin: 0, fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.7)", textTransform: "uppercase", letterSpacing: "0.08em", lineHeight: 1.2 }}>Back to Checkout</p>
-        <p style={{ margin: 0, fontSize: 15, fontWeight: 900, color: "#ffffff", textTransform: "uppercase", letterSpacing: "-0.03em", lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{itemName}</p>
+        <p style={{ margin: 0, fontSize: 10, fontWeight: 700,
+          color: "rgba(255,255,255,0.75)", textTransform: "uppercase",
+          letterSpacing: "0.08em", lineHeight: 1.2 }}>
+          Back to Checkout
+        </p>
+        <p style={{ margin: 0, fontSize: 15, fontWeight: 900,
+          color: "#ffffff", textTransform: "uppercase",
+          letterSpacing: "-0.03em", lineHeight: 1.2,
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {itemName}
+        </p>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 5, backgroundColor: "rgba(255,255,255,0.2)", color: "#ffffff", fontSize: 11, fontWeight: 700, padding: "6px 12px", borderRadius: 999, flexShrink: 0 }}>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="2" y="5" width="20" height="14" rx="2" /><line x1="2" y1="10" x2="22" y2="10" />
+      <div style={{
+        display: "flex", alignItems: "center", gap: 5,
+        backgroundColor: "rgba(255,255,255,0.2)", color: "#ffffff",
+        fontSize: 11, fontWeight: 700, padding: "6px 12px",
+        borderRadius: 999, flexShrink: 0,
+      }}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="2" y="5" width="20" height="14" rx="2" />
+          <line x1="2" y1="10" x2="22" y2="10" />
         </svg>
         Secure Pay
       </div>
@@ -465,7 +486,6 @@ const PaystackFloatingHeader = ({ itemName, onBack }: { itemName: string; onBack
   );
 
 // ── Main page ─────────────────────────────────────────────────────────────────
-
 const BookingPage = () => {
   const { type, id } = useParams<{ type: string; id: string }>();
   const navigate     = useNavigate();
@@ -473,14 +493,14 @@ const BookingPage = () => {
   const { toast }    = useToast();
   const { user }     = useAuth();
 
-  const [item, setItem]                         = useState<any>(null);
-  const [loading, setLoading]                   = useState(true);
-  const [isProcessing, setIsProcessing]         = useState(false);
-  const [isVerifying, setIsVerifying]           = useState(false);
-  const [isCompleted, setIsCompleted]           = useState(false);
-  const [searchParams]                          = useSearchParams();
+  const [item, setItem]                           = useState<any>(null);
+  const [loading, setLoading]                     = useState(true);
+  const [isProcessing, setIsProcessing]           = useState(false);
+  const [isVerifying, setIsVerifying]             = useState(false);
+  const [isCompleted, setIsCompleted]             = useState(false);
+  const [searchParams]                            = useSearchParams();
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
-  const [paymentReference, setPaymentReference] = useState("");
+  const [paymentReference, setPaymentReference]   = useState("");
   const [completedBookingData, setCompletedBookingData] = useState<any>(null);
 
   const { initiatePayment, launchPaystack, isLoading: isPaymentLoading, showPaystackContainer } =
@@ -508,14 +528,20 @@ const BookingPage = () => {
     }
   }, [showPaystackContainer, launchPaystack]);
 
+  // ✅ Safe-zone-aware body padding when Paystack iframe is active
   useEffect(() => {
-    if (showPaystackContainer && !isCompleted && !isVerifying)
+    if (showPaystackContainer && !isCompleted && !isVerifying) {
       document.body.style.paddingTop = "calc(64px + env(safe-area-inset-top, 0px))";
-    else document.body.style.paddingTop = "";
+    } else {
+      document.body.style.paddingTop = "";
+    }
     return () => { document.body.style.paddingTop = ""; };
   }, [showPaystackContainer, isCompleted, isVerifying]);
 
-  useEffect(() => { if (id && type) fetchItem(); window.scrollTo(0, 0); }, [id, type]);
+  useEffect(() => {
+    if (id && type) fetchItem();
+    window.scrollTo(0, 0);
+  }, [id, type]);
 
   const fetchItem = async () => {
     if (!id || !type) return;
@@ -528,16 +554,16 @@ const BookingPage = () => {
           "id,name,location,place,country,image_url,date,is_custom_date," +
           "is_flexible_date,slot_limit_type,price,price_child,available_tickets," +
           "description,activities,phone_number,email,created_by,opening_hours," +
-          "closing_hours,days_opened,type,approval_status,is_hidden,ticket_types,allow_children," +
-          "event_category,inclusions,exclusions"
+          "closing_hours,days_opened,type,approval_status,is_hidden,ticket_types," +
+          "allow_children,event_category,inclusions,exclusions"
         ).eq("id", id).maybeSingle();
         data = r.data; error = r.error;
       } else if (type === "adventure_place" || type === "adventure") {
         const r = await supabase.from("adventure_places").select(
           "id,name,location,place,country,image_url,description,amenities," +
           "facilities,activities,phone_numbers,email,opening_hours,closing_hours," +
-          "days_opened,approval_status,is_hidden,entry_fee,entry_fee_type,available_slots,created_by," +
-          "registration_number,entry_fee_type"
+          "days_opened,approval_status,is_hidden,entry_fee,entry_fee_type," +
+          "available_slots,created_by,registration_number"
         ).eq("id", id).maybeSingle();
         data = r.data; error = r.error;
       } else if (type === "hotel") {
@@ -550,14 +576,25 @@ const BookingPage = () => {
         data = r.data; error = r.error;
       }
 
-      if (error) { toast({ title: "Item not found", description: "Could not load booking details.", variant: "destructive" }); navigate(-1); return; }
-      if (!data)  { toast({ title: "Item not found", description: "The item you're trying to book doesn't exist.", variant: "destructive" }); navigate(-1); return; }
+      if (error) {
+        toast({ title: "Item not found", description: "Could not load booking details.", variant: "destructive" });
+        navigate(-1); return;
+      }
+      if (!data) {
+        toast({ title: "Item not found", description: "The item you're trying to book doesn't exist.", variant: "destructive" });
+        navigate(-1); return;
+      }
       if (data.is_hidden || (data.approval_status && data.approval_status !== "approved")) {
-        toast({ title: "Unavailable", description: "This item is not currently available for booking.", variant: "destructive" }); navigate("/"); return;
+        toast({ title: "Unavailable", description: "This item is not currently available for booking.", variant: "destructive" });
+        navigate("/"); return;
       }
       setItem(data);
-    } catch { toast({ title: "Item not found", variant: "destructive" }); navigate(-1); }
-    finally { setLoading(false); }
+    } catch {
+      toast({ title: "Item not found", variant: "destructive" });
+      navigate(-1);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getBookingType = (): BookingType => {
@@ -592,21 +629,25 @@ const BookingPage = () => {
     setIsProcessing(true);
     try {
       let totalAmount = 0;
-      const bookingType   = getBookingType();
+      const bookingType    = getBookingType();
       const isFacilityOnly = searchParams.get("skipToFacility") === "true";
 
       if (type === "trip" || type === "event") {
         if (formData.ticketSelections?.length) {
           formData.ticketSelections.forEach((t) => (totalAmount += t.price * t.quantity));
         } else {
-          totalAmount = formData.num_adults * item.price + formData.num_children * (item.price_child || 0);
+          totalAmount = formData.num_adults * item.price +
+            formData.num_children * (item.price_child || 0);
         }
       } else if (type === "adventure_place" || type === "adventure") {
-        if (!isFacilityOnly) totalAmount = (formData.num_adults + formData.num_children) * (item.entry_fee || 0);
+        if (!isFacilityOnly)
+          totalAmount = (formData.num_adults + formData.num_children) * (item.entry_fee || 0);
         formData.selectedActivities?.forEach((a) => (totalAmount += a.price * a.numberOfPeople));
         formData.selectedFacilities?.forEach((f) => {
           if (f.startDate && f.endDate) {
-            const days = Math.ceil((new Date(f.endDate).getTime() - new Date(f.startDate).getTime()) / 86400000);
+            const days = Math.ceil(
+              (new Date(f.endDate).getTime() - new Date(f.startDate).getTime()) / 86400000
+            );
             totalAmount += f.price * Math.max(days, 1);
           }
         });
@@ -614,7 +655,9 @@ const BookingPage = () => {
         formData.selectedActivities?.forEach((a) => (totalAmount += a.price * a.numberOfPeople));
         formData.selectedFacilities?.forEach((f) => {
           if (f.startDate && f.endDate) {
-            const days = Math.ceil((new Date(f.endDate).getTime() - new Date(f.startDate).getTime()) / 86400000);
+            const days = Math.ceil(
+              (new Date(f.endDate).getTime() - new Date(f.startDate).getTime()) / 86400000
+            );
             totalAmount += f.price * Math.max(days, 1);
           }
         });
@@ -625,51 +668,56 @@ const BookingPage = () => {
         : formData.num_adults + formData.num_children;
 
       let visitDate = formData.visit_date || item.date;
-      if (isFacilityOnly && formData.selectedFacilities?.length && formData.selectedFacilities[0].startDate)
+      if (isFacilityOnly && formData.selectedFacilities?.length &&
+          formData.selectedFacilities[0].startDate) {
         visitDate = formData.selectedFacilities[0].startDate;
+      }
 
-      const hostContact              = getHostContact();
+      const hostContact = getHostContact();
       const { typeLabel, contactLabel } = getBookingMeta(bookingType, formData);
 
       const bookingData = {
-        item_id:      item.id,
-        booking_type: bookingType,
-        type_label:   typeLabel,
+        item_id:       item.id,
+        booking_type:  bookingType,
+        type_label:    typeLabel,
         contact_label: contactLabel,
-        total_amount: totalAmount,
+        total_amount:  totalAmount,
         booking_details: {
           ...formData,
-          item_name:      item.name,
-          name:           item.name,
-          location:       item.location,
-          place:          item.place,
-          country:        item.country,
-          opening_hours:  item.opening_hours  || "",
-          closing_hours:  item.closing_hours  || "",
-          days_opened:    item.days_opened    || [],
-          email:          item.email          || "",
-          phone_number:   item.phone_number   || "",
-          phone_numbers:  item.phone_numbers  || [],
-          event_category: item.event_category || "",
+          item_name:           item.name,
+          name:                item.name,
+          location:            item.location,
+          place:               item.place,
+          country:             item.country,
+          opening_hours:       item.opening_hours       || "",
+          closing_hours:       item.closing_hours       || "",
+          days_opened:         item.days_opened         || [],
+          email:               item.email               || "",
+          phone_number:        item.phone_number        || "",
+          phone_numbers:       item.phone_numbers       || [],
+          event_category:      item.event_category      || "",
           registration_number: item.registration_number || "",
-          entry_fee_type: item.entry_fee_type || "",
-          is_facility_only: isFacilityOnly,
-          adults:    formData.num_adults,
-          children:  formData.num_children,
-          facilities: formData.selectedFacilities,
-          activities: formData.selectedActivities,
+          entry_fee_type:      item.entry_fee_type      || "",
+          is_facility_only:    isFacilityOnly,
+          adults:              formData.num_adults,
+          children:            formData.num_children,
+          // ✅ Stored in both keys so DB queries and PDF both find them
+          facilities:          formData.selectedFacilities,
+          selectedFacilities:  formData.selectedFacilities,
+          activities:          formData.selectedActivities,
+          selectedActivities:  formData.selectedActivities,
         },
-        user_id:          user?.id || null,
-        is_guest_booking: !user,
-        guest_name:       formData.guest_name,
-        guest_email:      formData.guest_email,
-        guest_phone:      formData.guest_phone || "",
-        visit_date:       visitDate,
-        slots_booked:     slotsBooked,
-        host_id:          item.created_by,
+        user_id:              user?.id || null,
+        is_guest_booking:     !user,
+        guest_name:           formData.guest_name,
+        guest_email:          formData.guest_email,
+        guest_phone:          formData.guest_phone || "",
+        visit_date:           visitDate,
+        slots_booked:         slotsBooked,
+        host_id:              item.created_by,
         referral_tracking_id: getReferralTrackingId(),
-        host_phone: hostContact.phone,
-        host_email: hostContact.email,
+        host_phone:           hostContact.phone,
+        host_email:           hostContact.email,
         emailData: {
           itemName:     item.name,
           typeLabel,
@@ -687,18 +735,25 @@ const BookingPage = () => {
   };
 
   const handlePaystackBack = () => {
-    setIsProcessing(false); setIsVerifying(false);
+    setIsProcessing(false);
+    setIsVerifying(false);
     window.location.reload();
   };
 
+  // ── Loading screen ────────────────────────────────────────────
   if (loading) {
     return (
       <div
-        className="flex flex-col items-center justify-center min-h-screen bg-[#008080]"
-        style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
+        className="flex flex-col items-center justify-center min-h-screen"
+        style={{
+          backgroundColor: "#008080",
+          paddingTop: "env(safe-area-inset-top, 0px)",
+        }}
       >
         <Loader2 className="h-10 w-10 animate-spin text-white mb-4" />
-        <p className="text-sm font-black uppercase tracking-tighter animate-pulse text-white">Loading...</p>
+        <p className="text-sm font-black uppercase tracking-tighter animate-pulse text-white">
+          Loading...
+        </p>
       </div>
     );
   }
@@ -707,15 +762,15 @@ const BookingPage = () => {
 
   const getMultiStepProps = () => {
     const baseProps = {
-      onSubmit: handleBookingSubmit,
-      isProcessing: isProcessing || isPaymentLoading,
+      onSubmit:         handleBookingSubmit,
+      isProcessing:     isProcessing || isPaymentLoading,
       isCompleted,
-      itemName:  item.name,
-      itemId:    item.id,
-      hostId:    item.created_by || "",
+      itemName:         item.name,
+      itemId:           item.id,
+      hostId:           item.created_by || "",
       onPaymentSuccess: () => setIsCompleted(true),
-      primaryColor: COLORS.TEAL,
-      accentColor:  COLORS.CORAL,
+      primaryColor:     COLORS.TEAL,
+      accentColor:      COLORS.CORAL,
       separateActivitiesAndFacilities: true,
     };
 
@@ -724,41 +779,48 @@ const BookingPage = () => {
         ? (item.ticket_types as any[]).map((t: any) => ({ name: t.name, price: Number(t.price) }))
         : [];
       return {
-        ...baseProps, bookingType: type,
-        priceAdult: item.price, priceChild: item.price_child,
-        activities: item.activities || [],
+        ...baseProps,
+        bookingType:       type,
+        priceAdult:        item.price,
+        priceChild:        item.price_child,
+        activities:        item.activities || [],
         skipFacilitiesAndActivities: true,
         skipDateSelection: !item.is_custom_date && !item.is_flexible_date,
-        fixedDate: item.is_flexible_date ? "" : item.date,
-        totalCapacity: item.available_tickets || 0,
-        slotLimitType: item.slot_limit_type || (item.is_flexible_date ? "per_booking" : "inventory"),
-        isFlexibleDate: item.is_flexible_date || false,
-        ticketTypes:   parsedTicketTypes,
-        allowChildren: item.allow_children !== false,
+        fixedDate:         item.is_flexible_date ? "" : item.date,
+        totalCapacity:     item.available_tickets || 0,
+        slotLimitType:     item.slot_limit_type || (item.is_flexible_date ? "per_booking" : "inventory"),
+        isFlexibleDate:    item.is_flexible_date || false,
+        ticketTypes:       parsedTicketTypes,
+        allowChildren:     item.allow_children !== false,
       };
     }
 
     if (type === "adventure_place" || type === "adventure") {
       return {
-        ...baseProps, bookingType: "adventure_place",
-        priceAdult: item.entry_fee || 0, priceChild: item.entry_fee || 0,
-        entranceType: item.entry_fee_type || "paid",
-        facilities:   item.facilities    || [],
-        activities:   item.activities    || [],
+        ...baseProps,
+        bookingType:   "adventure_place",
+        priceAdult:    item.entry_fee || 0,
+        priceChild:    item.entry_fee || 0,
+        entranceType:  item.entry_fee_type || "paid",
+        facilities:    item.facilities    || [],
+        activities:    item.activities    || [],
         totalCapacity: item.available_slots || 0,
-        workingDays:  item.days_opened   || [],
+        workingDays:   item.days_opened   || [],
         skipDateSelection: false,
       };
     }
 
     if (type === "hotel") {
       return {
-        ...baseProps, bookingType: "hotel",
-        priceAdult: 0, priceChild: 0, entranceType: "free",
-        facilities:   item.facilities   || [],
-        activities:   item.activities   || [],
+        ...baseProps,
+        bookingType:   "hotel",
+        priceAdult:    0,
+        priceChild:    0,
+        entranceType:  "free",
+        facilities:    item.facilities   || [],
+        activities:    item.activities   || [],
         totalCapacity: item.available_rooms || 0,
-        workingDays:  item.days_opened  || [],
+        workingDays:   item.days_opened  || [],
       };
     }
 
@@ -771,37 +833,49 @@ const BookingPage = () => {
   return (
     <div className="min-h-screen bg-[#F8F9FA]">
 
+      {/* Paystack floating teal header with safe zone */}
       {paystackIsActive && item && (
         <PaystackFloatingHeader itemName={item.name} onBack={handlePaystackBack} />
       )}
 
-      {/* ✅ Sticky header with safe zone */}
+      {/* ✅ Sticky booking header with safe zone */}
       {!isCompleted && !showPaystackContainer && (
         <div
           className="sticky top-0 z-50 bg-white/80 backdrop-blur-lg border-b border-slate-100"
           style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
         >
           <div className="container max-w-2xl mx-auto px-4 py-4 flex items-center gap-4">
-            <Button variant="ghost" size="icon"
+            <Button
+              variant="ghost" size="icon"
               onClick={() => {
-                if (isProcessing || isVerifying) { setIsProcessing(false); setIsVerifying(false); }
-                else goBack();
+                if (isProcessing || isVerifying) {
+                  setIsProcessing(false); setIsVerifying(false);
+                } else {
+                  goBack();
+                }
               }}
-              className="rounded-full bg-slate-100 hover:bg-slate-200">
+              className="rounded-full bg-slate-100 hover:bg-slate-200"
+            >
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div className="flex-1 min-w-0">
-              <h1 className="text-lg font-black uppercase tracking-tight truncate" style={{ color: COLORS.TEAL }}>
+              <h1
+                className="text-lg font-black uppercase tracking-tight truncate"
+                style={{ color: COLORS.TEAL }}
+              >
                 {isVerifying ? "Checkout" : `Book ${itemTypeLabel} — ${item.name}`}
               </h1>
               <p className="text-xs text-slate-500 truncate">
-                {isVerifying ? "Processing payment..." : `${item.location}, ${item.country}`}
+                {isVerifying
+                  ? "Processing payment..."
+                  : `${item.location}, ${item.country}`}
               </p>
             </div>
           </div>
         </div>
       )}
 
+      {/* Processing / verifying state */}
       {isVerifying && !isCompleted && (
         <div
           className="flex flex-col items-center justify-center min-h-[70vh] px-6"
@@ -810,28 +884,45 @@ const BookingPage = () => {
           <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-6 animate-pulse">
             <Loader2 className="h-10 w-10 animate-spin text-primary" />
           </div>
-          <h2 className="text-xl font-black uppercase tracking-tight text-foreground mb-2 text-center">Processing Your Booking</h2>
-          <p className="text-sm text-muted-foreground text-center max-w-xs">Please wait while we verify your payment and confirm your booking...</p>
+          <h2 className="text-xl font-black uppercase tracking-tight text-foreground mb-2 text-center">
+            Processing Your Booking
+          </h2>
+          <p className="text-sm text-muted-foreground text-center max-w-xs">
+            Please wait while we verify your payment and confirm your booking...
+          </p>
           <div className="mt-6 flex items-center gap-2">
             {[0, 150, 300].map((delay) => (
-              <div key={delay} className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: `${delay}ms` }} />
+              <div
+                key={delay}
+                className="w-2 h-2 rounded-full bg-primary animate-bounce"
+                style={{ animationDelay: `${delay}ms` }}
+              />
             ))}
           </div>
         </div>
       )}
 
+      {/* Paystack inline checkout container */}
       {showPaystackContainer && !isCompleted && !isVerifying && (
         <div className="container max-w-2xl mx-auto px-4 py-6 pb-24">
           <div className="bg-white rounded-[32px] shadow-xl border border-slate-100 overflow-hidden">
             <div className="p-6 border-b border-slate-100">
-              <h2 className="text-lg font-black uppercase tracking-tight mb-1" style={{ color: COLORS.TEAL }}>Complete Payment</h2>
-              <p className="text-xs text-slate-500">Enter your payment details below to complete your booking</p>
+              <h2
+                className="text-lg font-black uppercase tracking-tight mb-1"
+                style={{ color: COLORS.TEAL }}
+              >
+                Complete Payment
+              </h2>
+              <p className="text-xs text-slate-500">
+                Enter your payment details below to complete your booking
+              </p>
             </div>
             <div id="paystack-checkout-container" className="w-full min-h-[400px]" />
           </div>
         </div>
       )}
 
+      {/* Multi-step booking form */}
       {!isCompleted && !isVerifying && !showPaystackContainer && (
         <div className="container max-w-2xl mx-auto px-4 py-6 pb-24">
           <div className="bg-white rounded-[32px] shadow-xl border border-slate-100">

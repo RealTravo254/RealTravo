@@ -174,13 +174,18 @@ const AdminApproved = () => {
   // Confirm-dialog state
   const [pendingItem, setPendingItem] = useState<ListingRow | null>(null);
 
+  const [rlsSuspected, setRlsSuspected] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<{ tripsCount: number; adventuresCount: number } | null>(null);
+
   const fetchAllApproved = useCallback(async () => {
     setIsLoading(true);
+    setRlsSuspected(false);
     try {
-      // NOTE: we don't filter approval_status in the query itself — instead we
-      // pull everything and filter client-side after lower-casing/trimming.
-      // This avoids silently returning 0 rows just because the stored value
-      // is "Approved" / " approved " / etc. instead of an exact "approved".
+      // We deliberately do NOT filter approval_status in the query itself —
+      // we pull everything visible to this client and filter client-side
+      // after lower-casing/trimming. This avoids silently returning 0 rows
+      // just because the stored value is "Approved" / " approved " instead
+      // of an exact "approved".
       const [tripsRes, adventuresRes] = await Promise.all([
         supabase
           .from("trips")
@@ -200,12 +205,30 @@ const AdminApproved = () => {
 
       const tripsRaw = tripsRes.data || [];
       const adventuresRaw = adventuresRes.data || [];
+      setDebugInfo({ tripsCount: tripsRaw.length, adventuresCount: adventuresRaw.length });
 
       // Diagnostics — check your browser console if the page still shows 0 items.
       console.log("[AdminApproved] trips fetched:", tripsRaw.length, "approved:", tripsRaw.filter((t: any) => isApproved(t.approval_status)).length);
       console.log("[AdminApproved] adventure_places fetched:", adventuresRaw.length, "approved:", adventuresRaw.filter((a: any) => isApproved(a.approval_status)).length);
       if (tripsRaw.length > 0) console.log("[AdminApproved] sample trip approval_status value:", JSON.stringify(tripsRaw[0].approval_status));
       if (adventuresRaw.length > 0) console.log("[AdminApproved] sample adventure_place approval_status value:", JSON.stringify(adventuresRaw[0].approval_status));
+
+      // No SQL error AND zero rows from BOTH tables, even though the schema
+      // requires approval_status to default to 'pending' and be NOT NULL
+      // (so rows definitely exist) — this is the fingerprint of Row Level
+      // Security silently filtering everything out for this client/session,
+      // most commonly a `created_by = auth.uid()` style policy that only
+      // lets a host see their own rows.
+      if (tripsRaw.length === 0 && adventuresRaw.length === 0) {
+        setRlsSuspected(true);
+        console.warn(
+          "[AdminApproved] Both tables returned 0 rows with no error. " +
+          "This usually means Row Level Security is blocking this user/session " +
+          "from reading rows it didn't create. Check your RLS policies on " +
+          "'trips' and 'adventure_places' for SELECT — an admin needs a policy " +
+          "that doesn't restrict to created_by = auth.uid()."
+        );
+      }
 
       // Only trips (events excluded entirely)
       const trips: ListingRow[] = tripsRaw
@@ -364,6 +387,55 @@ const AdminApproved = () => {
           </p>
         </header>
 
+        {rlsSuspected && (
+          <div className="mb-5 bg-amber-50 border border-amber-200 rounded-2xl p-4 sm:p-5">
+            <p className="text-sm font-bold text-amber-800 mb-1">
+              No rows came back from either table — this usually means Row Level Security (RLS) is blocking access.
+            </p>
+            <p className="text-xs text-amber-700 leading-relaxed mb-3">
+              Your <code className="bg-amber-100 px-1 rounded">approval_status</code> column is required (not nullable)
+              with a default of <code className="bg-amber-100 px-1 rounded">'pending'</code>, so rows almost certainly
+              exist — Supabase just isn't allowed to return them to this logged-in user. The most common cause is a
+              SELECT policy like <code className="bg-amber-100 px-1 rounded">created_by = auth.uid()</code>, which lets
+              hosts see only their own listings and hides everyone else's from an admin viewing this page.
+            </p>
+            <p className="text-xs text-amber-700 leading-relaxed mb-2 font-semibold">
+              Fix: in Supabase → Authentication → Policies, add (or update) a SELECT policy on both tables so admins
+              can read all rows, e.g.:
+            </p>
+            <pre className="bg-amber-100/80 text-amber-900 text-[11px] rounded-xl p-3 overflow-x-auto">
+{`-- Run in Supabase SQL editor (adjust the admin check to match your schema)
+create policy "Admins can view all trips"
+  on public.trips for select
+  using (
+    auth.uid() in (select id from public.profiles where is_admin = true)
+  );
+
+create policy "Admins can view all adventure places"
+  on public.adventure_places for select
+  using (
+    auth.uid() in (select id from public.profiles where is_admin = true)
+  );`}
+            </pre>
+            <p className="text-[11px] text-amber-600 mt-2">
+              Replace the <code className="bg-amber-100 px-1 rounded">is_admin</code> check with whatever column/table
+              you already use to mark admin users. Also check the browser console for the exact diagnostic log.
+            </p>
+          </div>
+        )}
+
+        {!rlsSuspected && debugInfo && (debugInfo.tripsCount > 0 || debugInfo.adventuresCount > 0) && listings.length === 0 && (
+          <div className="mb-5 bg-amber-50 border border-amber-200 rounded-2xl p-4">
+            <p className="text-sm font-bold text-amber-800">
+              Fetched {debugInfo.tripsCount} trip row(s) and {debugInfo.adventuresCount} adventure place row(s), but
+              none had <code className="bg-amber-100 px-1 rounded">approval_status === "approved"</code>.
+            </p>
+            <p className="text-xs text-amber-700 mt-1">
+              Open the browser console to see the exact stored value for <code className="bg-amber-100 px-1 rounded">approval_status</code> on a sample row.
+            </p>
+          </div>
+        )}
+
         {/* Filters */}
         <div className="bg-white rounded-2xl border border-slate-100 p-4 mb-5 space-y-4">
           <div className="flex flex-col sm:flex-row gap-3">
@@ -517,4 +589,4 @@ const AdminApproved = () => {
   );
 };
 
-export default ApprovedItems;
+export default AdminApproved;

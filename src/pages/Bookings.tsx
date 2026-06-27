@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Header } from "@/components/Header";
 import { MobileBottomBar } from "@/components/MobileBottomBar";
-import { Footer } from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -680,7 +679,7 @@ const RescheduleModal = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 backdrop-blur-sm px-4 pb-6 md:pb-0"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
@@ -1042,7 +1041,7 @@ const Bookings = () => {
           <div className="w-10 h-10 rounded-full border-2 border-teal-200 border-t-teal-600 animate-spin" />
           <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 animate-pulse">Loading…</p>
         </main>
-        <Footer /><MobileBottomBar />
+        <MobileBottomBar />
       </div>
     );
   }
@@ -1110,7 +1109,7 @@ const Bookings = () => {
           </div>
         )}
       </main>
-      <Footer /><MobileBottomBar />
+      <MobileBottomBar />
 
       {rescheduling && (
         <RescheduleModal

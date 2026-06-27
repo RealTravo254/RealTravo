@@ -1,15 +1,27 @@
-// All 47 counties of Kenya
+// All 47 counties of Kenya — ordered by general tourism popularity
+// (capital city, major safari parks, and coastal beach destinations first,
+// down to the least-visited counties).
 export const KENYA_COUNTIES = [
-  "Baringo", "Bomet", "Bungoma", "Busia", "Elgeyo-Marakwet",
-  "Embu", "Garissa", "Homa Bay", "Isiolo", "Kajiado",
-  "Kakamega", "Kericho", "Kiambu", "Kilifi", "Kirinyaga",
-  "Kisii", "Kisumu", "Kitui", "Kwale", "Laikipia",
-  "Lamu", "Machakos", "Makueni", "Mandera", "Marsabit",
-  "Meru", "Migori", "Mombasa", "Murang'a", "Nairobi",
-  "Nakuru", "Nandi", "Narok", "Nyamira", "Nyandarua",
-  "Nyeri", "Samburu", "Siaya", "Taita-Taveta", "Tana River",
-  "Tharaka-Nithi", "Trans-Nzoia", "Turkana", "Uasin Gishu",
-  "Vihiga", "Wajir", "West Pokot"
+  // Capital
+  "Nairobi",
+  // Coastal beach destinations
+  "Mombasa", "Kwale", "Kilifi", "Lamu",
+  // Premier safari / national park counties
+  "Narok", "Kajiado", "Nakuru", "Taita-Taveta", "Laikipia",
+  "Nyeri", "Isiolo", "Samburu", "Meru",
+  // Lakes, tea country & well-known secondary destinations
+  "Kisumu", "Kericho", "Nyandarua", "Uasin Gishu", "Baringo",
+  // Mountain / forest destinations
+  "Trans-Nzoia", "Kakamega", "Bungoma",
+  // Central / commuter counties with moderate tourism
+  "Kiambu", "Murang'a", "Kirinyaga", "Embu", "Tharaka-Nithi",
+  // Eastern / lower-traffic counties
+  "Machakos", "Makueni", "Kitui", "Marsabit", "Turkana",
+  // Western / Nyanza counties
+  "Homa Bay", "Migori", "Kisii", "Nyamira", "Bomet",
+  "Nandi", "Elgeyo-Marakwet", "West Pokot", "Vihiga", "Siaya", "Busia",
+  // North Eastern / least-visited counties
+  "Garissa", "Tana River", "Wajir", "Mandera"
 ];
 
 // County images stored locally
@@ -63,5 +75,5 @@ export const COUNTY_IMAGES: Record<string, string> = {
   "West Pokot": "/images/counties/west-pokot.jpg",
 };
 
-// All 47 counties featured on the index page
+// All 47 counties featured on the index page, in popularity order
 export const FEATURED_COUNTIES = [...KENYA_COUNTIES];

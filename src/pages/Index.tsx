@@ -584,8 +584,8 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       <SEOHead
-        title="Realtravo - Book Trips & Adventures"
-        description="Discover and book exciting trips, events, and adventure experiences. Your gateway to unforgettable travel."
+        title="Realtravo - Accomodation trips, experiences & Adventures"
+        description="Discover and book exciting trips,facilities, stay and adventure experiences. Your gateway to unforgettable travel."
         canonical="https://realtravo.com/"
         ogImage="https://realtravo.com/fulllogo.png"
         jsonLd={{
@@ -816,7 +816,7 @@ const Index = () => {
                       Become a Host
                     </h3>
                     <p className="text-primary-foreground/75 text-sm md:text-base leading-relaxed max-w-md">
-                      List your adventure spot or tour and reach thousands of travellers. It's free to get started.
+                      List your property or experience and reach thousands of travellers. It's free to get started.
                     </p>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-2 shrink-0">

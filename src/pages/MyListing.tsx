@@ -22,6 +22,13 @@ const COLORS = {
 
 const ITEMS_PER_PAGE = 20;
 
+// A booking only counts as a real, completed sale when BOTH are true:
+//   status === "confirmed"  AND  payment_status === "completed"
+// Everything else (cancelled, expired, failed, pending) is noise from
+// abandoned/declined/timed-out payment attempts and should never show
+// up in the host's Sales Feed.
+const isRealBooking = (b: any) => b.status === "confirmed" && b.payment_status === "completed";
+
 const MyListing = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -161,20 +168,31 @@ const MyListing = () => {
       : [...myContent, ...allContent].map(c => c.id);
 
     if (allIds.length > 0) {
+      // NOTE: we filter to confirmed + completed at the query level (not just
+      // client-side) so cancelled/expired/failed/pending rows never even get
+      // pulled down for the host's dashboard. This also means pagination
+      // (range) counts only real bookings, so "Load More" behaves correctly
+      // instead of being thrown off by hidden junk rows.
       const { data } = await supabase
         .from("creator_booking_summary")
         .select("id,item_id,booking_type,status,payment_status,total_amount,created_at")
         .in("item_id", allIds)
+        .eq("status", "confirmed")
+        .eq("payment_status", "completed")
         .order("created_at", { ascending: false })
         .range(bookingsFetchOffset, bookingsFetchOffset + ITEMS_PER_PAGE - 1);
 
+      // Extra client-side safety net in case the view or query shape ever
+      // changes — never let a non-real booking slip into state.
+      const realBookings = (data || []).filter(isRealBooking);
+
       if (bookingsFetchOffset === 0) {
-        setBookings(data || []);
+        setBookings(realBookings);
       } else {
-        setBookings(prev => [...prev, ...(data || [])]);
+        setBookings(prev => [...prev, ...realBookings]);
       }
       setBookingsOffset(bookingsFetchOffset + ITEMS_PER_PAGE);
-      setHasMoreBookings((data || []).length >= ITEMS_PER_PAGE);
+      setHasMoreBookings(realBookings.length >= ITEMS_PER_PAGE);
     }
 
     setLoading(false);
@@ -298,6 +316,9 @@ const MyListing = () => {
   };
 
   const renderBookings = (category: string) => {
+    // bookings state already contains only confirmed+completed rows (filtered
+    // both at the query level and again client-side), so no extra status
+    // filtering is needed here — just split by booking_type for display.
     const items = bookings.filter(b => b.booking_type === category);
 
     if (items.length === 0) {

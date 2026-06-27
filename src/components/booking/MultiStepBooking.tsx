@@ -116,12 +116,15 @@ export const MultiStepBooking = ({
   const [guestName, setGuestName] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
-  const [selectedActivities, setSelectedActivities] = useState
+
+  // ── FIX: restored missing opening < on both useState generics ──
+  const [selectedActivities, setSelectedActivities] = useState<
     { name: string; price: number; numberOfPeople: number }[]
   >([]);
-  const [selectedFacilities, setSelectedFacilities] = useState
+  const [selectedFacilities, setSelectedFacilities] = useState<
     { name: string; price: number; startDate?: string; endDate?: string }[]
   >([]);
+
   const [isFacilityOnlyMode, setIsFacilityOnlyMode] = useState(false);
   const [ticketSelections, setTicketSelections] = useState<{ name: string; price: number; quantity: number }[]>(
     ticketTypes.map(t => ({ name: t.name, price: t.price, quantity: 0 }))
@@ -129,7 +132,6 @@ export const MultiStepBooking = ({
   const [facilityBookedRanges, setFacilityBookedRanges] = useState<Record<string, { startDate: string; endDate: string }[]>>({});
   const [dateConflictWarning, setDateConflictWarning] = useState<string | null>(null);
 
-  // ✅ NEW: live availability check state
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   const [availabilityError, setAvailabilityError] = useState<string | null>(null);
 
@@ -167,28 +169,42 @@ export const MultiStepBooking = ({
     }
   }, [searchParams, facilities]);
 
+  // ── UPDATED: fetchFacilityBookedDates — correct DB filters + both arrays ──
   const fetchFacilityBookedDates = useCallback(async () => {
     if (!itemId || facilities.length === 0) return;
     try {
       const { data } = await supabase
         .from("bookings")
-        .select("booking_details")
+        .select("id, booking_details")
         .eq("item_id", itemId)
-        .in("status", ["confirmed", "pending"])
-        .neq("payment_status", "failed");
+        .eq("status", "confirmed")
+        .eq("payment_status", "completed");
 
       const rangesMap: Record<string, { startDate: string; endDate: string }[]> = {};
+
       data?.forEach((booking: any) => {
         const details = booking.booking_details;
-        if (!details?.facilities) return;
-        const bFacilities = Array.isArray(details.facilities) ? details.facilities : [];
-        bFacilities.forEach((f: any) => {
-          if (f.name && f.startDate && f.endDate) {
+        if (!details) return;
+
+        // Check both arrays — DB saves to both selectedFacilities and facilities
+        const allFacilityArrays = [
+          ...(Array.isArray(details.selectedFacilities) ? details.selectedFacilities : []),
+          ...(Array.isArray(details.facilities) ? details.facilities : []),
+        ];
+
+        allFacilityArrays.forEach((f: any) => {
+          if (f?.name && f?.startDate && f?.endDate) {
             if (!rangesMap[f.name]) rangesMap[f.name] = [];
-            rangesMap[f.name].push({ startDate: f.startDate, endDate: f.endDate });
+            const alreadyExists = rangesMap[f.name].some(
+              r => r.startDate === f.startDate && r.endDate === f.endDate
+            );
+            if (!alreadyExists) {
+              rangesMap[f.name].push({ startDate: f.startDate, endDate: f.endDate });
+            }
           }
         });
       });
+
       setFacilityBookedRanges(rangesMap);
     } catch (err) {
       console.error("Error fetching facility booked dates:", err);
@@ -210,7 +226,7 @@ export const MultiStepBooking = ({
     return !ranges.some(r => startDate < r.endDate && endDate > r.startDate);
   }, [facilityBookedRanges]);
 
-  // ✅ NEW: Re-query DB fresh before allowing proceed from facilities step
+  // ── UPDATED: checkFacilityAvailabilityLive — correct filters + both arrays + dedup ──
   const checkFacilityAvailabilityLive = async (): Promise<boolean> => {
     if (selectedFacilities.length === 0) return true;
     const facilitiesWithDates = selectedFacilities.filter(f => f.startDate && f.endDate);
@@ -222,23 +238,35 @@ export const MultiStepBooking = ({
     try {
       const { data, error } = await supabase
         .from("bookings")
-        .select("booking_details")
+        .select("id, booking_details")
         .eq("item_id", itemId)
-        .in("status", ["confirmed", "pending"])
-        .neq("payment_status", "failed");
+        .eq("status", "confirmed")
+        .eq("payment_status", "completed");
 
       if (error) throw error;
 
-      // Build fresh ranges map from DB
+      // Build fresh ranges from BOTH facility arrays (DB saves to both)
       const freshRanges: Record<string, { startDate: string; endDate: string }[]> = {};
+
       data?.forEach((booking: any) => {
         const details = booking.booking_details;
-        if (!details?.facilities) return;
-        const bFacilities = Array.isArray(details.facilities) ? details.facilities : [];
-        bFacilities.forEach((f: any) => {
-          if (f.name && f.startDate && f.endDate) {
+        if (!details) return;
+
+        const allFacilityArrays = [
+          ...(Array.isArray(details.selectedFacilities) ? details.selectedFacilities : []),
+          ...(Array.isArray(details.facilities) ? details.facilities : []),
+        ];
+
+        allFacilityArrays.forEach((f: any) => {
+          if (f?.name && f?.startDate && f?.endDate) {
             if (!freshRanges[f.name]) freshRanges[f.name] = [];
-            freshRanges[f.name].push({ startDate: f.startDate, endDate: f.endDate });
+            // Avoid duplicate ranges from both arrays
+            const alreadyExists = freshRanges[f.name].some(
+              r => r.startDate === f.startDate && r.endDate === f.endDate
+            );
+            if (!alreadyExists) {
+              freshRanges[f.name].push({ startDate: f.startDate, endDate: f.endDate });
+            }
           }
         });
       });
@@ -246,7 +274,7 @@ export const MultiStepBooking = ({
       // Update local state with fresh data
       setFacilityBookedRanges(freshRanges);
 
-      // Check each selected facility against fresh ranges
+      // Check each selected facility for conflicts
       const conflicts: string[] = [];
       for (const facility of facilitiesWithDates) {
         const ranges = freshRanges[facility.name] || [];
@@ -259,7 +287,8 @@ export const MultiStepBooking = ({
       if (conflicts.length > 0) {
         const names = conflicts.join(", ");
         setAvailabilityError(
-          `Sorry, ${names} ${conflicts.length > 1 ? "are" : "is"} no longer available for your selected dates. Please choose different dates.`
+          `Sorry — ${names} ${conflicts.length > 1 ? "are" : "is"} no longer available for your selected dates. ` +
+          `Please choose different dates.`
         );
         return false;
       }
@@ -267,7 +296,7 @@ export const MultiStepBooking = ({
       return true;
     } catch (err) {
       console.error("Availability check failed:", err);
-      setAvailabilityError("Could not verify availability. Please try again.");
+      setAvailabilityError("Could not verify availability. Please check your connection and try again.");
       return false;
     } finally {
       setIsCheckingAvailability(false);
@@ -333,7 +362,6 @@ export const MultiStepBooking = ({
 
   const currentStepId = steps[currentStep]?.id;
 
-  // ✅ UPDATED: handleNext now checks DB availability for facility steps
   const handleNext = async () => {
     const isFacilityStep =
       currentStepId === "facilities" ||
@@ -344,7 +372,7 @@ export const MultiStepBooking = ({
 
     if (isFacilityStep && hasFacilitiesSelected) {
       const isAvailable = await checkFacilityAvailabilityLive();
-      if (!isAvailable) return; // block navigation if conflict found
+      if (!isAvailable) return;
     }
 
     if (currentStep < steps.length - 1) setCurrentStep(currentStep + 1);
@@ -632,7 +660,6 @@ export const MultiStepBooking = ({
     </div>
   );
 
-  // Is this a facility step?
   const isFacilityStep =
     currentStepId === "facilities" ||
     currentStepId === "step_facilities" ||
@@ -846,15 +873,12 @@ export const MultiStepBooking = ({
               Your booking currently has no payable items. Please select a facility, activity, or ticket so the total amount is above KES 0.
             </div>
           )}
-
-          {/* ✅ Live availability error shown prominently at the top */}
           {availabilityError && (
             <div className="flex items-start gap-2 text-sm text-red-600 bg-red-50 border border-red-200 p-3 rounded-2xl">
               <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
               <span>{availabilityError}</span>
             </div>
           )}
-
           {renderFacilitiesList()}
           {selectedFacilities.filter(f => f.startDate && f.endDate).length > 0 && (
             <div className="p-4 rounded-2xl bg-[#008080]/5 border border-[#008080]/20 flex justify-between items-center">
@@ -882,15 +906,12 @@ export const MultiStepBooking = ({
               Your booking currently has no payable items. Please choose at least one ticket, activity, or facility before continuing.
             </div>
           )}
-
-          {/* ✅ Live availability error */}
           {availabilityError && (
             <div className="flex items-start gap-2 text-sm text-red-600 bg-red-50 border border-red-200 p-3 rounded-2xl">
               <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
               <span>{availabilityError}</span>
             </div>
           )}
-
           {activities.length > 0 && (
             <div>
               <h3 className="font-black text-sm uppercase tracking-tight mb-3" style={{ color: TEAL }}>Activities</h3>
@@ -906,7 +927,7 @@ export const MultiStepBooking = ({
         </div>
       )}
 
-      {/* ── FACILITY-ONLY extras availability error ── */}
+      {/* ── FACILITY-ONLY availability error ── */}
       {currentStepId === "facilities" && availabilityError && (
         <div className="flex items-start gap-2 text-sm text-red-600 bg-red-50 border border-red-200 p-3 rounded-2xl mt-3">
           <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
@@ -1043,7 +1064,6 @@ export const MultiStepBooking = ({
             className="flex-[2] py-6 rounded-2xl text-[11px] font-black uppercase tracking-[0.15em] text-white shadow-xl transition-all active:scale-95 border-none"
             style={{ background: `linear-gradient(135deg, ${TEAL} 0%, ${TEAL_DARK} 100%)`, boxShadow: `0 8px 20px -6px ${TEAL}88` }}
           >
-            {/* ✅ Show spinner while checking availability */}
             {isCheckingAvailability ? (
               <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Checking availability...</>
             ) : (

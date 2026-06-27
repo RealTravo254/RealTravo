@@ -6,15 +6,18 @@ import { ListingCard } from "@/components/ListingCard";
 import { ListingSkeleton } from "@/components/ui/listing-skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { useSavedItems } from "@/hooks/useSavedItems"; 
+import { useSavedItems } from "@/hooks/useSavedItems";
 import { useGeolocation, calculateDistance } from "@/hooks/useGeolocation";
 import { useRatings, sortByRating } from "@/hooks/useRatings";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const TABS = ["All", "Adventure Places", "Guided Trips", "Fixed Trips"] as const;
 type Tab = typeof TABS[number];
-const ITEMS_PER_PAGE = 12;
+
+// How many cards to show initially, and how many more to reveal per "See All" tap
+const INITIAL_VISIBLE_COUNT = 10;
+const LOAD_MORE_COUNT = 10;
+
 const SKELETON_COUNT_MOBILE = 8;
 const SKELETON_COUNT_DESKTOP = 20;
 
@@ -26,7 +29,12 @@ const CountyDetail = () => {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("All");
-  const [currentPage, setCurrentPage] = useState(1);
+
+  // Replaces old page-based pagination: we now track how many items are
+  // currently revealed, and grow that number when "See All" is tapped.
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_COUNT);
+  const [loadingMore, setLoadingMore] = useState(false);
+
   const { savedItems, handleSave } = useSavedItems();
   const { position } = useGeolocation();
   const [isSearchFocusedLocal, setIsSearchFocusedLocal] = useState(false);
@@ -88,54 +96,49 @@ const CountyDetail = () => {
     return result;
   }, [sorted, activeTab, searchQuery]);
 
-  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+  // Whenever the active tab or search query changes, reset back to showing
+  // just the first batch (mirrors the old "reset to page 1" behavior).
+  useEffect(() => {
+    setVisibleCount(INITIAL_VISIBLE_COUNT);
+    setLoadingMore(false);
+  }, [activeTab, searchQuery]);
 
-  const paginatedItems = useMemo(() => {
-    const start = (currentPage - 1) * ITEMS_PER_PAGE;
-    return filtered.slice(start, start + ITEMS_PER_PAGE);
-  }, [filtered, currentPage]);
+  // If the underlying filtered list ever shrinks below what's currently
+  // "visible" (e.g. data refetch), clamp visibleCount so we don't render
+  // past the end of the array.
+  useEffect(() => {
+    setVisibleCount(prev => Math.min(prev, Math.max(filtered.length, INITIAL_VISIBLE_COUNT)));
+  }, [filtered.length]);
 
-  useEffect(() => { setCurrentPage(1); }, [activeTab, searchQuery]);
+  const visibleItems = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
+  const hasMore = visibleCount < filtered.length;
+  const nextBatchSize = Math.min(LOAD_MORE_COUNT, Math.max(filtered.length - visibleCount, 0));
+
+  const handleSeeAll = useCallback(() => {
+    if (loadingMore) return;
+    setLoadingMore(true);
+    // Simulates the next batch "loading" so the skeleton row is visible
+    // briefly before the additional cards are revealed. If this list is
+    // ever backed by real paginated fetches instead of a single upfront
+    // fetch, swap this timeout for the actual fetch-then-append call.
+    window.setTimeout(() => {
+      setVisibleCount(prev => Math.min(prev + LOAD_MORE_COUNT, filtered.length));
+      setLoadingMore(false);
+    }, 500);
+  }, [loadingMore, filtered.length]);
 
   const isFiltering = searchQuery.length > 0 || activeTab !== "All";
   const showSkeleton = loading || (!loading && filtered.length === 0 && !isFiltering);
 
-  const renderPagination = () => {
-    if (totalPages <= 1) return null;
-    const pages: number[] = [];
-    for (let i = 1; i <= totalPages; i++) {
-      if (i === 1 || i === totalPages || (i >= currentPage - 1 && i <= currentPage + 1)) pages.push(i);
-    }
-    const uniquePages = [...new Set(pages)].sort((a, b) => a - b);
-    return (
-      <div className="flex items-center justify-center gap-1 mt-6">
-        <Button variant="ghost" size="icon" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="h-8 w-8 rounded-full">
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        {uniquePages.map((page, idx) => {
-          const prevPage = uniquePages[idx - 1];
-          const showEllipsis = prevPage && page - prevPage > 1;
-          return (
-            <span key={page} className="flex items-center gap-1">
-              {showEllipsis && <span className="text-xs text-muted-foreground px-1">...</span>}
-              <button
-                onClick={() => setCurrentPage(page)}
-                className={cn(
-                  "h-8 w-8 rounded-full text-xs font-bold transition-all",
-                  currentPage === page ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted"
-                )}
-              >
-                {page}
-              </button>
-            </span>
-          );
-        })}
-        <Button variant="ghost" size="icon" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="h-8 w-8 rounded-full">
-          <ChevronRight className="h-4 w-4" />
-        </Button>
+  const renderLoadMoreSkeletons = (count: number) => (
+    <>
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4 mt-3 md:mt-4">
+        {[...Array(count)].map((_, i) => (
+          <div key={`more-skel-${i}`} className="w-full"><ListingSkeleton /></div>
+        ))}
       </div>
-    );
-  };
+    </>
+  );
 
   return (
     <div className="bg-background">
@@ -201,7 +204,7 @@ const CountyDetail = () => {
         ) : (
           <>
             <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
-              {paginatedItems.map(item => {
+              {visibleItems.map(item => {
                 const rd = ratings.get(item.id);
                 return (
                   <ListingCard
@@ -230,7 +233,22 @@ const CountyDetail = () => {
                 );
               })}
             </div>
-            {renderPagination()}
+
+            {/* Skeleton row for the next batch while "See All" is loading */}
+            {loadingMore && renderLoadMoreSkeletons(nextBatchSize || LOAD_MORE_COUNT)}
+
+            {/* See All button — only shown while there's more to reveal */}
+            {hasMore && !loadingMore && (
+              <div className="flex justify-center mt-6">
+                <Button
+                  variant="outline"
+                  onClick={handleSeeAll}
+                  className="rounded-full px-6 font-bold text-sm"
+                >
+                  See All
+                </Button>
+              </div>
+            )}
           </>
         )}
       </main>

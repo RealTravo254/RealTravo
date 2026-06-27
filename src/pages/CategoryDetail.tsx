@@ -5,9 +5,8 @@ import { useSearchFocus } from "@/components/PageLayout";
 import { ListingCard } from "@/components/ListingCard";
 import { ListingSkeleton } from "@/components/ui/listing-skeleton";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { getUserId } from "@/lib/sessionManager"; 
+import { getUserId } from "@/lib/sessionManager";
 import { cn } from "@/lib/utils";
 import { useSavedItems } from "@/hooks/useSavedItems";
 import { useGeolocation, calculateDistance } from "@/hooks/useGeolocation";
@@ -15,7 +14,8 @@ import { useRatings, sortByRating } from "@/hooks/useRatings";
 import { useRealtimeBookings } from "@/hooks/useRealtimeBookings";
 import { KENYA_COUNTIES } from "@/lib/kenyaCounties";
 
-const ITEMS_PER_PAGE = 20;
+// Batch size used both for the initial load and for each "See All" tap
+const ITEMS_PER_PAGE = 10;
 const SKELETON_COUNT_MOBILE = 8;
 const SKELETON_COUNT_DESKTOP = 20;
 
@@ -75,6 +75,9 @@ const CategoryDetail = () => {
     setLoading(false);
   };
 
+  // Triggered by the "See All" button. Fetches the next real batch from
+  // Supabase (server-side pagination via .range()) and appends it — the
+  // skeleton row below stays visible for the duration of this request.
   const loadMore = async () => {
     if (loadingMore || !hasMore) return;
     setLoadingMore(true);
@@ -185,6 +188,10 @@ const CategoryDetail = () => {
   const isFiltering = searchQuery.length > 0 || selectedCounty !== "All";
   const showSkeleton = loading || (!loading && filteredItems.length === 0 && !isFiltering);
 
+  // "See All" should only show once filters are cleared, since it pages
+  // through the server-side dataset rather than the already-filtered list.
+  const showSeeAllButton = !showSkeleton && hasMore && filteredItems.length > 0 && !isFiltering;
+
   if (!config) return <div className="p-10 text-center">Category not found</div>;
 
   return (
@@ -283,6 +290,15 @@ const CategoryDetail = () => {
               })}
             </div>
 
+            {/* Skeleton row for the next batch while "See All" is loading */}
+            {loadingMore && (
+              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4 mt-3 md:mt-4">
+                {[...Array(ITEMS_PER_PAGE)].map((_, i) => (
+                  <div key={`more-skel-${i}`} className="w-full"><ListingSkeleton /></div>
+                ))}
+              </div>
+            )}
+
             {filteredItems.length === 0 && isFiltering && (
               <div className="text-center py-20 text-muted-foreground italic">
                 No items found matching your filters.
@@ -291,18 +307,13 @@ const CategoryDetail = () => {
           </>
         )}
 
-        {!showSkeleton && hasMore && filteredItems.length > 0 && (
+        {showSeeAllButton && !loadingMore && (
           <div className="flex justify-center mt-10">
             <Button
               onClick={loadMore}
-              disabled={loadingMore}
               className="rounded-2xl font-black uppercase text-[10px] tracking-widest h-12 px-8 bg-primary"
             >
-              {loadingMore ? (
-                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Loading...</>
-              ) : (
-                "Load More"
-              )}
+              See All
             </Button>
           </div>
         )}

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Compass, Calendar, Tent, MapPin, ChevronLeft, ChevronRight, Navigation } from "lucide-react";
+import { Compass, Calendar, Tent, MapPin, Navigation } from "lucide-react";
 import { SearchBarWithSuggestions } from "@/components/SearchBarWithSuggestions";
 import { ListingCard } from "@/components/ListingCard";
 import { ListingSkeleton } from "@/components/ui/listing-skeleton";
@@ -20,7 +20,9 @@ const FILTER_TABS = [
   { key: "guided", label: "Guided Tours", icon: Navigation },
 ];
 
-const ITEMS_PER_PAGE = 12;
+// How many cards to show initially, and how many more to reveal per "See All" tap
+const INITIAL_VISIBLE_COUNT = 10;
+const LOAD_MORE_COUNT = 10;
 
 const Explore = () => {
   const navigate = useNavigate();
@@ -29,7 +31,12 @@ const Explore = () => {
   const [listings, setListings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
+
+  // Replaces old page-based pagination: tracks how many items are
+  // currently revealed, growing by LOAD_MORE_COUNT each "See All" tap.
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_COUNT);
+  const [loadingMore, setLoadingMore] = useState(false);
+
   const { savedItems, handleSave } = useSavedItems();
   const { position } = useGeolocation();
 
@@ -53,15 +60,35 @@ const Explore = () => {
     });
   }, [sortedListings, activeFilter]);
 
-  const totalPages = Math.ceil(filteredListings.length / ITEMS_PER_PAGE);
-  const paginatedListings = useMemo(() => {
-    const start = (currentPage - 1) * ITEMS_PER_PAGE;
-    return filteredListings.slice(start, start + ITEMS_PER_PAGE);
-  }, [filteredListings, currentPage]);
-
+  // Whenever the active filter or search query changes, reset back to
+  // showing just the first batch (mirrors the old "reset to page 1" effect).
   useEffect(() => {
-    setCurrentPage(1);
+    setVisibleCount(INITIAL_VISIBLE_COUNT);
+    setLoadingMore(false);
   }, [activeFilter, searchQuery]);
+
+  // If the underlying filtered list ever shrinks below what's currently
+  // "visible" (e.g. a fresh search), clamp visibleCount accordingly.
+  useEffect(() => {
+    setVisibleCount(prev => Math.min(prev, Math.max(filteredListings.length, INITIAL_VISIBLE_COUNT)));
+  }, [filteredListings.length]);
+
+  const visibleListings = useMemo(() => filteredListings.slice(0, visibleCount), [filteredListings, visibleCount]);
+  const hasMore = visibleCount < filteredListings.length;
+  const nextBatchSize = Math.min(LOAD_MORE_COUNT, Math.max(filteredListings.length - visibleCount, 0));
+
+  const handleSeeAll = useCallback(() => {
+    if (loadingMore) return;
+    setLoadingMore(true);
+    // Simulates the next batch "loading" so the skeleton row is visible
+    // briefly before the additional cards are revealed. If this list is
+    // ever backed by real paginated fetches (e.g. supabase .range()) instead
+    // of the single upfront fetch below, swap this timeout for that fetch.
+    window.setTimeout(() => {
+      setVisibleCount(prev => Math.min(prev + LOAD_MORE_COUNT, filteredListings.length));
+      setLoadingMore(false);
+    }, 500);
+  }, [loadingMore, filteredListings.length]);
 
   const fetchAllData = useCallback(async (query?: string) => {
     setLoading(true);
@@ -126,59 +153,13 @@ const Explore = () => {
     </div>
   );
 
-  const renderPagination = () => {
-    if (totalPages <= 1) return null;
-    const pages: number[] = [];
-    for (let i = 1; i <= totalPages; i++) {
-      if (i === 1 || i === totalPages || (i >= currentPage - 1 && i <= currentPage + 1)) {
-        pages.push(i);
-      }
-    }
-    const uniquePages = [...new Set(pages)].sort((a, b) => a - b);
-
-    return (
-      <div className="flex items-center justify-center gap-1 mt-6">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-          disabled={currentPage === 1}
-          className="h-8 w-8 rounded-full"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        {uniquePages.map((page, idx) => {
-          const prevPage = uniquePages[idx - 1];
-          const showEllipsis = prevPage && page - prevPage > 1;
-          return (
-            <span key={page} className="flex items-center gap-1">
-              {showEllipsis && <span className="text-xs text-muted-foreground px-1">...</span>}
-              <button
-                onClick={() => setCurrentPage(page)}
-                className={cn(
-                  "h-8 w-8 rounded-full text-xs font-bold transition-all",
-                  currentPage === page
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted"
-                )}
-              >
-                {page}
-              </button>
-            </span>
-          );
-        })}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-          disabled={currentPage === totalPages}
-          className="h-8 w-8 rounded-full"
-        >
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-      </div>
-    );
-  };
+  const renderLoadMoreSkeletons = (count: number) => (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 mt-3">
+      {[...Array(count)].map((_, i) => (
+        <ListingSkeleton key={`more-skel-${i}`} />
+      ))}
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -243,12 +224,12 @@ const Explore = () => {
 
         {loading ? (
           skeletonGrid
-        ) : paginatedListings.length === 0 ? (
+        ) : visibleListings.length === 0 ? (
           skeletonGrid
         ) : (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-              {paginatedListings.map((listing, index) => {
+              {visibleListings.map((listing, index) => {
                 const ratingData = ratings.get(listing.id);
                 const isTripsOrEvents = listing.type === "TRIP" || listing.type === "EVENT";
                 const today = new Date().toISOString().split('T')[0];
@@ -277,7 +258,22 @@ const Explore = () => {
                 );
               })}
             </div>
-            {renderPagination()}
+
+            {/* Skeleton row for the next batch while "See All" is loading */}
+            {loadingMore && renderLoadMoreSkeletons(nextBatchSize || LOAD_MORE_COUNT)}
+
+            {/* See All button — only shown while there's more to reveal */}
+            {hasMore && !loadingMore && (
+              <div className="flex justify-center mt-6">
+                <Button
+                  variant="outline"
+                  onClick={handleSeeAll}
+                  className="rounded-full px-6 font-bold text-sm"
+                >
+                  See All
+                </Button>
+              </div>
+            )}
           </>
         )}
       </main>

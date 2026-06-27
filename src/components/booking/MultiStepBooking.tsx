@@ -66,7 +66,6 @@ interface MultiStepBookingProps {
   workingDays?: string[];
   ticketTypes?: TicketType[];
   allowChildren?: boolean;
-  // NEW: when true, Activities and Facilities get their own separate steps
   separateActivitiesAndFacilities?: boolean;
 }
 
@@ -74,15 +73,12 @@ const TEAL = "#008080";
 const TEAL_DARK = "#006666";
 const CORAL = "#FF7F50";
 
-// ── Validation helpers ───────────────────────────────────────────────────────
 const isValidEmail = (email: string) =>
   /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim());
 
 const isValidPhone = (phone: string) => {
   const digits = phone.replace(/\s+/g, "");
-  // 10-digit local: must start with 07 or 01
   if (digits.length === 10) return /^(07|01)\d{8}$/.test(digits);
-  // 13-char international: + followed by 12 digits
   if (digits.length === 13) return /^\+\d{12}$/.test(digits);
   return false;
 };
@@ -120,10 +116,10 @@ export const MultiStepBooking = ({
   const [guestName, setGuestName] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
-  const [selectedActivities, setSelectedActivities] = useState<
+  const [selectedActivities, setSelectedActivities] = useState
     { name: string; price: number; numberOfPeople: number }[]
   >([]);
-  const [selectedFacilities, setSelectedFacilities] = useState<
+  const [selectedFacilities, setSelectedFacilities] = useState
     { name: string; price: number; startDate?: string; endDate?: string }[]
   >([]);
   const [isFacilityOnlyMode, setIsFacilityOnlyMode] = useState(false);
@@ -132,6 +128,10 @@ export const MultiStepBooking = ({
   );
   const [facilityBookedRanges, setFacilityBookedRanges] = useState<Record<string, { startDate: string; endDate: string }[]>>({});
   const [dateConflictWarning, setDateConflictWarning] = useState<string | null>(null);
+
+  // ✅ NEW: live availability check state
+  const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
+  const [availabilityError, setAvailabilityError] = useState<string | null>(null);
 
   const hasTicketTypes = ticketTypes.length > 0;
 
@@ -156,22 +156,17 @@ export const MultiStepBooking = ({
   useEffect(() => {
     const facilityName = searchParams.get("facility");
     const skipToFacility = searchParams.get("skipToFacility");
-
     if (facilityName && skipToFacility === "true") {
       setIsFacilityOnlyMode(true);
       const targetFacility = facilities.find(
         f => f.name.toLowerCase() === decodeURIComponent(facilityName).toLowerCase()
       );
       if (targetFacility) {
-        setSelectedFacilities([{
-          name: targetFacility.name,
-          price: targetFacility.price,
-        }]);
+        setSelectedFacilities([{ name: targetFacility.name, price: targetFacility.price }]);
       }
     }
   }, [searchParams, facilities]);
 
-  // Fetch booked date ranges for all facilities
   const fetchFacilityBookedDates = useCallback(async () => {
     if (!itemId || facilities.length === 0) return;
     try {
@@ -215,6 +210,70 @@ export const MultiStepBooking = ({
     return !ranges.some(r => startDate < r.endDate && endDate > r.startDate);
   }, [facilityBookedRanges]);
 
+  // ✅ NEW: Re-query DB fresh before allowing proceed from facilities step
+  const checkFacilityAvailabilityLive = async (): Promise<boolean> => {
+    if (selectedFacilities.length === 0) return true;
+    const facilitiesWithDates = selectedFacilities.filter(f => f.startDate && f.endDate);
+    if (facilitiesWithDates.length === 0) return true;
+
+    setIsCheckingAvailability(true);
+    setAvailabilityError(null);
+
+    try {
+      const { data, error } = await supabase
+        .from("bookings")
+        .select("booking_details")
+        .eq("item_id", itemId)
+        .in("status", ["confirmed", "pending"])
+        .neq("payment_status", "failed");
+
+      if (error) throw error;
+
+      // Build fresh ranges map from DB
+      const freshRanges: Record<string, { startDate: string; endDate: string }[]> = {};
+      data?.forEach((booking: any) => {
+        const details = booking.booking_details;
+        if (!details?.facilities) return;
+        const bFacilities = Array.isArray(details.facilities) ? details.facilities : [];
+        bFacilities.forEach((f: any) => {
+          if (f.name && f.startDate && f.endDate) {
+            if (!freshRanges[f.name]) freshRanges[f.name] = [];
+            freshRanges[f.name].push({ startDate: f.startDate, endDate: f.endDate });
+          }
+        });
+      });
+
+      // Update local state with fresh data
+      setFacilityBookedRanges(freshRanges);
+
+      // Check each selected facility against fresh ranges
+      const conflicts: string[] = [];
+      for (const facility of facilitiesWithDates) {
+        const ranges = freshRanges[facility.name] || [];
+        const hasConflict = ranges.some(
+          r => facility.startDate! < r.endDate && facility.endDate! > r.startDate
+        );
+        if (hasConflict) conflicts.push(facility.name);
+      }
+
+      if (conflicts.length > 0) {
+        const names = conflicts.join(", ");
+        setAvailabilityError(
+          `Sorry, ${names} ${conflicts.length > 1 ? "are" : "is"} no longer available for your selected dates. Please choose different dates.`
+        );
+        return false;
+      }
+
+      return true;
+    } catch (err) {
+      console.error("Availability check failed:", err);
+      setAvailabilityError("Could not verify availability. Please try again.");
+      return false;
+    } finally {
+      setIsCheckingAvailability(false);
+    }
+  };
+
   const getFacilityDateValidationError = (facility: { name: string; startDate?: string; endDate?: string }) => {
     if (!facility.startDate || !facility.endDate) return "Please choose both a start and end date.";
     if (facility.endDate <= facility.startDate) return "Check-out must be after check-in.";
@@ -224,13 +283,8 @@ export const MultiStepBooking = ({
     return "";
   };
 
-  const hasInvalidSelectedFacilityDates = selectedFacilities.some((facility) =>
-    !!getFacilityDateValidationError(facility)
-  );
-
   const calculateTotal = () => {
     let total = 0;
-
     if (!isFacilityOnlyMode) {
       if (hasTicketTypes) {
         ticketSelections.forEach(t => total += t.price * t.quantity);
@@ -238,7 +292,6 @@ export const MultiStepBooking = ({
         total = numAdults * priceAdult + numChildren * priceChild;
       }
     }
-
     selectedActivities.forEach((a) => (total += a.price * a.numberOfPeople));
     selectedFacilities.forEach((f) => {
       if (f.startDate && f.endDate) {
@@ -250,61 +303,55 @@ export const MultiStepBooking = ({
   };
 
   const getTotalTickets = () => ticketSelections.reduce((sum, t) => sum + t.quantity, 0);
-
   const currentTotalAmount = calculateTotal();
   const canSkipExtras = currentTotalAmount > 0 || selectedActivities.length > 0 || selectedFacilities.length > 0 || getTotalTickets() > 0 || (!hasTicketTypes && numAdults + numChildren > 0);
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // STEP DEFINITIONS
-  // ─────────────────────────────────────────────────────────────────────────────
   const steps = [];
-
   if (isFacilityOnlyMode) {
     steps.push({ id: "facilities", title: "Select Dates" });
-    if (activities.length > 0) {
-      steps.push({ id: "activities", title: "Add Activities" });
-    }
-    if (!user) {
-      steps.push({ id: "details", title: "Your Details" });
-    }
+    if (activities.length > 0) steps.push({ id: "activities", title: "Add Activities" });
+    if (!user) steps.push({ id: "details", title: "Your Details" });
     steps.push({ id: "review", title: "Review" });
   } else {
-    if (!skipDateSelection) {
-      steps.push({ id: "date", title: "Select Date" });
-    }
-
+    if (!skipDateSelection) steps.push({ id: "date", title: "Select Date" });
     if (hasTicketTypes) {
       steps.push({ id: "tickets", title: "Select Tickets" });
     } else {
       steps.push({ id: "travelers", title: "Travelers" });
     }
-
     if (!skipFacilitiesAndActivities) {
       if (separateActivitiesAndFacilities) {
-        if (facilities.length > 0) {
-          steps.push({ id: "step_facilities", title: "Facilities" });
-        }
-        if (activities.length > 0) {
-          steps.push({ id: "step_activities", title: "Activities" });
-        }
+        if (facilities.length > 0) steps.push({ id: "step_facilities", title: "Facilities" });
+        if (activities.length > 0) steps.push({ id: "step_activities", title: "Activities" });
       } else {
-        if (activities.length > 0 || facilities.length > 0) {
-          steps.push({ id: "extras", title: "Extras" });
-        }
+        if (activities.length > 0 || facilities.length > 0) steps.push({ id: "extras", title: "Extras" });
       }
     }
-
-    if (!user) {
-      steps.push({ id: "details", title: "Your Details" });
-    }
+    if (!user) steps.push({ id: "details", title: "Your Details" });
     steps.push({ id: "review", title: "Review" });
   }
 
-  const handleNext = () => {
+  const currentStepId = steps[currentStep]?.id;
+
+  // ✅ UPDATED: handleNext now checks DB availability for facility steps
+  const handleNext = async () => {
+    const isFacilityStep =
+      currentStepId === "facilities" ||
+      currentStepId === "step_facilities" ||
+      currentStepId === "extras";
+
+    const hasFacilitiesSelected = selectedFacilities.some(f => f.startDate && f.endDate);
+
+    if (isFacilityStep && hasFacilitiesSelected) {
+      const isAvailable = await checkFacilityAvailabilityLive();
+      if (!isAvailable) return; // block navigation if conflict found
+    }
+
     if (currentStep < steps.length - 1) setCurrentStep(currentStep + 1);
   };
 
   const handleBack = () => {
+    setAvailabilityError(null);
     if (currentStep > 0) setCurrentStep(currentStep - 1);
   };
 
@@ -338,6 +385,7 @@ export const MultiStepBooking = ({
   };
 
   const toggleFacility = (facility: Facility) => {
+    setAvailabilityError(null);
     const existing = selectedFacilities.find((f) => f.name === facility.name);
     if (existing) {
       setSelectedFacilities(selectedFacilities.filter((f) => f.name !== facility.name));
@@ -347,6 +395,7 @@ export const MultiStepBooking = ({
   };
 
   const updateFacilityDates = (name: string, startDate?: string, endDate?: string) => {
+    setAvailabilityError(null);
     if (startDate && endDate && endDate <= startDate) {
       setDateConflictWarning(`Check-out date must be after check-in date for ${name}.`);
       return;
@@ -368,8 +417,6 @@ export const MultiStepBooking = ({
     setTicketSelections(ticketSelections.map(t => t.name === name ? { ...t, quantity: Math.max(0, Math.min(quantity, maxForThis)) } : t));
   };
 
-  const currentStepId = steps[currentStep]?.id;
-
   const isStepValid = () => {
     switch (currentStepId) {
       case "date": return !!visitDate;
@@ -385,23 +432,15 @@ export const MultiStepBooking = ({
       }
       case "activities":
       case "step_activities": {
-        if (selectedActivities.length === 0 && selectedFacilities.length === 0) {
-          return canSkipExtras;
-        }
+        if (selectedActivities.length === 0 && selectedFacilities.length === 0) return canSkipExtras;
         return true;
       }
       case "extras": {
-        if (selectedFacilities.length === 0 && selectedActivities.length === 0) {
-          return canSkipExtras;
-        }
+        if (selectedFacilities.length === 0 && selectedActivities.length === 0) return canSkipExtras;
         return selectedFacilities.every((f) => !getFacilityDateValidationError(f)) && !dateConflictWarning;
       }
       case "details":
-        return (
-          guestName.trim() !== "" &&
-          isValidEmail(guestEmail) &&
-          isValidPhone(guestPhone)
-        );
+        return guestName.trim() !== "" && isValidEmail(guestEmail) && isValidPhone(guestPhone);
       case "review": return true;
       default: return true;
     }
@@ -419,7 +458,6 @@ export const MultiStepBooking = ({
     );
   }
 
-  // ── Reusable activity card renderer ─────────────────────────────────────────
   const renderActivitiesList = () => (
     <div className="space-y-3">
       {activities.map((activity) => {
@@ -465,7 +503,6 @@ export const MultiStepBooking = ({
     </div>
   );
 
-  // ── Reusable facility card renderer ─────────────────────────────────────────
   const renderFacilitiesList = () => (
     <div className="space-y-3">
       {facilities.map((facility) => {
@@ -478,10 +515,7 @@ export const MultiStepBooking = ({
             key={facility.name}
             className={cn("p-4 border rounded-2xl transition-all", isSelected && "border-2 border-[#008080] bg-[#008080]/5")}
           >
-            <div
-              className="flex items-center gap-3 cursor-pointer"
-              onClick={() => toggleFacility(facility)}
-            >
+            <div className="flex items-center gap-3 cursor-pointer" onClick={() => toggleFacility(facility)}>
               <div className="flex-1 flex justify-between items-center">
                 <div>
                   <p className="font-bold text-sm">{facility.name}</p>
@@ -598,6 +632,12 @@ export const MultiStepBooking = ({
     </div>
   );
 
+  // Is this a facility step?
+  const isFacilityStep =
+    currentStepId === "facilities" ||
+    currentStepId === "step_facilities" ||
+    currentStepId === "extras";
+
   return (
     <div className="p-6">
 
@@ -629,12 +669,11 @@ export const MultiStepBooking = ({
         {steps[currentStep]?.title}
       </h2>
 
-      {/* ── FACILITY-ONLY MODE: Facilities with dates ─────────────────────── */}
+      {/* ── FACILITY-ONLY MODE: Facilities with dates ── */}
       {currentStepId === "facilities" && isFacilityOnlyMode && (
         <div className="space-y-4">
           <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-sm text-slate-600">
-            Select the facility dates you need. If you do not want a facility add-on, leave this step empty and continue.
-            Selected facilities require both start and end dates before proceeding.
+            Select the facility dates you need. Both start and end dates are required before proceeding.
           </div>
           {currentTotalAmount <= 0 && selectedFacilities.length === 0 && (
             <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-sm text-amber-700">
@@ -645,22 +684,18 @@ export const MultiStepBooking = ({
         </div>
       )}
 
-      {/* ── FACILITY-ONLY MODE: Activities ───────────────────────────────── */}
+      {/* ── FACILITY-ONLY MODE: Activities ── */}
       {currentStepId === "activities" && isFacilityOnlyMode && (
         <div className="space-y-4">
-          <p className="text-sm text-muted-foreground mb-4">
-            Add any activities to your booking? (Optional)
-          </p>
+          <p className="text-sm text-muted-foreground mb-4">Add any activities to your booking? (Optional)</p>
           {renderActivitiesList()}
         </div>
       )}
 
-      {/* ── DATE SELECTION ───────────────────────────────────────────────── */}
+      {/* ── DATE SELECTION ── */}
       {currentStepId === "date" && (
         <div className="space-y-4">
-          <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-            When would you like to visit?
-          </Label>
+          <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">When would you like to visit?</Label>
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline" className={cn("w-full justify-start text-left font-bold rounded-2xl h-14 border-slate-200", !visitDate && "text-muted-foreground")}>
@@ -676,12 +711,10 @@ export const MultiStepBooking = ({
         </div>
       )}
 
-      {/* ── TICKET TYPES ─────────────────────────────────────────────────── */}
+      {/* ── TICKET TYPES ── */}
       {currentStepId === "tickets" && (
         <div className="space-y-4">
-          <p className="text-xs text-muted-foreground mb-2">
-            Select the type and quantity of tickets. Maximum 20 per booking.
-          </p>
+          <p className="text-xs text-muted-foreground mb-2">Select the type and quantity of tickets. Maximum 20 per booking.</p>
           {getTotalTickets() >= 20 && (
             <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 p-3 rounded-xl">
               <AlertCircle className="h-4 w-4 flex-shrink-0" />
@@ -716,9 +749,7 @@ export const MultiStepBooking = ({
               </div>
               {ticket.quantity > 0 && (
                 <div className="mt-2 text-right">
-                  <span className="text-sm font-bold" style={{ color: TEAL }}>
-                    {formatPrice(ticket.price * ticket.quantity)}
-                  </span>
+                  <span className="text-sm font-bold" style={{ color: TEAL }}>{formatPrice(ticket.price * ticket.quantity)}</span>
                 </div>
               )}
             </div>
@@ -732,7 +763,7 @@ export const MultiStepBooking = ({
         </div>
       )}
 
-      {/* ── TRAVELERS (no ticket types) ───────────────────────────────────── */}
+      {/* ── TRAVELERS ── */}
       {currentStepId === "travelers" && (
         <div className="space-y-4">
           <p className="text-xs text-muted-foreground">Maximum 20 people per booking.</p>
@@ -748,8 +779,7 @@ export const MultiStepBooking = ({
               <p className="text-xs text-muted-foreground">{formatPrice(priceAdult)} each</p>
             </div>
             <div className="flex items-center gap-3">
-              <Button variant="outline" size="icon" className="rounded-xl"
-                onClick={() => setNumAdults(Math.max(1, numAdults - 1))}>
+              <Button variant="outline" size="icon" className="rounded-xl" onClick={() => setNumAdults(Math.max(1, numAdults - 1))}>
                 <Minus className="h-4 w-4" />
               </Button>
               <span className="w-8 text-center font-black">{numAdults}</span>
@@ -760,7 +790,6 @@ export const MultiStepBooking = ({
               </Button>
             </div>
           </div>
-
           {allowChildren && (
             <div className="flex items-center justify-between p-4 border rounded-2xl border-slate-200">
               <div>
@@ -768,8 +797,7 @@ export const MultiStepBooking = ({
                 <p className="text-xs text-muted-foreground">{formatPrice(priceChild)} each</p>
               </div>
               <div className="flex items-center gap-3">
-                <Button variant="outline" size="icon" className="rounded-xl"
-                  onClick={() => setNumChildren(Math.max(0, numChildren - 1))}>
+                <Button variant="outline" size="icon" className="rounded-xl" onClick={() => setNumChildren(Math.max(0, numChildren - 1))}>
                   <Minus className="h-4 w-4" />
                 </Button>
                 <span className="w-8 text-center font-black">{numChildren}</span>
@@ -784,12 +812,11 @@ export const MultiStepBooking = ({
         </div>
       )}
 
-      {/* ── SEPARATE ACTIVITIES STEP ──────────────────────────────────────── */}
+      {/* ── SEPARATE ACTIVITIES STEP ── */}
       {currentStepId === "step_activities" && (
         <div className="space-y-4">
           <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-sm text-slate-600">
             No activities selected? You can skip this section if you do not want activities.
-            Your booking will still proceed as long as the total amount is greater than KES 0.
           </div>
           {currentTotalAmount <= 0 && selectedActivities.length === 0 && selectedFacilities.length === 0 && (
             <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-sm text-amber-700">
@@ -808,18 +835,26 @@ export const MultiStepBooking = ({
         </div>
       )}
 
-      {/* ── SEPARATE FACILITIES STEP ──────────────────────────────────────── */}
+      {/* ── SEPARATE FACILITIES STEP ── */}
       {currentStepId === "step_facilities" && (
         <div className="space-y-4">
           <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-sm text-slate-600">
-            No facilities selected? You can skip this step if you do not need any facility booking.
-            If you select a facility, both the start and end dates must be completed before proceeding.
+            No facilities selected? You can skip this step. If you select a facility, both start and end dates are required before proceeding.
           </div>
           {currentTotalAmount <= 0 && selectedFacilities.length === 0 && (
             <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-sm text-amber-700">
               Your booking currently has no payable items. Please select a facility, activity, or ticket so the total amount is above KES 0.
             </div>
           )}
+
+          {/* ✅ Live availability error shown prominently at the top */}
+          {availabilityError && (
+            <div className="flex items-start gap-2 text-sm text-red-600 bg-red-50 border border-red-200 p-3 rounded-2xl">
+              <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+              <span>{availabilityError}</span>
+            </div>
+          )}
+
           {renderFacilitiesList()}
           {selectedFacilities.filter(f => f.startDate && f.endDate).length > 0 && (
             <div className="p-4 rounded-2xl bg-[#008080]/5 border border-[#008080]/20 flex justify-between items-center">
@@ -836,18 +871,26 @@ export const MultiStepBooking = ({
         </div>
       )}
 
-      {/* ── ORIGINAL COMBINED EXTRAS STEP ────────────────────────────────── */}
+      {/* ── COMBINED EXTRAS STEP ── */}
       {currentStepId === "extras" && (
         <div className="space-y-6">
           <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-sm text-slate-600">
             No extras selected? You can skip this step if you do not want facility or activity add-ons.
-            Your booking can still proceed if the total amount is above KES 0.
           </div>
           {currentTotalAmount <= 0 && selectedActivities.length === 0 && selectedFacilities.length === 0 && (
             <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-sm text-amber-700">
               Your booking currently has no payable items. Please choose at least one ticket, activity, or facility before continuing.
             </div>
           )}
+
+          {/* ✅ Live availability error */}
+          {availabilityError && (
+            <div className="flex items-start gap-2 text-sm text-red-600 bg-red-50 border border-red-200 p-3 rounded-2xl">
+              <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+              <span>{availabilityError}</span>
+            </div>
+          )}
+
           {activities.length > 0 && (
             <div>
               <h3 className="font-black text-sm uppercase tracking-tight mb-3" style={{ color: TEAL }}>Activities</h3>
@@ -863,31 +906,26 @@ export const MultiStepBooking = ({
         </div>
       )}
 
-      {/* ── GUEST DETAILS ─────────────────────────────────────────────────── */}
+      {/* ── FACILITY-ONLY extras availability error ── */}
+      {currentStepId === "facilities" && availabilityError && (
+        <div className="flex items-start gap-2 text-sm text-red-600 bg-red-50 border border-red-200 p-3 rounded-2xl mt-3">
+          <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+          <span>{availabilityError}</span>
+        </div>
+      )}
+
+      {/* ── GUEST DETAILS ── */}
       {currentStepId === "details" && (
         <div className="space-y-4">
           <div>
             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Full Name</Label>
-            <Input
-              className="rounded-xl h-12 mt-1"
-              value={guestName}
-              onChange={(e) => setGuestName(e.target.value)}
-              placeholder="Enter your full name"
-            />
+            <Input className="rounded-xl h-12 mt-1" value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="Enter your full name" />
           </div>
-
           <div>
             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Email</Label>
             <Input
-              className={cn(
-                "rounded-xl h-12 mt-1",
-                guestEmail && !isValidEmail(guestEmail) && "border-red-400 focus-visible:ring-red-300"
-              )}
-              type="email"
-              value={guestEmail}
-              onChange={(e) => setGuestEmail(e.target.value)}
-              placeholder="name@domain.com"
-            />
+              className={cn("rounded-xl h-12 mt-1", guestEmail && !isValidEmail(guestEmail) && "border-red-400 focus-visible:ring-red-300")}
+              type="email" value={guestEmail} onChange={(e) => setGuestEmail(e.target.value)} placeholder="name@domain.com" />
             {guestEmail && !isValidEmail(guestEmail) && (
               <p className="flex items-center gap-1 text-xs text-red-500 mt-1">
                 <AlertCircle className="h-3 w-3 flex-shrink-0" />
@@ -895,30 +933,22 @@ export const MultiStepBooking = ({
               </p>
             )}
           </div>
-
           <div>
             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Phone</Label>
             <Input
-              className={cn(
-                "rounded-xl h-12 mt-1",
-                guestPhone && !isValidPhone(guestPhone) && "border-red-400 focus-visible:ring-red-300"
-              )}
-              type="tel"
-              value={guestPhone}
-              onChange={(e) => setGuestPhone(e.target.value)}
-              placeholder="07XXXXXXXX or +254XXXXXXXXX"
-            />
+              className={cn("rounded-xl h-12 mt-1", guestPhone && !isValidPhone(guestPhone) && "border-red-400 focus-visible:ring-red-300")}
+              type="tel" value={guestPhone} onChange={(e) => setGuestPhone(e.target.value)} placeholder="07XXXXXXXX or +254XXXXXXXXX" />
             {guestPhone && !isValidPhone(guestPhone) && (
               <p className="flex items-center gap-1 text-xs text-red-500 mt-1">
                 <AlertCircle className="h-3 w-3 flex-shrink-0" />
-                Use 07/01 + 8 digits (e.g. 0712345678) or +[country code] + 9 digits (e.g. +254712345678)
+                Use 07/01 + 8 digits (e.g. 0712345678) or +[country code] + 9 digits
               </p>
             )}
           </div>
         </div>
       )}
 
-      {/* ── REVIEW ───────────────────────────────────────────────────────── */}
+      {/* ── REVIEW ── */}
       {currentStepId === "review" && (
         <div className="space-y-4">
           <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
@@ -951,53 +981,45 @@ export const MultiStepBooking = ({
                 )}
               </>
             )}
-
             {selectedActivities.length > 0 && (
-              <>
-                <div className="border-t border-slate-200 pt-2 mt-2">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Activities</p>
-                  {selectedActivities.map((a) => (
-                    <div key={a.name} className="flex justify-between text-sm mb-1">
-                      <span className="text-slate-500">{a.name} × {a.numberOfPeople}</span>
-                      <span className="font-bold">{formatPrice(a.price * a.numberOfPeople)}</span>
-                    </div>
-                  ))}
-                </div>
-              </>
+              <div className="border-t border-slate-200 pt-2 mt-2">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Activities</p>
+                {selectedActivities.map((a) => (
+                  <div key={a.name} className="flex justify-between text-sm mb-1">
+                    <span className="text-slate-500">{a.name} × {a.numberOfPeople}</span>
+                    <span className="font-bold">{formatPrice(a.price * a.numberOfPeople)}</span>
+                  </div>
+                ))}
+              </div>
             )}
-
             {selectedFacilities.length > 0 && (
-              <>
-                <div className="border-t border-slate-200 pt-2 mt-2">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Facilities</p>
-                  {selectedFacilities.map((f) => {
-                    const days = f.startDate && f.endDate
-                      ? Math.max(1, Math.ceil((new Date(f.endDate).getTime() - new Date(f.startDate).getTime()) / (1000 * 60 * 60 * 24)))
-                      : 1;
-                    return (
-                      <div key={f.name} className="flex justify-between text-sm mb-1">
-                        <span className="text-slate-500">
-                          {f.name} ({days} nights)
-                          {f.startDate && f.endDate && (
-                            <span className="text-[10px] text-slate-400 block">
-                              {format(new Date(f.startDate), "MMM d")} - {format(new Date(f.endDate), "MMM d")}
-                            </span>
-                          )}
-                        </span>
-                        <span className="font-bold">{formatPrice(f.price * days)}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </>
+              <div className="border-t border-slate-200 pt-2 mt-2">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Facilities</p>
+                {selectedFacilities.map((f) => {
+                  const days = f.startDate && f.endDate
+                    ? Math.max(1, Math.ceil((new Date(f.endDate).getTime() - new Date(f.startDate).getTime()) / (1000 * 60 * 60 * 24)))
+                    : 1;
+                  return (
+                    <div key={f.name} className="flex justify-between text-sm mb-1">
+                      <span className="text-slate-500">
+                        {f.name} ({days} nights)
+                        {f.startDate && f.endDate && (
+                          <span className="text-[10px] text-slate-400 block">
+                            {format(new Date(f.startDate), "MMM d")} - {format(new Date(f.endDate), "MMM d")}
+                          </span>
+                        )}
+                      </span>
+                      <span className="font-bold">{formatPrice(f.price * days)}</span>
+                    </div>
+                  );
+                })}
+              </div>
             )}
-
             <div className="border-t border-slate-200 pt-3 mt-3 flex justify-between font-black text-lg">
               <span>Total</span>
               <span style={{ color: TEAL }}>{formatPrice(calculateTotal())}</span>
             </div>
           </div>
-
           <div className="p-4 border rounded-2xl border-slate-200 space-y-1">
             <p className="font-bold text-sm">{guestName || user?.email}</p>
             <p className="text-xs text-muted-foreground">{guestEmail || user?.email}</p>
@@ -1006,7 +1028,7 @@ export const MultiStepBooking = ({
         </div>
       )}
 
-      {/* ── NAVIGATION BUTTONS ───────────────────────────────────────────── */}
+      {/* ── NAVIGATION BUTTONS ── */}
       <div className="flex gap-3 mt-8">
         {currentStep > 0 && (
           <Button variant="outline" onClick={handleBack}
@@ -1017,11 +1039,16 @@ export const MultiStepBooking = ({
         {currentStep < steps.length - 1 ? (
           <Button
             onClick={handleNext}
-            disabled={!isStepValid()}
+            disabled={!isStepValid() || isCheckingAvailability}
             className="flex-[2] py-6 rounded-2xl text-[11px] font-black uppercase tracking-[0.15em] text-white shadow-xl transition-all active:scale-95 border-none"
             style={{ background: `linear-gradient(135deg, ${TEAL} 0%, ${TEAL_DARK} 100%)`, boxShadow: `0 8px 20px -6px ${TEAL}88` }}
           >
-            Continue
+            {/* ✅ Show spinner while checking availability */}
+            {isCheckingAvailability ? (
+              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Checking availability...</>
+            ) : (
+              "Continue"
+            )}
           </Button>
         ) : (
           <Button

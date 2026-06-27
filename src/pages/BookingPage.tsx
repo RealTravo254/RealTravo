@@ -17,8 +17,6 @@ const COLORS = { TEAL: "#008080", CORAL: "#FF7F50" };
 
 type BookingType = "trip" | "event" | "hotel" | "adventure_place" | "attraction";
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
 const fmtMoney = (n: number) => "KES " + Math.round(n).toLocaleString("en-KE");
 
 const fmtDate = (d: string) =>
@@ -31,10 +29,6 @@ const fmtShort = (d: string) =>
     year: "numeric", month: "short", day: "numeric",
   });
 
-/**
- * Determine human-readable type + organizer contact label.
- * For trips: check guided flag from item data or form data.
- */
 const getBookingMeta = (
   bookingType: string,
   bookingDetails?: any
@@ -63,7 +57,6 @@ const getBookingMeta = (
   }
 };
 
-// ── QR code via free canvas API ───────────────────────────────────────────────
 const generateQRDataUrl = (text: string, size = 120): Promise<string> =>
   new Promise((resolve) => {
     try {
@@ -82,19 +75,16 @@ const generateQRDataUrl = (text: string, size = 120): Promise<string> =>
     } catch { resolve(""); }
   });
 
-// ── PDF generator (exported so PaymentSuccessDialog can call it too) ──────────
 export const generateBookingPDF = async (bookingData: any, reference: string) => {
   const d   = bookingData?.booking_details || bookingData || {};
   const rawType = bookingData?.booking_type || d.booking_type || "booking";
   const { typeLabel, contactLabel } = getBookingMeta(rawType, d);
 
-  // ── Listing identity from creation form fields ────────────────
   const itemName =
     d.item_name     || d.name       ||
     d.trip_name     || d.event_name ||
     d.hotel_name    || d.place_name || "Booking";
 
-  // Location details saved into booking_details by BookingPage
   const listingLocation = d.location      || d.locationName  || "";
   const listingPlace    = d.place         || "";
   const listingCountry  = d.country       || "";
@@ -105,7 +95,6 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
   const registrationNum = d.registration_number || d.registrationNumber || "";
   const entranceFeeType = d.entry_fee_type || d.entranceFeeType || "";
 
-  // ── Contact: resolved from every possible nesting depth ────────
   const hostPhone =
     bookingData?.host_phone      ||
     d.host_phone                 ||
@@ -123,18 +112,15 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
     d.email                      ||
     "";
 
-  // ── Guest details ─────────────────────────────────────────────
   const gName  = bookingData?.guest_name  || d.guest_name;
   const gEmail = bookingData?.guest_email || d.guest_email;
   const gPhone = bookingData?.guest_phone || d.guest_phone;
 
-  // ── Line items ────────────────────────────────────────────────
   const ticketSelections   = d.ticketSelections   || d.ticket_selections   || [];
   const selectedActivities = d.selectedActivities || d.selected_activities || d.activities || [];
   const selectedFacilities = d.selectedFacilities || d.selected_facilities || d.facilities || [];
   const visitDate          = bookingData?.visit_date || d.visit_date || d.date || "";
 
-  // ── jsPDF init ────────────────────────────────────────────────
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const W   = doc.internal.pageSize.getWidth();
   const H   = doc.internal.pageSize.getHeight();
@@ -151,7 +137,6 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
   const M  = 36;
   const CW = W - M * 2;
 
-  // ── Helpers ───────────────────────────────────────────────────
   const newPage = (need = 40) => {
     if (y > H - need - 60) { doc.addPage(); y = 40; }
   };
@@ -232,28 +217,22 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
     y += rowH + 4;
   };
 
-  // ── HEADER BANNER ─────────────────────────────────────────────
   doc.setFillColor(...TEAL_RGB);
   doc.rect(0, 0, W, 96, "F");
   doc.setFillColor(...CORAL_RGB);
   doc.triangle(W - 110, 0, W, 0, W, 96, "F");
-
   doc.setTextColor(...WHITE);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(24);
   doc.text("REALTRAVO", M, 40);
-
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.5);
   doc.text("BOOKING CONFIRMATION", M, 56);
-
   doc.setFontSize(7);
   doc.text(`Ref: ${reference}`, M, 70);
   doc.text(`Generated: ${new Date().toLocaleDateString()}`, M, 82);
-
   y = 108;
 
-  // ── STATUS BADGE ──────────────────────────────────────────────
   doc.setFillColor(16, 185, 129);
   doc.roundedRect(W - 132, 98, 96, 22, 11, 11, "F");
   doc.setTextColor(...WHITE);
@@ -261,19 +240,16 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
   doc.setFontSize(8);
   doc.text("CONFIRMED", W - 84, 113, { align: "center" });
 
-  // ── ITEM NAME + LISTING SUB-INFO ──────────────────────────────
   doc.setTextColor(...TEAL_RGB);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(19);
   doc.text(itemName, M, y, { maxWidth: W - M * 2 - 110 });
   y += 18;
-
   doc.setTextColor(...MUTED_RGB);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.text(`${typeLabel.toUpperCase()} BOOKING`, M, y);
   y += 10;
-
   if (listingLocation || listingPlace || listingCountry) {
     const loc = [listingLocation, listingPlace, listingCountry].filter(Boolean).join(", ");
     doc.setFontSize(7.5);
@@ -281,15 +257,11 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
     y += 14;
   }
   y += 10;
-
   doc.setDrawColor(...TEAL_RGB);
   doc.setLineWidth(0.4);
   doc.line(M, y, W - M, y);
   y += 14;
 
-  // ─────────────────────────────────────────────────────────────
-  // 1. BOOKING INFORMATION
-  // ─────────────────────────────────────────────────────────────
   section("BOOKING INFORMATION");
   infoRow("Payment Reference", reference);
   infoRow("Payment Status",    "PAID");
@@ -304,9 +276,6 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
                                infoRow("Open Days",      daysOpened.join(", "));
   y += 6;
 
-  // ─────────────────────────────────────────────────────────────
-  // 2. GUEST DETAILS
-  // ─────────────────────────────────────────────────────────────
   if (gName || gEmail || gPhone) {
     section("GUEST DETAILS");
     infoRow("Name",  gName);
@@ -315,9 +284,6 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
     y += 6;
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // 3. BOOKING DETAILS
-  // ─────────────────────────────────────────────────────────────
   const adults   = d.adults   || d.num_adults;
   const children = d.children || d.num_children;
   section("BOOKING DETAILS");
@@ -327,43 +293,26 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
   infoRow("Location",     d.location || d.locationName);
   y += 6;
 
-  // ─────────────────────────────────────────────────────────────
-  // 4. TICKETS
-  // ─────────────────────────────────────────────────────────────
   if (ticketSelections.length) {
     section("TICKETS");
     tableHeader("TICKET TYPE", "SUBTOTAL");
     ticketSelections.forEach((t: any) => {
       const qty = t.quantity || 1;
-      tableRow(
-        t.name,
-        fmtMoney(t.price * qty),
-        `${qty} person${qty > 1 ? "s" : ""} × ${fmtMoney(t.price)} per ticket`
-      );
+      tableRow(t.name, fmtMoney(t.price * qty), `${qty} person${qty > 1 ? "s" : ""} × ${fmtMoney(t.price)} per ticket`);
     });
     y += 6;
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // 5. ACTIVITIES  (name · number of people · price per person · subtotal)
-  // ─────────────────────────────────────────────────────────────
   if (selectedActivities.length) {
     section("ACTIVITIES");
     tableHeader("ACTIVITY  /  PEOPLE", "SUBTOTAL");
     selectedActivities.forEach((a: any) => {
       const ppl = a.numberOfPeople || a.number_of_people || 1;
-      tableRow(
-        a.name,
-        fmtMoney((a.price || 0) * ppl),
-        `${ppl} person${ppl > 1 ? "s" : ""} × ${fmtMoney(a.price || 0)} per person`
-      );
+      tableRow(a.name, fmtMoney((a.price || 0) * ppl), `${ppl} person${ppl > 1 ? "s" : ""} × ${fmtMoney(a.price || 0)} per person`);
     });
     y += 6;
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // 6. FACILITIES  (name · from date → to date · days · price/day · total)
-  // ─────────────────────────────────────────────────────────────
   if (selectedFacilities.length) {
     section("FACILITIES");
     tableHeader("FACILITY  /  DATES", "PRICE");
@@ -384,12 +333,8 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
     y += 6;
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // 7. HOST / ORGANIZER CONTACT  (phone + email from creation form)
-  // ─────────────────────────────────────────────────────────────
   if (hostPhone || hostEmail) {
     section(`${contactLabel.toUpperCase()} CONTACT`);
-
     newPage(60);
     doc.setFillColor(255, 251, 235);
     doc.roundedRect(M, y, CW, 50, 5, 5, "F");
@@ -405,15 +350,11 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
     doc.setFontSize(7);
     doc.text("Please have your booking reference ready when contacting.", M + 10, y + 40);
     y += 58;
-
     infoRow("Phone", hostPhone);
     infoRow("Email", hostEmail);
     y += 6;
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // 8. TOTAL HIGHLIGHT BOX
-  // ─────────────────────────────────────────────────────────────
   newPage(60);
   y += 10;
   doc.setFillColor(...TEAL_RGB);
@@ -432,9 +373,6 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
   doc.text(fmtMoney(bookingData?.total_amount ?? 0), W - M - 14, y + 32, { align: "right" });
   y += 62;
 
-  // ─────────────────────────────────────────────────────────────
-  // 9. QR CODE
-  // ─────────────────────────────────────────────────────────────
   const qrText = `REALTRAVO|${reference}|${itemName}|${gName || ""}|KES ${Math.round(bookingData?.total_amount ?? 0)}|${visitDate || new Date().toISOString().split("T")[0]}`;
   const qrDataUrl = await generateQRDataUrl(qrText, 120);
   if (qrDataUrl) {
@@ -445,14 +383,11 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
     doc.setDrawColor(...TEAL_RGB);
     doc.setLineWidth(0.5);
     doc.roundedRect(M, y, CW, 130, 8, 8, "S");
-
     doc.addImage(qrDataUrl, "PNG", M + 14, y + 15, 100, 100);
-
     doc.setTextColor(...TEAL_RGB);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
     doc.text("BOOKING QR CODE", M + 130, y + 32);
-
     doc.setTextColor(...MUTED_RGB);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
@@ -460,7 +395,6 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
      "your booking. Present this PDF or the QR",
      "code on your mobile device to the host."]
       .forEach((ln, i) => doc.text(ln, M + 130, y + 50 + i * 13));
-
     doc.setTextColor(...SLATE_RGB);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
@@ -468,26 +402,20 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
     y += 146;
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // 10. FOOTER
-  // ─────────────────────────────────────────────────────────────
   const footerY = H - 52;
   doc.setFillColor(240, 253, 250);
   doc.rect(0, footerY - 12, W, 64, "F");
   doc.setDrawColor(...TEAL_RGB);
   doc.setLineWidth(1.2);
   doc.line(0, footerY - 12, W, footerY - 12);
-
   doc.setFillColor(...TEAL_RGB);
   doc.circle(M, footerY + 10, 3, "F");
   doc.setFillColor(...CORAL_RGB);
   doc.circle(M + 10, footerY + 10, 3, "F");
-
   doc.setTextColor(...TEAL_RGB);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
   doc.text("realtravo.com", W / 2, footerY + 4, { align: "center" });
-
   doc.setTextColor(...MUTED_RGB);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7);
@@ -497,33 +425,36 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
   doc.save(`realtravo-booking-${reference.slice(0, 8)}.pdf`);
 };
 
-// ── Portal header — floats above Paystack's z-index:2147483647 iframes ────────
+// ── Portal header — safe zone aware ──────────────────────────────────────────
 const PaystackFloatingHeader = ({ itemName, onBack }: { itemName: string; onBack: () => void }) =>
   createPortal(
     <div style={{
       position: "fixed", top: 0, left: 0, right: 0, zIndex: 2147483647,
-      pointerEvents: "auto", backgroundColor: "#ffffff",
-      borderBottom: "1px solid #f1f5f9", boxShadow: "0 1px 8px rgba(0,0,0,0.08)",
+      pointerEvents: "auto", backgroundColor: "#008080",
+      borderBottom: "1px solid rgba(255,255,255,0.15)",
+      boxShadow: "0 1px 8px rgba(0,0,0,0.12)",
+      // ✅ Safe zone: teal fills status bar area
       paddingTop: "max(env(safe-area-inset-top, 0px), 10px)",
       paddingBottom: "10px", paddingLeft: "16px", paddingRight: "16px",
       display: "flex", alignItems: "center", gap: "12px",
     }}>
       <button onClick={onBack} aria-label="Back to checkout" style={{
-        width: 36, height: 36, borderRadius: "50%", backgroundColor: "#f1f5f9",
+        width: 36, height: 36, borderRadius: "50%",
+        backgroundColor: "rgba(255,255,255,0.2)",
         border: "none", cursor: "pointer", display: "flex", alignItems: "center",
         justifyContent: "center", flexShrink: 0, transition: "background-color 0.15s",
       }}
-        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e2e8f0")}
-        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f1f5f9")}>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#334155" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.3)")}
+        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.2)")}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <polyline points="15 18 9 12 15 6" />
         </svg>
       </button>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ margin: 0, fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.08em", lineHeight: 1.2 }}>Back to Checkout</p>
-        <p style={{ margin: 0, fontSize: 15, fontWeight: 900, color: COLORS.TEAL, textTransform: "uppercase", letterSpacing: "-0.03em", lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{itemName}</p>
+        <p style={{ margin: 0, fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.7)", textTransform: "uppercase", letterSpacing: "0.08em", lineHeight: 1.2 }}>Back to Checkout</p>
+        <p style={{ margin: 0, fontSize: 15, fontWeight: 900, color: "#ffffff", textTransform: "uppercase", letterSpacing: "-0.03em", lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{itemName}</p>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 5, backgroundColor: "#f0fdfa", color: "#0f766e", fontSize: 11, fontWeight: 700, padding: "6px 12px", borderRadius: 999, flexShrink: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 5, backgroundColor: "rgba(255,255,255,0.2)", color: "#ffffff", fontSize: 11, fontWeight: 700, padding: "6px 12px", borderRadius: 999, flexShrink: 0 }}>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <rect x="2" y="5" width="20" height="14" rx="2" /><line x1="2" y1="10" x2="22" y2="10" />
         </svg>
@@ -579,7 +510,7 @@ const BookingPage = () => {
 
   useEffect(() => {
     if (showPaystackContainer && !isCompleted && !isVerifying)
-      document.body.style.paddingTop = "64px";
+      document.body.style.paddingTop = "calc(64px + env(safe-area-inset-top, 0px))";
     else document.body.style.paddingTop = "";
     return () => { document.body.style.paddingTop = ""; };
   }, [showPaystackContainer, isCompleted, isVerifying]);
@@ -637,7 +568,6 @@ const BookingPage = () => {
     return "attraction";
   };
 
-  // ── Resolve host contact from item (creation form data) ───────
   const getHostContact = () => {
     if (!item) return { phone: "", email: "" };
     if (type === "trip" || type === "event") {
@@ -647,7 +577,6 @@ const BookingPage = () => {
     return { phone: phones[0] || "", email: item.email || "" };
   };
 
-  // Human-readable type label for the header
   const getItemTypeLabel = () => {
     if (!item || !type) return "Booking";
     const isGuided = type === "trip" && (item.type === "guided" || item.is_guided === true);
@@ -710,7 +639,6 @@ const BookingPage = () => {
         total_amount: totalAmount,
         booking_details: {
           ...formData,
-          // ── Listing fields from creation form (so PDF can render them) ──
           item_name:      item.name,
           name:           item.name,
           location:       item.location,
@@ -725,7 +653,6 @@ const BookingPage = () => {
           event_category: item.event_category || "",
           registration_number: item.registration_number || "",
           entry_fee_type: item.entry_fee_type || "",
-          // ── Booking form fields ──
           is_facility_only: isFacilityOnly,
           adults:    formData.num_adults,
           children:  formData.num_children,
@@ -766,9 +693,12 @@ const BookingPage = () => {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-[#F8F9FA]">
-        <Loader2 className="h-10 w-10 animate-spin text-[#008080] mb-4" />
-        <p className="text-sm font-black uppercase tracking-tighter animate-pulse">Loading...</p>
+      <div
+        className="flex flex-col items-center justify-center min-h-screen bg-[#008080]"
+        style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
+      >
+        <Loader2 className="h-10 w-10 animate-spin text-white mb-4" />
+        <p className="text-sm font-black uppercase tracking-tighter animate-pulse text-white">Loading...</p>
       </div>
     );
   }
@@ -786,8 +716,6 @@ const BookingPage = () => {
       onPaymentSuccess: () => setIsCompleted(true),
       primaryColor: COLORS.TEAL,
       accentColor:  COLORS.CORAL,
-      // ─── NEW PROP: tells MultiStepBooking to render Activities and
-      //     Facilities as two separate steps instead of one combined step.
       separateActivitiesAndFacilities: true,
     };
 
@@ -847,8 +775,12 @@ const BookingPage = () => {
         <PaystackFloatingHeader itemName={item.name} onBack={handlePaystackBack} />
       )}
 
+      {/* ✅ Sticky header with safe zone */}
       {!isCompleted && !showPaystackContainer && (
-        <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-lg border-b border-slate-100">
+        <div
+          className="sticky top-0 z-50 bg-white/80 backdrop-blur-lg border-b border-slate-100"
+          style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
+        >
           <div className="container max-w-2xl mx-auto px-4 py-4 flex items-center gap-4">
             <Button variant="ghost" size="icon"
               onClick={() => {
@@ -871,7 +803,10 @@ const BookingPage = () => {
       )}
 
       {isVerifying && !isCompleted && (
-        <div className="flex flex-col items-center justify-center min-h-[70vh] px-6">
+        <div
+          className="flex flex-col items-center justify-center min-h-[70vh] px-6"
+          style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
+        >
           <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-6 animate-pulse">
             <Loader2 className="h-10 w-10 animate-spin text-primary" />
           </div>

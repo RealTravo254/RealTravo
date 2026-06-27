@@ -86,7 +86,7 @@ const ListingCardComponent = ({
   availableTickets = 0, bookedTickets = 0,
   priority = false, compact = false, avgRating, reviewCount, place,
   isFlexibleDate = false, hidePrice = false, description, categoryColor,
-  galleryImages, images: extraImages, country,
+  country,
   openingHours, closingHours
 }: ListingCardProps) => {
   const navigate = useNavigate();
@@ -99,12 +99,9 @@ const ListingCardComponent = ({
   const { ref: cardRef, isIntersecting } = useIntersectionObserver({ rootMargin: '300px', triggerOnce: true });
   const shouldLoad = priority || isIntersecting;
 
-  const allSlideImages = useMemo(() => {
-    const imgs = [imageUrl];
-    if (galleryImages?.length) imgs.push(...galleryImages);
-    if (extraImages?.length) imgs.push(...extraImages);
-    return imgs.filter((v, i, a) => Boolean(v) && a.indexOf(v) === i);
-  }, [imageUrl, galleryImages, extraImages]);
+  // Only the single primary image is used on this card — gallery/extra
+  // images are intentionally ignored so just one image is fetched/rendered.
+  const allSlideImages = useMemo(() => [imageUrl].filter(Boolean), [imageUrl]);
 
   const isEventOrSport = type === "EVENT" || type === "SPORT";
   const isTrip = type === "TRIP";

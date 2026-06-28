@@ -11,18 +11,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Upload, X, Edit2, Save, Calendar, MapPin, Phone, Mail, DollarSign, Users, Clock, CheckCircle, XCircle, Pencil, Plus, Trash2, ArrowLeft, Image as ImageIcon, Navigation } from "lucide-react";
+import {
+  Loader2, Upload, X, Edit2, Save, Calendar, MapPin, Phone, Mail,
+  DollarSign, Users, Clock, CheckCircle, Pencil, Plus, ArrowLeft,
+  Image as ImageIcon, Navigation, AlertTriangle,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { approvalStatusSchema } from "@/lib/validation";
-import { EmailVerification } from "@/components/creation/EmailVerification";
 import { compressImages } from "@/lib/imageCompression";
 import { FacilityActivityImageEditor } from "@/components/edit/FacilityActivityImageEditor";
 import { GeneralFacilitiesSelector } from "@/components/creation/GeneralFacilitiesSelector";
-import { FacilityAmenitiesInput } from "@/components/creation/FacilityAmenitiesInput";
 import { useCurrency } from "@/contexts/CurrencyContext";
 
 interface FacilityWithImages {
@@ -64,19 +63,26 @@ const EditListing = () => {
   const navigate = useNavigate();
   const goBack = useSafeBack("/my-listing");
   const { toast } = useToast();
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [approvalStatus, setApprovalStatus] = useState("");
   const [isHidden, setIsHidden] = useState(false);
-  const [emailVerified, setEmailVerified] = useState(false);
   const [originalEmail, setOriginalEmail] = useState("");
-  
+
   const urlParams = new URLSearchParams(window.location.search);
   const isResubmitting = urlParams.get("resubmit") === "true";
-  
+
   const [editMode, setEditMode] = useState<Record<string, boolean>>({});
-  
+
+  // ─── CORE GATE ────────────────────────────────────────────────────────────
+  // Starts false on every page load. Only flips to true when the host
+  // successfully saves at least one field or photo via handleSaveField /
+  // handleSaveImages. handleResubmit hard-blocks until this is true.
+  const [hasMadeChanges, setHasMadeChanges] = useState(false);
+  // ──────────────────────────────────────────────────────────────────────────
+
   // Common fields
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -89,7 +95,7 @@ const EditListing = () => {
   const [openingHours, setOpeningHours] = useState("");
   const [closingHours, setClosingHours] = useState("");
   const [daysOpened, setDaysOpened] = useState<string[]>([]);
-  
+
   // Type-specific fields
   const [date, setDate] = useState("");
   const [availableSlots, setAvailableSlots] = useState(0);
@@ -106,23 +112,23 @@ const EditListing = () => {
   const [exclusions, setExclusions] = useState<string[]>([]);
   const [newInclusion, setNewInclusion] = useState("");
   const [newExclusion, setNewExclusion] = useState("");
-  // ← NEW: Pickup location state
   const [pickupLocation, setPickupLocation] = useState("");
 
-  // ← NEW: Tracks whether the user has actually saved at least one edit
-  // since loading this page. Resubmission is blocked until this is true,
-  // so a rejected listing can't be sent back for approval unchanged.
-  const [hasMadeChanges, setHasMadeChanges] = useState(false);
-
   useEffect(() => {
-    if (!user || !id || !type) {
-      navigate("/");
-      return;
-    }
+    if (!user || !id || !type) { navigate("/"); return; }
     fetchListing();
     fetchBookings();
   }, [user, id, type]);
 
+  // ─── TABLE HELPER ─────────────────────────────────────────────────────────
+  const getTableForType = (): "hotels" | "adventure_places" | "trips" | null => {
+    if (type === "hotel") return "hotels";
+    if (type === "adventure") return "adventure_places";
+    if (type === "trip") return "trips";
+    return null;
+  };
+
+  // ─── FETCH ────────────────────────────────────────────────────────────────
   const fetchBookings = async () => {
     try {
       const { data, error } = await supabase
@@ -130,32 +136,18 @@ const EditListing = () => {
         .select("*")
         .eq("item_id", id!)
         .order("created_at", { ascending: false });
-
       if (error) throw error;
       setBookings(data || []);
-    } catch (error) {
-      console.error("Error fetching bookings:", error);
+    } catch (e) {
+      console.error("Error fetching bookings:", e);
     }
-  };
-
-  // Maps the route's `:itemType` param to its underlying Supabase table.
-  // Centralized here so every handler (fetch, save, resubmit, images) stays
-  // in sync — previously handleResubmit had its own (broken) copy of this.
-  const getTableForType = (): "hotels" | "adventure_places" | "trips" | null => {
-    if (type === "hotel") return "hotels";
-    if (type === "adventure") return "adventure_places";
-    if (type === "trip") return "trips";
-    return null; // "attraction" and anything else: not supported here
   };
 
   const fetchListing = async () => {
     try {
-      let table: "hotels" | "adventure_places" | "trips" = "hotels";
-      if (type === "hotel") table = "hotels";
-      else if (type === "adventure") table = "adventure_places";
-      else if (type === "trip") table = "trips";
-      else if (type === "attraction") {
-        toast({ title: "Not Supported", description: "Attractions are not supported", variant: "destructive" });
+      const table = getTableForType();
+      if (!table) {
+        toast({ title: "Not Supported", description: "This listing type is not supported here.", variant: "destructive" });
         navigate("/become-host");
         return;
       }
@@ -166,92 +158,66 @@ const EditListing = () => {
         .eq("id", id!)
         .eq("created_by", user?.id!)
         .single();
-
       if (error) throw error;
 
-      setName((data as any).name as string);
-      setDescription(((data as any).description as string) || "");
-      
-      if (type === "attraction") {
-        setLocation(((data as any).location_name as string) || "");
-      } else {
-        setLocation(((data as any).location as string) || "");
-      }
-      
-      setMapLink(((data as any).map_link || (data as any).location_link as string) || "");
-      const fetchedEmail = ((data as any).email as string) || "";
+      setName((data as any).name ?? "");
+      setDescription((data as any).description ?? "");
+      setLocation((data as any).location ?? "");
+      setMapLink((data as any).map_link ?? (data as any).location_link ?? "");
+
+      const fetchedEmail = (data as any).email ?? "";
       setEmail(fetchedEmail);
       setOriginalEmail(fetchedEmail);
-      if (fetchedEmail) setEmailVerified(true);
-      
-      if (type === "attraction") {
-        setExistingImages(((data as any).photo_urls as string[]) || []);
-      } else {
-        setExistingImages(((data as any).gallery_images as string[]) || ((data as any).images as string[]) || []);
-      }
-      
-      setOpeningHours(((data as any).opening_hours as string) || "");
-      setClosingHours(((data as any).closing_hours as string) || "");
-      setDaysOpened(((data as any).days_opened as string[]) || []);
-      
+
+      setExistingImages((data as any).gallery_images ?? (data as any).images ?? []);
+      setOpeningHours((data as any).opening_hours ?? "");
+      setClosingHours((data as any).closing_hours ?? "");
+      setDaysOpened((data as any).days_opened ?? []);
+
       if (type === "trip") {
-        setPhoneNumbers([((data as any).phone_number as string)].filter(Boolean));
-      } else if (type === "attraction") {
-        setPhoneNumbers([((data as any).phone_number as string)].filter(Boolean));
+        setPhoneNumbers([(data as any).phone_number].filter(Boolean));
+        setDate((data as any).date ?? "");
+        setAvailableSlots((data as any).available_tickets ?? 0);
+        setPrice((data as any).price ?? 0);
+        setPriceChild((data as any).price_child ?? 0);
+        setInclusions((data as any).inclusions ?? []);
+        setExclusions((data as any).exclusions ?? []);
+        setPickupLocation((data as any).pickup_location ?? "");
       } else {
-        setPhoneNumbers(((data as any).phone_numbers as string[]) || []);
+        setPhoneNumbers((data as any).phone_numbers ?? []);
       }
 
-      if (type === 'trip') {
-        setDate((data as any).date || '');
-        setAvailableSlots((data as any).available_tickets || 0);
-        setPrice((data as any).price || 0);
-        setPriceChild((data as any).price_child || 0);
-        setInclusions((data as any).inclusions || []);
-        setExclusions((data as any).exclusions || []);
-        // ← NEW: Load pickup location
-        setPickupLocation((data as any).pickup_location || '');
+      if (type === "hotel" || type === "adventure") {
+        setFacilities((data as any).facilities ?? []);
+        setActivities((data as any).activities ?? []);
       }
 
-      if (type === 'hotel' || type === 'adventure') {
-        setFacilities((data as any).facilities || []);
-        setActivities((data as any).activities || []);
+      if (type === "hotel") {
+        setGeneralFacilities((data as any).amenities ?? []);
       }
 
-      if (type === 'hotel') {
-        setGeneralFacilities(((data as any).amenities as string[]) || []);
-      }
-
-      if (type === 'adventure') {
-        setEntranceFeeType((data as any).entry_fee_type || "free");
-        setEntranceFee((data as any).entry_fee || 0);
-        setEntranceFeeChild((data as any).child_entry_fee || 0);
-        const adventureAmenities = (data as any).amenities || [];
-        const amenityStrings = Array.isArray(adventureAmenities) 
-          ? adventureAmenities.map((a: any) => typeof a === 'string' ? a : a.name || '')
+      if (type === "adventure") {
+        setEntranceFeeType((data as any).entry_fee_type ?? "free");
+        setEntranceFee((data as any).entry_fee ?? 0);
+        setEntranceFeeChild((data as any).child_entry_fee ?? 0);
+        const raw = (data as any).amenities ?? [];
+        const strings: string[] = Array.isArray(raw)
+          ? raw.map((a: any) => (typeof a === "string" ? a : a.name ?? ""))
           : [];
         const { AVAILABLE_FACILITIES } = await import("@/components/creation/GeneralFacilitiesSelector");
-        const facilityIds = AVAILABLE_FACILITIES.map(f => f.id);
-        setGeneralFacilities(amenityStrings.filter((a: string) => facilityIds.includes(a)));
-        setAmenities(amenityStrings.filter((a: string) => !facilityIds.includes(a)));
+        const facilityIds = AVAILABLE_FACILITIES.map((f) => f.id);
+        setGeneralFacilities(strings.filter((a) => facilityIds.includes(a)));
+        setAmenities(strings.filter((a) => !facilityIds.includes(a)));
       }
-      
-      if (type === 'attraction') {
-        setEntranceFeeType((data as any).entrance_type || "free");
-        setEntranceFee((data as any).price_adult || 0);
-        setFacilities((data as any).facilities || []);
-        setActivities((data as any).activities || []);
-        const attractionAmenities = (data as any).amenities || [];
-        setAmenities(Array.isArray(attractionAmenities) 
-          ? attractionAmenities.map((a: any) => typeof a === 'string' ? a : a.name || '')
-          : []);
-      }
-      
-      setApprovalStatus((data as any).approval_status || "");
-      setIsHidden((data as any).is_hidden || false);
-      
-    } catch (error) {
-      console.error("Error fetching listing:", error);
+
+      setApprovalStatus((data as any).approval_status ?? "");
+      setIsHidden((data as any).is_hidden ?? false);
+
+      // Reset the change gate every time the listing is (re)loaded so a fresh
+      // page visit always requires at least one real save before resubmitting.
+      setHasMadeChanges(false);
+    } catch (e) {
+      console.error("Error fetching listing:", e);
       toast({ title: "Error", description: "Failed to load listing", variant: "destructive" });
       navigate("/become-host");
     } finally {
@@ -259,132 +225,108 @@ const EditListing = () => {
     }
   };
 
-  const toggleEditMode = (field: string) => {
-    setEditMode({ ...editMode, [field]: !editMode[field] });
-  };
+  // ─── EDIT MODE ────────────────────────────────────────────────────────────
+  const toggleEditMode = (field: string) =>
+    setEditMode((prev) => ({ ...prev, [field]: !prev[field] }));
 
+  // ─── IMAGES ───────────────────────────────────────────────────────────────
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const files = Array.from(e.target.files);
-      if (existingImages.length + newImages.length + files.length > 10) {
-        toast({ title: "Too many images", description: "You can upload a maximum of 10 images", variant: "destructive" });
-        return;
-      }
-      try {
-        const compressed = await compressImages(files);
-        setNewImages([...newImages, ...compressed.map(c => c.file)]);
-      } catch (error) {
-        setNewImages([...newImages, ...files]);
-      }
+    if (!e.target.files) return;
+    const files = Array.from(e.target.files);
+    if (existingImages.length + newImages.length + files.length > 10) {
+      toast({ title: "Too many images", description: "Maximum 10 images allowed", variant: "destructive" });
+      return;
+    }
+    try {
+      const compressed = await compressImages(files);
+      setNewImages((prev) => [...prev, ...compressed.map((c) => c.file)]);
+    } catch {
+      setNewImages((prev) => [...prev, ...files]);
     }
   };
 
   const removeExistingImage = (index: number) => {
     if (existingImages.length + newImages.length <= 1) {
-      toast({ title: "Cannot remove image", description: "At least one image is required", variant: "destructive" });
+      toast({ title: "Cannot remove", description: "At least one image is required", variant: "destructive" });
       return;
     }
-    setExistingImages(existingImages.filter((_, i) => i !== index));
+    setExistingImages((prev) => prev.filter((_, i) => i !== index));
   };
 
   const removeNewImage = (index: number) => {
     if (existingImages.length + newImages.length <= 1) {
-      toast({ title: "Cannot remove image", description: "At least one image is required", variant: "destructive" });
+      toast({ title: "Cannot remove", description: "At least one image is required", variant: "destructive" });
       return;
     }
-    setNewImages(newImages.filter((_, i) => i !== index));
+    setNewImages((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const addPhoneNumber = () => setPhoneNumbers([...phoneNumbers, ""]);
-  const updatePhoneNumber = (index: number, value: string) => { const u = [...phoneNumbers]; u[index] = value; setPhoneNumbers(u); };
-  const removePhoneNumber = (index: number) => setPhoneNumbers(phoneNumbers.filter((_, i) => i !== index));
-  const addAmenity = () => setAmenities([...amenities, ""]);
-  const updateAmenity = (index: number, value: string) => { const u = [...amenities]; u[index] = value; setAmenities(u); };
-  const removeAmenity = (index: number) => setAmenities(amenities.filter((_, i) => i !== index));
-  const addFacility = () => setFacilities([...facilities, { name: "", price: 0, capacity: 1, images: [] }]);
-  const updateFacility = (index: number, field: keyof FacilityWithImages, value: string | number | string[]) => { const u = [...facilities]; u[index] = { ...u[index], [field]: value }; setFacilities(u); };
-  const removeFacility = (index: number) => setFacilities(facilities.filter((_, i) => i !== index));
-  const addActivity = () => setActivities([...activities, { name: "", price: 0, images: [] }]);
-  const updateActivity = (index: number, field: keyof ActivityWithImages, value: string | number | string[]) => { const u = [...activities]; u[index] = { ...u[index], [field]: value }; setActivities(u); };
-  const removeActivity = (index: number) => setActivities(activities.filter((_, i) => i !== index));
-  const toggleDay = (day: string) => {
-    if (daysOpened.includes(day)) setDaysOpened(daysOpened.filter(d => d !== day));
-    else setDaysOpened([...daysOpened, day]);
-  };
-
-  const handleResubmit = async () => {
-    // ← NEW: require at least one saved edit before allowing resubmission.
-    // Without this, a host could resend a rejected listing completely
-    // unchanged, which defeats the point of the rejection in the first place.
-    if (!hasMadeChanges) {
-      toast({
-        title: "No Changes Made",
-        description: "Please edit and save at least one field (or photo) above before resubmitting for approval.",
-        variant: "destructive",
-      });
-      return;
-    }
-
+  const handleSaveImages = async () => {
     setSaving(true);
     try {
-      // FIX: this used to be hard-coded to "hotels" no matter what `type`
-      // actually was, so resubmitting an adventure/trip listing silently
-      // hit the wrong table (and could fail outright if the id format
-      // didn't match that table's id column type, e.g. a text slug vs uuid).
-      const table = getTableForType();
-      if (!table) {
-        toast({ title: "Not Supported", description: "This listing type can't be re-submitted here.", variant: "destructive" });
-        setSaving(false);
+      const uploaded: string[] = [];
+      for (const file of newImages) {
+        const ext = file.name.split(".").pop();
+        const fileName = `${user?.id}-${Date.now()}-${Math.random()}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from("listing-images")
+          .upload(fileName, file);
+        if (uploadError) throw uploadError;
+        const { data: { publicUrl } } = supabase.storage
+          .from("listing-images")
+          .getPublicUrl(fileName);
+        uploaded.push(publicUrl);
+      }
+
+      const allImages = [...existingImages, ...uploaded];
+      if (allImages.length < 1) {
+        toast({ title: "Error", description: "At least one image is required", variant: "destructive" });
         return;
       }
 
-      const validatedStatus = approvalStatusSchema.parse("pending");
+      const table = getTableForType();
+      if (!table) return;
+
       const { error } = await supabase
         .from(table)
-        .update({
-          approval_status: validatedStatus,
-          approved_by: null,
-          approved_at: null,
-        })
+        .update({ gallery_images: allImages, image_url: allImages[0], images: allImages })
         .eq("id", id!)
         .eq("created_by", user?.id!);
-
       if (error) throw error;
 
-      setApprovalStatus("pending");
-      toast({ title: "Success", description: "Your listing has been re-submitted for approval" });
-      navigate("/become-host");
-    } catch (error) {
-      console.error("Error resubmitting listing:", error);
-      toast({ title: "Error", description: "Failed to re-submit listing", variant: "destructive" });
+      setNewImages([]);
+      // ✅ Mark that the host has saved a real change
+      setHasMadeChanges(true);
+      toast({ title: "Success", description: "Images updated successfully" });
+      toggleEditMode("images");
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Error", description: "Failed to update images", variant: "destructive" });
     } finally {
       setSaving(false);
     }
   };
 
+  // ─── SAVE FIELD ───────────────────────────────────────────────────────────
   const handleSaveField = async (field: string) => {
     setSaving(true);
     try {
-      let table: "hotels" | "adventure_places" | "trips" = "hotels";
-      if (type === "hotel") table = "hotels";
-      else if (type === "adventure") table = "adventure_places";
-      else if (type === "trip") table = "trips";
-      else if (type === "attraction") {
-        toast({ title: "Not Supported", description: "Attractions are not supported", variant: "destructive" });
-        setSaving(false);
+      const table = getTableForType();
+      if (!table) {
+        toast({ title: "Not Supported", description: "This listing type cannot be edited here.", variant: "destructive" });
         return;
       }
 
       let updateData: any = {};
 
       switch (field) {
-        case "name": updateData.name = name; break;
-        case "description": updateData.description = description; break;
-        case "location": updateData.location = location; break;
-        case "mapLink": updateData.map_link = mapLink; break;
-        case "email": updateData.email = email; break;
+        case "name":            updateData.name = name; break;
+        case "description":     updateData.description = description; break;
+        case "location":        updateData.location = location; break;
+        case "mapLink":         updateData.map_link = mapLink; break;
+        case "email":           updateData.email = email; break;
         case "phone":
-          if (type === "trip" || type === "attraction") updateData.phone_number = phoneNumbers[0] || "";
+          if (type === "trip") updateData.phone_number = phoneNumbers[0] ?? "";
           else updateData.phone_numbers = phoneNumbers.filter(Boolean);
           break;
         case "hours":
@@ -401,18 +343,15 @@ const EditListing = () => {
         case "date":
           if (type === "trip") updateData.date = date;
           break;
-        // ← NEW: Save pickup location
         case "pickupLocation":
           if (type === "trip") updateData.pickup_location = pickupLocation;
           break;
         case "amenities":
-          updateData.amenities = [...generalFacilities, ...amenities.filter(Boolean)];
-          break;
         case "generalFacilities":
           updateData.amenities = [...generalFacilities, ...amenities.filter(Boolean)];
           break;
-        case "facilities": updateData.facilities = facilities; break;
-        case "activities": updateData.activities = activities; break;
+        case "facilities":      updateData.facilities = facilities; break;
+        case "activities":      updateData.activities = activities; break;
         case "inclusions":
           if (type === "trip") updateData.inclusions = inclusions.filter(Boolean);
           break;
@@ -424,72 +363,83 @@ const EditListing = () => {
             updateData.entry_fee_type = entranceFeeType;
             updateData.entry_fee = entranceFee;
             updateData.child_entry_fee = entranceFeeChild;
-          } else if (type === "attraction") {
-            updateData.entrance_type = entranceFeeType;
-            updateData.price_adult = entranceFee;
           }
           break;
       }
 
-      const { error } = await supabase.from(table).update(updateData).eq("id", id!).eq("created_by", user?.id!);
+      const { error } = await supabase
+        .from(table)
+        .update(updateData)
+        .eq("id", id!)
+        .eq("created_by", user?.id!);
       if (error) throw error;
 
-      toast({ title: "Success", description: "Changes saved successfully" });
+      // ✅ Gate unlocked — host has saved at least one real change
       setHasMadeChanges(true);
       if (field === "email") setOriginalEmail(email);
+      toast({ title: "Saved", description: "Changes saved successfully" });
       toggleEditMode(field);
-    } catch (error) {
-      console.error("Error saving:", error);
+    } catch (e) {
+      console.error("Error saving:", e);
       toast({ title: "Error", description: "Failed to save changes", variant: "destructive" });
     } finally {
       setSaving(false);
     }
   };
 
-  const handleSaveImages = async () => {
+  // ─── RESUBMIT ─────────────────────────────────────────────────────────────
+  // Hard gate: no saved edit → no resubmission. Period.
+  const handleResubmit = async () => {
+    if (!hasMadeChanges) {
+      toast({
+        title: "No Changes Saved",
+        description: "You must edit and save at least one field or photo before resubmitting.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setSaving(true);
     try {
-      let uploadedImageUrls: string[] = [];
-      for (const file of newImages) {
-        const fileExt = file.name.split(".").pop();
-        const fileName = `${user?.id}-${Date.now()}-${Math.random()}.${fileExt}`;
-        const { error: uploadError } = await supabase.storage.from("listing-images").upload(fileName, file);
-        if (uploadError) throw uploadError;
-        const { data: { publicUrl } } = supabase.storage.from("listing-images").getPublicUrl(fileName);
-        uploadedImageUrls.push(publicUrl);
-      }
-
-      const allImages = [...existingImages, ...uploadedImageUrls];
-      if (allImages.length < 1) {
-        toast({ title: "Error", description: "At least one image is required", variant: "destructive" });
-        setSaving(false);
+      const table = getTableForType();
+      if (!table) {
+        toast({ title: "Not Supported", description: "This listing type can't be re-submitted here.", variant: "destructive" });
         return;
       }
 
-      let table: "hotels" | "adventure_places" | "trips" = "hotels";
-      if (type === "hotel") table = "hotels";
-      else if (type === "adventure") table = "adventure_places";
-      else if (type === "trip") table = "trips";
-      else if (type === "attraction") {
-        toast({ title: "Not Supported", description: "Attractions are not supported", variant: "destructive" });
-        setSaving(false);
-        return;
-      }
-
-      const { error } = await supabase.from(table).update({ gallery_images: allImages, image_url: allImages[0] || existingImages[0], images: allImages }).eq("id", id!).eq("created_by", user?.id!);
+      const validatedStatus = approvalStatusSchema.parse("pending");
+      const { error } = await supabase
+        .from(table)
+        .update({ approval_status: validatedStatus, approved_by: null, approved_at: null })
+        .eq("id", id!)
+        .eq("created_by", user?.id!);
       if (error) throw error;
 
-      setNewImages([]);
-      toast({ title: "Success", description: "Images updated successfully" });
-      setHasMadeChanges(true);
-      toggleEditMode("images");
-    } catch (error) {
-      toast({ title: "Error", description: "Failed to update images", variant: "destructive" });
+      setApprovalStatus("pending");
+      // Reset so the gate closes again in case the user stays on the page
+      setHasMadeChanges(false);
+      toast({ title: "Resubmitted", description: "Your listing has been sent for review" });
+      navigate("/become-host");
+    } catch (e) {
+      console.error("Error resubmitting:", e);
+      toast({ title: "Error", description: "Failed to resubmit listing", variant: "destructive" });
     } finally {
       setSaving(false);
     }
   };
 
+  // ─── HELPERS ──────────────────────────────────────────────────────────────
+  const addPhoneNumber = () => setPhoneNumbers((p) => [...p, ""]);
+  const updatePhoneNumber = (i: number, v: string) => setPhoneNumbers((p) => { const u = [...p]; u[i] = v; return u; });
+  const removePhoneNumber = (i: number) => setPhoneNumbers((p) => p.filter((_, idx) => idx !== i));
+  const addFacility = () => setFacilities((p) => [...p, { name: "", price: 0, capacity: 1, images: [] }]);
+  const removeFacility = (i: number) => setFacilities((p) => p.filter((_, idx) => idx !== i));
+  const addActivity = () => setActivities((p) => [...p, { name: "", price: 0, images: [] }]);
+  const removeActivity = (i: number) => setActivities((p) => p.filter((_, idx) => idx !== i));
+  const toggleDay = (day: string) =>
+    setDaysOpened((p) => p.includes(day) ? p.filter((d) => d !== day) : [...p, day]);
+
+  // ─── EDIT BUTTON ──────────────────────────────────────────────────────────
   const EditButton = ({ field, onSave }: { field: string; onSave?: () => void }) => (
     <Button
       size="icon"
@@ -504,56 +454,111 @@ const EditListing = () => {
   );
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-[#008080]" />
+      </div>
+    );
   }
+
+  const isRejected = approvalStatus === "rejected";
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] pb-20 md:pb-0">
       <Header />
-      
+
       <main className="container px-4 py-8 mx-auto">
         <Button variant="ghost" onClick={goBack} className="mb-4 text-[#008080] hover:bg-[#008080]/10">
           <ArrowLeft className="mr-2 h-4 w-4" /> Back
         </Button>
 
+        {/* ── Header ── */}
         <div className="mb-6">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
-              <p className="text-[10px] font-black text-[#FF7F50] uppercase tracking-[0.2em] mb-1">Manage Your Listing</p>
-              <h1 className="text-3xl font-black uppercase tracking-tighter text-[#008080]">Edit {type === 'adventure' ? 'Experience' : type === 'trip' ? 'Tour' : type}</h1>
+              <p className="text-[10px] font-black text-[#FF7F50] uppercase tracking-[0.2em] mb-1">
+                Manage Your Listing
+              </p>
+              <h1 className="text-3xl font-black uppercase tracking-tighter text-[#008080]">
+                Edit {type === "adventure" ? "Experience" : type === "trip" ? "Tour" : type}
+              </h1>
               <p className="text-slate-500 text-sm">Click the edit icons to modify any detail</p>
             </div>
-            <div className="flex items-center gap-2">
-              <Badge variant={approvalStatus === 'approved' ? 'default' : approvalStatus === 'pending' ? 'secondary' : 'destructive'} className={approvalStatus === 'approved' ? 'bg-[#008080]' : ''}>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge
+                variant={
+                  approvalStatus === "approved" ? "default"
+                  : approvalStatus === "pending" ? "secondary"
+                  : "destructive"
+                }
+                className={approvalStatus === "approved" ? "bg-[#008080]" : ""}
+              >
                 {approvalStatus}
               </Badge>
               {isHidden && (
-                <Badge variant="outline" className="bg-[#F0E68C]/20 text-[#857F3E] border-[#F0E68C]">Hidden from Public View</Badge>
+                <Badge variant="outline" className="bg-[#F0E68C]/20 text-[#857F3E] border-[#F0E68C]">
+                  Hidden from Public View
+                </Badge>
               )}
             </div>
           </div>
-          
-          {isResubmitting && approvalStatus === 'rejected' && (
-            <div className="mt-4 p-4 bg-[#008080]/10 border border-[#008080]/30 rounded-xl">
-              <p className="text-sm text-[#008080] mb-3">Make your desired changes, then click the button below to re-submit your listing for approval.</p>
+
+          {/* ── Resubmit Banner (rejected listings only) ── */}
+          {isResubmitting && isRejected && (
+            <div className="mt-4 p-4 bg-[#008080]/10 border border-[#008080]/30 rounded-xl space-y-3">
+              {/* Step indicator */}
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 mt-0.5">
+                  {hasMadeChanges ? (
+                    <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center">
+                      <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                  ) : (
+                    <div className="w-6 h-6 rounded-full border-2 border-[#008080] flex items-center justify-center">
+                      <span className="text-[10px] font-black text-[#008080]">1</span>
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-[#008080]">
+                    {hasMadeChanges ? "✓ Changes saved — ready to resubmit" : "Edit & save at least one field below"}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {hasMadeChanges
+                      ? "Your edits have been saved to the listing."
+                      : "Click any pencil icon, make your change, then click the save icon. Only saved edits count."}
+                  </p>
+                </div>
+              </div>
+
+              {!hasMadeChanges && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200">
+                  <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0" />
+                  <p className="text-xs text-amber-700 font-medium">
+                    Resubmission is locked until you save at least one edit above.
+                  </p>
+                </div>
+              )}
+
               <Button
                 onClick={handleResubmit}
                 disabled={saving || !hasMadeChanges}
-                className="bg-[#008080] hover:bg-[#006666] disabled:opacity-50 disabled:cursor-not-allowed"
+                className={`w-full sm:w-auto transition-all ${
+                  hasMadeChanges
+                    ? "bg-[#008080] hover:bg-[#006666] text-white"
+                    : "bg-slate-200 text-slate-400 cursor-not-allowed"
+                }`}
               >
-                {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                Re-submit for Approval
+                {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                {hasMadeChanges ? "Re-submit for Approval" : "Re-submit (save an edit first)"}
               </Button>
-              {!hasMadeChanges && (
-                <p className="text-[11px] text-[#857F3E] mt-2">
-                  Edit and save at least one field or photo above to enable resubmission.
-                </p>
-              )}
             </div>
           )}
         </div>
 
-        {/* Images Section */}
+        {/* ── Images ── */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-semibold">Images</h2>
@@ -561,18 +566,20 @@ const EditListing = () => {
           </div>
           {editMode.images ? (
             <div className="bg-card rounded-lg border p-4">
-              <Label className="text-sm text-muted-foreground mb-2 block">Images ({existingImages.length + newImages.length}/10)</Label>
+              <Label className="text-sm text-muted-foreground mb-2 block">
+                Images ({existingImages.length + newImages.length}/10)
+              </Label>
               <div className="grid grid-cols-4 md:grid-cols-6 gap-3">
                 {existingImages.map((img, idx) => (
-                  <div key={`existing-${idx}`} className="relative aspect-square">
-                    <img src={img} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover rounded-lg" />
+                  <div key={`e-${idx}`} className="relative aspect-square">
+                    <img src={img} alt="" loading="lazy" className="w-full h-full object-cover rounded-lg" />
                     <Button size="icon" variant="destructive" className="absolute -top-2 -right-2 h-6 w-6" onClick={() => removeExistingImage(idx)}>
                       <X className="h-3 w-3" />
                     </Button>
                   </div>
                 ))}
                 {newImages.map((file, idx) => (
-                  <div key={`new-${idx}`} className="relative aspect-square">
+                  <div key={`n-${idx}`} className="relative aspect-square">
                     <img src={URL.createObjectURL(file)} alt="" className="w-full h-full object-cover rounded-lg" />
                     <Button size="icon" variant="destructive" className="absolute -top-2 -right-2 h-6 w-6" onClick={() => removeNewImage(idx)}>
                       <X className="h-3 w-3" />
@@ -598,7 +605,7 @@ const EditListing = () => {
           )}
         </div>
 
-        {/* Grid Layout for Fields */}
+        {/* ── Field Grid ── */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 
           {/* Name */}
@@ -629,7 +636,7 @@ const EditListing = () => {
               : <p className="font-bold text-[#008080] truncate">{location || "Not set"}</p>}
           </div>
 
-          {/* ← NEW: Pickup Location — trips only */}
+          {/* Pickup Location — trips only */}
           {type === "trip" && (
             <div className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm">
               <div className="flex items-center justify-between mb-2">
@@ -647,7 +654,7 @@ const EditListing = () => {
                     placeholder="e.g. Nairobi CBD, Globe Cinema Roundabout"
                     className="border-[#008080]/30 focus:border-[#008080]"
                   />
-                  <p className="text-[10px] text-slate-400 mt-1">Where guests will be picked up for this trip</p>
+                  <p className="text-[10px] text-slate-400 mt-1">Where guests will be picked up</p>
                 </div>
               ) : (
                 <p className="font-bold text-[#008080] truncate">{pickupLocation || "Not set"}</p>
@@ -712,7 +719,7 @@ const EditListing = () => {
               </div>
             ) : (
               <>
-                <p className="font-bold text-[#008080]">{phoneNumbers.length > 0 ? phoneNumbers[0] : "Not set"}</p>
+                <p className="font-bold text-[#008080]">{phoneNumbers[0] || "Not set"}</p>
                 {phoneNumbers.length > 1 && <p className="text-xs text-slate-400">+{phoneNumbers.length - 1} more</p>}
               </>
             )}
@@ -751,7 +758,7 @@ const EditListing = () => {
               ) : (
                 <>
                   <p className="font-medium">{openingHours && closingHours ? `${openingHours} - ${closingHours}` : "Not set"}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{daysOpened.length > 0 ? daysOpened.map(d => d.slice(0, 3)).join(", ") : "No days set"}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{daysOpened.length > 0 ? daysOpened.map((d) => d.slice(0, 3)).join(", ") : "No days set"}</p>
                 </>
               )}
             </div>
@@ -821,8 +828,8 @@ const EditListing = () => {
             </div>
           )}
 
-          {/* Entrance Fee */}
-          {(type === "adventure" || type === "attraction") && (
+          {/* Entrance Fee — adventure only */}
+          {type === "adventure" && (
             <div className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
@@ -865,7 +872,7 @@ const EditListing = () => {
           )}
         </div>
 
-        {/* Description */}
+        {/* ── Description ── */}
         <div className="mt-6 bg-card rounded-lg border p-4">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-semibold">Description</h2>
@@ -876,9 +883,10 @@ const EditListing = () => {
             : <p className="text-sm text-muted-foreground">{description || "No description"}</p>}
         </div>
 
-        {/* Inclusions & Exclusions */}
+        {/* ── Inclusions & Exclusions ── */}
         {type === "trip" && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+            {/* Inclusions */}
             <div className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
@@ -892,12 +900,23 @@ const EditListing = () => {
                   <div className="flex gap-2">
                     <Input
                       value={newInclusion}
-                      onChange={(e) => { const val = e.target.value; if (val.endsWith(',') || val.endsWith('.')) { const item = val.slice(0, -1).trim(); if (item) { setInclusions(prev => [...prev, item]); setNewInclusion(""); } } else setNewInclusion(val); }}
-                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (newInclusion.trim()) { setInclusions(prev => [...prev, newInclusion.trim()]); setNewInclusion(""); } } }}
-                      placeholder="Type & press comma to add"
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val.endsWith(",") || val.endsWith(".")) {
+                          const item = val.slice(0, -1).trim();
+                          if (item) { setInclusions((p) => [...p, item]); setNewInclusion(""); }
+                        } else setNewInclusion(val);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          if (newInclusion.trim()) { setInclusions((p) => [...p, newInclusion.trim()]); setNewInclusion(""); }
+                        }
+                      }}
+                      placeholder="Type & press Enter or comma"
                       className="border-[#008080]/30 focus:border-[#008080] h-8"
                     />
-                    <Button size="sm" onClick={() => { if (newInclusion.trim()) { setInclusions(prev => [...prev, newInclusion.trim()]); setNewInclusion(""); } }} className="bg-[#008080] h-8">
+                    <Button size="sm" onClick={() => { if (newInclusion.trim()) { setInclusions((p) => [...p, newInclusion.trim()]); setNewInclusion(""); } }} className="bg-[#008080] h-8">
                       <Plus className="h-3 w-3" />
                     </Button>
                   </div>
@@ -905,20 +924,21 @@ const EditListing = () => {
                     {inclusions.map((item, i) => (
                       <span key={i} className="flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200">
                         ✓ {item}
-                        <button onClick={() => setInclusions(prev => prev.filter((_, idx) => idx !== i))} className="hover:text-red-500"><X className="h-3 w-3" /></button>
+                        <button onClick={() => setInclusions((p) => p.filter((_, idx) => idx !== i))} className="hover:text-red-500"><X className="h-3 w-3" /></button>
                       </span>
                     ))}
                   </div>
                 </div>
               ) : (
                 <div className="flex flex-wrap gap-1">
-                  {inclusions.length > 0 ? inclusions.map((item, i) => (
-                    <Badge key={i} variant="secondary" className="text-xs bg-emerald-50 text-emerald-700">✓ {item}</Badge>
-                  )) : <p className="text-sm text-muted-foreground">None</p>}
+                  {inclusions.length > 0
+                    ? inclusions.map((item, i) => <Badge key={i} variant="secondary" className="text-xs bg-emerald-50 text-emerald-700">✓ {item}</Badge>)
+                    : <p className="text-sm text-muted-foreground">None</p>}
                 </div>
               )}
             </div>
 
+            {/* Exclusions */}
             <div className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
@@ -932,12 +952,23 @@ const EditListing = () => {
                   <div className="flex gap-2">
                     <Input
                       value={newExclusion}
-                      onChange={(e) => { const val = e.target.value; if (val.endsWith(',') || val.endsWith('.')) { const item = val.slice(0, -1).trim(); if (item) { setExclusions(prev => [...prev, item]); setNewExclusion(""); } } else setNewExclusion(val); }}
-                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (newExclusion.trim()) { setExclusions(prev => [...prev, newExclusion.trim()]); setNewExclusion(""); } } }}
-                      placeholder="Type & press comma to add"
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val.endsWith(",") || val.endsWith(".")) {
+                          const item = val.slice(0, -1).trim();
+                          if (item) { setExclusions((p) => [...p, item]); setNewExclusion(""); }
+                        } else setNewExclusion(val);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          if (newExclusion.trim()) { setExclusions((p) => [...p, newExclusion.trim()]); setNewExclusion(""); }
+                        }
+                      }}
+                      placeholder="Type & press Enter or comma"
                       className="border-[#008080]/30 focus:border-[#008080] h-8"
                     />
-                    <Button size="sm" onClick={() => { if (newExclusion.trim()) { setExclusions(prev => [...prev, newExclusion.trim()]); setNewExclusion(""); } }} className="bg-slate-600 h-8">
+                    <Button size="sm" onClick={() => { if (newExclusion.trim()) { setExclusions((p) => [...p, newExclusion.trim()]); setNewExclusion(""); } }} className="bg-slate-600 h-8">
                       <Plus className="h-3 w-3" />
                     </Button>
                   </div>
@@ -945,26 +976,27 @@ const EditListing = () => {
                     {exclusions.map((item, i) => (
                       <span key={i} className="flex items-center gap-1 px-2 py-1 rounded-full bg-red-50 text-red-600 text-xs font-bold border border-red-200">
                         ✗ {item}
-                        <button onClick={() => setExclusions(prev => prev.filter((_, idx) => idx !== i))} className="hover:text-red-800"><X className="h-3 w-3" /></button>
+                        <button onClick={() => setExclusions((p) => p.filter((_, idx) => idx !== i))} className="hover:text-red-800"><X className="h-3 w-3" /></button>
                       </span>
                     ))}
                   </div>
                 </div>
               ) : (
                 <div className="flex flex-wrap gap-1">
-                  {exclusions.length > 0 ? exclusions.map((item, i) => (
-                    <Badge key={i} variant="secondary" className="text-xs bg-red-50 text-red-600">✗ {item}</Badge>
-                  )) : <p className="text-sm text-muted-foreground">None</p>}
+                  {exclusions.length > 0
+                    ? exclusions.map((item, i) => <Badge key={i} variant="secondary" className="text-xs bg-red-50 text-red-600">✗ {item}</Badge>)
+                    : <p className="text-sm text-muted-foreground">None</p>}
                 </div>
               )}
             </div>
           </div>
         )}
 
-        {/* Amenities, Facilities, Activities */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
-          {(type === "hotel" || type === "adventure" || type === "attraction") && (
-            <div className="bg-card rounded-lg border p-4 md:col-span-2 lg:col-span-3">
+        {/* ── Facilities & Activities ── */}
+        {(type === "hotel" || type === "adventure") && (
+          <div className="grid grid-cols-1 gap-4 mt-6">
+            {/* General Facilities */}
+            <div className="bg-card rounded-lg border p-4">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-medium">General Facilities (Icons)</h3>
                 <EditButton field="generalFacilities" onSave={() => handleSaveField("generalFacilities")} />
@@ -973,16 +1005,15 @@ const EditListing = () => {
                 <GeneralFacilitiesSelector selected={generalFacilities} onChange={setGeneralFacilities} maxSelection={6} accentColor="#008080" />
               ) : (
                 <div className="flex flex-wrap gap-1">
-                  {generalFacilities.length > 0 ? generalFacilities.map((id, idx) => (
-                    <Badge key={idx} variant="secondary" className="text-xs">{id.replace(/_/g, ' ')}</Badge>
-                  )) : <p className="text-sm text-muted-foreground">None</p>}
+                  {generalFacilities.length > 0
+                    ? generalFacilities.map((fid, idx) => <Badge key={idx} variant="secondary" className="text-xs">{fid.replace(/_/g, " ")}</Badge>)
+                    : <p className="text-sm text-muted-foreground">None</p>}
                 </div>
               )}
             </div>
-          )}
 
-          {(type === "hotel" || type === "adventure" || type === "attraction") && (
-            <div className="bg-card rounded-lg border p-4 md:col-span-2 lg:col-span-3">
+            {/* Facilities & Images */}
+            <div className="bg-card rounded-lg border p-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <ImageIcon className="h-4 w-4 text-[#FF7F50]" />
@@ -991,34 +1022,41 @@ const EditListing = () => {
                 <EditButton field="facilities" onSave={() => handleSaveField("facilities")} />
               </div>
               {editMode.facilities ? (
-                <FacilityActivityImageEditor type="facility" items={facilities} onChange={(items) => setFacilities(items as FacilityWithImages[])} userId={user?.id || ""} onSave={() => handleSaveField("facilities")} isSaving={saving} accentColor="#008080" />
+                <FacilityActivityImageEditor
+                  type="facility"
+                  items={facilities}
+                  onChange={(items) => setFacilities(items as FacilityWithImages[])}
+                  userId={user?.id || ""}
+                  onSave={() => handleSaveField("facilities")}
+                  isSaving={saving}
+                  accentColor="#008080"
+                />
               ) : (
                 <div className="space-y-3">
-                  {facilities.length > 0 ? facilities.map((facility, idx) => (
+                  {facilities.length > 0 ? facilities.map((f, idx) => (
                     <div key={idx} className="p-3 rounded-lg bg-muted/50 border border-border">
                       <div className="flex justify-between items-start mb-2">
-                        <span className="font-bold text-sm">{facility.name}</span>
-                        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">{facility.price === 0 ? "Free" : formatPrice(facility.price)}</span>
+                        <span className="font-bold text-sm">{f.name}</span>
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">{f.price === 0 ? "Free" : formatPrice(f.price)}</span>
                       </div>
-                      {facility.images && facility.images.length > 0 && (
+                      {f.images && f.images.length > 0 && (
                         <div className="flex gap-2 overflow-x-auto">
-                          {facility.images.map((img, imgIdx) => (
-                            <div key={imgIdx} className="w-12 h-12 flex-shrink-0 rounded-lg overflow-hidden">
+                          {f.images.map((img, i) => (
+                            <div key={i} className="w-12 h-12 flex-shrink-0 rounded-lg overflow-hidden">
                               <img src={img} alt="" className="w-full h-full object-cover" />
                             </div>
                           ))}
                         </div>
                       )}
-                      {facility.capacity && <p className="text-[10px] text-muted-foreground mt-1">Capacity: {facility.capacity}</p>}
+                      {f.capacity && <p className="text-[10px] text-muted-foreground mt-1">Capacity: {f.capacity}</p>}
                     </div>
                   )) : <p className="text-sm text-muted-foreground">None</p>}
                 </div>
               )}
             </div>
-          )}
 
-          {(type === "hotel" || type === "adventure" || type === "attraction") && (
-            <div className="bg-card rounded-lg border p-4 md:col-span-2 lg:col-span-3">
+            {/* Activities & Images */}
+            <div className="bg-card rounded-lg border p-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <ImageIcon className="h-4 w-4 text-[#008080]" />
@@ -1027,19 +1065,27 @@ const EditListing = () => {
                 <EditButton field="activities" onSave={() => handleSaveField("activities")} />
               </div>
               {editMode.activities ? (
-                <FacilityActivityImageEditor type="activity" items={activities} onChange={(items) => setActivities(items as ActivityWithImages[])} userId={user?.id || ""} onSave={() => handleSaveField("activities")} isSaving={saving} accentColor="#FF7F50" />
+                <FacilityActivityImageEditor
+                  type="activity"
+                  items={activities}
+                  onChange={(items) => setActivities(items as ActivityWithImages[])}
+                  userId={user?.id || ""}
+                  onSave={() => handleSaveField("activities")}
+                  isSaving={saving}
+                  accentColor="#FF7F50"
+                />
               ) : (
                 <div className="space-y-3">
-                  {activities.length > 0 ? activities.map((activity, idx) => (
+                  {activities.length > 0 ? activities.map((a, idx) => (
                     <div key={idx} className="p-3 rounded-lg bg-muted/50 border border-border">
                       <div className="flex justify-between items-start mb-2">
-                        <span className="font-bold text-sm">{activity.name}</span>
-                        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-teal-100 text-teal-700">{activity.price === 0 ? "Free" : formatPrice(activity.price)}</span>
+                        <span className="font-bold text-sm">{a.name}</span>
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-teal-100 text-teal-700">{a.price === 0 ? "Free" : formatPrice(a.price)}</span>
                       </div>
-                      {activity.images && activity.images.length > 0 && (
+                      {a.images && a.images.length > 0 && (
                         <div className="flex gap-2 overflow-x-auto">
-                          {activity.images.map((img, imgIdx) => (
-                            <div key={imgIdx} className="w-12 h-12 flex-shrink-0 rounded-lg overflow-hidden">
+                          {a.images.map((img, i) => (
+                            <div key={i} className="w-12 h-12 flex-shrink-0 rounded-lg overflow-hidden">
                               <img src={img} alt="" className="w-full h-full object-cover" />
                             </div>
                           ))}
@@ -1050,32 +1096,34 @@ const EditListing = () => {
                 </div>
               )}
             </div>
-          )}
-
-          {/* Bookings */}
-          <div className="bg-card rounded-lg border p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-medium">Bookings ({bookings.length})</h3>
-            </div>
-            {bookings.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">No bookings yet</p>
-            ) : (
-              <div className="space-y-2">
-                {bookings.slice(0, 3).map((booking) => (
-                  <div key={booking.id} className="border rounded p-2 space-y-1">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium truncate">{booking.guest_name_masked}</span>
-                      <Badge variant={booking.payment_status === "completed" ? "default" : "secondary"} className="text-xs">{booking.payment_status}</Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground">{formatPrice(booking.total_amount)}</p>
-                  </div>
-                ))}
-                <Button variant="outline" size="sm" className="w-full" onClick={() => navigate(`/host/bookings/${type}/${id}`)}>
-                  See All Bookings
-                </Button>
-              </div>
-            )}
           </div>
+        )}
+
+        {/* ── Bookings ── */}
+        <div className="mt-6 bg-card rounded-lg border p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-medium">Bookings ({bookings.length})</h3>
+          </div>
+          {bookings.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">No bookings yet</p>
+          ) : (
+            <div className="space-y-2">
+              {bookings.slice(0, 3).map((booking) => (
+                <div key={booking.id} className="border rounded p-2 space-y-1">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium truncate">{booking.guest_name_masked}</span>
+                    <Badge variant={booking.payment_status === "completed" ? "default" : "secondary"} className="text-xs">
+                      {booking.payment_status}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{formatPrice(booking.total_amount)}</p>
+                </div>
+              ))}
+              <Button variant="outline" size="sm" className="w-full" onClick={() => navigate(`/host/bookings/${type}/${id}`)}>
+                See All Bookings
+              </Button>
+            </div>
+          )}
         </div>
       </main>
 

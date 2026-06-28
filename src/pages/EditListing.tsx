@@ -109,6 +109,11 @@ const EditListing = () => {
   // ← NEW: Pickup location state
   const [pickupLocation, setPickupLocation] = useState("");
 
+  // ← NEW: Tracks whether the user has actually saved at least one edit
+  // since loading this page. Resubmission is blocked until this is true,
+  // so a rejected listing can't be sent back for approval unchanged.
+  const [hasMadeChanges, setHasMadeChanges] = useState(false);
+
   useEffect(() => {
     if (!user || !id || !type) {
       navigate("/");
@@ -308,6 +313,18 @@ const EditListing = () => {
   };
 
   const handleResubmit = async () => {
+    // ← NEW: require at least one saved edit before allowing resubmission.
+    // Without this, a host could resend a rejected listing completely
+    // unchanged, which defeats the point of the rejection in the first place.
+    if (!hasMadeChanges) {
+      toast({
+        title: "No Changes Made",
+        description: "Please edit and save at least one field (or photo) above before resubmitting for approval.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setSaving(true);
     try {
       // FIX: this used to be hard-coded to "hotels" no matter what `type`
@@ -418,6 +435,7 @@ const EditListing = () => {
       if (error) throw error;
 
       toast({ title: "Success", description: "Changes saved successfully" });
+      setHasMadeChanges(true);
       if (field === "email") setOriginalEmail(email);
       toggleEditMode(field);
     } catch (error) {
@@ -463,6 +481,7 @@ const EditListing = () => {
 
       setNewImages([]);
       toast({ title: "Success", description: "Images updated successfully" });
+      setHasMadeChanges(true);
       toggleEditMode("images");
     } catch (error) {
       toast({ title: "Error", description: "Failed to update images", variant: "destructive" });
@@ -517,10 +536,19 @@ const EditListing = () => {
           {isResubmitting && approvalStatus === 'rejected' && (
             <div className="mt-4 p-4 bg-[#008080]/10 border border-[#008080]/30 rounded-xl">
               <p className="text-sm text-[#008080] mb-3">Make your desired changes, then click the button below to re-submit your listing for approval.</p>
-              <Button onClick={handleResubmit} disabled={saving} className="bg-[#008080] hover:bg-[#006666]">
+              <Button
+                onClick={handleResubmit}
+                disabled={saving || !hasMadeChanges}
+                className="bg-[#008080] hover:bg-[#006666] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
                 {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                 Re-submit for Approval
               </Button>
+              {!hasMadeChanges && (
+                <p className="text-[11px] text-[#857F3E] mt-2">
+                  Edit and save at least one field or photo above to enable resubmission.
+                </p>
+              )}
             </div>
           )}
         </div>

@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import { MapPin, Calendar, Edit3, EyeOff, LayoutDashboard, ReceiptText, Star, Loader2, ArrowLeft } from "lucide-react";
+import { MapPin, Calendar, Edit3, EyeOff, LayoutDashboard, ReceiptText, Star, Loader2, ArrowLeft, RotateCcw } from "lucide-react";
 
 const COLORS = {
   TEAL: "#008080",
@@ -29,6 +29,14 @@ const ITEMS_PER_PAGE = 20;
 // up in the host's Sales Feed.
 const isRealBooking = (b: any) => b.status === "confirmed" && b.payment_status === "completed";
 
+// Maps a content item's `type` to its underlying Supabase table.
+// Keep this in sync with AdminReviewDetail's table mapping.
+const getTableForType = (type: string) => {
+  if (type === "trip" || type === "event") return "trips";
+  if (type === "adventure" || type === "adventure_place") return "adventure_places";
+  return null;
+};
+
 const MyListing = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -42,6 +50,10 @@ const MyListing = () => {
   const [bookingsOffset, setBookingsOffset] = useState(0);
   const [hasMoreListings, setHasMoreListings] = useState(true);
   const [hasMoreBookings, setHasMoreBookings] = useState(true);
+
+  // Tracks which item IDs are currently mid-resubmit, so we can disable
+  // the button and show a spinner per-card without blocking the whole page.
+  const [resubmittingIds, setResubmittingIds] = useState<Set<string>>(new Set());
 
   // Host type state
   const [hostingCategory, setHostingCategory] = useState<string | null>(null);
@@ -214,6 +226,54 @@ const MyListing = () => {
     }
   };
 
+  // ── Resubmit a rejected listing: flips approval_status back to "pending" ──
+  const handleResubmit = async (item: any) => {
+    if (resubmittingIds.has(item.id)) return;
+
+    const tableName = getTableForType(item.type);
+    if (!tableName) {
+      toast({ title: "Resubmit Failed", description: "Unknown listing type.", variant: "destructive" });
+      return;
+    }
+
+    setResubmittingIds(prev => new Set(prev).add(item.id));
+
+    try {
+      const { error } = await supabase
+        .from(tableName as "trips" | "adventure_places")
+        .update({
+          approval_status: "pending",
+          approved_by: null,
+          approved_at: null,
+        })
+        .eq("id", item.id);
+
+      if (error) throw error;
+
+      // Reflect the change locally so the card updates instantly without a refetch.
+      setMyContent(prev =>
+        prev.map(c => (c.id === item.id ? { ...c, approval_status: "pending" } : c))
+      );
+
+      toast({
+        title: "Resubmitted for Review",
+        description: "Your listing has been sent back to admin for approval.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Resubmit Failed",
+        description: error?.message ?? "Something went wrong. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setResubmittingIds(prev => {
+        const next = new Set(prev);
+        next.delete(item.id);
+        return next;
+      });
+    }
+  };
+
   const getCategoryCount = (category: string) => myContent.filter(item => item.type === category).length;
   const getBookingCount  = (category: string) => bookings.filter(b => b.booking_type === category).length;
 
@@ -237,80 +297,117 @@ const MyListing = () => {
 
     return (
       <div className="grid gap-4">
-        {items.map((item) => (
-          <Card key={item.id} className="p-4 bg-white rounded-[28px] shadow-sm border border-slate-100 hover:shadow-md transition-all overflow-hidden">
-            <div className="flex flex-col md:flex-row gap-5">
-              <div className="relative w-full md:w-40 h-32 shrink-0">
-                <img
-                  src={item.image_url || item.photo_urls?.[0] || "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&q=80"}
-                  alt={item.name}
-                  className="w-full h-full object-cover rounded-2xl"
-                />
-                {!item.isCreator && (
-                  <Badge className="absolute top-2 left-2 bg-black/60 backdrop-blur-md text-[8px] font-black uppercase">Staff</Badge>
-                )}
-              </div>
+        {items.map((item) => {
+          const isRejected = item.approval_status === "rejected";
+          const isResubmitting = resubmittingIds.has(item.id);
 
-              <div className="flex-1 space-y-3">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="font-black text-lg uppercase tracking-tight text-slate-800 leading-tight">
-                      {item.name || item.local_name || item.location_name}
-                    </h3>
-                    <div className="flex items-center gap-1.5 mt-1 text-slate-400">
-                      <MapPin className="h-3 w-3" />
-                      <span className="text-[10px] font-bold uppercase tracking-wider">
-                        {item.location || item.location_name}, {item.country}
+          return (
+            <Card key={item.id} className="p-4 bg-white rounded-[28px] shadow-sm border border-slate-100 hover:shadow-md transition-all overflow-hidden">
+              <div className="flex flex-col md:flex-row gap-5">
+                <div className="relative w-full md:w-40 h-32 shrink-0">
+                  <img
+                    src={item.image_url || item.photo_urls?.[0] || "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&q=80"}
+                    alt={item.name}
+                    className="w-full h-full object-cover rounded-2xl"
+                  />
+                  {!item.isCreator && (
+                    <Badge className="absolute top-2 left-2 bg-black/60 backdrop-blur-md text-[8px] font-black uppercase">Staff</Badge>
+                  )}
+                </div>
+
+                <div className="flex-1 space-y-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="font-black text-lg uppercase tracking-tight text-slate-800 leading-tight">
+                        {item.name || item.local_name || item.location_name}
+                      </h3>
+                      <div className="flex items-center gap-1.5 mt-1 text-slate-400">
+                        <MapPin className="h-3 w-3" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider">
+                          {item.location || item.location_name}, {item.country}
+                        </span>
+                      </div>
+                    </div>
+                    <Badge
+                      className="rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-widest border-none"
+                      style={{
+                        backgroundColor:
+                          item.approval_status === "approved" ? `${COLORS.TEAL}20`
+                          : item.approval_status === "pending" ? "#F0E68C"
+                          : "#FFEBEB",
+                        color:
+                          item.approval_status === "approved" ? COLORS.TEAL
+                          : item.approval_status === "pending" ? COLORS.KHAKI_DARK
+                          : COLORS.RED,
+                      }}
+                    >
+                      {item.approval_status}
+                    </Badge>
+                  </div>
+
+                  {isRejected && item.isCreator && (
+                    <div className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-100 rounded-xl">
+                      <span className="text-red-500 text-xs">⚠</span>
+                      <p className="text-[10px] font-bold text-red-600 uppercase tracking-wide flex-1">
+                        Rejected — edit and resubmit to send it back for review.
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-50">
+                    <div className="flex flex-col">
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Base Rate</span>
+                      <span className="text-sm font-black text-[#FF0000]">
+                        KSh {item.price || item.price_adult || item.entry_fee || 0}
                       </span>
                     </div>
-                  </div>
-                  <Badge
-                    className="rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-widest border-none"
-                    style={{
-                      backgroundColor:
-                        item.approval_status === "approved" ? `${COLORS.TEAL}20`
-                        : item.approval_status === "pending" ? "#F0E68C"
-                        : "#FFEBEB",
-                      color:
-                        item.approval_status === "approved" ? COLORS.TEAL
-                        : item.approval_status === "pending" ? COLORS.KHAKI_DARK
-                        : COLORS.RED,
-                    }}
-                  >
-                    {item.approval_status}
-                  </Badge>
-                </div>
 
-                <div className="flex items-center justify-between pt-2 border-t border-slate-50">
-                  <div className="flex flex-col">
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Base Rate</span>
-                    <span className="text-sm font-black text-[#FF0000]">
-                      KSh {item.price || item.price_adult || item.entry_fee || 0}
-                    </span>
-                  </div>
+                    <div className="flex gap-2 flex-wrap items-center">
+                      {item.is_hidden && (
+                        <div className="flex items-center gap-1 bg-yellow-50 px-2 py-1 rounded-lg">
+                          <EyeOff className="h-3 w-3 text-yellow-600" />
+                          <span className="text-[8px] font-black text-yellow-700 uppercase">Hidden</span>
+                        </div>
+                      )}
 
-                  <div className="flex gap-2 flex-wrap items-center">
-                    {item.is_hidden && (
-                      <div className="flex items-center gap-1 bg-yellow-50 px-2 py-1 rounded-lg">
-                        <EyeOff className="h-3 w-3 text-yellow-600" />
-                        <span className="text-[8px] font-black text-yellow-700 uppercase">Hidden</span>
-                      </div>
-                    )}
-                    <Button
-                      onClick={() => navigate(`/edit-listing/${item.type}/${item.id}`)}
-                      size="sm"
-                      className="h-9 px-4 rounded-xl font-black uppercase text-[10px] tracking-widest text-white transition-transform active:scale-95 shadow-lg shadow-teal-900/10 border-none"
-                      style={{ backgroundColor: COLORS.TEAL }}
-                    >
-                      <Edit3 className="h-3 w-3 mr-2" />
-                      Edit
-                    </Button>
+                      {isRejected && item.isCreator && (
+                        <Button
+                          onClick={() => handleResubmit(item)}
+                          disabled={isResubmitting}
+                          size="sm"
+                          className="h-9 px-4 rounded-xl font-black uppercase text-[10px] tracking-widest text-white transition-transform active:scale-95 shadow-lg shadow-orange-900/10 border-none disabled:opacity-60"
+                          style={{ backgroundColor: COLORS.CORAL }}
+                        >
+                          {isResubmitting ? (
+                            <>
+                              <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                              Resubmitting...
+                            </>
+                          ) : (
+                            <>
+                              <RotateCcw className="h-3 w-3 mr-2" />
+                              Resubmit
+                            </>
+                          )}
+                        </Button>
+                      )}
+
+                      <Button
+                        onClick={() => navigate(`/edit-listing/${item.type}/${item.id}`)}
+                        size="sm"
+                        className="h-9 px-4 rounded-xl font-black uppercase text-[10px] tracking-widest text-white transition-transform active:scale-95 shadow-lg shadow-teal-900/10 border-none"
+                        style={{ backgroundColor: COLORS.TEAL }}
+                      >
+                        <Edit3 className="h-3 w-3 mr-2" />
+                        Edit
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </Card>
-        ))}
+            </Card>
+          );
+        })}
       </div>
     );
   };

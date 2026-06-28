@@ -10,7 +10,7 @@ import { SearchBarWithSuggestions } from "@/components/SearchBarWithSuggestions"
 import { useSearchFocus } from "@/components/PageLayout";
 import { ListingCard } from "@/components/ListingCard";
 import {
-  Calendar, Tent, Compass, MapPin, ChevronLeft, ChevronRight,
+  Calendar, Tent, Compass, MapPin,
   Loader2, Navigation, Heart, Ticket, Trophy, Star, Search as SearchIcon,
 } from "lucide-react";
 import { FEATURED_COUNTIES, COUNTY_IMAGES } from "@/lib/kenyaCounties";
@@ -30,88 +30,13 @@ import { useRatings, sortByRating } from "@/hooks/useRatings";
 import { useRealtimeBookings } from "@/hooks/useRealtimeBookings";
 import { useResponsiveLimit } from "@/hooks/useResponsiveLimit";
 
-// ── Page sizes ────────────────────────────────────────────────────────────────
-const MOBILE_PAGE_SIZE = 16;
-const DESKTOP_PAGE_SIZE = 40;
-
-// ── Shared pagination bar ─────────────────────────────────────────────────────
-interface PaginationBarProps {
-  page: number;
-  totalPages: number;
-  totalItems: number;
-  pageSize: number;
-  accentColor: string;
-  onPageChange: (p: number) => void;
-}
-
-const PaginationBar = memo(({
-  page, totalPages, totalItems, pageSize, accentColor, onPageChange,
-}: PaginationBarProps) => {
-  if (totalPages <= 1) return null;
-  const start = page * pageSize + 1;
-  const end   = Math.min((page + 1) * pageSize, totalItems);
-
-  return (
-    <div className="mt-6 flex flex-col items-center gap-2">
-      <div className="flex items-center gap-2">
-        <button
-          onClick={() => onPageChange(page - 1)}
-          disabled={page === 0}
-          aria-label="Previous page"
-          className="h-9 w-9 rounded-full flex items-center justify-center border border-border bg-card text-foreground shadow-sm disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 transition-all"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </button>
-
-        <div className="flex items-center gap-1.5">
-          {Array.from({ length: totalPages }).map((_, i) => {
-            const isEdge     = i === 0 || i === totalPages - 1;
-            const isNear     = Math.abs(i - page) <= 1;
-            const isEllipsis = !isEdge && !isNear;
-            if (isEllipsis) {
-              if (i === 1 || i === totalPages - 2)
-                return <span key={i} className="text-muted-foreground text-xs px-0.5">…</span>;
-              return null;
-            }
-            const active = i === page;
-            return (
-              <button
-                key={i}
-                onClick={() => onPageChange(i)}
-                aria-label={`Page ${i + 1}`}
-                aria-current={active ? "page" : undefined}
-                className={`min-w-[2rem] h-8 px-2.5 rounded-full text-xs font-bold transition-all active:scale-95 ${
-                  active
-                    ? "text-white shadow-md"
-                    : "bg-card border border-border text-foreground hover:opacity-80"
-                }`}
-                style={active ? { backgroundColor: accentColor } : undefined}
-              >
-                {i + 1}
-              </button>
-            );
-          })}
-        </div>
-
-        <button
-          onClick={() => onPageChange(page + 1)}
-          disabled={page >= totalPages - 1}
-          aria-label="Next page"
-          className="h-9 w-9 rounded-full flex items-center justify-center border border-border bg-card text-foreground shadow-sm disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 transition-all"
-        >
-          <ChevronRight className="h-4 w-4" />
-        </button>
-      </div>
-
-      <p className="text-[11px] text-muted-foreground">
-        Showing {start}–{end} of {totalItems}
-      </p>
-    </div>
-  );
-});
-PaginationBar.displayName = "PaginationBar";
-
 // ── GridSection ───────────────────────────────────────────────────────────────
+// Shows an initial batch of cards; tapping "See More" appends the next
+// batch below (with a skeleton row while it "loads"), instead of numbered
+// pagination.
+const INITIAL_VISIBLE_COUNT = 10;
+const LOAD_MORE_COUNT = 10;
+
 interface GridSectionProps {
   title: string;
   viewAllPath: string;
@@ -121,20 +46,33 @@ interface GridSectionProps {
 }
 
 const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: GridSectionProps) => {
-  const [mobilePage, setMobilePage]   = useState(0);
-  const [desktopPage, setDesktopPage] = useState(0);
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_COUNT);
+  const [loadingMore, setLoadingMore]   = useState(false);
 
-  const mobileTotalPages  = Math.ceil(items.length / MOBILE_PAGE_SIZE);
-  const desktopTotalPages = Math.ceil(items.length / DESKTOP_PAGE_SIZE);
+  // If the underlying items list shrinks (e.g. a fresh data fetch), clamp
+  // visibleCount so we never try to render past the end of the array.
+  useEffect(() => {
+    setVisibleCount(prev => Math.min(prev, Math.max(items.length, INITIAL_VISIBLE_COUNT)));
+  }, [items.length]);
 
-  const mobileSlice  = items.slice(mobilePage  * MOBILE_PAGE_SIZE,  (mobilePage  + 1) * MOBILE_PAGE_SIZE);
-  const desktopSlice = items.slice(desktopPage * DESKTOP_PAGE_SIZE, (desktopPage + 1) * DESKTOP_PAGE_SIZE);
+  const visibleItems = items.slice(0, visibleCount);
+  const hasMore = visibleCount < items.length;
+  const nextBatchSize = Math.min(LOAD_MORE_COUNT, Math.max(items.length - visibleCount, 0));
 
-  const goMobile  = (p: number) => { setMobilePage(p);  window.scrollTo({ top: 0, behavior: "smooth" }); };
-  const goDesktop = (p: number) => { setDesktopPage(p); window.scrollTo({ top: 0, behavior: "smooth" }); };
+  const handleSeeMore = () => {
+    if (loadingMore) return;
+    setLoadingMore(true);
+    // Simulated delay so the skeleton row is visible briefly before the
+    // next batch is revealed (items here are already fully loaded in
+    // memory). If this section is ever backed by real incremental server
+    // fetching instead, swap this timeout for the real fetch-then-append.
+    window.setTimeout(() => {
+      setVisibleCount(prev => Math.min(prev + LOAD_MORE_COUNT, items.length));
+      setLoadingMore(false);
+    }, 500);
+  };
 
-  const showSkeletonsMobile  = loading || items.length === 0;
-  const showSkeletonsDesktop = loading || items.length === 0;
+  const showSkeletons = loading || items.length === 0;
 
   const Skeletons = ({ count }: { count: number }) => (
     <>
@@ -167,47 +105,45 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: G
         </Link>
       </div>
 
-      {/* MOBILE */}
-      <div className="md:hidden">
-        {showSkeletonsMobile ? (
-          <div className="grid grid-cols-2 gap-2.5">
-            <Skeletons count={MOBILE_PAGE_SIZE} />
+      {showSkeletons ? (
+        <>
+          <div className="md:hidden grid grid-cols-2 gap-2.5">
+            <Skeletons count={INITIAL_VISIBLE_COUNT} />
           </div>
-        ) : (
-          <>
-            <div className="grid grid-cols-2 gap-2.5">{mobileSlice}</div>
-            <PaginationBar
-              page={mobilePage}
-              totalPages={mobileTotalPages}
-              totalItems={items.length}
-              pageSize={MOBILE_PAGE_SIZE}
-              accentColor={accentColor}
-              onPageChange={goMobile}
-            />
-          </>
-        )}
-      </div>
+          <div className="hidden md:grid grid-cols-4 lg:grid-cols-5 gap-4">
+            <Skeletons count={INITIAL_VISIBLE_COUNT} />
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="md:hidden grid grid-cols-2 gap-2.5">{visibleItems}</div>
+          <div className="hidden md:grid grid-cols-4 lg:grid-cols-5 gap-4">{visibleItems}</div>
 
-      {/* DESKTOP */}
-      <div className="hidden md:block">
-        {showSkeletonsDesktop ? (
-          <div className="grid grid-cols-4 lg:grid-cols-5 gap-4">
-            <Skeletons count={DESKTOP_PAGE_SIZE} />
-          </div>
-        ) : (
-          <>
-            <div className="grid grid-cols-4 lg:grid-cols-5 gap-4">{desktopSlice}</div>
-            <PaginationBar
-              page={desktopPage}
-              totalPages={desktopTotalPages}
-              totalItems={items.length}
-              pageSize={DESKTOP_PAGE_SIZE}
-              accentColor={accentColor}
-              onPageChange={goDesktop}
-            />
-          </>
-        )}
-      </div>
+          {/* Skeleton row for the next batch while "See More" is loading */}
+          {loadingMore && (
+            <>
+              <div className="md:hidden grid grid-cols-2 gap-2.5 mt-2.5">
+                <Skeletons count={nextBatchSize || LOAD_MORE_COUNT} />
+              </div>
+              <div className="hidden md:grid grid-cols-4 lg:grid-cols-5 gap-4 mt-4">
+                <Skeletons count={nextBatchSize || LOAD_MORE_COUNT} />
+              </div>
+            </>
+          )}
+
+          {hasMore && !loadingMore && (
+            <div className="flex justify-center mt-6">
+              <button
+                onClick={handleSeeMore}
+                className="px-6 py-2 rounded-full text-xs font-bold border border-border bg-card text-foreground shadow-sm hover:opacity-80 active:scale-95 transition-all"
+                style={{ color: accentColor, borderColor: `${accentColor}40` }}
+              >
+                See More
+              </button>
+            </div>
+          )}
+        </>
+      )}
     </section>
   );
 });
@@ -232,11 +168,7 @@ const QUICK_NAV = [
 const Index = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [listings, setListings] = useState<any[]>([]);
   const { savedItems, handleSave } = useSavedItems();
-  const [loading, setLoading] = useState(true);
-  const [hasMoreSearchResults, setHasMoreSearchResults] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const { toast } = useToast();
   const { position, loading: locationLoading, requestLocation, forceRequestLocation } = useGeolocation();
@@ -281,20 +213,18 @@ const Index = () => {
 
   const allItemIds = useMemo(() => {
     const ids = new Set<string>();
-    listings.forEach(i => ids.add(i.id));
     nearbyPlacesHotels.forEach(i => ids.add(i.id));
     scrollableRows.trips.forEach(i => ids.add(i.id));
     scrollableRows.campsites.forEach(i => ids.add(i.id));
     scrollableRows.events.forEach(i => ids.add(i.id));
     scrollableRows.guidedTrips.forEach(i => ids.add(i.id));
     return Array.from(ids);
-  }, [listings, nearbyPlacesHotels, scrollableRows]);
+  }, [nearbyPlacesHotels, scrollableRows]);
 
   const tripEventIds = useMemo(() => {
     const ids = [...scrollableRows.trips, ...scrollableRows.events, ...scrollableRows.guidedTrips].map(i => i.id);
-    listings.forEach(i => { if (i.type === "TRIP" || i.type === "EVENT") ids.push(i.id); });
     return [...new Set(ids)];
-  }, [scrollableRows.trips, scrollableRows.events, scrollableRows.guidedTrips, listings]);
+  }, [scrollableRows.trips, scrollableRows.events, scrollableRows.guidedTrips]);
 
   const { bookingStats } = useRealtimeBookings(tripEventIds);
   const { ratings }      = useRatings(allItemIds);
@@ -388,54 +318,6 @@ const Index = () => {
     if (withDist.length > 0) setLoadingNearby(false);
   }, [position]);
 
-  const fetchAllData = useCallback(async (query?: string, offset = 0, limit = 15) => {
-    setLoading(true);
-    const today = new Date().toISOString().split("T")[0];
-
-    const fetchEvents = async () => {
-      let q = supabase.from("trips")
-        .select("id,name,location,place,country,image_url,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child,description")
-        .eq("approval_status", "approved").eq("is_hidden", false).eq("type", "event")
-        .or(`date.gte.${today},is_flexible_date.eq.true`);
-      if (query) { const p = `%${query}%`; q = q.or(`name.ilike.${p},location.ilike.${p},country.ilike.${p}`); }
-      const { data } = await q.order("date", { ascending: true }).range(offset, offset + limit - 1);
-      return (data || []).map((i: any) => ({ ...i, type: "EVENT" }));
-    };
-
-    const fetchTable = async (table: "adventure_places", type: string) => {
-      let q = supabase.from(table)
-        .select("id,name,location,place,country,image_url,entry_fee,activities,latitude,longitude,created_at,description")
-        .eq("approval_status", "approved").eq("is_hidden", false);
-      if (query) { const p = `%${query}%`; q = q.or(`name.ilike.${p},location.ilike.${p},country.ilike.${p}`); }
-      const { data } = await q.order("created_at", { ascending: false }).range(offset, offset + limit - 1);
-      return (data || []).map((i: any) => ({ ...i, type }));
-    };
-
-    const fetchTrips = async () => {
-      let q = supabase.from("trips")
-        .select("id,name,location,place,country,image_url,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child,description")
-        .eq("approval_status", "approved").eq("is_hidden", false).eq("type", "trip");
-      if (query) { const p = `%${query}%`; q = q.or(`name.ilike.${p},location.ilike.${p},country.ilike.${p}`); }
-      const { data } = await q.order("date", { ascending: true }).range(offset, offset + limit - 1);
-      return (data || []).map((i: any) => ({ ...i, type: "TRIP" }));
-    };
-
-    const [events, trips, adventures] = await Promise.all([fetchEvents(), fetchTrips(), fetchTable("adventure_places", "ADVENTURE PLACE")]);
-    const combined = [...adventures, ...trips, ...events].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    if (offset === 0) { setListings(combined); setHasMoreSearchResults(true); }
-    else              { setListings(prev => [...prev, ...combined]); }
-    if (combined.length < limit) setHasMoreSearchResults(false);
-    setLoading(false);
-    return combined;
-  }, [position]);
-
-  const loadMoreSearchResults = useCallback(async () => {
-    if (loading || !searchQuery || !hasMoreSearchResults) return;
-    const prev = listings.length;
-    await fetchAllData(searchQuery, listings.length, 20);
-    if (listings.length === prev) setHasMoreSearchResults(false);
-  }, [loading, searchQuery, listings.length, hasMoreSearchResults, fetchAllData]);
-
   // ── Effects ────────────────────────────────────────────────────────────────
   useEffect(() => {
     const on = () => { requestLocation(); window.removeEventListener("scroll", on); window.removeEventListener("click", on); };
@@ -445,21 +327,8 @@ const Index = () => {
   }, [requestLocation]);
 
   useEffect(() => {
-    if (!searchQuery || !hasMoreSearchResults) return;
-    const onScroll = () => {
-      if (!loading && hasMoreSearchResults &&
-          document.documentElement.scrollTop + document.documentElement.clientHeight >=
-          document.documentElement.scrollHeight - 500)
-        loadMoreSearchResults();
-    };
-    window.addEventListener("scroll", onScroll);
-    return () => window.removeEventListener("scroll", onScroll);
-  }, [loading, searchQuery, hasMoreSearchResults, loadMoreSearchResults]);
-
-  useEffect(() => {
     const cached = getCachedHomePageData();
     if (cached) {
-      setListings(cached.listings || []);
       const c = (cached.scrollableRows as any) || {};
       const rows = {
         trips: c.trips || [], hotels: c.hotels || [], attractions: c.attractions || [],
@@ -468,21 +337,20 @@ const Index = () => {
       };
       setScrollableRows(rows);
       setNearbyPlacesHotels(cached.nearbyPlacesHotels || []);
-      setLoading(false); setLoadingScrollable(false); setLoadingNearby(false);
+      setLoadingScrollable(false); setLoadingNearby(false);
       const age = Date.now() - (cached.cachedAt || 0);
       const hasData = rows.trips.length > 0 || rows.campsites.length > 0 || rows.events.length > 0;
       if (age < 5 * 60 * 1000 && hasData) { getUserId().then(setUserId); return; }
     }
-    fetchAllData();
     fetchScrollableRows(cardLimit);
     getUserId().then(setUserId);
-  }, [cardLimit, fetchScrollableRows, fetchAllData]);
+  }, [cardLimit, fetchScrollableRows]);
 
   useEffect(() => {
     const hasData = scrollableRows.trips.length > 0 || scrollableRows.campsites.length > 0 || scrollableRows.events.length > 0;
-    if (!loading && !loadingScrollable && listings.length > 0 && hasData)
-      setCachedHomePageData({ scrollableRows, listings, nearbyPlacesHotels });
-  }, [loading, loadingScrollable, listings, scrollableRows, nearbyPlacesHotels]);
+    if (!loadingScrollable && hasData)
+      setCachedHomePageData({ scrollableRows, listings: [], nearbyPlacesHotels });
+  }, [loadingScrollable, scrollableRows, nearbyPlacesHotels]);
 
   useEffect(() => { if (position) fetchNearbyPlacesAndHotels(); }, [position, fetchNearbyPlacesAndHotels]);
 
@@ -780,20 +648,20 @@ const Index = () => {
             {/* Quick Navigation */}
             <section className="mb-4 md:mb-8">
               <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-3">Quick Access</h2>
-              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+              <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 gap-1.5">
                 {QUICK_NAV.map(nav => (
                   <button
                     key={nav.title}
                     onClick={() => navigate(nav.path)}
-                    className="flex flex-col items-center gap-1.5 py-3 px-2 rounded-2xl bg-card border border-border hover:shadow-md transition-all active:scale-95"
+                    className="flex flex-col items-center gap-1 py-2 px-1 rounded-xl bg-card border border-border hover:shadow-md transition-all active:scale-95"
                   >
                     <div
-                      className="h-9 w-9 rounded-xl flex items-center justify-center"
+                      className="h-7 w-7 rounded-lg flex items-center justify-center"
                       style={{ backgroundColor: `${nav.color}15` }}
                     >
-                      <nav.icon style={{ color: nav.color, width: 18, height: 18 }} />
+                      <nav.icon style={{ color: nav.color, width: 14, height: 14 }} />
                     </div>
-                    <span className="text-[10px] font-bold text-foreground leading-tight text-center">{nav.title}</span>
+                    <span className="text-[9px] font-bold text-foreground leading-tight text-center">{nav.title}</span>
                   </button>
                 ))}
               </div>
@@ -801,12 +669,12 @@ const Index = () => {
 
             {/* Become a Host CTA */}
             <section className="mb-4 md:mb-8">
-              <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary to-primary/80 p-6 md:p-8">
+              <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary to-primary/80 p-3 md:p-4">
                 <div className="absolute -top-8 -right-8 h-40 w-40 rounded-full bg-white/10 pointer-events-none" />
                 <div className="absolute -bottom-6 -left-6 h-32 w-32 rounded-full bg-white/5 pointer-events-none" />
-                <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
+                    <div className="flex items-center gap-2 mb-1">
                       <Star className="h-4 w-4 text-yellow-300 fill-yellow-300" />
                       <span className="text-primary-foreground/80 text-xs font-semibold uppercase tracking-widest">
                         Partner with us
@@ -822,13 +690,13 @@ const Index = () => {
                   <div className="flex flex-col sm:flex-row gap-2 shrink-0">
                     <button
                       onClick={() => navigate("/become-host")}
-                      className="px-6 py-3 rounded-xl bg-white text-primary font-bold text-sm shadow-lg hover:bg-white/90 active:scale-95 transition-all whitespace-nowrap"
+                      className="px-6 py-2 rounded-xl bg-white text-primary font-bold text-sm shadow-lg hover:bg-white/90 active:scale-95 transition-all whitespace-nowrap"
                     >
                       Get Started →
                     </button>
                     <button
                       onClick={() => navigate("/become-host#learn-more")}
-                      className="px-6 py-3 rounded-xl bg-white/15 text-primary-foreground font-semibold text-sm border border-white/25 hover:bg-white/25 active:scale-95 transition-all whitespace-nowrap"
+                      className="px-6 py-2 rounded-xl bg-white/15 text-primary-foreground font-semibold text-sm border border-white/25 hover:bg-white/25 active:scale-95 transition-all whitespace-nowrap"
                     >
                       Learn More
                     </button>

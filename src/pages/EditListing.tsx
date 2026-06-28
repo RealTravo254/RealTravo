@@ -133,6 +133,16 @@ const EditListing = () => {
     }
   };
 
+  // Maps the route's `:itemType` param to its underlying Supabase table.
+  // Centralized here so every handler (fetch, save, resubmit, images) stays
+  // in sync — previously handleResubmit had its own (broken) copy of this.
+  const getTableForType = (): "hotels" | "adventure_places" | "trips" | null => {
+    if (type === "hotel") return "hotels";
+    if (type === "adventure") return "adventure_places";
+    if (type === "trip") return "trips";
+    return null; // "attraction" and anything else: not supported here
+  };
+
   const fetchListing = async () => {
     try {
       let table: "hotels" | "adventure_places" | "trips" = "hotels";
@@ -300,14 +310,35 @@ const EditListing = () => {
   const handleResubmit = async () => {
     setSaving(true);
     try {
-      let table: "hotels" | "adventure_places" | "trips" | "attractions" = "hotels";
-      if (!table) return;
+      // FIX: this used to be hard-coded to "hotels" no matter what `type`
+      // actually was, so resubmitting an adventure/trip listing silently
+      // hit the wrong table (and could fail outright if the id format
+      // didn't match that table's id column type, e.g. a text slug vs uuid).
+      const table = getTableForType();
+      if (!table) {
+        toast({ title: "Not Supported", description: "This listing type can't be re-submitted here.", variant: "destructive" });
+        setSaving(false);
+        return;
+      }
+
       const validatedStatus = approvalStatusSchema.parse("pending");
-      const { error } = await supabase.from(table).update({ approval_status: validatedStatus }).eq("id", id!).eq("created_by", user?.id!);
+      const { error } = await supabase
+        .from(table)
+        .update({
+          approval_status: validatedStatus,
+          approved_by: null,
+          approved_at: null,
+        })
+        .eq("id", id!)
+        .eq("created_by", user?.id!);
+
       if (error) throw error;
+
+      setApprovalStatus("pending");
       toast({ title: "Success", description: "Your listing has been re-submitted for approval" });
       navigate("/become-host");
     } catch (error) {
+      console.error("Error resubmitting listing:", error);
       toast({ title: "Error", description: "Failed to re-submit listing", variant: "destructive" });
     } finally {
       setSaving(false);

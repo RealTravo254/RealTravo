@@ -19,37 +19,28 @@ root.render(
 /**
  * Service Worker Registration - deferred until after first render
  * This prevents SW registration from blocking the initial paint.
+ *
+ * NOTE: This intentionally does NOT auto-activate new versions or
+ * auto-reload the page. A new service worker is downloaded and installed
+ * in the background, but it sits in the "waiting" state (standard browser
+ * behavior) until the user naturally closes/reopens all tabs or manually
+ * refreshes — at which point the new version takes over with no disruption
+ * to whatever the user is doing right now.
  */
 if ('serviceWorker' in navigator) {
   const registerSW = () => {
     navigator.serviceWorker.register('/sw.js')
       .then((registration) => {
         console.log('SW registered successfully with scope:', registration.scope);
-        
-        // Check for updates every 60 seconds
+
+        // Still check for updates periodically — this only downloads/installs
+        // a new worker in the background. It does NOT activate it and does
+        // NOT reload the page. (Removed: the old SKIP_WAITING postMessage
+        // and the controllerchange -> window.location.reload() listener,
+        // which together were the source of the unwanted auto-refresh.)
         setInterval(() => {
           registration.update();
         }, 60 * 1000);
-
-        registration.onupdatefound = () => {
-          const installingWorker = registration.installing;
-          if (installingWorker == null) return;
-          installingWorker.onstatechange = () => {
-            if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              // New content available - auto-activate without user action
-              installingWorker.postMessage({ type: 'SKIP_WAITING' });
-            }
-          };
-        };
-
-        // When the new SW takes over, reload the page automatically
-        let refreshing = false;
-        navigator.serviceWorker.addEventListener('controllerchange', () => {
-          if (!refreshing) {
-            refreshing = true;
-            window.location.reload();
-          }
-        });
       })
       .catch((error) => {
         console.error('Error during service worker registration:', error);

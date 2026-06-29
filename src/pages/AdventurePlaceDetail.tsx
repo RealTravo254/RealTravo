@@ -43,6 +43,24 @@ const toTitleCase = (str?: string) => {
   return str.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
 };
 
+// ─── Screen-size hook ─────────────────────────────────────────────────────────
+// Used so we only ever mount ONE of <MobileCarousel /> / <DesktopGallery />.
+// Previously both were mounted at once (just hidden with CSS), which meant
+// images for the gallery you couldn't even see were still being fetched.
+const useIsMobile = (breakpoint = 768) => {
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth < breakpoint : false
+  );
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
+    const handler = () => setIsMobile(mq.matches);
+    handler();
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, [breakpoint]);
+  return isMobile;
+};
+
 interface SpecialPriceTier {
   id?: string;
   label: string;
@@ -111,7 +129,7 @@ const ImageGalleryModal = ({
       <div style={{ flex: 1, position: "relative", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", padding: "0 48px" }}>
         <img
           key={current} src={images[current]} alt={`${name} ${current + 1}`}
-          style={{ maxHeight: "100%", maxWidth: "100%", objectFit: "contain", borderRadius: 0, userSelect: "none", display: "block" }}
+          style={{ maxHeight: "100%", maxWidth: "100%", objectFit: "contain", borderRadius: 12, userSelect: "none", display: "block" }}
         />
         {images.length > 1 && (
           <>
@@ -137,9 +155,10 @@ const ImageGalleryModal = ({
             {images.map((img, idx) => (
               <button
                 key={idx} onClick={() => setCurrent(idx)}
-                style={{ flexShrink: 0, width: 56, height: 42, padding: 0, border: idx === current ? `2px solid ${CORAL}` : "2px solid rgba(255,255,255,0.22)", borderRadius: 0, outline: "none", opacity: idx === current ? 1 : 0.5, cursor: "pointer", overflow: "hidden", boxSizing: "border-box", transition: "opacity 0.15s, border-color 0.15s" }}
+                style={{ flexShrink: 0, width: 56, height: 42, padding: 0, border: idx === current ? `2px solid ${CORAL}` : "2px solid rgba(255,255,255,0.22)", borderRadius: 8, outline: "none", opacity: idx === current ? 1 : 0.5, cursor: "pointer", overflow: "hidden", boxSizing: "border-box", transition: "opacity 0.15s, border-color 0.15s" }}
               >
-                <img src={img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", borderRadius: 0 }} />
+                {/* Thumbnails only load once the modal/"see all" is actually opened */}
+                <img src={img} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", borderRadius: 6 }} />
               </button>
             ))}
           </div>
@@ -161,21 +180,25 @@ const DesktopGallery = ({ images, name }: { images: string[]; name: string }) =>
   return (
     <>
       {modalOpen && <ImageGalleryModal images={images} name={name} startIndex={modalStart} onClose={() => setModalOpen(false)} />}
-      <div className="hidden md:block max-w-6xl mx-auto px-4 pt-4" style={{ borderRadius: 0 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1.55fr 1fr", gridTemplateRows: "200px 130px", gap: "3px", borderRadius: 0, overflow: "hidden", border: "2px solid rgba(0,0,0,0.08)" }}>
-          <div style={{ gridRow: "1 / 3", overflow: "hidden", borderRadius: 0, cursor: "pointer" }} onClick={() => open(0)}>
-            <img src={images[0]} alt={name} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" style={{ borderRadius: 0 }} />
+      <div className="max-w-6xl mx-auto px-4 pt-4">
+        <div
+          className="rounded-2xl overflow-hidden border-2 border-black/[0.08]"
+          style={{ display: "grid", gridTemplateColumns: "1.55fr 1fr", gridTemplateRows: "200px 130px", gap: "3px" }}
+        >
+          {/* Only the 3 visible thumbnails are fetched — the rest stay unloaded until "see all" is opened */}
+          <div style={{ gridRow: "1 / 3", overflow: "hidden", cursor: "pointer" }} onClick={() => open(0)}>
+            <img src={images[0]} alt={name} loading="eager" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
           </div>
-          <div style={{ overflow: "hidden", borderRadius: 0, cursor: "pointer" }} onClick={() => open(1)}>
-            {images[1] ? <img src={images[1]} alt={`${name} 2`} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" style={{ borderRadius: 0 }} /> : <div className="w-full h-full bg-slate-200" />}
+          <div style={{ overflow: "hidden", cursor: "pointer" }} onClick={() => open(1)}>
+            {images[1] ? <img src={images[1]} alt={`${name} 2`} loading="eager" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" /> : <div className="w-full h-full bg-slate-200" />}
           </div>
-          <div style={{ overflow: "hidden", borderRadius: 0, position: "relative", cursor: "pointer" }} onClick={() => open(2)}>
-            {images[2] ? <img src={images[2]} alt={`${name} 3`} className="w-full h-full object-cover" style={{ borderRadius: 0 }} /> : <div className="w-full h-full bg-slate-200" />}
+          <div style={{ overflow: "hidden", position: "relative", cursor: "pointer" }} onClick={() => open(2)}>
+            {images[2] ? <img src={images[2]} alt={`${name} 3`} loading="eager" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-slate-200" />}
             {images.length > 3 && (
               <div className="absolute inset-0 bg-black/52 flex items-center justify-center backdrop-blur-[1px]">
                 <div className="text-center">
                   <span className="text-white text-2xl font-black">+{images.length - 3}</span>
-                  <p className="text-white text-[10px] font-black uppercase tracking-widest mt-0.5">See All</p>
+                  <p className="text-white text-[10px] font-medium normal-case tracking-tight mt-0.5">see all</p>
                 </div>
               </div>
             )}
@@ -187,8 +210,11 @@ const DesktopGallery = ({ images, name }: { images: string[]; name: string }) =>
 };
 
 // ─── Mobile carousel ──────────────────────────────────────────────────────────
+// Only the currently active slide is ever in the DOM, so only it gets fetched.
+// The full set is only requested once the person taps "see all" (modal above).
 const MobileCarousel = ({ images, name }: { images: string[]; name: string }) => {
   const [active, setActive] = useState(0);
+  const [loaded, setLoaded] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalStart, setModalStart] = useState(0);
 
@@ -198,10 +224,12 @@ const MobileCarousel = ({ images, name }: { images: string[]; name: string }) =>
     return () => clearInterval(iv);
   }, [images.length]);
 
+  useEffect(() => { setLoaded(false); }, [active]);
+
   const go = (idx: number) => setActive((idx + images.length) % images.length);
 
   if (!images.length) return (
-    <div className="md:hidden w-full bg-slate-200 flex items-center justify-center text-slate-400 font-black uppercase text-xs" style={{ height: "45vh", minHeight: "200px", maxHeight: "360px" }}>
+    <div className="w-full bg-slate-200 flex items-center justify-center text-slate-400 font-black uppercase text-xs rounded-b-3xl" style={{ height: "45vh", minHeight: "200px", maxHeight: "360px" }}>
       No Image
     </div>
   );
@@ -209,10 +237,16 @@ const MobileCarousel = ({ images, name }: { images: string[]; name: string }) =>
   return (
     <>
       {modalOpen && <ImageGalleryModal images={images} name={name} startIndex={modalStart} onClose={() => setModalOpen(false)} />}
-      <div className="md:hidden relative overflow-hidden bg-slate-900" style={{ height: "45vh", minHeight: "200px", maxHeight: "360px" }}>
-        {images.map((img, idx) => (
-          <img key={idx} src={img} alt={`${name} ${idx + 1}`} className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700" style={{ opacity: active === idx ? 1 : 0, borderRadius: 0 }} />
-        ))}
+      <div className="relative overflow-hidden bg-slate-900 rounded-b-3xl" style={{ height: "45vh", minHeight: "200px", maxHeight: "360px" }}>
+        <img
+          key={active}
+          src={images[active]}
+          alt={`${name} ${active + 1}`}
+          loading="eager"
+          onLoad={() => setLoaded(true)}
+          className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
+          style={{ opacity: loaded ? 1 : 0 }}
+        />
         <div className="absolute bottom-0 left-0 right-0 h-20 pointer-events-none z-10" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.5), transparent)" }} />
         {images.length > 1 && (
           <>
@@ -234,8 +268,8 @@ const MobileCarousel = ({ images, name }: { images: string[]; name: string }) =>
         )}
         <div className="absolute top-3 right-3 z-20 flex items-center gap-2">
           {images.length > 1 && (
-            <button onClick={() => { setModalStart(active); setModalOpen(true); }} className="flex items-center gap-1.5 bg-black/50 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full hover:bg-black/70 transition-all">
-              <Grid2X2 className="h-3 w-3" /> See All
+            <button onClick={() => { setModalStart(active); setModalOpen(true); }} className="flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white text-[10px] font-medium normal-case px-2.5 py-1 rounded-full hover:bg-black/70 transition-all">
+              <Grid2X2 className="h-3 w-3" /> see all
             </button>
           )}
           <div className="bg-black/50 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full">{active + 1} / {images.length}</div>
@@ -266,18 +300,31 @@ const AmenitiesScroll = ({ amenities, accentColor }: { amenities: string[]; acce
 const CARD_IMG_HEIGHT = 100;
 
 // ─── FacSlideshow ─────────────────────────────────────────────────────────────
+// Renders ONLY the active image — not the whole array — so a facility's other
+// photos aren't fetched until that facility's "see all" is opened.
 const FacSlideshow = ({ images, name, height, onClick }: { images: string[]; name: string; height: number; onClick?: () => void }) => {
   const [active, setActive] = useState(0);
+  const [loaded, setLoaded] = useState(false);
+
   useEffect(() => {
     if (images.length <= 1) return;
     const iv = setInterval(() => setActive((p) => (p + 1) % images.length), 3000);
     return () => clearInterval(iv);
   }, [images.length]);
+
+  useEffect(() => { setLoaded(false); }, [active]);
+
   return (
-    <div className="relative overflow-hidden" style={{ height, borderRadius: 0, cursor: onClick ? "pointer" : "default" }} onClick={onClick}>
-      {images.map((img, idx) => (
-        <img key={idx} src={img} alt={name} className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500" style={{ opacity: active === idx ? 1 : 0, borderRadius: 0 }} />
-      ))}
+    <div className="relative overflow-hidden" style={{ height, cursor: onClick ? "pointer" : "default" }} onClick={onClick}>
+      <img
+        key={active}
+        src={images[active]}
+        alt={name}
+        loading="lazy"
+        onLoad={() => setLoaded(true)}
+        className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
+        style={{ opacity: loaded ? 1 : 0 }}
+      />
       {images.length > 1 && (
         <div className="absolute bottom-1 left-0 right-0 flex justify-center gap-0.5 pointer-events-none z-10">
           {images.map((_, idx) => (
@@ -318,14 +365,16 @@ const InlineFacilitiesGrid = ({ facilities, accentColor }: { facilities: any[]; 
         <div className="flex gap-2 overflow-x-auto pb-1 md:grid md:grid-cols-3 lg:grid-cols-5 md:overflow-visible md:pb-0">
           {visibleFacilities.map((fac: any, i: number) => {
             const imgs: string[] = Array.isArray(fac.images) ? fac.images.filter(Boolean) : [];
+            // "see all" only shows up when there's actually more than one photo to see
+            const hasMultiple = imgs.length > 1;
             return (
-              <div key={i} className="bg-white overflow-hidden shadow-sm border border-slate-100 flex-shrink-0 w-[150px] md:w-auto" style={{ borderRadius: 0 }}>
+              <div key={i} className="bg-white overflow-hidden shadow-sm border border-slate-100 flex-shrink-0 w-[150px] md:w-auto rounded-xl">
                 {imgs.length > 0 ? (
-                  <div className="relative overflow-hidden" style={{ height: CARD_IMG_HEIGHT, borderRadius: 0 }}>
+                  <div className="relative overflow-hidden" style={{ height: CARD_IMG_HEIGHT }}>
                     <FacSlideshow images={imgs} name={fac.name} height={CARD_IMG_HEIGHT} onClick={() => openCardGallery(imgs, fac.name, 0)} />
-                    {imgs.length > 1 && (
-                      <button onClick={(e) => { e.stopPropagation(); openCardGallery(imgs, fac.name, 0); }} className="absolute top-1.5 right-1.5 z-20 flex items-center gap-0.5 bg-black/50 backdrop-blur-sm text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full hover:bg-black/70 transition-all">
-                        <Grid2X2 className="h-2 w-2" /> {imgs.length}
+                    {hasMultiple && (
+                      <button onClick={(e) => { e.stopPropagation(); openCardGallery(imgs, fac.name, 0); }} className="absolute top-1.5 right-1.5 z-20 flex items-center gap-0.5 bg-black/50 backdrop-blur-sm text-white text-[8px] font-medium normal-case px-1.5 py-0.5 rounded-full hover:bg-black/70 transition-all">
+                        <Grid2X2 className="h-2 w-2" /> see all
                       </button>
                     )}
                   </div>
@@ -367,31 +416,45 @@ const InlineFacilitiesGrid = ({ facilities, accentColor }: { facilities: any[]; 
 };
 
 // ─── Activity Card ────────────────────────────────────────────────────────────
+// Same lazy-slideshow treatment as FacSlideshow: only the active image loads.
 const ActivityCard = ({ act, imgs, formatPrice, onImageClick }: { act: any; imgs: string[]; formatPrice: (n: number) => string; onImageClick?: () => void }) => {
   const [active, setActive] = useState(0);
+  const [loaded, setLoaded] = useState(false);
+
   useEffect(() => {
     if (imgs.length <= 1) return;
     const iv = setInterval(() => setActive((p) => (p + 1) % imgs.length), 3200);
     return () => clearInterval(iv);
   }, [imgs.length]);
 
+  useEffect(() => { setLoaded(false); }, [active]);
+
+  const hasMultiple = imgs.length > 1;
+
   return (
-    <div className="bg-white overflow-hidden shadow-sm border border-slate-100" style={{ borderRadius: 0 }}>
-      <div className="relative overflow-hidden" style={{ height: CARD_IMG_HEIGHT, borderRadius: 0, cursor: imgs.length > 0 ? "pointer" : "default" }} onClick={imgs.length > 0 ? onImageClick : undefined}>
+    <div className="bg-white overflow-hidden shadow-sm border border-slate-100 rounded-xl">
+      <div className="relative overflow-hidden" style={{ height: CARD_IMG_HEIGHT, cursor: imgs.length > 0 ? "pointer" : "default" }} onClick={imgs.length > 0 ? onImageClick : undefined}>
         {imgs.length > 0 ? (
-          imgs.map((img, idx) => (
-            <img key={idx} src={img} alt={act.name} className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500" style={{ opacity: active === idx ? 1 : 0, borderRadius: 0 }} />
-          ))
+          <img
+            key={active}
+            src={imgs[active]}
+            alt={act.name}
+            loading="lazy"
+            onLoad={() => setLoaded(true)}
+            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
+            style={{ opacity: loaded ? 1 : 0 }}
+          />
         ) : (
           <div className="absolute inset-0 bg-slate-200 flex items-center justify-center"><MapPin className="h-5 w-5 text-slate-300" /></div>
         )}
         <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.45) 0%, transparent 55%)" }} />
-        {imgs.length > 1 && (
-          <button onClick={(e) => { e.stopPropagation(); onImageClick?.(); }} className="absolute top-1.5 right-1.5 z-20 flex items-center gap-0.5 bg-black/50 backdrop-blur-sm text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full hover:bg-black/70 transition-all">
-            <Grid2X2 className="h-2 w-2" /> {imgs.length}
+        {/* "see all" only appears when this activity actually has more than one photo */}
+        {hasMultiple && (
+          <button onClick={(e) => { e.stopPropagation(); onImageClick?.(); }} className="absolute top-1.5 right-1.5 z-20 flex items-center gap-0.5 bg-black/50 backdrop-blur-sm text-white text-[8px] font-medium normal-case px-1.5 py-0.5 rounded-full hover:bg-black/70 transition-all">
+            <Grid2X2 className="h-2 w-2" /> see all
           </button>
         )}
-        {imgs.length > 1 && (
+        {hasMultiple && (
           <div className="absolute bottom-1 right-1.5 flex gap-0.5 z-20 pointer-events-none">
             {imgs.map((_, idx) => (
               <span key={idx} className="transition-all duration-300 block" style={{ width: active === idx ? "10px" : "3px", height: "3px", borderRadius: "2px", background: active === idx ? "white" : "rgba(255,255,255,0.4)" }} />
@@ -433,7 +496,8 @@ const InlineActivitiesGrid = ({ activities, formatPrice }: { activities: any[]; 
         <h2 className="text-base font-black uppercase tracking-tight mb-3" style={{ color: CORAL }}>Activities</h2>
         <div className="flex gap-2 overflow-x-auto pb-1 md:grid md:grid-cols-3 lg:grid-cols-5 md:overflow-visible md:pb-0">
           {visibleActivities.map((act: any, i: number) => {
-            const imgs: string[] = Array.isArray(act.images) ? act.images.filter(Boolean).slice(0, 1) : [];
+            // No longer capped at 1 image — activities can now have a full gallery + "see all" just like facilities
+            const imgs: string[] = Array.isArray(act.images) ? act.images.filter(Boolean) : [];
             return (
               <div key={i} className="flex-shrink-0 w-[150px] md:w-auto">
                 <ActivityCard act={act} imgs={imgs} formatPrice={formatPrice} onImageClick={imgs.length > 0 ? () => openCardGallery(imgs, act.name, 0) : undefined} />
@@ -647,6 +711,7 @@ const AdventurePlaceDetail = () => {
   const { toast } = useToast();
   const { requestLocation } = useGeolocation();
   const { formatPrice } = useCurrency();
+  const isMobile = useIsMobile();
 
   const [place, setPlace]         = useState<any | null>(null);
   const [loading, setLoading]     = useState(true);
@@ -777,8 +842,13 @@ const AdventurePlaceDetail = () => {
       <DetailNavBar scrolled={scrolled} itemName={toTitleCase(place.name)} isSaved={isSaved} onSave={() => handleSaveItem(resolvedId, "adventure_place")} onBack={goBack} />
       <div style={{ height: "calc(56px + env(safe-area-inset-top, 0px))" }} />
 
-      <MobileCarousel images={allImages} name={place.name} />
-      <DesktopGallery images={allImages} name={place.name} />
+      {/* Only one gallery layout is ever mounted, based on actual screen size,
+          so we never fetch images for the layout the person can't see. */}
+      {isMobile ? (
+        <MobileCarousel images={allImages} name={place.name} />
+      ) : (
+        <DesktopGallery images={allImages} name={place.name} />
+      )}
 
       <div className="max-w-6xl mx-auto px-4 pt-4 pb-1 bg-background relative z-10">
         <h1 className="text-2xl font-black tracking-tighter leading-tight text-foreground">{toTitleCase(place.name)}</h1>

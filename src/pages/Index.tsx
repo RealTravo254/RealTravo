@@ -146,14 +146,16 @@ GridSection.displayName = "GridSection";
 
 // ── Category cards ────────────────────────────────────────────────────────────
 const CATEGORIES = [
-  { icon: Tent,     title: "Experiences & stays",   path: "/category/campsite", bgImage: "/images/category-adventures.jpg" },
+  { icon: Tent,     title: "Adventure place",   path: "/category/campsite", bgImage: "/images/category-adventures.jpg" },
   { icon: Calendar, title: "Trips",        path: "/category/trips",    bgImage: "/images/category-trips.jpg"      },
   { icon: MapPin,   title: "Guided Tours", path: "/category/guided",   bgImage: "/images/guided.png"        },
 ];
 
 // ── Quick-nav shortcuts ───────────────────────────────────────────────────────
 const QUICK_NAV = [
+    { icon: Calendar, title: "Adventure places",    path: "/category/campsite", color: "hsl(278, 90%, 50%)"  },
   { icon: Calendar, title: "Trips",    path: "/category/trips", color: "hsl(25, 90%, 50%)"  },
+  { icon: Calendar, title: "Giuded Tours",    path: "/category/guided", color: "hsl(235, 90%, 50%)"  },
   { icon: Ticket,   title: "Bookings", path: "/bookings",       color: "hsl(200, 70%, 45%)" },
   { icon: Heart,    title: "Saved",    path: "/saved",          color: "hsl(350, 80%, 55%)" },
 ];

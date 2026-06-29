@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast"; 
+import { useToast } from "@/hooks/use-toast";
 import { getUserId } from "@/lib/sessionManager";
 import { useGeolocation, calculateDistance } from "@/hooks/useGeolocation";
 import { ListingSkeleton } from "@/components/ui/listing-skeleton";
@@ -49,8 +49,6 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: G
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_COUNT);
   const [loadingMore, setLoadingMore]   = useState(false);
 
-  // If the underlying items list shrinks (e.g. a fresh data fetch), clamp
-  // visibleCount so we never try to render past the end of the array.
   useEffect(() => {
     setVisibleCount(prev => Math.min(prev, Math.max(items.length, INITIAL_VISIBLE_COUNT)));
   }, [items.length]);
@@ -62,17 +60,14 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: G
   const handleSeeMore = () => {
     if (loadingMore) return;
     setLoadingMore(true);
-    // Simulated delay so the skeleton row is visible briefly before the
-    // next batch is revealed (items here are already fully loaded in
-    // memory). If this section is ever backed by real incremental server
-    // fetching instead, swap this timeout for the real fetch-then-append.
     window.setTimeout(() => {
       setVisibleCount(prev => Math.min(prev + LOAD_MORE_COUNT, items.length));
       setLoadingMore(false);
     }, 500);
   };
 
-  const showSkeletons = loading || items.length === 0;
+  // ✅ FIX: skeleton only shown when actively loading AND no items yet
+  const showSkeletons = loading && items.length === 0;
 
   const Skeletons = ({ count }: { count: number }) => (
     <>
@@ -157,7 +152,6 @@ const CATEGORIES = [
 ];
 
 // ── Quick-nav shortcuts ───────────────────────────────────────────────────────
-// FIX: removed the stray backtick-n that was corrupting this array
 const QUICK_NAV = [
   { icon: Calendar, title: "Trips",    path: "/category/trips", color: "hsl(25, 90%, 50%)"  },
   { icon: Ticket,   title: "Bookings", path: "/bookings",       color: "hsl(200, 70%, 45%)" },
@@ -171,6 +165,7 @@ const Index = () => {
   const { savedItems, handleSave } = useSavedItems();
   const [userId, setUserId] = useState<string | null>(null);
   const { toast } = useToast();
+  // ✅ FIX: request location immediately on mount
   const { position, loading: locationLoading, requestLocation, forceRequestLocation } = useGeolocation();
   const [showLocationDialog, setShowLocationDialog] = useState(false);
   const { cardLimit } = useResponsiveLimit();
@@ -196,13 +191,12 @@ const Index = () => {
   }, []);
 
   const [scrollableRows, setScrollableRows] = useState<{
-    trips: any[]; hotels: any[]; attractions: any[];
-    campsites: any[]; events: any[]; accommodations: any[]; guidedTrips: any[];
-  }>({ trips: [], hotels: [], attractions: [], campsites: [], events: [], accommodations: [], guidedTrips: [] });
+    trips: any[]; campsites: any[]; events: any[]; guidedTrips: any[];
+  }>({ trips: [], campsites: [], events: [], guidedTrips: [] });
 
   const [nearbyPlacesHotels, setNearbyPlacesHotels] = useState<any[]>([]);
   const [loadingScrollable, setLoadingScrollable]   = useState(true);
-  const [loadingNearby, setLoadingNearby]           = useState(true);
+  const [loadingNearby, setLoadingNearby]           = useState(false);
   const [isSearchFocused, setIsSearchFocusedLocal]  = useState(false);
   const { setSearchFocused } = useSearchFocus();
 
@@ -280,13 +274,10 @@ const Index = () => {
           .order("created_at", { ascending: false }).limit(fetchLimit),
       ]);
       setScrollableRows({
-        trips:          tripsData.data     || [],
-        hotels:         [],
-        attractions:    [],
-        campsites:      campsitesData.data || [],
-        events:         eventsData.data    || [],
-        accommodations: [],
-        guidedTrips:    guidedData.data    || [],
+        trips:       tripsData.data     || [],
+        campsites:   campsitesData.data || [],
+        events:      eventsData.data    || [],
+        guidedTrips: guidedData.data    || [],
       });
     } catch (err) {
       console.error("Error fetching rows:", err);
@@ -296,34 +287,38 @@ const Index = () => {
   }, []);
 
   const fetchNearbyPlacesAndHotels = useCallback(async () => {
-    setLoadingNearby(true);
     if (!position) return;
-    const { data } = await supabase
-      .from("adventure_places")
-      .select("id,name,location,place,country,image_url,entry_fee,activities,latitude,longitude,created_at,description")
-      .eq("approval_status", "approved").eq("is_hidden", false).limit(50);
-    const withDist = (data || [])
-      .map(item => ({
-        ...item,
-        type: "ADVENTURE PLACE",
-        distance: (item as any).latitude && (item as any).longitude && position
-          ? calculateDistance(position.latitude, position.longitude, (item as any).latitude, (item as any).longitude)
-          : undefined,
-      }))
-      .sort((a, b) => {
-        if (a.distance !== undefined && b.distance !== undefined) return a.distance - b.distance;
-        return a.distance !== undefined ? -1 : 1;
-      });
-    setNearbyPlacesHotels(withDist);
-    if (withDist.length > 0) setLoadingNearby(false);
+    setLoadingNearby(true);
+    try {
+      const { data } = await supabase
+        .from("adventure_places")
+        .select("id,name,location,place,country,image_url,entry_fee,activities,latitude,longitude,created_at,description")
+        .eq("approval_status", "approved").eq("is_hidden", false).limit(50);
+      const withDist = (data || [])
+        .map(item => ({
+          ...item,
+          type: "ADVENTURE PLACE",
+          distance: (item as any).latitude && (item as any).longitude && position
+            ? calculateDistance(position.latitude, position.longitude, (item as any).latitude, (item as any).longitude)
+            : undefined,
+        }))
+        .sort((a, b) => {
+          if (a.distance !== undefined && b.distance !== undefined) return a.distance - b.distance;
+          return a.distance !== undefined ? -1 : 1;
+        });
+      setNearbyPlacesHotels(withDist);
+    } catch (err) {
+      console.error("Error fetching nearby places:", err);
+    } finally {
+      setLoadingNearby(false);
+    }
   }, [position]);
 
   // ── Effects ────────────────────────────────────────────────────────────────
+
+  // ✅ FIX: Request location immediately on mount — don't wait for scroll/click
   useEffect(() => {
-    const on = () => { requestLocation(); window.removeEventListener("scroll", on); window.removeEventListener("click", on); };
-    window.addEventListener("scroll", on, { once: true });
-    window.addEventListener("click",  on, { once: true });
-    return () => { window.removeEventListener("scroll", on); window.removeEventListener("click", on); };
+    requestLocation();
   }, [requestLocation]);
 
   useEffect(() => {
@@ -331,13 +326,13 @@ const Index = () => {
     if (cached) {
       const c = (cached.scrollableRows as any) || {};
       const rows = {
-        trips: c.trips || [], hotels: c.hotels || [], attractions: c.attractions || [],
-        campsites: c.campsites || [], events: c.events || [], accommodations: c.accommodations || [],
-        guidedTrips: c.guidedTrips || [],
+        trips: c.trips || [], campsites: c.campsites || [],
+        events: c.events || [], guidedTrips: c.guidedTrips || [],
       };
       setScrollableRows(rows);
       setNearbyPlacesHotels(cached.nearbyPlacesHotels || []);
-      setLoadingScrollable(false); setLoadingNearby(false);
+      setLoadingScrollable(false);
+      setLoadingNearby(false);
       const age = Date.now() - (cached.cachedAt || 0);
       const hasData = rows.trips.length > 0 || rows.campsites.length > 0 || rows.events.length > 0;
       if (age < 5 * 60 * 1000 && hasData) { getUserId().then(setUserId); return; }
@@ -352,7 +347,10 @@ const Index = () => {
       setCachedHomePageData({ scrollableRows, listings: [], nearbyPlacesHotels });
   }, [loadingScrollable, scrollableRows, nearbyPlacesHotels]);
 
-  useEffect(() => { if (position) fetchNearbyPlacesAndHotels(); }, [position, fetchNearbyPlacesAndHotels]);
+  // ✅ FIX: fetch nearby as soon as position is available
+  useEffect(() => {
+    if (position) fetchNearbyPlacesAndHotels();
+  }, [position, fetchNearbyPlacesAndHotels]);
 
   useEffect(() => {
     const ctrl = () => setShowSearchIcon(window.scrollY > 0);
@@ -625,17 +623,17 @@ const Index = () => {
               </div>
             </section>
 
-            {/* Browse Guides */}
+            {/* Browse Guides — Adventure Places & Safaris */}
             <GridSection
-              title="Browse Guides"
+              title="Adventure Places & Safaris"
               viewAllPath="/explore"
               accentColor="hsl(25, 90%, 50%)"
               items={browseGuideNodes}
               loading={loadingScrollable}
             />
 
-            {/* Nearest to You */}
-            {position && (sortedNearbyPlaces.length > 0 || loadingNearby) && (
+            {/* ✅ Nearest to You — shown as soon as position is available or nearby data arrives */}
+            {(position || nearbyPlacesHotels.length > 0) && (
               <GridSection
                 title={t("sections.nearestToYou")}
                 viewAllPath="/explore"

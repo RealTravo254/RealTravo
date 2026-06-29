@@ -6,10 +6,9 @@ const CACHE_DURATION_MS = 30 * 60 * 1000; // 30 minutes
 export interface HomePageCacheData {
   scrollableRows: {
     trips: any[];
-    hotels: any[];
-    attractions: any[];
     campsites: any[];
     events: any[];
+    guidedTrips: any[];
   };
   listings: any[];
   nearbyPlacesHotels: any[];
@@ -20,13 +19,13 @@ export const getCachedHomePageData = (): HomePageCacheData | null => {
   try {
     const expiry = localStorage.getItem(CACHE_EXPIRY_KEY);
     const now = Date.now();
-    
+
     // Check if cache is expired
     if (expiry && now > parseInt(expiry, 10)) {
       clearHomePageCache();
       return null;
     }
-    
+
     const cached = localStorage.getItem(CACHE_KEY);
     return cached ? JSON.parse(cached) : null;
   } catch {
@@ -38,7 +37,7 @@ export const setCachedHomePageData = (data: Omit<HomePageCacheData, 'cachedAt'>)
   try {
     const cacheData: HomePageCacheData = {
       ...data,
-      cachedAt: Date.now()
+      cachedAt: Date.now(),
     };
     localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
     localStorage.setItem(CACHE_EXPIRY_KEY, String(Date.now() + CACHE_DURATION_MS));

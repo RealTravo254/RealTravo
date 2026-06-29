@@ -10,11 +10,9 @@ import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 
 // ── Price label logic ─────────────────────────────────────────────────────────
 // - Guided tours (flexible-date trips) → "/group"
-// - Hotels / Accommodations            → "/night"
 // - Everything else                    → "/person"
 const getPriceLabel = (type: string, isFlexibleDate: boolean, isTrip: boolean) => {
   if (isFlexibleDate && isTrip) return "/group";
-  if (["HOTEL", "ACCOMMODATION"].includes(type)) return "/night";
   return "/person";
 };
 
@@ -44,7 +42,8 @@ const PriceText = ({
 
 export interface ListingCardProps {
   id: string;
-  type: 'TRIP' | 'EVENT' | 'SPORT' | 'HOTEL' | 'ADVENTURE PLACE' | 'ACCOMMODATION' | 'ATTRACTION';
+  // ✅ HOTEL and ACCOMMODATION removed from type union
+  type: 'TRIP' | 'EVENT' | 'SPORT' | 'ADVENTURE PLACE' | 'ATTRACTION';
   name: string;
   imageUrl: string;
   location: string;
@@ -99,8 +98,7 @@ const ListingCardComponent = ({
   const { ref: cardRef, isIntersecting } = useIntersectionObserver({ rootMargin: '300px', triggerOnce: true });
   const shouldLoad = priority || isIntersecting;
 
-  // Only the single primary image is used on this card — gallery/extra
-  // images are intentionally ignored so just one image is fetched/rendered.
+  // Only the single primary image is used on this card.
   const allSlideImages = useMemo(() => [imageUrl].filter(Boolean), [imageUrl]);
 
   const isEventOrSport = type === "EVENT" || type === "SPORT";
@@ -118,13 +116,14 @@ const ListingCardComponent = ({
   const displayType = useMemo(() => {
     if (isGuidedTour) return "Guided Tour";
     if (isEventOrSport) return "Event";
-    if (type === "ADVENTURE PLACE") return "Adventure";
-    if (type === "HOTEL") return "Hotel";
+    // ✅ RENAMED: Adventure Place badge label
+    if (type === "ADVENTURE PLACE") return "Adventure Place & Safaris";
     if (type === "TRIP") return "Trip";
     return type.replace('_', ' ');
   }, [isEventOrSport, type, isGuidedTour]);
 
-  const showCategoryBadge = type !== "ADVENTURE PLACE";
+  // ✅ FIX: Adventure Place now shows category badge (removed the exclusion)
+  const showCategoryBadge = true;
 
   const formattedName = useMemo(() => name.toLowerCase().replace(/\b\w/g, c => c.toUpperCase()), [name]);
   const locationString = useMemo(() => [place, location].filter(Boolean).join(', '), [place, location]);
@@ -139,8 +138,8 @@ const ListingCardComponent = ({
 
   const handleCardClick = useCallback(() => {
     const typeMap: Record<string, string> = {
-      "TRIP": "trip", "EVENT": "event", "SPORT": "event", "HOTEL": "hotel",
-      "ADVENTURE PLACE": "adventure", "ACCOMMODATION": "accommodation", "ATTRACTION": "attraction"
+      "TRIP": "trip", "EVENT": "event", "SPORT": "event",
+      "ADVENTURE PLACE": "adventure", "ATTRACTION": "attraction"
     };
     navigate(createDetailPath(typeMap[type], id, name, location));
   }, [navigate, type, id, name, location]);
@@ -233,7 +232,7 @@ const ListingCardComponent = ({
           ))}
         </div>
 
-        {/* Category badge on image */}
+        {/* ✅ Category badge — shown for ALL types including Adventure Place */}
         <div className="absolute top-2 left-2 z-20 flex items-center gap-1.5">
           {showCategoryBadge && (
             <span
@@ -329,7 +328,7 @@ const ListingCardComponent = ({
           <span className="text-[10px] font-medium truncate capitalize">{locationString.toLowerCase()}</span>
         </div>
 
-        {/* Price — guided tours show /group, hotels /night, everything else /person */}
+        {/* Price — guided tours show /group, everything else /person */}
         {!hidePrice && price != null && price > 0 && (
           <PriceText
             price={price}

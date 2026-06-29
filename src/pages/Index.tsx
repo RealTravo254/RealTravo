@@ -627,7 +627,7 @@ const Index = () => {
 
             {/* Browse Guides — Adventure Places & Safaris */}
             <GridSection
-              title="Adventure Places & Safaris"
+              title="Browsers guide"
               viewAllPath="/explore"
               accentColor="hsl(25, 90%, 50%)"
               items={browseGuideNodes}

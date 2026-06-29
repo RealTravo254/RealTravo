@@ -44,10 +44,10 @@ const fetchExchangeRate = async (): Promise<number> => {
 export const CurrencyProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
 
-  // Always default to KES — never USD unless the user explicitly picks it
+  // Always default to USD — never KES unless the user explicitly picks it
   const [currency, setCurrencyState] = useState<Currency>(() => {
     const stored = localStorage.getItem(CACHE_KEY) as Currency | null;
-    return stored === "USD" ? "USD" : "KES";
+    return stored === "KES" ? "KES" : "USD";
   });
 
   const [rate, setRate] = useState(() => {
@@ -91,10 +91,6 @@ export const CurrencyProvider = ({ children }: { children: ReactNode }) => {
     };
     loadRate();
   }, []);
-
-  // NOTE: Auto-detection removed intentionally.
-  // We no longer switch currency based on the user's profile country.
-  // KES is the default for all users; they can change it manually in the drawer.
 
   const setCurrency = useCallback((c: Currency) => {
     setCurrencyState(c);
@@ -140,11 +136,14 @@ export const useCurrency = () => {
   const ctx = useContext(CurrencyContext);
   if (!ctx) {
     return {
-      currency: "KES" as Currency,
+      currency: "USD" as Currency,
       setCurrency: () => {},
       rate: FALLBACK_RATE,
-      convertPrice: (kesAmount: number) => Math.ceil(kesAmount),
-      formatPrice: (kesAmount: number) => `KSh ${Math.ceil(kesAmount).toLocaleString()}`,
+      convertPrice: (kesAmount: number) => Math.ceil((kesAmount / FALLBACK_RATE) * 100) / 100,
+      formatPrice: (kesAmount: number) => {
+        const usd = Math.ceil((kesAmount / FALLBACK_RATE) * 100) / 100;
+        return `$${usd.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+      },
       usdHint: () => "",
       loading: false,
     };

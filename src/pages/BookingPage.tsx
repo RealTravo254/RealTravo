@@ -17,17 +17,11 @@ const COLORS = { TEAL: "#008080", CORAL: "#FF7F50" };
 
 type BookingType = "trip" | "event" | "hotel" | "adventure_place" | "attraction";
 
-const fmtMoney = (n: number) => "KES " + Math.round(n).toLocaleString("en-KE");
-
-const fmtDate = (d: string) =>
-  new Date(d).toLocaleDateString(undefined, {
-    weekday: "short", year: "numeric", month: "long", day: "numeric",
-  });
-
-const fmtShort = (d: string) =>
-  new Date(d).toLocaleDateString(undefined, {
-    year: "numeric", month: "short", day: "numeric",
-  });
+const fmtMoney  = (n: number) => "KES " + Math.round(n).toLocaleString("en-KE");
+const fmtDate   = (d: string) =>
+  new Date(d).toLocaleDateString(undefined, { weekday: "short", year: "numeric", month: "long", day: "numeric" });
+const fmtShort  = (d: string) =>
+  new Date(d).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 
 const getBookingMeta = (
   bookingType: string,
@@ -38,27 +32,27 @@ const getBookingMeta = (
   const isGuidedTrip =
     raw === "trip" &&
     (d.trip_type === "guided" || d.tripType === "guided" ||
-     d.is_guided === true   || d.isGuided === true);
+     d.is_guided === true     || d.isGuided === true);
 
   switch (raw) {
     case "trip":
       return isGuidedTrip
-        ? { typeLabel: "Tour",            contactLabel: "Tour Organizer" }
-        : { typeLabel: "Trip",            contactLabel: "Trip Organizer" };
+        ? { typeLabel: "Tour",             contactLabel: "Tour Organizer" }
+        : { typeLabel: "Trip",             contactLabel: "Trip Organizer" };
     case "event":
-      return { typeLabel: "Event",          contactLabel: "Event Organizer" };
+      return { typeLabel: "Event",           contactLabel: "Event Organizer" };
     case "adventure_place":
     case "adventure":
       return { typeLabel: "Adventure Place", contactLabel: "Premises Owner / Operator" };
     case "hotel":
-      return { typeLabel: "Hotel",          contactLabel: "Hotel Management" };
+      return { typeLabel: "Hotel",           contactLabel: "Hotel Management" };
     default:
-      return { typeLabel: "Booking",        contactLabel: "Organizer" };
+      return { typeLabel: "Booking",         contactLabel: "Organizer" };
   }
 };
 
 const generateQRDataUrl = (text: string, size = 120): Promise<string> =>
-  new Promise((resolve) => {
+  new Promise(resolve => {
     try {
       const url = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(text)}&color=008080&bgcolor=ffffff&margin=4`;
       const img = new Image();
@@ -76,7 +70,7 @@ const generateQRDataUrl = (text: string, size = 120): Promise<string> =>
   });
 
 export const generateBookingPDF = async (bookingData: any, reference: string) => {
-  const d   = bookingData?.booking_details || bookingData || {};
+  const d       = bookingData?.booking_details || bookingData || {};
   const rawType = bookingData?.booking_type || d.booking_type || "booking";
   const { typeLabel, contactLabel } = getBookingMeta(rawType, d);
 
@@ -116,10 +110,11 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
   const gEmail = bookingData?.guest_email || d.guest_email;
   const gPhone = bookingData?.guest_phone || d.guest_phone;
 
-  const ticketSelections   = d.ticketSelections   || d.ticket_selections   || [];
-  const selectedActivities = d.selectedActivities || d.selected_activities || d.activities || [];
-  const selectedFacilities = d.selectedFacilities || d.selected_facilities || d.facilities || [];
-  const visitDate          = bookingData?.visit_date || d.visit_date || d.date || "";
+  const ticketSelections      = d.ticketSelections      || d.ticket_selections      || [];
+  const entryTicketSelections = d.entryTicketSelections || d.entry_ticket_selections || [];
+  const selectedActivities    = d.selectedActivities    || d.selected_activities    || d.activities || [];
+  const selectedFacilities    = d.selectedFacilities    || d.selected_facilities    || d.facilities || [];
+  const visitDate             = bookingData?.visit_date || d.visit_date || d.date || "";
 
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const W   = doc.internal.pageSize.getWidth();
@@ -158,10 +153,10 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
   const infoRow = (label: string, value: string | number | null | undefined) => {
     if (value === undefined || value === null || String(value).trim() === "") return;
     newPage(28);
-    const valStr  = String(value);
-    const maxW    = CW - 100;
+    const valStr = String(value);
+    const maxW   = CW - 100;
     const lines: string[] = doc.splitTextToSize(valStr, maxW);
-    const rowH    = lines.length > 1 ? 14 + lines.length * 11 : 22;
+    const rowH  = lines.length > 1 ? 14 + lines.length * 11 : 22;
     doc.setFillColor(...LIGHT_RGB);
     doc.roundedRect(M, y, CW, rowH, 3, 3, "F");
     doc.setTextColor(...MUTED_RGB);
@@ -202,9 +197,7 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
     const maxL: string[] = doc.splitTextToSize(left, CW - 100);
-    maxL.slice(0, 2).forEach((ln: string, i: number) =>
-      doc.text(ln, M + 8, y + 13 + i * 10)
-    );
+    maxL.slice(0, 2).forEach((ln: string, i: number) => doc.text(ln, M + 8, y + 13 + i * 10));
     if (sub) {
       doc.setTextColor(...MUTED_RGB);
       doc.setFontSize(7);
@@ -217,7 +210,7 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
     y += rowH + 4;
   };
 
-  // ── HEADER BANNER ────────────────────────────────────────────
+  // ── Header banner ──────────────────────────────────────────────
   doc.setFillColor(...TEAL_RGB);
   doc.rect(0, 0, W, 96, "F");
   doc.setFillColor(...CORAL_RGB);
@@ -294,7 +287,20 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
   infoRow("Location",     d.location || d.locationName);
   y += 6;
 
-  if (ticketSelections.length) {
+  // ── Entry tickets (adventure_place) ─────────────────────────────
+  if (entryTicketSelections.length > 0) {
+    section("ENTRY TICKETS");
+    tableHeader("TICKET TYPE", "SUBTOTAL");
+    entryTicketSelections.forEach((t: any) => {
+      const qty = t.quantity || 1;
+      tableRow(t.label, fmtMoney(t.price * qty),
+        `${qty} person${qty > 1 ? "s" : ""} × ${fmtMoney(t.price)} per ticket`);
+    });
+    y += 6;
+  }
+
+  // ── Standard ticket types (trips / events) ───────────────────────
+  if (ticketSelections.length > 0) {
     section("TICKETS");
     tableHeader("TICKET TYPE", "SUBTOTAL");
     ticketSelections.forEach((t: any) => {
@@ -427,7 +433,7 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
   doc.save(`realtravo-booking-${reference.slice(0, 8)}.pdf`);
 };
 
-// ── Portal header — teal with safe zone ──────────────────────────────────────
+// ── Portal header ─────────────────────────────────────────────────────────────
 const PaystackFloatingHeader = ({ itemName, onBack }: { itemName: string; onBack: () => void }) =>
   createPortal(
     <div style={{
@@ -436,7 +442,6 @@ const PaystackFloatingHeader = ({ itemName, onBack }: { itemName: string; onBack
       backgroundColor: "#008080",
       borderBottom: "1px solid rgba(255,255,255,0.15)",
       boxShadow: "0 1px 8px rgba(0,0,0,0.12)",
-      // ✅ Safe zone: teal fills status bar area
       paddingTop: "max(env(safe-area-inset-top, 0px), 10px)",
       paddingBottom: "10px", paddingLeft: "16px", paddingRight: "16px",
       display: "flex", alignItems: "center", gap: "12px",
@@ -448,8 +453,8 @@ const PaystackFloatingHeader = ({ itemName, onBack }: { itemName: string; onBack
         alignItems: "center", justifyContent: "center",
         flexShrink: 0, transition: "background-color 0.15s",
       }}
-        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.3)")}
-        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.2)")}>
+        onMouseEnter={e => (e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.3)")}
+        onMouseLeave={e => (e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.2)")}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
           stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <polyline points="15 18 9 12 15 6" />
@@ -485,7 +490,7 @@ const PaystackFloatingHeader = ({ itemName, onBack }: { itemName: string; onBack
     document.body
   );
 
-// ── Main page ─────────────────────────────────────────────────────────────────
+// ── Main page ──────────────────────────────────────────────────────────────────
 const BookingPage = () => {
   const { type, id } = useParams<{ type: string; id: string }>();
   const navigate     = useNavigate();
@@ -493,14 +498,14 @@ const BookingPage = () => {
   const { toast }    = useToast();
   const { user }     = useAuth();
 
-  const [item, setItem]                           = useState<any>(null);
-  const [loading, setLoading]                     = useState(true);
-  const [isProcessing, setIsProcessing]           = useState(false);
-  const [isVerifying, setIsVerifying]             = useState(false);
-  const [isCompleted, setIsCompleted]             = useState(false);
-  const [searchParams]                            = useSearchParams();
-  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
-  const [paymentReference, setPaymentReference]   = useState("");
+  const [item, setItem]                                 = useState<any>(null);
+  const [loading, setLoading]                           = useState(true);
+  const [isProcessing, setIsProcessing]                 = useState(false);
+  const [isVerifying, setIsVerifying]                   = useState(false);
+  const [isCompleted, setIsCompleted]                   = useState(false);
+  const [searchParams]                                  = useSearchParams();
+  const [showSuccessDialog, setShowSuccessDialog]       = useState(false);
+  const [paymentReference, setPaymentReference]         = useState("");
   const [completedBookingData, setCompletedBookingData] = useState<any>(null);
 
   const { initiatePayment, launchPaystack, isLoading: isPaymentLoading, showPaystackContainer } =
@@ -514,7 +519,7 @@ const BookingPage = () => {
         setShowSuccessDialog(true);
       },
       onVerifying: () => setIsVerifying(true),
-      onError: (error) => {
+      onError: error => {
         toast({ title: "Payment Error", description: error, variant: "destructive" });
         setIsProcessing(false); setIsVerifying(false);
       },
@@ -528,7 +533,6 @@ const BookingPage = () => {
     }
   }, [showPaystackContainer, launchPaystack]);
 
-  // ✅ Safe-zone-aware body padding when Paystack iframe is active
   useEffect(() => {
     if (showPaystackContainer && !isCompleted && !isVerifying) {
       document.body.style.paddingTop = "calc(64px + env(safe-area-inset-top, 0px))";
@@ -559,11 +563,15 @@ const BookingPage = () => {
         ).eq("id", id).maybeSingle();
         data = r.data; error = r.error;
       } else if (type === "adventure_place" || type === "adventure") {
+        // ✅ Fetch new non-citizen + special pricing columns
         const r = await supabase.from("adventure_places").select(
           "id,name,location,place,country,image_url,description,amenities," +
           "facilities,activities,phone_numbers,email,opening_hours,closing_hours," +
           "days_opened,approval_status,is_hidden,entry_fee,entry_fee_type," +
-          "available_slots,created_by,registration_number"
+          "available_slots,created_by,registration_number," +
+          "non_citizen_entry_fee,non_citizen_child_entry_fee," +
+          "has_non_citizen_pricing,special_entry_prices," +
+          "child_entry_fee"
         ).eq("id", id).maybeSingle();
         data = r.data; error = r.error;
       } else if (type === "hotel") {
@@ -634,16 +642,22 @@ const BookingPage = () => {
 
       if (type === "trip" || type === "event") {
         if (formData.ticketSelections?.length) {
-          formData.ticketSelections.forEach((t) => (totalAmount += t.price * t.quantity));
+          formData.ticketSelections.forEach(t => (totalAmount += t.price * t.quantity));
         } else {
           totalAmount = formData.num_adults * item.price +
             formData.num_children * (item.price_child || 0);
         }
       } else if (type === "adventure_place" || type === "adventure") {
-        if (!isFacilityOnly)
-          totalAmount = (formData.num_adults + formData.num_children) * (item.entry_fee || 0);
-        formData.selectedActivities?.forEach((a) => (totalAmount += a.price * a.numberOfPeople));
-        formData.selectedFacilities?.forEach((f) => {
+        if (!isFacilityOnly) {
+          // ✅ Use the granular entry ticket breakdown when available
+          if (formData.entryTicketSelections?.length) {
+            formData.entryTicketSelections.forEach(t => (totalAmount += t.price * t.quantity));
+          } else {
+            totalAmount = (formData.num_adults + formData.num_children) * (item.entry_fee || 0);
+          }
+        }
+        formData.selectedActivities?.forEach(a => (totalAmount += a.price * a.numberOfPeople));
+        formData.selectedFacilities?.forEach(f => {
           if (f.startDate && f.endDate) {
             const days = Math.ceil(
               (new Date(f.endDate).getTime() - new Date(f.startDate).getTime()) / 86400000
@@ -652,8 +666,8 @@ const BookingPage = () => {
           }
         });
       } else if (type === "hotel") {
-        formData.selectedActivities?.forEach((a) => (totalAmount += a.price * a.numberOfPeople));
-        formData.selectedFacilities?.forEach((f) => {
+        formData.selectedActivities?.forEach(a => (totalAmount += a.price * a.numberOfPeople));
+        formData.selectedFacilities?.forEach(f => {
           if (f.startDate && f.endDate) {
             const days = Math.ceil(
               (new Date(f.endDate).getTime() - new Date(f.startDate).getTime()) / 86400000
@@ -665,7 +679,8 @@ const BookingPage = () => {
 
       const slotsBooked = isFacilityOnly
         ? formData.selectedFacilities?.length || 1
-        : formData.num_adults + formData.num_children;
+        : (formData.entryTicketSelections?.reduce((s, t) => s + t.quantity, 0) ||
+           formData.num_adults + formData.num_children);
 
       let visitDate = formData.visit_date || item.date;
       if (isFacilityOnly && formData.selectedFacilities?.length &&
@@ -684,28 +699,30 @@ const BookingPage = () => {
         total_amount:  totalAmount,
         booking_details: {
           ...formData,
-          item_name:           item.name,
-          name:                item.name,
-          location:            item.location,
-          place:               item.place,
-          country:             item.country,
-          opening_hours:       item.opening_hours       || "",
-          closing_hours:       item.closing_hours       || "",
-          days_opened:         item.days_opened         || [],
-          email:               item.email               || "",
-          phone_number:        item.phone_number        || "",
-          phone_numbers:       item.phone_numbers       || [],
-          event_category:      item.event_category      || "",
-          registration_number: item.registration_number || "",
-          entry_fee_type:      item.entry_fee_type      || "",
-          is_facility_only:    isFacilityOnly,
-          adults:              formData.num_adults,
-          children:            formData.num_children,
-          // ✅ Stored in both keys so DB queries and PDF both find them
-          facilities:          formData.selectedFacilities,
-          selectedFacilities:  formData.selectedFacilities,
-          activities:          formData.selectedActivities,
-          selectedActivities:  formData.selectedActivities,
+          item_name:              item.name,
+          name:                   item.name,
+          location:               item.location,
+          place:                  item.place,
+          country:                item.country,
+          opening_hours:          item.opening_hours          || "",
+          closing_hours:          item.closing_hours          || "",
+          days_opened:            item.days_opened            || [],
+          email:                  item.email                  || "",
+          phone_number:           item.phone_number           || "",
+          phone_numbers:          item.phone_numbers          || [],
+          event_category:         item.event_category         || "",
+          registration_number:    item.registration_number    || "",
+          entry_fee_type:         item.entry_fee_type         || "",
+          is_facility_only:       isFacilityOnly,
+          adults:                 formData.num_adults,
+          children:               formData.num_children,
+          facilities:             formData.selectedFacilities,
+          selectedFacilities:     formData.selectedFacilities,
+          activities:             formData.selectedActivities,
+          selectedActivities:     formData.selectedActivities,
+          // ✅ Store entry tickets in both keys so PDF + DB queries both find them
+          entry_ticket_selections: formData.entryTicketSelections,
+          entryTicketSelections:   formData.entryTicketSelections,
         },
         user_id:              user?.id || null,
         is_guest_booking:     !user,
@@ -740,15 +757,12 @@ const BookingPage = () => {
     window.location.reload();
   };
 
-  // ── Loading screen ────────────────────────────────────────────
+  // ── Loading screen ─────────────────────────────────────────────
   if (loading) {
     return (
       <div
         className="flex flex-col items-center justify-center min-h-screen"
-        style={{
-          backgroundColor: "#008080",
-          paddingTop: "env(safe-area-inset-top, 0px)",
-        }}
+        style={{ backgroundColor: "#008080", paddingTop: "env(safe-area-inset-top, 0px)" }}
       >
         <Loader2 className="h-10 w-10 animate-spin text-white mb-4" />
         <p className="text-sm font-black uppercase tracking-tighter animate-pulse text-white">
@@ -798,15 +812,25 @@ const BookingPage = () => {
     if (type === "adventure_place" || type === "adventure") {
       return {
         ...baseProps,
-        bookingType:   "adventure_place",
-        priceAdult:    item.entry_fee || 0,
-        priceChild:    item.entry_fee || 0,
-        entranceType:  item.entry_fee_type || "paid",
-        facilities:    item.facilities    || [],
-        activities:    item.activities    || [],
-        totalCapacity: item.available_slots || 0,
-        workingDays:   item.days_opened   || [],
-        skipDateSelection: false,
+        bookingType:             "adventure_place",
+        // Citizen fees
+        priceAdult:              item.entry_fee       || 0,
+        priceChild:              item.child_entry_fee || item.entry_fee || 0,
+        // ✅ Non-citizen fees from new columns
+        nonCitizenEntryFee:      item.non_citizen_entry_fee       || 0,
+        nonCitizenChildEntryFee: item.non_citizen_child_entry_fee || 0,
+        hasNonCitizenPricing:    item.has_non_citizen_pricing     || false,
+        // ✅ Special / custom tiers
+        specialEntryPrices:      Array.isArray(item.special_entry_prices)
+                                   ? item.special_entry_prices
+                                   : [],
+        entranceType:            item.entry_fee_type || "paid",
+        facilities:              item.facilities     || [],
+        activities:              item.activities     || [],
+        totalCapacity:           item.available_slots || 0,
+        workingDays:             item.days_opened    || [],
+        skipDateSelection:       false,
+        allowChildren:           true,
       };
     }
 
@@ -833,12 +857,10 @@ const BookingPage = () => {
   return (
     <div className="min-h-screen bg-[#F8F9FA]">
 
-      {/* Paystack floating teal header with safe zone */}
       {paystackIsActive && item && (
         <PaystackFloatingHeader itemName={item.name} onBack={handlePaystackBack} />
       )}
 
-      {/* ✅ Sticky booking header with safe zone */}
       {!isCompleted && !showPaystackContainer && (
         <div
           className="sticky top-0 z-50 bg-white/80 backdrop-blur-lg border-b border-slate-100"
@@ -875,7 +897,6 @@ const BookingPage = () => {
         </div>
       )}
 
-      {/* Processing / verifying state */}
       {isVerifying && !isCompleted && (
         <div
           className="flex flex-col items-center justify-center min-h-[70vh] px-6"
@@ -891,26 +912,19 @@ const BookingPage = () => {
             Please wait while we verify your payment and confirm your booking...
           </p>
           <div className="mt-6 flex items-center gap-2">
-            {[0, 150, 300].map((delay) => (
-              <div
-                key={delay}
-                className="w-2 h-2 rounded-full bg-primary animate-bounce"
-                style={{ animationDelay: `${delay}ms` }}
-              />
+            {[0, 150, 300].map(delay => (
+              <div key={delay} className="w-2 h-2 rounded-full bg-primary animate-bounce"
+                style={{ animationDelay: `${delay}ms` }} />
             ))}
           </div>
         </div>
       )}
 
-      {/* Paystack inline checkout container */}
       {showPaystackContainer && !isCompleted && !isVerifying && (
         <div className="container max-w-2xl mx-auto px-4 py-6 pb-24">
           <div className="bg-white rounded-[32px] shadow-xl border border-slate-100 overflow-hidden">
             <div className="p-6 border-b border-slate-100">
-              <h2
-                className="text-lg font-black uppercase tracking-tight mb-1"
-                style={{ color: COLORS.TEAL }}
-              >
+              <h2 className="text-lg font-black uppercase tracking-tight mb-1" style={{ color: COLORS.TEAL }}>
                 Complete Payment
               </h2>
               <p className="text-xs text-slate-500">
@@ -922,7 +936,6 @@ const BookingPage = () => {
         </div>
       )}
 
-      {/* Multi-step booking form */}
       {!isCompleted && !isVerifying && !showPaystackContainer && (
         <div className="container max-w-2xl mx-auto px-4 py-6 pb-24">
           <div className="bg-white rounded-[32px] shadow-xl border border-slate-100">

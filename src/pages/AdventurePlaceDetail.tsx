@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import {
   MapPin, Clock, Share2, Copy, Navigation, AlertCircle,
   Users, CheckCircle2, ChevronLeft, ChevronRight, Grid2X2, ExternalLink,
-  Globe, Sparkles, Info,
+  Globe, Sparkles, Info, Heart,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSavedItems } from "@/hooks/useSavedItems";
@@ -44,9 +44,6 @@ const toTitleCase = (str?: string) => {
 };
 
 // ─── Screen-size hook ─────────────────────────────────────────────────────────
-// Used so we only ever mount ONE of <MobileCarousel /> / <DesktopGallery />.
-// Previously both were mounted at once (just hidden with CSS), which meant
-// images for the gallery you couldn't even see were still being fetched.
 const useIsMobile = (breakpoint = 768) => {
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth < breakpoint : false
@@ -70,6 +67,50 @@ interface SpecialPriceTier {
 }
 
 const ITEMS_PER_PAGE = 5;
+
+// ─── Save Button ──────────────────────────────────────────────────────────────
+// Shows only the heart icon. Red + filled when saved, outline when not.
+const SaveButton = ({
+  isSaved,
+  onSave,
+}: {
+  isSaved: boolean;
+  onSave: () => void;
+}) => (
+  <button
+    onClick={onSave}
+    aria-label={isSaved ? "Remove from saved" : "Save this place"}
+    style={{
+      width: 36,
+      height: 36,
+      borderRadius: "50%",
+      border: isSaved ? "none" : "1.5px solid rgba(0,0,0,0.12)",
+      background: isSaved ? "#ef4444" : "rgba(255,255,255,0.92)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      cursor: "pointer",
+      transition: "background 0.18s, transform 0.15s",
+      boxShadow: isSaved ? "0 2px 8px rgba(239,68,68,0.35)" : "0 1px 4px rgba(0,0,0,0.08)",
+    }}
+    onMouseEnter={(e) => {
+      e.currentTarget.style.transform = "scale(1.08)";
+    }}
+    onMouseLeave={(e) => {
+      e.currentTarget.style.transform = "scale(1)";
+    }}
+  >
+    <Heart
+      style={{
+        width: 17,
+        height: 17,
+        color: isSaved ? "#fff" : "#64748b",
+        fill: isSaved ? "#fff" : "none",
+        transition: "fill 0.18s, color 0.18s",
+      }}
+    />
+  </button>
+);
 
 // ─── Image Gallery Modal ──────────────────────────────────────────────────────
 const ImageGalleryModal = ({
@@ -157,7 +198,6 @@ const ImageGalleryModal = ({
                 key={idx} onClick={() => setCurrent(idx)}
                 style={{ flexShrink: 0, width: 56, height: 42, padding: 0, border: idx === current ? `2px solid ${CORAL}` : "2px solid rgba(255,255,255,0.22)", borderRadius: 8, outline: "none", opacity: idx === current ? 1 : 0.5, cursor: "pointer", overflow: "hidden", boxSizing: "border-box", transition: "opacity 0.15s, border-color 0.15s" }}
               >
-                {/* Thumbnails only load once the modal/"see all" is actually opened */}
                 <img src={img} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", borderRadius: 6 }} />
               </button>
             ))}
@@ -185,7 +225,6 @@ const DesktopGallery = ({ images, name }: { images: string[]; name: string }) =>
           className="rounded-2xl overflow-hidden border-2 border-black/[0.08]"
           style={{ display: "grid", gridTemplateColumns: "1.55fr 1fr", gridTemplateRows: "200px 130px", gap: "3px" }}
         >
-          {/* Only the 3 visible thumbnails are fetched — the rest stay unloaded until "see all" is opened */}
           <div style={{ gridRow: "1 / 3", overflow: "hidden", cursor: "pointer" }} onClick={() => open(0)}>
             <img src={images[0]} alt={name} loading="eager" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
           </div>
@@ -210,8 +249,6 @@ const DesktopGallery = ({ images, name }: { images: string[]; name: string }) =>
 };
 
 // ─── Mobile carousel ──────────────────────────────────────────────────────────
-// Only the currently active slide is ever in the DOM, so only it gets fetched.
-// The full set is only requested once the person taps "see all" (modal above).
 const MobileCarousel = ({ images, name }: { images: string[]; name: string }) => {
   const [active, setActive] = useState(0);
   const [loaded, setLoaded] = useState(false);
@@ -300,8 +337,6 @@ const AmenitiesScroll = ({ amenities, accentColor }: { amenities: string[]; acce
 const CARD_IMG_HEIGHT = 100;
 
 // ─── FacSlideshow ─────────────────────────────────────────────────────────────
-// Renders ONLY the active image — not the whole array — so a facility's other
-// photos aren't fetched until that facility's "see all" is opened.
 const FacSlideshow = ({ images, name, height, onClick }: { images: string[]; name: string; height: number; onClick?: () => void }) => {
   const [active, setActive] = useState(0);
   const [loaded, setLoaded] = useState(false);
@@ -365,7 +400,6 @@ const InlineFacilitiesGrid = ({ facilities, accentColor }: { facilities: any[]; 
         <div className="flex gap-2 overflow-x-auto pb-1 md:grid md:grid-cols-3 lg:grid-cols-5 md:overflow-visible md:pb-0">
           {visibleFacilities.map((fac: any, i: number) => {
             const imgs: string[] = Array.isArray(fac.images) ? fac.images.filter(Boolean) : [];
-            // "see all" only shows up when there's actually more than one photo to see
             const hasMultiple = imgs.length > 1;
             return (
               <div key={i} className="bg-white overflow-hidden shadow-sm border border-slate-100 flex-shrink-0 w-[150px] md:w-auto rounded-xl">
@@ -416,7 +450,6 @@ const InlineFacilitiesGrid = ({ facilities, accentColor }: { facilities: any[]; 
 };
 
 // ─── Activity Card ────────────────────────────────────────────────────────────
-// Same lazy-slideshow treatment as FacSlideshow: only the active image loads.
 const ActivityCard = ({ act, imgs, formatPrice, onImageClick }: { act: any; imgs: string[]; formatPrice: (n: number) => string; onImageClick?: () => void }) => {
   const [active, setActive] = useState(0);
   const [loaded, setLoaded] = useState(false);
@@ -448,7 +481,6 @@ const ActivityCard = ({ act, imgs, formatPrice, onImageClick }: { act: any; imgs
           <div className="absolute inset-0 bg-slate-200 flex items-center justify-center"><MapPin className="h-5 w-5 text-slate-300" /></div>
         )}
         <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.45) 0%, transparent 55%)" }} />
-        {/* "see all" only appears when this activity actually has more than one photo */}
         {hasMultiple && (
           <button onClick={(e) => { e.stopPropagation(); onImageClick?.(); }} className="absolute top-1.5 right-1.5 z-20 flex items-center gap-0.5 bg-black/50 backdrop-blur-sm text-white text-[8px] font-medium normal-case px-1.5 py-0.5 rounded-full hover:bg-black/70 transition-all">
             <Grid2X2 className="h-2 w-2" /> see all
@@ -496,7 +528,6 @@ const InlineActivitiesGrid = ({ activities, formatPrice }: { activities: any[]; 
         <h2 className="text-base font-black uppercase tracking-tight mb-3" style={{ color: CORAL }}>Activities</h2>
         <div className="flex gap-2 overflow-x-auto pb-1 md:grid md:grid-cols-3 lg:grid-cols-5 md:overflow-visible md:pb-0">
           {visibleActivities.map((act: any, i: number) => {
-            // No longer capped at 1 image — activities can now have a full gallery + "see all" just like facilities
             const imgs: string[] = Array.isArray(act.images) ? act.images.filter(Boolean) : [];
             return (
               <div key={i} className="flex-shrink-0 w-[150px] md:w-auto">
@@ -617,11 +648,9 @@ const BookingCard = ({ place, is24Hours, daysOpened, capacityPerDay, formatPrice
 
   return (
     <>
-      {/* ── Pricing: only show the citizen/non-citizen grid, nothing above it ── */}
       {isPaid ? (
         <div className="rounded-xl border border-slate-100 bg-slate-50 overflow-hidden">
           <div className="grid grid-cols-2 divide-x divide-slate-200">
-            {/* Citizen column */}
             <div className="p-3">
               <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Citizen</p>
               <p className="text-sm font-black text-slate-800">{formatPrice(Number(place.entry_fee))}</p>
@@ -629,7 +658,6 @@ const BookingCard = ({ place, is24Hours, daysOpened, capacityPerDay, formatPrice
                 <p className="text-[10px] text-slate-500 mt-0.5">Child: {formatPrice(Number(place.child_entry_fee))}</p>
               )}
             </div>
-            {/* Non-citizen column */}
             <div className="p-3" style={{ background: hasNonCitizen ? "#FFFBEB" : undefined }}>
               <p className="text-[9px] font-black uppercase tracking-widest text-amber-600 mb-1 flex items-center gap-1">
                 <Globe className="h-2.5 w-2.5" /> Non-Citizen
@@ -648,13 +676,11 @@ const BookingCard = ({ place, is24Hours, daysOpened, capacityPerDay, formatPrice
           </div>
         </div>
       ) : (
-        /* Free entry — simple badge */
         <div className="flex items-center justify-center py-3 rounded-xl bg-emerald-50 border border-emerald-100">
           <span className="text-base font-black text-emerald-600">Free Entry</span>
         </div>
       )}
 
-      {/* Hours & days */}
       <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
         <div className="flex justify-between items-center mb-2">
           <span className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-1">
@@ -839,11 +865,23 @@ const AdventurePlaceDetail = () => {
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      <DetailNavBar scrolled={scrolled} itemName={toTitleCase(place.name)} isSaved={isSaved} onSave={() => handleSaveItem(resolvedId, "adventure_place")} onBack={goBack} />
+      {/*
+        Pass isSaved and a custom save render to DetailNavBar.
+        If DetailNavBar accepts a `saveButton` render prop, use SaveButton below.
+        If it only accepts `isSaved` + `onSave`, update DetailNavBar to render
+        <SaveButton isSaved={isSaved} onSave={onSave} /> instead of its own button.
+      */}
+      <DetailNavBar
+        scrolled={scrolled}
+        itemName={toTitleCase(place.name)}
+        isSaved={isSaved}
+        onSave={() => handleSaveItem(resolvedId, "adventure_place")}
+        onBack={goBack}
+        // If DetailNavBar supports a renderSaveButton prop, uncomment the line below:
+        // renderSaveButton={() => <SaveButton isSaved={isSaved} onSave={() => handleSaveItem(resolvedId, "adventure_place")} />}
+      />
       <div style={{ height: "calc(56px + env(safe-area-inset-top, 0px))" }} />
 
-      {/* Only one gallery layout is ever mounted, based on actual screen size,
-          so we never fetch images for the layout the person can't see. */}
       {isMobile ? (
         <MobileCarousel images={allImages} name={place.name} />
       ) : (
@@ -851,7 +889,22 @@ const AdventurePlaceDetail = () => {
       )}
 
       <div className="max-w-6xl mx-auto px-4 pt-4 pb-1 bg-background relative z-10">
-        <h1 className="text-2xl font-black tracking-tighter leading-tight text-foreground">{toTitleCase(place.name)}</h1>
+        {/* Title row: name + inline save button as fallback if DetailNavBar doesn't support it */}
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="text-2xl font-black tracking-tighter leading-tight text-foreground flex-1">
+            {toTitleCase(place.name)}
+          </h1>
+          {/*
+            FALLBACK save button rendered here below the image if DetailNavBar
+            can't be modified. Remove this block if DetailNavBar is updated.
+          */}
+          <div className="flex-shrink-0 mt-1">
+            <SaveButton
+              isSaved={isSaved}
+              onSave={() => handleSaveItem(resolvedId, "adventure_place")}
+            />
+          </div>
+        </div>
         <div className="flex items-center gap-1.5 mt-1 text-muted-foreground">
           <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
           <span className="text-sm font-semibold">{[place.place, place.location, place.country].filter(Boolean).join(", ")}</span>

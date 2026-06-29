@@ -1,5 +1,9 @@
 import { Card } from "@/components/ui/card";
-import { CheckCircle2, MapPin, Clock, DollarSign, Phone, User, Calendar, Building, Users, Image as ImageIcon, Link as LinkIcon, Sparkles, Globe2, Navigation } from "lucide-react";
+import {
+  CheckCircle2, MapPin, Clock, DollarSign, Phone, User, Calendar,
+  Building, Users, Image as ImageIcon, Link as LinkIcon, Sparkles,
+  Globe2, Navigation, Globe,
+} from "lucide-react";
 import { useCurrency } from "@/contexts/CurrencyContext";
 
 interface FacilityWithImages {
@@ -21,8 +25,15 @@ interface ActivityWithImages {
   previewUrls?: string[];
 }
 
+interface SpecialPriceTierReview {
+  label: string;
+  citizenPrice: number;
+  nonCitizenPrice?: number;
+  requirement?: string;
+}
+
 interface ReviewStepProps {
-  type: 'hotel' | 'adventure' | 'trip' | 'event';
+  type: "hotel" | "adventure" | "trip" | "event";
   data: {
     name: string;
     registrationNumber?: string;
@@ -40,6 +51,12 @@ interface ReviewStepProps {
     entranceFeeType?: string;
     adultPrice?: string;
     childPrice?: string;
+    // ── Non-citizen pricing ──
+    hasNonCitizenPricing?: boolean;
+    nonCitizenAdultPrice?: string;
+    nonCitizenChildPrice?: string;
+    // ── Special pricing tiers ──
+    specialPrices?: SpecialPriceTierReview[];
     date?: string;
     isFlexibleDate?: boolean;
     flexibleDurationMonths?: string;
@@ -64,7 +81,7 @@ interface ReviewStepProps {
     allowChildren?: boolean;
     traLicensePreviewUrl?: string;
     eventCertificatePreviewUrl?: string;
-    pickupLocation?: string; // ← ADDED
+    pickupLocation?: string;
   };
   creatorName?: string;
   creatorEmail?: string;
@@ -72,11 +89,19 @@ interface ReviewStepProps {
   accentColor?: string;
 }
 
-export const ReviewStep = ({ type, data, creatorName, creatorEmail, creatorPhone, accentColor = "#008080" }: ReviewStepProps) => {
+export const ReviewStep = ({
+  type,
+  data,
+  creatorName,
+  creatorEmail,
+  creatorPhone,
+  accentColor = "#008080",
+}: ReviewStepProps) => {
   const { formatPrice: currencyFormat, usdHint } = useCurrency();
+
   const formatPrice = (price: string | number | undefined) => {
     if (!price) return "Free";
-    const num = typeof price === 'string' ? parseFloat(price) : price;
+    const num = typeof price === "string" ? parseFloat(price) : price;
     if (num === 0) return "Free";
     return `${currencyFormat(num)}`;
   };
@@ -86,14 +111,27 @@ export const ReviewStep = ({ type, data, creatorName, creatorEmail, creatorPhone
     return days.join(", ");
   };
 
-  const isHotelOrAdventure = type === 'hotel' || type === 'adventure';
-  const isTripOrEvent = type === 'trip' || type === 'event';
+  const isHotelOrAdventure = type === "hotel" || type === "adventure";
+  const isTripOrEvent = type === "trip" || type === "event";
 
-  const establishmentLabel = data.establishmentType === 'accommodation_only' ? 'Accommodation Only'
-    : data.establishmentType === 'hotel' ? 'Hotel / Resort'
-    : data.establishmentType || undefined;
+  const establishmentLabel =
+    data.establishmentType === "accommodation_only"
+      ? "Accommodation Only"
+      : data.establishmentType === "hotel"
+      ? "Hotel / Resort"
+      : data.establishmentType || undefined;
 
-  const SectionHeader = ({ title, icon: Icon, count, colorClass = "bg-primary/10 text-primary" }: { title: string; icon: React.ElementType; count?: number; colorClass?: string }) => (
+  const SectionHeader = ({
+    title,
+    icon: Icon,
+    count,
+    colorClass = "bg-primary/10 text-primary",
+  }: {
+    title: string;
+    icon: React.ElementType;
+    count?: number;
+    colorClass?: string;
+  }) => (
     <div className="flex items-center gap-2.5 mb-4">
       <div className={`p-2 rounded-xl ${colorClass}`}>
         <Icon className="h-4 w-4" />
@@ -107,7 +145,15 @@ export const ReviewStep = ({ type, data, creatorName, creatorEmail, creatorPhone
     </div>
   );
 
-  const InfoItem = ({ label, value, fullWidth = false }: { label: string; value: string | undefined; fullWidth?: boolean }) => {
+  const InfoItem = ({
+    label,
+    value,
+    fullWidth = false,
+  }: {
+    label: string;
+    value: string | undefined;
+    fullWidth?: boolean;
+  }) => {
     if (!value && value !== "—") return null;
     return (
       <div className={`${fullWidth ? "col-span-2" : ""} p-3 rounded-xl bg-muted/50 border border-border/50`}>
@@ -119,9 +165,13 @@ export const ReviewStep = ({ type, data, creatorName, creatorEmail, creatorPhone
 
   return (
     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* Header Card */}
+
+      {/* ── Header Card ── */}
       <Card className="relative overflow-hidden rounded-2xl border-0 shadow-lg">
-        <div className="absolute inset-0 opacity-[0.06]" style={{ background: `linear-gradient(135deg, ${accentColor}, transparent)` }} />
+        <div
+          className="absolute inset-0 opacity-[0.06]"
+          style={{ background: `linear-gradient(135deg, ${accentColor}, transparent)` }}
+        />
         <div className="relative p-5 sm:p-6">
           <div className="flex items-start gap-4">
             <div className="p-3 rounded-2xl bg-emerald-500/10 shrink-0">
@@ -137,7 +187,9 @@ export const ReviewStep = ({ type, data, creatorName, creatorEmail, creatorPhone
               {data.name && (
                 <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10">
                   <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                  <span className="text-xs font-bold text-primary truncate max-w-[200px] sm:max-w-none">{data.name}</span>
+                  <span className="text-xs font-bold text-primary truncate max-w-[200px] sm:max-w-none">
+                    {data.name}
+                  </span>
                 </div>
               )}
             </div>
@@ -145,7 +197,7 @@ export const ReviewStep = ({ type, data, creatorName, creatorEmail, creatorPhone
         </div>
       </Card>
 
-      {/* Basic Information */}
+      {/* ── Basic Information ── */}
       <Card className="rounded-2xl border border-border/60 shadow-sm p-4 sm:p-5">
         <SectionHeader title="Basic Information" icon={Building} colorClass="bg-blue-500/10 text-blue-600" />
         <div className="grid grid-cols-2 gap-2.5">
@@ -156,22 +208,29 @@ export const ReviewStep = ({ type, data, creatorName, creatorEmail, creatorPhone
               <InfoItem label="Registration No." value={data.registrationNumber} />
             </>
           )}
-          {type === 'hotel' && data.establishmentType && (
+          {type === "hotel" && data.establishmentType && (
             <InfoItem label="Type" value={establishmentLabel} />
           )}
           {isTripOrEvent && data.tripType && (
-            <InfoItem label="Listing Type" value={data.tripType === 'trip' ? 'Trip / Tour' : 'Event / Sport'} />
+            <InfoItem
+              label="Listing Type"
+              value={data.tripType === "trip" ? "Trip / Tour" : "Event / Sport"}
+            />
           )}
           {data.description && (
             <div className="col-span-2 p-3 rounded-xl bg-muted/50 border border-border/50">
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Description</p>
-              <p className="text-sm text-foreground/80 leading-relaxed line-clamp-3">{data.description}</p>
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+                Description
+              </p>
+              <p className="text-sm text-foreground/80 leading-relaxed line-clamp-3">
+                {data.description}
+              </p>
             </div>
           )}
         </div>
       </Card>
 
-      {/* Location */}
+      {/* ── Location ── */}
       <Card className="rounded-2xl border border-border/60 shadow-sm p-4 sm:p-5">
         <SectionHeader title="Location" icon={MapPin} colorClass="bg-rose-500/10 text-rose-600" />
         <div className="grid grid-cols-2 gap-2.5">
@@ -179,8 +238,7 @@ export const ReviewStep = ({ type, data, creatorName, creatorEmail, creatorPhone
           <InfoItem label="City / Place" value={data.place} />
           {data.location && <InfoItem label="Specific Location" value={data.location} fullWidth />}
           {data.locationName && <InfoItem label="Location Name" value={data.locationName} fullWidth />}
-          {/* PICKUP LOCATION — trips only */}
-          {type === 'trip' && data.pickupLocation && (
+          {type === "trip" && data.pickupLocation && (
             <div className="col-span-2 p-3 rounded-xl bg-amber-50 border border-amber-200">
               <p className="text-[10px] font-semibold text-amber-600 uppercase tracking-wider mb-1 flex items-center gap-1">
                 <Navigation className="h-3 w-3" /> Pickup Location
@@ -189,12 +247,16 @@ export const ReviewStep = ({ type, data, creatorName, creatorEmail, creatorPhone
             </div>
           )}
           {data.latitude && data.longitude && (
-            <InfoItem label="GPS" value={`${data.latitude.toFixed(4)}, ${data.longitude.toFixed(4)}`} fullWidth />
+            <InfoItem
+              label="GPS"
+              value={`${data.latitude.toFixed(4)}, ${data.longitude.toFixed(4)}`}
+              fullWidth
+            />
           )}
         </div>
       </Card>
 
-      {/* Schedule */}
+      {/* ── Date & Schedule (trips / events) ── */}
       {isTripOrEvent && (
         <Card className="rounded-2xl border border-border/60 shadow-sm p-4 sm:p-5">
           <SectionHeader title="Date & Schedule" icon={Calendar} colorClass="bg-violet-500/10 text-violet-600" />
@@ -203,7 +265,10 @@ export const ReviewStep = ({ type, data, creatorName, creatorEmail, creatorPhone
               <>
                 <InfoItem label="Date Type" value="Flexible / Open" fullWidth />
                 {data.flexibleDurationMonths && (
-                  <InfoItem label="Duration" value={`${data.flexibleDurationMonths} month${data.flexibleDurationMonths === '1' ? '' : 's'}`} />
+                  <InfoItem
+                    label="Duration"
+                    value={`${data.flexibleDurationMonths} month${data.flexibleDurationMonths === "1" ? "" : "s"}`}
+                  />
                 )}
                 <InfoItem label="Opens" value={data.openingHours} />
                 <InfoItem label="Closes" value={data.closingHours} />
@@ -211,15 +276,33 @@ export const ReviewStep = ({ type, data, creatorName, creatorEmail, creatorPhone
               </>
             ) : (
               <>
-                <InfoItem label="Date" value={data.date ? new Date(data.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : undefined} />
-                <InfoItem label="Hours" value={data.openingHours && data.closingHours ? `${data.openingHours} – ${data.closingHours}` : undefined} />
+                <InfoItem
+                  label="Date"
+                  value={
+                    data.date
+                      ? new Date(data.date).toLocaleDateString("en-GB", {
+                          day: "numeric",
+                          month: "long",
+                          year: "numeric",
+                        })
+                      : undefined
+                  }
+                />
+                <InfoItem
+                  label="Hours"
+                  value={
+                    data.openingHours && data.closingHours
+                      ? `${data.openingHours} – ${data.closingHours}`
+                      : undefined
+                  }
+                />
               </>
             )}
           </div>
         </Card>
       )}
 
-      {/* Operating Hours */}
+      {/* ── Operating Hours (hotels / adventure) ── */}
       {isHotelOrAdventure && (
         <Card className="rounded-2xl border border-border/60 shadow-sm p-4 sm:p-5">
           <SectionHeader title="Operating Hours" icon={Clock} colorClass="bg-amber-500/10 text-amber-600" />
@@ -237,7 +320,7 @@ export const ReviewStep = ({ type, data, creatorName, creatorEmail, creatorPhone
         </Card>
       )}
 
-      {/* Pricing */}
+      {/* ── Pricing & Capacity ── */}
       <Card className="rounded-2xl border border-border/60 shadow-sm p-4 sm:p-5">
         <SectionHeader title="Pricing & Capacity" icon={DollarSign} colorClass="bg-emerald-500/10 text-emerald-600" />
         <div className="grid grid-cols-2 gap-2.5">
@@ -248,24 +331,143 @@ export const ReviewStep = ({ type, data, creatorName, creatorEmail, creatorPhone
               <InfoItem label="Capacity" value={data.capacity ? `${data.capacity} slots` : undefined} />
             </>
           )}
-          {type === 'adventure' && (
+
+          {type === "adventure" && (
             <>
-              <InfoItem label="Entry Type" value={data.entranceFeeType === 'paid' ? 'Paid' : 'Free'} />
-              {data.entranceFeeType === 'paid' && (
+              <InfoItem label="Entry Type" value={data.entranceFeeType === "paid" ? "Paid" : "Free"} />
+              {data.entranceFeeType === "paid" && (
                 <>
-                  <InfoItem label="Adult Fee" value={formatPrice(data.adultPrice)} />
-                  <InfoItem label="Child Fee" value={formatPrice(data.childPrice)} />
+                  {/* Citizen pricing */}
+                  <div className="col-span-2 p-3 rounded-xl bg-teal-50/60 border border-teal-200">
+                    <p className="text-[10px] font-bold text-teal-700 uppercase tracking-wider mb-2">
+                      Citizen Pricing
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <p className="text-[10px] text-muted-foreground mb-0.5">Adult</p>
+                        <p className="font-bold text-sm text-teal-800">
+                          {formatPrice(data.adultPrice)}
+                          {parseFloat(data.adultPrice || "0") > 0 && (
+                            <span className="text-[10px] text-blue-500 font-semibold ml-1">
+                              {usdHint(parseFloat(data.adultPrice || "0"))}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-muted-foreground mb-0.5">Child</p>
+                        <p className="font-bold text-sm text-teal-800">
+                          {formatPrice(data.childPrice)}
+                          {parseFloat(data.childPrice || "0") > 0 && (
+                            <span className="text-[10px] text-blue-500 font-semibold ml-1">
+                              {usdHint(parseFloat(data.childPrice || "0"))}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Non-citizen pricing */}
+                  {data.hasNonCitizenPricing && (
+                    <div className="col-span-2 p-3 rounded-xl bg-amber-50/60 border border-amber-200">
+                      <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                        <Globe className="h-3 w-3" /> Non-Citizen Pricing
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <p className="text-[10px] text-muted-foreground mb-0.5">Adult</p>
+                          <p className="font-bold text-sm text-amber-800">
+                            {formatPrice(data.nonCitizenAdultPrice)}
+                            {parseFloat(data.nonCitizenAdultPrice || "0") > 0 && (
+                              <span className="text-[10px] text-blue-500 font-semibold ml-1">
+                                {usdHint(parseFloat(data.nonCitizenAdultPrice || "0"))}
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-muted-foreground mb-0.5">Child</p>
+                          <p className="font-bold text-sm text-amber-800">
+                            {formatPrice(data.nonCitizenChildPrice)}
+                            {parseFloat(data.nonCitizenChildPrice || "0") > 0 && (
+                              <span className="text-[10px] text-blue-500 font-semibold ml-1">
+                                {usdHint(parseFloat(data.nonCitizenChildPrice || "0"))}
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
             </>
           )}
-          {type === 'hotel' && data.generalBookingLink && (
+
+          {type === "hotel" && data.generalBookingLink && (
             <InfoItem label="Booking Link" value={data.generalBookingLink} fullWidth />
           )}
         </div>
       </Card>
 
-      {/* Children & Ticket Types */}
+      {/* ── Special Pricing Tiers (adventure) ── */}
+      {type === "adventure" && data.specialPrices && data.specialPrices.length > 0 && (
+        <Card className="rounded-2xl border border-border/60 shadow-sm p-4 sm:p-5">
+          <SectionHeader
+            title="Special Entry Prices"
+            icon={Sparkles}
+            count={data.specialPrices.length}
+            colorClass="bg-purple-500/10 text-purple-600"
+          />
+          <div className="space-y-2.5">
+            {data.specialPrices.map((tier, i) => (
+              <div
+                key={i}
+                className="p-3.5 rounded-xl bg-purple-50/40 border border-purple-200"
+              >
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className="font-bold text-sm text-purple-800">{tier.label}</p>
+                  <Sparkles className="h-3.5 w-3.5 text-purple-400" />
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <div>
+                    <p className="text-[9px] text-purple-500 font-semibold uppercase tracking-wide mb-0.5">
+                      Citizen
+                    </p>
+                    <p className="text-sm font-bold text-purple-700">
+                      KSh {tier.citizenPrice.toLocaleString()}
+                      <span className="text-[10px] text-blue-500 font-semibold ml-1">
+                        {usdHint(tier.citizenPrice)}
+                      </span>
+                    </p>
+                  </div>
+                  {tier.nonCitizenPrice !== undefined && tier.nonCitizenPrice > 0 && (
+                    <div>
+                      <p className="text-[9px] text-amber-600 font-semibold uppercase tracking-wide mb-0.5">
+                        Non-Citizen
+                      </p>
+                      <p className="text-sm font-bold text-amber-700">
+                        KSh {tier.nonCitizenPrice.toLocaleString()}
+                        <span className="text-[10px] text-blue-500 font-semibold ml-1">
+                          {usdHint(tier.nonCitizenPrice)}
+                        </span>
+                      </p>
+                    </div>
+                  )}
+                </div>
+                {tier.requirement && (
+                  <p className="text-[11px] text-purple-600 italic mt-1.5">
+                    Requires: {tier.requirement}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* ── Ticket Info (trips / events) ── */}
       {isTripOrEvent && (
         <Card className="rounded-2xl border border-border/60 shadow-sm p-4 sm:p-5">
           <SectionHeader title="Ticket Info" icon={Users} colorClass="bg-indigo-500/10 text-indigo-600" />
@@ -273,9 +475,14 @@ export const ReviewStep = ({ type, data, creatorName, creatorEmail, creatorPhone
             <InfoItem label="Children Allowed" value={data.allowChildren === false ? "No" : "Yes"} />
             {data.ticketTypes && data.ticketTypes.length > 0 && (
               <div className="col-span-2 space-y-1.5">
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Ticket Types</p>
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+                  Ticket Types
+                </p>
                 {data.ticketTypes.map((t, i) => (
-                  <div key={i} className="flex justify-between p-2 rounded-lg bg-muted/50 border border-border/50">
+                  <div
+                    key={i}
+                    className="flex justify-between p-2 rounded-lg bg-muted/50 border border-border/50"
+                  >
                     <span className="text-sm font-semibold">{t.name}</span>
                     <span className="text-sm font-bold">{currencyFormat(t.price)}</span>
                   </div>
@@ -286,46 +493,66 @@ export const ReviewStep = ({ type, data, creatorName, creatorEmail, creatorPhone
         </Card>
       )}
 
-      {/* Inclusions & Exclusions */}
-      {isTripOrEvent && ((data.inclusions && data.inclusions.length > 0) || (data.exclusions && data.exclusions.length > 0)) && (
-        <Card className="rounded-2xl border border-border/60 shadow-sm p-4 sm:p-5">
-          <SectionHeader title="Package Details" icon={CheckCircle2} colorClass="bg-emerald-500/10 text-emerald-600" />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {data.inclusions && data.inclusions.length > 0 && (
-              <div>
-                <p className="text-[10px] font-bold uppercase text-emerald-600 tracking-widest mb-2">✓ Included</p>
-                <ul className="space-y-1.5">
-                  {data.inclusions.map((item, i) => (
-                    <li key={i} className="flex items-start gap-2 text-sm text-emerald-700">
-                      <span className="mt-0.5">✓</span><span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {data.exclusions && data.exclusions.length > 0 && (
-              <div>
-                <p className="text-[10px] font-bold uppercase text-red-500 tracking-widest mb-2">✗ Not Included</p>
-                <ul className="space-y-1.5">
-                  {data.exclusions.map((item, i) => (
-                    <li key={i} className="flex items-start gap-2 text-sm text-red-600">
-                      <span className="mt-0.5">✗</span><span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-        </Card>
-      )}
+      {/* ── Inclusions & Exclusions ── */}
+      {isTripOrEvent &&
+        ((data.inclusions && data.inclusions.length > 0) ||
+          (data.exclusions && data.exclusions.length > 0)) && (
+          <Card className="rounded-2xl border border-border/60 shadow-sm p-4 sm:p-5">
+            <SectionHeader
+              title="Package Details"
+              icon={CheckCircle2}
+              colorClass="bg-emerald-500/10 text-emerald-600"
+            />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {data.inclusions && data.inclusions.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-bold uppercase text-emerald-600 tracking-widest mb-2">
+                    ✓ Included
+                  </p>
+                  <ul className="space-y-1.5">
+                    {data.inclusions.map((item, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-emerald-700">
+                        <span className="mt-0.5">✓</span>
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {data.exclusions && data.exclusions.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-bold uppercase text-red-500 tracking-widest mb-2">
+                    ✗ Not Included
+                  </p>
+                  <ul className="space-y-1.5">
+                    {data.exclusions.map((item, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-red-600">
+                        <span className="mt-0.5">✗</span>
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </Card>
+        )}
 
-      {/* General Amenities */}
+      {/* ── General Amenities ── */}
       {data.generalFacilities && data.generalFacilities.length > 0 && (
         <Card className="rounded-2xl border border-border/60 shadow-sm p-4 sm:p-5">
-          <SectionHeader title="General Amenities" icon={CheckCircle2} count={data.generalFacilities.length} colorClass="bg-teal-500/10 text-teal-600" />
+          <SectionHeader
+            title="General Amenities"
+            icon={CheckCircle2}
+            count={data.generalFacilities.length}
+            colorClass="bg-teal-500/10 text-teal-600"
+          />
           <div className="flex flex-wrap gap-2">
             {data.generalFacilities.map((item, i) => (
-              <span key={i} className="px-3 py-1.5 bg-primary/8 text-primary rounded-full text-xs font-semibold border border-primary/15">
+              <span
+                key={i}
+                className="px-3 py-1.5 bg-primary/8 text-primary rounded-full text-xs font-semibold border border-primary/15"
+              >
                 {item}
               </span>
             ))}
@@ -333,21 +560,30 @@ export const ReviewStep = ({ type, data, creatorName, creatorEmail, creatorPhone
         </Card>
       )}
 
-      {/* Facilities */}
+      {/* ── Facilities ── */}
       {data.facilities && data.facilities.length > 0 && (
         <Card className="rounded-2xl border border-border/60 shadow-sm p-4 sm:p-5">
-          <SectionHeader title="Facilities" icon={Building} count={data.facilities.length} colorClass="bg-amber-500/10 text-amber-600" />
+          <SectionHeader
+            title="Facilities"
+            icon={Building}
+            count={data.facilities.length}
+            colorClass="bg-amber-500/10 text-amber-600"
+          />
           <div className="space-y-3">
             {data.facilities.map((facility, i) => (
               <div key={i} className="p-3.5 rounded-xl bg-muted/40 border border-border/40">
                 <div className="flex items-center justify-between mb-2">
                   <p className="font-bold text-foreground text-sm">{facility.name}</p>
-                  <span className={`text-[10px] font-bold uppercase px-2.5 py-1 rounded-full ${
-                    facility.is_free || facility.price === 0
-                      ? "bg-emerald-500/10 text-emerald-600"
-                      : "bg-amber-500/10 text-amber-600"
-                  }`}>
-                    {facility.is_free || facility.price === 0 ? "Free" : `${currencyFormat(facility.price)}/night`}
+                  <span
+                    className={`text-[10px] font-bold uppercase px-2.5 py-1 rounded-full ${
+                      facility.is_free || facility.price === 0
+                        ? "bg-emerald-500/10 text-emerald-600"
+                        : "bg-amber-500/10 text-amber-600"
+                    }`}
+                  >
+                    {facility.is_free || facility.price === 0
+                      ? "Free"
+                      : `${currencyFormat(facility.price)}/night`}
                   </span>
                 </div>
                 <div className="flex items-center gap-3 flex-wrap">
@@ -365,7 +601,10 @@ export const ReviewStep = ({ type, data, creatorName, creatorEmail, creatorPhone
                 {facility.amenities && facility.amenities.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mt-2.5">
                     {facility.amenities.map((a, j) => (
-                      <span key={j} className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-background border border-border text-muted-foreground">
+                      <span
+                        key={j}
+                        className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-background border border-border text-muted-foreground"
+                      >
                         {a}
                       </span>
                     ))}
@@ -374,12 +613,21 @@ export const ReviewStep = ({ type, data, creatorName, creatorEmail, creatorPhone
                 {facility.images && facility.images.length > 0 && (
                   <div className="flex gap-2 mt-3 overflow-x-auto scrollbar-hide">
                     {facility.images.map((img, imgIdx) => (
-                      <div key={imgIdx} className="w-14 h-14 flex-shrink-0 rounded-lg overflow-hidden bg-muted ring-1 ring-border/30">
-                        <img src={img} alt={`${facility.name} ${imgIdx + 1}`} className="w-full h-full object-cover" loading="lazy" />
+                      <div
+                        key={imgIdx}
+                        className="w-14 h-14 flex-shrink-0 rounded-lg overflow-hidden bg-muted ring-1 ring-border/30"
+                      >
+                        <img
+                          src={img}
+                          alt={`${facility.name} ${imgIdx + 1}`}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
                       </div>
                     ))}
                     <span className="flex items-center text-[10px] text-muted-foreground font-medium ml-1 shrink-0">
-                      <ImageIcon className="h-3 w-3 mr-1" />{facility.images.length}
+                      <ImageIcon className="h-3 w-3 mr-1" />
+                      {facility.images.length}
                     </span>
                   </div>
                 )}
@@ -389,32 +637,50 @@ export const ReviewStep = ({ type, data, creatorName, creatorEmail, creatorPhone
         </Card>
       )}
 
-      {/* Activities */}
+      {/* ── Activities ── */}
       {data.activities && data.activities.length > 0 && (
         <Card className="rounded-2xl border border-border/60 shadow-sm p-4 sm:p-5">
-          <SectionHeader title="Activities" icon={Users} count={data.activities.length} colorClass="bg-indigo-500/10 text-indigo-600" />
+          <SectionHeader
+            title="Activities"
+            icon={Users}
+            count={data.activities.length}
+            colorClass="bg-indigo-500/10 text-indigo-600"
+          />
           <div className="space-y-3">
             {data.activities.map((activity, i) => (
               <div key={i} className="p-3.5 rounded-xl bg-muted/40 border border-border/40">
                 <div className="flex items-center justify-between">
                   <p className="font-bold text-foreground text-sm">{activity.name}</p>
-                  <span className={`text-[10px] font-bold uppercase px-2.5 py-1 rounded-full ${
-                    activity.is_free || activity.price === 0
-                      ? "bg-emerald-500/10 text-emerald-600"
-                      : "bg-muted text-muted-foreground"
-                  }`}>
-                    {activity.is_free || activity.price === 0 ? "Free" : `${currencyFormat(activity.price)}/person`}
+                  <span
+                    className={`text-[10px] font-bold uppercase px-2.5 py-1 rounded-full ${
+                      activity.is_free || activity.price === 0
+                        ? "bg-emerald-500/10 text-emerald-600"
+                        : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {activity.is_free || activity.price === 0
+                      ? "Free"
+                      : `${currencyFormat(activity.price)}/person`}
                   </span>
                 </div>
-                {activity.images && activity.images.length > 0 && (
+                {(activity.images ?? activity.previewUrls ?? []).length > 0 && (
                   <div className="flex gap-2 mt-3 overflow-x-auto scrollbar-hide">
-                    {activity.images.map((img, imgIdx) => (
-                      <div key={imgIdx} className="w-14 h-14 flex-shrink-0 rounded-lg overflow-hidden bg-muted ring-1 ring-border/30">
-                        <img src={img} alt={`${activity.name} ${imgIdx + 1}`} className="w-full h-full object-cover" loading="lazy" />
+                    {(activity.images ?? activity.previewUrls ?? []).map((img, imgIdx) => (
+                      <div
+                        key={imgIdx}
+                        className="w-14 h-14 flex-shrink-0 rounded-lg overflow-hidden bg-muted ring-1 ring-border/30"
+                      >
+                        <img
+                          src={img}
+                          alt={`${activity.name} ${imgIdx + 1}`}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
                       </div>
                     ))}
                     <span className="flex items-center text-[10px] text-muted-foreground font-medium ml-1 shrink-0">
-                      <ImageIcon className="h-3 w-3 mr-1" />{activity.images.length}
+                      <ImageIcon className="h-3 w-3 mr-1" />
+                      {(activity.images ?? activity.previewUrls ?? []).length}
                     </span>
                   </div>
                 )}
@@ -424,16 +690,21 @@ export const ReviewStep = ({ type, data, creatorName, creatorEmail, creatorPhone
         </Card>
       )}
 
-      {/* Amenities */}
+      {/* ── Amenities ── */}
       {data.amenities && data.amenities.length > 0 && (
         <Card className="rounded-2xl border border-border/60 shadow-sm p-4 sm:p-5">
-          <SectionHeader title="Amenities" icon={CheckCircle2} count={data.amenities.length} colorClass="bg-teal-500/10 text-teal-600" />
+          <SectionHeader
+            title="Amenities"
+            icon={CheckCircle2}
+            count={data.amenities.length}
+            colorClass="bg-teal-500/10 text-teal-600"
+          />
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {data.amenities.map((amenity, i) => (
               <div key={i} className="flex items-center gap-2 p-2 rounded-lg bg-muted/30">
                 <div className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
                 <span className="text-xs text-foreground font-medium truncate">
-                  {typeof amenity === 'string' ? amenity : amenity.name}
+                  {typeof amenity === "string" ? amenity : amenity.name}
                 </span>
               </div>
             ))}
@@ -441,7 +712,7 @@ export const ReviewStep = ({ type, data, creatorName, creatorEmail, creatorPhone
         </Card>
       )}
 
-      {/* Contact & Creator - Side by side on larger screens */}
+      {/* ── Contact & Creator ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Card className="rounded-2xl border border-border/60 shadow-sm p-4 sm:p-5">
           <SectionHeader title="Contact Info" icon={Phone} colorClass="bg-sky-500/10 text-sky-600" />
@@ -461,50 +732,81 @@ export const ReviewStep = ({ type, data, creatorName, creatorEmail, creatorPhone
         </Card>
       </div>
 
-      {/* Gallery */}
+      {/* ── Gallery ── */}
       {data.galleryPreviewUrls && data.galleryPreviewUrls.length > 0 && (
         <Card className="rounded-2xl border border-border/60 shadow-sm p-4 sm:p-5">
-          <SectionHeader title="Gallery" icon={ImageIcon} count={data.galleryPreviewUrls.length} colorClass="bg-pink-500/10 text-pink-600" />
+          <SectionHeader
+            title="Gallery"
+            icon={ImageIcon}
+            count={data.galleryPreviewUrls.length}
+            colorClass="bg-pink-500/10 text-pink-600"
+          />
           <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2">
             {data.galleryPreviewUrls.map((url, i) => (
-              <div key={i} className="aspect-square rounded-xl overflow-hidden bg-muted ring-1 ring-border/30">
-                <img src={url} alt={`Gallery ${i + 1}`} className="w-full h-full object-cover" loading="lazy" />
+              <div
+                key={i}
+                className="aspect-square rounded-xl overflow-hidden bg-muted ring-1 ring-border/30"
+              >
+                <img
+                  src={url}
+                  alt={`Gallery ${i + 1}`}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
               </div>
             ))}
           </div>
         </Card>
       )}
 
-      {/* Image count fallback */}
-      {(!data.galleryPreviewUrls || data.galleryPreviewUrls.length === 0) && data.imageCount && data.imageCount > 0 && (
-        <Card className="rounded-2xl border border-border/60 shadow-sm p-4">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-emerald-500/10">
-              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+      {/* ── Image count fallback ── */}
+      {(!data.galleryPreviewUrls || data.galleryPreviewUrls.length === 0) &&
+        data.imageCount &&
+        data.imageCount > 0 && (
+          <Card className="rounded-2xl border border-border/60 shadow-sm p-4">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-emerald-500/10">
+                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+              </div>
+              <p className="text-sm font-semibold text-foreground">
+                {data.imageCount} {data.imageCount === 1 ? "image" : "images"} uploaded
+              </p>
             </div>
-            <p className="text-sm font-semibold text-foreground">
-              {data.imageCount} {data.imageCount === 1 ? 'image' : 'images'} uploaded
-            </p>
-          </div>
-        </Card>
-      )}
+          </Card>
+        )}
 
-      {/* TRA License Preview */}
+      {/* ── TRA Licence Preview ── */}
       {data.traLicensePreviewUrl && (
         <Card className="rounded-2xl border border-border/60 shadow-sm p-4">
-          <SectionHeader title="TRA License" icon={ImageIcon} colorClass="bg-amber-500/10 text-amber-600" />
+          <SectionHeader
+            title="TRA Licence"
+            icon={ImageIcon}
+            colorClass="bg-amber-500/10 text-amber-600"
+          />
           <div className="rounded-xl overflow-hidden border border-border/40">
-            <img src={data.traLicensePreviewUrl} alt="TRA License" className="w-full h-40 object-cover" />
+            <img
+              src={data.traLicensePreviewUrl}
+              alt="TRA Licence"
+              className="w-full h-40 object-cover"
+            />
           </div>
         </Card>
       )}
 
-      {/* Event Certificate Preview */}
+      {/* ── Event Certificate Preview ── */}
       {data.eventCertificatePreviewUrl && (
         <Card className="rounded-2xl border border-border/60 shadow-sm p-4">
-          <SectionHeader title="Event Certificate / Permit" icon={ImageIcon} colorClass="bg-purple-500/10 text-purple-600" />
+          <SectionHeader
+            title="Event Certificate / Permit"
+            icon={ImageIcon}
+            colorClass="bg-purple-500/10 text-purple-600"
+          />
           <div className="rounded-xl overflow-hidden border border-border/40">
-            <img src={data.eventCertificatePreviewUrl} alt="Event Certificate" className="w-full h-40 object-cover" />
+            <img
+              src={data.eventCertificatePreviewUrl}
+              alt="Event Certificate"
+              className="w-full h-40 object-cover"
+            />
           </div>
         </Card>
       )}

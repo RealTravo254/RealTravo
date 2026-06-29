@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Loader2, Upload, X, Edit2, Save, Calendar, MapPin, Phone, Mail,
   DollarSign, Users, Clock, CheckCircle, Pencil, Plus, ArrowLeft,
-  Image as ImageIcon, Navigation, AlertTriangle,
+  Image as ImageIcon, Navigation, AlertTriangle, Globe, Sparkles, Info,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -23,6 +23,7 @@ import { compressImages } from "@/lib/imageCompression";
 import { FacilityActivityImageEditor } from "@/components/edit/FacilityActivityImageEditor";
 import { GeneralFacilitiesSelector } from "@/components/creation/GeneralFacilitiesSelector";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { cn } from "@/lib/utils";
 
 interface FacilityWithImages {
   name: string;
@@ -40,6 +41,15 @@ interface ActivityWithImages {
   is_free?: boolean;
 }
 
+// ── Special / custom pricing tier (Student, Family, Senior, Group, etc.) ──────
+interface SpecialPriceTier {
+  id: string;
+  label: string;
+  citizen_price: number;
+  non_citizen_price: number;
+  requirement: string;
+}
+
 interface Booking {
   id: string;
   guest_name_masked: string;
@@ -55,6 +65,10 @@ interface Booking {
 }
 
 const DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+let _tierIdCounter = 0;
+const makeTierId = () => `tier-${Date.now()}-${++_tierIdCounter}`;
+const emptySpecialTier = (): SpecialPriceTier => ({ id: makeTierId(), label: "", citizen_price: 0, non_citizen_price: 0, requirement: "" });
 
 const EditListing = () => {
   const { formatPrice, usdHint } = useCurrency();
@@ -104,6 +118,12 @@ const EditListing = () => {
   const [entranceFeeType, setEntranceFeeType] = useState("free");
   const [entranceFee, setEntranceFee] = useState(0);
   const [entranceFeeChild, setEntranceFeeChild] = useState(0);
+  // ── Non-citizen pricing (adventure only) ──
+  const [hasNonCitizenPricing, setHasNonCitizenPricing] = useState(false);
+  const [nonCitizenEntranceFee, setNonCitizenEntranceFee] = useState(0);
+  const [nonCitizenEntranceFeeChild, setNonCitizenEntranceFeeChild] = useState(0);
+  // ── Special pricing tiers (adventure only) ──
+  const [specialPrices, setSpecialPrices] = useState<SpecialPriceTier[]>([]);
   const [amenities, setAmenities] = useState<string[]>([]);
   const [generalFacilities, setGeneralFacilities] = useState<string[]>([]);
   const [facilities, setFacilities] = useState<FacilityWithImages[]>([]);
@@ -200,6 +220,23 @@ const EditListing = () => {
         setEntranceFeeType((data as any).entry_fee_type ?? "free");
         setEntranceFee((data as any).entry_fee ?? 0);
         setEntranceFeeChild((data as any).child_entry_fee ?? 0);
+        // ── Non-citizen pricing ──
+        setHasNonCitizenPricing((data as any).has_non_citizen_pricing ?? false);
+        setNonCitizenEntranceFee((data as any).non_citizen_entry_fee ?? 0);
+        setNonCitizenEntranceFeeChild((data as any).non_citizen_child_entry_fee ?? 0);
+        // ── Special pricing tiers ──
+        const rawSpecial = (data as any).special_entry_prices;
+        setSpecialPrices(
+          Array.isArray(rawSpecial)
+            ? rawSpecial.map((t: any) => ({
+                id: t.id || makeTierId(),
+                label: t.label || "",
+                citizen_price: Number(t.citizen_price) || 0,
+                non_citizen_price: Number(t.non_citizen_price) || 0,
+                requirement: t.requirement || "",
+              }))
+            : []
+        );
         const raw = (data as any).amenities ?? [];
         const strings: string[] = Array.isArray(raw)
           ? raw.map((a: any) => (typeof a === "string" ? a : a.name ?? ""))
@@ -307,6 +344,12 @@ const EditListing = () => {
     }
   };
 
+  // ─── SPECIAL PRICING TIER HELPERS ─────────────────────────────────────────
+  const addSpecialTier = () => setSpecialPrices((p) => [...p, emptySpecialTier()]);
+  const removeSpecialTier = (tierId: string) => setSpecialPrices((p) => p.filter((t) => t.id !== tierId));
+  const updateSpecialTier = (tierId: string, patch: Partial<SpecialPriceTier>) =>
+    setSpecialPrices((p) => p.map((t) => (t.id === tierId ? { ...t, ...patch } : t)));
+
   // ─── SAVE FIELD ───────────────────────────────────────────────────────────
   const handleSaveField = async (field: string) => {
     setSaving(true);
@@ -363,6 +406,23 @@ const EditListing = () => {
             updateData.entry_fee_type = entranceFeeType;
             updateData.entry_fee = entranceFee;
             updateData.child_entry_fee = entranceFeeChild;
+            // ── Non-citizen pricing saved alongside the main entrance fee ──
+            updateData.has_non_citizen_pricing = entranceFeeType === "paid" && hasNonCitizenPricing;
+            updateData.non_citizen_entry_fee = entranceFeeType === "paid" && hasNonCitizenPricing ? nonCitizenEntranceFee : 0;
+            updateData.non_citizen_child_entry_fee = entranceFeeType === "paid" && hasNonCitizenPricing ? nonCitizenEntranceFeeChild : 0;
+          }
+          break;
+        case "specialPrices":
+          if (type === "adventure") {
+            updateData.special_entry_prices = specialPrices
+              .filter((t) => t.label.trim() && t.citizen_price > 0)
+              .map((t) => ({
+                id: t.id,
+                label: t.label.trim(),
+                citizen_price: Number(t.citizen_price) || 0,
+                non_citizen_price: Number(t.non_citizen_price) || 0,
+                requirement: t.requirement.trim(),
+              }));
           }
           break;
       }
@@ -828,20 +888,20 @@ const EditListing = () => {
             </div>
           )}
 
-          {/* Entrance Fee — adventure only */}
+          {/* Entrance Fee — adventure only (now includes citizen/non-citizen) */}
           {type === "adventure" && (
-            <div className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm">
+            <div className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm md:col-span-2 lg:col-span-3">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <DollarSign className="h-4 w-4 text-[#FF7F50]" />
-                  <span className="text-sm font-bold text-slate-500 uppercase tracking-tight">Entry Fee</span>
+                  <span className="text-sm font-bold text-slate-500 uppercase tracking-tight">Entry Fee — Citizen &amp; Non-Citizen</span>
                 </div>
                 <EditButton field="entranceFee" onSave={() => handleSaveField("entranceFee")} />
               </div>
               {editMode.entranceFee ? (
-                <div className="space-y-2">
+                <div className="space-y-4">
                   <Select value={entranceFeeType} onValueChange={setEntranceFeeType}>
-                    <SelectTrigger className="h-8 border-[#008080]/30"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-8 border-[#008080]/30 w-full md:w-60"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="free">Free</SelectItem>
                       <SelectItem value="paid">Paid</SelectItem>
@@ -849,24 +909,136 @@ const EditListing = () => {
                   </Select>
                   {entranceFeeType === "paid" && (
                     <>
-                      <div>
-                        <Label className="text-xs text-slate-500">Adult (KSh)</Label>
-                        <Input type="number" value={entranceFee} onChange={(e) => setEntranceFee(parseFloat(e.target.value) || 0)} min={0} className="h-8 border-[#008080]/30" />
-                        {entranceFee > 0 && <p className="text-[9px] text-blue-500 font-bold mt-0.5">{usdHint(entranceFee)}</p>}
-                      </div>
-                      <div>
-                        <Label className="text-xs text-slate-500">Child (KSh)</Label>
-                        <Input type="number" value={entranceFeeChild} onChange={(e) => setEntranceFeeChild(parseFloat(e.target.value) || 0)} min={0} className="h-8 border-[#008080]/30" />
-                        {entranceFeeChild > 0 && <p className="text-[9px] text-blue-500 font-bold mt-0.5">{usdHint(entranceFeeChild)}</p>}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="p-3 rounded-xl bg-teal-50 border border-teal-100">
+                          <p className="text-[10px] font-black uppercase text-teal-600 mb-2">Citizen</p>
+                          <div className="space-y-2">
+                            <div>
+                              <Label className="text-xs text-slate-500">Adult (KSh)</Label>
+                              <Input type="number" value={entranceFee} onChange={(e) => setEntranceFee(parseFloat(e.target.value) || 0)} min={0} className="h-8 border-[#008080]/30" />
+                              {entranceFee > 0 && <p className="text-[9px] text-blue-500 font-bold mt-0.5">{usdHint(entranceFee)}</p>}
+                            </div>
+                            <div>
+                              <Label className="text-xs text-slate-500">Child (KSh)</Label>
+                              <Input type="number" value={entranceFeeChild} onChange={(e) => setEntranceFeeChild(parseFloat(e.target.value) || 0)} min={0} className="h-8 border-[#008080]/30" />
+                              {entranceFeeChild > 0 && <p className="text-[9px] text-blue-500 font-bold mt-0.5">{usdHint(entranceFeeChild)}</p>}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="p-3 rounded-xl bg-amber-50 border border-amber-100">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-[10px] font-black uppercase text-amber-600 flex items-center gap-1"><Globe className="h-3 w-3" /> Non-Citizen</p>
+                            <button
+                              type="button"
+                              onClick={() => setHasNonCitizenPricing((v) => !v)}
+                              className={cn("relative w-9 h-5 rounded-full transition-all shrink-0", hasNonCitizenPricing ? "bg-amber-500" : "bg-slate-300")}
+                            >
+                              <span className={cn("absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform", hasNonCitizenPricing && "translate-x-4")} />
+                            </button>
+                          </div>
+                          {hasNonCitizenPricing ? (
+                            <div className="space-y-2">
+                              <div>
+                                <Label className="text-xs text-slate-500">Adult (KSh)</Label>
+                                <Input type="number" value={nonCitizenEntranceFee} onChange={(e) => setNonCitizenEntranceFee(parseFloat(e.target.value) || 0)} min={0} className="h-8 border-amber-300" />
+                                {nonCitizenEntranceFee > 0 && <p className="text-[9px] text-blue-500 font-bold mt-0.5">{usdHint(nonCitizenEntranceFee)}</p>}
+                              </div>
+                              <div>
+                                <Label className="text-xs text-slate-500">Child (KSh)</Label>
+                                <Input type="number" value={nonCitizenEntranceFeeChild} onChange={(e) => setNonCitizenEntranceFeeChild(parseFloat(e.target.value) || 0)} min={0} className="h-8 border-amber-300" />
+                                {nonCitizenEntranceFeeChild > 0 && <p className="text-[9px] text-blue-500 font-bold mt-0.5">{usdHint(nonCitizenEntranceFeeChild)}</p>}
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="text-[11px] text-slate-400 font-semibold">Toggle on to set a different rate for non-citizens</p>
+                          )}
+                        </div>
                       </div>
                     </>
                   )}
                 </div>
               ) : (
-                <>
-                  <p className="font-bold text-[#008080] capitalize">{entranceFeeType === "free" ? "Free" : `Adult: ${formatPrice(entranceFee)}`}</p>
-                  {entranceFeeType === "paid" && <p className="text-xs text-slate-500">Child: {formatPrice(entranceFeeChild)}</p>}
-                </>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-[9px] font-black uppercase text-teal-600">Citizen</p>
+                    <p className="font-bold text-[#008080] capitalize">{entranceFeeType === "free" ? "Free" : `Adult: ${formatPrice(entranceFee)}`}</p>
+                    {entranceFeeType === "paid" && <p className="text-xs text-slate-500">Child: {formatPrice(entranceFeeChild)}</p>}
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black uppercase text-amber-600">Non-Citizen</p>
+                    {entranceFeeType === "paid" && hasNonCitizenPricing ? (
+                      <>
+                        <p className="font-bold text-amber-700">Adult: {formatPrice(nonCitizenEntranceFee)}</p>
+                        <p className="text-xs text-slate-500">Child: {formatPrice(nonCitizenEntranceFeeChild)}</p>
+                      </>
+                    ) : (
+                      <p className="text-xs text-slate-400 font-semibold">Same as citizen</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Special Entry Prices — adventure only */}
+          {type === "adventure" && (
+            <div className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm md:col-span-2 lg:col-span-3">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-purple-500" />
+                  <span className="text-sm font-bold text-slate-500 uppercase tracking-tight">Special Entry Prices (Student, Family, Senior...)</span>
+                </div>
+                <EditButton field="specialPrices" onSave={() => handleSaveField("specialPrices")} />
+              </div>
+              {editMode.specialPrices ? (
+                <div className="space-y-3">
+                  {specialPrices.map((tier) => (
+                    <div key={tier.id} className="p-3 rounded-xl border border-purple-100 bg-purple-50/30 space-y-2">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                        <div>
+                          <Label className="text-xs text-slate-500">Category Name</Label>
+                          <Input value={tier.label} onChange={(e) => updateSpecialTier(tier.id, { label: e.target.value })} placeholder="e.g. Student" className="h-8 border-purple-200" />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-slate-500">Citizen Price (KSh)</Label>
+                          <Input type="number" value={tier.citizen_price} onChange={(e) => updateSpecialTier(tier.id, { citizen_price: parseFloat(e.target.value) || 0 })} min={0} className="h-8 border-purple-200" />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-slate-500">Non-Citizen Price (KSh)</Label>
+                          <Input type="number" value={tier.non_citizen_price} onChange={(e) => updateSpecialTier(tier.id, { non_citizen_price: parseFloat(e.target.value) || 0 })} min={0} placeholder="Optional" className="h-8 border-purple-200" />
+                        </div>
+                      </div>
+                      <div className="flex gap-2 items-end">
+                        <div className="flex-1">
+                          <Label className="text-xs text-slate-500">Requirement</Label>
+                          <Input value={tier.requirement} onChange={(e) => updateSpecialTier(tier.id, { requirement: e.target.value })} placeholder="e.g. Valid student ID required" className="h-8 border-purple-200" />
+                        </div>
+                        <Button size="icon" variant="destructive" className="h-8 w-8" onClick={() => removeSpecialTier(tier.id)}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                  <Button size="sm" variant="outline" onClick={addSpecialTier} className="w-full text-purple-600 border-purple-200">
+                    <Plus className="h-3 w-3 mr-1" /> Add Special Price
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {specialPrices.length > 0 ? specialPrices.map((tier) => (
+                    <div key={tier.id} className="p-2.5 rounded-lg bg-purple-50/50 border border-purple-100">
+                      <p className="font-bold text-sm text-slate-800">{tier.label}</p>
+                      <div className="flex gap-3 mt-0.5">
+                        <span className="text-xs font-semibold text-purple-600">Citizen: {formatPrice(tier.citizen_price)}</span>
+                        {tier.non_citizen_price > 0 && <span className="text-xs font-semibold text-amber-600">Non-Citizen: {formatPrice(tier.non_citizen_price)}</span>}
+                      </div>
+                      {tier.requirement && (
+                        <p className="text-[10px] text-slate-400 mt-1 flex items-start gap-1"><Info className="h-2.5 w-2.5 mt-0.5 flex-shrink-0" /> {tier.requirement}</p>
+                      )}
+                    </div>
+                  )) : <p className="text-sm text-muted-foreground">None</p>}
+                </div>
               )}
             </div>
           )}

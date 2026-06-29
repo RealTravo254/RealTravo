@@ -11,7 +11,7 @@ import {
   MapPin, Mail, Phone, Clock, ArrowLeft, CheckCircle2, XCircle,
   ShieldAlert, Users, Tag, Globe, Navigation, Ban, FileImage,
   ChevronLeft, ChevronRight, Grid2X2, Eye, ExternalLink, Zap,
-  Copy, Share2, Landmark, Calendar, Info,
+  Copy, Share2, Landmark, Calendar, Info, Sparkles,
 } from "lucide-react";
 import { approvalStatusSchema } from "@/lib/validation";
 import { TealLoader } from "@/components/ui/teal-loader";
@@ -19,6 +19,15 @@ import { TealLoader } from "@/components/ui/teal-loader";
 const TEAL        = "#008080";
 const CORAL       = "#FF7F50";
 const CORAL_LIGHT = "#FF9E7A";
+
+// ── Special pricing tier shape, as stored in `special_entry_prices` jsonb ──
+interface SpecialPriceTier {
+  id?: string;
+  label: string;
+  citizen_price: number;
+  non_citizen_price?: number;
+  requirement?: string;
+}
 
 // ── Facility label map (from AdventurePlaceDetail) ──────────────────────────
 const FACILITY_LABELS: Record<string, string> = {
@@ -454,6 +463,40 @@ const InlineActivitiesGrid = ({ activities }: { activities: any[] }) => {
   );
 };
 
+// ── Special Entry Prices Section (Student, Family, Senior, Group, etc.) ─────
+const SpecialPricesSection = ({ tiers }: { tiers: SpecialPriceTier[] }) => {
+  if (!tiers?.length) return null;
+  return (
+    <section className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+      <div className="flex items-center gap-2 mb-4">
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "#a855f718" }}>
+          <Sparkles className="h-3.5 w-3.5 text-purple-500" />
+        </div>
+        <h2 className="text-base font-black uppercase tracking-tight text-purple-600">Special Entry Prices</h2>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {tiers.map((tier, i) => (
+          <div key={tier.id ?? i} className="rounded-xl border border-purple-100 bg-purple-50/40 p-3.5">
+            <p className="font-black text-sm text-slate-800 uppercase tracking-tight">{tier.label}</p>
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 mt-1.5">
+              <span className="text-sm font-bold text-purple-600">KSh {Number(tier.citizen_price || 0).toLocaleString()} <span className="text-[10px] text-slate-400 font-semibold normal-case">citizen</span></span>
+              {tier.non_citizen_price != null && Number(tier.non_citizen_price) > 0 && (
+                <span className="text-sm font-bold text-amber-600">KSh {Number(tier.non_citizen_price).toLocaleString()} <span className="text-[10px] text-slate-400 font-semibold normal-case">non-citizen</span></span>
+              )}
+            </div>
+            {tier.requirement?.trim() && (
+              <div className="flex items-start gap-1.5 mt-2 pt-2 border-t border-purple-100">
+                <Info className="h-3 w-3 text-purple-400 mt-0.5 flex-shrink-0" />
+                <p className="text-[11px] text-slate-500 leading-snug">{tier.requirement}</p>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+};
+
 // ── Trip Highlights Tags ────────────────────────────────────────────────────
 const HighlightsTags = ({ activities }: { activities: any[] }) => {
   if (!activities?.length) return null;
@@ -554,6 +597,10 @@ const AdminSideCard = ({ item, creator, isBanned, type, onOpenMaps, onApprove, o
   const childPrice = item.child_entry_fee ?? item.price_child;
   const isApproved = item.approval_status === "approved";
 
+  // ── Non-citizen pricing (adventure only) ──
+  const hasNonCitizen = isAdventure && !!item.has_non_citizen_pricing &&
+    (Number(item.non_citizen_entry_fee) > 0 || Number(item.non_citizen_child_entry_fee) > 0);
+
   return (
     <div className="bg-white rounded-2xl p-6 shadow-lg border border-slate-200 space-y-4 lg:sticky lg:top-24">
       {/* Status badge */}
@@ -577,6 +624,32 @@ const AdminSideCard = ({ item, creator, isBanned, type, onOpenMaps, onApprove, o
           <p className="text-sm text-slate-600 mt-0.5">Child: KSh {Number(childPrice).toLocaleString()}</p>
         )}
       </div>
+
+      {/* Citizen / Non-Citizen breakdown — adventure only */}
+      {isAdventure && price > 0 && (
+        <div className="rounded-xl border border-slate-100 bg-slate-50 overflow-hidden">
+          <div className="grid grid-cols-2 divide-x divide-slate-200">
+            <div className="p-3">
+              <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Citizen</p>
+              <p className="text-sm font-black text-slate-800">KSh {Number(price).toLocaleString()}</p>
+              {childPrice > 0 && <p className="text-[10px] text-slate-500 mt-0.5">Child: KSh {Number(childPrice).toLocaleString()}</p>}
+            </div>
+            <div className="p-3" style={{ background: hasNonCitizen ? "#FFFBEB" : undefined }}>
+              <p className="text-[9px] font-black uppercase tracking-widest text-amber-600 mb-1 flex items-center gap-1">
+                <Globe className="h-2.5 w-2.5" /> Non-Citizen
+              </p>
+              {hasNonCitizen ? (
+                <>
+                  <p className="text-sm font-black text-amber-700">KSh {Number(item.non_citizen_entry_fee).toLocaleString()}</p>
+                  {item.non_citizen_child_entry_fee > 0 && <p className="text-[10px] text-amber-600 mt-0.5">Child: KSh {Number(item.non_citizen_child_entry_fee).toLocaleString()}</p>}
+                </>
+              ) : (
+                <p className="text-[11px] text-slate-400 font-semibold">Same as citizen</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Hours & Days */}
       <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
@@ -626,6 +699,23 @@ const AdminSideCard = ({ item, creator, isBanned, type, onOpenMaps, onApprove, o
           </div>
         )}
       </div>
+
+      {/* Special Entry Prices summary — adventure only */}
+      {isAdventure && Array.isArray(item.special_entry_prices) && item.special_entry_prices.length > 0 && (
+        <div className="p-3 bg-purple-50 rounded-xl border border-purple-100">
+          <p className="text-[10px] font-black uppercase text-purple-500 tracking-widest mb-1.5 flex items-center gap-1">
+            <Sparkles className="h-3 w-3" /> Special Prices ({item.special_entry_prices.length})
+          </p>
+          <div className="space-y-1">
+            {item.special_entry_prices.map((tier: SpecialPriceTier, i: number) => (
+              <div key={tier.id ?? i} className="flex justify-between items-center text-xs">
+                <span className="font-bold text-slate-600">{tier.label}</span>
+                <span className="font-black text-purple-600">KSh {Number(tier.citizen_price || 0).toLocaleString()}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Submitter Info */}
       <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-2">
@@ -816,6 +906,11 @@ const AdminReviewDetail = () => {
     ? (Array.isArray(item.amenities) ? item.amenities.map((a: any) => typeof a === "string" ? a : a.name || "") : [])
     : [];
 
+  // ── Special pricing tiers (adventure only) ──
+  const specialPrices: SpecialPriceTier[] = isAdventure && Array.isArray(item.special_entry_prices)
+    ? item.special_entry_prices
+    : [];
+
   const adminCardProps: AdminCardProps = {
     item, creator, isBanned, type: type || "",
     onOpenMaps: openInMaps,
@@ -880,6 +975,9 @@ const AdminReviewDetail = () => {
             {isAdventure && (
               <>
                 {generalAmenities.length > 0 && <AmenitiesScroll amenities={generalAmenities} />}
+
+                {/* Special entry prices — visible on the main content too, full detail */}
+                {specialPrices.length > 0 && <SpecialPricesSection tiers={specialPrices} />}
 
                 {item.facilities?.length > 0 && (
                   <div id="facilities-section">

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import {
   MapPin, Clock, Share2, Copy, Navigation, AlertCircle,
   Users, CheckCircle2, ChevronLeft, ChevronRight, Grid2X2, ExternalLink,
+  Globe, Sparkles, Info,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSavedItems } from "@/hooks/useSavedItems";
@@ -44,6 +45,15 @@ const toTitleCase = (str?: string) => {
   if (!str) return "";
   return str.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
 };
+
+// ── Special pricing tier shape, as stored in `special_entry_prices` jsonb ──
+interface SpecialPriceTier {
+  id?: string;
+  label: string;
+  citizen_price: number;
+  non_citizen_price?: number;
+  requirement?: string;
+}
 
 const ITEMS_PER_PAGE = 5;
 
@@ -763,6 +773,44 @@ const InlineActivitiesGrid = ({ activities, formatPrice }: { activities: any[]; 
   );
 };
 
+// ─── Special Entry Prices Section (Student, Family, Senior, Group, etc.) ──────
+const SpecialPricesSection = ({
+  tiers, formatPrice,
+}: {
+  tiers: SpecialPriceTier[]; formatPrice: (n: number) => string;
+}) => {
+  if (!tiers?.length) return null;
+  return (
+    <section className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+      <div className="flex items-center gap-2 mb-4">
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "#a855f718" }}>
+          <Sparkles className="h-3.5 w-3.5 text-purple-500" />
+        </div>
+        <h2 className="text-base font-black uppercase tracking-tight text-purple-600">Special Entry Prices</h2>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {tiers.map((tier, i) => (
+          <div key={tier.id ?? i} className="rounded-xl border border-purple-100 bg-purple-50/40 p-3.5">
+            <p className="font-black text-sm text-slate-800 uppercase tracking-tight">{tier.label}</p>
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 mt-1.5">
+              <span className="text-sm font-bold text-purple-600">{formatPrice(Number(tier.citizen_price) || 0)} <span className="text-[10px] text-slate-400 font-semibold normal-case">citizen</span></span>
+              {tier.non_citizen_price != null && Number(tier.non_citizen_price) > 0 && (
+                <span className="text-sm font-bold text-amber-600">{formatPrice(Number(tier.non_citizen_price))} <span className="text-[10px] text-slate-400 font-semibold normal-case">non-citizen</span></span>
+              )}
+            </div>
+            {tier.requirement?.trim() && (
+              <div className="flex items-start gap-1.5 mt-2 pt-2 border-t border-purple-100">
+                <Info className="h-3 w-3 text-purple-400 mt-0.5 flex-shrink-0" />
+                <p className="text-[11px] text-slate-500 leading-snug">{tier.requirement}</p>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+};
+
 // ─── Always-open Map Section ──────────────────────────────────────────────────
 const AlwaysOpenMapSection = ({
   name, latitude, longitude, location, country,
@@ -948,6 +996,8 @@ const AdventurePlaceDetail = () => {
   const generalAmenities: string[] = Array.isArray(place.amenities) ? place.amenities.map((a: any) => typeof a === "string" ? a : a.name || "") : [];
   const capacityPerDay: number | null = place.daily_capacity ?? place.capacity_per_day ?? place.capacity ?? null;
   const daysOpened: string[] = Array.isArray(place.days_opened) ? place.days_opened : [];
+  // ── Special pricing tiers from DB ──
+  const specialPrices: SpecialPriceTier[] = Array.isArray(place.special_entry_prices) ? place.special_entry_prices : [];
 
   const bookingCardProps = {
     place, is24Hours, daysOpened, capacityPerDay, formatPrice,
@@ -1012,6 +1062,11 @@ const AdventurePlaceDetail = () => {
             <div className="bg-white rounded-2xl p-5 shadow-lg border border-slate-100 lg:hidden">
               <BookingCard {...bookingCardProps} />
             </div>
+
+            {/* Special entry prices — visible to everyone, both mobile + desktop */}
+            {specialPrices.length > 0 && (
+              <SpecialPricesSection tiers={specialPrices} formatPrice={formatPrice} />
+            )}
 
             {/* Facilities */}
             {place.facilities?.length > 0 && (
@@ -1100,72 +1155,103 @@ interface BookingCardProps {
 const BookingCard = ({
   place, is24Hours, daysOpened, capacityPerDay, formatPrice,
   onCheckAvailability, onMap, onCopy, onShare,
-}: BookingCardProps) => (
-  <>
-    <div>
-      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">From</p>
-      {place.entry_fee && place.entry_fee > 0 ? (
-        <div className="flex items-baseline gap-1">
-          <span className="text-3xl font-black text-slate-900">{formatPrice(Number(place.entry_fee))}</span>
-          <span className="text-sm text-slate-500">/ person</span>
-        </div>
-      ) : (
-        <span className="text-xl font-bold text-emerald-600">Free Entry</span>
-      )}
-      {place.child_entry_fee > 0 && (
-        <p className="text-sm text-slate-600 mt-0.5">Child: {formatPrice(Number(place.child_entry_fee))}</p>
-      )}
-    </div>
+}: BookingCardProps) => {
+  const hasNonCitizen = !!place.has_non_citizen_pricing &&
+    (Number(place.non_citizen_entry_fee) > 0 || Number(place.non_citizen_child_entry_fee) > 0);
 
-    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-      <div className="flex justify-between items-center mb-2">
-        <span className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-1">
-          <Clock className="h-3 w-3" /> Hours
-        </span>
-        <span className="text-xs font-black text-slate-700">
-          {is24Hours ? "Open 24 Hours" : `${place.opening_hours || "08:00"} – ${place.closing_hours || "18:00"}`}
-        </span>
+  return (
+    <>
+      <div>
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">From</p>
+        {place.entry_fee && place.entry_fee > 0 ? (
+          <div className="flex items-baseline gap-1">
+            <span className="text-3xl font-black text-slate-900">{formatPrice(Number(place.entry_fee))}</span>
+            <span className="text-sm text-slate-500">/ person</span>
+          </div>
+        ) : (
+          <span className="text-xl font-bold text-emerald-600">Free Entry</span>
+        )}
+        {place.child_entry_fee > 0 && (
+          <p className="text-sm text-slate-600 mt-0.5">Child: {formatPrice(Number(place.child_entry_fee))}</p>
+        )}
       </div>
-      {daysOpened.length > 0 && (
-        <div>
-          <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1.5">Available Days</p>
-          <div className="flex flex-wrap gap-1">
-            {daysOpened.map((day, i) => (
-              <span
-                key={i}
-                className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase border"
-                style={{ background: `${TEAL}12`, color: TEAL, borderColor: `${TEAL}30` }}
-              >
-                {day}
-              </span>
-            ))}
+
+      {/* ── Citizen / Non-Citizen pricing breakdown ── */}
+      {place.entry_fee > 0 && (
+        <div className="rounded-xl border border-slate-100 bg-slate-50 overflow-hidden">
+          <div className="grid grid-cols-2 divide-x divide-slate-200">
+            <div className="p-3">
+              <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Citizen</p>
+              <p className="text-sm font-black text-slate-800">{formatPrice(Number(place.entry_fee))}</p>
+              {place.child_entry_fee > 0 && <p className="text-[10px] text-slate-500 mt-0.5">Child: {formatPrice(Number(place.child_entry_fee))}</p>}
+            </div>
+            <div className="p-3" style={{ background: hasNonCitizen ? "#FFFBEB" : undefined }}>
+              <p className="text-[9px] font-black uppercase tracking-widest text-amber-600 mb-1 flex items-center gap-1">
+                <Globe className="h-2.5 w-2.5" /> Non-Citizen
+              </p>
+              {hasNonCitizen ? (
+                <>
+                  <p className="text-sm font-black text-amber-700">{formatPrice(Number(place.non_citizen_entry_fee))}</p>
+                  {place.non_citizen_child_entry_fee > 0 && <p className="text-[10px] text-amber-600 mt-0.5">Child: {formatPrice(Number(place.non_citizen_child_entry_fee))}</p>}
+                </>
+              ) : (
+                <p className="text-[11px] text-slate-400 font-semibold">Same as citizen</p>
+              )}
+            </div>
           </div>
         </div>
       )}
-      {capacityPerDay != null && capacityPerDay > 0 && (
-        <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-200">
+
+      <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+        <div className="flex justify-between items-center mb-2">
           <span className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-1">
-            <Users className="h-3 w-3" /> Daily Capacity
+            <Clock className="h-3 w-3" /> Hours
           </span>
-          <span className="text-xs font-black text-slate-700">{capacityPerDay} guests</span>
+          <span className="text-xs font-black text-slate-700">
+            {is24Hours ? "Open 24 Hours" : `${place.opening_hours || "08:00"} – ${place.closing_hours || "18:00"}`}
+          </span>
         </div>
-      )}
-    </div>
+        {daysOpened.length > 0 && (
+          <div>
+            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1.5">Available Days</p>
+            <div className="flex flex-wrap gap-1">
+              {daysOpened.map((day, i) => (
+                <span
+                  key={i}
+                  className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase border"
+                  style={{ background: `${TEAL}12`, color: TEAL, borderColor: `${TEAL}30` }}
+                >
+                  {day}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+        {capacityPerDay != null && capacityPerDay > 0 && (
+          <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-200">
+            <span className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-1">
+              <Users className="h-3 w-3" /> Daily Capacity
+            </span>
+            <span className="text-xs font-black text-slate-700">{capacityPerDay} guests</span>
+          </div>
+        )}
+      </div>
 
-    <Button
-      onClick={onCheckAvailability}
-      className="w-full py-6 rounded-xl text-sm font-bold text-white border-none shadow-md transition-all active:scale-95"
-      style={{ background: `linear-gradient(135deg, ${CORAL_LIGHT} 0%, ${CORAL} 100%)` }}
-    >
-      Check availability
-    </Button>
+      <Button
+        onClick={onCheckAvailability}
+        className="w-full py-6 rounded-xl text-sm font-bold text-white border-none shadow-md transition-all active:scale-95"
+        style={{ background: `linear-gradient(135deg, ${CORAL_LIGHT} 0%, ${CORAL} 100%)` }}
+      >
+        Check availability
+      </Button>
 
-    <div className="grid grid-cols-3 gap-2 pt-3 border-t border-slate-100">
-      <UtilityButton icon={<Navigation className="h-4 w-4" />} label="Map" onClick={onMap} />
-      <UtilityButton icon={<Copy className="h-4 w-4" />} label="Copy" onClick={onCopy} />
-      <UtilityButton icon={<Share2 className="h-4 w-4" />} label="Share" onClick={onShare} />
-    </div>
-  </>
-);
+      <div className="grid grid-cols-3 gap-2 pt-3 border-t border-slate-100">
+        <UtilityButton icon={<Navigation className="h-4 w-4" />} label="Map" onClick={onMap} />
+        <UtilityButton icon={<Copy className="h-4 w-4" />} label="Copy" onClick={onCopy} />
+        <UtilityButton icon={<Share2 className="h-4 w-4" />} label="Share" onClick={onShare} />
+      </div>
+    </>
+  );
+};
 
 export default AdventurePlaceDetail;

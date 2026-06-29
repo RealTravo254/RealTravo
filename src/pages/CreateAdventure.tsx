@@ -13,6 +13,7 @@ import { useBanCheck } from "@/hooks/useBanCheck";
 import {
   MapPin, Navigation, Clock, X, Plus, Camera, CheckCircle2, Info, ArrowLeft, Loader2,
   DollarSign, ChevronLeft, ChevronRight, Link2, ShieldCheck, FileImage, Upload,
+  Globe, Users, Sparkles,
 } from "lucide-react";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -54,8 +55,18 @@ interface ActivityItem {
   id: string; name: string; price: string;
   images: File[]; previewUrls: string[]; saved: boolean;
 }
+// ── Special / custom pricing tier (Student, Family, Senior, Group, etc.) ──────
+interface SpecialPriceTier {
+  id: string;
+  label: string;
+  citizenPrice: string;
+  nonCitizenPrice: string;
+  requirement: string;
+  saved: boolean;
+}
 const emptyFacility = (): FacilityItem => ({ id: makeId(), name: "", amenities: [], amenityInput: "", price: "", capacity: "", images: [], previewUrls: [], saved: false });
 const emptyActivity = (): ActivityItem => ({ id: makeId(), name: "", price: "", images: [], previewUrls: [], saved: false });
+const emptySpecialTier = (): SpecialPriceTier => ({ id: makeId(), label: "", citizenPrice: "", nonCitizenPrice: "", requirement: "", saved: false });
 
 const STEP_NAMES = ["Registration", "Location", "Contact & About", "Access & Pricing", "Facilities", "Gallery", "Review"];
 
@@ -277,6 +288,95 @@ const AmenityTagInput = ({ tags, input, onInputChange, onAdd, onRemove, hasError
     />
   </div>
 );
+
+// ─── Special Pricing Tier Builder (Student, Family, Senior, Group, etc.) ──────
+const SpecialPriceBuilder = ({ items, onChange, showErrors, onValidationFail }: {
+  items: SpecialPriceTier[]; onChange: (items: SpecialPriceTier[]) => void;
+  showErrors: boolean; onValidationFail: (msg: string) => void;
+}) => {
+  const { usdHint } = useCurrency();
+  const update = (id: string, patch: Partial<SpecialPriceTier>) => onChange(items.map((t) => t.id === id ? { ...t, ...patch } : t));
+  const addItem = () => onChange([...items, emptySpecialTier()]);
+  const removeItem = (id: string) => onChange(items.filter((t) => t.id !== id));
+
+  const saveItem = (t: SpecialPriceTier) => {
+    if (!t.label.trim()) { onValidationFail("Please enter a name for this special price (e.g. Student, Family)."); return; }
+    if (!t.citizenPrice.trim() || parseFloat(t.citizenPrice) <= 0) { onValidationFail("Please enter a citizen price greater than 0."); return; }
+    update(t.id, { saved: true });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Sparkles className="h-3.5 w-3.5" style={{ color: COLORS.CORAL }} />
+        <FieldLabel>Special Entry Prices (Student, Family, Senior, Group...)</FieldLabel>
+      </div>
+      <p className="text-[11px] text-slate-400 -mt-3">Optional. Create custom pricing categories with their own requirements (e.g. "Student — valid ID required").</p>
+
+      {items.map((item) => (
+        <div key={item.id} className={cn("rounded-xl border overflow-hidden transition-all", item.saved ? "border-purple-200 bg-purple-50/30" : "border-slate-200 bg-white")}>
+          {item.saved ? (
+            <div className="p-4 flex items-center gap-4">
+              <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center shrink-0">
+                <Sparkles className="h-4 w-4 text-purple-500" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-sm text-slate-800 truncate">{item.label}</p>
+                <div className="flex gap-3 mt-0.5 flex-wrap">
+                  <p className="text-[11px] font-semibold text-purple-600">
+                    Citizen: KSh {item.citizenPrice} <span className="text-blue-500">{usdHint(parseFloat(item.citizenPrice) || 0)}</span>
+                  </p>
+                  {item.nonCitizenPrice && parseFloat(item.nonCitizenPrice) > 0 && (
+                    <p className="text-[11px] font-semibold text-amber-600">
+                      Non-Citizen: KSh {item.nonCitizenPrice} <span className="text-blue-500">{usdHint(parseFloat(item.nonCitizenPrice) || 0)}</span>
+                    </p>
+                  )}
+                </div>
+                {item.requirement.trim() && <p className="text-[10px] text-slate-500 mt-1 italic">Requires: {item.requirement}</p>}
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <button type="button" onClick={() => update(item.id, { saved: false })} className="text-[11px] font-bold uppercase tracking-wide text-purple-500 border border-purple-200 rounded-lg px-3 py-1.5 hover:bg-purple-50 transition-colors">Edit</button>
+                <button type="button" onClick={() => removeItem(item.id)} className="text-[11px] font-bold uppercase tracking-wide text-red-500 border border-red-200 rounded-lg px-3 py-1.5 hover:bg-red-50 transition-colors">Remove</button>
+              </div>
+            </div>
+          ) : (
+            <div className="p-5 space-y-4">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <FieldLabel required>Category Name</FieldLabel>
+                  <StyledInput value={item.label} onChange={(e) => update(item.id, { label: e.target.value })} placeholder="e.g. Student, Family Pack" isInvalid={showErrors && !item.label.trim()} />
+                </div>
+                <div className="space-y-1">
+                  <FieldLabel required>Citizen Price (KSh)</FieldLabel>
+                  <StyledInput type="number" value={item.citizenPrice} onChange={(e) => update(item.id, { citizenPrice: e.target.value })} placeholder="0" isInvalid={showErrors && (!item.citizenPrice.trim() || parseFloat(item.citizenPrice) <= 0)} />
+                  {item.citizenPrice && parseFloat(item.citizenPrice) > 0 && <p className="text-[9px] text-blue-500 font-semibold mt-0.5">{usdHint(parseFloat(item.citizenPrice))}</p>}
+                </div>
+                <div className="space-y-1">
+                  <FieldLabel>Non-Citizen Price (KSh)</FieldLabel>
+                  <StyledInput type="number" value={item.nonCitizenPrice} onChange={(e) => update(item.id, { nonCitizenPrice: e.target.value })} placeholder="Optional" />
+                  {item.nonCitizenPrice && parseFloat(item.nonCitizenPrice) > 0 && <p className="text-[9px] text-blue-500 font-semibold mt-0.5">{usdHint(parseFloat(item.nonCitizenPrice))}</p>}
+                </div>
+              </div>
+              <div className="space-y-1">
+                <FieldLabel>Requirement (shown to visitors)</FieldLabel>
+                <StyledInput value={item.requirement} onChange={(e) => update(item.id, { requirement: e.target.value })} placeholder="e.g. Valid student ID required at entry" />
+              </div>
+              <div className="flex gap-3 pt-1">
+                <button type="button" onClick={() => saveItem(item)} className="flex-1 h-10 rounded-xl text-white text-[12px] font-bold hover:opacity-90 transition-all" style={{ background: "linear-gradient(135deg, #a855f7, #7c3aed)" }}>Save Special Price</button>
+                {items.length > 0 && (
+                  <button type="button" onClick={() => removeItem(item.id)} className="h-10 px-4 rounded-xl text-red-400 hover:text-red-600 hover:bg-red-50 transition-all"><X className="h-4 w-4" /></button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+      <button type="button" onClick={addItem} className="w-full h-11 rounded-xl text-[11px] font-bold uppercase tracking-wide border-2 border-dashed border-slate-200 text-slate-400 hover:border-purple-400 hover:text-purple-400 transition-all flex items-center justify-center gap-2">
+        <Plus className="h-4 w-4" /> Add Special Price
+      </button>
+    </div>
+  );
+};
 
 // ─── Facility Builder ─────────────────────────────────────────────────────────
 const FacilityBuilder = ({ items, onChange, showErrors, onValidationFail }: {
@@ -606,6 +706,9 @@ const CreateAdventure = () => {
     country: "", description: "", email: "", phoneNumber: "",
     openingHours: "00:00", closingHours: "23:59",
     entranceFeeType: "free", adultPrice: "0", childPrice: "0",
+    // ── Non-citizen pricing (optional, mirrors adult/child) ──
+    hasNonCitizenPricing: false,
+    nonCitizenAdultPrice: "0", nonCitizenChildPrice: "0",
     latitude: null as number | null, longitude: null as number | null,
     locationLink: "",
   });
@@ -617,6 +720,8 @@ const CreateAdventure = () => {
   const [generalFacilities, setGeneralFacilities] = useState<string[]>([]);
   const [facilities, setFacilities] = useState<FacilityItem[]>(() => [emptyFacility()]);
   const [activities, setActivities] = useState<ActivityItem[]>(() => [emptyActivity()]);
+  // ── Special / custom pricing tiers ──
+  const [specialPrices, setSpecialPrices] = useState<SpecialPriceTier[]>([]);
   const [galleryImages, setGalleryImages] = useState<File[]>([]);
   const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
 
@@ -713,6 +818,10 @@ const CreateAdventure = () => {
         toast({ title: "Unsaved Facility", description: "Please save all facilities", variant: "destructive" });
         return false;
       }
+      if (specialPrices.some((t) => !t.saved)) {
+        toast({ title: "Unsaved Special Price", description: "Please save or remove all special pricing tiers", variant: "destructive" });
+        return false;
+      }
     } else if (currentStep === 6) {
       if (galleryImages.length < 5) {
         setShowErrors(true);
@@ -742,6 +851,13 @@ const CreateAdventure = () => {
         if (a.saved) return a;
         if (a.name.trim() && a.images.length >= 1) return { ...a, saved: true };
         return a;
+      })
+    );
+    setSpecialPrices((prev) =>
+      prev.map((t) => {
+        if (t.saved) return t;
+        if (t.label.trim() && t.citizenPrice.trim() && parseFloat(t.citizenPrice) > 0) return { ...t, saved: true };
+        return t;
       })
     );
     if (!validateCurrentStep()) return;
@@ -814,6 +930,10 @@ const CreateAdventure = () => {
       toast({ title: "Unsaved Facility", description: "Please save all facilities.", variant: "destructive" });
       return;
     }
+    if (specialPrices.some((t) => !t.saved)) {
+      toast({ title: "Unsaved Special Price", description: "Please save or remove all special pricing tiers.", variant: "destructive" });
+      return;
+    }
 
     setLoading(true);
     try {
@@ -838,6 +958,17 @@ const CreateAdventure = () => {
       );
       const selectedDays = Object.entries(workingDays).filter(([, v]) => v).map(([k]) => k);
 
+      // ── Special pricing tiers payload (only saved/complete ones) ──
+      const specialPricesForDB = specialPrices
+        .filter((t) => t.saved && t.label.trim())
+        .map((t) => ({
+          id: t.id,
+          label: t.label.trim(),
+          citizen_price: parseFloat(t.citizenPrice) || 0,
+          non_citizen_price: t.nonCitizenPrice ? (parseFloat(t.nonCitizenPrice) || 0) : 0,
+          requirement: t.requirement.trim(),
+        }));
+
       const { error } = await supabase.from("adventure_places").insert([{
         id: friendlySlug, slug: friendlySlug, name: formData.registrationName,
         registration_number: formData.registrationNumber,
@@ -854,6 +985,12 @@ const CreateAdventure = () => {
         entry_fee_type: formData.entranceFeeType,
         entry_fee: formData.entranceFeeType === "paid" ? parseFloat(formData.adultPrice) || 0 : 0,
         child_entry_fee: formData.entranceFeeType === "paid" ? parseFloat(formData.childPrice) || 0 : 0,
+        // ── Non-citizen pricing ──
+        has_non_citizen_pricing: formData.entranceFeeType === "paid" && formData.hasNonCitizenPricing,
+        non_citizen_entry_fee: formData.entranceFeeType === "paid" && formData.hasNonCitizenPricing ? (parseFloat(formData.nonCitizenAdultPrice) || 0) : 0,
+        non_citizen_child_entry_fee: formData.entranceFeeType === "paid" && formData.hasNonCitizenPricing ? (parseFloat(formData.nonCitizenChildPrice) || 0) : 0,
+        // ── Special pricing tiers ──
+        special_entry_prices: specialPricesForDB,
         amenities: generalFacilities, facilities: facilitiesForDB, activities: activitiesForDB,
         created_by: user.id,
         approval_status: "pending",
@@ -1062,18 +1199,62 @@ const CreateAdventure = () => {
                     {formData.entranceFeeType === "paid" && (
                       <>
                         <div>
-                          <FieldLabel>Adult Entry (KSh)</FieldLabel>
+                          <FieldLabel>Citizen — Adult Entry (KSh)</FieldLabel>
                           <StyledInput type="number" value={formData.adultPrice} onChange={(e) => setFormData({ ...formData, adultPrice: e.target.value })} />
                           {parseFloat(formData.adultPrice) > 0 && <p className="text-[9px] text-blue-500 font-semibold mt-1">{usdHint(parseFloat(formData.adultPrice))}</p>}
                         </div>
                         <div>
-                          <FieldLabel>Child Entry (KSh)</FieldLabel>
+                          <FieldLabel>Citizen — Child Entry (KSh)</FieldLabel>
                           <StyledInput type="number" min="0" value={formData.childPrice} onChange={(e) => setFormData({ ...formData, childPrice: e.target.value })} />
                           {parseFloat(formData.childPrice) > 0 && <p className="text-[9px] text-blue-500 font-semibold mt-1">{usdHint(parseFloat(formData.childPrice))}</p>}
                         </div>
                       </>
                     )}
                   </div>
+
+                  {/* ── Non-Citizen Pricing ── */}
+                  {formData.entranceFeeType === "paid" && (
+                    <div className="rounded-2xl border border-amber-200 bg-amber-50/40 p-5">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center">
+                            <Globe className="h-4 w-4 text-amber-600" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-black text-slate-800">Non-Citizen Pricing</p>
+                            <p className="text-[11px] text-slate-500">Charge a different rate for international / non-citizen visitors</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, hasNonCitizenPricing: !formData.hasNonCitizenPricing })}
+                          className={cn(
+                            "relative w-11 h-6 rounded-full transition-all shrink-0",
+                            formData.hasNonCitizenPricing ? "bg-amber-500" : "bg-slate-300"
+                          )}
+                        >
+                          <span className={cn(
+                            "absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform",
+                            formData.hasNonCitizenPricing && "translate-x-5"
+                          )} />
+                        </button>
+                      </div>
+                      {formData.hasNonCitizenPricing && (
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <FieldLabel>Non-Citizen — Adult Entry (KSh)</FieldLabel>
+                            <StyledInput type="number" value={formData.nonCitizenAdultPrice} onChange={(e) => setFormData({ ...formData, nonCitizenAdultPrice: e.target.value })} placeholder="0" />
+                            {parseFloat(formData.nonCitizenAdultPrice) > 0 && <p className="text-[9px] text-blue-500 font-semibold mt-1">{usdHint(parseFloat(formData.nonCitizenAdultPrice))}</p>}
+                          </div>
+                          <div>
+                            <FieldLabel>Non-Citizen — Child Entry (KSh)</FieldLabel>
+                            <StyledInput type="number" value={formData.nonCitizenChildPrice} onChange={(e) => setFormData({ ...formData, nonCitizenChildPrice: e.target.value })} placeholder="0" />
+                            {parseFloat(formData.nonCitizenChildPrice) > 0 && <p className="text-[9px] text-blue-500 font-semibold mt-1">{usdHint(parseFloat(formData.nonCitizenChildPrice))}</p>}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </SectionCard>
             )}
@@ -1085,6 +1266,7 @@ const CreateAdventure = () => {
                   <GeneralFacilitiesSelector selected={generalFacilities} onChange={setGeneralFacilities} accentColor={COLORS.TEAL} />
                   <FacilityBuilder items={facilities} onChange={setFacilities} showErrors={showErrors} onValidationFail={onValidationFail} />
                   <ActivityBuilder items={activities} onChange={setActivities} showErrors={showErrors} onValidationFail={onValidationFail} />
+                  <SpecialPriceBuilder items={specialPrices} onChange={setSpecialPrices} showErrors={showErrors} onValidationFail={onValidationFail} />
                 </div>
               </SectionCard>
             )}
@@ -1120,9 +1302,19 @@ const CreateAdventure = () => {
                   openingHours: formData.openingHours, closingHours: formData.closingHours,
                   workingDays: Object.entries(workingDays).filter(([, v]) => v).map(([k]) => k),
                   entranceFeeType: formData.entranceFeeType, adultPrice: formData.adultPrice, childPrice: formData.childPrice,
+                  // ── Non-citizen pricing passed to review ──
+                  hasNonCitizenPricing: formData.hasNonCitizenPricing,
+                  nonCitizenAdultPrice: formData.nonCitizenAdultPrice, nonCitizenChildPrice: formData.nonCitizenChildPrice,
                   latitude: formData.latitude, longitude: formData.longitude, generalFacilities,
                   facilities: facilities.filter((f) => f.saved).map((f) => ({ name: f.name, price: parseFloat(f.price) || 0, capacity: parseInt(f.capacity) || null, amenities: f.amenities, images: f.previewUrls })),
                   activities: activities.filter((a) => a.saved && a.name.trim()).map((a) => ({ name: a.name, price: parseFloat(a.price) || 0, images: a.previewUrls })),
+                  // ── Special pricing tiers passed to review ──
+                  specialPrices: specialPrices.filter((t) => t.saved && t.label.trim()).map((t) => ({
+                    label: t.label,
+                    citizenPrice: parseFloat(t.citizenPrice) || 0,
+                    nonCitizenPrice: t.nonCitizenPrice ? (parseFloat(t.nonCitizenPrice) || 0) : 0,
+                    requirement: t.requirement,
+                  })),
                   galleryPreviewUrls: galleryPreviews,
                 }}
                 creatorEmail={user?.email}

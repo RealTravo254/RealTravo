@@ -138,7 +138,7 @@ const ListingCardComponent = ({
     if (isGuidedTour) return "Guided Tour";
     if (isEventOrSport) return "Event";
     // ✅ RENAMED: Adventure Place badge label (fallback when no category set)
-    if (type === "ADVENTURE PLACE") return "Adventure Place & Safaris";
+    if (type === "ADVENTURE PLACE") return "Adventure Place";
     if (type === "TRIP") return "Trip";
     return type.replace('_', ' ');
   }, [category, isEventOrSport, type, isGuidedTour]);

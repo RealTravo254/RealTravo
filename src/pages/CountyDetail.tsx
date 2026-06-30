@@ -10,9 +10,7 @@ import { useSavedItems } from "@/hooks/useSavedItems";
 import { useGeolocation, calculateDistance } from "@/hooks/useGeolocation";
 import { useRatings, sortByRating } from "@/hooks/useRatings";
 import { Button } from "@/components/ui/button";
-
-const TABS = ["All", "Adventure Places", "Guided Trips", "Fixed Trips"] as const;
-type Tab = typeof TABS[number];
+import { CategoryTabsBar } from "@/components/CategoryTabsBar";
 
 // How many cards to show initially, and how many more to reveal per "See All" tap
 const INITIAL_VISIBLE_COUNT = 10;
@@ -21,6 +19,15 @@ const LOAD_MORE_COUNT = 10;
 const SKELETON_COUNT_MOBILE = 8;
 const SKELETON_COUNT_DESKTOP = 20;
 
+// adventure_places select string now also pulls `category` (hotel / park /
+// campsite / attraction / accommodation) so this page can filter by the
+// full category set, same as CategoryDetail and Explore.
+const ADVENTURE_PLACE_FIELDS =
+  "id,name,location,place,country,image_url,gallery_images,images,entry_fee,activities,latitude,longitude,created_at,description,opening_hours,closing_hours,category";
+
+const TRIP_FIELDS =
+  "id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child,description,opening_hours,closing_hours";
+
 const CountyDetail = () => {
   const { county } = useParams<{ county: string }>();
   const navigate = useNavigate();
@@ -28,7 +35,11 @@ const CountyDetail = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<Tab>("All");
+
+  // Replaces the old "All / Adventure Places / Guided Trips / Fixed Trips"
+  // tab set — now uses the full category list (matching Index/Explore):
+  // all, hotels, accommodations, parks, campsite, attraction, guided, trips.
+  const [activeCategory, setActiveCategory] = useState<string>("all");
 
   // Replaces old page-based pagination: we now track how many items are
   // currently revealed, and grow that number when "See All" is tapped.
@@ -51,21 +62,21 @@ const CountyDetail = () => {
       try {
         const [adventuresRes, guidedRes, fixedTripsRes] = await Promise.all([
           supabase.from("adventure_places")
-            .select("id,name,location,place,country,image_url,gallery_images,images,entry_fee,activities,latitude,longitude,created_at,description,opening_hours,closing_hours")
+            .select(ADVENTURE_PLACE_FIELDS)
             .eq("approval_status", "approved").eq("is_hidden", false).eq("place", decodedCounty),
           supabase.from("trips")
-            .select("id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child,description,opening_hours,closing_hours")
+            .select(TRIP_FIELDS)
             .eq("approval_status", "approved").eq("is_hidden", false).eq("type", "trip")
             .or("is_flexible_date.eq.true,is_custom_date.eq.true").eq("place", decodedCounty),
           supabase.from("trips")
-            .select("id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child,description,opening_hours,closing_hours")
+            .select(TRIP_FIELDS)
             .eq("approval_status", "approved").eq("is_hidden", false).eq("type", "trip")
             .eq("is_flexible_date", false).eq("is_custom_date", false).eq("place", decodedCounty),
         ]);
 
         const combined = [
           ...(adventuresRes.data || []).map((i: any) => ({ ...i, itemType: "ADVENTURE PLACE" })),
-          ...(guidedRes.data   || []).map((i: any) => ({ ...i, itemType: "TRIP" })),
+          ...(guidedRes.data   || []).map((i: any) => ({ ...i, itemType: "TRIP", __guided: true })),
           ...(fixedTripsRes.data || []).map((i: any) => ({ ...i, itemType: "FIXED TRIP" })),
         ];
         setItems(combined);
@@ -84,9 +95,19 @@ const CountyDetail = () => {
 
   const filtered = useMemo(() => {
     let result = sorted;
-    if (activeTab === "Adventure Places") result = result.filter(i => i.itemType === "ADVENTURE PLACE");
-    else if (activeTab === "Guided Trips") result = result.filter(i => i.itemType === "TRIP");
-    else if (activeTab === "Fixed Trips")  result = result.filter(i => i.itemType === "FIXED TRIP");
+
+    // Filter by the active category pill.
+    if (activeCategory !== "all") {
+      if (activeCategory === "trips") {
+        result = result.filter(i => i.itemType === "FIXED TRIP");
+      } else if (activeCategory === "guided") {
+        result = result.filter(i => i.itemType === "TRIP" && i.__guided);
+      } else {
+        // hotels / accommodations / parks / campsite / attraction
+        result = result.filter(i => i.itemType === "ADVENTURE PLACE" && i.category === activeCategory);
+      }
+    }
+
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter(i =>
@@ -94,14 +115,14 @@ const CountyDetail = () => {
       );
     }
     return result;
-  }, [sorted, activeTab, searchQuery]);
+  }, [sorted, activeCategory, searchQuery]);
 
-  // Whenever the active tab or search query changes, reset back to showing
-  // just the first batch (mirrors the old "reset to page 1" behavior).
+  // Whenever the active category or search query changes, reset back to
+  // showing just the first batch (mirrors the old "reset to page 1" behavior).
   useEffect(() => {
     setVisibleCount(INITIAL_VISIBLE_COUNT);
     setLoadingMore(false);
-  }, [activeTab, searchQuery]);
+  }, [activeCategory, searchQuery]);
 
   // If the underlying filtered list ever shrinks below what's currently
   // "visible" (e.g. data refetch), clamp visibleCount so we don't render
@@ -127,7 +148,7 @@ const CountyDetail = () => {
     }, 500);
   }, [loadingMore, filtered.length]);
 
-  const isFiltering = searchQuery.length > 0 || activeTab !== "All";
+  const isFiltering = searchQuery.length > 0 || activeCategory !== "all";
   const showSkeleton = loading || (!loading && filtered.length === 0 && !isFiltering);
 
   const renderLoadMoreSkeletons = (count: number) => (
@@ -143,43 +164,30 @@ const CountyDetail = () => {
   return (
     <div className="bg-background">
 
-      {/* ── Teal sticky header with safe zone ── */}
+      {/* ── Sticky top zone: teal search header + category tabs bar ── */}
+      {/* Category tabs render in their own bar below (visually outside) */}
+      {/* the teal header, but both stay fixed together while scrolling. */}
       <div
-        className="sticky top-0 z-50 bg-primary shadow-md"
+        className="sticky top-0 z-50 shadow-md"
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
       >
-        <div className="container mx-auto px-4 py-3">
-          <SearchBarWithSuggestions
-            value={searchQuery}
-            onChange={setSearchQuery}
-            onSubmit={() => {}}
-            onFocus={() => setIsSearchFocused(true)}
-            onBlur={() => setIsSearchFocused(false)}
-            onBack={() => { setIsSearchFocused(false); setSearchQuery(""); navigate(-1); }}
-            showBackButton={true}
-          />
+        <div className="bg-primary">
+          <div className="container mx-auto px-4 py-3">
+            <SearchBarWithSuggestions
+              value={searchQuery}
+              onChange={setSearchQuery}
+              onSubmit={() => {}}
+              onFocus={() => setIsSearchFocused(true)}
+              onBlur={() => setIsSearchFocused(false)}
+              onBack={() => { setIsSearchFocused(false); setSearchQuery(""); navigate(-1); }}
+              showBackButton={true}
+            />
+          </div>
         </div>
 
-        {/* Tab filters */}
+        {/* Category tabs — sideways scroll, filters in-place for this county */}
         {!isSearchFocusedLocal && (
-          <div className="container mx-auto px-4 pb-2">
-            <div className="flex gap-2 overflow-x-auto scrollbar-hide">
-              {TABS.map(tab => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={cn(
-                    "px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-all shrink-0",
-                    activeTab === tab
-                      ? "bg-primary-foreground text-primary shadow-sm"
-                      : "bg-primary-foreground/20 text-primary-foreground/90 hover:bg-primary-foreground/30"
-                  )}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
-          </div>
+          <CategoryTabsBar activeKey={activeCategory} onSelect={setActiveCategory} />
         )}
       </div>
 
@@ -211,6 +219,7 @@ const CountyDetail = () => {
                     key={item.id}
                     id={item.id}
                     type={item.itemType}
+                    category={item.category}
                     name={item.name}
                     imageUrl={item.image_url}
                     location={item.location}

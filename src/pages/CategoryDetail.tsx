@@ -13,6 +13,7 @@ import { useGeolocation, calculateDistance } from "@/hooks/useGeolocation";
 import { useRatings, sortByRating } from "@/hooks/useRatings";
 import { useRealtimeBookings } from "@/hooks/useRealtimeBookings";
 import { KENYA_COUNTIES } from "@/lib/kenyaCounties";
+import { CategoryTabsBar } from "@/components/CategoryTabsBar";
 
 // Batch size used both for the initial load and for each "See All" tap
 const ITEMS_PER_PAGE = 10;
@@ -78,6 +79,9 @@ const CategoryDetail = () => {
   };
 
   const config = category ? categoryConfig[category] : null;
+
+  // Which CategoryTabsBar pill should render as active for this category page.
+  const activeTabKey = category && categoryConfig[category] ? category : "all";
 
   useEffect(() => {
     const initializeData = async () => {
@@ -219,41 +223,52 @@ const CategoryDetail = () => {
   return (
     <div className="bg-background">
 
-      {/* ── Teal sticky header with safe zone ── */}
+      {/* ── Sticky top zone: teal search header + category tabs bar ── */}
+      {/* Both pieces live inside a single `sticky top-0` wrapper so they */}
+      {/* scroll together and stay fixed in place, while the category tabs */}
+      {/* themselves render in their own bar below (visually outside) the */}
+      {/* teal header. */}
       <div
-        className="sticky top-0 z-50 bg-primary shadow-md"
+        className="sticky top-0 z-50 shadow-md"
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
       >
-        <div className="container mx-auto px-4 py-3">
-          <SearchBarWithSuggestions
-            value={searchQuery}
-            onChange={setSearchQuery}
-            onSubmit={() => setFilteredItems(applyFilters(sortedItems, searchQuery, selectedCounty))}
-            onFocus={() => setIsSearchFocused(true)}
-            onBlur={() => setIsSearchFocused(false)}
-            onBack={() => { setIsSearchFocused(false); setSearchQuery(""); navigate(-1); }}
-            showBackButton={true}
-          />
+        <div className="bg-primary">
+          <div className="container mx-auto px-4 py-3">
+            <SearchBarWithSuggestions
+              value={searchQuery}
+              onChange={setSearchQuery}
+              onSubmit={() => setFilteredItems(applyFilters(sortedItems, searchQuery, selectedCounty))}
+              onFocus={() => setIsSearchFocused(true)}
+              onBlur={() => setIsSearchFocused(false)}
+              onBack={() => { setIsSearchFocused(false); setSearchQuery(""); navigate(-1); }}
+              showBackButton={true}
+            />
+          </div>
         </div>
 
-        {/* County filter tabs */}
+        {/* Category tabs — sideways scroll, sits outside/below the teal header */}
+        {!isSearchFocused && <CategoryTabsBar activeKey={activeTabKey} />}
+
+        {/* County filter tabs (campsite / guided only) */}
         {showCountyTabs && !isSearchFocused && (
-          <div className="container mx-auto px-4 pb-2">
-            <div className="flex gap-2 overflow-x-auto scrollbar-hide">
-              {["All", ...KENYA_COUNTIES.filter(c => items.some(item => item.place === c))].map((county) => (
-                <button
-                  key={county}
-                  onClick={() => setSelectedCounty(county)}
-                  className={cn(
-                    "px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-all shrink-0",
-                    selectedCounty === county
-                      ? "bg-primary-foreground text-primary shadow-sm"
-                      : "bg-primary-foreground/20 text-primary-foreground/90 hover:bg-primary-foreground/30"
-                  )}
-                >
-                  {county}
-                </button>
-              ))}
+          <div className="bg-background border-t border-border/60">
+            <div className="container mx-auto px-4 py-2">
+              <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+                {["All", ...KENYA_COUNTIES.filter(c => items.some(item => item.place === c))].map((county) => (
+                  <button
+                    key={county}
+                    onClick={() => setSelectedCounty(county)}
+                    className={cn(
+                      "px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-all shrink-0 border",
+                      selectedCounty === county
+                        ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                        : "bg-card text-muted-foreground border-border hover:bg-muted"
+                    )}
+                  >
+                    {county}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         )}

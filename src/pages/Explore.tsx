@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Compass, Calendar, Tent, MapPin, Navigation } from "lucide-react";
 import { SearchBarWithSuggestions } from "@/components/SearchBarWithSuggestions";
 import { ListingCard } from "@/components/ListingCard";
 import { ListingSkeleton } from "@/components/ui/listing-skeleton";
@@ -12,13 +11,7 @@ import { useGeolocation, calculateDistance } from "@/hooks/useGeolocation";
 import { useRealtimeBookings } from "@/hooks/useRealtimeBookings";
 import { SEOHead } from "@/components/SEOHead";
 import { Button } from "@/components/ui/button";
-
-const FILTER_TABS = [
-  { key: "all", label: "All", icon: Compass },
-  { key: "adventure", label: "Adventures", icon: Tent },
-  { key: "trip", label: "Trips", icon: MapPin },
-  { key: "guided", label: "Guided Tours", icon: Navigation },
-];
+import { CategoryTabsBar, CATEGORY_TABS } from "@/components/CategoryTabsBar";
 
 // How many cards to show initially, and how many more to reveal per "See All" tap
 const INITIAL_VISIBLE_COUNT = 10;
@@ -27,7 +20,12 @@ const LOAD_MORE_COUNT = 10;
 const Explore = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Replaces the old 4-item FILTER_TABS ("All" / "Adventures" / "Trips" /
+  // "Guided Tours") with the full category set shared across the app
+  // (Hotels, Accommodations, Parks, Campsites, Attraction, Tours, Trips).
   const [activeFilter, setActiveFilter] = useState("all");
+
   const [listings, setListings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -51,13 +49,15 @@ const Explore = () => {
 
     if (activeFilter === "all") return sortedListings;
 
-    return sortedListings.filter(l => {
-      if (activeFilter === "adventure") return l.type === "ADVENTURE PLACE";
-      if (activeFilter === "trip") return l.type === "TRIP" && !isGuidedTrip(l);
-      if (activeFilter === "event") return l.type === "EVENT";
-      if (activeFilter === "guided") return isGuidedTrip(l);
-      return true;
-    });
+    if (activeFilter === "trips") {
+      return sortedListings.filter(l => l.type === "TRIP" && !isGuidedTrip(l));
+    }
+    if (activeFilter === "guided") {
+      return sortedListings.filter(l => isGuidedTrip(l));
+    }
+    // hotels / accommodations / parks / campsite / attraction — filter
+    // adventure_places by the host-selected `category` column.
+    return sortedListings.filter(l => l.type === "ADVENTURE PLACE" && l.category === activeFilter);
   }, [sortedListings, activeFilter]);
 
   // Whenever the active filter or search query changes, reset back to
@@ -122,7 +122,9 @@ const Explore = () => {
           return data.map((i: any) => ({ ...i, type: "TRIP" }));
         }),
       supabase.from("adventure_places")
-        .select("id,name,location,place,country,image_url,gallery_images,images,entry_fee,activities,latitude,longitude,created_at,description,opening_hours,closing_hours")
+        // `category` (hotel/park/campsite/attraction/accommodation) pulled
+        // so the category tabs above can filter results client-side.
+        .select("id,name,location,place,country,image_url,gallery_images,images,entry_fee,activities,latitude,longitude,created_at,description,opening_hours,closing_hours,category")
         .eq("approval_status", "approved").eq("is_hidden", false)
         .order('created_at', { ascending: false }).limit(50)
         .then(r => {
@@ -147,6 +149,8 @@ const Explore = () => {
     else fetchAllData();
   };
 
+  const activeTabLabel = CATEGORY_TABS.find(t => t.key === activeFilter)?.label;
+
   const skeletonGrid = (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3">
       {[...Array(8)].map((_, i) => <ListingSkeleton key={i} />)}
@@ -170,48 +174,33 @@ const Explore = () => {
         pt-[env(safe-area-inset-top,0px)] extends the teal header colour
         into the status-bar safe zone on Capacitor iOS/Android so the
         status bar and header appear as one seamless teal block.
+
+        The category tabs bar lives in this same `sticky top-0` wrapper,
+        in its own bar directly below (visually outside) the teal header,
+        so both stay fixed together as the page scrolls.
       */}
       <div
-        className="sticky top-0 z-50 bg-primary shadow-md"
+        className="sticky top-0 z-50 shadow-md"
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
       >
-        <div className="container mx-auto px-4 py-3">
-          <SearchBarWithSuggestions
-            value={searchQuery}
-            onChange={setSearchQuery}
-            onSubmit={handleSearch}
-            onFocus={() => setIsSearchFocused(true)}
-            onBlur={() => setIsSearchFocused(false)}
-            onBack={() => { setIsSearchFocused(false); setSearchQuery(""); navigate(-1); }}
-            showBackButton={true}
-            showEventCategories={false}
-          />
+        <div className="bg-primary">
+          <div className="container mx-auto px-4 py-3">
+            <SearchBarWithSuggestions
+              value={searchQuery}
+              onChange={setSearchQuery}
+              onSubmit={handleSearch}
+              onFocus={() => setIsSearchFocused(true)}
+              onBlur={() => setIsSearchFocused(false)}
+              onBack={() => { setIsSearchFocused(false); setSearchQuery(""); navigate(-1); }}
+              showBackButton={true}
+              showEventCategories={false}
+            />
+          </div>
         </div>
 
-        {/* Filter tabs */}
+        {/* Category tabs — sideways scroll, filters in-place */}
         {!isSearchFocused && (
-          <div className="container mx-auto px-4 pb-2">
-            <div className="flex gap-2 overflow-x-auto scrollbar-hide">
-              {FILTER_TABS.map(tab => {
-                const Icon = tab.icon;
-                const isActive = activeFilter === tab.key;
-                return (
-                  <button
-                    key={tab.key}
-                    onClick={() => setActiveFilter(tab.key)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-all ${
-                      isActive
-                        ? "bg-primary-foreground text-primary shadow-sm"
-                        : "bg-primary-foreground/20 text-primary-foreground/90 hover:bg-primary-foreground/30"
-                    }`}
-                  >
-                    <Icon className="h-3.5 w-3.5" />
-                    {tab.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          <CategoryTabsBar activeKey={activeFilter} onSelect={setActiveFilter} />
         )}
       </div>
 
@@ -219,7 +208,7 @@ const Explore = () => {
       <main className="flex-1 container mx-auto px-4 py-4 pb-24 md:pb-8">
         <p className="text-xs text-muted-foreground mb-3 font-medium">
           {searchQuery ? `Results for "${searchQuery}"` : "Discover"}
-          {activeFilter !== "all" && ` in ${FILTER_TABS.find(t => t.key === activeFilter)?.label}`}
+          {activeFilter !== "all" && activeTabLabel && ` in ${activeTabLabel}`}
         </p>
 
         {loading ? (
@@ -237,6 +226,7 @@ const Explore = () => {
                 return (
                   <ListingCard
                     key={listing.id} id={listing.id} type={listing.type}
+                    category={listing.category}
                     name={listing.name} location={listing.location} country={listing.country}
                     imageUrl={listing.image_url} price={listing.price || listing.entry_fee || 0}
                     date={listing.date} isCustomDate={listing.is_custom_date}

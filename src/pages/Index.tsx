@@ -10,7 +10,7 @@ import { SearchBarWithSuggestions } from "@/components/SearchBarWithSuggestions"
 import { useSearchFocus } from "@/components/PageLayout";
 import { ListingCard } from "@/components/ListingCard";
 import {
-  Calendar, Tent, Compass, MapPin,
+  Calendar, Tent, Compass, MapPin, Building2, Home, TreePine, Landmark, Map,
   Loader2, Navigation, Heart, Ticket, Trophy, Star, Search as SearchIcon,
 } from "lucide-react";
 import { FEATURED_COUNTIES, COUNTY_IMAGES } from "@/lib/kenyaCounties";
@@ -31,9 +31,10 @@ import { useRealtimeBookings } from "@/hooks/useRealtimeBookings";
 import { useResponsiveLimit } from "@/hooks/useResponsiveLimit";
 
 // ── GridSection ───────────────────────────────────────────────────────────────
-// Shows an initial batch of cards; tapping "See More" appends the next
-// batch below (with a skeleton row while it "loads"), instead of numbered
-// pagination.
+// Shows list cards in a single horizontally-scrollable row on ALL screen
+// sizes. Tapping "See More" appends the next batch of cards into the same
+// row (with trailing skeleton cards while it "loads"). A "View All" link
+// next to the title takes the user to a fully paginated explore page.
 const INITIAL_VISIBLE_COUNT = 10;
 const LOAD_MORE_COUNT = 10;
 
@@ -66,13 +67,17 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: G
     }, 500);
   };
 
-  // ✅ FIX: skeleton only shown when actively loading AND no items yet
+  // Skeleton only shown when actively loading AND no items yet
   const showSkeletons = loading && items.length === 0;
+
+  // Card width is fixed so the row scrolls horizontally and consistently
+  // across breakpoints instead of wrapping into a grid.
+  const cardWidthClasses = "w-[42vw] sm:w-[230px] md:w-[240px] lg:w-[260px] shrink-0";
 
   const Skeletons = ({ count }: { count: number }) => (
     <>
       {[...Array(count)].map((_, i) => (
-        <div key={i} className="w-full h-full">
+        <div key={i} className={cardWidthClasses}>
           <ListingSkeleton />
         </div>
       ))}
@@ -92,7 +97,7 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: G
           {title}
         </h2>
         <Link
-          to="/explore"
+          to={viewAllPath}
           className="text-xs md:text-sm font-semibold hover:opacity-70 transition-opacity shrink-0"
           style={{ color: accentColor }}
         >
@@ -101,33 +106,24 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: G
       </div>
 
       {showSkeletons ? (
-        <>
-          <div className="md:hidden grid grid-cols-2 gap-2.5">
-            <Skeletons count={INITIAL_VISIBLE_COUNT} />
-          </div>
-          <div className="hidden md:grid grid-cols-4 lg:grid-cols-5 gap-4">
-            <Skeletons count={INITIAL_VISIBLE_COUNT} />
-          </div>
-        </>
+        <div className="flex gap-2.5 md:gap-4 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory -mx-4 px-4 md:mx-0 md:px-0">
+          <Skeletons count={INITIAL_VISIBLE_COUNT} />
+        </div>
       ) : (
         <>
-          <div className="md:hidden grid grid-cols-2 gap-2.5">{visibleItems}</div>
-          <div className="hidden md:grid grid-cols-4 lg:grid-cols-5 gap-4">{visibleItems}</div>
+          <div className="flex gap-2.5 md:gap-4 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory -mx-4 px-4 md:mx-0 md:px-0">
+            {visibleItems.map((item, i) => (
+              <div key={i} className={`${cardWidthClasses} snap-start`}>
+                {item}
+              </div>
+            ))}
 
-          {/* Skeleton row for the next batch while "See More" is loading */}
-          {loadingMore && (
-            <>
-              <div className="md:hidden grid grid-cols-2 gap-2.5 mt-2.5">
-                <Skeletons count={nextBatchSize || LOAD_MORE_COUNT} />
-              </div>
-              <div className="hidden md:grid grid-cols-4 lg:grid-cols-5 gap-4 mt-4">
-                <Skeletons count={nextBatchSize || LOAD_MORE_COUNT} />
-              </div>
-            </>
-          )}
+            {/* Trailing skeleton cards while "See More" is loading, in the same row */}
+            {loadingMore && <Skeletons count={nextBatchSize || LOAD_MORE_COUNT} />}
+          </div>
 
           {hasMore && !loadingMore && (
-            <div className="flex justify-center mt-6">
+            <div className="flex justify-center mt-4">
               <button
                 onClick={handleSeeMore}
                 className="px-6 py-2 rounded-full text-xs font-bold border border-border bg-card text-foreground shadow-sm hover:opacity-80 active:scale-95 transition-all"
@@ -144,20 +140,26 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: G
 });
 GridSection.displayName = "GridSection";
 
-// ── Category cards ────────────────────────────────────────────────────────────
+// ── Category cards (now shown below the Counties section) ─────────────────────
+// Arranged in rows & columns (a responsive grid) on every screen size,
+// from small phones up to large desktops.
 const CATEGORIES = [
-  { icon: Tent,     title: "Adventure place",   path: "/category/campsite", bgImage: "/images/category-adventures.jpg" },
-  { icon: Calendar, title: "Trips",        path: "/category/trips",    bgImage: "/images/category-trips.jpg"      },
-  { icon: MapPin,   title: "Guided Tours", path: "/category/guided",   bgImage: "/images/guided.png"        },
+  { icon: Building2, title: "Hotels",         path: "/category/hotels",        bgImage: "/images/category-hotels.jpg" },
+  { icon: Home,       title: "Accommodations", path: "/category/accommodations", bgImage: "/images/category-accommodations.jpg" },
+  { icon: TreePine,   title: "Parks",          path: "/category/parks",          bgImage: "/images/category-parks.jpg" },
+  { icon: Tent,       title: "Campsites",      path: "/category/campsite",       bgImage: "/images/category-adventures.jpg" },
+  { icon: Landmark,   title: "Attraction",     path: "/category/attraction",     bgImage: "/images/category-attraction.jpg" },
+  { icon: Map,        title: "Tours",          path: "/category/guided",         bgImage: "/images/guided.png" },
+  { icon: Calendar,   title: "Trip",           path: "/category/trips",          bgImage: "/images/category-trips.jpg" },
 ];
 
 // ── Quick-nav shortcuts ───────────────────────────────────────────────────────
 const QUICK_NAV = [
-    { icon: Calendar, title: "Adventure places",    path: "/category/campsite", color: "hsl(278, 90%, 50%)"  },
-  { icon: Calendar, title: "Trips",    path: "/category/trips", color: "hsl(25, 90%, 50%)"  },
-  { icon: Calendar, title: "Giuded Tours",    path: "/category/guided", color: "hsl(235, 90%, 50%)"  },
-  { icon: Ticket,   title: "Bookings", path: "/bookings",       color: "hsl(200, 70%, 45%)" },
-  { icon: Heart,    title: "Saved",    path: "/saved",          color: "hsl(350, 80%, 55%)" },
+  { icon: Calendar, title: "Adventure places", path: "/category/campsite", color: "hsl(278, 90%, 50%)" },
+  { icon: Calendar, title: "Trips",            path: "/category/trips",    color: "hsl(25, 90%, 50%)"  },
+  { icon: Calendar, title: "Guided Tours",     path: "/category/guided",   color: "hsl(235, 90%, 50%)" },
+  { icon: Ticket,   title: "Bookings",         path: "/bookings",          color: "hsl(200, 70%, 45%)" },
+  { icon: Heart,    title: "Saved",            path: "/saved",             color: "hsl(350, 80%, 55%)" },
 ];
 
 // ── Main page ─────────────────────────────────────────────────────────────────
@@ -167,7 +169,7 @@ const Index = () => {
   const { savedItems, handleSave } = useSavedItems();
   const [userId, setUserId] = useState<string | null>(null);
   const { toast } = useToast();
-  // ✅ FIX: request location immediately on mount
+  // Request location immediately on mount
   const { position, loading: locationLoading, requestLocation, forceRequestLocation } = useGeolocation();
   const [showLocationDialog, setShowLocationDialog] = useState(false);
   const { cardLimit } = useResponsiveLimit();
@@ -318,7 +320,7 @@ const Index = () => {
 
   // ── Effects ────────────────────────────────────────────────────────────────
 
-  // ✅ FIX: Request location immediately on mount — don't wait for scroll/click
+  // Request location immediately on mount — don't wait for scroll/click
   useEffect(() => {
     requestLocation();
   }, [requestLocation]);
@@ -349,7 +351,7 @@ const Index = () => {
       setCachedHomePageData({ scrollableRows, listings: [], nearbyPlacesHotels });
   }, [loadingScrollable, scrollableRows, nearbyPlacesHotels]);
 
-  // ✅ FIX: fetch nearby as soon as position is available
+  // Fetch nearby as soon as position is available
   useEffect(() => {
     if (position) fetchNearbyPlacesAndHotels();
   }, [position, fetchNearbyPlacesAndHotels]);
@@ -518,7 +520,7 @@ const Index = () => {
         </div>
       )}
 
-      {/* ── Hero ── */}
+      {/* ── Hero (search + background image only — categories moved below Counties) ── */}
       {!isSearchFocused && (
         <div
           ref={searchRef}
@@ -526,7 +528,7 @@ const Index = () => {
           style={headerHeight > 0 ? { marginTop: `${headerHeight}px` } : undefined}
         >
           <div className="md:container md:mx-auto md:px-6">
-            <div className="relative w-full flex flex-col px-4 md:px-8 pt-8 md:pt-10 pb-5 md:pb-6 overflow-hidden">
+            <div className="relative w-full flex flex-col px-4 md:px-8 pt-8 md:pt-10 pb-8 md:pb-10 overflow-hidden">
               <img
                 src="/images/hero-background.webp"
                 alt=""
@@ -539,7 +541,7 @@ const Index = () => {
               <div className="absolute inset-0 bg-black/25" />
               <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/30" />
 
-              <div className="relative z-10 flex flex-col items-center w-full max-w-3xl mx-auto mb-4 md:mb-5">
+              <div className="relative z-10 flex flex-col items-center w-full max-w-3xl mx-auto">
                 <p className="text-white/70 text-xs md:text-sm font-semibold uppercase tracking-widest text-center mb-2">
                   {t("hero.tagline")}
                 </p>
@@ -558,33 +560,6 @@ const Index = () => {
                     showBackButton={false}
                   />
                 </div>
-              </div>
-
-              {/* Hero category cards */}
-              <div className="relative z-10 w-full grid grid-cols-3 gap-2 md:gap-3 mt-2">
-                {CATEGORIES.map(cat => (
-                  <div
-                    key={cat.title}
-                    onClick={() => navigate(cat.path)}
-                    className="cursor-pointer rounded-lg relative w-full flex flex-col items-center justify-center gap-1 px-2 py-2 md:py-4 overflow-hidden"
-                    style={{ height: "clamp(60px, 8vw, 144px)" }}
-                  >
-                    <img
-                      src={cat.bgImage}
-                      alt=""
-                      aria-hidden="true"
-                      fetchPriority="high"
-                      loading="eager"
-                      decoding="async"
-                      className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none select-none rounded-lg"
-                    />
-                    <div className="absolute inset-0 rounded-lg bg-black/60" />
-                    <cat.icon className="relative z-10 h-3 w-3 md:h-6 md:w-6 text-white shrink-0" />
-                    <span className="relative z-10 text-white text-[10px] md:text-sm font-bold leading-none whitespace-nowrap">
-                      {cat.title}
-                    </span>
-                  </div>
-                ))}
               </div>
             </div>
           </div>
@@ -625,7 +600,38 @@ const Index = () => {
               </div>
             </section>
 
-            {/* Browse Guides — Adventure Places & Safaris */}
+            {/* Categories — moved below Counties. Rows & columns on every screen size. */}
+            <section className="mb-4 md:mb-8">
+              <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-3">
+                Browse by category
+              </h2>
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-2 md:gap-3">
+                {CATEGORIES.map(cat => (
+                  <Link
+                    key={cat.title}
+                    to={cat.path}
+                    className="cursor-pointer rounded-lg relative w-full flex flex-col items-center justify-center gap-1 px-2 py-3 md:py-5 overflow-hidden"
+                    style={{ aspectRatio: "1 / 1" }}
+                  >
+                    <img
+                      src={cat.bgImage}
+                      alt=""
+                      aria-hidden="true"
+                      loading="lazy"
+                      decoding="async"
+                      className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none select-none rounded-lg"
+                    />
+                    <div className="absolute inset-0 rounded-lg bg-black/55 hover:bg-black/65 transition-colors" />
+                    <cat.icon className="relative z-10 h-4 w-4 md:h-7 md:w-7 text-white shrink-0" />
+                    <span className="relative z-10 text-white text-[10px] md:text-sm font-bold leading-none text-center">
+                      {cat.title}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </section>
+
+            {/* Browse Guides — Adventure Places & Safaris (single horizontal row, 10-at-a-time pagination) */}
             <GridSection
               title="Browsers guide"
               viewAllPath="/explore"
@@ -634,7 +640,7 @@ const Index = () => {
               loading={loadingScrollable}
             />
 
-            {/* ✅ Nearest to You — shown as soon as position is available or nearby data arrives */}
+            {/* Nearest to You — shown as soon as position is available or nearby data arrives */}
             {(position || nearbyPlacesHotels.length > 0) && (
               <GridSection
                 title={t("sections.nearestToYou")}

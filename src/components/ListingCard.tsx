@@ -18,9 +18,10 @@ const getPriceLabel = (type: string, isFlexibleDate: boolean, isTrip: boolean) =
 
 // ── Category badge labels ─────────────────────────────────────────────────────
 // Maps the host-selected `category` column (hotel / park / campsite /
-// attraction / accommodation) to a human-friendly badge label. Used instead
-// of the generic "Adventure Place & Safaris" type label whenever a specific
-// category has been chosen on the listing.
+// attraction / accommodation) to a human-friendly badge label. Every
+// adventure_places row now always has a category (DB column is NOT NULL
+// with a 'campsite' default), so the badge should always show the specific
+// category — it never falls back to a generic "Adventure Place" label.
 const CATEGORY_LABELS: Record<string, string> = {
   hotel: "Hotel",
   park: "Park",
@@ -28,6 +29,11 @@ const CATEGORY_LABELS: Record<string, string> = {
   attraction: "Attraction",
   accommodation: "Accommodation",
 };
+
+// Safety-net label only used if an ADVENTURE PLACE somehow has no/unknown
+// category value — still a real category name, never the generic
+// "Adventure Place" wording.
+const FALLBACK_ADVENTURE_CATEGORY_LABEL = "Campsite";
 
 const PriceText = ({
   price,
@@ -120,6 +126,7 @@ const ListingCardComponent = ({
 
   const isEventOrSport = type === "EVENT" || type === "SPORT";
   const isTrip = type === "TRIP";
+  const isAdventurePlace = type === "ADVENTURE PLACE";
   const tracksAvailability = isEventOrSport || isTrip;
 
   const remainingTickets = availableTickets - bookedTickets;
@@ -131,19 +138,19 @@ const ListingCardComponent = ({
   const isGuidedTour = isFlexibleDate && isTrip;
 
   const displayType = useMemo(() => {
-    // ✅ Prefer the host-selected category (Hotel / Park / Campsite /
-    // Attraction / Accommodation) over the generic "Adventure Place &
-    // Safaris" label whenever one is set on the listing.
-    if (category && CATEGORY_LABELS[category]) return CATEGORY_LABELS[category];
+    // ✅ Adventure places ALWAYS show their specific host-selected category
+    // (Hotel / Park / Campsite / Attraction / Accommodation) — never the
+    // generic "Adventure Place" label. Falls back to a concrete category
+    // name (Campsite) only in the rare case the value is missing/unknown.
+    if (isAdventurePlace) {
+      return (category && CATEGORY_LABELS[category]) || FALLBACK_ADVENTURE_CATEGORY_LABEL;
+    }
     if (isGuidedTour) return "Guided Tour";
     if (isEventOrSport) return "Event";
-    // ✅ RENAMED: Adventure Place badge label (fallback when no category set)
-    if (type === "ADVENTURE PLACE") return "Adventure Place";
     if (type === "TRIP") return "Trip";
     return type.replace('_', ' ');
-  }, [category, isEventOrSport, type, isGuidedTour]);
+  }, [category, isAdventurePlace, isEventOrSport, type, isGuidedTour]);
 
-  // ✅ FIX: Adventure Place now shows category badge (removed the exclusion)
   const showCategoryBadge = true;
 
   const formattedName = useMemo(() => name.toLowerCase().replace(/\b\w/g, c => c.toUpperCase()), [name]);
@@ -254,9 +261,9 @@ const ListingCardComponent = ({
         </div>
 
         {/* ✅ Category badge — shown for ALL types including Adventure Place.
-             Displays the host-selected category (Hotel / Park / Campsite /
-             Attraction / Accommodation) when available, otherwise falls
-             back to the generic type label (Trip / Event / Guided Tour). */}
+             For adventure places, this ALWAYS shows the specific
+             host-selected category (Hotel / Park / Campsite / Attraction /
+             Accommodation) — never a generic "Adventure Place" label. */}
         <div className="absolute top-2 left-2 z-20 flex items-center gap-1.5">
           {showCategoryBadge && (
             <span

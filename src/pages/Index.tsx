@@ -154,12 +154,18 @@ const CATEGORIES = [
 ];
 
 // ── Quick-nav shortcuts ───────────────────────────────────────────────────────
+// Includes every category (so people can jump straight to Hotels, Parks, etc.)
+// plus the two account shortcuts, Bookings and Saved.
 const QUICK_NAV = [
-  { icon: Calendar, title: "Adventure places", path: "/category/campsite", color: "hsl(278, 90%, 50%)" },
-  { icon: Calendar, title: "Trips",            path: "/category/trips",    color: "hsl(25, 90%, 50%)"  },
-  { icon: Calendar, title: "Guided Tours",     path: "/category/guided",   color: "hsl(235, 90%, 50%)" },
-  { icon: Ticket,   title: "Bookings",         path: "/bookings",          color: "hsl(200, 70%, 45%)" },
-  { icon: Heart,    title: "Saved",            path: "/saved",             color: "hsl(350, 80%, 55%)" },
+  { icon: Building2, title: "Hotels",         path: "/category/hotels",        color: "hsl(205, 85%, 45%)" },
+  { icon: Home,       title: "Accommodations", path: "/category/accommodations", color: "hsl(160, 70%, 40%)" },
+  { icon: TreePine,   title: "Parks",          path: "/category/parks",          color: "hsl(140, 60%, 38%)" },
+  { icon: Tent,       title: "Campsites",      path: "/category/campsite",       color: "hsl(278, 90%, 50%)" },
+  { icon: Landmark,   title: "Attraction",     path: "/category/attraction",     color: "hsl(15, 80%, 50%)"  },
+  { icon: Map,        title: "Tours",          path: "/category/guided",         color: "hsl(235, 90%, 50%)" },
+  { icon: Calendar,   title: "Trip",           path: "/category/trips",          color: "hsl(25, 90%, 50%)"  },
+  { icon: Ticket,     title: "Bookings",       path: "/bookings",                color: "hsl(200, 70%, 45%)" },
+  { icon: Heart,      title: "Saved",          path: "/saved",                   color: "hsl(350, 80%, 55%)" },
 ];
 
 // ── Main page ─────────────────────────────────────────────────────────────────
@@ -227,14 +233,20 @@ const Index = () => {
   const { bookingStats } = useRealtimeBookings(tripEventIds);
   const { ratings }      = useRatings(allItemIds);
 
-  const sortedNearbyPlaces = useMemo(
-    () => sortByRating(nearbyPlacesHotels, ratings, position, calculateDistance),
-    [nearbyPlacesHotels, ratings, position],
-  );
+  // "Nearest to You" now also includes trips, events, and guided tours.
+  // Adventure places have lat/lng so they're sorted by actual distance;
+  // trips/events/tours have no coordinates, so they're folded in after,
+  // ranked by rating, rather than breaking the distance sort.
+  const sortedNearbyPlaces = useMemo(() => {
+    const places = sortByRating(nearbyPlacesHotels, ratings, position, calculateDistance)
+      .map((item: any) => ({ ...item, __cardType: "ADVENTURE PLACE" as const }));
 
-  const displayBrowseGuides = useMemo(() => {
-    const seen = new Set<string>();
-    return scrollableRows.campsites
+    const seen = new Set(places.map((p: any) => p.id));
+    const others = [
+      ...scrollableRows.trips.map(item => ({ ...item, __cardType: "TRIP" as const })),
+      ...scrollableRows.guidedTrips.map(item => ({ ...item, __cardType: "TRIP" as const })),
+      ...scrollableRows.events.map(item => ({ ...item, __cardType: "EVENT" as const })),
+    ]
       .filter(item => {
         if (seen.has(item.id)) return false;
         seen.add(item.id);
@@ -247,7 +259,35 @@ const Index = () => {
         const sb = rb ? rb.avgRating * Math.log1p(rb.reviewCount) : 0;
         return sb - sa;
       });
-  }, [scrollableRows.campsites, ratings]);
+
+    return [...places, ...others];
+  }, [nearbyPlacesHotels, ratings, position, scrollableRows.trips, scrollableRows.guidedTrips, scrollableRows.events]);
+
+  // "Browsers guide" now shows ALL listing types together — adventure
+  // places/campsites, trips, events, and guided tours — deduped and ranked
+  // by rating so the strongest listings across every category float up.
+  const displayBrowseGuides = useMemo(() => {
+    const seen = new Set<string>();
+    const combined = [
+      ...scrollableRows.campsites.map(item => ({ ...item, __cardType: "ADVENTURE PLACE" as const })),
+      ...scrollableRows.trips.map(item => ({ ...item, __cardType: "TRIP" as const })),
+      ...scrollableRows.guidedTrips.map(item => ({ ...item, __cardType: "TRIP" as const })),
+      ...scrollableRows.events.map(item => ({ ...item, __cardType: "EVENT" as const })),
+    ];
+    return combined
+      .filter(item => {
+        if (seen.has(item.id)) return false;
+        seen.add(item.id);
+        return true;
+      })
+      .sort((a, b) => {
+        const ra = ratings.get(a.id);
+        const rb = ratings.get(b.id);
+        const sa = ra ? ra.avgRating * Math.log1p(ra.reviewCount) : 0;
+        const sb = rb ? rb.avgRating * Math.log1p(rb.reviewCount) : 0;
+        return sb - sa;
+      });
+  }, [scrollableRows.campsites, scrollableRows.trips, scrollableRows.guidedTrips, scrollableRows.events, ratings]);
 
   // ── Data fetching ──────────────────────────────────────────────────────────
   const fetchScrollableRows = useCallback(async (limit: number) => {
@@ -411,31 +451,40 @@ const Index = () => {
 
   // ── Pre-build node arrays ──────────────────────────────────────────────────
   const browseGuideNodes = useMemo(() =>
-    displayBrowseGuides.map((item, i) =>
-      renderCard(item, "ADVENTURE PLACE", i, { hidePrice: true }),
-    ),
+    displayBrowseGuides.map((item: any, i) => {
+      const isTripOrEvent = item.__cardType === "TRIP" || item.__cardType === "EVENT";
+      return renderCard(item, item.__cardType, i, {
+        hidePrice: !isTripOrEvent,
+        isTrip: item.__cardType === "TRIP",
+      });
+    }),
     [displayBrowseGuides, renderCard],
   );
 
   const nearbyNodes = useMemo(() =>
-    sortedNearbyPlaces.map((item, i) => {
+    sortedNearbyPlaces.map((item: any, i) => {
       const a = item as any;
       const rd = ratings.get(item.id);
+      const isTripOrEvent = a.__cardType === "TRIP" || a.__cardType === "EVENT";
+      const today = new Date().toISOString().split("T")[0];
       return (
         <ListingCard
           key={item.id}
           id={item.id}
-          type={a.type || "ADVENTURE PLACE"}
+          type={a.__cardType || "ADVENTURE PLACE"}
           name={item.name}
           imageUrl={a.image_url}
           location={a.location}
           country={a.country}
-          price={a.entry_fee || 0}
-          date=""
+          price={isTripOrEvent ? (a.price || 0) : (a.entry_fee || 0)}
+          date={isTripOrEvent ? (a.date || "") : ""}
+          isCustomDate={a.is_custom_date}
+          isFlexibleDate={a.is_flexible_date}
+          isOutdated={isTripOrEvent && a.date && !a.is_flexible_date && a.date < today}
           isSaved={savedItems.has(item.id)}
           onSave={handleSave}
           hideSave={false}
-          hidePrice={true}
+          hidePrice={!isTripOrEvent}
           showBadge={true}
           priority={i === 0}
           activities={a.activities}
@@ -443,11 +492,13 @@ const Index = () => {
           avgRating={rd?.avgRating}
           reviewCount={rd?.reviewCount}
           place={a.place}
+          availableTickets={a.__cardType === "TRIP" ? a.available_tickets : undefined}
+          bookedTickets={a.__cardType === "TRIP" ? bookingStats[item.id] || 0 : undefined}
           description={a.description}
         />
       );
     }),
-    [sortedNearbyPlaces, ratings, savedItems, handleSave],
+    [sortedNearbyPlaces, ratings, savedItems, handleSave, bookingStats],
   );
 
   // ── Render ─────────────────────────────────────────────────────────────────

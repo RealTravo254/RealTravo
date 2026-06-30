@@ -303,7 +303,10 @@ const Index = () => {
           .order("date", { ascending: true }).limit(fetchLimit),
         supabase
           .from("adventure_places")
-          .select("id,name,location,place,country,image_url,gallery_images,images,entry_fee,activities,latitude,longitude,created_at,description,opening_hours,closing_hours")
+          // `category` (hotel/park/campsite/attraction/accommodation) is now
+          // pulled so ListingCard can show the host-selected category badge
+          // instead of the generic "ADVENTURE PLACE" type.
+          .select("id,name,location,place,country,image_url,gallery_images,images,entry_fee,activities,latitude,longitude,created_at,description,opening_hours,closing_hours,category")
           .eq("approval_status", "approved").eq("is_hidden", false).limit(fetchLimit),
         supabase
           .from("trips")
@@ -336,7 +339,9 @@ const Index = () => {
     try {
       const { data } = await supabase
         .from("adventure_places")
-        .select("id,name,location,place,country,image_url,entry_fee,activities,latitude,longitude,created_at,description")
+        // `category` included so "Nearest to You" cards also show the
+        // correct host-selected category badge.
+        .select("id,name,location,place,country,image_url,entry_fee,activities,latitude,longitude,created_at,description,category")
         .eq("approval_status", "approved").eq("is_hidden", false).limit(50);
       const withDist = (data || [])
         .map(item => ({
@@ -417,6 +422,7 @@ const Index = () => {
         key={item.id}
         id={item.id}
         type={type as any}
+        category={item.category}
         name={item.name}
         imageUrl={item.image_url}
         location={item.location}
@@ -472,6 +478,7 @@ const Index = () => {
           key={item.id}
           id={item.id}
           type={a.__cardType || "ADVENTURE PLACE"}
+          category={a.category}
           name={item.name}
           imageUrl={a.image_url}
           location={a.location}

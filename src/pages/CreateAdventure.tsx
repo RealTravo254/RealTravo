@@ -13,7 +13,7 @@ import { useBanCheck } from "@/hooks/useBanCheck";
 import {
   MapPin, Navigation, Clock, X, Plus, Camera, CheckCircle2, Info, ArrowLeft, Loader2,
   DollarSign, ChevronLeft, ChevronRight, Link2, ShieldCheck, FileImage, Upload,
-  Globe, Users, Sparkles,
+  Globe, Users, Sparkles, Building2, Home, TreePine, Tent, Landmark,
 } from "lucide-react";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -45,6 +45,15 @@ const safeObjectUrl = (file: File): string => { try { return URL.createObjectURL
 // ─── Image-only validation ────────────────────────────────────────────────────
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"];
 const isImageFile = (file: File) => ALLOWED_IMAGE_TYPES.includes(file.type) || file.type.startsWith("image/");
+
+// ─── Listing Category (Hotel / Park / Campsite / Attraction / Accommodation) ──
+const CATEGORY_OPTIONS: { value: string; label: string; icon: any }[] = [
+  { value: "hotel", label: "Hotel", icon: Building2 },
+  { value: "accommodation", label: "Accommodation", icon: Home },
+  { value: "park", label: "Park", icon: TreePine },
+  { value: "campsite", label: "Campsite", icon: Tent },
+  { value: "attraction", label: "Attraction", icon: Landmark },
+];
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface FacilityItem {
@@ -126,6 +135,44 @@ const KenyaPhoneWrapper = ({ children, isInvalid }: { children: React.ReactNode;
     <div className="flex-1 [&_input]:border-none [&_input]:bg-transparent [&_input]:shadow-none [&_input]:h-full [&_input]:px-0 [&_input]:focus:ring-0 [&_*]:border-none">
       {children}
     </div>
+  </div>
+);
+
+// ─── Category Selector (Hotel / Park / Campsite / Attraction / Accommodation) ─
+const CategorySelector = ({
+  value, onChange, isInvalid,
+}: { value: string; onChange: (v: string) => void; isInvalid?: boolean }) => (
+  <div>
+    <div
+      className={cn(
+        "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 p-1 rounded-xl",
+        isInvalid && "ring-2 ring-red-300"
+      )}
+    >
+      {CATEGORY_OPTIONS.map((opt) => {
+        const isActive = value === opt.value;
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange(opt.value)}
+            className={cn(
+              "flex flex-col items-center justify-center gap-1.5 h-20 rounded-xl text-[11px] font-bold border transition-all",
+              isActive
+                ? "text-white shadow-md border-transparent scale-[1.02]"
+                : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
+            )}
+            style={isActive ? { background: COLORS.TEAL } : {}}
+          >
+            <opt.icon className={cn("h-5 w-5", isActive ? "text-white" : "text-slate-400")} />
+            {opt.label}
+          </button>
+        );
+      })}
+    </div>
+    {isInvalid && (
+      <p className="text-red-400 text-[10px] font-semibold mt-1.5">Please select a category to continue</p>
+    )}
   </div>
 );
 
@@ -473,7 +520,7 @@ const FacilityBuilder = ({ items, onChange, showErrors, onValidationFail }: {
                 <AmenityTagInput tags={item.amenities} input={item.amenityInput} onInputChange={(v) => update(item.id, { amenityInput: v })} onAdd={() => addAmenityTag(item)} onRemove={(i) => removeAmenityTag(item, i)} hasError={showErrors && item.amenities.length === 0} />
               </div>
               <div>
-                <FieldLabel>
+                <FieldLabel required>
                   Photos (min 2, max 5){showErrors && item.images.length < 2 && <span className="text-red-400 text-[10px] normal-case font-normal"> — at least 2 required</span>}
                 </FieldLabel>
                 <ImageGalleryGrid images={item.images} previews={item.previewUrls} onRemove={(i) => removeImage(item.id, i, item.images)} onAdd={(files) => handleImages(item.id, files, item.images)} isInvalid={showErrors && item.images.length < 2} slots={5} />
@@ -701,6 +748,9 @@ const CreateAdventure = () => {
   const [showErrors, setShowErrors] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
 
+  // ── Listing Category (Hotel / Park / Campsite / Attraction / Accommodation) ──
+  const [category, setCategory] = useState<string>("");
+
   const [formData, setFormData] = useState({
     registrationName: "", registrationNumber: "", locationName: "", place: "",
     country: "", description: "", email: "", phoneNumber: "",
@@ -766,7 +816,7 @@ const CreateAdventure = () => {
     toast({ title: "File type not supported", description: reason, variant: "destructive" });
   };
 
-  const isStep1Complete = !!formData.registrationName.trim() && !!formData.registrationNumber.trim() && !!formData.country && !!traLicenceFile;
+  const isStep1Complete = !!category && !!formData.registrationName.trim() && !!formData.registrationNumber.trim() && !!formData.country && !!traLicenceFile;
   const isStep2Complete = !!formData.locationName.trim() && !!formData.place.trim() && (!!formData.latitude || !!formData.locationLink.trim());
   const isStep3Complete = !!formData.description.trim();
   const isStep4Complete = true;
@@ -791,6 +841,11 @@ const CreateAdventure = () => {
 
   const validateCurrentStep = (): boolean => {
     if (currentStep === 1) {
+      if (!category) {
+        setShowErrors(true);
+        toast({ title: "Select a Category", description: "Please choose Hotel, Park, Campsite, Attraction, or Accommodation to continue.", variant: "destructive" });
+        return false;
+      }
       if (!formData.registrationName.trim() || !formData.registrationNumber.trim() || !formData.country) {
         setShowErrors(true);
         toast({ title: "Complete this step", description: "Fill all required fields", variant: "destructive" });
@@ -919,11 +974,12 @@ const CreateAdventure = () => {
     if (!user) { navigate("/login"); return; }
     setShowErrors(true);
     if (
+      !category ||
       !formData.registrationName.trim() || !formData.registrationNumber.trim() || !formData.country ||
       !formData.locationName.trim() || !formData.place.trim() ||
       !formData.description.trim() || galleryImages.length < 5 || !traLicenceFile
     ) {
-      toast({ title: "Action Required", description: "Please complete all steps including TRA licence upload.", variant: "destructive" });
+      toast({ title: "Action Required", description: "Please select a category and complete all steps including TRA licence upload.", variant: "destructive" });
       return;
     }
     if (facilities.some((f) => !f.saved)) {
@@ -971,6 +1027,8 @@ const CreateAdventure = () => {
 
       const { error } = await supabase.from("adventure_places").insert([{
         id: friendlySlug, slug: friendlySlug, name: formData.registrationName,
+        // ── Listing category (hotel / park / campsite / attraction / accommodation) ──
+        category,
         registration_number: formData.registrationNumber,
         tra_license_url: traLicenceUrl,
         location: formData.locationName, place: formData.place, country: formData.country,
@@ -1065,6 +1123,11 @@ const CreateAdventure = () => {
             {currentStep === 1 && (
               <SectionCard title="Registration Details" subtitle="Official government registration information" icon={Info}>
                 <div className="grid gap-5">
+                  {/* ── Listing category — first field shown to the user ── */}
+                  <div>
+                    <FieldLabel required>Listing Category</FieldLabel>
+                    <CategorySelector value={category} onChange={setCategory} isInvalid={showErrors && !category} />
+                  </div>
                   <div>
                     <FieldLabel required>Registration Name</FieldLabel>
                     <StyledInput value={formData.registrationName} onChange={(e) => setFormData({ ...formData, registrationName: e.target.value })} placeholder="Official Government Name" isInvalid={isMissing(formData.registrationName)} />
@@ -1295,6 +1358,7 @@ const CreateAdventure = () => {
                 type="adventure"
                 accentColor={COLORS.TEAL}
                 data={{
+                  category,
                   name: formData.registrationName, registrationName: formData.registrationName,
                   registrationNumber: formData.registrationNumber,
                   locationName: formData.locationName, place: formData.place, country: formData.country,
@@ -1346,4 +1410,4 @@ const CreateAdventure = () => {
   );
 };
 
-export default CreateAdventure;
+export default CreateAdventure; 

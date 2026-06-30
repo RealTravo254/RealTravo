@@ -2,7 +2,7 @@ import { Card } from "@/components/ui/card";
 import {
   CheckCircle2, MapPin, Clock, DollarSign, Phone, User, Calendar,
   Building, Users, Image as ImageIcon, Link as LinkIcon, Sparkles,
-  Globe2, Navigation, Globe,
+  Globe2, Navigation, Globe, Tag,
 } from "lucide-react";
 import { useCurrency } from "@/contexts/CurrencyContext";
 
@@ -35,6 +35,8 @@ interface SpecialPriceTierReview {
 interface ReviewStepProps {
   type: "hotel" | "adventure" | "trip" | "event";
   data: {
+    // ── Listing category (hotel / park / campsite / attraction / accommodation) ──
+    category?: string;
     name: string;
     registrationNumber?: string;
     registrationName?: string;
@@ -89,6 +91,15 @@ interface ReviewStepProps {
   accentColor?: string;
 }
 
+// ── Human-friendly labels for adventure listing categories ──
+const CATEGORY_LABELS: Record<string, string> = {
+  hotel: "Hotel",
+  accommodation: "Accommodation",
+  park: "Park",
+  campsite: "Campsite",
+  attraction: "Attraction",
+};
+
 export const ReviewStep = ({
   type,
   data,
@@ -120,6 +131,9 @@ export const ReviewStep = ({
       : data.establishmentType === "hotel"
       ? "Hotel / Resort"
       : data.establishmentType || undefined;
+
+  // ── Resolve a friendly label for the adventure listing category ──
+  const categoryLabel = data.category ? (CATEGORY_LABELS[data.category] || data.category) : undefined;
 
   const SectionHeader = ({
     title,
@@ -184,14 +198,22 @@ export const ReviewStep = ({
               <p className="text-xs text-muted-foreground mt-1">
                 Verify all details below before submitting for approval
               </p>
-              {data.name && (
-                <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10">
-                  <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                  <span className="text-xs font-bold text-primary truncate max-w-[200px] sm:max-w-none">
-                    {data.name}
-                  </span>
-                </div>
-              )}
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {data.name && (
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10">
+                    <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                    <span className="text-xs font-bold text-primary truncate max-w-[200px] sm:max-w-none">
+                      {data.name}
+                    </span>
+                  </div>
+                )}
+                {categoryLabel && (
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10">
+                    <Tag className="h-3 w-3 text-emerald-600" />
+                    <span className="text-xs font-bold text-emerald-700">{categoryLabel}</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -202,6 +224,7 @@ export const ReviewStep = ({
         <SectionHeader title="Basic Information" icon={Building} colorClass="bg-blue-500/10 text-blue-600" />
         <div className="grid grid-cols-2 gap-2.5">
           <InfoItem label="Name" value={data.name} fullWidth />
+          {categoryLabel && <InfoItem label="Category" value={categoryLabel} />}
           {isHotelOrAdventure && (
             <>
               <InfoItem label="Registration Name" value={data.registrationName} />

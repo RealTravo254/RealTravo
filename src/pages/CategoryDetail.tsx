@@ -19,6 +19,15 @@ const ITEMS_PER_PAGE = 10;
 const SKELETON_COUNT_MOBILE = 8;
 const SKELETON_COUNT_DESKTOP = 20;
 
+// adventure_places select string also pulls `category` now, so the badge
+// on each card can reflect the host-selected category instead of the
+// generic "ADVENTURE PLACE" type.
+const ADVENTURE_PLACE_FIELDS =
+  "id,name,location,place,country,image_url,gallery_images,images,entry_fee,available_slots,activities,latitude,longitude,created_at,description,opening_hours,closing_hours,category";
+
+const TRIP_FIELDS =
+  "id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child,description,opening_hours,closing_hours";
+
 const CategoryDetail = () => {
   const { category } = useParams<{ category: string }>();
   const [searchParams] = useSearchParams();
@@ -46,11 +55,26 @@ const CategoryDetail = () => {
     setSearchFocused(v);
   }, [setSearchFocused]);
 
+  // ── Category config ─────────────────────────────────────────────────────
+  // Trips/Tours still come from the `trips` table and use `tripType` /
+  // `flexibleOnly` to distinguish themselves. Everything backed by
+  // `adventure_places` now also carries a `category` value that's used to
+  // filter the `category` column added to that table — so Hotels, Parks,
+  // Campsites, Attractions, and Accommodations are all separate, properly
+  // filtered category pages instead of all sharing one bucket.
   const categoryConfig: { [key: string]: any } = {
-    trips:     { title: "Trips",                 tables: ["trips"],            type: "TRIP",           tripType: "trip", filterType: "trips" },
-    adventure: { title: "Attractions",           tables: ["adventure_places"], type: "ADVENTURE PLACE",                  filterType: "adventure" },
-    campsite:  { title: "Campsite & Experience", tables: ["adventure_places"], type: "ADVENTURE PLACE",                  filterType: "adventure" },
-    guided:    { title: "Guided Tours",          tables: ["trips"],            type: "TRIP",           tripType: "trip", filterType: "trips", flexibleOnly: true },
+    trips:          { title: "Trips",                 tables: ["trips"],            type: "TRIP",           tripType: "trip", filterType: "trips" },
+    guided:         { title: "Guided Tours",          tables: ["trips"],            type: "TRIP",           tripType: "trip", filterType: "trips", flexibleOnly: true },
+
+    hotels:         { title: "Hotels",                tables: ["adventure_places"], type: "ADVENTURE PLACE", filterType: "adventure", placeCategory: "hotel" },
+    accommodations: { title: "Accommodations",        tables: ["adventure_places"], type: "ADVENTURE PLACE", filterType: "adventure", placeCategory: "accommodation" },
+    parks:          { title: "Parks",                 tables: ["adventure_places"], type: "ADVENTURE PLACE", filterType: "adventure", placeCategory: "park" },
+    campsite:       { title: "Campsite & Experience", tables: ["adventure_places"], type: "ADVENTURE PLACE", filterType: "adventure", placeCategory: "campsite" },
+    attraction:     { title: "Attractions",           tables: ["adventure_places"], type: "ADVENTURE PLACE", filterType: "adventure", placeCategory: "attraction" },
+
+    // Kept for backwards compatibility with any old links pointing at
+    // /category/adventure (unfiltered — shows every adventure_places row).
+    adventure:      { title: "Attractions",           tables: ["adventure_places"], type: "ADVENTURE PLACE", filterType: "adventure" },
   };
 
   const config = category ? categoryConfig[category] : null;
@@ -107,16 +131,14 @@ const CategoryDetail = () => {
     for (const table of config.tables) {
       let query = supabase
         .from(table as any)
-        .select(
-          table === "trips"
-            ? "id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child,description,opening_hours,closing_hours"
-            : "id,name,location,place,country,image_url,gallery_images,images,entry_fee,available_slots,activities,latitude,longitude,created_at,description,opening_hours,closing_hours"
-        )
+        .select(table === "trips" ? TRIP_FIELDS : ADVENTURE_PLACE_FIELDS)
         .eq("approval_status", "approved")
         .eq("is_hidden", false);
 
       if (config.tripType) query = query.eq("type", config.tripType);
       if (config.flexibleOnly && table === "trips") query = query.or("is_flexible_date.eq.true,is_custom_date.eq.true");
+      // Filter adventure_places by the host-selected category (hotel/park/campsite/attraction/accommodation)
+      if (config.placeCategory && table === "adventure_places") query = query.eq("category", config.placeCategory);
 
       const { data } = await query.range(offset, offset + limit - 1);
 
@@ -263,6 +285,7 @@ const CategoryDetail = () => {
                     <ListingCard
                       id={item.id}
                       type={item.itemType || config.type}
+                      category={item.category}
                       name={item.name}
                       imageUrl={item.image_url}
                       location={item.location}

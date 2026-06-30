@@ -275,7 +275,7 @@ const Explore = () => {
               </div>
             )}
           </>
-        )}
+        )} 
       </main>
     </div>
   );

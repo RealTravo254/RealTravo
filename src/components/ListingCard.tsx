@@ -252,24 +252,21 @@ const ListingCardComponent = ({
           )}
         </div>
 
-        {/* ✅ Rating badge — golden star + score, top-right above the image,
-             so the highest-rated listings stand out at a glance even before
-             reading any of the card copy below. */}
+        {/* ✅ Rating badge — golden star + score, bottom-right corner of the
+             image so it reads like a quick at-a-glance trust signal sitting
+             right on the photo, out of the way of the save button above. */}
         {avgRating != null && avgRating > 0 && (
-          <div className="absolute top-2 right-2 z-20 flex items-center gap-0.5 bg-white/90 backdrop-blur-sm shadow-sm rounded-full px-1.5 py-0.5">
+          <div className="absolute bottom-2 right-2 z-20 flex items-center gap-0.5 bg-white/90 backdrop-blur-sm shadow-sm rounded-full px-1.5 py-0.5">
             <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />
             <span className="text-[10px] font-bold text-slate-800 leading-none">{avgRating.toFixed(1)}</span>
           </div>
         )}
 
-        {/* Save button — shifts down to make room for the rating badge above it */}
+        {/* Save button */}
         {!hideSave && onSave && (
           <button
             onClick={(e) => { e.stopPropagation(); onSave(id, type); }}
-            className={cn(
-              "absolute right-2 z-20 h-7 w-7 rounded-full bg-white/80 backdrop-blur-sm shadow flex items-center justify-center hover:bg-white transition-colors",
-              avgRating != null && avgRating > 0 ? "top-9" : "top-2"
-            )}
+            className="absolute top-2 right-2 z-20 h-7 w-7 rounded-full bg-white/80 backdrop-blur-sm shadow flex items-center justify-center hover:bg-white transition-colors"
           >
             <Heart className={cn("h-3.5 w-3.5", isSaved ? "fill-red-500 text-red-500" : "text-slate-600")} />
           </button>

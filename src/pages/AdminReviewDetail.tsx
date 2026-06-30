@@ -29,6 +29,20 @@ interface SpecialPriceTier {
   requirement?: string;
 }
 
+// ── Listing category labels (adventure_places.category column) ─────────────
+// Hotel / Park / Campsite / Attraction / Accommodation — the host-selected
+// category, shown throughout this review page instead of the generic
+// "adventure place" label so admins can see at a glance what they're
+// reviewing.
+const CATEGORY_LABELS: Record<string, string> = {
+  hotel: "Hotel",
+  park: "Park",
+  campsite: "Campsite",
+  attraction: "Attraction",
+  accommodation: "Accommodation",
+};
+const categoryLabel = (cat?: string | null) => (cat && CATEGORY_LABELS[cat]) || undefined;
+
 // ── Facility label map (from AdventurePlaceDetail) ──────────────────────────
 const FACILITY_LABELS: Record<string, string> = {
   wifi: "Free Wi-Fi", parking: "On-site Parking", toilet: "Flush Toilets",
@@ -596,6 +610,7 @@ const AdminSideCard = ({ item, creator, isBanned, type, onOpenMaps, onApprove, o
   const price = item.entry_fee ?? item.price ?? item.price_adult ?? 0;
   const childPrice = item.child_entry_fee ?? item.price_child;
   const isApproved = item.approval_status === "approved";
+  const catLabel = isAdventure ? categoryLabel(item.category) : undefined;
 
   // ── Non-citizen pricing (adventure only) ──
   const hasNonCitizen = isAdventure && !!item.has_non_citizen_pricing &&
@@ -610,6 +625,19 @@ const AdminSideCard = ({ item, creator, isBanned, type, onOpenMaps, onApprove, o
           {item.approval_status || "Pending"}
         </span>
       </div>
+
+      {/* Listing category — adventure_places only */}
+      {catLabel && (
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
+            <Tag className="h-3 w-3" /> Category
+          </span>
+          <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest"
+            style={{ background: `${TEAL}14`, color: TEAL }}>
+            {catLabel}
+          </span>
+        </div>
+      )}
 
       {/* Pricing */}
       <div>
@@ -886,6 +914,13 @@ const AdminReviewDetail = () => {
   const isAdventure = type === "adventure" || type === "adventure_place";
   const isTrip      = type === "trip" || type === "event";
 
+  // ── Listing category badge text (adventure_places only) ──
+  // Falls back to the generic type label ("trip" / "event") when there's
+  // no category column to read from — adventure listings always prefer
+  // their specific host-selected category over "adventure place".
+  const catLabel = isAdventure ? categoryLabel(item.category) : undefined;
+  const topBadgeLabel = catLabel || type?.replace("_", " ");
+
   // Build all images exactly as detail pages do
   const facilityImgs = isAdventure
     ? (Array.isArray(item.facilities) ? item.facilities : []).flatMap((f: any) => Array.isArray(f.images) ? f.images : [])
@@ -934,8 +969,11 @@ const AdminReviewDetail = () => {
             <ArrowLeft className="h-5 w-5" /> Back to Admin
           </button>
           <div className="flex items-center gap-2">
+            {/* Shows the host-selected category (Hotel/Park/Campsite/Attraction/
+                Accommodation) for adventure listings instead of the generic
+                "adventure place" wording; trips/events keep their type label. */}
             <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest text-white"
-              style={{ background: CORAL }}>{type?.replace("_", " ")}</span>
+              style={{ background: CORAL }}>{topBadgeLabel}</span>
             <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${item.approval_status === "approved" ? "bg-emerald-500 text-white" : item.approval_status === "rejected" ? "bg-red-500 text-white" : "bg-amber-400 text-white"}`}>
               {item.approval_status || "Pending"}
             </span>
@@ -951,6 +989,13 @@ const AdminReviewDetail = () => {
       <div className="max-w-6xl mx-auto px-4 pt-4 pb-1 bg-background relative z-10">
         {isTrip && (
           <span className="inline-block mb-2 px-3 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest text-white" style={{ background: CORAL }}>Trip</span>
+        )}
+        {/* Category badge — adventure listings only, shown next to the title */}
+        {catLabel && (
+          <span className="inline-flex items-center gap-1 mb-2 px-3 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest"
+            style={{ background: `${TEAL}14`, color: TEAL }}>
+            <Tag className="h-2.5 w-2.5" /> {catLabel}
+          </span>
         )}
         <h1 className="text-2xl font-black uppercase tracking-tighter leading-tight text-foreground">{item.name}</h1>
         <div className="flex items-center gap-1.5 mt-1 text-muted-foreground">
@@ -1113,6 +1158,16 @@ const AdminReviewDetail = () => {
                   </div>
                 </div>
               </div>
+              {/* Listing category — shown alongside submitter info for adventure listings */}
+              {catLabel && (
+                <div className="mt-4 pt-4 border-t border-slate-100 flex items-center gap-2">
+                  <Tag className="h-4 w-4 text-slate-400" />
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase">Listing Category</p>
+                    <p className="text-sm font-black">{catLabel}</p>
+                  </div>
+                </div>
+              )}
               {item.registration_number && (
                 <div className="mt-4 pt-4 border-t border-slate-100 flex items-center gap-2">
                   <Landmark className="h-4 w-4 text-slate-400" />

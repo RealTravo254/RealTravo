@@ -1,5 +1,5 @@
-import React, { useState, memo, useCallback, useMemo, useEffect, useRef } from "react";
-import { MapPin, Star, Calendar, Ticket, ChevronLeft, ChevronRight, Clock, Heart } from "lucide-react";
+import React, { useState, memo, useCallback, useMemo, useRef } from "react";
+import { MapPin, Star, Calendar, ChevronLeft, ChevronRight, Clock, Heart } from "lucide-react";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -8,64 +8,49 @@ import { useNavigate } from "react-router-dom";
 import { createDetailPath } from "@/lib/slugUtils";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 
-// ── Price label logic ─────────────────────────────────────────────────────────
-// - Guided tours (flexible-date trips) → "/group"
-// - Everything else                    → "/person"
-const getPriceLabel = (type: string, isFlexibleDate: boolean, isTrip: boolean) => {
+// ── Price label ───────────────────────────────────────────────────────────────
+// Guided tours (flexible-date trips) → "/group", everything else → "/person"
+const getPriceLabel = (isFlexibleDate: boolean, isTrip: boolean) => {
   if (isFlexibleDate && isTrip) return "/group";
   return "/person";
 };
 
-// ── Category badge labels ─────────────────────────────────────────────────────
-// Maps the host-selected `category` column (hotel / park / campsite /
-// attraction / accommodation) to a human-friendly badge label. Every
-// adventure_places row now always has a category (DB column is NOT NULL
-// with a 'campsite' default), so the badge should always show the specific
-// category — it never falls back to a generic "Adventure Place" label.
+// ── Category badge labels for adventure_places ────────────────────────────────
+// Maps the host-selected `category` DB column to a human-friendly label.
 const CATEGORY_LABELS: Record<string, string> = {
-  hotel: "Hotel",
-  park: "Park",
-  campsite: "Campsite",
-  attraction: "Attraction",
+  hotel:         "Hotel",
+  park:          "Park",
+  campsite:      "Campsite",
+  attraction:    "Attraction",
   accommodation: "Accommodation",
 };
-
-// Safety-net label only used if an ADVENTURE PLACE somehow has no/unknown
-// category value — still a real category name, never the generic
-// "Adventure Place" wording.
-const FALLBACK_ADVENTURE_CATEGORY_LABEL = "Campsite";
 
 const PriceText = ({
   price,
   isUnavailable,
-  type,
   isFlexibleDate,
   isTrip,
 }: {
   price: number;
   isUnavailable: boolean;
-  type: string;
   isFlexibleDate: boolean;
   isTrip: boolean;
 }) => {
   const { formatPrice } = useCurrency();
-  const label = getPriceLabel(type, isFlexibleDate, isTrip);
-
   return (
     <div className={cn("flex items-center gap-1", isUnavailable && "opacity-50 line-through")}>
       <span className="text-xs font-bold text-slate-900 whitespace-nowrap">{formatPrice(price)}</span>
-      <span className="text-[8px] text-slate-500 font-medium">{label}</span>
+      <span className="text-[8px] text-slate-500 font-medium">{getPriceLabel(isFlexibleDate, isTrip)}</span>
     </div>
   );
 };
 
 export interface ListingCardProps {
   id: string;
-  // ✅ HOTEL and ACCOMMODATION removed from type union
-  type: 'TRIP' | 'EVENT' | 'SPORT' | 'ADVENTURE PLACE' | 'ATTRACTION';
-  // Host-selected listing category for adventure_places rows
-  // (hotel / park / campsite / attraction / accommodation). Optional since
-  // trips/events don't have one — when present it drives the badge text.
+  // Only the types that actually exist in the DB
+  type: "TRIP" | "ADVENTURE PLACE" | "ATTRACTION";
+  // Host-selected category for adventure_places rows
+  // (hotel / park / campsite / attraction / accommodation)
   category?: string;
   name: string;
   imageUrl: string;
@@ -106,10 +91,9 @@ const ListingCardComponent = ({
   id, type, category, name, imageUrl, location, price, date,
   isOutdated = false, activities, onSave, isSaved = false, hideSave = false,
   availableTickets = 0, bookedTickets = 0,
-  priority = false, compact = false, avgRating, reviewCount, place,
-  isFlexibleDate = false, hidePrice = false, description, categoryColor,
-  country,
-  openingHours, closingHours
+  priority = false, avgRating, reviewCount, place,
+  isFlexibleDate = false, hidePrice = false, categoryColor,
+  openingHours, closingHours,
 }: ListingCardProps) => {
   const navigate = useNavigate();
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -118,95 +102,97 @@ const ListingCardComponent = ({
   const slideContainerRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef(0);
 
-  const { ref: cardRef, isIntersecting } = useIntersectionObserver({ rootMargin: '300px', triggerOnce: true });
+  const { ref: cardRef, isIntersecting } = useIntersectionObserver({ rootMargin: "300px", triggerOnce: true });
   const shouldLoad = priority || isIntersecting;
 
-  // Only the single primary image is used on this card.
   const allSlideImages = useMemo(() => [imageUrl].filter(Boolean), [imageUrl]);
 
-  const isEventOrSport = type === "EVENT" || type === "SPORT";
   const isTrip = type === "TRIP";
   const isAdventurePlace = type === "ADVENTURE PLACE";
-  const tracksAvailability = isEventOrSport || isTrip;
 
+  // Trips track availability; adventure places do not
   const remainingTickets = availableTickets - bookedTickets;
-  const isSoldOut = tracksAvailability && availableTickets > 0 && remainingTickets <= 0;
-  const fewSlotsRemaining = tracksAvailability && remainingTickets > 0 && remainingTickets <= 10;
+  const isSoldOut = isTrip && availableTickets > 0 && remainingTickets <= 0;
+  const fewSlotsRemaining = isTrip && remainingTickets > 0 && remainingTickets <= 10;
   const isUnavailable = isOutdated || isSoldOut;
 
-  // A flexible-date trip = Guided Tour
+  // Flexible-date trip = Guided Tour
   const isGuidedTour = isFlexibleDate && isTrip;
 
+  // Badge label:
+  // - Adventure places → host-selected category (Hotel / Park / Campsite /
+  //   Attraction / Accommodation), falling back to "Campsite" if unknown
+  // - Guided Tour (flexible trip) → "Guided Tour"
+  // - Regular trip → "Trip"
+  // - Attraction type → "Attraction"
   const displayType = useMemo(() => {
-    // ✅ Adventure places ALWAYS show their specific host-selected category
-    // (Hotel / Park / Campsite / Attraction / Accommodation) — never the
-    // generic "Adventure Place" label. Falls back to a concrete category
-    // name (Campsite) only in the rare case the value is missing/unknown.
-    if (isAdventurePlace) {
-      return (category && CATEGORY_LABELS[category]) || FALLBACK_ADVENTURE_CATEGORY_LABEL;
-    }
+    if (isAdventurePlace) return (category && CATEGORY_LABELS[category]) ?? "Campsite";
     if (isGuidedTour) return "Guided Tour";
-    if (isEventOrSport) return "Event";
-    if (type === "TRIP") return "Trip";
-    return type.replace('_', ' ');
-  }, [category, isAdventurePlace, isEventOrSport, type, isGuidedTour]);
+    if (isTrip) return "Trip";
+    return "Attraction";
+  }, [isAdventurePlace, isGuidedTour, isTrip, category]);
 
-  const showCategoryBadge = true;
-
-  const formattedName = useMemo(() => name.toLowerCase().replace(/\b\w/g, c => c.toUpperCase()), [name]);
-  const locationString = useMemo(() => [place, location].filter(Boolean).join(', '), [place, location]);
-
-  const subtitle = useMemo(() => {
-    if (activities && activities.length > 0) {
-      const names = activities.slice(0, 2).map((a: any) => typeof a === 'string' ? a : a.name).filter(Boolean);
-      return names.join(' • ');
-    }
-    return null;
-  }, [activities]);
+  const formattedName = useMemo(
+    () => name.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()),
+    [name],
+  );
+  const locationString = useMemo(
+    () => [place, location].filter(Boolean).join(", "),
+    [place, location],
+  );
 
   const handleCardClick = useCallback(() => {
     const typeMap: Record<string, string> = {
-      "TRIP": "trip", "EVENT": "event", "SPORT": "event",
-      "ADVENTURE PLACE": "adventure", "ATTRACTION": "attraction"
+      TRIP: "trip",
+      "ADVENTURE PLACE": "adventure",
+      ATTRACTION: "attraction",
     };
     navigate(createDetailPath(typeMap[type], id, name, location));
   }, [navigate, type, id, name, location]);
 
   const urgencyBadge = useMemo(() => {
-    if (isSoldOut) return { text: "Sold out", color: "bg-destructive/10 text-destructive border-destructive/20" };
-    if (isOutdated) return { text: "Passed", color: "bg-muted text-muted-foreground border-border" };
-    if (fewSlotsRemaining) return { text: `🔥 ${remainingTickets} left`, color: "bg-orange-50 text-orange-700 border-orange-200" };
+    if (isSoldOut)
+      return { text: "Sold out", color: "bg-destructive/10 text-destructive border-destructive/20" };
+    if (isOutdated)
+      return { text: "Passed", color: "bg-muted text-muted-foreground border-border" };
+    if (fewSlotsRemaining)
+      return { text: `🔥 ${remainingTickets} left`, color: "bg-orange-50 text-orange-700 border-orange-200" };
     return null;
   }, [isSoldOut, isOutdated, fewSlotsRemaining, remainingTickets]);
 
-  const goToSlide = useCallback((index: number, e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    const maxIndex = Math.min(allSlideImages.length - 1, loadedSlides - 1);
-    const newIndex = Math.max(0, Math.min(index, maxIndex));
-    setCurrentSlide(newIndex);
-    if (newIndex >= loadedSlides - 1 && loadedSlides < allSlideImages.length) {
-      setLoadedSlides(prev => Math.min(prev + 2, allSlideImages.length));
-    }
-  }, [allSlideImages.length, loadedSlides]);
+  const goToSlide = useCallback(
+    (index: number, e?: React.MouseEvent) => {
+      e?.stopPropagation();
+      const maxIndex = Math.min(allSlideImages.length - 1, loadedSlides - 1);
+      const newIndex = Math.max(0, Math.min(index, maxIndex));
+      setCurrentSlide(newIndex);
+      if (newIndex >= loadedSlides - 1 && loadedSlides < allSlideImages.length) {
+        setLoadedSlides((prev) => Math.min(prev + 2, allSlideImages.length));
+      }
+    },
+    [allSlideImages.length, loadedSlides],
+  );
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
   }, []);
 
-  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-    const diff = touchStartX.current - e.changedTouches[0].clientX;
-    if (Math.abs(diff) > 40) {
-      if (diff > 0) goToSlide(currentSlide + 1);
-      else goToSlide(currentSlide - 1);
-    }
-  }, [currentSlide, goToSlide]);
+  const handleTouchEnd = useCallback(
+    (e: React.TouchEvent) => {
+      const diff = touchStartX.current - e.changedTouches[0].clientX;
+      if (Math.abs(diff) > 40) {
+        if (diff > 0) goToSlide(currentSlide + 1);
+        else goToSlide(currentSlide - 1);
+      }
+    },
+    [currentSlide, goToSlide],
+  );
 
   const visibleDots = Math.min(loadedSlides, allSlideImages.length);
 
   const hoursText = useMemo(() => {
-    if (openingHours || closingHours) {
-      return `${openingHours || "08:00"} - ${closingHours || "18:00"}`;
-    }
+    if (openingHours || closingHours)
+      return `${openingHours ?? "08:00"} - ${closingHours ?? "18:00"}`;
     return null;
   }, [openingHours, closingHours]);
 
@@ -219,10 +205,10 @@ const ListingCardComponent = ({
         "rounded-xl border border-border shadow-sm",
         "hover:shadow-md hover:border-primary/20",
         "w-full",
-        isUnavailable && "opacity-80"
+        isUnavailable && "opacity-80",
       )}
     >
-      {/* Image Slideshow */}
+      {/* ── Image area ── */}
       <div
         className="relative w-full overflow-hidden aspect-[1/1] sm:aspect-[4/3]"
         onTouchStart={handleTouchStart}
@@ -240,19 +226,21 @@ const ListingCardComponent = ({
               )}
               {shouldLoad && (
                 <img
-                  src={img.includes('supabase.co/storage') ? optimizeSupabaseImage(img, { width: 500, height: 375, quality: 80 }) : img}
+                  src={
+                    img.includes("supabase.co/storage")
+                      ? optimizeSupabaseImage(img, { width: 500, height: 375, quality: 80 })
+                      : img
+                  }
                   alt={`${name} - ${idx + 1}`}
-                  onLoad={() => setImageLoadStates(prev => ({ ...prev, [idx]: true }))}
+                  onLoad={() => setImageLoadStates((prev) => ({ ...prev, [idx]: true }))}
                   onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    if (target.src !== img) {
-                      target.src = img;
-                    }
+                    const t = e.target as HTMLImageElement;
+                    if (t.src !== img) t.src = img;
                   }}
                   className={cn(
                     "w-full h-full object-cover",
                     imageLoadStates[idx] ? "opacity-100" : "opacity-0",
-                    isUnavailable && "grayscale-[0.5]"
+                    isUnavailable && "grayscale-[0.5]",
                   )}
                 />
               )}
@@ -260,40 +248,40 @@ const ListingCardComponent = ({
           ))}
         </div>
 
-        {/* ✅ Category badge — shown for ALL types including Adventure Place.
-             For adventure places, this ALWAYS shows the specific
-             host-selected category (Hotel / Park / Campsite / Attraction /
-             Accommodation) — never a generic "Adventure Place" label. */}
+        {/* Category badge — top-left */}
         <div className="absolute top-2 left-2 z-20 flex items-center gap-1.5">
-          {showCategoryBadge && (
+          <span
+            className={cn(
+              "text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md shadow-sm backdrop-blur-sm",
+              !categoryColor && "text-primary-foreground bg-primary/90",
+            )}
+            style={categoryColor ? { color: "#fff", backgroundColor: `${categoryColor}dd` } : undefined}
+          >
+            {displayType}
+          </span>
+          {urgencyBadge && (
             <span
               className={cn(
-                "text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md shadow-sm backdrop-blur-sm",
-                !categoryColor && "text-primary-foreground bg-primary/90"
+                "text-[8px] font-bold px-1.5 py-0.5 rounded-full border backdrop-blur-sm",
+                urgencyBadge.color,
               )}
-              style={categoryColor ? { color: '#fff', backgroundColor: `${categoryColor}dd` } : undefined}
             >
-              {displayType}
-            </span>
-          )}
-          {urgencyBadge && (
-            <span className={cn("text-[8px] font-bold px-1.5 py-0.5 rounded-full border backdrop-blur-sm", urgencyBadge.color)}>
               {urgencyBadge.text}
             </span>
           )}
         </div>
 
-        {/* ✅ Rating badge — golden star + score, bottom-right corner of the
-             image so it reads like a quick at-a-glance trust signal sitting
-             right on the photo, out of the way of the save button above. */}
+        {/* Golden star rating badge — bottom-right over image */}
         {avgRating != null && avgRating > 0 && (
           <div className="absolute bottom-2 right-2 z-20 flex items-center gap-0.5 bg-white/90 backdrop-blur-sm shadow-sm rounded-full px-1.5 py-0.5">
             <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />
-            <span className="text-[10px] font-bold text-slate-800 leading-none">{avgRating.toFixed(1)}</span>
+            <span className="text-[10px] font-bold text-slate-800 leading-none">
+              {avgRating.toFixed(1)}
+            </span>
           </div>
         )}
 
-        {/* Save button */}
+        {/* Save / heart button — top-right */}
         {!hideSave && onSave && (
           <button
             onClick={(e) => { e.stopPropagation(); onSave(id, type); }}
@@ -303,7 +291,7 @@ const ListingCardComponent = ({
           </button>
         )}
 
-        {/* Navigation arrows (desktop only, on hover) */}
+        {/* Desktop nav arrows (visible on hover) */}
         {allSlideImages.length > 1 && (
           <>
             {currentSlide > 0 && (
@@ -334,9 +322,7 @@ const ListingCardComponent = ({
                 onClick={(e) => goToSlide(idx, e)}
                 className={cn(
                   "rounded-full transition-all",
-                  idx === currentSlide
-                    ? "w-2 h-2 bg-white shadow-md"
-                    : "w-1.5 h-1.5 bg-white/60"
+                  idx === currentSlide ? "w-2 h-2 bg-white shadow-md" : "w-1.5 h-1.5 bg-white/60",
                 )}
               />
             ))}
@@ -346,17 +332,17 @@ const ListingCardComponent = ({
           </div>
         )}
 
-        {/* Sold out overlay */}
+        {/* Sold-out / unavailable overlay */}
         {isUnavailable && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/30 backdrop-blur-[1px]">
             <span className="rounded-md border border-white/60 px-3 py-0.5 text-[10px] font-black uppercase text-white">
-              {isSoldOut ? 'Sold Out' : 'Unavailable'}
+              {isSoldOut ? "Sold Out" : "Unavailable"}
             </span>
           </div>
         )}
       </div>
 
-      {/* Content below image */}
+      {/* ── Text content ── */}
       <div className="flex flex-col gap-1 p-2.5 min-w-0">
         {/* Title */}
         <h3 className="line-clamp-2 text-xs font-bold leading-snug text-slate-900">
@@ -366,31 +352,34 @@ const ListingCardComponent = ({
         {/* Location */}
         <div className="flex items-center gap-1 text-slate-500">
           <MapPin className="h-2.5 w-2.5 flex-shrink-0" />
-          <span className="text-[10px] font-medium truncate capitalize">{locationString.toLowerCase()}</span>
+          <span className="text-[10px] font-medium truncate capitalize">
+            {locationString.toLowerCase()}
+          </span>
         </div>
 
-        {/* Price — guided tours show /group, everything else /person */}
+        {/* Price */}
         {!hidePrice && price != null && price > 0 && (
           <PriceText
             price={price}
             isUnavailable={isUnavailable}
-            type={type}
             isFlexibleDate={isFlexibleDate}
             isTrip={isTrip}
           />
         )}
 
-        {/* Date row */}
-        {(date || isFlexibleDate) && (
+        {/* Date (trips only) */}
+        {isTrip && (date || isFlexibleDate) && (
           <div className="flex items-center gap-0.5 text-slate-500">
             <Calendar className="h-2.5 w-2.5" />
             <span className="text-[9px] font-medium">
-              {isFlexibleDate ? 'Flexible' : new Date(date!).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+              {isFlexibleDate
+                ? "Flexible"
+                : new Date(date!).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
             </span>
           </div>
         )}
 
-        {/* Hours available */}
+        {/* Opening hours (adventure places) */}
         {hoursText && (
           <div className="flex items-center gap-0.5 text-slate-500">
             <Clock className="h-2.5 w-2.5" />
@@ -398,7 +387,7 @@ const ListingCardComponent = ({
           </div>
         )}
 
-        {/* Bottom row — golden star rating + review count */}
+        {/* Golden star rating + review count (below text, secondary to the image badge) */}
         {avgRating != null && avgRating > 0 && (
           <div className="flex items-center gap-0.5 pt-0.5">
             <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />
@@ -413,7 +402,9 @@ const ListingCardComponent = ({
   );
 };
 
-export const ListingCard = memo(React.forwardRef<HTMLDivElement, ListingCardProps>(
-  (props, ref) => <ListingCardComponent {...props} />
-));
+export const ListingCard = memo(
+  React.forwardRef<HTMLDivElement, ListingCardProps>((props, ref) => (
+    <ListingCardComponent {...props} />
+  )),
+);
 ListingCard.displayName = "ListingCard";

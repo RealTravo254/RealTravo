@@ -20,10 +20,22 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 // shadcn/ui light CSS variables to a wrapper class so every component here
 // (Button, Popover, Calendar, Input, etc.) resolves to light-theme colors
 // even if a `dark` class exists higher up in the DOM.
+//
+// IMPORTANT: Radix UI portals (used by Popover/Calendar popups) render their
+// content as a direct child of <body>, NOT inside this component's DOM tree.
+// That means the `.rt-multistep-force-light` wrapper class never wraps the
+// popover/calendar popup content, so CSS variables scoped only to the
+// wrapper won't reach it. To fix this, we also toggle a class directly on
+// <body> while this component is mounted (and remove it on unmount) — since
+// portaled content is still a DOM descendant of <body>, it inherits the same
+// CSS custom properties from there.
 const LOCK_LIGHT_CLASS = "rt-multistep-force-light";
+const BODY_LOCK_CLASS = "rt-multistep-portal-light";
+
 const ForceLightModeStyles = () => (
   <style>{`
-    .${LOCK_LIGHT_CLASS} {
+    .${LOCK_LIGHT_CLASS},
+    body.${BODY_LOCK_CLASS} {
       color-scheme: light;
       --background: 0 0% 100%;
       --foreground: 222.2 84% 4.9%;
@@ -45,7 +57,9 @@ const ForceLightModeStyles = () => (
       --input: 214.3 31.8% 91.4%;
       --ring: 222.2 84% 4.9%;
     }
-    .${LOCK_LIGHT_CLASS}, .${LOCK_LIGHT_CLASS} * {
+    .${LOCK_LIGHT_CLASS}, .${LOCK_LIGHT_CLASS} *,
+    body.${BODY_LOCK_CLASS} [data-radix-popper-content-wrapper],
+    body.${BODY_LOCK_CLASS} [data-radix-popper-content-wrapper] * {
       color-scheme: light;
     }
   `}</style>
@@ -189,6 +203,17 @@ export const MultiStepBooking = ({
 
   const isAdventurePlace = bookingType === "adventure_place";
 
+  // ── Dark-mode lockout: force light mode on <body> while mounted so that
+  // Radix portal content (Popover/Calendar popups) also renders in light mode,
+  // since that content is appended to document.body, outside this component's
+  // own DOM subtree. ────────────────────────────────────────────────────────
+  useEffect(() => {
+    document.body.classList.add(BODY_LOCK_CLASS);
+    return () => {
+      document.body.classList.remove(BODY_LOCK_CLASS);
+    };
+  }, []);
+
   // ── Step state ─────────────────────────────────────────────────────────────
   const [currentStep, setCurrentStep] = useState(0);
 
@@ -207,10 +232,10 @@ export const MultiStepBooking = ({
   const [guestPhone, setGuestPhone] = useState("");
 
   // ── Activities / Facilities ────────────────────────────────────────────────
-  const [selectedActivities, setSelectedActivities] = useState
+  const [selectedActivities, setSelectedActivities] = useState<
     { name: string; price: number; numberOfPeople: number }[]
   >([]);
-  const [selectedFacilities, setSelectedFacilities] = useState
+  const [selectedFacilities, setSelectedFacilities] = useState<
     { name: string; price: number; startDate?: string; endDate?: string }[]
   >([]);
 
@@ -218,7 +243,7 @@ export const MultiStepBooking = ({
   const [isFacilityOnlyMode, setIsFacilityOnlyMode] = useState(false);
 
   // ── Standard ticket types (trips / events) ─────────────────────────────────
-  const [ticketSelections, setTicketSelections] = useState
+  const [ticketSelections, setTicketSelections] = useState<
     { name: string; price: number; quantity: number }[]
   >(ticketTypes.map(t => ({ name: t.name, price: t.price, quantity: 0 })));
 
@@ -1458,4 +1483,4 @@ export const MultiStepBooking = ({
       </div>
     </div>
   );
-};
+}; 

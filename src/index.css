@@ -67,6 +67,69 @@
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --background: 210 28% 15%;
+      --foreground: 210 20% 92%;
+
+      --card: 210 28% 18%;
+      --card-foreground: 210 20% 92%;
+
+      --popover: 210 28% 18%;
+      --popover-foreground: 210 20% 92%;
+
+      --primary: 180 100% 35%;
+      --primary-foreground: 0 0% 100%;
+
+      --primary-light: 180 100% 45%;
+      --primary-dark: 180 100% 25%;
+
+      --secondary: 180 80% 30%;
+      --secondary-foreground: 0 0% 100%;
+
+      --muted: 210 28% 22%;
+      --muted-foreground: 210 15% 60%;
+
+      --accent: 180 100% 35%;
+      --accent-foreground: 0 0% 100%;
+
+      --destructive: 0 84% 60%;
+      --destructive-foreground: 0 0% 100%;
+
+      --border: 210 28% 25%;
+      --input: 210 28% 25%;
+      --ring: 180 100% 35%;
+
+      --popup-accent: 174 100% 35%;
+      --popup-accent-foreground: 0 0% 100%;
+
+      --header-bg: 210 40% 12%;
+      --header-foreground: 0 0% 100%;
+      --header-hover: 210 40% 18%;
+
+      --gradient-primary: linear-gradient(135deg, hsl(180, 100%, 30%), hsl(180, 80%, 25%));
+      --gradient-hero: linear-gradient(to bottom, hsl(210, 28%, 17%), hsl(210, 28%, 15%));
+
+      --shadow-soft: 0 2px 8px hsla(210, 40%, 5%, 0.3);
+      --shadow-medium: 0 4px 16px hsla(210, 40%, 5%, 0.4);
+      --shadow-elevated: 0 8px 24px hsla(210, 40%, 5%, 0.5);
+
+      --success: 142 76% 42%;
+      --success-foreground: 138 76% 97%;
+      --warning: 38 92% 55%;
+      --warning-foreground: 48 96% 89%;
+
+      --sidebar-background: 210 28% 13%;
+      --sidebar-foreground: 210 20% 85%;
+      --sidebar-primary: 180 100% 35%;
+      --sidebar-primary-foreground: 0 0% 100%;
+      --sidebar-accent: 210 28% 20%;
+      --sidebar-accent-foreground: 210 20% 85%;
+      --sidebar-border: 210 28% 22%;
+      --sidebar-ring: 180 100% 35%;
+    }
+  }
 }
 
 @layer base {
@@ -76,11 +139,6 @@
 
   body {
     @apply bg-background text-foreground;
-    /*
-      Only apply left/right safe-area padding on body.
-      Top and bottom safe zones are painted teal via body::before / body::after
-      in index.html, and each page/header handles its own top inset offset.
-    */
     padding-left: env(safe-area-inset-left, 0px);
     padding-right: env(safe-area-inset-right, 0px);
   }

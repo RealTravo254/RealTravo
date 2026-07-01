@@ -9,14 +9,12 @@ import { createDetailPath } from "@/lib/slugUtils";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 
 // ── Price label ───────────────────────────────────────────────────────────────
-// Guided tours (flexible-date trips) → "/group", everything else → "/person"
 const getPriceLabel = (isFlexibleDate: boolean, isTrip: boolean) => {
   if (isFlexibleDate && isTrip) return "/group";
   return "/person";
 };
 
 // ── Category badge labels for adventure_places ────────────────────────────────
-// Maps the host-selected `category` DB column to a human-friendly label.
 const CATEGORY_LABELS: Record<string, string> = {
   hotel:         "Hotel",
   park:          "Park",
@@ -39,18 +37,15 @@ const PriceText = ({
   const { formatPrice } = useCurrency();
   return (
     <div className={cn("flex items-center gap-1", isUnavailable && "opacity-50 line-through")}>
-      <span className="text-xs font-bold text-slate-900 whitespace-nowrap">{formatPrice(price)}</span>
-      <span className="text-[8px] text-slate-500 font-medium">{getPriceLabel(isFlexibleDate, isTrip)}</span>
+      <span className="text-xs font-bold text-slate-900 dark:text-slate-50 whitespace-nowrap">{formatPrice(price)}</span>
+      <span className="text-[8px] text-slate-500 dark:text-slate-400 font-medium">{getPriceLabel(isFlexibleDate, isTrip)}</span>
     </div>
   );
 };
 
 export interface ListingCardProps {
   id: string;
-  // Only the types that actually exist in the DB
   type: "TRIP" | "ADVENTURE PLACE" | "ATTRACTION";
-  // Host-selected category for adventure_places rows
-  // (hotel / park / campsite / attraction / accommodation)
   category?: string;
   name: string;
   imageUrl: string;
@@ -110,21 +105,13 @@ const ListingCardComponent = ({
   const isTrip = type === "TRIP";
   const isAdventurePlace = type === "ADVENTURE PLACE";
 
-  // Trips track availability; adventure places do not
   const remainingTickets = availableTickets - bookedTickets;
   const isSoldOut = isTrip && availableTickets > 0 && remainingTickets <= 0;
   const fewSlotsRemaining = isTrip && remainingTickets > 0 && remainingTickets <= 10;
   const isUnavailable = isOutdated || isSoldOut;
 
-  // Flexible-date trip = Guided Tour
   const isGuidedTour = isFlexibleDate && isTrip;
 
-  // Badge label:
-  // - Adventure places → host-selected category (Hotel / Park / Campsite /
-  //   Attraction / Accommodation), falling back to "Campsite" if unknown
-  // - Guided Tour (flexible trip) → "Guided Tour"
-  // - Regular trip → "Trip"
-  // - Attraction type → "Attraction"
   const displayType = useMemo(() => {
     if (isAdventurePlace) return (category && CATEGORY_LABELS[category]) ?? "Campsite";
     if (isGuidedTour) return "Guided Tour";
@@ -156,7 +143,7 @@ const ListingCardComponent = ({
     if (isOutdated)
       return { text: "Passed", color: "bg-muted text-muted-foreground border-border" };
     if (fewSlotsRemaining)
-      return { text: `🔥 ${remainingTickets} left`, color: "bg-orange-50 text-orange-700 border-orange-200" };
+      return { text: `🔥 ${remainingTickets} left`, color: "bg-orange-50 dark:bg-orange-950/40 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-900/50" };
     return null;
   }, [isSoldOut, isOutdated, fewSlotsRemaining, remainingTickets]);
 
@@ -273,9 +260,9 @@ const ListingCardComponent = ({
 
         {/* Golden star rating badge — bottom-right over image */}
         {avgRating != null && avgRating > 0 && (
-          <div className="absolute bottom-2 right-2 z-20 flex items-center gap-0.5 bg-white/90 backdrop-blur-sm shadow-sm rounded-full px-1.5 py-0.5">
+          <div className="absolute bottom-2 right-2 z-20 flex items-center gap-0.5 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm shadow-sm rounded-full px-1.5 py-0.5">
             <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />
-            <span className="text-[10px] font-bold text-slate-800 leading-none">
+            <span className="text-[10px] font-bold text-slate-800 dark:text-slate-100 leading-none">
               {avgRating.toFixed(1)}
             </span>
           </div>
@@ -285,19 +272,19 @@ const ListingCardComponent = ({
         {!hideSave && onSave && (
           <button
             onClick={(e) => { e.stopPropagation(); onSave(id, type); }}
-            className="absolute top-2 right-2 z-20 h-7 w-7 rounded-full bg-white/80 backdrop-blur-sm shadow flex items-center justify-center hover:bg-white transition-colors"
+            className="absolute top-2 right-2 z-20 h-7 w-7 rounded-full bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm shadow flex items-center justify-center hover:bg-white dark:hover:bg-slate-800 transition-colors"
           >
-            <Heart className={cn("h-3.5 w-3.5", isSaved ? "fill-red-500 text-red-500" : "text-slate-600")} />
+            <Heart className={cn("h-3.5 w-3.5", isSaved ? "fill-red-500 text-red-500" : "text-slate-600 dark:text-slate-300")} />
           </button>
         )}
 
-        {/* Desktop nav arrows (visible on hover) */}
+        {/* Desktop nav arrows */}
         {allSlideImages.length > 1 && (
           <>
             {currentSlide > 0 && (
               <button
                 onClick={(e) => goToSlide(currentSlide - 1, e)}
-                className="absolute left-1.5 top-1/2 -translate-y-1/2 z-20 h-6 w-6 rounded-full bg-white/80 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                className="absolute left-1.5 top-1/2 -translate-y-1/2 z-20 h-6 w-6 rounded-full bg-white/80 dark:bg-slate-900/80 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
               >
                 <ChevronLeft className="h-3.5 w-3.5 text-foreground" />
               </button>
@@ -305,7 +292,7 @@ const ListingCardComponent = ({
             {currentSlide < visibleDots - 1 && (
               <button
                 onClick={(e) => goToSlide(currentSlide + 1, e)}
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 z-20 h-6 w-6 rounded-full bg-white/80 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 z-20 h-6 w-6 rounded-full bg-white/80 dark:bg-slate-900/80 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
               >
                 <ChevronRight className="h-3.5 w-3.5 text-foreground" />
               </button>
@@ -334,7 +321,7 @@ const ListingCardComponent = ({
 
         {/* Sold-out / unavailable overlay */}
         {isUnavailable && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/30 backdrop-blur-[1px]">
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40 backdrop-blur-[1px]">
             <span className="rounded-md border border-white/60 px-3 py-0.5 text-[10px] font-black uppercase text-white">
               {isSoldOut ? "Sold Out" : "Unavailable"}
             </span>
@@ -345,12 +332,12 @@ const ListingCardComponent = ({
       {/* ── Text content ── */}
       <div className="flex flex-col gap-1 p-2.5 min-w-0">
         {/* Title */}
-        <h3 className="line-clamp-2 text-xs font-bold leading-snug text-slate-900">
+        <h3 className="line-clamp-2 text-xs font-bold leading-snug text-slate-900 dark:text-slate-50">
           {formattedName}
         </h3>
 
         {/* Location */}
-        <div className="flex items-center gap-1 text-slate-500">
+        <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
           <MapPin className="h-2.5 w-2.5 flex-shrink-0" />
           <span className="text-[10px] font-medium truncate capitalize">
             {locationString.toLowerCase()}
@@ -369,7 +356,7 @@ const ListingCardComponent = ({
 
         {/* Date (trips only) */}
         {isTrip && (date || isFlexibleDate) && (
-          <div className="flex items-center gap-0.5 text-slate-500">
+          <div className="flex items-center gap-0.5 text-slate-500 dark:text-slate-400">
             <Calendar className="h-2.5 w-2.5" />
             <span className="text-[9px] font-medium">
               {isFlexibleDate
@@ -381,19 +368,19 @@ const ListingCardComponent = ({
 
         {/* Opening hours (adventure places) */}
         {hoursText && (
-          <div className="flex items-center gap-0.5 text-slate-500">
+          <div className="flex items-center gap-0.5 text-slate-500 dark:text-slate-400">
             <Clock className="h-2.5 w-2.5" />
             <span className="text-[9px] font-medium">{hoursText}</span>
           </div>
         )}
 
-        {/* Golden star rating + review count (below text, secondary to the image badge) */}
+        {/* Golden star rating + review count (bottom text area) */}
         {avgRating != null && avgRating > 0 && (
           <div className="flex items-center gap-0.5 pt-0.5">
             <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />
-            <span className="text-[10px] font-bold text-slate-800">{avgRating.toFixed(1)}</span>
+            <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200">{avgRating.toFixed(1)}</span>
             {reviewCount != null && reviewCount > 0 && (
-              <span className="text-[8px] text-slate-500">({reviewCount})</span>
+              <span className="text-[8px] text-slate-500 dark:text-slate-400">({reviewCount})</span>
             )}
           </div>
         )}

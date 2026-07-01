@@ -1410,4 +1410,4 @@ const CreateAdventure = () => {
   );
 };
 
-export default CreateAdventure; 
+export default CreateAdventure;

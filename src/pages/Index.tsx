@@ -145,10 +145,10 @@ GridSection.displayName = "GridSection";
 // from small phones up to large desktops.
 const CATEGORIES = [
   { icon: Building2, title: "Hotels",         path: "/category/hotels",        bgImage: "/images/category-hotels.jpg" },
-  { icon: Home,       title: "Accommodations", path: "/category/accommodations", bgImage: "/images/category-accommodations.jpg" },
-  { icon: TreePine,   title: "Parks",          path: "/category/parks",          bgImage: "/images/category-parks.jpg" },
+  { icon: Home,       title: "Accommodations", path: "/category/accommodations", bgImage: "/images/category-accommodations.png" },
+  { icon: TreePine,   title: "Parks",          path: "/category/parks",          bgImage: "/images/category-parks.png" },
   { icon: Tent,       title: "Campsites",      path: "/category/campsite",       bgImage: "/images/category-adventures.jpg" },
-  { icon: Landmark,   title: "Attraction",     path: "/category/attraction",     bgImage: "/images/category-attraction.jpg" },
+  { icon: Landmark,   title: "Attraction",     path: "/category/attraction",     bgImage: "/images/category-attraction.png" },
   { icon: Map,        title: "Tours & Trips",  path: "/category/trips",          bgImage: "/images/category-trips.jpg" },
 ];
 

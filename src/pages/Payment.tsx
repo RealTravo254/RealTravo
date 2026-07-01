@@ -27,16 +27,14 @@ const STATUS_CONFIG: Record<string, { icon: React.ReactNode; color: string; labe
 
 /**
  * Returns true if the booking's earnings are past the 24-hour hold window.
- * A booking is on hold if its visit_date is in the future OR within the last 24 hours.
  */
 function isEarningReleased(booking: any): boolean {
-  // Use visit_date if present; fall back to booking_details.date; if neither, treat as released
   const rawDate =
     booking.visit_date ||
     booking.booking_details?.date ||
     null;
 
-  if (!rawDate) return true; // no scheduled date → no hold
+  if (!rawDate) return true;
 
   const visitTime = new Date(rawDate).getTime();
   const releaseTime = visitTime + HOLD_HOURS * 60 * 60 * 1000;
@@ -62,8 +60,8 @@ export default function Payment() {
     grossBalance: 0,
     serviceFeeDeducted: 0,
     withdrawableBalance: 0,
-    heldBalance: 0,        // earnings locked in the 24-hour window
-    totalPaidOut: 0,       // sum of completed withdrawals
+    heldBalance: 0,
+    totalPaidOut: 0,
   });
 
   const [recentCommissions, setRecentCommissions] = useState<any[]>([]);
@@ -96,28 +94,40 @@ export default function Payment() {
       const withdrawals: any[] = withdrawalRes.data || [];
       setWithdrawalRequests(withdrawals);
 
-      // ── Build owner map ──────────────────────────────────────────────────
+      // ── Build owner map + per-listing service fee map ────────────────────
       const itemIds = [...new Set(bookings.map((b: any) => b.item_id))];
       const [tripsRes, hotelsRes, adventuresRes] = await Promise.all([
-        supabase.from("trips").select("id, created_by").in("id", itemIds),
+        // trips covers both "trip" and "event" booking types — each row has
+        // its own admin-set service_fee_percentage.
+        supabase.from("trips").select("id, created_by, service_fee_percentage").in("id", itemIds),
+        // hotels still use the general/shared service fee from referral_settings
         supabase.from("hotels").select("id, created_by").in("id", itemIds),
-        supabase.from("adventure_places").select("id, created_by").in("id", itemIds),
+        // adventure_places (campsites) also have their own admin-set service_fee_percentage
+        supabase.from("adventure_places").select("id, created_by, service_fee_percentage").in("id", itemIds),
       ]);
 
       const ownerMap = new Map<string, string>();
-      [
-        ...(tripsRes.data || []),
-        ...(hotelsRes.data || []),
-        ...(adventuresRes.data || []),
-      ].forEach((item) => {
-        if (item.created_by) ownerMap.set(item.id, item.created_by);
+      // Per-listing service fee override — covers trips, events, and campsites.
+      // Hotels are intentionally NOT in this map; they use the general setting.
+      const listingFeeMap = new Map<string, number | null>();
+
+      (tripsRes.data || []).forEach((t: any) => {
+        if (t.created_by) ownerMap.set(t.id, t.created_by);
+        listingFeeMap.set(t.id, t.service_fee_percentage != null ? Number(t.service_fee_percentage) : null);
+      });
+      (adventuresRes.data || []).forEach((a: any) => {
+        if (a.created_by) ownerMap.set(a.id, a.created_by);
+        listingFeeMap.set(a.id, a.service_fee_percentage != null ? Number(a.service_fee_percentage) : null);
+      });
+      (hotelsRes.data || []).forEach((h: any) => {
+        if (h.created_by) ownerMap.set(h.id, h.created_by);
       });
 
       // ── Compute gross host earnings split by hold status ─────────────────
       let grossHostEarnings = 0;
       let totalServiceFee = 0;
-      let heldEarnings = 0;     // not yet withdrawable due to 24-hour rule
-      let releasedEarnings = 0; // past the 24-hour window
+      let heldEarnings = 0;
+      let releasedEarnings = 0;
 
       for (const b of bookings) {
         if (ownerMap.get(b.item_id) !== user?.id) continue;
@@ -126,16 +136,21 @@ export default function Payment() {
         grossHostEarnings += amount;
 
         let serviceFeeRate = 0;
-        if (settings) {
-          if (b.booking_type === "trip")        serviceFeeRate = Number(settings.trip_service_fee || 0);
-          else if (b.booking_type === "event")  serviceFeeRate = Number(settings.event_service_fee || 0);
-          else if (b.booking_type === "hotel")  serviceFeeRate = Number(settings.hotel_service_fee || 0);
-          else if (
-            b.booking_type === "adventure" ||
-            b.booking_type === "adventure_place"
-          )                                     serviceFeeRate = Number(settings.adventure_place_service_fee || 0);
-          else if (b.booking_type === "attraction") serviceFeeRate = Number(settings.attraction_service_fee || 0);
+        if (b.booking_type === "trip" || b.booking_type === "event") {
+          // Trips & events: own per-listing fee only, no general fallback.
+          const listingFee = listingFeeMap.get(b.item_id);
+          serviceFeeRate = listingFee != null ? listingFee : 0;
+        } else if (b.booking_type === "hotel") {
+          // Hotels still use the shared/general fee.
+          serviceFeeRate = Number(settings?.hotel_service_fee || 0);
+        } else if (b.booking_type === "adventure" || b.booking_type === "adventure_place") {
+          // Campsites/adventures: own per-listing fee only, no general fallback.
+          const listingFee = listingFeeMap.get(b.item_id);
+          serviceFeeRate = listingFee != null ? listingFee : 0;
+        } else if (b.booking_type === "attraction") {
+          serviceFeeRate = Number(settings?.attraction_service_fee || 0);
         }
+
         const fee = (amount * serviceFeeRate) / 100;
         totalServiceFee += fee;
 
@@ -156,7 +171,6 @@ export default function Payment() {
         .filter((w) => w.status === "pending")
         .reduce((s: number, w: any) => s + Number(w.amount), 0);
 
-      // Released earnings minus anything already paid out or pending
       const netReleased = releasedEarnings - completedWithdrawals - pendingWithdrawals;
 
       // ── Referral commissions (verified hosts only) ───────────────────────
@@ -280,7 +294,6 @@ export default function Payment() {
 
         {/* ── Balance Cards ── */}
         <div className="grid grid-cols-1 gap-2 mb-1">
-          {/* Available Balance */}
           <div className="bg-card rounded-xl p-4 border border-border">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -307,9 +320,7 @@ export default function Payment() {
             </div>
           </div>
 
-          {/* Held + Paid Out — side by side */}
           <div className="grid grid-cols-2 gap-2">
-            {/* On hold (24 h window) */}
             {stats.heldBalance > 0 && (
               <div className="bg-amber-50 dark:bg-amber-950/20 rounded-xl p-3 border border-amber-200 dark:border-amber-800">
                 <div className="flex items-center gap-2 mb-1">
@@ -327,7 +338,6 @@ export default function Payment() {
               </div>
             )}
 
-            {/* Total paid out */}
             <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-xl p-3 border border-emerald-200 dark:border-emerald-800">
               <div className="flex items-center gap-2 mb-1">
                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
@@ -345,7 +355,6 @@ export default function Payment() {
           </div>
         </div>
 
-        {/* Hints */}
         {stats.withdrawableBalance > 0 && !canWithdraw && (
           <p className="text-[9px] text-amber-600 dark:text-amber-400 font-bold text-center mb-4 mt-1">
             Minimum withdrawal is {formatPrice(MIN_WITHDRAWAL)}. You need{" "}
@@ -370,7 +379,6 @@ export default function Payment() {
 
         <WithdrawalDetailsSection userId={user?.id || ""} />
 
-        {/* ── Withdrawal Requests ── */}
         {withdrawalRequests.length > 0 && (
           <>
             <div className="mb-3 mt-2">
@@ -458,7 +466,6 @@ export default function Payment() {
           </>
         )}
 
-        {/* Not verified host prompt */}
         {!isVerifiedHost && !verificationLoading && (
           <div className="bg-amber-50 dark:bg-amber-950/20 rounded-xl p-4 border border-amber-200 dark:border-amber-800 mb-4">
             <div className="flex items-start gap-3">
@@ -487,7 +494,6 @@ export default function Payment() {
           </div>
         )}
 
-        {/* ── Earnings Breakdown ── */}
         <div className="mb-3">
           <h2 className="text-sm font-black uppercase tracking-tight text-foreground">
             Earnings Breakdown
@@ -519,7 +525,6 @@ export default function Payment() {
           />
         </div>
 
-        {/* ── Referral Stats ── */}
         {isVerifiedHost && (
           <>
             <div className="mb-3">

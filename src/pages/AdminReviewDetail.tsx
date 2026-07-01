@@ -11,7 +11,7 @@ import {
   MapPin, Mail, Phone, Clock, ArrowLeft, CheckCircle2, XCircle,
   ShieldAlert, Users, Tag, Globe, Navigation, Ban, FileImage,
   ChevronLeft, ChevronRight, Grid2X2, Eye, ExternalLink, Zap,
-  Copy, Share2, Landmark, Calendar, Info, Sparkles,
+  Copy, Share2, Landmark, Calendar, Info, Sparkles, Percent,
 } from "lucide-react";
 import { approvalStatusSchema } from "@/lib/validation";
 import { TealLoader } from "@/components/ui/teal-loader";
@@ -30,10 +30,6 @@ interface SpecialPriceTier {
 }
 
 // ── Listing category labels (adventure_places.category column) ─────────────
-// Hotel / Park / Campsite / Attraction / Accommodation — the host-selected
-// category, shown throughout this review page instead of the generic
-// "adventure place" label so admins can see at a glance what they're
-// reviewing.
 const CATEGORY_LABELS: Record<string, string> = {
   hotel: "Hotel",
   park: "Park",
@@ -89,7 +85,6 @@ const ImageGalleryModal = ({
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
       }}
     >
-      {/* Top bar */}
       <div style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px" }}>
         <span style={{ color: "rgba(255,255,255,0.55)", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em" }}>{name}</span>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -108,7 +103,6 @@ const ImageGalleryModal = ({
         </div>
       </div>
 
-      {/* Main image */}
       <div style={{ flex: 1, position: "relative", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", padding: "0 48px" }}>
         <img key={current} src={images[current]} alt={`${name} ${current + 1}`}
           style={{ maxHeight: "100%", maxWidth: "100%", objectFit: "contain", borderRadius: 0, userSelect: "none", display: "block" }} />
@@ -130,7 +124,6 @@ const ImageGalleryModal = ({
         )}
       </div>
 
-      {/* Thumbnails */}
       {images.length > 1 && (
         <div style={{ flexShrink: 0, padding: "10px 16px", overflowX: "auto", overflowY: "hidden" }}>
           <div style={{ display: "flex", gap: 6, width: "max-content", margin: "0 auto" }}>
@@ -598,6 +591,12 @@ interface AdminCardProps {
   creator: any;
   isBanned: boolean;
   type: string;
+  requiresOwnServiceFee: boolean;
+  serviceFeeLabel: string;
+  serviceFeeInput: string;
+  onServiceFeeInputChange: (v: string) => void;
+  onSaveServiceFee: () => void;
+  savedServiceFee: number | null;
   formatPrice?: (n: number) => string;
   onOpenMaps: () => void;
   onApprove: () => void;
@@ -605,7 +604,11 @@ interface AdminCardProps {
   onToggleBan: () => void;
 }
 
-const AdminSideCard = ({ item, creator, isBanned, type, onOpenMaps, onApprove, onReject, onToggleBan }: AdminCardProps) => {
+const AdminSideCard = ({
+  item, creator, isBanned, type, requiresOwnServiceFee, serviceFeeLabel,
+  serviceFeeInput, onServiceFeeInputChange, onSaveServiceFee, savedServiceFee,
+  onOpenMaps, onApprove, onReject, onToggleBan,
+}: AdminCardProps) => {
   const isAdventure = type === "adventure" || type === "adventure_place";
   const price = item.entry_fee ?? item.price ?? item.price_adult ?? 0;
   const childPrice = item.child_entry_fee ?? item.price_child;
@@ -615,6 +618,9 @@ const AdminSideCard = ({ item, creator, isBanned, type, onOpenMaps, onApprove, o
   // ── Non-citizen pricing (adventure only) ──
   const hasNonCitizen = isAdventure && !!item.has_non_citizen_pricing &&
     (Number(item.non_citizen_entry_fee) > 0 || Number(item.non_citizen_child_entry_fee) > 0);
+
+  // Trips, events, and campsites can't be approved until admin sets a service fee for this specific listing
+  const approveBlocked = requiresOwnServiceFee && savedServiceFee == null;
 
   return (
     <div className="bg-white rounded-2xl p-6 shadow-lg border border-slate-200 space-y-4 lg:sticky lg:top-24">
@@ -745,6 +751,53 @@ const AdminSideCard = ({ item, creator, isBanned, type, onOpenMaps, onApprove, o
         </div>
       )}
 
+      {/* Per-listing service fee — trips, events, campsites (not hotels) */}
+      {requiresOwnServiceFee && (
+        <div
+          className={`p-3 rounded-xl border ${savedServiceFee != null ? "bg-emerald-50 border-emerald-200" : "bg-amber-50 border-amber-200"}`}
+        >
+          <p
+            className="text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-1"
+            style={{ color: savedServiceFee != null ? "#059669" : "#B45309" }}
+          >
+            <Percent className="h-3 w-3" /> {serviceFeeLabel} {savedServiceFee == null && "— Required"}
+          </p>
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <input
+                type="number"
+                min={0}
+                max={100}
+                step="0.1"
+                value={serviceFeeInput}
+                onChange={(e) => onServiceFeeInputChange(e.target.value)}
+                placeholder="e.g. 20"
+                className="w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 font-bold text-xs">%</span>
+            </div>
+            <Button
+              type="button"
+              onClick={onSaveServiceFee}
+              className="h-10 px-4 rounded-lg text-[10px] font-black uppercase text-white border-none"
+              style={{ background: TEAL }}
+            >
+              Save
+            </Button>
+          </div>
+          {savedServiceFee != null ? (
+            <p className="text-[10px] text-emerald-700 font-bold mt-2">
+              Saved: {savedServiceFee}% — this listing is now approvable.
+            </p>
+          ) : (
+            <p className="text-[10px] text-amber-700 font-bold mt-2">
+              Set and save this listing's own service fee before it can be approved. This is used for its
+              Payment dashboard calculations instead of the general referral setting.
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Submitter Info */}
       <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-2">
         <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Submitter</p>
@@ -790,12 +843,12 @@ const AdminSideCard = ({ item, creator, isBanned, type, onOpenMaps, onApprove, o
       {/* Approve */}
       <Button
         onClick={onApprove}
-        disabled={isApproved}
+        disabled={isApproved || approveBlocked}
         className="w-full py-6 rounded-xl text-sm font-bold text-white border-none shadow-md transition-all active:scale-95"
-        style={{ background: isApproved ? "#94a3b8" : `linear-gradient(135deg, #2dd4bf 0%, ${TEAL} 100%)` }}
+        style={{ background: isApproved ? "#94a3b8" : approveBlocked ? "#cbd5e1" : `linear-gradient(135deg, #2dd4bf 0%, ${TEAL} 100%)` }}
       >
         <CheckCircle2 className="mr-2 h-4 w-4" />
-        {isApproved ? "Already Approved" : "Approve Entry"}
+        {isApproved ? "Already Approved" : approveBlocked ? "Set Service Fee First" : "Approve Entry"}
       </Button>
 
       {!isApproved && (
@@ -827,6 +880,21 @@ const AdminReviewDetail = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isBanned, setIsBanned] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [serviceFeeInput, setServiceFeeInput] = useState("");
+
+  const isEvent      = type === "event";
+  const isAdventure  = type === "adventure" || type === "adventure_place";
+  const isTrip        = type === "trip" || type === "event";
+  // Trips, events, and campsites all get their own per-listing service fee.
+  // Hotels keep using the shared/general fee from referral_settings.
+  const requiresOwnServiceFee = isTrip || isAdventure;
+  const serviceFeeLabel = isEvent
+    ? "Event Service Fee"
+    : type === "trip"
+    ? "Trip Service Fee"
+    : isAdventure
+    ? "Campsite Service Fee"
+    : "Service Fee";
 
   useEffect(() => { checkAdminStatus(); }, [user]);
 
@@ -859,6 +927,7 @@ const AdminReviewDetail = () => {
       }
       if (!itemData) { toast({ title: "Item not found", variant: "destructive" }); navigate("/admin"); return; }
       setItem({ ...itemData, type, tableName });
+      setServiceFeeInput(itemData.service_fee_percentage != null ? String(itemData.service_fee_percentage) : "");
 
       if (itemData.created_by) {
         const { data: profile } = await supabase.from("profiles").select("*").eq("id", itemData.created_by).maybeSingle();
@@ -870,7 +939,7 @@ const AdminReviewDetail = () => {
     } finally { setLoading(false); }
   };
 
-  const updateApprovalStatus = async (status: string) => {
+  const updateApprovalStatus = async (status: string, extraFields: Record<string, any> = {}) => {
     try {
       const validatedStatus = approvalStatusSchema.parse(status);
       const { error } = await supabase.from(item.tableName).update({
@@ -878,6 +947,7 @@ const AdminReviewDetail = () => {
         approved_by: validatedStatus === "approved" ? user?.id : null,
         approved_at: validatedStatus === "approved" ? new Date().toISOString() : null,
         is_hidden: validatedStatus === "approved" ? false : item.is_hidden,
+        ...extraFields,
       }).eq("id", id);
       if (error) throw error;
       toast({ title: `Item ${status} successfully` });
@@ -885,6 +955,36 @@ const AdminReviewDetail = () => {
     } catch {
       toast({ title: "Update failed", variant: "destructive" });
     }
+  };
+
+  // Persist the listing's own service fee immediately (separate from approval),
+  // so the admin can set it, confirm it, and only then approve.
+  const saveServiceFee = async () => {
+    const trimmed = serviceFeeInput.trim();
+    const parsed = parseFloat(trimmed);
+    if (trimmed === "" || isNaN(parsed) || parsed < 0 || parsed > 100) {
+      toast({ title: "Enter a valid service fee between 0 and 100", variant: "destructive" });
+      return;
+    }
+    try {
+      const { error } = await supabase
+        .from(item.tableName)
+        .update({ service_fee_percentage: parsed })
+        .eq("id", id);
+      if (error) throw error;
+      setItem((prev: any) => ({ ...prev, service_fee_percentage: parsed }));
+      toast({ title: "Service fee saved" });
+    } catch {
+      toast({ title: "Failed to save service fee", variant: "destructive" });
+    }
+  };
+
+  const handleApprove = () => {
+    if (requiresOwnServiceFee && item.service_fee_percentage == null) {
+      toast({ title: "Set and save this listing's service fee before approving", variant: "destructive" });
+      return;
+    }
+    updateApprovalStatus("approved");
   };
 
   const toggleBanUser = async () => {
@@ -911,13 +1011,6 @@ const AdminReviewDetail = () => {
 
   if (loading || !isAdmin || !item) return <TealLoader text="Loading review details..." />;
 
-  const isAdventure = type === "adventure" || type === "adventure_place";
-  const isTrip      = type === "trip" || type === "event";
-
-  // ── Listing category badge text (adventure_places only) ──
-  // Falls back to the generic type label ("trip" / "event") when there's
-  // no category column to read from — adventure listings always prefer
-  // their specific host-selected category over "adventure place".
   const catLabel = isAdventure ? categoryLabel(item.category) : undefined;
   const topBadgeLabel = catLabel || type?.replace("_", " ");
 
@@ -941,15 +1034,20 @@ const AdminReviewDetail = () => {
     ? (Array.isArray(item.amenities) ? item.amenities.map((a: any) => typeof a === "string" ? a : a.name || "") : [])
     : [];
 
-  // ── Special pricing tiers (adventure only) ──
   const specialPrices: SpecialPriceTier[] = isAdventure && Array.isArray(item.special_entry_prices)
     ? item.special_entry_prices
     : [];
 
   const adminCardProps: AdminCardProps = {
     item, creator, isBanned, type: type || "",
+    requiresOwnServiceFee,
+    serviceFeeLabel,
+    serviceFeeInput,
+    onServiceFeeInputChange: setServiceFeeInput,
+    onSaveServiceFee: saveServiceFee,
+    savedServiceFee: item.service_fee_percentage != null ? Number(item.service_fee_percentage) : null,
     onOpenMaps: openInMaps,
-    onApprove: () => updateApprovalStatus("approved"),
+    onApprove: handleApprove,
     onReject: () => updateApprovalStatus("rejected"),
     onToggleBan: toggleBanUser,
   };
@@ -969,9 +1067,6 @@ const AdminReviewDetail = () => {
             <ArrowLeft className="h-5 w-5" /> Back to Admin
           </button>
           <div className="flex items-center gap-2">
-            {/* Shows the host-selected category (Hotel/Park/Campsite/Attraction/
-                Accommodation) for adventure listings instead of the generic
-                "adventure place" wording; trips/events keep their type label. */}
             <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest text-white"
               style={{ background: CORAL }}>{topBadgeLabel}</span>
             <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${item.approval_status === "approved" ? "bg-emerald-500 text-white" : item.approval_status === "rejected" ? "bg-red-500 text-white" : "bg-amber-400 text-white"}`}>
@@ -988,9 +1083,10 @@ const AdminReviewDetail = () => {
       {/* Name + location */}
       <div className="max-w-6xl mx-auto px-4 pt-4 pb-1 bg-background relative z-10">
         {isTrip && (
-          <span className="inline-block mb-2 px-3 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest text-white" style={{ background: CORAL }}>Trip</span>
+          <span className="inline-block mb-2 px-3 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest text-white" style={{ background: CORAL }}>
+            {isEvent ? "Event" : "Trip"}
+          </span>
         )}
-        {/* Category badge — adventure listings only, shown next to the title */}
         {catLabel && (
           <span className="inline-flex items-center gap-1 mb-2 px-3 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest"
             style={{ background: `${TEAL}14`, color: TEAL }}>
@@ -1020,16 +1116,12 @@ const AdminReviewDetail = () => {
             {isAdventure && (
               <>
                 {generalAmenities.length > 0 && <AmenitiesScroll amenities={generalAmenities} />}
-
-                {/* Special entry prices — visible on the main content too, full detail */}
                 {specialPrices.length > 0 && <SpecialPricesSection tiers={specialPrices} />}
-
                 {item.facilities?.length > 0 && (
                   <div id="facilities-section">
                     <InlineFacilitiesGrid facilities={item.facilities} />
                   </div>
                 )}
-
                 {item.activities?.length > 0 && (
                   <div id="activities-section">
                     <InlineActivitiesGrid activities={item.activities} />
@@ -1043,7 +1135,6 @@ const AdminReviewDetail = () => {
               <>
                 {item.activities?.length > 0 && <HighlightsTags activities={item.activities} />}
 
-                {/* Inclusions & Exclusions */}
                 {((item.inclusions?.length > 0) || (item.exclusions?.length > 0)) && (
                   <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
                     <h2 className="text-base font-black uppercase tracking-tight mb-4" style={{ color: TEAL }}>Package Details</h2>
@@ -1072,7 +1163,6 @@ const AdminReviewDetail = () => {
                   </div>
                 )}
 
-                {/* Trip children & pickup info */}
                 <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
                   <h2 className="text-base font-black uppercase tracking-tight mb-4" style={{ color: TEAL }}>Trip Details</h2>
                   <div className="space-y-2">
@@ -1158,13 +1248,23 @@ const AdminReviewDetail = () => {
                   </div>
                 </div>
               </div>
-              {/* Listing category — shown alongside submitter info for adventure listings */}
               {catLabel && (
                 <div className="mt-4 pt-4 border-t border-slate-100 flex items-center gap-2">
                   <Tag className="h-4 w-4 text-slate-400" />
                   <div>
                     <p className="text-[9px] font-black text-slate-400 uppercase">Listing Category</p>
                     <p className="text-sm font-black">{catLabel}</p>
+                  </div>
+                </div>
+              )}
+              {requiresOwnServiceFee && (
+                <div className="mt-4 pt-4 border-t border-slate-100 flex items-center gap-2">
+                  <Percent className="h-4 w-4 text-slate-400" />
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase">{serviceFeeLabel}</p>
+                    <p className="text-sm font-black">
+                      {item.service_fee_percentage != null ? `${item.service_fee_percentage}%` : "Not set yet"}
+                    </p>
                   </div>
                 </div>
               )}
@@ -1229,9 +1329,12 @@ const AdminReviewDetail = () => {
             </div>
           </div>
           <div className="flex gap-2">
-            <Button size="sm" onClick={() => updateApprovalStatus("approved")}
+            <Button size="sm" onClick={handleApprove}
+              disabled={item.approval_status === "approved" || (requiresOwnServiceFee && item.service_fee_percentage == null)}
               className="h-9 rounded-xl text-[10px] font-black px-4 border-none text-white"
-              style={{ background: `linear-gradient(135deg, #2dd4bf 0%, ${TEAL} 100%)` }}>APPROVE</Button>
+              style={{ background: `linear-gradient(135deg, #2dd4bf 0%, ${TEAL} 100%)` }}>
+              {requiresOwnServiceFee && item.service_fee_percentage == null ? "SET FEE FIRST" : "APPROVE"}
+            </Button>
             <Button size="sm" variant="destructive" onClick={() => updateApprovalStatus("rejected")}
               className="h-9 rounded-xl text-[10px] font-black px-4">REJECT</Button>
           </div>

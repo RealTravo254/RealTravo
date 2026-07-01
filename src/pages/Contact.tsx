@@ -18,19 +18,19 @@ const Contact = () => {
           <Card className="p-6 text-center">
             <Mail className="h-12 w-12 mx-auto mb-4 text-primary" />
             <h3 className="font-bold mb-2">Email</h3>
-            <p className="text-muted-foreground">support@triptrac.com</p>
+            <p className="text-muted-foreground">support@realtravo.com</p>
           </Card>
           
           <Card className="p-6 text-center">
             <Phone className="h-12 w-12 mx-auto mb-4 text-primary" />
             <h3 className="font-bold mb-2">Phone</h3>
-            <p className="text-muted-foreground">+1 (555) 123-4567</p>
+            <p className="text-muted-foreground">+254758800117</p>
           </Card>
           
           <Card className="p-6 text-center">
             <MapPin className="h-12 w-12 mx-auto mb-4 text-primary" />
             <h3 className="font-bold mb-2">Address</h3>
-            <p className="text-muted-foreground">123 Travel St, Adventure City</p>
+            <p className="text-muted-foreground"> Travel St,  Nairobi City</p>
           </Card>
         </div>
       </main>

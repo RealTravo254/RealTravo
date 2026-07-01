@@ -135,31 +135,6 @@ const StepSidebar = ({ steps, currentStep, onStepClick, type }: { steps: any[]; 
   </aside>
 );
 
-// ─── Kenya Flag Phone Display ─────────────────────────────────────────────────
-const KenyaPhoneWrapper = ({ children, isInvalid }: { children: React.ReactNode; isInvalid?: boolean }) => (
-  <div className={`flex items-center gap-2 h-11 rounded-xl border bg-white px-3 transition-all ${isInvalid ? "border-red-400 ring-2 ring-red-100" : "border-slate-200 focus-within:ring-2 focus-within:ring-[#008080]/20 focus-within:border-[#008080]"}`}>
-    <div className="flex items-center gap-1.5 shrink-0 pr-2 border-r border-slate-200">
-      <svg width="22" height="15" viewBox="0 0 22 15" fill="none" xmlns="http://www.w3.org/2000/svg" className="rounded-sm overflow-hidden">
-        <rect width="22" height="5" fill="#006600" />
-        <rect y="5" width="22" height="5" fill="#BB0000" />
-        <rect y="10" width="22" height="5" fill="#006600" />
-        <rect y="5" width="22" height="5" fill="#BB0000" />
-        <rect y="4" width="22" height="7" fill="#000000" />
-        <rect y="5" width="22" height="5" fill="#BB0000" />
-        <rect y="4" width="22" height="1" fill="white" />
-        <rect y="10" width="22" height="1" fill="white" />
-        <ellipse cx="11" cy="7.5" rx="2.5" ry="4" fill="white" />
-        <ellipse cx="11" cy="7.5" rx="1.8" ry="3.2" fill="#BB0000" />
-        <line x1="11" y1="3.5" x2="11" y2="11.5" stroke="white" strokeWidth="0.5" />
-      </svg>
-      <span className="text-xs font-bold text-slate-600">+254</span>
-    </div>
-    <div className="flex-1 [&_input]:border-none [&_input]:bg-transparent [&_input]:shadow-none [&_input]:h-full [&_input]:px-0 [&_input]:focus:ring-0 [&_*]:border-none">
-      {children}
-    </div>
-  </div>
-);
-
 // ─── Image Gallery Grid ───────────────────────────────────────────────────────
 const ImageGalleryGrid = ({ images, onRemove, onAdd, isInvalid }: {
   images: File[]; onRemove: (i: number) => void;
@@ -806,15 +781,12 @@ const CreateTripEvent = () => {
                       <StyledInput type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="contact@example.com" />
                     </div>
                     <div>
-                      <FieldLabel required>Contact Phone</FieldLabel>
-                      <KenyaPhoneWrapper isInvalid={validationErrors.includes("phone_number")}>
-                        <PhoneInput
-                          value={formData.phone_number}
-                          onChange={(val) => { setFormData({ ...formData, phone_number: val }); if (val) setValidationErrors(prev => prev.filter(err => err !== "phone_number")); }}
-                          country={formData.country}
-                          placeholder="712 345 678"
-                        />
-                      </KenyaPhoneWrapper>
+                      <PhoneInput
+                        value={formData.phone_number}
+                        onChange={(val) => { setFormData({ ...formData, phone_number: val }); if (val) setValidationErrors(prev => prev.filter(err => err !== "phone_number")); }}
+                        country={formData.country}
+                        placeholder="712 345 678"
+                      />
                       {validationErrors.includes("phone_number") && <p className="text-red-500 text-[10px] font-semibold mt-1">⚠ Phone number is required</p>}
                     </div>
                   </div>

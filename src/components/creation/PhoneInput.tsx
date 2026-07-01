@@ -19,15 +19,15 @@ interface PhoneInputProps {
 export const PhoneInput = ({ value, onChange, country, placeholder = "712 345 678" }: PhoneInputProps) => {
   const countryCode = country ? COUNTRY_PHONE_CODES[country] || "+254" : "+254";
   const [selectedCode, setSelectedCode] = useState(countryCode);
-  
+
   // Extract phone number without code
   const phoneNumber = value.replace(selectedCode, "").replace(/^0+/, "");
-  
+
   const handlePhoneChange = (phoneValue: string) => {
     const cleanPhone = phoneValue.replace(/^0+/, "").replace(/\D/g, "");
     onChange(`${selectedCode}${cleanPhone}`);
   };
-  
+
   const handleCodeChange = (code: string) => {
     setSelectedCode(code);
     const cleanPhone = phoneNumber.replace(/\D/g, "");
@@ -39,10 +39,10 @@ export const PhoneInput = ({ value, onChange, country, placeholder = "712 345 67
       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
         Phone Number
       </label>
-      
+
       <div className="flex gap-0 rounded-[20px] bg-white border border-slate-100 p-1 shadow-sm hover:border-[#008080]/30 transition-all focus-within:ring-2 focus-within:ring-[#008080]/10">
         <Select value={selectedCode} onValueChange={handleCodeChange}>
-          <SelectTrigger 
+          <SelectTrigger
             className="w-24 h-12 border-none bg-slate-50 rounded-l-[16px] focus:ring-0 shadow-none"
           >
             <div className="flex items-center gap-1">
@@ -52,8 +52,8 @@ export const PhoneInput = ({ value, onChange, country, placeholder = "712 345 67
           </SelectTrigger>
           <SelectContent className="rounded-2xl border-slate-100 shadow-xl">
             {Object.entries(COUNTRY_PHONE_CODES).map(([cName, code]) => (
-              <SelectItem 
-                key={`${cName}-${code}`} 
+              <SelectItem
+                key={`${cName}-${code}`}
                 value={code}
                 className="text-xs font-bold uppercase tracking-tight focus:bg-[#008080] focus:text-white"
               >

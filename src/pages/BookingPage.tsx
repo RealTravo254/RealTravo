@@ -17,6 +17,43 @@ const COLORS = { TEAL: "#008080", CORAL: "#FF7F50" };
 
 type BookingType = "trip" | "event" | "hotel" | "adventure_place" | "attraction";
 
+// ─── Dark-mode lockout ──────────────────────────────────────────────────────
+// This page must always render in light mode, regardless of the app-wide
+// theme toggle. We scope a fresh set of the standard shadcn/ui light CSS
+// variables to a wrapper class so any component underneath (Button, Dialog,
+// Input, etc.) that reads var(--background), var(--foreground), etc. gets
+// the light values even if an ancestor has the `dark` class applied.
+const LOCK_LIGHT_CLASS = "rt-booking-force-light";
+const ForceLightModeStyles = () => (
+  <style>{`
+    .${LOCK_LIGHT_CLASS} {
+      color-scheme: light;
+      --background: 0 0% 100%;
+      --foreground: 222.2 84% 4.9%;
+      --card: 0 0% 100%;
+      --card-foreground: 222.2 84% 4.9%;
+      --popover: 0 0% 100%;
+      --popover-foreground: 222.2 84% 4.9%;
+      --primary: 222.2 47.4% 11.2%;
+      --primary-foreground: 210 40% 98%;
+      --secondary: 210 40% 96.1%;
+      --secondary-foreground: 222.2 47.4% 11.2%;
+      --muted: 210 40% 96.1%;
+      --muted-foreground: 215.4 16.3% 46.9%;
+      --accent: 210 40% 96.1%;
+      --accent-foreground: 222.2 47.4% 11.2%;
+      --destructive: 0 84.2% 60.2%;
+      --destructive-foreground: 210 40% 98%;
+      --border: 214.3 31.8% 91.4%;
+      --input: 214.3 31.8% 91.4%;
+      --ring: 222.2 84% 4.9%;
+    }
+    .${LOCK_LIGHT_CLASS}, .${LOCK_LIGHT_CLASS} * {
+      color-scheme: light;
+    }
+  `}</style>
+);
+
 const fmtMoney  = (n: number) => "KES " + Math.round(n).toLocaleString("en-KE");
 const fmtDate   = (d: string) =>
   new Date(d).toLocaleDateString(undefined, { weekday: "short", year: "numeric", month: "long", day: "numeric" });
@@ -761,9 +798,10 @@ const BookingPage = () => {
   if (loading) {
     return (
       <div
-        className="flex flex-col items-center justify-center min-h-screen"
-        style={{ backgroundColor: "#008080", paddingTop: "env(safe-area-inset-top, 0px)" }}
+        className={`${LOCK_LIGHT_CLASS} flex flex-col items-center justify-center min-h-screen`}
+        style={{ backgroundColor: "#008080", paddingTop: "env(safe-area-inset-top, 0px)", colorScheme: "light" }}
       >
+        <ForceLightModeStyles />
         <Loader2 className="h-10 w-10 animate-spin text-white mb-4" />
         <p className="text-sm font-black uppercase tracking-tighter animate-pulse text-white">
           Loading...
@@ -855,7 +893,8 @@ const BookingPage = () => {
   const itemTypeLabel    = getItemTypeLabel();
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA]">
+    <div className={`${LOCK_LIGHT_CLASS} min-h-screen bg-[#F8F9FA]`} style={{ colorScheme: "light" }}>
+      <ForceLightModeStyles />
 
       {paystackIsActive && item && (
         <PaystackFloatingHeader itemName={item.name} onBack={handlePaystackBack} />

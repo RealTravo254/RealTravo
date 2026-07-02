@@ -9,7 +9,6 @@ import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const getPriceLabel = (isFlexibleDate: boolean, isTrip: boolean) => {
-  // If it's a flexible trip, we handle the "From" label inline, so no suffix is returned here
   if (isFlexibleDate && isTrip) return "";
   return "/person";
 };
@@ -188,7 +187,7 @@ const ListingCardComponent = ({
         "group relative flex flex-col overflow-hidden cursor-pointer",
         "rounded-2xl bg-white shadow-md border border-slate-200",
         "hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200",
-        "w-full",
+        "w-full max-w-[440px] sm:max-w-none mx-auto", // Centered and slightly wider baseline constraint on small viewports
         isUnavailable && "opacity-75",
       )}
     >
@@ -237,15 +236,15 @@ const ListingCardComponent = ({
         <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/50 to-transparent pointer-events-none z-10" />
 
         {/* Type badge — top-left */}
-        <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-1.5">
+        <div className="absolute top-3 left-3 z-20 flex items-center gap-1.5">
           <span
-            className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg shadow text-white"
+            className="text-[11px] sm:text-[10px] font-black uppercase tracking-wider px-3 py-1.5 sm:px-2.5 sm:py-1 rounded-lg shadow text-white"
             style={{ backgroundColor: accentColor }}
           >
             {displayType}
           </span>
           {urgencyBadge && (
-            <span className={cn("text-[9px] font-bold px-2 py-0.5 rounded-full text-white shadow", urgencyBadge.bg)}>
+            <span className={cn("text-[10px] sm:text-[9px] font-bold px-2.5 py-1 sm:px-2 sm:py-0.5 rounded-full text-white shadow", urgencyBadge.bg)}>
               {urgencyBadge.text}
             </span>
           )}
@@ -255,27 +254,27 @@ const ListingCardComponent = ({
         {!hideSave && onSave && (
           <button
             onClick={(e) => { e.stopPropagation(); onSave(id, type); }}
-            className="absolute top-2.5 right-2.5 z-20 h-8 w-8 rounded-full bg-white/90 shadow-md flex items-center justify-center hover:scale-110 active:scale-95 transition-transform"
+            className="absolute top-3 right-3 z-20 h-9 w-9 sm:h-8 sm:w-8 rounded-full bg-white/90 shadow-md flex items-center justify-center hover:scale-110 active:scale-95 transition-transform"
           >
-            <Heart className={cn("h-4 w-4", isSaved ? "fill-red-500 text-red-500" : "text-slate-500")} />
+            <Heart className={cn("h-[18px] w-[18px] sm:h-4 sm:w-4", isSaved ? "fill-red-500 text-red-500" : "text-slate-500")} />
           </button>
         )}
 
         {/* Duration pill — bottom-left, over gradient */}
         {durationText && (
-          <div className="absolute bottom-2.5 left-2.5 z-20 flex items-center gap-1 bg-black/70 backdrop-blur-sm rounded-full px-2.5 py-1">
-            <Timer className="h-3 w-3 text-white" />
-            <span className="text-[11px] font-bold text-white leading-none">{durationText}</span>
+          <div className="absolute bottom-3 left-3 z-20 flex items-center gap-1 bg-black/70 backdrop-blur-sm rounded-full px-3 py-1.5 sm:px-2.5 sm:py-1">
+            <Timer className="h-3.5 w-3.5 sm:h-3 sm:w-3 text-white" />
+            <span className="text-xs sm:text-[11px] font-bold text-white leading-none">{durationText}</span>
           </div>
         )}
 
         {/* Rating pill — bottom-right, over gradient */}
         {avgRating != null && avgRating > 0 && (
-          <div className="absolute bottom-2.5 right-2.5 z-20 flex items-center gap-1 bg-white/95 rounded-full px-2 py-0.5 shadow">
-            <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-            <span className="text-[11px] font-black text-slate-800 leading-none">{avgRating.toFixed(1)}</span>
+          <div className="absolute bottom-3 right-3 z-20 flex items-center gap-1 bg-white/95 rounded-full px-2.5 py-1 sm:px-2 sm:py-0.5 shadow">
+            <Star className="h-3.5 w-3.5 sm:h-3 sm:w-3 fill-amber-400 text-amber-400" />
+            <span className="text-xs sm:text-[11px] font-black text-slate-800 leading-none">{avgRating.toFixed(1)}</span>
             {reviewCount != null && reviewCount > 0 && (
-              <span className="text-[9px] font-semibold text-slate-500">({reviewCount})</span>
+              <span className="text-[10px] sm:text-[9px] font-semibold text-slate-500">({reviewCount})</span>
             )}
           </div>
         )}
@@ -284,30 +283,30 @@ const ListingCardComponent = ({
         {allSlideImages.length > 1 && currentSlide > 0 && (
           <button
             onClick={(e) => goToSlide(currentSlide - 1, e)}
-            className="absolute left-2 top-1/2 -translate-y-1/2 z-20 h-7 w-7 rounded-full bg-white/90 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+            className="absolute left-2 top-1/2 -translate-y-1/2 z-20 h-8 w-8 sm:h-7 sm:w-7 rounded-full bg-white/90 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
           >
-            <ChevronLeft className="h-4 w-4 text-slate-700" />
+            <ChevronLeft className="h-5 w-5 sm:h-4 sm:w-4 text-slate-700" />
           </button>
         )}
         {allSlideImages.length > 1 && currentSlide < visibleDots - 1 && (
           <button
             onClick={(e) => goToSlide(currentSlide + 1, e)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 z-20 h-7 w-7 rounded-full bg-white/90 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+            className="absolute right-2 top-1/2 -translate-y-1/2 z-20 h-8 w-8 sm:h-7 sm:w-7 rounded-full bg-white/90 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
           >
-            <ChevronRight className="h-4 w-4 text-slate-700" />
+            <ChevronRight className="h-5 w-5 sm:h-4 sm:w-4 text-slate-700" />
           </button>
         )}
 
         {/* Dot indicators */}
         {allSlideImages.length > 1 && (
-          <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1">
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 sm:gap-1">
             {Array.from({ length: visibleDots }).map((_, idx) => (
               <button
                 key={idx}
                 onClick={(e) => goToSlide(idx, e)}
                 className={cn(
                   "rounded-full transition-all",
-                  idx === currentSlide ? "w-2 h-2 bg-white shadow" : "w-1.5 h-1.5 bg-white/50",
+                  idx === currentSlide ? "w-2.5 h-2.5 sm:w-2 sm:h-2 bg-white shadow" : "w-2 h-2 sm:w-1.5 sm:h-1.5 bg-white/50",
                 )}
               />
             ))}
@@ -317,7 +316,7 @@ const ListingCardComponent = ({
         {/* Unavailable overlay */}
         {isUnavailable && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40 backdrop-blur-[1px]">
-            <span className="rounded-lg border border-white/70 px-3 py-1 text-[11px] font-black uppercase text-white tracking-wider">
+            <span className="rounded-lg border border-white/70 px-4 py-1.5 sm:px-3 sm:py-1 text-xs sm:text-[11px] font-black uppercase text-white tracking-wider">
               {isSoldOut ? "Sold Out" : "Unavailable"}
             </span>
           </div>
@@ -325,38 +324,35 @@ const ListingCardComponent = ({
       </div>
 
       {/* ── Info panel ── */}
-      <div className="flex flex-col p-3 gap-2 bg-white">
+      <div className="flex flex-col p-4 sm:p-3 gap-2.5 sm:gap-2 bg-white">
 
-        {/* Name — large, heavy, dark, always visible */}
-        <h3
-          className="font-black text-slate-900 leading-tight line-clamp-2"
-          style={{ fontSize: "13px", letterSpacing: "-0.01em" }}
-        >
+        {/* Name — scaled text size up for mobile */}
+        <h3 className="font-black text-slate-900 leading-tight line-clamp-2 text-sm sm:text-[13px] tracking-tight sm:tracking-[-0.01em]">
           {formattedName}
         </h3>
 
-        {/* Location — distinct teal-tinted, clearly readable */}
+        {/* Location — larger icons and layout text sizes for mobile devices */}
         <div className="flex items-center gap-1.5">
-          <MapPin className="h-3.5 w-3.5 flex-shrink-0" style={{ color: accentColor }} />
+          <MapPin className="h-4 w-4 sm:h-3.5 sm:w-3.5 flex-shrink-0" style={{ color: accentColor }} />
           <span
-            className="text-[11px] font-bold truncate capitalize"
+            className="text-xs sm:text-[11px] font-bold truncate capitalize"
             style={{ color: "#1e293b" }}
           >
             {locationString.toLowerCase()}
           </span>
         </div>
 
-        {/* Price — prominent, coloured */}
+        {/* Price — Prominent scaling adjustments */}
         {!hidePrice && price != null && price > 0 && (
           <div className={cn("flex items-baseline gap-1", isUnavailable && "opacity-50 line-through")}>
             <span
-              className="font-black leading-none"
-              style={{ fontSize: "15px", color: accentColor }}
+              className="font-black leading-none text-base sm:text-[15px]"
+              style={{ color: accentColor }}
             >
               {isFlexibleDate && isTrip ? `From ${formatPrice(price)}` : formatPrice(price)}
             </span>
             {!(isFlexibleDate && isTrip) && (
-              <span className="text-[10px] font-semibold text-slate-500">
+              <span className="text-[11px] sm:text-[10px] font-semibold text-slate-500">
                 {getPriceLabel(isFlexibleDate, isTrip)}
               </span>
             )}
@@ -364,36 +360,36 @@ const ListingCardComponent = ({
         )}
 
         {/* Meta row — date / flexible / hours / duration */}
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5 sm:gap-x-3 sm:gap-y-1">
           {/* Date (trips) */}
           {isTrip && date && !isFlexibleDate && (
             <div className="flex items-center gap-1">
-              <Calendar className="h-3 w-3 text-slate-400" />
-              <span className="text-[11px] font-semibold text-slate-700">
+              <Calendar className="h-3.5 w-3.5 sm:h-3 sm:w-3 text-slate-400" />
+              <span className="text-xs sm:text-[11px] font-semibold text-slate-700">
                 {new Date(date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
               </span>
             </div>
           )}
           {isTrip && isFlexibleDate && (
             <div className="flex items-center gap-1">
-              <Calendar className="h-3 w-3 text-slate-400" />
-              <span className="text-[11px] font-semibold text-slate-700">Flexible</span>
+              <Calendar className="h-3.5 w-3.5 sm:h-3 sm:w-3 text-slate-400" />
+              <span className="text-xs sm:text-[11px] font-semibold text-slate-700">Flexible</span>
             </div>
           )}
 
           {/* Duration */}
           {durationText && (
             <div className="flex items-center gap-1">
-              <Timer className="h-3 w-3 text-slate-400" />
-              <span className="text-[11px] font-semibold text-slate-700">{durationText}</span>
+              <Timer className="h-3.5 w-3.5 sm:h-3 sm:w-3 text-slate-400" />
+              <span className="text-xs sm:text-[11px] font-semibold text-slate-700">{durationText}</span>
             </div>
           )}
 
           {/* Opening hours (adventure places) */}
           {hoursText && (
             <div className="flex items-center gap-1">
-              <Clock className="h-3 w-3 text-slate-400" />
-              <span className="text-[11px] font-semibold text-slate-700">{hoursText}</span>
+              <Clock className="h-3.5 w-3.5 sm:h-3 sm:w-3 text-slate-400" />
+              <span className="text-xs sm:text-[11px] font-semibold text-slate-700">{hoursText}</span>
             </div>
           )}
         </div>

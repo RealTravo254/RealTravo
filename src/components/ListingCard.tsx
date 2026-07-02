@@ -9,8 +9,22 @@ import { createDetailPath } from "@/lib/slugUtils";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 
 // ── Price label ─────────────────────────────────────────────────────────────
-const getPriceLabel = (isFlexibleDate: boolean, isTrip: boolean) => {
-  if (isFlexibleDate && isTrip) return "/group";
+// Guided tours (isFlexibleDate && isTrip) show the tour's start time in UTC
+// instead of a "/group" suffix, since group pricing isn't meaningful without
+// knowing when the tour departs. Falls back to a plain "UTC" tag if no date
+// is available yet.
+const getPriceLabel = (isFlexibleDate: boolean, isTrip: boolean, date?: string) => {
+  if (isFlexibleDate && isTrip) {
+    if (date) {
+      const utcTime = new Date(date).toLocaleTimeString("en-GB", {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "UTC",
+      });
+      return `${utcTime} UTC`;
+    }
+    return "UTC";
+  }
   return "/person";
 };
 
@@ -32,20 +46,23 @@ const PriceText = ({
   isUnavailable,
   isFlexibleDate,
   isTrip,
+  date,
 }: {
   price: number;
   isUnavailable: boolean;
   isFlexibleDate: boolean;
   isTrip: boolean;
+  date?: string;
 }) => {
   const { formatPrice } = useCurrency();
   return (
     <div className={cn("flex items-baseline gap-1", isUnavailable && "opacity-50 line-through")}>
-      <span className="text-sm font-bold text-slate-900 dark:text-slate-50 tabular-nums whitespace-nowrap">
+      <span className="text-[10px] text-slate-500 font-medium">From</span>
+      <span className="text-sm font-bold text-slate-900 tabular-nums whitespace-nowrap">
         {formatPrice(price)}
       </span>
-      <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
-        {getPriceLabel(isFlexibleDate, isTrip)}
+      <span className="text-[10px] text-slate-500 font-medium">
+        {getPriceLabel(isFlexibleDate, isTrip, date)}
       </span>
     </div>
   );
@@ -157,7 +174,7 @@ const ListingCardComponent = ({
     if (isOutdated)
       return { text: "Passed", color: "bg-muted text-muted-foreground border-border" };
     if (fewSlotsRemaining)
-      return { text: `${remainingTickets} left`, color: "bg-orange-50 dark:bg-orange-950/40 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-900/50" };
+      return { text: `${remainingTickets} left`, color: "bg-orange-50 text-orange-700 border-orange-200" };
     return null;
   }, [isSoldOut, isOutdated, fewSlotsRemaining, remainingTickets]);
 
@@ -191,10 +208,32 @@ const ListingCardComponent = ({
 
   const visibleDots = Math.min(loadedSlides, allSlideImages.length);
 
+  // Parses "HH:MM" into minutes since midnight so we can measure the span
+  // between opening and closing time, including overnight wraparound
+  // (e.g. opens 06:00, closes 05:00 the next day).
+  const parseTimeToMinutes = (t: string): number | null => {
+    const match = t.match(/^(\d{1,2}):(\d{2})/);
+    if (!match) return null;
+    const hours = Number(match[1]);
+    const minutes = Number(match[2]);
+    if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
+    return hours * 60 + minutes;
+  };
+
   const hoursText = useMemo(() => {
-    if (openingHours || closingHours)
-      return `${openingHours ?? "08:00"} – ${closingHours ?? "18:00"}`;
-    return null;
+    if (!openingHours && !closingHours) return null;
+    const open = openingHours ?? "08:00";
+    const close = closingHours ?? "18:00";
+
+    const openMinutes = parseTimeToMinutes(open);
+    const closeMinutes = parseTimeToMinutes(close);
+    if (openMinutes != null && closeMinutes != null) {
+      let spanMinutes = closeMinutes - openMinutes;
+      if (spanMinutes <= 0) spanMinutes += 24 * 60;
+      if (spanMinutes >= 23 * 60) return "Open 24 hours";
+    }
+
+    return `${open} – ${close}`;
   }, [openingHours, closingHours]);
 
   const distanceText = useMemo(() => {
@@ -283,9 +322,9 @@ const ListingCardComponent = ({
             onClick={(e) => { e.stopPropagation(); onSave(id, type); }}
             aria-label={isSaved ? "Remove from saved" : "Save"}
             aria-pressed={isSaved}
-            className="absolute top-2.5 right-2.5 z-20 h-8 w-8 rounded-full bg-white/90 dark:bg-slate-900/90 shadow flex items-center justify-center hover:bg-white dark:hover:bg-slate-800 active:scale-90 transition-all"
+            className="absolute top-2.5 right-2.5 z-20 h-8 w-8 rounded-full bg-white/90 shadow flex items-center justify-center hover:bg-white active:scale-90 transition-all"
           >
-            <Heart className={cn("h-4 w-4 transition-colors", isSaved ? "fill-red-500 text-red-500" : "text-slate-600 dark:text-slate-300")} />
+            <Heart className={cn("h-4 w-4 transition-colors", isSaved ? "fill-red-500 text-red-500" : "text-slate-600")} />
           </button>
         )}
 
@@ -296,7 +335,7 @@ const ListingCardComponent = ({
               <button
                 onClick={(e) => goToSlide(currentSlide - 1, e)}
                 aria-label="Previous photo"
-                className="absolute left-2 top-1/2 -translate-y-1/2 z-20 h-7 w-7 rounded-full bg-white/90 dark:bg-slate-900/90 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                className="absolute left-2 top-1/2 -translate-y-1/2 z-20 h-7 w-7 rounded-full bg-white/90 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
               >
                 <ChevronLeft className="h-4 w-4 text-foreground" />
               </button>
@@ -305,7 +344,7 @@ const ListingCardComponent = ({
               <button
                 onClick={(e) => goToSlide(currentSlide + 1, e)}
                 aria-label="Next photo"
-                className="absolute right-2 top-1/2 -translate-y-1/2 z-20 h-7 w-7 rounded-full bg-white/90 dark:bg-slate-900/90 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                className="absolute right-2 top-1/2 -translate-y-1/2 z-20 h-7 w-7 rounded-full bg-white/90 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
               >
                 <ChevronRight className="h-4 w-4 text-foreground" />
               </button>
@@ -346,24 +385,24 @@ const ListingCardComponent = ({
       {/* ── Text content ── */}
       <div className="flex flex-col gap-1.5 p-3 min-w-0">
         {/* Title */}
-        <h3 className="line-clamp-2 text-sm font-bold leading-snug text-slate-900 dark:text-slate-50">
+        <h3 className="line-clamp-2 text-sm font-bold leading-snug text-slate-900">
           {formattedName}
         </h3>
 
         {/* Location + rating, on one row so the card doesn't feel like a stack of separate facts */}
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1 min-w-0 text-slate-500 dark:text-slate-400">
+          <div className="flex items-center gap-1 min-w-0 text-slate-500">
             <MapPin className="h-3 w-3 flex-shrink-0" />
             <span className="text-[11px] font-medium truncate">{locationString}</span>
           </div>
           {avgRating != null && avgRating > 0 && (
             <div className="flex items-center gap-0.5 flex-shrink-0">
               <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-              <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 tabular-nums">
+              <span className="text-[11px] font-bold text-slate-800 tabular-nums">
                 {avgRating.toFixed(1)}
               </span>
               {reviewCount != null && reviewCount > 0 && (
-                <span className="text-[10px] text-slate-500 dark:text-slate-400">({reviewCount})</span>
+                <span className="text-[10px] text-slate-500">({reviewCount})</span>
               )}
             </div>
           )}
@@ -371,7 +410,7 @@ const ListingCardComponent = ({
 
         {/* Secondary meta row: date / hours / distance — only render what applies */}
         {(isTrip && (date || isFlexibleDate)) || hoursText || distanceText ? (
-          <div className="flex items-center gap-2.5 flex-wrap text-slate-500 dark:text-slate-400">
+          <div className="flex items-center gap-2.5 flex-wrap text-slate-500">
             {isTrip && (date || isFlexibleDate) && (
               <span className="flex items-center gap-1 text-[10px] font-medium">
                 <Calendar className="h-3 w-3" />
@@ -396,7 +435,7 @@ const ListingCardComponent = ({
         {/* Price, anchored to the bottom of the card */}
         {!hidePrice && price != null && price > 0 && (
           <div className="pt-0.5">
-            <PriceText price={price} isUnavailable={isUnavailable} isFlexibleDate={isFlexibleDate} isTrip={isTrip} />
+            <PriceText price={price} isUnavailable={isUnavailable} isFlexibleDate={isFlexibleDate} isTrip={isTrip} date={date} />
           </div>
         )}
       </div>

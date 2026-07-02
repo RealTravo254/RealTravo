@@ -1,5 +1,5 @@
 import React, { useState, memo, useCallback, useMemo, useRef } from "react";
-import { MapPin, Star, Calendar, ChevronLeft, ChevronRight, Clock, Heart } from "lucide-react";
+import { MapPin, Star, Calendar, ChevronLeft, ChevronRight, Heart } from "lucide-react";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -61,7 +61,6 @@ const ListingCardComponent = ({
   availableTickets = 0, bookedTickets = 0,
   priority = false, avgRating, reviewCount, place,
   isFlexibleDate = false, hidePrice = false, categoryColor,
-  openingHours, closingHours,
 }: ListingCardProps) => {
   const navigate = useNavigate();
   const { formatPrice } = useCurrency();
@@ -115,31 +114,6 @@ const ListingCardComponent = ({
       setLoadedSlides((prev) => Math.min(prev + 2, allSlideImages.length));
     }
   }, [allSlideImages.length, loadedSlides]);
-
-  const hoursText = useMemo(() => {
-    const start = openingHours ?? "08:00";
-    const end = closingHours ?? "18:00";
-
-    // Show hours layout for tours/trips or explicitly when provided
-    if (openingHours || closingHours || isGuidedTour || isTrip) {
-      try {
-        const [startH, startM] = start.split(":").map(Number);
-        const [endH, endM] = end.split(":").map(Number);
-        
-        // Basic calculation for duration within standard operational boundaries
-        let durationMinutes = (endH * 60 + endM) - (startH * 60 + startM);
-        if (durationMinutes < 0) durationMinutes += 24 * 60; // handles overnight windows if applicable
-
-        const hours = Math.floor(durationMinutes / 60);
-        const durationText = hours > 0 ? ` (${hours} hours)` : "";
-
-        return `${start} - ${end}${durationText}`;
-      } catch (err) {
-        return `${start} - ${end}`;
-      }
-    }
-    return null;
-  }, [openingHours, closingHours, isGuidedTour, isTrip]);
 
   return (
     <Card
@@ -243,15 +217,15 @@ const ListingCardComponent = ({
           {formattedName}
         </h3>
 
-        {/* Location Block - Set text and icon stroke to soft grey (#64748b) */}
+        {/* Location Block - Set to font-bold and darker color (#0f172a) */}
         <div className="flex items-center gap-2">
-          <MapPin className="h-4 w-4 flex-shrink-0" style={{ stroke: "#64748b" }} />
-          <span className="text-xs font-normal truncate capitalize" style={{ color: "#64748b" }}>
+          <MapPin className="h-4 w-4 flex-shrink-0" style={{ stroke: "#475569" }} />
+          <span className="text-xs font-bold truncate capitalize" style={{ color: "#0f172a" }}>
             {locationString}
           </span>
         </div>
 
-        {/* Price Block - Reformatted to display "From [Price]" explicitly */}
+        {/* Price Block */}
         {!hidePrice && price != null && price > 0 && (
           <div className={cn("flex items-baseline gap-1 mt-0.5", isUnavailable && "opacity-40 line-through")}>
             <span className="text-xs font-normal mr-0.5" style={{ color: "#475569" }}>
@@ -263,22 +237,12 @@ const ListingCardComponent = ({
           </div>
         )}
 
-        {/* Date / Trip details Block - Set text and icon stroke to soft grey (#64748b) */}
+        {/* Date / Trip details Block - Stays soft grey (#64748b) */}
         {isTrip && (date || isFlexibleDate) && (
           <div className="flex items-center gap-2">
             <Calendar className="h-4 w-4 flex-shrink-0" style={{ stroke: "#64748b" }} />
             <span className="text-xs font-normal" style={{ color: "#64748b" }}>
               {isFlexibleDate ? "Flexible Dates" : new Date(date!).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
-            </span>
-          </div>
-        )}
-
-        {/* Operational Hours Block - Set text and icon stroke to soft grey (#64748b) */}
-        {hoursText && (
-          <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 flex-shrink-0" style={{ stroke: "#64748b" }} />
-            <span className="text-xs font-normal" style={{ color: "#64748b" }}>
-              {hoursText}
             </span>
           </div>
         )}

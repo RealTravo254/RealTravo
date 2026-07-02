@@ -217,7 +217,7 @@ const ListingCardComponent = ({
           {formattedName}
         </h3>
 
-        {/* Location Block - Set to font-bold and darker color (#0f172a) */}
+        {/* Location Block - Kept as font-bold and dark color (#0f172a) */}
         <div className="flex items-center gap-2">
           <MapPin className="h-4 w-4 flex-shrink-0" style={{ stroke: "#475569" }} />
           <span className="text-xs font-bold truncate capitalize" style={{ color: "#0f172a" }}>
@@ -237,7 +237,7 @@ const ListingCardComponent = ({
           </div>
         )}
 
-        {/* Date / Trip details Block - Stays soft grey (#64748b) */}
+        {/* Date / Trip details Block - Soft grey layout (#64748b) */}
         {isTrip && (date || isFlexibleDate) && (
           <div className="flex items-center gap-2">
             <Calendar className="h-4 w-4 flex-shrink-0" style={{ stroke: "#64748b" }} />

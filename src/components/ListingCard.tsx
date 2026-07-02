@@ -8,6 +8,14 @@ import { useNavigate } from "react-router-dom";
 import { createDetailPath } from "@/lib/slugUtils";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 
+// ── Theme ────────────────────────────────────────────────────────────────────
+// Hardcoded brand teal. The category badge previously relied on the
+// `bg-primary` / `text-primary-foreground` CSS variables, which in light mode
+// resolved to a very light background with white text — making the label
+// unreadable. We now set the teal explicitly so it always renders correctly
+// in both light and dark mode.
+const TEAL = "#008080";
+
 // ── Price label ───────────────────────────────────────────────────────────────
 const getPriceLabel = (isFlexibleDate: boolean, isTrip: boolean) => {
   if (isFlexibleDate && isTrip) return "/group";
@@ -190,7 +198,7 @@ const ListingCardComponent = ({
       className={cn(
         "group relative flex flex-col overflow-hidden cursor-pointer bg-card transition-all duration-300",
         "rounded-xl border border-border shadow-sm",
-        "hover:shadow-md hover:border-primary/20",
+        "hover:shadow-md hover:border-[#008080]/30",
         "w-full",
         isUnavailable && "opacity-80",
       )}
@@ -235,14 +243,13 @@ const ListingCardComponent = ({
           ))}
         </div>
 
-        {/* Category badge — top-left */}
+        {/* Category badge — top-left. Teal background is set explicitly (not
+            via the bg-primary/text-primary-foreground CSS vars) so the label
+            stays legible in both light and dark mode. */}
         <div className="absolute top-2 left-2 z-20 flex items-center gap-1.5">
           <span
-            className={cn(
-              "text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md shadow-sm backdrop-blur-sm",
-              !categoryColor && "text-primary-foreground bg-primary/90",
-            )}
-            style={categoryColor ? { color: "#fff", backgroundColor: `${categoryColor}dd` } : undefined}
+            className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md shadow-sm backdrop-blur-sm text-white"
+            style={{ backgroundColor: categoryColor ? `${categoryColor}dd` : `${TEAL}e6` }}
           >
             {displayType}
           </span>
@@ -329,8 +336,11 @@ const ListingCardComponent = ({
         )}
       </div>
 
-      {/* ── Text content ── */}
-      <div className="flex flex-col gap-1 p-2.5 min-w-0">
+      {/* ── Text content ──
+          All text below uses explicit slate shades with light/dark variants
+          so it renders visibly in both themes (previously some labels
+          leaned on the `primary` CSS var which could wash out in light mode). */}
+      <div className="flex flex-col gap-1 p-2.5 min-w-0 bg-white dark:bg-slate-900">
         {/* Title */}
         <h3 className="line-clamp-2 text-xs font-bold leading-snug text-slate-900 dark:text-slate-50">
           {formattedName}

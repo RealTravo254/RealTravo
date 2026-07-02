@@ -116,20 +116,33 @@ const ListingCardComponent = ({
     }
   }, [allSlideImages.length, loadedSlides]);
 
-  // Computes the duration inline suffix if hours are provided
-  const durationSuffix = useMemo(() => {
-    if (!openingHours && !closingHours) return "";
+  // Formats start/end hours and appends calculated total duration string
+  const inlineHoursAndDuration = useMemo(() => {
+    const start = openingHours ?? "09:00";
+    const end = closingHours ?? "16:00";
+
     try {
-      const [startH, startM] = (openingHours ?? "08:00").split(":").map(Number);
-      const [endH, endM] = (closingHours ?? "18:00").split(":").map(Number);
+      const [startH, startM] = start.split(":").map(Number);
+      const [endH, endM] = end.split(":").map(Number);
       
       let durationMinutes = (endH * 60 + endM) - (startH * 60 + startM);
       if (durationMinutes < 0) durationMinutes += 24 * 60;
 
       const hours = Math.floor(durationMinutes / 60);
-      return hours > 0 ? ` (${hours} hrs)` : "";
+      const durationText = hours > 0 ? ` (${hours} hrs)` : "";
+
+      // Helper function to turn 24h into AM/PM
+      const formatAMPM = (h: number, m: number) => {
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        const displayH = h % 12 || 12;
+        const displayM = m.toString().padStart(2, '0');
+        return `${displayH}:${displayM} ${ampm}`;
+      };
+
+      const timeRangeString = `${formatAMPM(startH, startM)} - ${formatAMPM(endH, endM)}`;
+      return `${timeRangeString}${durationText}`;
     } catch (err) {
-      return "";
+      return `${start} - ${end}`;
     }
   }, [openingHours, closingHours]);
 
@@ -235,7 +248,7 @@ const ListingCardComponent = ({
           {formattedName}
         </h3>
 
-        {/* Location Block */}
+        {/* Location Block - Kept bold and dark color (#0f172a) */}
         <div className="flex items-center gap-2">
           <MapPin className="h-4 w-4 flex-shrink-0" style={{ stroke: "#475569" }} />
           <span className="text-xs font-bold truncate capitalize" style={{ color: "#0f172a" }}>
@@ -255,14 +268,21 @@ const ListingCardComponent = ({
           </div>
         )}
 
-        {/* Date Block - Combined with duration suffix right on the right side */}
+        {/* Date / Trip Details Block - Displays dates OR explicit starting hours, ending hours, and duration */}
         {isTrip && (date || isFlexibleDate) && (
-          <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 flex-shrink-0" style={{ stroke: "#64748b" }} />
-            <span className="text-xs font-normal" style={{ color: "#64748b" }}>
-              {isFlexibleDate ? "Flexible Dates" : new Date(date!).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
-              {durationSuffix}
-            </span>
+          <div className="flex flex-col gap-1.5 mt-0.5">
+            {/* Base Date Line */}
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 flex-shrink-0" style={{ stroke: "#64748b" }} />
+              <span className="text-xs font-normal" style={{ color: "#64748b" }}>
+                {isFlexibleDate ? "Flexible Dates" : new Date(date!).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+              </span>
+            </div>
+            
+            {/* Hours, End Hours, and Total Duration Line */}
+            <div className="text-xs font-normal pl-6" style={{ color: "#64748b" }}>
+              {inlineHoursAndDuration}
+            </div>
           </div>
         )}
 

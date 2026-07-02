@@ -1,5 +1,5 @@
 import React, { useState, memo, useCallback, useMemo, useRef } from "react";
-import { MapPin, Star, Calendar, ChevronLeft, ChevronRight, Heart } from "lucide-react";
+import { MapPin, Star, Calendar, ChevronLeft, ChevronRight, Clock, Heart } from "lucide-react";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -8,12 +8,39 @@ import { useNavigate } from "react-router-dom";
 import { createDetailPath } from "@/lib/slugUtils";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 
+// ── Price label ───────────────────────────────────────────────────────────────
+const getPriceLabel = (isFlexibleDate: boolean, isTrip: boolean) => {
+  if (isFlexibleDate && isTrip) return "/group";
+  return "/person";
+};
+
+// ── Category badge labels for adventure_places ────────────────────────────────
 const CATEGORY_LABELS: Record<string, string> = {
   hotel:         "Hotel",
   park:          "Park",
   campsite:      "Campsite",
   attraction:    "Attraction",
   accommodation: "Accommodation",
+};
+
+const PriceText = ({
+  price,
+  isUnavailable,
+  isFlexibleDate,
+  isTrip,
+}: {
+  price: number;
+  isUnavailable: boolean;
+  isFlexibleDate: boolean;
+  isTrip: boolean;
+}) => {
+  const { formatPrice } = useCurrency();
+  return (
+    <div className={cn("flex items-center gap-1", isUnavailable && "opacity-50 line-through")}>
+      <span className="text-xs font-bold text-slate-900 dark:text-slate-50 whitespace-nowrap">{formatPrice(price)}</span>
+      <span className="text-[8px] text-slate-500 dark:text-slate-400 font-medium">{getPriceLabel(isFlexibleDate, isTrip)}</span>
+    </div>
+  );
 };
 
 export interface ListingCardProps {
@@ -57,14 +84,13 @@ export interface ListingCardProps {
 
 const ListingCardComponent = ({
   id, type, category, name, imageUrl, location, price, date,
-  isOutdated = false, onSave, isSaved = false, hideSave = false,
+  isOutdated = false, activities, onSave, isSaved = false, hideSave = false,
   availableTickets = 0, bookedTickets = 0,
   priority = false, avgRating, reviewCount, place,
   isFlexibleDate = false, hidePrice = false, categoryColor,
   openingHours, closingHours,
 }: ListingCardProps) => {
   const navigate = useNavigate();
-  const { formatPrice } = useCurrency();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [loadedSlides, setLoadedSlides] = useState(2);
   const [imageLoadStates, setImageLoadStates] = useState<Record<number, boolean>>({});
@@ -78,10 +104,12 @@ const ListingCardComponent = ({
 
   const isTrip = type === "TRIP";
   const isAdventurePlace = type === "ADVENTURE PLACE";
+
   const remainingTickets = availableTickets - bookedTickets;
   const isSoldOut = isTrip && availableTickets > 0 && remainingTickets <= 0;
   const fewSlotsRemaining = isTrip && remainingTickets > 0 && remainingTickets <= 10;
   const isUnavailable = isOutdated || isSoldOut;
+
   const isGuidedTour = isFlexibleDate && isTrip;
 
   const displayType = useMemo(() => {
@@ -91,76 +119,87 @@ const ListingCardComponent = ({
     return "Attraction";
   }, [isAdventurePlace, isGuidedTour, isTrip, category]);
 
-  const formattedName = useMemo(() => name.replace(/\b\w/g, (c) => c.toUpperCase()), [name]);
-  const locationString = useMemo(() => [place, location].filter(Boolean).join(", "), [place, location]);
+  const formattedName = useMemo(
+    () => name.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()),
+    [name],
+  );
+  const locationString = useMemo(
+    () => [place, location].filter(Boolean).join(", "),
+    [place, location],
+  );
 
   const handleCardClick = useCallback(() => {
-    const typeMap: Record<string, string> = { TRIP: "trip", "ADVENTURE PLACE": "adventure", ATTRACTION: "attraction" };
+    const typeMap: Record<string, string> = {
+      TRIP: "trip",
+      "ADVENTURE PLACE": "adventure",
+      ATTRACTION: "attraction",
+    };
     navigate(createDetailPath(typeMap[type], id, name, location));
   }, [navigate, type, id, name, location]);
 
   const urgencyBadge = useMemo(() => {
-    if (isSoldOut) return { text: "Sold out", bg: "#fee2e2", color: "#991b1b" };
-    if (isOutdated) return { text: "Passed", bg: "#f1f5f9", color: "#334155" };
-    if (fewSlotsRemaining) return { text: `🔥 ${remainingTickets} left`, bg: "#ffedd5", color: "#9a3412" };
+    if (isSoldOut)
+      return { text: "Sold out", color: "bg-destructive/10 text-destructive border-destructive/20" };
+    if (isOutdated)
+      return { text: "Passed", color: "bg-muted text-muted-foreground border-border" };
+    if (fewSlotsRemaining)
+      return { text: `🔥 ${remainingTickets} left`, color: "bg-orange-50 dark:bg-orange-950/40 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-900/50" };
     return null;
   }, [isSoldOut, isOutdated, fewSlotsRemaining, remainingTickets]);
 
-  const goToSlide = useCallback((index: number, e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    const maxIndex = Math.min(allSlideImages.length - 1, loadedSlides - 1);
-    const newIndex = Math.max(0, Math.min(index, maxIndex));
-    setCurrentSlide(newIndex);
-    if (newIndex >= loadedSlides - 1 && loadedSlides < allSlideImages.length) {
-      setLoadedSlides((prev) => Math.min(prev + 2, allSlideImages.length));
-    }
-  }, [allSlideImages.length, loadedSlides]);
+  const goToSlide = useCallback(
+    (index: number, e?: React.MouseEvent) => {
+      e?.stopPropagation();
+      const maxIndex = Math.min(allSlideImages.length - 1, loadedSlides - 1);
+      const newIndex = Math.max(0, Math.min(index, maxIndex));
+      setCurrentSlide(newIndex);
+      if (newIndex >= loadedSlides - 1 && loadedSlides < allSlideImages.length) {
+        setLoadedSlides((prev) => Math.min(prev + 2, allSlideImages.length));
+      }
+    },
+    [allSlideImages.length, loadedSlides],
+  );
 
-  // Formats start/end hours and appends calculated total duration string
-  const inlineHoursAndDuration = useMemo(() => {
-    const start = openingHours ?? "09:00";
-    const end = closingHours ?? "16:00";
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  }, []);
 
-    try {
-      const [startH, startM] = start.split(":").map(Number);
-      const [endH, endM] = end.split(":").map(Number);
-      
-      let durationMinutes = (endH * 60 + endM) - (startH * 60 + startM);
-      if (durationMinutes < 0) durationMinutes += 24 * 60;
+  const handleTouchEnd = useCallback(
+    (e: React.TouchEvent) => {
+      const diff = touchStartX.current - e.changedTouches[0].clientX;
+      if (Math.abs(diff) > 40) {
+        if (diff > 0) goToSlide(currentSlide + 1);
+        else goToSlide(currentSlide - 1);
+      }
+    },
+    [currentSlide, goToSlide],
+  );
 
-      const hours = Math.floor(durationMinutes / 60);
-      const durationText = hours > 0 ? ` (${hours} hrs)` : "";
+  const visibleDots = Math.min(loadedSlides, allSlideImages.length);
 
-      // Helper function to turn 24h into AM/PM
-      const formatAMPM = (h: number, m: number) => {
-        const ampm = h >= 12 ? 'PM' : 'AM';
-        const displayH = h % 12 || 12;
-        const displayM = m.toString().padStart(2, '0');
-        return `${displayH}:${displayM} ${ampm}`;
-      };
-
-      const timeRangeString = `${formatAMPM(startH, startM)} - ${formatAMPM(endH, endM)}`;
-      return `${timeRangeString}${durationText}`;
-    } catch (err) {
-      return `${start} - ${end}`;
-    }
+  const hoursText = useMemo(() => {
+    if (openingHours || closingHours)
+      return `${openingHours ?? "08:00"} - ${closingHours ?? "18:00"}`;
+    return null;
   }, [openingHours, closingHours]);
 
   return (
     <Card
       ref={cardRef}
       onClick={handleCardClick}
-      className="group relative flex flex-col overflow-hidden cursor-pointer w-full transition-all duration-300 rounded-xl border shadow-sm hover:shadow-md"
-      style={{ backgroundColor: "#ffffff", borderColor: "#e2e8f0" }}
+      className={cn(
+        "group relative flex flex-col overflow-hidden cursor-pointer bg-card transition-all duration-300",
+        "rounded-xl border border-border shadow-sm",
+        "hover:shadow-md hover:border-primary/20",
+        "w-full",
+        isUnavailable && "opacity-80",
+      )}
     >
-      {/* ── IMAGE SECTION ── */}
+      {/* ── Image area ── */}
       <div
-        className="relative w-full overflow-hidden aspect-[4/3]"
-        onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
-        onTouchEnd={(e) => {
-          const diff = touchStartX.current - e.changedTouches[0].clientX;
-          if (Math.abs(diff) > 40) diff > 0 ? goToSlide(currentSlide + 1) : goToSlide(currentSlide - 1);
-        }}
+        className="relative w-full overflow-hidden aspect-[1/1] sm:aspect-[4/3]"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
       >
         <div
           ref={slideContainerRef}
@@ -169,138 +208,182 @@ const ListingCardComponent = ({
         >
           {allSlideImages.slice(0, loadedSlides).map((img, idx) => (
             <div key={idx} className="min-w-full h-full flex-shrink-0 relative">
-              {!imageLoadStates[idx] && <Skeleton className="absolute inset-0 h-full w-full rounded-none" />}
+              {!imageLoadStates[idx] && (
+                <Skeleton className="absolute inset-0 h-full w-full rounded-none" />
+              )}
               {shouldLoad && (
                 <img
-                  src={img.includes("supabase.co/storage") ? optimizeSupabaseImage(img, { width: 500, height: 375, quality: 80 }) : img}
+                  src={
+                    img.includes("supabase.co/storage")
+                      ? optimizeSupabaseImage(img, { width: 500, height: 375, quality: 80 })
+                      : img
+                  }
                   alt={`${name} - ${idx + 1}`}
                   onLoad={() => setImageLoadStates((prev) => ({ ...prev, [idx]: true }))}
-                  className={cn("w-full h-full object-cover transition-opacity duration-300", imageLoadStates[idx] ? "opacity-100" : "opacity-0", isUnavailable && "grayscale-[0.5]")}
+                  onError={(e) => {
+                    const t = e.target as HTMLImageElement;
+                    if (t.src !== img) t.src = img;
+                  }}
+                  className={cn(
+                    "w-full h-full object-cover",
+                    imageLoadStates[idx] ? "opacity-100" : "opacity-0",
+                    isUnavailable && "grayscale-[0.5]",
+                  )}
                 />
               )}
             </div>
           ))}
         </div>
 
-        {/* Badges Overlay */}
+        {/* Category badge — top-left */}
         <div className="absolute top-2 left-2 z-20 flex items-center gap-1.5">
           <span
-            className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded shadow"
-            style={{ color: "#ffffff", backgroundColor: categoryColor || "#0f172a" }}
+            className={cn(
+              "text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md shadow-sm backdrop-blur-sm",
+              !categoryColor && "text-primary-foreground bg-primary/90",
+            )}
+            style={categoryColor ? { color: "#fff", backgroundColor: `${categoryColor}dd` } : undefined}
           >
             {displayType}
           </span>
           {urgencyBadge && (
             <span
-              className="text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm border"
-              style={{ backgroundColor: urgencyBadge.bg, color: urgencyBadge.color, borderColor: urgencyBadge.color + "40" }}
+              className={cn(
+                "text-[8px] font-bold px-1.5 py-0.5 rounded-full border backdrop-blur-sm",
+                urgencyBadge.color,
+              )}
             >
               {urgencyBadge.text}
             </span>
           )}
         </div>
 
-        {/* Save/Heart Button */}
+        {/* Golden star rating badge — bottom-right over image */}
+        {avgRating != null && avgRating > 0 && (
+          <div className="absolute bottom-2 right-2 z-20 flex items-center gap-0.5 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm shadow-sm rounded-full px-1.5 py-0.5">
+            <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />
+            <span className="text-[10px] font-bold text-slate-800 dark:text-slate-100 leading-none">
+              {avgRating.toFixed(1)}
+            </span>
+          </div>
+        )}
+
+        {/* Save / heart button — top-right */}
         {!hideSave && onSave && (
           <button
             onClick={(e) => { e.stopPropagation(); onSave(id, type); }}
-            className="absolute top-2 right-2 z-20 h-8 w-8 rounded-full shadow flex items-center justify-center transition-colors border"
-            style={{ backgroundColor: "rgba(255,255,255,0.95)", borderColor: "#e2e8f0" }}
+            className="absolute top-2 right-2 z-20 h-7 w-7 rounded-full bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm shadow flex items-center justify-center hover:bg-white dark:hover:bg-slate-800 transition-colors"
           >
-            <Heart className="h-4 w-4" style={{ fill: isSaved ? "#ef4444" : "none", stroke: isSaved ? "#ef4444" : "#0f172a" }} />
+            <Heart className={cn("h-3.5 w-3.5", isSaved ? "fill-red-500 text-red-500" : "text-slate-600 dark:text-slate-300")} />
           </button>
         )}
 
-        {/* Slides Navigation Controls */}
+        {/* Desktop nav arrows */}
         {allSlideImages.length > 1 && (
           <>
             {currentSlide > 0 && (
-              <button onClick={(e) => goToSlide(currentSlide - 1, e)} className="absolute left-2 top-1/2 -translate-y-1/2 z-20 h-6 w-6 rounded-full bg-white/90 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <ChevronLeft className="h-4 w-4" style={{ stroke: "#0f172a" }} />
+              <button
+                onClick={(e) => goToSlide(currentSlide - 1, e)}
+                className="absolute left-1.5 top-1/2 -translate-y-1/2 z-20 h-6 w-6 rounded-full bg-white/80 dark:bg-slate-900/80 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <ChevronLeft className="h-3.5 w-3.5 text-foreground" />
               </button>
             )}
-            {currentSlide < Math.min(loadedSlides, allSlideImages.length) - 1 && (
-              <button onClick={(e) => goToSlide(currentSlide + 1, e)} className="absolute right-2 top-1/2 -translate-y-1/2 z-20 h-6 w-6 rounded-full bg-white/90 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <ChevronRight className="h-4 w-4" style={{ stroke: "#0f172a" }} />
+            {currentSlide < visibleDots - 1 && (
+              <button
+                onClick={(e) => goToSlide(currentSlide + 1, e)}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 z-20 h-6 w-6 rounded-full bg-white/80 dark:bg-slate-900/80 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <ChevronRight className="h-3.5 w-3.5 text-foreground" />
               </button>
             )}
           </>
         )}
 
-        {/* Image Status Overlay */}
+        {/* Dot indicators */}
+        {allSlideImages.length > 1 && (
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1">
+            {Array.from({ length: visibleDots }).map((_, idx) => (
+              <button
+                key={idx}
+                onClick={(e) => goToSlide(idx, e)}
+                className={cn(
+                  "rounded-full transition-all",
+                  idx === currentSlide ? "w-2 h-2 bg-white shadow-md" : "w-1.5 h-1.5 bg-white/60",
+                )}
+              />
+            ))}
+            {loadedSlides < allSlideImages.length && (
+              <span className="w-1.5 h-1.5 rounded-full bg-white/30" />
+            )}
+          </div>
+        )}
+
+        {/* Sold-out / unavailable overlay */}
         {isUnavailable && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50 backdrop-blur-[1px]">
-            <span className="border border-white px-3 py-1 text-xs font-black uppercase text-white tracking-wider bg-black/20 rounded">
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40 backdrop-blur-[1px]">
+            <span className="rounded-md border border-white/60 px-3 py-0.5 text-[10px] font-black uppercase text-white">
               {isSoldOut ? "Sold Out" : "Unavailable"}
             </span>
           </div>
         )}
       </div>
 
-      {/* ── TEXT CONTENT AREA ── */}
-      <div className="flex flex-col gap-2 p-4 min-w-0" style={{ backgroundColor: "#ffffff" }}>
-        
-        {/* Title Block */}
-        <h3 
-          className="line-clamp-2 text-sm font-normal leading-snug tracking-tight"
-          style={{ color: "#090d16", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}
-        >
+      {/* ── Text content ── */}
+      <div className="flex flex-col gap-1 p-2.5 min-w-0">
+        {/* Title */}
+        <h3 className="line-clamp-2 text-xs font-bold leading-snug text-slate-900 dark:text-slate-50">
           {formattedName}
         </h3>
 
-        {/* Location Block - Kept bold and dark color (#0f172a) */}
-        <div className="flex items-center gap-2">
-          <MapPin className="h-4 w-4 flex-shrink-0" style={{ stroke: "#475569" }} />
-          <span className="text-xs font-bold truncate capitalize" style={{ color: "#0f172a" }}>
-            {locationString}
+        {/* Location */}
+        <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
+          <MapPin className="h-2.5 w-2.5 flex-shrink-0" />
+          <span className="text-[10px] font-medium truncate capitalize">
+            {locationString.toLowerCase()}
           </span>
         </div>
 
-        {/* Price Block */}
+        {/* Price */}
         {!hidePrice && price != null && price > 0 && (
-          <div className={cn("flex items-baseline gap-1 mt-0.5", isUnavailable && "opacity-40 line-through")}>
-            <span className="text-xs font-normal mr-0.5" style={{ color: "#475569" }}>
-              From
-            </span>
-            <span className="text-base font-black whitespace-nowrap" style={{ color: "#020617" }}>
-              {formatPrice(price)}
-            </span>
-          </div>
+          <PriceText
+            price={price}
+            isUnavailable={isUnavailable}
+            isFlexibleDate={isFlexibleDate}
+            isTrip={isTrip}
+          />
         )}
 
-        {/* Date / Trip Details Block - Displays dates OR explicit starting hours, ending hours, and duration */}
+        {/* Date (trips only) */}
         {isTrip && (date || isFlexibleDate) && (
-          <div className="flex flex-col gap-1.5 mt-0.5">
-            {/* Base Date Line */}
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 flex-shrink-0" style={{ stroke: "#64748b" }} />
-              <span className="text-xs font-normal" style={{ color: "#64748b" }}>
-                {isFlexibleDate ? "Flexible Dates" : new Date(date!).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
-              </span>
-            </div>
-            
-            {/* Hours, End Hours, and Total Duration Line */}
-            <div className="text-xs font-normal pl-6" style={{ color: "#64748b" }}>
-              {inlineHoursAndDuration}
-            </div>
+          <div className="flex items-center gap-0.5 text-slate-500 dark:text-slate-400">
+            <Calendar className="h-2.5 w-2.5" />
+            <span className="text-[9px] font-medium">
+              {isFlexibleDate
+                ? "Flexible"
+                : new Date(date!).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
+            </span>
           </div>
         )}
 
-        {/* Separator Line and Rating/Review Block */}
+        {/* Opening hours (adventure places) */}
+        {hoursText && (
+          <div className="flex items-center gap-0.5 text-slate-500 dark:text-slate-400">
+            <Clock className="h-2.5 w-2.5" />
+            <span className="text-[9px] font-medium">{hoursText}</span>
+          </div>
+        )}
+
+        {/* Golden star rating + review count (bottom text area) */}
         {avgRating != null && avgRating > 0 && (
-          <div className="flex items-center gap-1 pt-2 mt-1 border-t" style={{ borderColor: "#f1f5f9" }}>
-            <Star className="h-4 w-4 fill-amber-500 text-amber-500" style={{ fill: "#f59e0b", stroke: "#f59e0b" }} />
-            <span className="text-xs font-black" style={{ color: "#0f172a" }}>
-              {avgRating.toFixed(1)}
-            </span>
+          <div className="flex items-center gap-0.5 pt-0.5">
+            <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />
+            <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200">{avgRating.toFixed(1)}</span>
             {reviewCount != null && reviewCount > 0 && (
-              <span className="text-[11px] font-bold" style={{ color: "#475569" }}>
-                ({reviewCount} reviews)
-              </span>
+              <span className="text-[8px] text-slate-500 dark:text-slate-400">({reviewCount})</span>
             )}
           </div>
         )}
-
       </div>
     </Card>
   );

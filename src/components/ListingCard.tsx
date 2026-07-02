@@ -1,20 +1,16 @@
 import React, { useState, memo, useCallback, useMemo, useRef } from "react";
 import { MapPin, Star, Calendar, ChevronLeft, ChevronRight, Clock, Heart, Timer } from "lucide-react";
 import { useCurrency } from "@/contexts/CurrencyContext";
-import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn, optimizeSupabaseImage } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { createDetailPath } from "@/lib/slugUtils";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 
-// ── Price label ───────────────────────────────────────────────────────────────
-const getPriceLabel = (isFlexibleDate: boolean, isTrip: boolean) => {
-  if (isFlexibleDate && isTrip) return "/group";
-  return "/person";
-};
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const getPriceLabel = (isFlexibleDate: boolean, isTrip: boolean) =>
+  isFlexibleDate && isTrip ? "/group" : "/person";
 
-// ── Category badge labels ─────────────────────────────────────────────────────
 const CATEGORY_LABELS: Record<string, string> = {
   hotel:         "Hotel",
   park:          "Park",
@@ -23,7 +19,6 @@ const CATEGORY_LABELS: Record<string, string> = {
   accommodation: "Accommodation",
 };
 
-// ── Format duration from minutes ──────────────────────────────────────────────
 const formatDuration = (minutes: number): string => {
   if (!minutes || minutes <= 0) return "";
   if (minutes < 60) return `${minutes}m`;
@@ -32,30 +27,7 @@ const formatDuration = (minutes: number): string => {
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 };
 
-const PriceText = ({
-  price,
-  isUnavailable,
-  isFlexibleDate,
-  isTrip,
-}: {
-  price: number;
-  isUnavailable: boolean;
-  isFlexibleDate: boolean;
-  isTrip: boolean;
-}) => {
-  const { formatPrice } = useCurrency();
-  return (
-    <div className={cn("flex items-baseline gap-1", isUnavailable && "opacity-50 line-through")}>
-      <span className="text-sm font-extrabold text-slate-900 dark:text-slate-50 whitespace-nowrap leading-none">
-        {formatPrice(price)}
-      </span>
-      <span className="text-[9px] text-slate-500 dark:text-slate-400 font-semibold">
-        {getPriceLabel(isFlexibleDate, isTrip)}
-      </span>
-    </div>
-  );
-};
-
+// ── Types ─────────────────────────────────────────────────────────────────────
 export interface ListingCardProps {
   id: string;
   type: "TRIP" | "ADVENTURE PLACE" | "ATTRACTION";
@@ -93,13 +65,14 @@ export interface ListingCardProps {
   images?: string[];
   openingHours?: string;
   closingHours?: string;
-  /** Duration in minutes — shown as "2h", "1h 30m", "45m" etc. */
+  /** Duration in minutes — displayed as "2h", "1h 30m", "45m" */
   durationMinutes?: number;
 }
 
+// ── Component ─────────────────────────────────────────────────────────────────
 const ListingCardComponent = ({
   id, type, category, name, imageUrl, location, price, date,
-  isOutdated = false, activities, onSave, isSaved = false, hideSave = false,
+  isOutdated = false, onSave, isSaved = false, hideSave = false,
   availableTickets = 0, bookedTickets = 0,
   priority = false, avgRating, reviewCount, place,
   isFlexibleDate = false, hidePrice = false, categoryColor,
@@ -124,7 +97,6 @@ const ListingCardComponent = ({
   const isSoldOut = isTrip && availableTickets > 0 && remainingTickets <= 0;
   const fewSlotsRemaining = isTrip && remainingTickets > 0 && remainingTickets <= 10;
   const isUnavailable = isOutdated || isSoldOut;
-
   const isGuidedTour = isFlexibleDate && isTrip;
 
   const displayType = useMemo(() => {
@@ -138,6 +110,7 @@ const ListingCardComponent = ({
     () => name.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()),
     [name],
   );
+
   const locationString = useMemo(
     () => [place, location].filter(Boolean).join(", "),
     [place, location],
@@ -153,12 +126,9 @@ const ListingCardComponent = ({
   }, [navigate, type, id, name, location]);
 
   const urgencyBadge = useMemo(() => {
-    if (isSoldOut)
-      return { text: "Sold out", color: "bg-destructive/10 text-destructive border-destructive/20" };
-    if (isOutdated)
-      return { text: "Passed", color: "bg-muted text-muted-foreground border-border" };
-    if (fewSlotsRemaining)
-      return { text: `🔥 ${remainingTickets} left`, color: "bg-orange-50 dark:bg-orange-950/40 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-900/50" };
+    if (isSoldOut)    return { text: "Sold out", bg: "bg-red-500" };
+    if (isOutdated)   return { text: "Passed",   bg: "bg-slate-500" };
+    if (fewSlotsRemaining) return { text: `🔥 ${remainingTickets} left`, bg: "bg-orange-500" };
     return null;
   }, [isSoldOut, isOutdated, fewSlotsRemaining, remainingTickets]);
 
@@ -203,21 +173,26 @@ const ListingCardComponent = ({
     [durationMinutes],
   );
 
+  const { formatPrice } = useCurrency();
+
+  const accentColor = categoryColor ?? "#008080";
+
   return (
-    <Card
+    <div
       ref={cardRef}
       onClick={handleCardClick}
       className={cn(
-        "group relative flex flex-col overflow-hidden cursor-pointer bg-card transition-all duration-300",
-        "rounded-xl border border-border shadow-sm",
-        "hover:shadow-md hover:border-primary/20",
+        "group relative flex flex-col overflow-hidden cursor-pointer",
+        "rounded-2xl bg-white shadow-md border border-slate-200",
+        "hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200",
         "w-full",
-        isUnavailable && "opacity-80",
+        isUnavailable && "opacity-75",
       )}
     >
-      {/* ── Image area ── */}
+      {/* ── Image ── */}
       <div
-        className="relative w-full overflow-hidden aspect-[1/1] sm:aspect-[4/3]"
+        className="relative w-full overflow-hidden"
+        style={{ aspectRatio: "4/3" }}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
@@ -227,7 +202,7 @@ const ListingCardComponent = ({
           style={{ transform: `translateX(-${currentSlide * 100}%)` }}
         >
           {allSlideImages.slice(0, loadedSlides).map((img, idx) => (
-            <div key={idx} className="min-w-full h-full flex-shrink-0 relative">
+            <div key={idx} className="min-w-full h-full flex-shrink-0 relative bg-slate-100">
               {!imageLoadStates[idx] && (
                 <Skeleton className="absolute inset-0 h-full w-full rounded-none" />
               )}
@@ -235,7 +210,7 @@ const ListingCardComponent = ({
                 <img
                   src={
                     img.includes("supabase.co/storage")
-                      ? optimizeSupabaseImage(img, { width: 500, height: 375, quality: 80 })
+                      ? optimizeSupabaseImage(img, { width: 600, height: 450, quality: 85 })
                       : img
                   }
                   alt={`${name} - ${idx + 1}`}
@@ -245,9 +220,9 @@ const ListingCardComponent = ({
                     if (t.src !== img) t.src = img;
                   }}
                   className={cn(
-                    "w-full h-full object-cover",
+                    "w-full h-full object-cover transition-opacity duration-300",
                     imageLoadStates[idx] ? "opacity-100" : "opacity-0",
-                    isUnavailable && "grayscale-[0.5]",
+                    isUnavailable && "grayscale-[0.4]",
                   )}
                 />
               )}
@@ -255,189 +230,175 @@ const ListingCardComponent = ({
           ))}
         </div>
 
-        {/* Category badge — top-left */}
-        <div className="absolute top-2 left-2 z-20 flex items-center gap-1.5">
+        {/* Bottom gradient for readability */}
+        <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/50 to-transparent pointer-events-none z-10" />
+
+        {/* Type badge — top-left */}
+        <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-1.5">
           <span
-            className={cn(
-              "text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md shadow-sm backdrop-blur-sm",
-              !categoryColor && "text-primary-foreground bg-primary/90",
-            )}
-            style={categoryColor ? { color: "#fff", backgroundColor: `${categoryColor}dd` } : undefined}
+            className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg shadow text-white"
+            style={{ backgroundColor: accentColor }}
           >
             {displayType}
           </span>
           {urgencyBadge && (
-            <span
-              className={cn(
-                "text-[8px] font-bold px-1.5 py-0.5 rounded-full border backdrop-blur-sm",
-                urgencyBadge.color,
-              )}
-            >
+            <span className={cn("text-[9px] font-bold px-2 py-0.5 rounded-full text-white shadow", urgencyBadge.bg)}>
               {urgencyBadge.text}
             </span>
           )}
         </div>
 
-        {/* Duration badge — bottom-left over image */}
-        {durationText && (
-          <div className="absolute bottom-2 left-2 z-20 flex items-center gap-0.5 bg-black/60 backdrop-blur-sm rounded-full px-2 py-0.5">
-            <Timer className="h-2.5 w-2.5 text-white" />
-            <span className="text-[10px] font-bold text-white leading-none">{durationText}</span>
-          </div>
-        )}
-
-        {/* Golden star rating badge — bottom-right over image */}
-        {avgRating != null && avgRating > 0 && (
-          <div className="absolute bottom-2 right-2 z-20 flex items-center gap-0.5 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm shadow-sm rounded-full px-1.5 py-0.5">
-            <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />
-            <span className="text-[10px] font-bold text-slate-800 dark:text-slate-100 leading-none">
-              {avgRating.toFixed(1)}
-            </span>
-          </div>
-        )}
-
-        {/* Save / heart button — top-right */}
+        {/* Heart — top-right */}
         {!hideSave && onSave && (
           <button
             onClick={(e) => { e.stopPropagation(); onSave(id, type); }}
-            className="absolute top-2 right-2 z-20 h-7 w-7 rounded-full bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm shadow flex items-center justify-center hover:bg-white dark:hover:bg-slate-800 transition-colors"
+            className="absolute top-2.5 right-2.5 z-20 h-8 w-8 rounded-full bg-white/90 shadow-md flex items-center justify-center hover:scale-110 active:scale-95 transition-transform"
           >
-            <Heart className={cn("h-3.5 w-3.5", isSaved ? "fill-red-500 text-red-500" : "text-slate-600 dark:text-slate-300")} />
+            <Heart className={cn("h-4 w-4", isSaved ? "fill-red-500 text-red-500" : "text-slate-500")} />
           </button>
         )}
 
-        {/* Desktop nav arrows */}
-        {allSlideImages.length > 1 && (
-          <>
-            {currentSlide > 0 && (
-              <button
-                onClick={(e) => goToSlide(currentSlide - 1, e)}
-                className="absolute left-1.5 top-1/2 -translate-y-1/2 z-20 h-6 w-6 rounded-full bg-white/80 dark:bg-slate-900/80 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <ChevronLeft className="h-3.5 w-3.5 text-foreground" />
-              </button>
+        {/* Duration pill — bottom-left, over gradient */}
+        {durationText && (
+          <div className="absolute bottom-2.5 left-2.5 z-20 flex items-center gap-1 bg-black/70 backdrop-blur-sm rounded-full px-2.5 py-1">
+            <Timer className="h-3 w-3 text-white" />
+            <span className="text-[11px] font-bold text-white leading-none">{durationText}</span>
+          </div>
+        )}
+
+        {/* Rating pill — bottom-right, over gradient */}
+        {avgRating != null && avgRating > 0 && (
+          <div className="absolute bottom-2.5 right-2.5 z-20 flex items-center gap-1 bg-white/95 rounded-full px-2 py-0.5 shadow">
+            <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+            <span className="text-[11px] font-black text-slate-800 leading-none">{avgRating.toFixed(1)}</span>
+            {reviewCount != null && reviewCount > 0 && (
+              <span className="text-[9px] font-semibold text-slate-500">({reviewCount})</span>
             )}
-            {currentSlide < visibleDots - 1 && (
-              <button
-                onClick={(e) => goToSlide(currentSlide + 1, e)}
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 z-20 h-6 w-6 rounded-full bg-white/80 dark:bg-slate-900/80 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <ChevronRight className="h-3.5 w-3.5 text-foreground" />
-              </button>
-            )}
-          </>
+          </div>
+        )}
+
+        {/* Slide arrows */}
+        {allSlideImages.length > 1 && currentSlide > 0 && (
+          <button
+            onClick={(e) => goToSlide(currentSlide - 1, e)}
+            className="absolute left-2 top-1/2 -translate-y-1/2 z-20 h-7 w-7 rounded-full bg-white/90 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+          >
+            <ChevronLeft className="h-4 w-4 text-slate-700" />
+          </button>
+        )}
+        {allSlideImages.length > 1 && currentSlide < visibleDots - 1 && (
+          <button
+            onClick={(e) => goToSlide(currentSlide + 1, e)}
+            className="absolute right-2 top-1/2 -translate-y-1/2 z-20 h-7 w-7 rounded-full bg-white/90 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+          >
+            <ChevronRight className="h-4 w-4 text-slate-700" />
+          </button>
         )}
 
         {/* Dot indicators */}
         {allSlideImages.length > 1 && (
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1">
+          <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1">
             {Array.from({ length: visibleDots }).map((_, idx) => (
               <button
                 key={idx}
                 onClick={(e) => goToSlide(idx, e)}
                 className={cn(
                   "rounded-full transition-all",
-                  idx === currentSlide ? "w-2 h-2 bg-white shadow-md" : "w-1.5 h-1.5 bg-white/60",
+                  idx === currentSlide ? "w-2 h-2 bg-white shadow" : "w-1.5 h-1.5 bg-white/50",
                 )}
               />
             ))}
-            {loadedSlides < allSlideImages.length && (
-              <span className="w-1.5 h-1.5 rounded-full bg-white/30" />
-            )}
           </div>
         )}
 
-        {/* Sold-out / unavailable overlay */}
+        {/* Unavailable overlay */}
         {isUnavailable && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40 backdrop-blur-[1px]">
-            <span className="rounded-md border border-white/60 px-3 py-0.5 text-[10px] font-black uppercase text-white">
+            <span className="rounded-lg border border-white/70 px-3 py-1 text-[11px] font-black uppercase text-white tracking-wider">
               {isSoldOut ? "Sold Out" : "Unavailable"}
             </span>
           </div>
         )}
       </div>
 
-      {/* ── Text content ── */}
-      <div className="flex flex-col gap-1.5 p-3 min-w-0">
+      {/* ── Info panel ── */}
+      <div className="flex flex-col p-3 gap-2 bg-white">
 
-        {/* Title — bolder, slightly larger */}
-        <h3 className="line-clamp-2 text-[13px] font-extrabold leading-snug text-slate-900 dark:text-slate-50 tracking-tight">
+        {/* Name — large, heavy, dark, always visible */}
+        <h3
+          className="font-black text-slate-900 leading-tight line-clamp-2"
+          style={{ fontSize: "13px", letterSpacing: "-0.01em" }}
+        >
           {formattedName}
         </h3>
 
-        {/* Location — medium weight, clearly visible */}
-        <div className="flex items-center gap-1 text-slate-600 dark:text-slate-300">
-          <MapPin className="h-3 w-3 flex-shrink-0 text-primary" />
-          <span className="text-[11px] font-semibold truncate capitalize">
+        {/* Location — distinct teal-tinted, clearly readable */}
+        <div className="flex items-center gap-1.5">
+          <MapPin className="h-3.5 w-3.5 flex-shrink-0" style={{ color: accentColor }} />
+          <span
+            className="text-[11px] font-bold truncate capitalize"
+            style={{ color: "#1e293b" }}
+          >
             {locationString.toLowerCase()}
           </span>
         </div>
 
-        {/* Price — prominent */}
+        {/* Price — prominent, coloured */}
         {!hidePrice && price != null && price > 0 && (
-          <PriceText
-            price={price}
-            isUnavailable={isUnavailable}
-            isFlexibleDate={isFlexibleDate}
-            isTrip={isTrip}
-          />
-        )}
-
-        {/* Row: date + duration (trips only) */}
-        {isTrip && (date || isFlexibleDate || durationText) && (
-          <div className="flex items-center gap-2 flex-wrap">
-            {(date || isFlexibleDate) && (
-              <div className="flex items-center gap-0.5 text-slate-500 dark:text-slate-400">
-                <Calendar className="h-3 w-3" />
-                <span className="text-[10px] font-semibold">
-                  {isFlexibleDate
-                    ? "Flexible"
-                    : new Date(date!).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
-                </span>
-              </div>
-            )}
-            {durationText && (
-              <div className="flex items-center gap-0.5 text-slate-500 dark:text-slate-400">
-                <Timer className="h-3 w-3" />
-                <span className="text-[10px] font-semibold">{durationText}</span>
-              </div>
-            )}
+          <div className={cn("flex items-baseline gap-1", isUnavailable && "opacity-50 line-through")}>
+            <span
+              className="font-black leading-none"
+              style={{ fontSize: "15px", color: accentColor }}
+            >
+              {formatPrice(price)}
+            </span>
+            <span className="text-[10px] font-semibold text-slate-500">
+              {getPriceLabel(isFlexibleDate, isTrip)}
+            </span>
           </div>
         )}
 
-        {/* Duration standalone — adventure places / attractions (if no date row) */}
-        {!isTrip && durationText && (
-          <div className="flex items-center gap-0.5 text-slate-500 dark:text-slate-400">
-            <Timer className="h-3 w-3" />
-            <span className="text-[10px] font-semibold">{durationText}</span>
-          </div>
-        )}
+        {/* Meta row — date / flexible / hours / duration */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          {/* Date (trips) */}
+          {isTrip && date && !isFlexibleDate && (
+            <div className="flex items-center gap-1">
+              <Calendar className="h-3 w-3 text-slate-400" />
+              <span className="text-[11px] font-semibold text-slate-700">
+                {new Date(date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
+              </span>
+            </div>
+          )}
+          {isTrip && isFlexibleDate && (
+            <div className="flex items-center gap-1">
+              <Calendar className="h-3 w-3 text-slate-400" />
+              <span className="text-[11px] font-semibold text-slate-700">Flexible</span>
+            </div>
+          )}
 
-        {/* Opening hours (adventure places) */}
-        {hoursText && (
-          <div className="flex items-center gap-0.5 text-slate-500 dark:text-slate-400">
-            <Clock className="h-3 w-3" />
-            <span className="text-[10px] font-semibold">{hoursText}</span>
-          </div>
-        )}
+          {/* Duration */}
+          {durationText && (
+            <div className="flex items-center gap-1">
+              <Timer className="h-3 w-3 text-slate-400" />
+              <span className="text-[11px] font-semibold text-slate-700">{durationText}</span>
+            </div>
+          )}
 
-        {/* Star rating + review count */}
-        {avgRating != null && avgRating > 0 && (
-          <div className="flex items-center gap-0.5 pt-0.5">
-            <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-            <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200">{avgRating.toFixed(1)}</span>
-            {reviewCount != null && reviewCount > 0 && (
-              <span className="text-[9px] font-medium text-slate-500 dark:text-slate-400">({reviewCount})</span>
-            )}
-          </div>
-        )}
+          {/* Opening hours (adventure places) */}
+          {hoursText && (
+            <div className="flex items-center gap-1">
+              <Clock className="h-3 w-3 text-slate-400" />
+              <span className="text-[11px] font-semibold text-slate-700">{hoursText}</span>
+            </div>
+          )}
+        </div>
       </div>
-    </Card>
+    </div>
   );
 };
 
 export const ListingCard = memo(
-  React.forwardRef<HTMLDivElement, ListingCardProps>((props, ref) => (
+  React.forwardRef<HTMLDivElement, ListingCardProps>((props, _ref) => (
     <ListingCardComponent {...props} />
   )),
 );

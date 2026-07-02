@@ -191,12 +191,20 @@ const CreateTripEvent = () => {
 
   const isEventRoute = location.pathname === "/create-event";
   const searchParams = new URLSearchParams(location.search);
-  const isFlexibleFromRoute = searchParams.get("flexible") === "true";
+
+  // ── Fixed-date trips disabled ──────────────────────────────────────────────
+  // Trips are now always flexible-date (guests pick their own date, capacity is
+  // tracked per day). The old "?flexible=true" query param / toggle is no
+  // longer needed since flexible is the only option for trips.
+  // const isFlexibleFromRoute = searchParams.get("flexible") === "true";
 
   const [formData, setFormData] = useState({
     name: "", description: "", location: "", place: "", country: "", date: "",
     price: "0", price_child: "0", available_tickets: "0", email: "", phone_number: "",
-    map_link: "", is_custom_date: isFlexibleFromRoute, type: (isEventRoute ? "event" : "trip") as "trip" | "event",
+    map_link: "",
+    // Trips: always flexible-date (is_custom_date = true). Events: always fixed-date (is_custom_date = false).
+    is_custom_date: !isEventRoute,
+    type: (isEventRoute ? "event" : "trip") as "trip" | "event",
     latitude: null as number | null, longitude: null as number | null,
     opening_hours: "00:00", closing_hours: "23:59", flexible_duration_months: "3",
     event_category: "" as string, location_link: "", allow_children: true,
@@ -476,7 +484,7 @@ const CreateTripEvent = () => {
                 <div className="flex items-center gap-3 px-5 py-3 bg-white rounded-xl border border-slate-100 shadow-sm">
                   <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS.TEAL }} />
                   <span className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
-                    {formData.type === "event" ? "Creating an Event — Fixed date session" : "Creating a Trip / Tour — Multi-day adventure"}
+                    {formData.type === "event" ? "Creating an Event — Fixed date session" : "Creating a Trip / Tour — Flexible dates, guests book any day"}
                   </span>
                 </div>
 
@@ -609,6 +617,12 @@ const CreateTripEvent = () => {
               <div className="space-y-5">
                 {/* Date */}
                 <SectionCard title="Date Settings" icon={Calendar}>
+                  {/* ── Fixed-date trips disabled ──────────────────────────────
+                      Trips no longer offer a "Flexible dates" toggle — every
+                      trip is flexible-date only (is_custom_date is forced to
+                      true for type === "trip" in the initial formData state
+                      above). Uncomment below to restore the fixed/flexible
+                      choice for trips.
                   {formData.type === "trip" && (
                     <label className="flex items-center gap-3 cursor-pointer mb-5 p-4 bg-slate-50 rounded-xl border border-slate-100 hover:bg-slate-100 transition-all">
                       <Checkbox id="custom_date" checked={formData.is_custom_date} onCheckedChange={(checked) => setFormData({ ...formData, is_custom_date: checked as boolean })} />
@@ -618,6 +632,7 @@ const CreateTripEvent = () => {
                       </div>
                     </label>
                   )}
+                  */}
                   {formData.is_custom_date ? (
                     <div className="space-y-3">
                       <FieldLabel>Listing Duration</FieldLabel>
@@ -717,8 +732,9 @@ const CreateTripEvent = () => {
                           </div>
                         )}
                         <div>
-                          <FieldLabel required>Max Slots</FieldLabel>
+                          <FieldLabel required>{formData.type === "trip" ? "Max Slots Per Day" : "Max Slots"}</FieldLabel>
                           <StyledInput isInvalid={validationErrors.includes("available_tickets")} type="number" value={formData.available_tickets} onChange={(e) => { setFormData({ ...formData, available_tickets: e.target.value }); if (e.target.value && parseInt(e.target.value) > 0) setValidationErrors(prev => prev.filter(err => err !== "available_tickets")); }} />
+                          {formData.type === "trip" && <p className="text-[10px] text-slate-400 mt-1 font-medium">Since this trip is flexible-date, this is the capacity available each day — it resets daily.</p>}
                           {validationErrors.includes("available_tickets") && <p className="text-red-500 text-[10px] font-semibold mt-1">⚠ Enter number of slots (min 1)</p>}
                         </div>
                       </div>

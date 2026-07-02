@@ -29,6 +29,39 @@ const formatDuration = (minutes: number): string => {
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 };
 
+// Abbreviate working day names → 3-letter uppercase
+const DAY_ABBR: Record<string, string> = {
+  monday: "Mon", tuesday: "Tue", wednesday: "Wed", thursday: "Thu",
+  friday: "Fri", saturday: "Sat", sunday: "Sun",
+  mon: "Mon", tue: "Tue", wed: "Wed", thu: "Thu",
+  fri: "Fri", sat: "Sat", sun: "Sun",
+};
+
+const abbreviateDay = (d: string) => DAY_ABBR[d.toLowerCase()] ?? d.slice(0, 3);
+
+// Collapse consecutive days into ranges: ["Mon","Tue","Wed","Fri"] → "Mon–Wed, Fri"
+const formatWorkingDays = (days: string[]): string => {
+  if (!days || days.length === 0) return "";
+  const ORDER = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+  const abbr = days.map(abbreviateDay);
+  const sorted = [...new Set(abbr)].sort((a, b) => ORDER.indexOf(a) - ORDER.indexOf(b));
+  if (sorted.length === 7) return "Every day";
+
+  const groups: string[][] = [];
+  let current: string[] = [sorted[0]];
+  for (let i = 1; i < sorted.length; i++) {
+    if (ORDER.indexOf(sorted[i]) === ORDER.indexOf(current[current.length - 1]) + 1) {
+      current.push(sorted[i]);
+    } else {
+      groups.push(current);
+      current = [sorted[i]];
+    }
+  }
+  groups.push(current);
+
+  return groups.map(g => g.length >= 3 ? `${g[0]}–${g[g.length - 1]}` : g.join(", ")).join(", ");
+};
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 export interface ListingCardProps {
   id: string;
@@ -68,6 +101,8 @@ export interface ListingCardProps {
   openingHours?: string;
   closingHours?: string;
   durationMinutes?: number;
+  /** Days the adventure place is open e.g. ["Mon","Tue","Wed","Thu","Fri"] */
+  daysOpened?: string[];
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -77,7 +112,8 @@ const ListingCardComponent = ({
   availableTickets = 0, bookedTickets = 0,
   priority = false, avgRating, reviewCount, place,
   isFlexibleDate = false, hidePrice = false, categoryColor,
-  openingHours, closingHours, durationMinutes, galleryImages, images
+  openingHours, closingHours, durationMinutes, galleryImages, images,
+  daysOpened,
 }: ListingCardProps) => {
   const navigate = useNavigate();
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -130,8 +166,8 @@ const ListingCardComponent = ({
   }, [navigate, type, id, name, location]);
 
   const urgencyBadge = useMemo(() => {
-    if (isSoldOut)    return { text: "Sold out", bg: "bg-red-500" };
-    if (isOutdated)   return { text: "Passed",   bg: "bg-slate-500" };
+    if (isSoldOut)         return { text: "Sold out",              bg: "bg-red-500" };
+    if (isOutdated)        return { text: "Passed",                bg: "bg-slate-500" };
     if (fewSlotsRemaining) return { text: `🔥 ${remainingTickets} left`, bg: "bg-orange-500" };
     return null;
   }, [isSoldOut, isOutdated, fewSlotsRemaining, remainingTickets]);
@@ -166,28 +202,32 @@ const ListingCardComponent = ({
 
   const visibleDots = Math.min(loadedSlides, allSlideImages.length);
 
-  // Calculates time spreads dynamically to capture 23+ or 24-hour targets smoothly
+  // ── Working hours display ──────────────────────────────────────────────────
+  // Returns "Open 24 Hours" for full-day places, otherwise "HH:MM – HH:MM UTC"
   const workingHoursDisplay = useMemo(() => {
     if (!openingHours && !closingHours) return null;
 
     const start = openingHours ?? "08:00";
-    const end = closingHours ?? "18:00";
+    const end   = closingHours  ?? "18:00";
 
-    // Standardize parser checks to process time delta strings
-    const [startH, startM] = start.split(":").map(Number);
-    const [endH, endM] = end.split(":").map(Number);
+    const [startH] = start.split(":").map(Number);
+    const [endH]   = end.split(":").map(Number);
 
     if (!isNaN(startH) && !isNaN(endH)) {
       let durationHours = endH - startH;
-      if (durationHours < 0) durationHours += 24; // Handles overnight schedules safely
-
-      if (durationHours >= 23) {
-        return "Open 24 Hours";
-      }
+      if (durationHours < 0) durationHours += 24;
+      if (durationHours >= 23) return "Open 24 Hours";
     }
 
     return `${start} – ${end} UTC`;
   }, [openingHours, closingHours]);
+
+  // ── Working days display ───────────────────────────────────────────────────
+  const workingDaysDisplay = useMemo(() => {
+    if (!isAdventurePlace) return null;
+    if (!daysOpened || daysOpened.length === 0) return null;
+    return formatWorkingDays(daysOpened);
+  }, [isAdventurePlace, daysOpened]);
 
   const durationText = useMemo(
     () => (durationMinutes ? formatDuration(durationMinutes) : null),
@@ -196,7 +236,13 @@ const ListingCardComponent = ({
 
   const { formatPrice } = useCurrency();
   const accentColor = categoryColor ?? "#008080";
-  const hasMetaContent = (isTrip && date) || isGuidedTour || durationText || workingHoursDisplay;
+
+  const hasMetaContent =
+    (isTrip && date) ||
+    isGuidedTour ||
+    durationText ||
+    workingHoursDisplay ||
+    workingDaysDisplay;
 
   return (
     <div
@@ -212,7 +258,7 @@ const ListingCardComponent = ({
     >
       {/* ── Image Section ── */}
       <div
-        className="relative w-full overflow-hidden flex-[1.4]" 
+        className="relative w-full overflow-hidden flex-[1.4]"
         style={{ aspectRatio: "16/10" }}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
@@ -342,9 +388,10 @@ const ListingCardComponent = ({
         )}
       </div>
 
-      {/* ── Info panel Section ── */}
+      {/* ── Info Panel ── */}
       <div className="flex flex-col p-3 gap-2 bg-white flex-1 justify-between">
-        {/* Top block */}
+
+        {/* Top block: name + location */}
         <div className="flex flex-col gap-1">
           <h3 className="font-black text-slate-900 leading-tight line-clamp-2 text-[12px] sm:text-[13px] tracking-tight sm:tracking-[-0.01em]">
             {formattedName}
@@ -363,7 +410,7 @@ const ListingCardComponent = ({
           )}
         </div>
 
-        {/* Bottom block */}
+        {/* Bottom block: price + meta */}
         <div className="flex flex-col gap-1 mt-auto pt-1">
           {!hidePrice && price != null && price > 0 && (
             <div className={cn("flex items-baseline gap-1", isUnavailable && "opacity-50 line-through")}>
@@ -382,11 +429,12 @@ const ListingCardComponent = ({
           )}
 
           {hasMetaContent && (
-            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 sm:gap-x-3">
-              {/* Date */}
+            <div className="flex flex-col gap-1">
+
+              {/* Trip date / flexible */}
               {isTrip && date && !isFlexibleDate && (
                 <div className="flex items-center gap-1">
-                  <Calendar className="h-3 w-3 text-slate-400" />
+                  <Calendar className="h-3 w-3 text-slate-400 shrink-0" />
                   <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700">
                     {new Date(date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })} UTC
                   </span>
@@ -394,7 +442,7 @@ const ListingCardComponent = ({
               )}
               {isTrip && isFlexibleDate && (
                 <div className="flex items-center gap-1">
-                  <Calendar className="h-3 w-3 text-slate-400" />
+                  <Calendar className="h-3 w-3 text-slate-400 shrink-0" />
                   <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700">Flexible</span>
                 </div>
               )}
@@ -402,21 +450,32 @@ const ListingCardComponent = ({
               {/* Duration */}
               {durationText && (
                 <div className="flex items-center gap-1">
-                  <Timer className="h-3 w-3 text-slate-400" />
+                  <Timer className="h-3 w-3 text-slate-400 shrink-0" />
                   <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700">{durationText}</span>
                 </div>
               )}
 
-              {/* Working Hours Block (Title stacked cleanly above the time value) */}
+              {/* Adventure Place: Opening & Closing hours */}
               {isAdventurePlace && workingHoursDisplay && (
-                <div className="flex flex-col w-full mt-0.5">
-                  <span className="text-[9px] font-black tracking-wider uppercase text-slate-400 block leading-none mb-0.5">
-                    Working Hours
-                  </span>
-                  <div className="flex items-center gap-1">
-                    <Clock className="h-3 w-3 text-slate-400 flex-shrink-0" />
+                <div className="flex items-start gap-1">
+                  <Clock className="h-3 w-3 text-slate-400 shrink-0 mt-0.5" />
+                  <div className="flex flex-col leading-tight">
+                    <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">Hours (UTC)</span>
                     <span className="text-[10px] sm:text-[11px] font-bold text-slate-700">
                       {workingHoursDisplay}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Adventure Place: Working days */}
+              {isAdventurePlace && workingDaysDisplay && (
+                <div className="flex items-start gap-1">
+                  <Calendar className="h-3 w-3 text-slate-400 shrink-0 mt-0.5" />
+                  <div className="flex flex-col leading-tight">
+                    <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">Open</span>
+                    <span className="text-[10px] sm:text-[11px] font-bold text-slate-700">
+                      {workingDaysDisplay}
                     </span>
                   </div>
                 </div>

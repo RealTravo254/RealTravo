@@ -166,10 +166,27 @@ const ListingCardComponent = ({
 
   const visibleDots = Math.min(loadedSlides, allSlideImages.length);
 
-  const hoursText = useMemo(() => {
-    if (openingHours || closingHours)
-      return `${openingHours ?? "08:00"} – ${closingHours ?? "18:00"} UTC`; // Added UTC directly to operating hours text
-    return null;
+  // Calculates time spreads dynamically to capture 23+ or 24-hour targets smoothly
+  const workingHoursDisplay = useMemo(() => {
+    if (!openingHours && !closingHours) return null;
+
+    const start = openingHours ?? "08:00";
+    const end = closingHours ?? "18:00";
+
+    // Standardize parser checks to process time delta strings
+    const [startH, startM] = start.split(":").map(Number);
+    const [endH, endM] = end.split(":").map(Number);
+
+    if (!isNaN(startH) && !isNaN(endH)) {
+      let durationHours = endH - startH;
+      if (durationHours < 0) durationHours += 24; // Handles overnight schedules safely
+
+      if (durationHours >= 23) {
+        return "Open 24 Hours";
+      }
+    }
+
+    return `${start} – ${end} UTC`;
   }, [openingHours, closingHours]);
 
   const durationText = useMemo(
@@ -179,7 +196,7 @@ const ListingCardComponent = ({
 
   const { formatPrice } = useCurrency();
   const accentColor = categoryColor ?? "#008080";
-  const hasMetaContent = (isTrip && date) || isGuidedTour || durationText || hoursText;
+  const hasMetaContent = (isTrip && date) || isGuidedTour || durationText || workingHoursDisplay;
 
   return (
     <div
@@ -193,7 +210,7 @@ const ListingCardComponent = ({
         isUnavailable && "opacity-75",
       )}
     >
-      {/* ── Image Section (Larger Proportion) ── */}
+      {/* ── Image Section ── */}
       <div
         className="relative w-full overflow-hidden flex-[1.4]" 
         style={{ aspectRatio: "16/10" }}
@@ -366,7 +383,7 @@ const ListingCardComponent = ({
 
           {hasMetaContent && (
             <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 sm:gap-x-3">
-              {/* Date with explicit UTC notation fallback */}
+              {/* Date */}
               {isTrip && date && !isFlexibleDate && (
                 <div className="flex items-center gap-1">
                   <Calendar className="h-3 w-3 text-slate-400" />
@@ -382,6 +399,7 @@ const ListingCardComponent = ({
                 </div>
               )}
 
+              {/* Duration */}
               {durationText && (
                 <div className="flex items-center gap-1">
                   <Timer className="h-3 w-3 text-slate-400" />
@@ -389,10 +407,18 @@ const ListingCardComponent = ({
                 </div>
               )}
 
-              {hoursText && (
-                <div className="flex items-center gap-1">
-                  <Clock className="h-3 w-3 text-slate-400" />
-                  <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700">{hoursText}</span>
+              {/* Working Hours Block (Title stacked cleanly above the time value) */}
+              {isAdventurePlace && workingHoursDisplay && (
+                <div className="flex flex-col w-full mt-0.5">
+                  <span className="text-[9px] font-black tracking-wider uppercase text-slate-400 block leading-none mb-0.5">
+                    Working Hours
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <Clock className="h-3 w-3 text-slate-400 flex-shrink-0" />
+                    <span className="text-[10px] sm:text-[11px] font-bold text-slate-700">
+                      {workingHoursDisplay}
+                    </span>
+                  </div>
                 </div>
               )}
             </div>

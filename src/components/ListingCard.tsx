@@ -28,18 +28,18 @@ const getPriceLabel = (isFlexibleDate: boolean, isTrip: boolean, date?: string) 
   return "/person";
 };
 
-// ── Category badge labels + fallback color per category ─────────────────────
-// Falls back to a deliberate palette instead of the old ternary
-// (text-primary-foreground bg-primary/90) so every category still reads
-// intentionally even without a categoryColor prop from the caller.
-const CATEGORY_META: Record<string, { label: string; color: string }> = {
-  hotel: { label: "Hotel", color: "#2563EB" },
-  park: { label: "Park", color: "#16A34A" },
-  campsite: { label: "Campsite", color: "#B45309" },
-  attraction: { label: "Attraction", color: "#7C3AED" },
-  accommodation: { label: "Accommodation", color: "#0F766E" },
+// ── Category badge labels ────────────────────────────────────────────────────
+// Color is intentionally not set per-category here — the badge always falls
+// back to the same dark slate used by the "Guided tour" badge, so adventure
+// place and guided tour badges read as one consistent visual language.
+const CATEGORY_LABELS: Record<string, string> = {
+  hotel: "Hotel",
+  park: "Park",
+  campsite: "Campsite",
+  attraction: "Attraction",
+  accommodation: "Accommodation",
 };
-const DEFAULT_CATEGORY_META = { label: "Campsite", color: "#0F766E" };
+const DEFAULT_CATEGORY_LABEL = "Campsite";
 
 const PriceText = ({
   price,
@@ -133,19 +133,22 @@ const ListingCardComponent = ({
   const isUnavailable = isOutdated || isSoldOut;
   const isGuidedTour = isFlexibleDate && isTrip;
 
-  const categoryMeta = useMemo(() => {
+  const categoryLabel = useMemo(() => {
     if (!isAdventurePlace) return null;
-    return (category && CATEGORY_META[category]) ?? DEFAULT_CATEGORY_META;
+    return (category && CATEGORY_LABELS[category]) ?? DEFAULT_CATEGORY_LABEL;
   }, [isAdventurePlace, category]);
 
   const displayType = useMemo(() => {
-    if (isAdventurePlace) return categoryMeta!.label;
+    if (isAdventurePlace) return categoryLabel!;
     if (isGuidedTour) return "Guided tour";
     if (isTrip) return "Trip";
     return "Attraction";
-  }, [isAdventurePlace, isGuidedTour, isTrip, categoryMeta]);
+  }, [isAdventurePlace, isGuidedTour, isTrip, categoryLabel]);
 
-  const badgeColor = categoryColor ?? categoryMeta?.color;
+  // Same fallback color as the "Guided tour" badge (no categoryMeta color
+  // lookup here anymore) so every badge type shares one visual language
+  // unless the caller explicitly passes categoryColor.
+  const badgeColor = categoryColor;
 
   // Proper title case once, rather than lowercase-then-CSS-capitalize fighting
   // each other (the original ran .toLowerCase() in JS then `capitalize` in
@@ -408,19 +411,13 @@ const ListingCardComponent = ({
           )}
         </div>
 
-        {/* Secondary meta row: date / hours / distance — only render what applies */}
-        {(isTrip && (date || isFlexibleDate)) || hoursText || distanceText ? (
+        {/* Secondary meta row: date / distance — only render what applies */}
+        {(isTrip && (date || isFlexibleDate)) || distanceText ? (
           <div className="flex items-center gap-2.5 flex-wrap text-slate-500">
             {isTrip && (date || isFlexibleDate) && (
               <span className="flex items-center gap-1 text-[10px] font-medium">
                 <Calendar className="h-3 w-3" />
                 {isFlexibleDate ? "Flexible" : new Date(date!).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
-              </span>
-            )}
-            {hoursText && (
-              <span className="flex items-center gap-1 text-[10px] font-medium">
-                <Clock className="h-3 w-3" />
-                {hoursText}
               </span>
             )}
             {distanceText && (
@@ -431,6 +428,19 @@ const ListingCardComponent = ({
             )}
           </div>
         ) : null}
+
+        {/* Working hours — labeled block, adventure places only */}
+        {isAdventurePlace && hoursText && (
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">
+              Working hours
+            </span>
+            <span className="flex items-center gap-1 text-[10px] font-medium text-slate-600">
+              <Clock className="h-3 w-3" />
+              {hoursText}
+            </span>
+          </div>
+        )}
 
         {/* Price, anchored to the bottom of the card */}
         {!hidePrice && price != null && price > 0 && (

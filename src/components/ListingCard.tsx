@@ -1,437 +1,590 @@
-import React, { useState, memo, useCallback, useMemo, useRef } from "react";
-import { MapPin, Star, Calendar, ChevronLeft, ChevronRight, Clock, Heart, Timer } from "lucide-react";
-import { useCurrency } from "@/contexts/CurrencyContext";
-import { Skeleton } from "@/components/ui/skeleton";
-import { cn, optimizeSupabaseImage } from "@/lib/utils";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { createDetailPath } from "@/lib/slugUtils";
-import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
+import { useSafeBack } from "@/hooks/useSafeBack";
+import { Header } from "@/components/Header";
+import { MobileBottomBar } from "@/components/MobileBottomBar";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useBanCheck } from "@/hooks/useBanCheck";
+import {
+  MapPin, Navigation, Clock, X, Plus, Camera, CheckCircle2, Info, ArrowLeft, Loader2,
+  DollarSign, ChevronLeft, ChevronRight, Link2, ShieldCheck, FileImage, Upload,
+  Globe, Users, Sparkles, Building2, Home, TreePine, Tent, Landmark,
+} from "lucide-react";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { CountrySelector } from "@/components/creation/CountrySelector";
+import { CountySelector } from "@/components/creation/CountySelector";
+import { PhoneInput } from "@/components/creation/PhoneInput";
+import { compressImages } from "@/lib/imageCompression";
+import { OperatingHoursSection } from "@/components/creation/OperatingHoursSection";
+import { ReviewStep } from "@/components/creation/ReviewStep";
+import { GeneralFacilitiesSelector } from "@/components/creation/GeneralFacilitiesSelector";
+import { CreateFormStepper } from "@/components/creation/CreateFormStepper";
+import { cn } from "@/lib/utils";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-const getPriceLabel = (isFlexibleDate: boolean, isTrip: boolean) => {
-  if (isFlexibleDate && isTrip) return "";
-  return "/person";
+// ─── Constants ────────────────────────────────────────────────────────────────
+const COLORS = { TEAL: "#008080", CORAL: "#FF7F50", KHAKI: "#F0E68C", KHAKI_DARK: "#857F3E" };
+let _idCounter = 0;
+const makeId = () => `item-${Date.now()}-${++_idCounter}`;
+const generateFriendlySlug = (name: string): string => {
+  const cleanName = name.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-").substring(0, 30);
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let code = "";
+  for (let i = 0; i < 4; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
+  return `${cleanName}-${code}`;
 };
+const safeObjectUrl = (file: File): string => { try { return URL.createObjectURL(file); } catch { return ""; } };
 
-const CATEGORY_LABELS: Record<string, string> = {
-  hotel:         "Hotel",
-  park:          "Park",
-  campsite:      "Campsite",
-  attraction:    "Attraction",
-  accommodation: "Accommodation",
-};
+// ─── Image-only validation ────────────────────────────────────────────────────
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"];
+const isImageFile = (file: File) => ALLOWED_IMAGE_TYPES.includes(file.type) || file.type.startsWith("image/");
 
-const formatDuration = (minutes: number): string => {
-  if (!minutes || minutes <= 0) return "";
-  if (minutes < 60) return `${minutes}m`;
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return m > 0 ? `${h}h ${m}m` : `${h}h`;
-};
+// ─── Listing Category (Hotel / Campsite / Accommodation) ──────────────────────
+const CATEGORY_OPTIONS: { value: string; label: string; icon: any }[] = [
+  { value: "hotel", label: "Hotel", icon: Building2 },
+  { value: "accommodation", label: "Accommodation", icon: Home },
+  { value: "campsite", label: "Campsite", icon: Tent },
+];
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-export interface ListingCardProps {
-  id: string;
-  type: "TRIP" | "ADVENTURE PLACE" | "ATTRACTION";
-  category?: string;
-  name: string;
-  imageUrl: string;
-  location: string;
-  country: string;
-  price?: number;
-  date?: string;
-  isCustomDate?: boolean;
-  isFlexibleDate?: boolean;
-  isOutdated?: boolean;
-  onSave?: (id: string, type: string) => void;
-  isSaved?: boolean;
-  hideSave?: boolean;
-  amenities?: string[];
-  activities?: any[];
-  hidePrice?: boolean;
-  availableTickets?: number;
-  bookedTickets?: number;
-  showBadge?: boolean;
-  priority?: boolean;
-  minimalDisplay?: boolean;
-  hideEmptySpace?: boolean;
-  compact?: boolean;
-  distance?: number;
-  avgRating?: number;
-  reviewCount?: number;
-  place?: string;
-  showFlexibleDate?: boolean;
-  description?: string;
-  categoryColor?: string;
-  galleryImages?: string[];
-  images?: string[];
-  openingHours?: string;
-  closingHours?: string;
-  durationMinutes?: number;
+// ─── Types ────────────────────────────────────────────────────────────────────
+interface FacilityItem {
+  id: string; name: string; amenities: string[]; amenityInput: string;
+  price: string; capacity: string; images: File[]; previewUrls: string[]; saved: boolean;
+}
+interface ActivityItem {
+  id: string; name: string; price: string;
+  images: File[]; previewUrls: string[]; saved: boolean;
+}
+interface SpecialPriceTier {
+  id: string; label: string; citizenPrice: string; nonCitizenPrice: string; requirement: string; saved: boolean;
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
-const ListingCardComponent = ({
-  id, type, category, name, imageUrl, location, price, date,
-  isOutdated = false, onSave, isSaved = false, hideSave = false,
-  availableTickets = 0, bookedTickets = 0,
-  priority = false, avgRating, reviewCount, place,
-  isFlexibleDate = false, hidePrice = false, categoryColor,
-  openingHours, closingHours, durationMinutes, galleryImages, images
-}: ListingCardProps) => {
-  const navigate = useNavigate();
-  const [currentSlide, setCurrentSlide] = useState(0);
-  const [loadedSlides, setLoadedSlides] = useState(2);
-  const [imageLoadStates, setImageLoadStates] = useState<Record<number, boolean>>({});
-  const slideContainerRef = useRef<HTMLDivElement>(null);
-  const touchStartX = useRef(0);
+const emptyFacility = (): FacilityItem => ({ id: makeId(), name: "", amenities: [], amenityInput: "", price: "", capacity: "", images: [], previewUrls: [], saved: false });
+const emptyActivity = (): ActivityItem => ({ id: makeId(), name: "", price: "", images: [], previewUrls: [], saved: false });
+const emptySpecialTier = (): SpecialPriceTier => ({ id: makeId(), label: "", citizenPrice: "", nonCitizenPrice: "", requirement: "", saved: false });
 
-  const { ref: cardRef, isIntersecting } = useIntersectionObserver({ rootMargin: "300px", triggerOnce: true });
-  const shouldLoad = priority || isIntersecting;
+const STEP_NAMES = ["Registration", "Location", "Contact & About", "Access & Pricing", "Facilities", "Gallery", "Review"];
 
-  const allSlideImages = useMemo(() => {
-    const combined = [imageUrl, ...(galleryImages || []), ...(images || [])];
-    return Array.from(new Set(combined.filter(Boolean)));
-  }, [imageUrl, galleryImages, images]);
+// ─── Shared UI Atoms ──────────────────────────────────────────────────────────
+const FieldLabel = ({ children, required }: { children: React.ReactNode; required?: boolean }) => (
+  <label className="block text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-1.5">
+    {children}{required && <span className="text-red-400 ml-0.5">*</span>}
+  </label>
+);
 
-  const isTrip = type === "TRIP";
-  const isAdventurePlace = type === "ADVENTURE PLACE";
+const StyledInput = ({ className = "", isInvalid = false, ...props }: React.ComponentProps<typeof Input> & { isInvalid?: boolean }) => (
+  <Input
+    className={`h-11 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-800 placeholder:text-slate-400 placeholder:font-normal focus:ring-2 focus:ring-[#008080]/20 focus:border-[#008080] transition-all ${isInvalid ? "border-red-400 ring-2 ring-red-100 bg-red-50" : ""} ${className}`}
+    {...props}
+  />
+);
 
-  const remainingTickets = availableTickets - bookedTickets;
-  const isSoldOut = isTrip && availableTickets > 0 && remainingTickets <= 0;
-  const fewSlotsRemaining = isTrip && remainingTickets > 0 && remainingTickets <= 10;
-  const isUnavailable = isOutdated || isSoldOut;
-  const isGuidedTour = isFlexibleDate && isTrip;
+const SectionCard = ({ title, subtitle, icon: Icon, children, accent = COLORS.TEAL }: {
+  title?: string; subtitle?: string; icon?: any; children: React.ReactNode; accent?: string;
+}) => (
+  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+    {title && (
+      <div className="px-8 py-5 border-b border-slate-100 flex items-center gap-3">
+        {Icon && (
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${accent}12` }}>
+            <Icon className="h-4 w-4" style={{ color: accent }} />
+          </div>
+        )}
+        <div>
+          <h3 className="text-sm font-bold text-slate-800">{title}</h3>
+          {subtitle && <p className="text-[11px] text-slate-400 mt-0.5">{subtitle}</p>}
+        </div>
+      </div>
+    )}
+    <div className="px-8 py-6">{children}</div>
+  </div>
+);
 
-  const displayType = useMemo(() => {
-    if (isAdventurePlace) return (category && CATEGORY_LABELS[category]) ?? "Campsite";
-    if (isGuidedTour) return "Guided Tour";
-    if (isTrip) return "Trip";
-    return "Attraction";
-  }, [isAdventurePlace, isGuidedTour, isTrip, category]);
+// ─── Category Selector ────────────────────────────────────────────────────────
+const CategorySelector = ({
+  value, onChange, isInvalid,
+}: { value: string; onChange: (v: string) => void; isInvalid?: boolean }) => (
+  <div>
+    <div className={cn("grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 p-1 rounded-xl", isInvalid && "ring-2 ring-red-300")}>
+      {CATEGORY_OPTIONS.map((opt) => {
+        const isActive = value === opt.value;
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange(opt.value)}
+            className={cn(
+              "flex flex-col items-center justify-center gap-1.5 h-20 rounded-xl text-[11px] font-bold border transition-all",
+              isActive ? "text-white shadow-md border-transparent scale-[1.02]" : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
+            )}
+            style={isActive ? { background: COLORS.TEAL } : {}}
+          >
+            <opt.icon className={cn("h-5 w-5", isActive ? "text-white" : "text-slate-400")} />
+            {opt.label}
+          </button>
+        );
+      })}
+    </div>
+    {isInvalid && <p className="text-red-400 text-[10px] font-semibold mt-1.5">Please select a category to continue</p>}
+  </div>
+);
 
-  const formattedName = useMemo(
-    () => name.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()),
-    [name],
-  );
+// ─── Image Gallery Grid ───────────────────────────────────────────────────────
+const ImageGalleryGrid = ({
+  images, previews, onRemove, onAdd, isInvalid, slots = 5,
+}: {
+  images: File[]; previews: string[]; onRemove: (i: number) => void;
+  onAdd: (files: FileList | null) => void; isInvalid?: boolean; slots?: number;
+}) => (
+  <div
+    className={`grid gap-3 p-4 rounded-xl border-2 border-dashed transition-all ${isInvalid ? "border-red-400 bg-red-50/30" : "border-slate-200 bg-slate-50/40"}`}
+    style={{ gridTemplateColumns: `repeat(${Math.min(slots, 5)}, minmax(0, 1fr))` }}
+  >
+    {Array.from({ length: slots }).map((_, i) => {
+      const url = previews[i];
+      if (url) return (
+        <div key={i} className="relative group aspect-square rounded-xl overflow-hidden border border-slate-200 shadow-sm">
+          <img src={url} className="w-full h-full object-cover" alt={`Photo ${i + 1}`} />
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
+            <button type="button" onClick={() => onRemove(i)} className="opacity-0 group-hover:opacity-100 bg-red-500 text-white rounded-full p-1 shadow-lg transition-all scale-75 group-hover:scale-100">
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+          <div className="absolute bottom-1 left-1 bg-black/60 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md">{i === 0 ? "Cover" : `#${i + 1}`}</div>
+        </div>
+      );
+      return (
+        <label key={i} className={`aspect-square rounded-xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all hover:bg-slate-100 ${isInvalid ? "border-red-300 bg-red-50" : "border-slate-200 hover:border-slate-300"}`}>
+          <Camera className={`h-5 w-5 mb-1 ${isInvalid ? "text-red-400" : "text-slate-300"}`} />
+          <span className={`text-[9px] font-bold uppercase ${isInvalid ? "text-red-400" : "text-slate-300"}`}>{i === 0 ? "Cover" : `#${i + 1}`}</span>
+          <input type="file" multiple className="hidden" accept="image/*" onChange={(e) => onAdd(e.target.files)} />
+        </label>
+      );
+    })}
+  </div>
+);
 
-  const locationString = useMemo(
-    () => [place, location].filter(Boolean).join(", "),
-    [place, location],
-  );
-
-  const handleCardClick = useCallback(() => {
-    const typeMap: Record<string, string> = {
-      TRIP: "trip",
-      "ADVENTURE PLACE": "adventure",
-      ATTRACTION: "attraction",
-    };
-    navigate(createDetailPath(typeMap[type], id, name, location));
-  }, [navigate, type, id, name, location]);
-
-  const urgencyBadge = useMemo(() => {
-    if (isSoldOut)    return { text: "Sold out", bg: "bg-red-500" };
-    if (isOutdated)   return { text: "Passed",   bg: "bg-slate-500" };
-    if (fewSlotsRemaining) return { text: `🔥 ${remainingTickets} left`, bg: "bg-orange-500" };
-    return null;
-  }, [isSoldOut, isOutdated, fewSlotsRemaining, remainingTickets]);
-
-  const goToSlide = useCallback(
-    (index: number, e?: React.MouseEvent) => {
-      e?.stopPropagation();
-      const maxIndex = Math.min(allSlideImages.length - 1, loadedSlides - 1);
-      const newIndex = Math.max(0, Math.min(index, maxIndex));
-      setCurrentSlide(newIndex);
-      if (newIndex >= loadedSlides - 1 && loadedSlides < allSlideImages.length) {
-        setLoadedSlides((prev) => Math.min(prev + 2, allSlideImages.length));
-      }
-    },
-    [allSlideImages.length, loadedSlides],
-  );
-
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-  }, []);
-
-  const handleTouchEnd = useCallback(
-    (e: React.TouchEvent) => {
-      const diff = touchStartX.current - e.changedTouches[0].clientX;
-      if (Math.abs(diff) > 40) {
-        if (diff > 0) goToSlide(currentSlide + 1);
-        else goToSlide(currentSlide - 1);
-      }
-    },
-    [currentSlide, goToSlide],
-  );
-
-  const visibleDots = Math.min(loadedSlides, allSlideImages.length);
-
-  // Calculates time spreads dynamically to capture 23+ or 24-hour targets smoothly
-  const workingHoursDisplay = useMemo(() => {
-    if (!openingHours && !closingHours) return null;
-
-    const start = openingHours ?? "08:00";
-    const end = closingHours ?? "18:00";
-
-    // Standardize parser checks to process time delta strings
-    const [startH, startM] = start.split(":").map(Number);
-    const [endH, endM] = end.split(":").map(Number);
-
-    if (!isNaN(startH) && !isNaN(endH)) {
-      let durationHours = endH - startH;
-      if (durationHours < 0) durationHours += 24; // Handles overnight schedules safely
-
-      if (durationHours >= 23) {
-        return "Open 24 Hours";
-      }
+// ─── TRA Licence Upload ───────────────────────────────────────────────────────
+const TraLicenceUpload = ({
+  file, preview, onAdd, onRemove, onReject, isInvalid,
+}: {
+  file: File | null; preview: string; onAdd: (f: File) => void; onRemove: () => void;
+  onReject: (reason: string) => void; isInvalid?: boolean;
+}) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = e.target.files?.[0];
+    if (!picked) return;
+    e.target.value = "";
+    if (!isImageFile(picked)) {
+      onReject(
+        picked.type.startsWith("video/")
+          ? "Videos are not supported. Please upload a JPG or PNG image of your TRA licence."
+          : picked.type === "application/pdf"
+          ? "PDFs are not supported. Please upload a JPG or PNG photo of your TRA licence."
+          : "Only JPG and PNG images are accepted for the TRA licence."
+      );
+      return;
     }
-
-    return `${start} – ${end} UTC`;
-  }, [openingHours, closingHours]);
-
-  const durationText = useMemo(
-    () => (durationMinutes ? formatDuration(durationMinutes) : null),
-    [durationMinutes],
-  );
-
-  const { formatPrice } = useCurrency();
-  const accentColor = categoryColor ?? "#008080";
-  const hasMetaContent = (isTrip && date) || isGuidedTour || durationText || workingHoursDisplay;
+    onAdd(picked);
+  };
 
   return (
-    <div
-      ref={cardRef}
-      onClick={handleCardClick}
-      className={cn(
-        "group relative flex flex-col overflow-hidden cursor-pointer",
-        "rounded-2xl bg-white shadow-md border border-slate-200",
-        "hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200",
-        "w-full xs:min-w-[290px] h-full min-h-[340px]",
-        isUnavailable && "opacity-75",
-      )}
-    >
-      {/* ── Image Section ── */}
-      <div
-        className="relative w-full overflow-hidden flex-[1.4]" 
-        style={{ aspectRatio: "16/10" }}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-      >
-        <div
-          ref={slideContainerRef}
-          className="flex h-full transition-transform duration-300 ease-out"
-          style={{ transform: `translateX(-${currentSlide * 100}%)` }}
-        >
-          {allSlideImages.slice(0, loadedSlides).map((img, idx) => (
-            <div key={idx} className="min-w-full h-full flex-shrink-0 relative bg-slate-100">
-              {!imageLoadStates[idx] && (
-                <Skeleton className="absolute inset-0 h-full w-full rounded-none" />
-              )}
-              {shouldLoad && (
-                <img
-                  src={
-                    img.includes("supabase.co/storage")
-                      ? optimizeSupabaseImage(img, { width: 600, height: 450, quality: 85 })
-                      : img
-                  }
-                  alt={`${name} - ${idx + 1}`}
-                  onLoad={() => setImageLoadStates((prev) => ({ ...prev, [idx]: true }))}
-                  onError={(e) => {
-                    const t = e.target as HTMLImageElement;
-                    if (t.src !== img) t.src = img;
-                  }}
-                  className={cn(
-                    "w-full h-full object-cover transition-opacity duration-300",
-                    imageLoadStates[idx] ? "opacity-100" : "opacity-0",
-                    isUnavailable && "grayscale-[0.4]",
-                  )}
-                />
-              )}
-            </div>
-          ))}
+    <div className="mt-6 pt-6 border-t border-slate-100">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: "linear-gradient(135deg,#008080,#005f5f)" }}>
+          <ShieldCheck className="h-[18px] w-[18px] text-white" />
         </div>
-
-        {/* Bottom gradient */}
-        <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/50 to-transparent pointer-events-none z-10" />
-
-        {/* Type badge */}
-        <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-1">
-          <span
-            className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded shadow text-white"
-            style={{ backgroundColor: accentColor }}
-          >
-            {displayType}
-          </span>
-          {urgencyBadge && (
-            <span className={cn("text-[8px] sm:text-[9px] font-bold px-1.5 py-0.5 rounded text-white shadow", urgencyBadge.bg)}>
-              {urgencyBadge.text}
-            </span>
-          )}
+        <div>
+          <p className="text-sm font-black text-slate-800 tracking-tight">TRA Licence</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">Upload a clear photo of your Tax Registration Authority licence</p>
         </div>
-
-        {/* Heart */}
-        {!hideSave && onSave && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onSave(id, type); }}
-            className="absolute top-2.5 right-2.5 z-20 h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-white/90 shadow-md flex items-center justify-center hover:scale-110 active:scale-95 transition-transform"
-          >
-            <Heart className={cn("h-3.5 w-3.5 sm:h-4 sm:w-4", isSaved ? "fill-red-500 text-red-500" : "text-slate-500")} />
-          </button>
-        )}
-
-        {/* Duration pill */}
-        {durationText && (
-          <div className="absolute bottom-2.5 left-2.5 z-20 flex items-center gap-1 bg-black/70 backdrop-blur-sm rounded-full px-2 py-0.5 sm:px-2.5 sm:py-1">
-            <Timer className="h-3 w-3 text-white" />
-            <span className="text-[10px] sm:text-[11px] font-bold text-white leading-none">{durationText}</span>
-          </div>
-        )}
-
-        {/* Rating pill */}
-        {avgRating != null && avgRating > 0 && (
-          <div className="absolute bottom-2.5 right-2.5 z-20 flex items-center gap-1 bg-white/95 rounded-full px-1.5 py-0.5 sm:px-2 sm:py-0.5 shadow">
-            <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-            <span className="text-[10px] sm:text-[11px] font-black text-slate-800 leading-none">{avgRating.toFixed(1)}</span>
-            {reviewCount != null && reviewCount > 0 && (
-              <span className="text-[8px] sm:text-[9px] font-semibold text-slate-500">({reviewCount})</span>
-            )}
-          </div>
-        )}
-
-        {/* Slide arrows */}
-        {allSlideImages.length > 1 && currentSlide > 0 && (
-          <button
-            onClick={(e) => goToSlide(currentSlide - 1, e)}
-            className="absolute left-2 top-1/2 -translate-y-1/2 z-20 h-7 w-7 rounded-full bg-white/90 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-          >
-            <ChevronLeft className="h-4 w-4 text-slate-700" />
-          </button>
-        )}
-        {allSlideImages.length > 1 && currentSlide < visibleDots - 1 && (
-          <button
-            onClick={(e) => goToSlide(currentSlide + 1, e)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 z-20 h-7 w-7 rounded-full bg-white/90 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-          >
-            <ChevronRight className="h-4 w-4 text-slate-700" />
-          </button>
-        )}
-
-        {/* Dot indicators */}
-        {allSlideImages.length > 1 && (
-          <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1">
-            {Array.from({ length: visibleDots }).map((_, idx) => (
-              <button
-                key={idx}
-                onClick={(e) => goToSlide(idx, e)}
-                className={cn(
-                  "rounded-full transition-all",
-                  idx === currentSlide ? "w-2 h-2 bg-white shadow" : "w-1.5 h-1.5 bg-white/50",
-                )}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Unavailable overlay */}
-        {isUnavailable && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40 backdrop-blur-[1px]">
-            <span className="rounded-lg border border-white/70 px-2.5 py-1 text-[10px] sm:text-[11px] font-black uppercase text-white tracking-wider">
-              {isSoldOut ? "Sold Out" : "Unavailable"}
-            </span>
-          </div>
-        )}
+        <span className="ml-auto shrink-0 text-[10px] font-bold uppercase tracking-widest bg-amber-50 text-amber-600 border border-amber-200 px-2.5 py-1 rounded-full">Required</span>
       </div>
 
-      {/* ── Info panel Section ── */}
-      <div className="flex flex-col p-3 gap-2 bg-white flex-1 justify-between">
-        {/* Top block */}
-        <div className="flex flex-col gap-1">
-          <h3 className="font-black text-slate-900 leading-tight line-clamp-2 text-[12px] sm:text-[13px] tracking-tight sm:tracking-[-0.01em]">
-            {formattedName}
-          </h3>
-
-          {locationString.trim().length > 0 && (
-            <div className="flex items-center gap-1 mt-0.5">
-              <MapPin className="h-3 w-3 sm:h-3.5 sm:w-3.5 flex-shrink-0" style={{ color: accentColor }} />
-              <span
-                className="text-[10px] sm:text-[11px] font-bold truncate capitalize"
-                style={{ color: "#1e293b" }}
-              >
-                {locationString.toLowerCase()}
-              </span>
+      {preview ? (
+        <div className={`relative rounded-2xl overflow-hidden border-2 transition-all ${isInvalid ? "border-red-300" : "border-teal-200"}`} style={{ background: "linear-gradient(135deg,#f0fdfa,#e6fffa)" }}>
+          <div className="flex items-center gap-4 p-4">
+            <div className="relative shrink-0 w-20 h-20 rounded-xl overflow-hidden border border-teal-200 shadow-md">
+              <img src={preview} alt="TRA Licence" className="w-full h-full object-cover" />
             </div>
-          )}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <CheckCircle2 className="h-4 w-4 text-teal-600 shrink-0" />
+                <span className="text-sm font-black text-teal-700">Licence Uploaded</span>
+              </div>
+              <p className="text-[11px] text-teal-600 truncate font-medium">{file?.name}</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">{file ? `${(file.size / 1024).toFixed(0)} KB` : ""}</p>
+            </div>
+            <div className="flex flex-col gap-2 shrink-0">
+              <label className="flex items-center gap-1.5 text-[11px] font-bold text-teal-700 border border-teal-300 bg-white rounded-lg px-3 py-1.5 cursor-pointer hover:bg-teal-50 transition-colors">
+                <Upload className="h-3 w-3" /> Replace
+                <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
+              </label>
+              <button type="button" onClick={() => onRemove} className="flex items-center gap-1.5 text-[11px] font-bold text-red-500 border border-red-200 bg-white rounded-lg px-3 py-1.5 hover:bg-red-50 transition-colors">
+                <X className="h-3 w-3" /> Remove
+              </button>
+            </div>
+          </div>
+          <div className="h-1 w-full" style={{ background: "linear-gradient(90deg,#008080,#00b3b3)" }} />
         </div>
+      ) : (
+        <label className={cn(
+          "flex flex-col items-center justify-center gap-3 w-full rounded-2xl border-2 border-dashed cursor-pointer transition-all py-10 px-6 group",
+          isInvalid ? "border-red-300 bg-red-50/40 hover:bg-red-50" : "border-slate-200 bg-slate-50/50 hover:border-teal-400 hover:bg-teal-50/30"
+        )}>
+          <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center transition-all", isInvalid ? "bg-red-100" : "bg-slate-100 group-hover:bg-teal-100")}>
+            <FileImage className={cn("h-6 w-6 transition-colors", isInvalid ? "text-red-400" : "text-slate-400 group-hover:text-teal-600")} />
+          </div>
+          <div className="text-center">
+            <p className={cn("text-sm font-bold mb-0.5", isInvalid ? "text-red-500" : "text-slate-600 group-hover:text-teal-700")}>
+              {isInvalid ? "TRA Licence is required" : "Upload TRA Licence"}
+            </p>
+            <p className="text-[11px] text-slate-400">JPG or PNG only · Max 5 MB</p>
+          </div>
+          <div className={cn("flex items-center gap-2 px-5 py-2.5 rounded-xl text-[12px] font-bold transition-all", isInvalid ? "bg-red-500 text-white" : "bg-[#008080] text-white group-hover:bg-[#005f5f]")}>
+            <Upload className="h-3.5 w-3.5" /> Choose Image
+          </div>
+          <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
+        </label>
+      )}
 
-        {/* Bottom block */}
-        <div className="flex flex-col gap-1 mt-auto pt-1">
-          {!hidePrice && price != null && price > 0 && (
-            <div className={cn("flex items-baseline gap-1", isUnavailable && "opacity-50 line-through")}>
-              <span
-                className="font-black leading-none text-sm sm:text-[15px]"
-                style={{ color: accentColor }}
-              >
-                {isFlexibleDate && isTrip ? `From ${formatPrice(price)}` : formatPrice(price)}
-              </span>
-              {!(isFlexibleDate && isTrip) && (
-                <span className="text-[9px] sm:text-[10px] font-semibold text-slate-500">
-                  {getPriceLabel(isFlexibleDate, isTrip)}
-                </span>
-              )}
-            </div>
-          )}
-
-          {hasMetaContent && (
-            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 sm:gap-x-3">
-              {/* Date */}
-              {isTrip && date && !isFlexibleDate && (
-                <div className="flex items-center gap-1">
-                  <Calendar className="h-3 w-3 text-slate-400" />
-                  <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700">
-                    {new Date(date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })} UTC
-                  </span>
-                </div>
-              )}
-              {isTrip && isFlexibleDate && (
-                <div className="flex items-center gap-1">
-                  <Calendar className="h-3 w-3 text-slate-400" />
-                  <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700">Flexible</span>
-                </div>
-              )}
-
-              {/* Duration */}
-              {durationText && (
-                <div className="flex items-center gap-1">
-                  <Timer className="h-3 w-3 text-slate-400" />
-                  <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700">{durationText}</span>
-                </div>
-              )}
-
-              {/* Working Hours Block (Title stacked cleanly above the time value) */}
-              {isAdventurePlace && workingHoursDisplay && (
-                <div className="flex flex-col w-full mt-0.5">
-                  <span className="text-[9px] font-black tracking-wider uppercase text-slate-400 block leading-none mb-0.5">
-                    Working Hours
-                  </span>
-                  <div className="flex items-center gap-1">
-                    <Clock className="h-3 w-3 text-slate-400 flex-shrink-0" />
-                    <span className="text-[10px] sm:text-[11px] font-bold text-slate-700">
-                      {workingHoursDisplay}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+      <div className="mt-3 flex items-start gap-2 px-1">
+        <Info className="h-3.5 w-3.5 text-slate-400 mt-0.5 shrink-0" />
+        <p className="text-[10px] text-slate-400 leading-relaxed">
+          Only JPG and PNG images are accepted. Your licence is used for identity verification only and will not be publicly visible.
+        </p>
       </div>
     </div>
   );
 };
 
-export const ListingCard = memo(
-  React.forwardRef<HTMLDivElement, ListingCardProps>((props, _ref) => (
-    <ListingCardComponent {...props} />
-  )),
+// ─── Amenity Tag Input ────────────────────────────────────────────────────────
+const AmenityTagInput = ({ tags, input, onInputChange, onAdd, onRemove, hasError }: {
+  tags: string[]; input: string; onInputChange: (v: string) => void;
+  onAdd: () => void; onRemove: (i: number) => void; hasError: boolean;
+}) => (
+  <div className={cn(
+    "min-h-[44px] flex flex-wrap gap-1.5 items-center px-3 py-2 rounded-xl border bg-white transition-all",
+    hasError ? "border-red-400 ring-2 ring-red-100" : "border-slate-200 focus-within:ring-2 focus-within:ring-[#008080]/20 focus-within:border-[#008080]"
+  )}>
+    {tags.map((tag, i) => (
+      <span key={i} className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[11px] font-bold" style={{ background: `${COLORS.TEAL}10`, color: COLORS.TEAL }}>
+        {tag}
+        <button type="button" onClick={() => onRemove(i)} className="hover:text-red-500 transition-colors"><X className="h-2.5 w-2.5" /></button>
+      </span>
+    ))}
+    <input
+      value={input}
+      onChange={(e) => onInputChange(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === "," || e.key === "Enter" || e.key === ".") { e.preventDefault(); onAdd(); }
+        if (e.key === "Backspace" && !input && tags.length > 0) onRemove(tags.length - 1);
+      }}
+      onBlur={onAdd}
+      placeholder={tags.length === 0 ? "Type amenity, press comma..." : "Add more..."}
+      className="flex-1 min-w-[120px] text-sm font-medium outline-none bg-transparent placeholder:text-slate-300 placeholder:font-normal"
+    />
+  </div>
 );
-ListingCard.displayName = "ListingCard";
+
+// ─── Special Pricing Tier Builder ─────────────────────────────────────────────
+const SpecialPriceBuilder = ({ items, onChange, showErrors, onValidationFail }: {
+  items: SpecialPriceTier[]; onChange: (items: SpecialPriceTier[]) => void;
+  showErrors: boolean; onValidationFail: (msg: string) => void;
+}) => {
+  const { usdHint } = useCurrency();
+  const update = (id: string, patch: Partial<SpecialPriceTier>) => onChange(items.map((t) => t.id === id ? { ...t, ...patch } : t));
+  const addItem = () => onChange([...items, emptySpecialTier()]);
+  const removeItem = (id: string) => onChange(items.filter((t) => t.id !== id));
+
+  const saveItem = (t: SpecialPriceTier) => {
+    if (!t.label.trim()) { onValidationFail("Please enter a name for this special price (e.g. Student, Family)."); return; }
+    if (!t.citizenPrice.trim() || parseFloat(t.citizenPrice) <= 0) { onValidationFail("Please enter a citizen price greater than 0."); return; }
+    update(t.id, { saved: true });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Sparkles className="h-3.5 w-3.5" style={{ color: COLORS.CORAL }} />
+        <FieldLabel>Special Entry Prices (Student, Family, Senior, Group...)</FieldLabel>
+      </div>
+      <p className="text-[11px] text-slate-400 -mt-3">Optional. Create custom pricing categories with their own requirements (e.g. "Student — valid ID required").</p>
+
+      {items.map((item) => (
+        <div key={item.id} className={cn("rounded-xl border overflow-hidden transition-all", item.saved ? "border-purple-200 bg-purple-50/30" : "border-slate-200 bg-white")}>
+          {item.saved ? (
+            <div className="p-4 flex items-center gap-4">
+              <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center shrink-0">
+                <Sparkles className="h-4 w-4 text-purple-500" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-sm text-slate-800 truncate">{item.label}</p>
+                <div className="flex gap-3 mt-0.5 flex-wrap">
+                  <p className="text-[11px] font-semibold text-purple-600">
+                    Citizen: KSh {item.citizenPrice} <span className="text-blue-500">{usdHint(parseFloat(item.citizenPrice) || 0)}</span>
+                  </p>
+                  {item.nonCitizenPrice && parseFloat(item.nonCitizenPrice) > 0 && (
+                    <p className="text-[11px] font-semibold text-amber-600">
+                      Non-Citizen: KSh {item.nonCitizenPrice} <span className="text-blue-500">{usdHint(parseFloat(item.nonCitizenPrice) || 0)}</span>
+                    </p>
+                  )}
+                </div>
+                {item.requirement.trim() && <p className="text-[10px] text-slate-500 mt-1 italic">Requires: {item.requirement}</p>}
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <button type="button" onClick={() => update(item.id, { saved: false })} className="text-[11px] font-bold uppercase tracking-wide text-purple-500 border border-purple-200 rounded-lg px-3 py-1.5 hover:bg-purple-50 transition-colors">Edit</button>
+                <button type="button" onClick={() => removeItem(item.id)} className="text-[11px] font-bold uppercase tracking-wide text-red-500 border border-red-200 rounded-lg px-3 py-1.5 hover:bg-red-50 transition-colors">Remove</button>
+              </div>
+            </div>
+          ) : (
+            <div className="p-5 space-y-4">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <FieldLabel required>Category Name</FieldLabel>
+                  <StyledInput value={item.label} onChange={(e) => update(item.id, { label: e.target.value })} placeholder="e.g. Student, Family Pack" isInvalid={showErrors && !item.label.trim()} />
+                </div>
+                <div className="space-y-1">
+                  <FieldLabel required>Citizen Price (KSh)</FieldLabel>
+                  <StyledInput type="number" value={item.citizenPrice} onChange={(e) => update(item.id, { citizenPrice: e.target.value })} placeholder="0" isInvalid={showErrors && (!item.citizenPrice.trim() || parseFloat(item.citizenPrice) <= 0)} />
+                  {item.citizenPrice && parseFloat(item.citizenPrice) > 0 && <p className="text-[9px] text-blue-500 font-semibold mt-0.5">{usdHint(parseFloat(item.citizenPrice))}</p>}
+                </div>
+                <div className="space-y-1">
+                  <FieldLabel>Non-Citizen Price (KSh)</FieldLabel>
+                  <StyledInput type="number" value={item.nonCitizenPrice} onChange={(e) => update(item.id, { nonCitizenPrice: e.target.value })} placeholder="Optional" />
+                  {item.nonCitizenPrice && parseFloat(item.nonCitizenPrice) > 0 && <p className="text-[9px] text-blue-500 font-semibold mt-0.5">{usdHint(parseFloat(item.nonCitizenPrice))}</p>}
+                </div>
+              </div>
+              <div className="space-y-1">
+                <FieldLabel>Requirement (shown to visitors)</FieldLabel>
+                <StyledInput value={item.requirement} onChange={(e) => update(item.id, { requirement: e.target.value })} placeholder="e.g. Valid student ID required at entry" />
+              </div>
+              <div className="flex gap-3 pt-1">
+                <button type="button" onClick={() => saveItem(item)} className="flex-1 h-10 rounded-xl text-white text-[12px] font-bold hover:opacity-90 transition-all" style={{ background: "linear-gradient(135deg, #a855f7, #7c3aed)" }}>Save Special Price</button>
+                {items.length > 0 && (
+                  <button type="button" onClick={() => removeItem(item.id)} className="h-10 px-4 rounded-xl text-red-400 hover:text-red-600 hover:bg-red-50 transition-all"><X className="h-4 w-4" /></button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+      <button type="button" onClick={addItem} className="w-full h-11 rounded-xl text-[11px] font-bold uppercase tracking-wide border-2 border-dashed border-slate-200 text-slate-400 hover:border-purple-400 hover:text-purple-400 transition-all flex items-center justify-center gap-2">
+        <Plus className="h-4 w-4" /> Add Special Price
+      </button>
+    </div>
+  );
+};
+
+// ─── Facility Builder ─────────────────────────────────────────────────────────
+const FacilityBuilder = ({ items, onChange, showErrors, onValidationFail }: {
+  items: FacilityItem[]; onChange: (items: FacilityItem[]) => void;
+  showErrors: boolean; onValidationFail: (msg: string) => void;
+}) => {
+  const { usdHint } = useCurrency();
+  const update = (id: string, patch: Partial<FacilityItem>) => onChange(items.map((f) => f.id === id ? { ...f, ...patch } : f));
+  const addItem = () => onChange([...items, emptyFacility()]);
+  const removeItem = (id: string) => onChange(items.filter((f) => f.id !== id));
+  const addAmenityTag = (item: FacilityItem) => {
+    const val = item.amenityInput.replace(/,/g, "").trim();
+    if (!val) return;
+    update(item.id, { amenities: [...item.amenities, val], amenityInput: "" });
+  };
+  const removeAmenityTag = (item: FacilityItem, idx: number) => update(item.id, { amenities: item.amenities.filter((_, i) => i !== idx) });
+
+  const handleImages = async (id: string, fileList: FileList | null, existing: File[]) => {
+    if (!fileList || fileList.length === 0) return;
+    const slots = 5 - existing.length;
+    if (slots <= 0) return;
+    const incoming = Array.from(fileList).slice(0, slots);
+    const rejected = incoming.filter((f) => !isImageFile(f));
+    if (rejected.length > 0) { onValidationFail("Only image files (JPG, PNG) are accepted."); return; }
+    let merged: File[];
+    try { const compressed = await compressImages(incoming); merged = [...existing, ...compressed.map((c) => c.file)].slice(0, 5); }
+    catch { merged = [...existing, ...incoming].slice(0, 5); }
+    update(id, { images: merged, previewUrls: merged.map(safeObjectUrl) });
+  };
+
+  const removeImage = (id: string, idx: number, existing: File[]) => {
+    const updated = existing.filter((_, i) => i !== idx);
+    update(id, { images: updated, previewUrls: updated.map(safeObjectUrl) });
+  };
+
+  const saveItem = (f: FacilityItem) => {
+    if (!f.name.trim()) { onValidationFail("Please enter a facility name."); return; }
+    if (f.amenities.length === 0) { onValidationFail("Please add at least one amenity."); return; }
+    if (!f.capacity.trim()) { onValidationFail("Please enter the facility capacity."); return; }
+    if (f.images.length < 2) { onValidationFail("Please add at least 2 photos for this facility."); return; }
+    update(f.id, { saved: true });
+  };
+
+  return (
+    <div className="space-y-4">
+      <FieldLabel>Facilities (with photos)</FieldLabel>
+      {items.map((item) => (
+        <div key={item.id} className={cn("rounded-xl border overflow-hidden transition-all", item.saved ? "border-[#FF7F50]/30 bg-[#FF7F50]/5" : "border-slate-200 bg-white")}>
+          {item.saved ? (
+            <div className="p-4 flex items-center gap-4">
+              <div className="flex gap-2 shrink-0">
+                {item.previewUrls.slice(0, 3).map((url, i) => url
+                  ? <img key={i} src={url} className="w-12 h-12 rounded-xl object-cover border border-slate-200" alt="" />
+                  : <div key={i} className="w-12 h-12 rounded-xl bg-slate-200" />
+                )}
+                {item.previewUrls.length > 3 && (
+                  <div className="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-xs font-bold text-slate-500">+{item.previewUrls.length - 3}</div>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-sm text-slate-800 truncate">{item.name}</p>
+                <p className="text-[11px] text-slate-500 truncate">{item.amenities.join(", ")}</p>
+                <div className="flex gap-3 mt-0.5">
+                  {item.capacity && <p className="text-[11px] text-slate-400">Capacity: {item.capacity}</p>}
+                  {item.price && <p className="text-[11px] font-semibold" style={{ color: COLORS.CORAL }}>KSh {item.price} <span className="text-blue-500">{usdHint(parseFloat(item.price))}</span></p>}
+                </div>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <button type="button" onClick={() => update(item.id, { saved: false })} className="text-[11px] font-bold uppercase tracking-wide border rounded-lg px-3 py-1.5 hover:bg-orange-50 transition-colors" style={{ color: COLORS.CORAL, borderColor: `${COLORS.CORAL}40` }}>Edit</button>
+                <button type="button" onClick={() => removeItem(item.id)} className="text-[11px] font-bold uppercase tracking-wide text-red-500 border border-red-200 rounded-lg px-3 py-1.5 hover:bg-red-50 transition-colors">Remove</button>
+              </div>
+            </div>
+          ) : (
+            <div className="p-5 space-y-4">
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <FieldLabel required>Name</FieldLabel>
+                  <StyledInput value={item.name} onChange={(e) => update(item.id, { name: e.target.value })} placeholder="e.g. Campsite A" isInvalid={showErrors && !item.name.trim()} />
+                </div>
+                <div className="space-y-1">
+                  <FieldLabel>Price (KSh)</FieldLabel>
+                  <StyledInput type="number" value={item.price} onChange={(e) => update(item.id, { price: e.target.value })} placeholder="0" />
+                  {item.price && parseFloat(item.price) > 0 && <p className="text-[9px] text-blue-500 font-semibold mt-0.5">{usdHint(parseFloat(item.price))}</p>}
+                </div>
+                <div className="space-y-1">
+                  <FieldLabel required>Capacity</FieldLabel>
+                  <StyledInput type="number" min={1} value={item.capacity} onChange={(e) => update(item.id, { capacity: e.target.value.replace(/[^0-9]/g, "") })} placeholder="e.g. 20" isInvalid={showErrors && !item.capacity.trim()} />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <FieldLabel required>
+                  Amenities{showErrors && item.amenities.length === 0 && <span className="text-red-400 text-[10px] normal-case font-normal"> — at least one required</span>}
+                </FieldLabel>
+                <AmenityTagInput tags={item.amenities} input={item.amenityInput} onInputChange={(v) => update(item.id, { amenityInput: v })} onAdd={() => addAmenityTag(item)} onRemove={(i) => removeAmenityTag(item, i)} hasError={showErrors && item.amenities.length === 0} />
+              </div>
+              <div>
+                <FieldLabel required>
+                  Photos (min 2, max 5){showErrors && item.images.length < 2 && <span className="text-red-400 text-[10px] normal-case font-normal"> — at least 2 required</span>}
+                </FieldLabel>
+                <ImageGalleryGrid images={item.images} previews={item.previewUrls} onRemove={(i) => removeImage(item.id, i, item.images)} onAdd={(files) => handleImages(item.id, files, item.images)} isInvalid={showErrors && item.images.length < 2} slots={5} />
+              </div>
+              <div className="flex gap-3 pt-1">
+                <button type="button" onClick={() => saveItem(item)} className="flex-1 h-10 rounded-xl text-white text-[12px] font-bold hover:opacity-90 transition-all" style={{ background: `linear-gradient(135deg, ${COLORS.CORAL}, #e06040)` }}>Save Facility</button>
+                {items.length > 1 && (
+                  <button type="button" onClick={() => removeItem(item.id)} className="h-10 px-4 rounded-xl text-red-400 hover:text-red-600 hover:bg-red-50 transition-all"><X className="h-4 w-4" /></button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+      <button type="button" onClick={addItem} className="w-full h-11 rounded-xl text-[11px] font-bold uppercase tracking-wide border-2 border-dashed border-slate-200 text-slate-400 hover:border-[#FF7F50] hover:text-[#FF7F50] transition-all flex items-center justify-center gap-2">
+        <Plus className="h-4 w-4" /> Add Facility
+      </button>
+    </div>
+  );
+};
+
+// ─── Activity Builder ─────────────────────────────────────────────────────────
+export const ActivityBuilder = ({ items, onChange, showErrors, onValidationFail }: {
+  items: ActivityItem[]; onChange: (items: ActivityItem[]) => void;
+  showErrors: boolean; onValidationFail: (msg: string) => void;
+}) => {
+  const { usdHint } = useCurrency();
+  const update = (id: string, patch: Partial<ActivityItem>) => onChange(items.map((a) => a.id === id ? { ...a, ...patch } : a));
+  const addItem = () => onChange([...items, emptyActivity()]);
+  const removeItem = (id: string) => onChange(items.filter((a) => a.id !== id));
+
+  const handleImages = async (id: string, fileList: FileList | null, existing: File[]) => {
+    if (!fileList || fileList.length === 0) return;
+    const slots = 5 - existing.length;
+    if (slots <= 0) return;
+    const incoming = Array.from(fileList).slice(0, slots);
+    const rejected = incoming.filter((f) => !isImageFile(f));
+    if (rejected.length > 0) { onValidationFail("Only image files (JPG, PNG) are accepted."); return; }
+    let merged: File[];
+    try { const compressed = await compressImages(incoming); merged = [...existing, ...compressed.map((c) => c.file)].slice(0, 5); }
+    catch { merged = [...existing, ...incoming].slice(0, 5); }
+    update(id, { images: merged, previewUrls: merged.map(safeObjectUrl) });
+  };
+
+  const removeImage = (id: string, idx: number, existing: File[]) => {
+    const updated = existing.filter((_, i) => i !== idx);
+    update(id, { images: updated, previewUrls: updated.map(safeObjectUrl) });
+  };
+
+  const saveItem = (a: ActivityItem) => {
+    if (!a.name.trim()) { onValidationFail("Please enter an activity name."); return; }
+    if (a.images.length < 1) { onValidationFail("Please add at least 1 photo for this activity."); return; }
+    update(a.id, { saved: true });
+  };
+
+  return (
+    <div className="space-y-4">
+      <FieldLabel>Activities (Optional)</FieldLabel>
+      {items.map((item) => (
+        <div key={item.id} className={cn("rounded-xl border overflow-hidden transition-all", item.saved ? "border-teal-200 bg-teal-50/20" : "border-slate-200 bg-white")}>
+          {item.saved ? (
+            <div className="p-4 flex items-center gap-4">
+              <div className="flex gap-2 shrink-0">
+                {item.previewUrls.slice(0, 2).map((url, i) => (
+                  <img key={i} src={url} className="w-12 h-12 rounded-xl object-cover border border-slate-200" alt="" />
+                ))}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-sm text-slate-800 truncate">{item.name}</p>
+                {item.price && <p className="text-[11px] font-semibold text-slate-500">Price: KSh {item.price} <span className="text-blue-500">{usdHint(parseFloat(item.price))}</span></p>}
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <button type="button" onClick={() => update(item.id, { saved: false })} className="text-[11px] font-bold uppercase tracking-wide text-teal-600 border border-teal-200 rounded-lg px-3 py-1.5 hover:bg-teal-50 transition-colors">Edit</button>
+                <button type="button" onClick={() => removeItem(item.id)} className="text-[11px] font-bold uppercase tracking-wide text-red-500 border border-red-200 rounded-lg px-3 py-1.5 hover:bg-red-50 transition-colors">Remove</button>
+              </div>
+            </div>
+          ) : (
+            <div className="p-5 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <FieldLabel required>Activity Name</FieldLabel>
+                  <StyledInput value={item.name} onChange={(e) => update(item.id, { name: e.target.value })} placeholder="e.g. Guided Hiking Tour" isInvalid={showErrors && !item.name.trim()} />
+                </div>
+                <div className="space-y-1">
+                  <FieldLabel>Price (KSh) — Optional</FieldLabel>
+                  <StyledInput type="number" value={item.price} onChange={(e) => update(item.id, { price: e.target.value })} placeholder="0 (Leave blank if free)" />
+                  {item.price && parseFloat(item.price) > 0 && <p className="text-[9px] text-blue-500 font-semibold mt-0.5">{usdHint(parseFloat(item.price))}</p>}
+                </div>
+              </div>
+              <div>
+                <FieldLabel required>
+                  Activity Photos (min 1){showErrors && item.images.length < 1 && <span className="text-red-400 text-[10px] normal-case font-normal"> — at least 1 photo required</span>}
+                </FieldLabel>
+                <ImageGalleryGrid images={item.images} previews={item.previewUrls} onRemove={(i) => removeImage(item.id, i, item.images)} onAdd={(files) => handleImages(item.id, files, item.images)} isInvalid={showErrors && item.images.length < 1} slots={3} />
+              </div>
+              <div className="flex gap-3 pt-1">
+                <button type="button" onClick={() => saveItem(item)} className="flex-1 h-10 rounded-xl text-white text-[12px] font-bold hover:opacity-90 transition-all bg-[#008080]">Save Activity</button>
+                <button type="button" onClick={() => removeItem(item.id)} className="h-10 px-4 rounded-xl text-red-400 hover:text-red-600 hover:bg-red-50 transition-all"><X className="h-4 w-4" /></button>
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+      <button type="button" onClick={addItem} className="w-full h-11 rounded-xl text-[11px] font-bold uppercase tracking-wide border-2 border-dashed border-slate-200 text-slate-400 hover:border-[#008080] hover:text-[#008080] transition-all flex items-center justify-center gap-2">
+        <Plus className="h-4 w-4" /> Add Activity
+      </button>
+    </div>
+  );
+};

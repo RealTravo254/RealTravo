@@ -10,15 +10,14 @@ import { SearchBarWithSuggestions } from "@/components/SearchBarWithSuggestions"
 import { useSearchFocus } from "@/components/PageLayout";
 import { ListingCard } from "@/components/ListingCard";
 import {
-  Calendar, Tent, Compass, MapPin, Building2, Home, TreePine, Landmark, Map,
-  Loader2, Navigation, Heart, Ticket, Trophy, Star, Search as SearchIcon,
+  Calendar, Tent, MapPin, Building2, Home, Map,
+  Navigation, Heart, Ticket, Star, Search as SearchIcon,
 } from "lucide-react";
 import { FEATURED_COUNTIES, COUNTY_IMAGES } from "@/lib/kenyaCounties";
 import {
   AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { getUserId } from "@/lib/sessionManager";
@@ -31,10 +30,6 @@ import { useRealtimeBookings } from "@/hooks/useRealtimeBookings";
 import { useResponsiveLimit } from "@/hooks/useResponsiveLimit";
 
 // ── GridSection ───────────────────────────────────────────────────────────────
-// Shows list cards in a single horizontally-scrollable row on ALL screen
-// sizes. Tapping "See More" appends the next batch of cards into the same
-// row (with trailing skeleton cards while it "loads"). A "View All" link
-// next to the title takes the user to a fully paginated explore page.
 const INITIAL_VISIBLE_COUNT = 10;
 const LOAD_MORE_COUNT = 10;
 
@@ -67,11 +62,7 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: G
     }, 500);
   };
 
-  // Skeleton only shown when actively loading AND no items yet
   const showSkeletons = loading && items.length === 0;
-
-  // Card width is fixed so the row scrolls horizontally and consistently
-  // across breakpoints instead of wrapping into a grid.
   const cardWidthClasses = "w-[42vw] sm:w-[230px] md:w-[240px] lg:w-[260px] shrink-0";
 
   const Skeletons = ({ count }: { count: number }) => (
@@ -117,8 +108,6 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: G
                 {item}
               </div>
             ))}
-
-            {/* Trailing skeleton cards while "See More" is loading, in the same row */}
             {loadingMore && <Skeletons count={nextBatchSize || LOAD_MORE_COUNT} />}
           </div>
 
@@ -140,27 +129,21 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: G
 });
 GridSection.displayName = "GridSection";
 
-// ── Category cards (now shown below the Counties section) ─────────────────────
-// Arranged in rows & columns (a responsive grid) on every screen size,
-// from small phones up to large desktops.
+// ── Category cards ────────────────────────────────────────────────────────────
+// Attraction and Park removed — add them back here when their pages are ready.
 const CATEGORIES = [
   { icon: Building2, title: "Hotels",         path: "/category/hotels",        bgImage: "/images/category-hotels.jpg" },
   { icon: Home,       title: "Accommodations", path: "/category/accommodations", bgImage: "/images/category-accommodations.png" },
-  { icon: TreePine,   title: "Parks",          path: "/category/parks",          bgImage: "/images/category-parks.png" },
   { icon: Tent,       title: "Campsites",      path: "/category/campsite",       bgImage: "/images/category-adventures.jpg" },
-  { icon: Landmark,   title: "Attraction",     path: "/category/attraction",     bgImage: "/images/category-attraction.png" },
   { icon: Map,        title: "Tours & Trips",  path: "/category/trips",          bgImage: "/images/category-trips.jpg" },
 ];
 
 // ── Quick-nav shortcuts ───────────────────────────────────────────────────────
-// Includes every category (so people can jump straight to Hotels, Parks, etc.)
-// plus the two account shortcuts, Bookings and Saved.
+// Attraction and Park removed — add them back here when their pages are ready.
 const QUICK_NAV = [
   { icon: Building2, title: "Hotels",         path: "/category/hotels",        color: "hsl(205, 85%, 45%)" },
   { icon: Home,       title: "Accommodations", path: "/category/accommodations", color: "hsl(160, 70%, 40%)" },
-  { icon: TreePine,   title: "Parks",          path: "/category/parks",          color: "hsl(140, 60%, 38%)" },
   { icon: Tent,       title: "Campsites",      path: "/category/campsite",       color: "hsl(278, 90%, 50%)" },
-  { icon: Landmark,   title: "Attraction",     path: "/category/attraction",     color: "hsl(15, 80%, 50%)"  },
   { icon: Map,        title: "Tours & Trips",  path: "/category/trips",          color: "hsl(235, 90%, 50%)" },
   { icon: Ticket,     title: "Bookings",       path: "/bookings",                color: "hsl(200, 70%, 45%)" },
   { icon: Heart,      title: "Saved",          path: "/saved",                   color: "hsl(350, 80%, 55%)" },
@@ -173,7 +156,6 @@ const Index = () => {
   const { savedItems, handleSave } = useSavedItems();
   const [userId, setUserId] = useState<string | null>(null);
   const { toast } = useToast();
-  // Request location immediately on mount
   const { position, loading: locationLoading, requestLocation, forceRequestLocation } = useGeolocation();
   const [showLocationDialog, setShowLocationDialog] = useState(false);
   const { cardLimit } = useResponsiveLimit();
@@ -216,34 +198,33 @@ const Index = () => {
   const allItemIds = useMemo(() => {
     const ids = new Set<string>();
     nearbyPlacesHotels.forEach(i => ids.add(i.id));
-    scrollableRows.trips.forEach(i => ids.add(i.id));
+    // scrollableRows.trips.forEach(i => ids.add(i.id)); // fixed trips disabled
     scrollableRows.campsites.forEach(i => ids.add(i.id));
-    scrollableRows.events.forEach(i => ids.add(i.id));
+    // scrollableRows.events.forEach(i => ids.add(i.id)); // events disabled
     scrollableRows.guidedTrips.forEach(i => ids.add(i.id));
     return Array.from(ids);
   }, [nearbyPlacesHotels, scrollableRows]);
 
   const tripEventIds = useMemo(() => {
-    const ids = [...scrollableRows.trips, ...scrollableRows.events, ...scrollableRows.guidedTrips].map(i => i.id);
+    // const ids = [...scrollableRows.trips, ...scrollableRows.events, ...scrollableRows.guidedTrips].map(i => i.id);
+    // Fixed trips and events removed — only guided trips track bookings now
+    const ids = [...scrollableRows.guidedTrips].map(i => i.id);
     return [...new Set(ids)];
-  }, [scrollableRows.trips, scrollableRows.events, scrollableRows.guidedTrips]);
+  }, [scrollableRows.guidedTrips]);
 
   const { bookingStats } = useRealtimeBookings(tripEventIds);
   const { ratings }      = useRatings(allItemIds);
 
-  // "Nearest to You" now also includes trips, events, and guided tours.
-  // Adventure places have lat/lng so they're sorted by actual distance;
-  // trips/events/tours have no coordinates, so they're folded in after,
-  // ranked by rating, rather than breaking the distance sort.
+  // "Nearest to You" — adventure places sorted by distance, guided trips by rating appended after
   const sortedNearbyPlaces = useMemo(() => {
     const places = sortByRating(nearbyPlacesHotels, ratings, position, calculateDistance)
       .map((item: any) => ({ ...item, __cardType: "ADVENTURE PLACE" as const }));
 
     const seen = new Set(places.map((p: any) => p.id));
     const others = [
-      ...scrollableRows.trips.map(item => ({ ...item, __cardType: "TRIP" as const })),
+      // ...scrollableRows.trips.map(item => ({ ...item, __cardType: "TRIP" as const })),   // fixed trips disabled
       ...scrollableRows.guidedTrips.map(item => ({ ...item, __cardType: "TRIP" as const })),
-      ...scrollableRows.events.map(item => ({ ...item, __cardType: "EVENT" as const })),
+      // ...scrollableRows.events.map(item => ({ ...item, __cardType: "EVENT" as const })),  // events disabled
     ]
       .filter(item => {
         if (seen.has(item.id)) return false;
@@ -259,18 +240,16 @@ const Index = () => {
       });
 
     return [...places, ...others];
-  }, [nearbyPlacesHotels, ratings, position, scrollableRows.trips, scrollableRows.guidedTrips, scrollableRows.events]);
+  }, [nearbyPlacesHotels, ratings, position, scrollableRows.guidedTrips]);
 
-  // "Browsers guide" now shows ALL listing types together — adventure
-  // places/campsites, trips, events, and guided tours — deduped and ranked
-  // by rating so the strongest listings across every category float up.
+  // "Browsers guide" — campsites + guided trips, ranked by rating
   const displayBrowseGuides = useMemo(() => {
     const seen = new Set<string>();
     const combined = [
       ...scrollableRows.campsites.map(item => ({ ...item, __cardType: "ADVENTURE PLACE" as const })),
-      ...scrollableRows.trips.map(item => ({ ...item, __cardType: "TRIP" as const })),
+      // ...scrollableRows.trips.map(item => ({ ...item, __cardType: "TRIP" as const })),   // fixed trips disabled
       ...scrollableRows.guidedTrips.map(item => ({ ...item, __cardType: "TRIP" as const })),
-      ...scrollableRows.events.map(item => ({ ...item, __cardType: "EVENT" as const })),
+      // ...scrollableRows.events.map(item => ({ ...item, __cardType: "EVENT" as const })), // events disabled
     ];
     return combined
       .filter(item => {
@@ -285,29 +264,41 @@ const Index = () => {
         const sb = rb ? rb.avgRating * Math.log1p(rb.reviewCount) : 0;
         return sb - sa;
       });
-  }, [scrollableRows.campsites, scrollableRows.trips, scrollableRows.guidedTrips, scrollableRows.events, ratings]);
+  }, [scrollableRows.campsites, scrollableRows.guidedTrips, ratings]);
 
   // ── Data fetching ──────────────────────────────────────────────────────────
   const fetchScrollableRows = useCallback(async (limit: number) => {
     setLoadingScrollable(true);
     const fetchLimit = Math.max(limit * 3, 60);
     try {
-      const [tripsData, campsitesData, eventsData, guidedData] = await Promise.all([
-        supabase
-          .from("trips")
-          .select("id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child,description,opening_hours,closing_hours")
-          .eq("approval_status", "approved").eq("is_hidden", false)
-          .eq("type", "trip").eq("is_flexible_date", false).eq("is_custom_date", false)
-          .order("date", { ascending: true }).limit(fetchLimit),
+      const [
+        // tripsData,   // fixed trips fetch disabled — uncomment to re-enable
+        campsitesData,
+        // eventsData,  // events fetch disabled — uncomment to re-enable
+        guidedData,
+      ] = await Promise.all([
+        // ── Fixed-date trips (disabled — uncomment to re-enable) ──────────
+        // supabase
+        //   .from("trips")
+        //   .select("id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child,description,opening_hours,closing_hours")
+        //   .eq("approval_status", "approved").eq("is_hidden", false)
+        //   .eq("type", "trip").eq("is_flexible_date", false).eq("is_custom_date", false)
+        //   .order("date", { ascending: true }).limit(fetchLimit),
+
+        // ── Adventure places / campsites ──────────────────────────────────
         supabase
           .from("adventure_places")
           .select("id,name,location,place,country,image_url,gallery_images,images,entry_fee,activities,latitude,longitude,created_at,description,opening_hours,closing_hours")
           .eq("approval_status", "approved").eq("is_hidden", false).limit(fetchLimit),
-        supabase
-          .from("trips")
-          .select("id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child,description,opening_hours,closing_hours")
-          .eq("approval_status", "approved").eq("is_hidden", false)
-          .eq("type", "event").order("date", { ascending: true }).limit(fetchLimit),
+
+        // ── Events (disabled — uncomment to re-enable) ────────────────────
+        // supabase
+        //   .from("trips")
+        //   .select("id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child,description,opening_hours,closing_hours")
+        //   .eq("approval_status", "approved").eq("is_hidden", false)
+        //   .eq("type", "event").order("date", { ascending: true }).limit(fetchLimit),
+
+        // ── Guided tours (flexible / custom-date trips) ───────────────────
         supabase
           .from("trips")
           .select("id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child,description,opening_hours,closing_hours")
@@ -315,10 +306,11 @@ const Index = () => {
           .eq("type", "trip").or("is_flexible_date.eq.true,is_custom_date.eq.true")
           .order("created_at", { ascending: false }).limit(fetchLimit),
       ]);
+
       setScrollableRows({
-        trips:       tripsData.data     || [],
+        trips:       [],                    // fixed trips disabled
         campsites:   campsitesData.data || [],
-        events:      eventsData.data    || [],
+        events:      [],                    // events disabled
         guidedTrips: guidedData.data    || [],
       });
     } catch (err) {
@@ -357,26 +349,22 @@ const Index = () => {
   }, [position]);
 
   // ── Effects ────────────────────────────────────────────────────────────────
-
-  // Request location immediately on mount — don't wait for scroll/click
-  useEffect(() => {
-    requestLocation();
-  }, [requestLocation]);
+  useEffect(() => { requestLocation(); }, [requestLocation]);
 
   useEffect(() => {
     const cached = getCachedHomePageData();
     if (cached) {
       const c = (cached.scrollableRows as any) || {};
       const rows = {
-        trips: c.trips || [], campsites: c.campsites || [],
-        events: c.events || [], guidedTrips: c.guidedTrips || [],
+        trips: [], campsites: c.campsites || [],
+        events: [], guidedTrips: c.guidedTrips || [],
       };
       setScrollableRows(rows);
       setNearbyPlacesHotels(cached.nearbyPlacesHotels || []);
       setLoadingScrollable(false);
       setLoadingNearby(false);
       const age = Date.now() - (cached.cachedAt || 0);
-      const hasData = rows.trips.length > 0 || rows.campsites.length > 0 || rows.events.length > 0;
+      const hasData = rows.campsites.length > 0 || rows.guidedTrips.length > 0;
       if (age < 5 * 60 * 1000 && hasData) { getUserId().then(setUserId); return; }
     }
     fetchScrollableRows(cardLimit);
@@ -384,12 +372,11 @@ const Index = () => {
   }, [cardLimit, fetchScrollableRows]);
 
   useEffect(() => {
-    const hasData = scrollableRows.trips.length > 0 || scrollableRows.campsites.length > 0 || scrollableRows.events.length > 0;
+    const hasData = scrollableRows.campsites.length > 0 || scrollableRows.guidedTrips.length > 0;
     if (!loadingScrollable && hasData)
       setCachedHomePageData({ scrollableRows, listings: [], nearbyPlacesHotels });
   }, [loadingScrollable, scrollableRows, nearbyPlacesHotels]);
 
-  // Fetch nearby as soon as position is available
   useEffect(() => {
     if (position) fetchNearbyPlacesAndHotels();
   }, [position, fetchNearbyPlacesAndHotels]);
@@ -450,10 +437,10 @@ const Index = () => {
   // ── Pre-build node arrays ──────────────────────────────────────────────────
   const browseGuideNodes = useMemo(() =>
     displayBrowseGuides.map((item: any, i) => {
-      const isTripOrEvent = item.__cardType === "TRIP" || item.__cardType === "EVENT";
+      const isGuided = item.__cardType === "TRIP";
       return renderCard(item, item.__cardType, i, {
-        hidePrice: !isTripOrEvent,
-        isTrip: item.__cardType === "TRIP",
+        hidePrice: !isGuided,
+        isTrip: isGuided,
       });
     }),
     [displayBrowseGuides, renderCard],
@@ -463,7 +450,7 @@ const Index = () => {
     sortedNearbyPlaces.map((item: any, i) => {
       const a = item as any;
       const rd = ratings.get(item.id);
-      const isTripOrEvent = a.__cardType === "TRIP" || a.__cardType === "EVENT";
+      const isGuided = a.__cardType === "TRIP";
       const today = new Date().toISOString().split("T")[0];
       return (
         <ListingCard
@@ -474,15 +461,15 @@ const Index = () => {
           imageUrl={a.image_url}
           location={a.location}
           country={a.country}
-          price={isTripOrEvent ? (a.price || 0) : (a.entry_fee || 0)}
-          date={isTripOrEvent ? (a.date || "") : ""}
+          price={isGuided ? (a.price || 0) : (a.entry_fee || 0)}
+          date={isGuided ? (a.date || "") : ""}
           isCustomDate={a.is_custom_date}
           isFlexibleDate={a.is_flexible_date}
-          isOutdated={isTripOrEvent && a.date && !a.is_flexible_date && a.date < today}
+          isOutdated={isGuided && a.date && !a.is_flexible_date && a.date < today}
           isSaved={savedItems.has(item.id)}
           onSave={handleSave}
           hideSave={false}
-          hidePrice={!isTripOrEvent}
+          hidePrice={!isGuided}
           showBadge={true}
           priority={i === 0}
           activities={a.activities}
@@ -490,8 +477,8 @@ const Index = () => {
           avgRating={rd?.avgRating}
           reviewCount={rd?.reviewCount}
           place={a.place}
-          availableTickets={a.__cardType === "TRIP" ? a.available_tickets : undefined}
-          bookedTickets={a.__cardType === "TRIP" ? bookingStats[item.id] || 0 : undefined}
+          availableTickets={isGuided ? a.available_tickets : undefined}
+          bookedTickets={isGuided ? bookingStats[item.id] || 0 : undefined}
           description={a.description}
         />
       );
@@ -539,10 +526,7 @@ const Index = () => {
                   <Menu className="h-5 w-5 stroke-[2.5]" />
                 </button>
               </SheetTrigger>
-              <SheetContent
-                side="left"
-                className="w-[80vw] max-w-sm p-0 h-screen border-none"
-              >
+              <SheetContent side="left" className="w-[80vw] max-w-sm p-0 h-screen border-none">
                 <NavigationDrawer onClose={() => setIsIndexDrawerOpen(false)} />
               </SheetContent>
             </Sheet>
@@ -569,7 +553,7 @@ const Index = () => {
         </div>
       )}
 
-      {/* ── Hero (search + background image only — categories moved below Counties) ── */}
+      {/* ── Hero ── */}
       {!isSearchFocused && (
         <div
           ref={searchRef}
@@ -617,7 +601,43 @@ const Index = () => {
 
       <main className="w-full">
         <div className={`w-full ${isSearchFocused ? "hidden" : ""}`}>
+          {/* ── All content constrained to container width (never bleeds to screen edge on desktop) ── */}
           <div className="container mx-auto px-4 md:px-6 py-3 md:py-5 space-y-2 md:space-y-6">
+
+            {/* Categories ── 4 cards, equal-width columns, constrained to container */}
+            <section className="mb-4 md:mb-8">
+              <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-3">
+                Browse by category
+              </h2>
+              {/* grid-cols-4 on all screens — 4 categories always sit in one row,
+                  each column takes an equal share of the container width.
+                  On mobile the cards are a bit narrow but still readable;
+                  if you add more categories back, bump to grid-cols-2 sm:grid-cols-4. */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 md:gap-4">
+                {CATEGORIES.map(cat => (
+                  <Link
+                    key={cat.title}
+                    to={cat.path}
+                    className="relative flex flex-col items-center justify-center gap-1.5 rounded-xl overflow-hidden cursor-pointer"
+                    style={{ aspectRatio: "4 / 3" }}
+                  >
+                    <img
+                      src={cat.bgImage}
+                      alt=""
+                      aria-hidden="true"
+                      loading="lazy"
+                      decoding="async"
+                      className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none select-none"
+                    />
+                    <div className="absolute inset-0 bg-black/50 hover:bg-black/60 transition-colors" />
+                    <cat.icon className="relative z-10 h-5 w-5 md:h-8 md:w-8 text-white shrink-0 drop-shadow" />
+                    <span className="relative z-10 text-white text-xs md:text-base font-extrabold leading-tight text-center drop-shadow px-1">
+                      {cat.title}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </section>
 
             {/* Counties — horizontal scroll */}
             <section className="mb-4 md:mb-6">
@@ -649,38 +669,7 @@ const Index = () => {
               </div>
             </section>
 
-            {/* Categories — moved below Counties. Rows & columns on every screen size. */}
-            <section className="mb-4 md:mb-8">
-              <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-3">
-                Browse by category
-              </h2>
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-2 md:gap-3">
-                {CATEGORIES.map(cat => (
-                  <Link
-                    key={cat.title}
-                    to={cat.path}
-                    className="cursor-pointer rounded-lg relative w-full flex flex-col items-center justify-center gap-1 px-2 py-3 md:py-5 overflow-hidden"
-                    style={{ aspectRatio: "1 / 1" }}
-                  >
-                    <img
-                      src={cat.bgImage}
-                      alt=""
-                      aria-hidden="true"
-                      loading="lazy"
-                      decoding="async"
-                      className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none select-none rounded-lg"
-                    />
-                    <div className="absolute inset-0 rounded-lg bg-black/55 hover:bg-black/65 transition-colors" />
-                    <cat.icon className="relative z-10 h-4 w-4 md:h-7 md:w-7 text-white shrink-0" />
-                    <span className="relative z-10 text-white text-[10px] md:text-sm font-bold leading-none text-center">
-                      {cat.title}
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            </section>
-
-            {/* Browse Guides — Adventure Places & Safaris (single horizontal row, 10-at-a-time pagination) */}
+            {/* Browsers guide */}
             <GridSection
               title="Browsers guide"
               viewAllPath="/explore"
@@ -689,7 +678,7 @@ const Index = () => {
               loading={loadingScrollable}
             />
 
-            {/* Nearest to You — shown as soon as position is available or nearby data arrives */}
+            {/* Nearest to You */}
             {(position || nearbyPlacesHotels.length > 0) && (
               <GridSection
                 title={t("sections.nearestToYou")}
@@ -703,7 +692,7 @@ const Index = () => {
             {/* Quick Navigation */}
             <section className="mb-4 md:mb-8">
               <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-3">Quick Access</h2>
-              <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 gap-1.5">
+              <div className="grid grid-cols-6 gap-1.5">
                 {QUICK_NAV.map(nav => (
                   <button
                     key={nav.title}

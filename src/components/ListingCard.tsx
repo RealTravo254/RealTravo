@@ -36,12 +36,12 @@ const PriceText = ({
 }) => {
   const { formatPrice } = useCurrency();
   return (
-    <div className={cn("flex items-baseline gap-1 mt-0.5", isUnavailable && "opacity-40 line-through")}>
-      {/* FIXED: Using text-slate-950 for deep black text on white backgrounds */}
-      <span className="text-sm font-black text-slate-950 dark:text-slate-50 whitespace-nowrap">
+    <div className={cn("flex items-baseline gap-1 mt-1", isUnavailable && "opacity-40 line-through")}>
+      {/* FIXED: Added !text-slate-950 and !text-black to override global theme configs */}
+      <span className="text-sm font-black !text-slate-950 dark:!text-slate-50 !text-black whitespace-nowrap">
         {formatPrice(price)}
       </span>
-      <span className="text-[11px] text-slate-900 dark:text-slate-200 font-bold">
+      <span className="text-[11px] !text-slate-900 dark:!text-slate-200 font-bold">
         {getPriceLabel(isFlexibleDate, isTrip)}
       </span>
     </div>
@@ -145,11 +145,11 @@ const ListingCardComponent = ({
 
   const urgencyBadge = useMemo(() => {
     if (isSoldOut)
-      return { text: "Sold out", color: "bg-destructive/20 text-destructive border-destructive/40 font-bold" };
+      return { text: "Sold out", color: "bg-destructive/20 !text-destructive border-destructive/40 font-bold" };
     if (isOutdated)
-      return { text: "Passed", color: "bg-muted text-slate-900 border-slate-300 font-bold" };
+      return { text: "Passed", color: "bg-muted !text-slate-900 border-slate-300 font-bold" };
     if (fewSlotsRemaining)
-      return { text: `🔥 ${remainingTickets} left`, color: "bg-orange-100 dark:bg-orange-950 text-orange-900 dark:text-orange-200 border-orange-400 font-extrabold" };
+      return { text: `🔥 ${remainingTickets} left`, color: "bg-orange-100 dark:bg-orange-950 !text-orange-900 dark:!text-orange-200 border-orange-400 font-extrabold" };
     return null;
   }, [isSoldOut, isOutdated, fewSlotsRemaining, remainingTickets]);
 
@@ -194,7 +194,7 @@ const ListingCardComponent = ({
       ref={cardRef}
       onClick={handleCardClick}
       className={cn(
-        "group relative flex flex-col overflow-hidden cursor-pointer bg-card transition-all duration-300",
+        "group relative flex flex-col overflow-hidden cursor-pointer bg-white dark:bg-slate-900 transition-all duration-300",
         "rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm",
         "hover:shadow-md hover:border-primary/45",
         "w-full",
@@ -270,7 +270,7 @@ const ListingCardComponent = ({
             onClick={(e) => { e.stopPropagation(); onSave(id, type); }}
             className="absolute top-2 right-2 z-20 h-7 w-7 rounded-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm shadow flex items-center justify-center hover:bg-white dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-800"
           >
-            <Heart className={cn("h-4 w-4", isSaved ? "fill-red-500 text-red-500" : "text-slate-950 dark:text-slate-100")} />
+            <Heart className={cn("h-4 w-4", isSaved ? "fill-red-500 text-red-500" : "!text-slate-950 dark:!text-slate-100")} />
           </button>
         )}
 
@@ -326,16 +326,16 @@ const ListingCardComponent = ({
       </div>
 
       {/* ── Text content ── */}
-      <div className="flex flex-col gap-2 p-3.5 min-w-0">
-        {/* FIXED: Title changed to text-slate-950 for deep contrast */}
-        <h3 className="line-clamp-2 text-sm font-black leading-snug text-slate-950 dark:text-slate-50 tracking-tight">
+      <div className="flex flex-col gap-2.5 p-4 min-w-0 bg-white dark:bg-slate-900">
+        {/* FIXED: Title explicitly forced to dark slate / near-black */}
+        <h3 className="line-clamp-2 text-sm font-black leading-snug !text-slate-950 dark:!text-slate-50 tracking-tight">
           {formattedName}
         </h3>
 
-        {/* FIXED: Location element text changed to bold slate-900 */}
-        <div className="flex items-center gap-1.5 text-slate-900 dark:text-slate-100">
-          <MapPin className="h-3.5 w-3.5 flex-shrink-0 text-slate-700 dark:text-slate-300" />
-          <span className="text-xs font-bold truncate capitalize">
+        {/* FIXED: Location block values forced to dark values explicitly */}
+        <div className="flex items-center gap-2 !text-slate-900 dark:!text-slate-100">
+          <MapPin className="h-4 w-4 flex-shrink-0 !text-slate-800 dark:!text-slate-200" />
+          <span className="text-xs font-black truncate capitalize">
             {locationString}
           </span>
         </div>
@@ -350,11 +350,11 @@ const ListingCardComponent = ({
           />
         )}
 
-        {/* FIXED: Clearer styling for Dates */}
+        {/* FIXED: forced clear date string color styling */}
         {isTrip && (date || isFlexibleDate) && (
-          <div className="flex items-center gap-1.5 text-slate-900 dark:text-slate-100">
-            <Calendar className="h-3.5 w-3.5 text-slate-700 dark:text-slate-300" />
-            <span className="text-xs font-bold">
+          <div className="flex items-center gap-2 !text-slate-900 dark:!text-slate-100">
+            <Calendar className="h-4 w-4 !text-slate-800 dark:!text-slate-200" />
+            <span className="text-xs font-black">
               {isFlexibleDate
                 ? "Flexible Dates"
                 : new Date(date!).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
@@ -362,21 +362,21 @@ const ListingCardComponent = ({
           </div>
         )}
 
-        {/* FIXED: Clearer styling for Hours */}
+        {/* FIXED: forced clear hour string color styling */}
         {hoursText && (
-          <div className="flex items-center gap-1.5 text-slate-900 dark:text-slate-100">
-            <Clock className="h-3.5 w-3.5 text-slate-700 dark:text-slate-300" />
-            <span className="text-xs font-bold">{hoursText}</span>
+          <div className="flex items-center gap-2 !text-slate-900 dark:!text-slate-100">
+            <Clock className="h-4 w-4 !text-slate-800 dark:!text-slate-200" />
+            <span className="text-xs font-black">{hoursText}</span>
           </div>
         )}
 
-        {/* FIXED: Separation border and solid bold styling for rating review block */}
+        {/* FIXED: High contrast layout separation for overall ratings container */}
         {avgRating != null && avgRating > 0 && (
           <div className="flex items-center gap-1 pt-2 border-t border-slate-200 dark:border-slate-800 mt-1">
-            <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
-            <span className="text-xs font-black text-slate-950 dark:text-slate-50">{avgRating.toFixed(1)}</span>
+            <Star className="h-4 w-4 fill-amber-500 text-amber-500" />
+            <span className="text-xs font-black !text-slate-950 dark:!text-slate-50">{avgRating.toFixed(1)}</span>
             {reviewCount != null && reviewCount > 0 && (
-              <span className="text-[11px] text-slate-700 dark:text-slate-300 font-bold">({reviewCount} reviews)</span>
+              <span className="text-[11px] !text-slate-900 dark:!text-slate-200 font-bold">({reviewCount} reviews)</span>
             )}
           </div>
         )}

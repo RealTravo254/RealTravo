@@ -141,8 +141,8 @@ const CATEGORIES = [
 // ── Quick-nav shortcuts ───────────────────────────────────────────────────────
 // Attraction and Park removed — add them back here when their pages are ready.
 const QUICK_NAV = [
-  { icon: Building2, title: "Hotels",         path: "/category/hotels & accommodations",        color: "hsl(205, 85%, 45%)" },
-  { icon: Home,       title: "Accommodations", path: "/category/AirBnb & Stay", color: "hsl(160, 70%, 40%)" },
+  { icon: Building2, title: "hotels ",         path: "/category/hotels",        color: "hsl(205, 85%, 45%)" },
+  { icon: Home,       title: "AirBnb", path: "/category/accomodations", color: "hsl(160, 70%, 40%)" },
   { icon: Tent,       title: "Campsites",      path: "/category/campsite",       color: "hsl(278, 90%, 50%)" },
   { icon: Map,        title: "Tours & Trips",  path: "/category/guided",          color: "hsl(235, 90%, 50%)" },
   { icon: Ticket,     title: "Bookings",       path: "/bookings",                color: "hsl(200, 70%, 45%)" },

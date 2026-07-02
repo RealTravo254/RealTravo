@@ -37,11 +37,11 @@ const PriceText = ({
   const { formatPrice } = useCurrency();
   return (
     <div className={cn("flex items-baseline gap-1 mt-0.5", isUnavailable && "opacity-40 line-through")}>
-      {/* FIXED: Drastically boosted color contrast and slightly increased size for price text */}
-      <span className="text-sm font-extrabold text-slate-950 dark:text-slate-50 whitespace-nowrap">
+      {/* FIXED: Using text-slate-950 for deep black text on white backgrounds */}
+      <span className="text-sm font-black text-slate-950 dark:text-slate-50 whitespace-nowrap">
         {formatPrice(price)}
       </span>
-      <span className="text-[10px] text-slate-700 dark:text-slate-300 font-bold">
+      <span className="text-[11px] text-slate-900 dark:text-slate-200 font-bold">
         {getPriceLabel(isFlexibleDate, isTrip)}
       </span>
     </div>
@@ -145,11 +145,11 @@ const ListingCardComponent = ({
 
   const urgencyBadge = useMemo(() => {
     if (isSoldOut)
-      return { text: "Sold out", color: "bg-destructive/20 text-destructive border-destructive/30" };
+      return { text: "Sold out", color: "bg-destructive/20 text-destructive border-destructive/40 font-bold" };
     if (isOutdated)
-      return { text: "Passed", color: "bg-muted text-muted-foreground border-border" };
+      return { text: "Passed", color: "bg-muted text-slate-900 border-slate-300 font-bold" };
     if (fewSlotsRemaining)
-      return { text: `🔥 ${remainingTickets} left`, color: "bg-orange-100 dark:bg-orange-950/60 text-orange-800 dark:text-orange-300 border-orange-300 dark:border-orange-800/80" };
+      return { text: `🔥 ${remainingTickets} left`, color: "bg-orange-100 dark:bg-orange-950 text-orange-900 dark:text-orange-200 border-orange-400 font-extrabold" };
     return null;
   }, [isSoldOut, isOutdated, fewSlotsRemaining, remainingTickets]);
 
@@ -196,7 +196,7 @@ const ListingCardComponent = ({
       className={cn(
         "group relative flex flex-col overflow-hidden cursor-pointer bg-card transition-all duration-300",
         "rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm",
-        "hover:shadow-md hover:border-primary/40",
+        "hover:shadow-md hover:border-primary/45",
         "w-full",
         isUnavailable && "opacity-85",
       )}
@@ -245,8 +245,8 @@ const ListingCardComponent = ({
         <div className="absolute top-2 left-2 z-20 flex items-center gap-1.5">
           <span
             className={cn(
-              "text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-md shadow backdrop-blur-md text-white bg-slate-900/80 dark:bg-slate-900/90",
-              !categoryColor && "bg-primary/95 text-primary-foreground",
+              "text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md shadow backdrop-blur-md text-white bg-slate-950/90 dark:bg-slate-900/95",
+              !categoryColor && "bg-primary text-primary-foreground",
             )}
             style={categoryColor ? { color: "#fff", backgroundColor: `${categoryColor}` } : undefined}
           >
@@ -255,7 +255,7 @@ const ListingCardComponent = ({
           {urgencyBadge && (
             <span
               className={cn(
-                "text-[9px] font-black px-2 py-0.5 rounded-full border backdrop-blur-md shadow-sm",
+                "text-[10px] font-black px-2 py-0.5 rounded-full border backdrop-blur-md shadow-sm",
                 urgencyBadge.color,
               )}
             >
@@ -268,9 +268,9 @@ const ListingCardComponent = ({
         {!hideSave && onSave && (
           <button
             onClick={(e) => { e.stopPropagation(); onSave(id, type); }}
-            className="absolute top-2 right-2 z-20 h-7 w-7 rounded-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm shadow flex items-center justify-center hover:bg-white dark:hover:bg-slate-800 transition-colors border border-slate-100 dark:border-slate-800"
+            className="absolute top-2 right-2 z-20 h-7 w-7 rounded-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm shadow flex items-center justify-center hover:bg-white dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-800"
           >
-            <Heart className={cn("h-4 w-4", isSaved ? "fill-red-500 text-red-500" : "text-slate-800 dark:text-slate-200")} />
+            <Heart className={cn("h-4 w-4", isSaved ? "fill-red-500 text-red-500" : "text-slate-950 dark:text-slate-100")} />
           </button>
         )}
 
@@ -317,8 +317,8 @@ const ListingCardComponent = ({
 
         {/* Sold-out / unavailable overlay */}
         {isUnavailable && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50 backdrop-blur-[1px]">
-            <span className="rounded-md border border-white px-3 py-1 text-xs font-black uppercase text-white tracking-wider bg-black/20">
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/55 backdrop-blur-[1px]">
+            <span className="rounded-md border border-white px-3 py-1 text-xs font-black uppercase text-white tracking-wider bg-black/30">
               {isSoldOut ? "Sold Out" : "Unavailable"}
             </span>
           </div>
@@ -326,21 +326,21 @@ const ListingCardComponent = ({
       </div>
 
       {/* ── Text content ── */}
-      <div className="flex flex-col gap-2 p-3 min-w-0">
-        {/* FIXED: Title color switched to absolute maximum slate color contrast */}
-        <h3 className="line-clamp-2 text-sm font-extrabold leading-snug text-slate-950 dark:text-slate-50 tracking-tight">
+      <div className="flex flex-col gap-2 p-3.5 min-w-0">
+        {/* FIXED: Title changed to text-slate-950 for deep contrast */}
+        <h3 className="line-clamp-2 text-sm font-black leading-snug text-slate-950 dark:text-slate-50 tracking-tight">
           {formattedName}
         </h3>
 
-        {/* FIXED: Increased text size to text-xs and color contrast for Location */}
-        <div className="flex items-center gap-1 text-slate-800 dark:text-slate-200">
-          <MapPin className="h-3.5 w-3.5 flex-shrink-0 text-slate-600 dark:text-slate-400" />
+        {/* FIXED: Location element text changed to bold slate-900 */}
+        <div className="flex items-center gap-1.5 text-slate-900 dark:text-slate-100">
+          <MapPin className="h-3.5 w-3.5 flex-shrink-0 text-slate-700 dark:text-slate-300" />
           <span className="text-xs font-bold truncate capitalize">
             {locationString}
           </span>
         </div>
 
-        {/* Price */}
+        {/* Price Section */}
         {!hidePrice && price != null && price > 0 && (
           <PriceText
             price={price}
@@ -350,10 +350,10 @@ const ListingCardComponent = ({
           />
         )}
 
-        {/* FIXED: Made Date text darker and clearer */}
+        {/* FIXED: Clearer styling for Dates */}
         {isTrip && (date || isFlexibleDate) && (
-          <div className="flex items-center gap-1 text-slate-800 dark:text-slate-200">
-            <Calendar className="h-3.5 w-3.5 text-slate-600 dark:text-slate-400" />
+          <div className="flex items-center gap-1.5 text-slate-900 dark:text-slate-100">
+            <Calendar className="h-3.5 w-3.5 text-slate-700 dark:text-slate-300" />
             <span className="text-xs font-bold">
               {isFlexibleDate
                 ? "Flexible Dates"
@@ -362,21 +362,21 @@ const ListingCardComponent = ({
           </div>
         )}
 
-        {/* FIXED: Made Hours text darker and clearer */}
+        {/* FIXED: Clearer styling for Hours */}
         {hoursText && (
-          <div className="flex items-center gap-1 text-slate-800 dark:text-slate-200">
-            <Clock className="h-3.5 w-3.5 text-slate-600 dark:text-slate-400" />
+          <div className="flex items-center gap-1.5 text-slate-900 dark:text-slate-100">
+            <Clock className="h-3.5 w-3.5 text-slate-700 dark:text-slate-300" />
             <span className="text-xs font-bold">{hoursText}</span>
           </div>
         )}
 
-        {/* FIXED: Re-enabled rating segment, separated clearly at the bottom */}
+        {/* FIXED: Separation border and solid bold styling for rating review block */}
         {avgRating != null && avgRating > 0 && (
-          <div className="flex items-center gap-1 pt-1.5 border-t border-slate-100 dark:border-slate-800 mt-1">
+          <div className="flex items-center gap-1 pt-2 border-t border-slate-200 dark:border-slate-800 mt-1">
             <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
-            <span className="text-xs font-extrabold text-slate-900 dark:text-slate-50">{avgRating.toFixed(1)}</span>
+            <span className="text-xs font-black text-slate-950 dark:text-slate-50">{avgRating.toFixed(1)}</span>
             {reviewCount != null && reviewCount > 0 && (
-              <span className="text-[11px] text-slate-600 dark:text-slate-400 font-semibold">({reviewCount} reviews)</span>
+              <span className="text-[11px] text-slate-700 dark:text-slate-300 font-bold">({reviewCount} reviews)</span>
             )}
           </div>
         )}

@@ -1,5 +1,5 @@
 import React, { useState, memo, useCallback, useMemo, useRef } from "react";
-import { MapPin, Star, Calendar, ChevronLeft, ChevronRight, Clock, Heart } from "lucide-react";
+import { MapPin, Star, Calendar, ChevronLeft, ChevronRight, Clock, Heart, Timer } from "lucide-react";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -14,13 +14,22 @@ const getPriceLabel = (isFlexibleDate: boolean, isTrip: boolean) => {
   return "/person";
 };
 
-// ── Category badge labels for adventure_places ────────────────────────────────
+// ── Category badge labels ─────────────────────────────────────────────────────
 const CATEGORY_LABELS: Record<string, string> = {
   hotel:         "Hotel",
   park:          "Park",
   campsite:      "Campsite",
   attraction:    "Attraction",
   accommodation: "Accommodation",
+};
+
+// ── Format duration from minutes ──────────────────────────────────────────────
+const formatDuration = (minutes: number): string => {
+  if (!minutes || minutes <= 0) return "";
+  if (minutes < 60) return `${minutes}m`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
 };
 
 const PriceText = ({
@@ -36,9 +45,13 @@ const PriceText = ({
 }) => {
   const { formatPrice } = useCurrency();
   return (
-    <div className={cn("flex items-center gap-1", isUnavailable && "opacity-50 line-through")}>
-      <span className="text-xs font-bold text-slate-900 dark:text-slate-50 whitespace-nowrap">{formatPrice(price)}</span>
-      <span className="text-[8px] text-slate-500 dark:text-slate-400 font-medium">{getPriceLabel(isFlexibleDate, isTrip)}</span>
+    <div className={cn("flex items-baseline gap-1", isUnavailable && "opacity-50 line-through")}>
+      <span className="text-sm font-extrabold text-slate-900 dark:text-slate-50 whitespace-nowrap leading-none">
+        {formatPrice(price)}
+      </span>
+      <span className="text-[9px] text-slate-500 dark:text-slate-400 font-semibold">
+        {getPriceLabel(isFlexibleDate, isTrip)}
+      </span>
     </div>
   );
 };
@@ -80,6 +93,8 @@ export interface ListingCardProps {
   images?: string[];
   openingHours?: string;
   closingHours?: string;
+  /** Duration in minutes — shown as "2h", "1h 30m", "45m" etc. */
+  durationMinutes?: number;
 }
 
 const ListingCardComponent = ({
@@ -88,7 +103,7 @@ const ListingCardComponent = ({
   availableTickets = 0, bookedTickets = 0,
   priority = false, avgRating, reviewCount, place,
   isFlexibleDate = false, hidePrice = false, categoryColor,
-  openingHours, closingHours,
+  openingHours, closingHours, durationMinutes,
 }: ListingCardProps) => {
   const navigate = useNavigate();
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -179,9 +194,14 @@ const ListingCardComponent = ({
 
   const hoursText = useMemo(() => {
     if (openingHours || closingHours)
-      return `${openingHours ?? "08:00"} - ${closingHours ?? "18:00"}`;
+      return `${openingHours ?? "08:00"} – ${closingHours ?? "18:00"}`;
     return null;
   }, [openingHours, closingHours]);
+
+  const durationText = useMemo(
+    () => (durationMinutes ? formatDuration(durationMinutes) : null),
+    [durationMinutes],
+  );
 
   return (
     <Card
@@ -258,6 +278,14 @@ const ListingCardComponent = ({
           )}
         </div>
 
+        {/* Duration badge — bottom-left over image */}
+        {durationText && (
+          <div className="absolute bottom-2 left-2 z-20 flex items-center gap-0.5 bg-black/60 backdrop-blur-sm rounded-full px-2 py-0.5">
+            <Timer className="h-2.5 w-2.5 text-white" />
+            <span className="text-[10px] font-bold text-white leading-none">{durationText}</span>
+          </div>
+        )}
+
         {/* Golden star rating badge — bottom-right over image */}
         {avgRating != null && avgRating > 0 && (
           <div className="absolute bottom-2 right-2 z-20 flex items-center gap-0.5 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm shadow-sm rounded-full px-1.5 py-0.5">
@@ -330,21 +358,22 @@ const ListingCardComponent = ({
       </div>
 
       {/* ── Text content ── */}
-      <div className="flex flex-col gap-1 p-2.5 min-w-0">
-        {/* Title */}
-        <h3 className="line-clamp-2 text-xs font-bold leading-snug text-slate-900 dark:text-slate-50">
+      <div className="flex flex-col gap-1.5 p-3 min-w-0">
+
+        {/* Title — bolder, slightly larger */}
+        <h3 className="line-clamp-2 text-[13px] font-extrabold leading-snug text-slate-900 dark:text-slate-50 tracking-tight">
           {formattedName}
         </h3>
 
-        {/* Location */}
-        <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
-          <MapPin className="h-2.5 w-2.5 flex-shrink-0" />
-          <span className="text-[10px] font-medium truncate capitalize">
+        {/* Location — medium weight, clearly visible */}
+        <div className="flex items-center gap-1 text-slate-600 dark:text-slate-300">
+          <MapPin className="h-3 w-3 flex-shrink-0 text-primary" />
+          <span className="text-[11px] font-semibold truncate capitalize">
             {locationString.toLowerCase()}
           </span>
         </div>
 
-        {/* Price */}
+        {/* Price — prominent */}
         {!hidePrice && price != null && price > 0 && (
           <PriceText
             price={price}
@@ -354,33 +383,51 @@ const ListingCardComponent = ({
           />
         )}
 
-        {/* Date (trips only) */}
-        {isTrip && (date || isFlexibleDate) && (
+        {/* Row: date + duration (trips only) */}
+        {isTrip && (date || isFlexibleDate || durationText) && (
+          <div className="flex items-center gap-2 flex-wrap">
+            {(date || isFlexibleDate) && (
+              <div className="flex items-center gap-0.5 text-slate-500 dark:text-slate-400">
+                <Calendar className="h-3 w-3" />
+                <span className="text-[10px] font-semibold">
+                  {isFlexibleDate
+                    ? "Flexible"
+                    : new Date(date!).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
+                </span>
+              </div>
+            )}
+            {durationText && (
+              <div className="flex items-center gap-0.5 text-slate-500 dark:text-slate-400">
+                <Timer className="h-3 w-3" />
+                <span className="text-[10px] font-semibold">{durationText}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Duration standalone — adventure places / attractions (if no date row) */}
+        {!isTrip && durationText && (
           <div className="flex items-center gap-0.5 text-slate-500 dark:text-slate-400">
-            <Calendar className="h-2.5 w-2.5" />
-            <span className="text-[9px] font-medium">
-              {isFlexibleDate
-                ? "Flexible"
-                : new Date(date!).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
-            </span>
+            <Timer className="h-3 w-3" />
+            <span className="text-[10px] font-semibold">{durationText}</span>
           </div>
         )}
 
         {/* Opening hours (adventure places) */}
         {hoursText && (
           <div className="flex items-center gap-0.5 text-slate-500 dark:text-slate-400">
-            <Clock className="h-2.5 w-2.5" />
-            <span className="text-[9px] font-medium">{hoursText}</span>
+            <Clock className="h-3 w-3" />
+            <span className="text-[10px] font-semibold">{hoursText}</span>
           </div>
         )}
 
-        {/* Golden star rating + review count (bottom text area) */}
+        {/* Star rating + review count */}
         {avgRating != null && avgRating > 0 && (
           <div className="flex items-center gap-0.5 pt-0.5">
-            <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />
-            <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200">{avgRating.toFixed(1)}</span>
+            <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+            <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200">{avgRating.toFixed(1)}</span>
             {reviewCount != null && reviewCount > 0 && (
-              <span className="text-[8px] text-slate-500 dark:text-slate-400">({reviewCount})</span>
+              <span className="text-[9px] font-medium text-slate-500 dark:text-slate-400">({reviewCount})</span>
             )}
           </div>
         )}

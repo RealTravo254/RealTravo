@@ -8,8 +8,10 @@ import { createDetailPath } from "@/lib/slugUtils";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-const getPriceLabel = (isFlexibleDate: boolean, isTrip: boolean) =>
-  isFlexibleDate && isTrip ? "/group" : "/person";
+const getPriceLabel = (isFlexibleDate: boolean, isTrip: boolean) => {
+  // Always returns "/person" now instead of "/group"
+  return "/person";
+};
 
 const CATEGORY_LABELS: Record<string, string> = {
   hotel:         "Hotel",
@@ -350,7 +352,7 @@ const ListingCardComponent = ({
               className="font-black leading-none"
               style={{ fontSize: "15px", color: accentColor }}
             >
-              {formatPrice(price)}
+              {isFlexibleDate && isTrip ? `From ${formatPrice(price)}` : formatPrice(price)}
             </span>
             <span className="text-[10px] font-semibold text-slate-500">
               {getPriceLabel(isFlexibleDate, isTrip)}

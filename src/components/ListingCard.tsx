@@ -1,35 +1,56 @@
 import React, { useState, memo, useCallback, useMemo, useRef } from "react";
-import { MapPin, Star, Calendar, ChevronLeft, ChevronRight, Clock, Heart, Timer } from "lucide-react";
+import { MapPin, Star, Calendar, ChevronLeft, ChevronRight, Clock, Heart, Navigation } from "lucide-react";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn, optimizeSupabaseImage } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { createDetailPath } from "@/lib/slugUtils";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Price label ─────────────────────────────────────────────────────────────
 const getPriceLabel = (isFlexibleDate: boolean, isTrip: boolean) => {
-  // Always returns "/person" now instead of "/group"
+  if (isFlexibleDate && isTrip) return "/group";
   return "/person";
 };
 
-const CATEGORY_LABELS: Record<string, string> = {
-  hotel:         "Hotel",
-  park:          "Park",
-  campsite:      "Campsite",
-  attraction:    "Attraction",
-  accommodation: "Accommodation",
+// ── Category badge labels + fallback color per category ─────────────────────
+// Falls back to a deliberate palette instead of the old ternary
+// (text-primary-foreground bg-primary/90) so every category still reads
+// intentionally even without a categoryColor prop from the caller.
+const CATEGORY_META: Record<string, { label: string; color: string }> = {
+  hotel: { label: "Hotel", color: "#2563EB" },
+  park: { label: "Park", color: "#16A34A" },
+  campsite: { label: "Campsite", color: "#B45309" },
+  attraction: { label: "Attraction", color: "#7C3AED" },
+  accommodation: { label: "Accommodation", color: "#0F766E" },
+};
+const DEFAULT_CATEGORY_META = { label: "Campsite", color: "#0F766E" };
+
+const PriceText = ({
+  price,
+  isUnavailable,
+  isFlexibleDate,
+  isTrip,
+}: {
+  price: number;
+  isUnavailable: boolean;
+  isFlexibleDate: boolean;
+  isTrip: boolean;
+}) => {
+  const { formatPrice } = useCurrency();
+  return (
+    <div className={cn("flex items-baseline gap-1", isUnavailable && "opacity-50 line-through")}>
+      <span className="text-sm font-bold text-slate-900 dark:text-slate-50 tabular-nums whitespace-nowrap">
+        {formatPrice(price)}
+      </span>
+      <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+        {getPriceLabel(isFlexibleDate, isTrip)}
+      </span>
+    </div>
+  );
 };
 
-const formatDuration = (minutes: number): string => {
-  if (!minutes || minutes <= 0) return "";
-  if (minutes < 60) return `${minutes}m`;
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return m > 0 ? `${h}h ${m}m` : `${h}h`;
-};
-
-// ── Types ─────────────────────────────────────────────────────────────────────
 export interface ListingCardProps {
   id: string;
   type: "TRIP" | "ADVENTURE PLACE" | "ATTRACTION";
@@ -67,18 +88,15 @@ export interface ListingCardProps {
   images?: string[];
   openingHours?: string;
   closingHours?: string;
-  /** Duration in minutes — displayed as "2h", "1h 30m", "45m" */
-  durationMinutes?: number;
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
 const ListingCardComponent = ({
   id, type, category, name, imageUrl, location, price, date,
   isOutdated = false, onSave, isSaved = false, hideSave = false,
   availableTickets = 0, bookedTickets = 0,
   priority = false, avgRating, reviewCount, place,
   isFlexibleDate = false, hidePrice = false, categoryColor,
-  openingHours, closingHours, durationMinutes,
+  openingHours, closingHours, distance,
 }: ListingCardProps) => {
   const navigate = useNavigate();
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -86,37 +104,43 @@ const ListingCardComponent = ({
   const [imageLoadStates, setImageLoadStates] = useState<Record<number, boolean>>({});
   const slideContainerRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef(0);
-
   const { ref: cardRef, isIntersecting } = useIntersectionObserver({ rootMargin: "300px", triggerOnce: true });
   const shouldLoad = priority || isIntersecting;
 
   const allSlideImages = useMemo(() => [imageUrl].filter(Boolean), [imageUrl]);
-
   const isTrip = type === "TRIP";
   const isAdventurePlace = type === "ADVENTURE PLACE";
-
   const remainingTickets = availableTickets - bookedTickets;
   const isSoldOut = isTrip && availableTickets > 0 && remainingTickets <= 0;
   const fewSlotsRemaining = isTrip && remainingTickets > 0 && remainingTickets <= 10;
   const isUnavailable = isOutdated || isSoldOut;
   const isGuidedTour = isFlexibleDate && isTrip;
 
+  const categoryMeta = useMemo(() => {
+    if (!isAdventurePlace) return null;
+    return (category && CATEGORY_META[category]) ?? DEFAULT_CATEGORY_META;
+  }, [isAdventurePlace, category]);
+
   const displayType = useMemo(() => {
-    if (isAdventurePlace) return (category && CATEGORY_LABELS[category]) ?? "Campsite";
-    if (isGuidedTour) return "Guided Tour";
+    if (isAdventurePlace) return categoryMeta!.label;
+    if (isGuidedTour) return "Guided tour";
     if (isTrip) return "Trip";
     return "Attraction";
-  }, [isAdventurePlace, isGuidedTour, isTrip, category]);
+  }, [isAdventurePlace, isGuidedTour, isTrip, categoryMeta]);
 
+  const badgeColor = categoryColor ?? categoryMeta?.color;
+
+  // Proper title case once, rather than lowercase-then-CSS-capitalize fighting
+  // each other (the original ran .toLowerCase() in JS then `capitalize` in
+  // Tailwind, which only capitalizes the first letter of the whole string).
   const formattedName = useMemo(
     () => name.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()),
     [name],
   );
-
-  const locationString = useMemo(
-    () => [place, location].filter(Boolean).join(", "),
-    [place, location],
-  );
+  const locationString = useMemo(() => {
+    const raw = [place, location].filter(Boolean).join(", ");
+    return raw.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+  }, [place, location]);
 
   const handleCardClick = useCallback(() => {
     const typeMap: Record<string, string> = {
@@ -128,9 +152,12 @@ const ListingCardComponent = ({
   }, [navigate, type, id, name, location]);
 
   const urgencyBadge = useMemo(() => {
-    if (isSoldOut)    return { text: "Sold out", bg: "bg-red-500" };
-    if (isOutdated)   return { text: "Passed",   bg: "bg-slate-500" };
-    if (fewSlotsRemaining) return { text: `🔥 ${remainingTickets} left`, bg: "bg-orange-500" };
+    if (isSoldOut)
+      return { text: "Sold out", color: "bg-destructive/10 text-destructive border-destructive/20" };
+    if (isOutdated)
+      return { text: "Passed", color: "bg-muted text-muted-foreground border-border" };
+    if (fewSlotsRemaining)
+      return { text: `${remainingTickets} left`, color: "bg-orange-50 dark:bg-orange-950/40 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-900/50" };
     return null;
   }, [isSoldOut, isOutdated, fewSlotsRemaining, remainingTickets]);
 
@@ -170,31 +197,30 @@ const ListingCardComponent = ({
     return null;
   }, [openingHours, closingHours]);
 
-  const durationText = useMemo(
-    () => (durationMinutes ? formatDuration(durationMinutes) : null),
-    [durationMinutes],
-  );
-
-  const { formatPrice } = useCurrency();
-
-  const accentColor = categoryColor ?? "#008080";
+  const distanceText = useMemo(() => {
+    if (distance == null) return null;
+    return distance < 1 ? `${Math.round(distance * 1000)} m away` : `${distance.toFixed(1)} km away`;
+  }, [distance]);
 
   return (
-    <div
+    <Card
       ref={cardRef}
       onClick={handleCardClick}
+      role="link"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === "Enter") handleCardClick(); }}
       className={cn(
-        "group relative flex flex-col overflow-hidden cursor-pointer",
-        "rounded-2xl bg-white shadow-md border border-slate-200",
-        "hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200",
+        "group relative flex flex-col overflow-hidden cursor-pointer bg-card transition-all duration-300",
+        "rounded-xl border border-border shadow-sm",
+        "hover:shadow-lg hover:-translate-y-0.5 hover:border-primary/30",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
         "w-full",
-        isUnavailable && "opacity-75",
+        isUnavailable && "opacity-80",
       )}
     >
-      {/* ── Image ── */}
+      {/* ── Image area ── */}
       <div
-        className="relative w-full overflow-hidden"
-        style={{ aspectRatio: "4/3" }}
+        className="relative w-full overflow-hidden aspect-[1/1] sm:aspect-[4/3]"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
@@ -204,7 +230,7 @@ const ListingCardComponent = ({
           style={{ transform: `translateX(-${currentSlide * 100}%)` }}
         >
           {allSlideImages.slice(0, loadedSlides).map((img, idx) => (
-            <div key={idx} className="min-w-full h-full flex-shrink-0 relative bg-slate-100">
+            <div key={idx} className="min-w-full h-full flex-shrink-0 relative">
               {!imageLoadStates[idx] && (
                 <Skeleton className="absolute inset-0 h-full w-full rounded-none" />
               )}
@@ -212,19 +238,20 @@ const ListingCardComponent = ({
                 <img
                   src={
                     img.includes("supabase.co/storage")
-                      ? optimizeSupabaseImage(img, { width: 600, height: 450, quality: 85 })
+                      ? optimizeSupabaseImage(img, { width: 500, height: 375, quality: 80 })
                       : img
                   }
-                  alt={`${name} - ${idx + 1}`}
+                  alt={`${formattedName}${idx > 0 ? ` – photo ${idx + 1}` : ""}`}
                   onLoad={() => setImageLoadStates((prev) => ({ ...prev, [idx]: true }))}
                   onError={(e) => {
                     const t = e.target as HTMLImageElement;
                     if (t.src !== img) t.src = img;
                   }}
                   className={cn(
-                    "w-full h-full object-cover transition-opacity duration-300",
+                    "w-full h-full object-cover transition-transform duration-500 ease-out",
+                    "group-hover:scale-[1.04]",
                     imageLoadStates[idx] ? "opacity-100" : "opacity-0",
-                    isUnavailable && "grayscale-[0.4]",
+                    isUnavailable && "grayscale-[0.5]",
                   )}
                 />
               )}
@@ -232,69 +259,58 @@ const ListingCardComponent = ({
           ))}
         </div>
 
-        {/* Bottom gradient for readability */}
-        <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/50 to-transparent pointer-events-none z-10" />
+        {/* Scrim so top badges stay legible on bright photos */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/35 to-transparent" />
 
-        {/* Type badge — top-left */}
+        {/* Category badge — top-left */}
         <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-1.5">
           <span
-            className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg shadow text-white"
-            style={{ backgroundColor: accentColor }}
+            className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md shadow-sm text-white"
+            style={{ backgroundColor: badgeColor ? `${badgeColor}E6` : "rgba(15,23,42,0.85)" }}
           >
             {displayType}
           </span>
           {urgencyBadge && (
-            <span className={cn("text-[9px] font-bold px-2 py-0.5 rounded-full text-white shadow", urgencyBadge.bg)}>
+            <span className={cn("text-[9px] font-bold px-1.5 py-1 rounded-full border backdrop-blur-sm", urgencyBadge.color)}>
               {urgencyBadge.text}
             </span>
           )}
         </div>
 
-        {/* Heart — top-right */}
+        {/* Save / heart button — top-right */}
         {!hideSave && onSave && (
           <button
             onClick={(e) => { e.stopPropagation(); onSave(id, type); }}
-            className="absolute top-2.5 right-2.5 z-20 h-8 w-8 rounded-full bg-white/90 shadow-md flex items-center justify-center hover:scale-110 active:scale-95 transition-transform"
+            aria-label={isSaved ? "Remove from saved" : "Save"}
+            aria-pressed={isSaved}
+            className="absolute top-2.5 right-2.5 z-20 h-8 w-8 rounded-full bg-white/90 dark:bg-slate-900/90 shadow flex items-center justify-center hover:bg-white dark:hover:bg-slate-800 active:scale-90 transition-all"
           >
-            <Heart className={cn("h-4 w-4", isSaved ? "fill-red-500 text-red-500" : "text-slate-500")} />
+            <Heart className={cn("h-4 w-4 transition-colors", isSaved ? "fill-red-500 text-red-500" : "text-slate-600 dark:text-slate-300")} />
           </button>
         )}
 
-        {/* Duration pill — bottom-left, over gradient */}
-        {durationText && (
-          <div className="absolute bottom-2.5 left-2.5 z-20 flex items-center gap-1 bg-black/70 backdrop-blur-sm rounded-full px-2.5 py-1">
-            <Timer className="h-3 w-3 text-white" />
-            <span className="text-[11px] font-bold text-white leading-none">{durationText}</span>
-          </div>
-        )}
-
-        {/* Rating pill — bottom-right, over gradient */}
-        {avgRating != null && avgRating > 0 && (
-          <div className="absolute bottom-2.5 right-2.5 z-20 flex items-center gap-1 bg-white/95 rounded-full px-2 py-0.5 shadow">
-            <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-            <span className="text-[11px] font-black text-slate-800 leading-none">{avgRating.toFixed(1)}</span>
-            {reviewCount != null && reviewCount > 0 && (
-              <span className="text-[9px] font-semibold text-slate-500">({reviewCount})</span>
+        {/* Desktop nav arrows */}
+        {allSlideImages.length > 1 && (
+          <>
+            {currentSlide > 0 && (
+              <button
+                onClick={(e) => goToSlide(currentSlide - 1, e)}
+                aria-label="Previous photo"
+                className="absolute left-2 top-1/2 -translate-y-1/2 z-20 h-7 w-7 rounded-full bg-white/90 dark:bg-slate-900/90 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <ChevronLeft className="h-4 w-4 text-foreground" />
+              </button>
             )}
-          </div>
-        )}
-
-        {/* Slide arrows */}
-        {allSlideImages.length > 1 && currentSlide > 0 && (
-          <button
-            onClick={(e) => goToSlide(currentSlide - 1, e)}
-            className="absolute left-2 top-1/2 -translate-y-1/2 z-20 h-7 w-7 rounded-full bg-white/90 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-          >
-            <ChevronLeft className="h-4 w-4 text-slate-700" />
-          </button>
-        )}
-        {allSlideImages.length > 1 && currentSlide < visibleDots - 1 && (
-          <button
-            onClick={(e) => goToSlide(currentSlide + 1, e)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 z-20 h-7 w-7 rounded-full bg-white/90 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-          >
-            <ChevronRight className="h-4 w-4 text-slate-700" />
-          </button>
+            {currentSlide < visibleDots - 1 && (
+              <button
+                onClick={(e) => goToSlide(currentSlide + 1, e)}
+                aria-label="Next photo"
+                className="absolute right-2 top-1/2 -translate-y-1/2 z-20 h-7 w-7 rounded-full bg-white/90 dark:bg-slate-900/90 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <ChevronRight className="h-4 w-4 text-foreground" />
+              </button>
+            )}
+          </>
         )}
 
         {/* Dot indicators */}
@@ -304,103 +320,92 @@ const ListingCardComponent = ({
               <button
                 key={idx}
                 onClick={(e) => goToSlide(idx, e)}
+                aria-label={`Go to photo ${idx + 1}`}
                 className={cn(
                   "rounded-full transition-all",
-                  idx === currentSlide ? "w-2 h-2 bg-white shadow" : "w-1.5 h-1.5 bg-white/50",
+                  idx === currentSlide ? "w-2 h-2 bg-white shadow-md" : "w-1.5 h-1.5 bg-white/60",
                 )}
               />
             ))}
+            {loadedSlides < allSlideImages.length && (
+              <span className="w-1.5 h-1.5 rounded-full bg-white/30" />
+            )}
           </div>
         )}
 
-        {/* Unavailable overlay */}
+        {/* Sold-out / unavailable overlay */}
         {isUnavailable && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40 backdrop-blur-[1px]">
-            <span className="rounded-lg border border-white/70 px-3 py-1 text-[11px] font-black uppercase text-white tracking-wider">
-              {isSoldOut ? "Sold Out" : "Unavailable"}
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/45 backdrop-blur-[1px]">
+            <span className="rounded-md border border-white/60 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-white">
+              {isSoldOut ? "Sold out" : "Unavailable"}
             </span>
           </div>
         )}
       </div>
 
-      {/* ── Info panel ── */}
-      <div className="flex flex-col p-3 gap-2 bg-white">
-
-        {/* Name — large, heavy, dark, always visible */}
-        <h3
-          className="font-black text-slate-900 leading-tight line-clamp-2"
-          style={{ fontSize: "13px", letterSpacing: "-0.01em" }}
-        >
+      {/* ── Text content ── */}
+      <div className="flex flex-col gap-1.5 p-3 min-w-0">
+        {/* Title */}
+        <h3 className="line-clamp-2 text-sm font-bold leading-snug text-slate-900 dark:text-slate-50">
           {formattedName}
         </h3>
 
-        {/* Location — distinct teal-tinted, clearly readable */}
-        <div className="flex items-center gap-1.5">
-          <MapPin className="h-3.5 w-3.5 flex-shrink-0" style={{ color: accentColor }} />
-          <span
-            className="text-[11px] font-bold truncate capitalize"
-            style={{ color: "#1e293b" }}
-          >
-            {locationString.toLowerCase()}
-          </span>
+        {/* Location + rating, on one row so the card doesn't feel like a stack of separate facts */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1 min-w-0 text-slate-500 dark:text-slate-400">
+            <MapPin className="h-3 w-3 flex-shrink-0" />
+            <span className="text-[11px] font-medium truncate">{locationString}</span>
+          </div>
+          {avgRating != null && avgRating > 0 && (
+            <div className="flex items-center gap-0.5 flex-shrink-0">
+              <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+              <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 tabular-nums">
+                {avgRating.toFixed(1)}
+              </span>
+              {reviewCount != null && reviewCount > 0 && (
+                <span className="text-[10px] text-slate-500 dark:text-slate-400">({reviewCount})</span>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Price — prominent, coloured */}
+        {/* Secondary meta row: date / hours / distance — only render what applies */}
+        {(isTrip && (date || isFlexibleDate)) || hoursText || distanceText ? (
+          <div className="flex items-center gap-2.5 flex-wrap text-slate-500 dark:text-slate-400">
+            {isTrip && (date || isFlexibleDate) && (
+              <span className="flex items-center gap-1 text-[10px] font-medium">
+                <Calendar className="h-3 w-3" />
+                {isFlexibleDate ? "Flexible" : new Date(date!).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
+              </span>
+            )}
+            {hoursText && (
+              <span className="flex items-center gap-1 text-[10px] font-medium">
+                <Clock className="h-3 w-3" />
+                {hoursText}
+              </span>
+            )}
+            {distanceText && (
+              <span className="flex items-center gap-1 text-[10px] font-medium">
+                <Navigation className="h-3 w-3" />
+                {distanceText}
+              </span>
+            )}
+          </div>
+        ) : null}
+
+        {/* Price, anchored to the bottom of the card */}
         {!hidePrice && price != null && price > 0 && (
-          <div className={cn("flex items-baseline gap-1", isUnavailable && "opacity-50 line-through")}>
-            <span
-              className="font-black leading-none"
-              style={{ fontSize: "15px", color: accentColor }}
-            >
-              {isFlexibleDate && isTrip ? `From ${formatPrice(price)}` : formatPrice(price)}
-            </span>
-            <span className="text-[10px] font-semibold text-slate-500">
-              {getPriceLabel(isFlexibleDate, isTrip)}
-            </span>
+          <div className="pt-0.5">
+            <PriceText price={price} isUnavailable={isUnavailable} isFlexibleDate={isFlexibleDate} isTrip={isTrip} />
           </div>
         )}
-
-        {/* Meta row — date / flexible / hours / duration */}
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          {/* Date (trips) */}
-          {isTrip && date && !isFlexibleDate && (
-            <div className="flex items-center gap-1">
-              <Calendar className="h-3 w-3 text-slate-400" />
-              <span className="text-[11px] font-semibold text-slate-700">
-                {new Date(date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
-              </span>
-            </div>
-          )}
-          {isTrip && isFlexibleDate && (
-            <div className="flex items-center gap-1">
-              <Calendar className="h-3 w-3 text-slate-400" />
-              <span className="text-[11px] font-semibold text-slate-700">Flexible</span>
-            </div>
-          )}
-
-          {/* Duration */}
-          {durationText && (
-            <div className="flex items-center gap-1">
-              <Timer className="h-3 w-3 text-slate-400" />
-              <span className="text-[11px] font-semibold text-slate-700">{durationText}</span>
-            </div>
-          )}
-
-          {/* Opening hours (adventure places) */}
-          {hoursText && (
-            <div className="flex items-center gap-1">
-              <Clock className="h-3 w-3 text-slate-400" />
-              <span className="text-[11px] font-semibold text-slate-700">{hoursText}</span>
-            </div>
-          )}
-        </div>
       </div>
-    </div>
+    </Card>
   );
 };
 
 export const ListingCard = memo(
-  React.forwardRef<HTMLDivElement, ListingCardProps>((props, _ref) => (
+  React.forwardRef<HTMLDivElement, ListingCardProps>((props, ref) => (
     <ListingCardComponent {...props} />
   )),
 );

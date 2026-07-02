@@ -168,7 +168,7 @@ const ListingCardComponent = ({
 
   const hoursText = useMemo(() => {
     if (openingHours || closingHours)
-      return `${openingHours ?? "08:00"} – ${closingHours ?? "18:00"}`;
+      return `${openingHours ?? "08:00"} – ${closingHours ?? "18:00"} UTC`; // Added UTC directly to operating hours text
     return null;
   }, [openingHours, closingHours]);
 
@@ -189,11 +189,11 @@ const ListingCardComponent = ({
         "group relative flex flex-col overflow-hidden cursor-pointer",
         "rounded-2xl bg-white shadow-md border border-slate-200",
         "hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200",
-        "w-full xs:min-w-[290px] h-full min-h-[340px]", // Enhanced width rules & structural baseline min-height
+        "w-full xs:min-w-[290px] h-full min-h-[340px]",
         isUnavailable && "opacity-75",
       )}
     >
-      {/* ── Image (Made larger & given explicit flex priority) ── */}
+      {/* ── Image Section (Larger Proportion) ── */}
       <div
         className="relative w-full overflow-hidden flex-[1.4]" 
         style={{ aspectRatio: "16/10" }}
@@ -325,7 +325,7 @@ const ListingCardComponent = ({
         )}
       </div>
 
-      {/* ── Info panel (Balanced size allocation) ── */}
+      {/* ── Info panel Section ── */}
       <div className="flex flex-col p-3 gap-2 bg-white flex-1 justify-between">
         {/* Top block */}
         <div className="flex flex-col gap-1">
@@ -366,11 +366,12 @@ const ListingCardComponent = ({
 
           {hasMetaContent && (
             <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 sm:gap-x-3">
+              {/* Date with explicit UTC notation fallback */}
               {isTrip && date && !isFlexibleDate && (
                 <div className="flex items-center gap-1">
                   <Calendar className="h-3 w-3 text-slate-400" />
                   <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700">
-                    {new Date(date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
+                    {new Date(date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })} UTC
                   </span>
                 </div>
               )}

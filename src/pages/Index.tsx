@@ -63,7 +63,7 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: G
   };
 
   const showSkeletons = loading && items.length === 0;
-  const cardWidthClasses = "w-[42vw] sm:w-[230px] md:w-[240px] lg:w-[260px] shrink-0";
+  const cardWidthClasses = "w-[75vw] sm:w-[230px] md:w-[240px] lg:w-[260px] shrink-0";
 
   const Skeletons = ({ count }: { count: number }) => (
     <>

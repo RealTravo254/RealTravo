@@ -67,7 +67,6 @@ export interface ListingCardProps {
   images?: string[];
   openingHours?: string;
   closingHours?: string;
-  /** Duration in minutes — displayed as "2h", "1h 30m", "45m" */
   durationMinutes?: number;
 }
 
@@ -78,7 +77,7 @@ const ListingCardComponent = ({
   availableTickets = 0, bookedTickets = 0,
   priority = false, avgRating, reviewCount, place,
   isFlexibleDate = false, hidePrice = false, categoryColor,
-  openingHours, closingHours, durationMinutes,
+  openingHours, closingHours, durationMinutes, galleryImages, images
 }: ListingCardProps) => {
   const navigate = useNavigate();
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -90,7 +89,10 @@ const ListingCardComponent = ({
   const { ref: cardRef, isIntersecting } = useIntersectionObserver({ rootMargin: "300px", triggerOnce: true });
   const shouldLoad = priority || isIntersecting;
 
-  const allSlideImages = useMemo(() => [imageUrl].filter(Boolean), [imageUrl]);
+  const allSlideImages = useMemo(() => {
+    const combined = [imageUrl, ...(galleryImages || []), ...(images || [])];
+    return Array.from(new Set(combined.filter(Boolean)));
+  }, [imageUrl, galleryImages, images]);
 
   const isTrip = type === "TRIP";
   const isAdventurePlace = type === "ADVENTURE PLACE";
@@ -176,8 +178,8 @@ const ListingCardComponent = ({
   );
 
   const { formatPrice } = useCurrency();
-
   const accentColor = categoryColor ?? "#008080";
+  const hasMetaContent = (isTrip && date) || isGuidedTour || durationText || hoursText;
 
   return (
     <div
@@ -187,14 +189,14 @@ const ListingCardComponent = ({
         "group relative flex flex-col overflow-hidden cursor-pointer",
         "rounded-2xl bg-white shadow-md border border-slate-200",
         "hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200",
-        "w-full h-full", // Removed max width layout boundaries to maximize grid scaling space footprint
+        "w-full xs:min-w-[290px] h-full min-h-[340px]", // Enhanced width rules & structural baseline min-height
         isUnavailable && "opacity-75",
       )}
     >
-      {/* ── Image ── */}
+      {/* ── Image (Made larger & given explicit flex priority) ── */}
       <div
-        className="relative w-full overflow-hidden flex-shrink-0"
-        style={{ aspectRatio: "4/3" }}
+        className="relative w-full overflow-hidden flex-[1.4]" 
+        style={{ aspectRatio: "16/10" }}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
@@ -232,10 +234,10 @@ const ListingCardComponent = ({
           ))}
         </div>
 
-        {/* Bottom gradient for readability */}
+        {/* Bottom gradient */}
         <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/50 to-transparent pointer-events-none z-10" />
 
-        {/* Type badge — top-left */}
+        {/* Type badge */}
         <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-1">
           <span
             className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded shadow text-white"
@@ -250,7 +252,7 @@ const ListingCardComponent = ({
           )}
         </div>
 
-        {/* Heart — top-right */}
+        {/* Heart */}
         {!hideSave && onSave && (
           <button
             onClick={(e) => { e.stopPropagation(); onSave(id, type); }}
@@ -260,7 +262,7 @@ const ListingCardComponent = ({
           </button>
         )}
 
-        {/* Duration pill — bottom-left, over gradient */}
+        {/* Duration pill */}
         {durationText && (
           <div className="absolute bottom-2.5 left-2.5 z-20 flex items-center gap-1 bg-black/70 backdrop-blur-sm rounded-full px-2 py-0.5 sm:px-2.5 sm:py-1">
             <Timer className="h-3 w-3 text-white" />
@@ -268,7 +270,7 @@ const ListingCardComponent = ({
           </div>
         )}
 
-        {/* Rating pill — bottom-right, over gradient */}
+        {/* Rating pill */}
         {avgRating != null && avgRating > 0 && (
           <div className="absolute bottom-2.5 right-2.5 z-20 flex items-center gap-1 bg-white/95 rounded-full px-1.5 py-0.5 sm:px-2 sm:py-0.5 shadow">
             <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
@@ -323,30 +325,29 @@ const ListingCardComponent = ({
         )}
       </div>
 
-      {/* ── Info panel ── */}
-      <div className="flex flex-col p-3 gap-2 bg-white flex-grow justify-between">
-        {/* Top block (Name & Location) */}
-        <div className="flex flex-col gap-1.5 sm:gap-2">
-          {/* Name */}
+      {/* ── Info panel (Balanced size allocation) ── */}
+      <div className="flex flex-col p-3 gap-2 bg-white flex-1 justify-between">
+        {/* Top block */}
+        <div className="flex flex-col gap-1">
           <h3 className="font-black text-slate-900 leading-tight line-clamp-2 text-[12px] sm:text-[13px] tracking-tight sm:tracking-[-0.01em]">
             {formattedName}
           </h3>
 
-          {/* Location */}
-          <div className="flex items-center gap-1">
-            <MapPin className="h-3 w-3 sm:h-3.5 sm:w-3.5 flex-shrink-0" style={{ color: accentColor }} />
-            <span
-              className="text-[10px] sm:text-[11px] font-bold truncate capitalize"
-              style={{ color: "#1e293b" }}
-            >
-              {locationString.toLowerCase()}
-            </span>
-          </div>
+          {locationString.trim().length > 0 && (
+            <div className="flex items-center gap-1 mt-0.5">
+              <MapPin className="h-3 w-3 sm:h-3.5 sm:w-3.5 flex-shrink-0" style={{ color: accentColor }} />
+              <span
+                className="text-[10px] sm:text-[11px] font-bold truncate capitalize"
+                style={{ color: "#1e293b" }}
+              >
+                {locationString.toLowerCase()}
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* Bottom block (Price & Metadata indicators forced downward uniformally) */}
-        <div className="flex flex-col gap-1.5 mt-auto pt-1.5">
-          {/* Price */}
+        {/* Bottom block */}
+        <div className="flex flex-col gap-1 mt-auto pt-1">
           {!hidePrice && price != null && price > 0 && (
             <div className={cn("flex items-baseline gap-1", isUnavailable && "opacity-50 line-through")}>
               <span
@@ -363,40 +364,38 @@ const ListingCardComponent = ({
             </div>
           )}
 
-          {/* Meta row — date / flexible / hours / duration */}
-          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 sm:gap-x-3 sm:gap-y-1">
-            {/* Date (trips) */}
-            {isTrip && date && !isFlexibleDate && (
-              <div className="flex items-center gap-1">
-                <Calendar className="h-3 w-3 text-slate-400" />
-                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700">
-                  {new Date(date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
-                </span>
-              </div>
-            )}
-            {isTrip && isFlexibleDate && (
-              <div className="flex items-center gap-1">
-                <Calendar className="h-3 w-3 text-slate-400" />
-                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700">Flexible</span>
-              </div>
-            )}
+          {hasMetaContent && (
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 sm:gap-x-3">
+              {isTrip && date && !isFlexibleDate && (
+                <div className="flex items-center gap-1">
+                  <Calendar className="h-3 w-3 text-slate-400" />
+                  <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700">
+                    {new Date(date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
+                  </span>
+                </div>
+              )}
+              {isTrip && isFlexibleDate && (
+                <div className="flex items-center gap-1">
+                  <Calendar className="h-3 w-3 text-slate-400" />
+                  <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700">Flexible</span>
+                </div>
+              )}
 
-            {/* Duration */}
-            {durationText && (
-              <div className="flex items-center gap-1">
-                <Timer className="h-3 w-3 text-slate-400" />
-                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700">{durationText}</span>
-              </div>
-            )}
+              {durationText && (
+                <div className="flex items-center gap-1">
+                  <Timer className="h-3 w-3 text-slate-400" />
+                  <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700">{durationText}</span>
+                </div>
+              )}
 
-            {/* Opening hours (adventure places) */}
-            {hoursText && (
-              <div className="flex items-center gap-1">
-                <Clock className="h-3 w-3 text-slate-400" />
-                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700">{hoursText}</span>
-              </div>
-            )}
-          </div>
+              {hoursText && (
+                <div className="flex items-center gap-1">
+                  <Clock className="h-3 w-3 text-slate-400" />
+                  <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700">{hoursText}</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -612,14 +612,16 @@ const Index = () => {
               {/* grid-cols-4 on all screens — 4 categories always sit in one row,
                   each column takes an equal share of the container width.
                   On mobile the cards are a bit narrow but still readable;
-                  if you add more categories back, bump to grid-cols-2 sm:grid-cols-4. */}
+                  if you add more categories back, bump to grid-cols-2 sm:grid-cols-4.
+                  aspectRatio "8 / 3" is half the height of the original "4 / 3"
+                  at the same width — icon/text sizes below are scaled down to match. */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 md:gap-4">
                 {CATEGORIES.map(cat => (
                   <Link
                     key={cat.title}
                     to={cat.path}
                     className="relative flex flex-col items-center justify-center gap-1.5 rounded-xl overflow-hidden cursor-pointer"
-                    style={{ aspectRatio: "4 / 3" }}
+                    style={{ aspectRatio: "8 / 3" }}
                   >
                     <img
                       src={cat.bgImage}
@@ -630,8 +632,8 @@ const Index = () => {
                       className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none select-none"
                     />
                     <div className="absolute inset-0 bg-black/50 hover:bg-black/60 transition-colors" />
-                    <cat.icon className="relative z-10 h-5 w-5 md:h-8 md:w-8 text-white shrink-0 drop-shadow" />
-                    <span className="relative z-10 text-white text-xs md:text-base font-extrabold leading-tight text-center drop-shadow px-1">
+                    <cat.icon className="relative z-10 h-3.5 w-3.5 md:h-5 md:w-5 text-white shrink-0 drop-shadow" />
+                    <span className="relative z-10 text-white text-[10px] md:text-sm font-extrabold leading-tight text-center drop-shadow px-1">
                       {cat.title}
                     </span>
                   </Link>

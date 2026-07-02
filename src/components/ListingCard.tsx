@@ -187,13 +187,13 @@ const ListingCardComponent = ({
         "group relative flex flex-col overflow-hidden cursor-pointer",
         "rounded-2xl bg-white shadow-md border border-slate-200",
         "hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200",
-        "w-full max-w-[440px] sm:max-w-none mx-auto", // Centered and slightly wider baseline constraint on small viewports
+        "w-full max-w-[440px] sm:max-w-none mx-auto h-full", // Added `h-full` to match heights across lines
         isUnavailable && "opacity-75",
       )}
     >
       {/* ── Image ── */}
       <div
-        className="relative w-full overflow-hidden"
+        className="relative w-full overflow-hidden flex-shrink-0" // Kept image strict on aspect sizing layout logic
         style={{ aspectRatio: "4/3" }}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
@@ -324,74 +324,79 @@ const ListingCardComponent = ({
       </div>
 
       {/* ── Info panel ── */}
-      <div className="flex flex-col p-4 sm:p-3 gap-2.5 sm:gap-2 bg-white">
+      <div className="flex flex-col p-4 sm:p-3 gap-2.5 sm:gap-2 bg-white flex-grow justify-between">
+        {/* Top block (Name & Location) */}
+        <div className="flex flex-col gap-2.5 sm:gap-2">
+          {/* Name */}
+          <h3 className="font-black text-slate-900 leading-tight line-clamp-2 text-sm sm:text-[13px] tracking-tight sm:tracking-[-0.01em]">
+            {formattedName}
+          </h3>
 
-        {/* Name — scaled text size up for mobile */}
-        <h3 className="font-black text-slate-900 leading-tight line-clamp-2 text-sm sm:text-[13px] tracking-tight sm:tracking-[-0.01em]">
-          {formattedName}
-        </h3>
-
-        {/* Location — larger icons and layout text sizes for mobile devices */}
-        <div className="flex items-center gap-1.5">
-          <MapPin className="h-4 w-4 sm:h-3.5 sm:w-3.5 flex-shrink-0" style={{ color: accentColor }} />
-          <span
-            className="text-xs sm:text-[11px] font-bold truncate capitalize"
-            style={{ color: "#1e293b" }}
-          >
-            {locationString.toLowerCase()}
-          </span>
+          {/* Location */}
+          <div className="flex items-center gap-1.5">
+            <MapPin className="h-4 w-4 sm:h-3.5 sm:w-3.5 flex-shrink-0" style={{ color: accentColor }} />
+            <span
+              className="text-xs sm:text-[11px] font-bold truncate capitalize"
+              style={{ color: "#1e293b" }}
+            >
+              {locationString.toLowerCase()}
+            </span>
+          </div>
         </div>
 
-        {/* Price — Prominent scaling adjustments */}
-        {!hidePrice && price != null && price > 0 && (
-          <div className={cn("flex items-baseline gap-1", isUnavailable && "opacity-50 line-through")}>
-            <span
-              className="font-black leading-none text-base sm:text-[15px]"
-              style={{ color: accentColor }}
-            >
-              {isFlexibleDate && isTrip ? `From ${formatPrice(price)}` : formatPrice(price)}
-            </span>
-            {!(isFlexibleDate && isTrip) && (
-              <span className="text-[11px] sm:text-[10px] font-semibold text-slate-500">
-                {getPriceLabel(isFlexibleDate, isTrip)}
+        {/* Bottom block (Price & Metadata indicators forced downward uniformally) */}
+        <div className="flex flex-col gap-2 mt-auto pt-2">
+          {/* Price */}
+          {!hidePrice && price != null && price > 0 && (
+            <div className={cn("flex items-baseline gap-1", isUnavailable && "opacity-50 line-through")}>
+              <span
+                className="font-black leading-none text-base sm:text-[15px]"
+                style={{ color: accentColor }}
+              >
+                {isFlexibleDate && isTrip ? `From ${formatPrice(price)}` : formatPrice(price)}
               </span>
+              {!(isFlexibleDate && isTrip) && (
+                <span className="text-[11px] sm:text-[10px] font-semibold text-slate-500">
+                  {getPriceLabel(isFlexibleDate, isTrip)}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Meta row — date / flexible / hours / duration */}
+          <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5 sm:gap-x-3 sm:gap-y-1">
+            {/* Date (trips) */}
+            {isTrip && date && !isFlexibleDate && (
+              <div className="flex items-center gap-1">
+                <Calendar className="h-3.5 w-3.5 sm:h-3 sm:w-3 text-slate-400" />
+                <span className="text-xs sm:text-[11px] font-semibold text-slate-700">
+                  {new Date(date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
+                </span>
+              </div>
+            )}
+            {isTrip && isFlexibleDate && (
+              <div className="flex items-center gap-1">
+                <Calendar className="h-3.5 w-3.5 sm:h-3 sm:w-3 text-slate-400" />
+                <span className="text-xs sm:text-[11px] font-semibold text-slate-700">Flexible</span>
+              </div>
+            )}
+
+            {/* Duration */}
+            {durationText && (
+              <div className="flex items-center gap-1">
+                <Timer className="h-3.5 w-3.5 sm:h-3 sm:w-3 text-slate-400" />
+                <span className="text-xs sm:text-[11px] font-semibold text-slate-700">{durationText}</span>
+              </div>
+            )}
+
+            {/* Opening hours (adventure places) */}
+            {hoursText && (
+              <div className="flex items-center gap-1">
+                <Clock className="h-3.5 w-3.5 sm:h-3 sm:w-3 text-slate-400" />
+                <span className="text-xs sm:text-[11px] font-semibold text-slate-700">{hoursText}</span>
+              </div>
             )}
           </div>
-        )}
-
-        {/* Meta row — date / flexible / hours / duration */}
-        <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5 sm:gap-x-3 sm:gap-y-1">
-          {/* Date (trips) */}
-          {isTrip && date && !isFlexibleDate && (
-            <div className="flex items-center gap-1">
-              <Calendar className="h-3.5 w-3.5 sm:h-3 sm:w-3 text-slate-400" />
-              <span className="text-xs sm:text-[11px] font-semibold text-slate-700">
-                {new Date(date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
-              </span>
-            </div>
-          )}
-          {isTrip && isFlexibleDate && (
-            <div className="flex items-center gap-1">
-              <Calendar className="h-3.5 w-3.5 sm:h-3 sm:w-3 text-slate-400" />
-              <span className="text-xs sm:text-[11px] font-semibold text-slate-700">Flexible</span>
-            </div>
-          )}
-
-          {/* Duration */}
-          {durationText && (
-            <div className="flex items-center gap-1">
-              <Timer className="h-3.5 w-3.5 sm:h-3 sm:w-3 text-slate-400" />
-              <span className="text-xs sm:text-[11px] font-semibold text-slate-700">{durationText}</span>
-            </div>
-          )}
-
-          {/* Opening hours (adventure places) */}
-          {hoursText && (
-            <div className="flex items-center gap-1">
-              <Clock className="h-3.5 w-3.5 sm:h-3 sm:w-3 text-slate-400" />
-              <span className="text-xs sm:text-[11px] font-semibold text-slate-700">{hoursText}</span>
-            </div>
-          )}
         </div>
       </div>
     </div>

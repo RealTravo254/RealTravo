@@ -61,6 +61,7 @@ const ListingCardComponent = ({
   availableTickets = 0, bookedTickets = 0,
   priority = false, avgRating, reviewCount, place,
   isFlexibleDate = false, hidePrice = false, categoryColor,
+  openingHours, closingHours,
 }: ListingCardProps) => {
   const navigate = useNavigate();
   const { formatPrice } = useCurrency();
@@ -114,6 +115,23 @@ const ListingCardComponent = ({
       setLoadedSlides((prev) => Math.min(prev + 2, allSlideImages.length));
     }
   }, [allSlideImages.length, loadedSlides]);
+
+  // Computes the duration inline suffix if hours are provided
+  const durationSuffix = useMemo(() => {
+    if (!openingHours && !closingHours) return "";
+    try {
+      const [startH, startM] = (openingHours ?? "08:00").split(":").map(Number);
+      const [endH, endM] = (closingHours ?? "18:00").split(":").map(Number);
+      
+      let durationMinutes = (endH * 60 + endM) - (startH * 60 + startM);
+      if (durationMinutes < 0) durationMinutes += 24 * 60;
+
+      const hours = Math.floor(durationMinutes / 60);
+      return hours > 0 ? ` (${hours} hrs)` : "";
+    } catch (err) {
+      return "";
+    }
+  }, [openingHours, closingHours]);
 
   return (
     <Card
@@ -217,7 +235,7 @@ const ListingCardComponent = ({
           {formattedName}
         </h3>
 
-        {/* Location Block - Kept as font-bold and dark color (#0f172a) */}
+        {/* Location Block */}
         <div className="flex items-center gap-2">
           <MapPin className="h-4 w-4 flex-shrink-0" style={{ stroke: "#475569" }} />
           <span className="text-xs font-bold truncate capitalize" style={{ color: "#0f172a" }}>
@@ -237,12 +255,13 @@ const ListingCardComponent = ({
           </div>
         )}
 
-        {/* Date / Trip details Block - Soft grey layout (#64748b) */}
+        {/* Date Block - Combined with duration suffix right on the right side */}
         {isTrip && (date || isFlexibleDate) && (
           <div className="flex items-center gap-2">
             <Calendar className="h-4 w-4 flex-shrink-0" style={{ stroke: "#64748b" }} />
             <span className="text-xs font-normal" style={{ color: "#64748b" }}>
               {isFlexibleDate ? "Flexible Dates" : new Date(date!).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+              {durationSuffix}
             </span>
           </div>
         )}

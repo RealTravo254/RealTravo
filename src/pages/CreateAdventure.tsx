@@ -46,13 +46,14 @@ const safeObjectUrl = (file: File): string => { try { return URL.createObjectURL
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"];
 const isImageFile = (file: File) => ALLOWED_IMAGE_TYPES.includes(file.type) || file.type.startsWith("image/");
 
-// ─── Listing Category (Hotel / Park / Campsite / Attraction / Accommodation) ──
+// ─── Listing Category (Hotel / Campsite / Accommodation) ──────────────────────
+// Park and Attraction are commented out — uncomment when their pages are ready.
 const CATEGORY_OPTIONS: { value: string; label: string; icon: any }[] = [
   { value: "hotel", label: "Hotel", icon: Building2 },
   { value: "accommodation", label: "Accommodation", icon: Home },
-  { value: "park", label: "Park", icon: TreePine },
+  // { value: "park", label: "Park", icon: TreePine }, // uncomment when Park pages are ready
   { value: "campsite", label: "Campsite", icon: Tent },
-  { value: "attraction", label: "Attraction", icon: Landmark },
+  // { value: "attraction", label: "Attraction", icon: Landmark }, // uncomment when Attraction pages are ready
 ];
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -114,7 +115,7 @@ const SectionCard = ({ title, subtitle, icon: Icon, children, accent = COLORS.TE
   </div>
 );
 
-// ─── Category Selector (Hotel / Park / Campsite / Attraction / Accommodation) ─
+// ─── Category Selector (Hotel / Campsite / Accommodation) ─────────────────────
 const CategorySelector = ({
   value, onChange, isInvalid,
 }: { value: string; onChange: (v: string) => void; isInvalid?: boolean }) => (
@@ -724,7 +725,7 @@ const CreateAdventure = () => {
   const [showErrors, setShowErrors] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
 
-  // ── Listing Category (Hotel / Park / Campsite / Attraction / Accommodation) ──
+  // ── Listing Category (Hotel / Campsite / Accommodation) ──
   const [category, setCategory] = useState<string>("");
 
   const [formData, setFormData] = useState({
@@ -819,7 +820,7 @@ const CreateAdventure = () => {
     if (currentStep === 1) {
       if (!category) {
         setShowErrors(true);
-        toast({ title: "Select a Category", description: "Please choose Hotel, Park, Campsite, Attraction, or Accommodation to continue.", variant: "destructive" });
+        toast({ title: "Select a Category", description: "Please choose Hotel, Campsite, or Accommodation to continue.", variant: "destructive" });
         return false;
       }
       if (!formData.registrationName.trim() || !formData.registrationNumber.trim() || !formData.country) {
@@ -1003,7 +1004,7 @@ const CreateAdventure = () => {
 
       const { error } = await supabase.from("adventure_places").insert([{
         id: friendlySlug, slug: friendlySlug, name: formData.registrationName,
-        // ── Listing category (hotel / park / campsite / attraction / accommodation) ──
+        // ── Listing category (hotel / campsite / accommodation) ──
         category,
         registration_number: formData.registrationNumber,
         tra_license_url: traLicenceUrl,

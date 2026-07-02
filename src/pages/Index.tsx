@@ -132,8 +132,8 @@ GridSection.displayName = "GridSection";
 // ── Category cards ────────────────────────────────────────────────────────────
 // Attraction and Park removed — add them back here when their pages are ready.
 const CATEGORIES = [
-  { icon: Building2, title: "Hotels",         path: "/category/hotels",        bgImage: "/images/category-hotels.jpg" },
-  { icon: Home,       title: "Accommodations", path: "/category/accommodations", bgImage: "/images/category-accommodations.png" },
+  { icon: Building2, title: "Hotels",         path: "/category/hotels & Accommodations",        bgImage: "/images/category-hotels.jpg" },
+  { icon: Home,       title: "Accommodations", path: "/category/AirBnb & stays", bgImage: "/images/category-accommodations.png" },
   { icon: Tent,       title: "Campsites",      path: "/category/campsite",       bgImage: "/images/category-adventures.jpg" },
   { icon: Map,        title: "Tours & Trips",  path: "/category/guided",          bgImage: "/images/category-trips.jpg" },
 ];

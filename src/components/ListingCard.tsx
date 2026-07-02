@@ -9,7 +9,7 @@ import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const getPriceLabel = (isFlexibleDate: boolean, isTrip: boolean) => {
-  if (isFlexibleDate && isTrip) return "";
+  // Always returns "/person" now instead of "/group"
   return "/person";
 };
 
@@ -27,39 +27,6 @@ const formatDuration = (minutes: number): string => {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
-};
-
-// Abbreviate working day names → 3-letter uppercase
-const DAY_ABBR: Record<string, string> = {
-  monday: "Mon", tuesday: "Tue", wednesday: "Wed", thursday: "Thu",
-  friday: "Fri", saturday: "Sat", sunday: "Sun",
-  mon: "Mon", tue: "Tue", wed: "Wed", thu: "Thu",
-  fri: "Fri", sat: "Sat", sun: "Sun",
-};
-
-const abbreviateDay = (d: string) => DAY_ABBR[d.toLowerCase()] ?? d.slice(0, 3);
-
-// Collapse consecutive days into ranges: ["Mon","Tue","Wed","Fri"] → "Mon–Wed, Fri"
-const formatWorkingDays = (days: string[]): string => {
-  if (!days || days.length === 0) return "";
-  const ORDER = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
-  const abbr = days.map(abbreviateDay);
-  const sorted = [...new Set(abbr)].sort((a, b) => ORDER.indexOf(a) - ORDER.indexOf(b));
-  if (sorted.length === 7) return "Every day";
-
-  const groups: string[][] = [];
-  let current: string[] = [sorted[0]];
-  for (let i = 1; i < sorted.length; i++) {
-    if (ORDER.indexOf(sorted[i]) === ORDER.indexOf(current[current.length - 1]) + 1) {
-      current.push(sorted[i]);
-    } else {
-      groups.push(current);
-      current = [sorted[i]];
-    }
-  }
-  groups.push(current);
-
-  return groups.map(g => g.length >= 3 ? `${g[0]}–${g[g.length - 1]}` : g.join(", ")).join(", ");
 };
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -100,9 +67,8 @@ export interface ListingCardProps {
   images?: string[];
   openingHours?: string;
   closingHours?: string;
+  /** Duration in minutes — displayed as "2h", "1h 30m", "45m" */
   durationMinutes?: number;
-  /** Days the adventure place is open e.g. ["Mon","Tue","Wed","Thu","Fri"] */
-  daysOpened?: string[];
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -112,8 +78,7 @@ const ListingCardComponent = ({
   availableTickets = 0, bookedTickets = 0,
   priority = false, avgRating, reviewCount, place,
   isFlexibleDate = false, hidePrice = false, categoryColor,
-  openingHours, closingHours, durationMinutes, galleryImages, images,
-  daysOpened,
+  openingHours, closingHours, durationMinutes,
 }: ListingCardProps) => {
   const navigate = useNavigate();
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -125,10 +90,7 @@ const ListingCardComponent = ({
   const { ref: cardRef, isIntersecting } = useIntersectionObserver({ rootMargin: "300px", triggerOnce: true });
   const shouldLoad = priority || isIntersecting;
 
-  const allSlideImages = useMemo(() => {
-    const combined = [imageUrl, ...(galleryImages || []), ...(images || [])];
-    return Array.from(new Set(combined.filter(Boolean)));
-  }, [imageUrl, galleryImages, images]);
+  const allSlideImages = useMemo(() => [imageUrl].filter(Boolean), [imageUrl]);
 
   const isTrip = type === "TRIP";
   const isAdventurePlace = type === "ADVENTURE PLACE";
@@ -166,8 +128,8 @@ const ListingCardComponent = ({
   }, [navigate, type, id, name, location]);
 
   const urgencyBadge = useMemo(() => {
-    if (isSoldOut)         return { text: "Sold out",              bg: "bg-red-500" };
-    if (isOutdated)        return { text: "Passed",                bg: "bg-slate-500" };
+    if (isSoldOut)    return { text: "Sold out", bg: "bg-red-500" };
+    if (isOutdated)   return { text: "Passed",   bg: "bg-slate-500" };
     if (fewSlotsRemaining) return { text: `🔥 ${remainingTickets} left`, bg: "bg-orange-500" };
     return null;
   }, [isSoldOut, isOutdated, fewSlotsRemaining, remainingTickets]);
@@ -202,32 +164,11 @@ const ListingCardComponent = ({
 
   const visibleDots = Math.min(loadedSlides, allSlideImages.length);
 
-  // ── Working hours display ──────────────────────────────────────────────────
-  // Returns "Open 24 Hours" for full-day places, otherwise "HH:MM – HH:MM UTC"
-  const workingHoursDisplay = useMemo(() => {
-    if (!openingHours && !closingHours) return null;
-
-    const start = openingHours ?? "08:00";
-    const end   = closingHours  ?? "18:00";
-
-    const [startH] = start.split(":").map(Number);
-    const [endH]   = end.split(":").map(Number);
-
-    if (!isNaN(startH) && !isNaN(endH)) {
-      let durationHours = endH - startH;
-      if (durationHours < 0) durationHours += 24;
-      if (durationHours >= 23) return "Open 24 Hours";
-    }
-
-    return `${start} – ${end} UTC`;
+  const hoursText = useMemo(() => {
+    if (openingHours || closingHours)
+      return `${openingHours ?? "08:00"} – ${closingHours ?? "18:00"}`;
+    return null;
   }, [openingHours, closingHours]);
-
-  // ── Working days display ───────────────────────────────────────────────────
-  const workingDaysDisplay = useMemo(() => {
-    if (!isAdventurePlace) return null;
-    if (!daysOpened || daysOpened.length === 0) return null;
-    return formatWorkingDays(daysOpened);
-  }, [isAdventurePlace, daysOpened]);
 
   const durationText = useMemo(
     () => (durationMinutes ? formatDuration(durationMinutes) : null),
@@ -235,14 +176,8 @@ const ListingCardComponent = ({
   );
 
   const { formatPrice } = useCurrency();
-  const accentColor = categoryColor ?? "#008080";
 
-  const hasMetaContent =
-    (isTrip && date) ||
-    isGuidedTour ||
-    durationText ||
-    workingHoursDisplay ||
-    workingDaysDisplay;
+  const accentColor = categoryColor ?? "#008080";
 
   return (
     <div
@@ -252,14 +187,14 @@ const ListingCardComponent = ({
         "group relative flex flex-col overflow-hidden cursor-pointer",
         "rounded-2xl bg-white shadow-md border border-slate-200",
         "hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200",
-        "w-full xs:min-w-[290px] h-full min-h-[340px]",
+        "w-full",
         isUnavailable && "opacity-75",
       )}
     >
-      {/* ── Image Section ── */}
+      {/* ── Image ── */}
       <div
-        className="relative w-full overflow-hidden flex-[1.4]"
-        style={{ aspectRatio: "16/10" }}
+        className="relative w-full overflow-hidden"
+        style={{ aspectRatio: "4/3" }}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
@@ -297,49 +232,49 @@ const ListingCardComponent = ({
           ))}
         </div>
 
-        {/* Bottom gradient */}
+        {/* Bottom gradient for readability */}
         <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/50 to-transparent pointer-events-none z-10" />
 
-        {/* Type badge */}
-        <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-1">
+        {/* Type badge — top-left */}
+        <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-1.5">
           <span
-            className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded shadow text-white"
+            className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg shadow text-white"
             style={{ backgroundColor: accentColor }}
           >
             {displayType}
           </span>
           {urgencyBadge && (
-            <span className={cn("text-[8px] sm:text-[9px] font-bold px-1.5 py-0.5 rounded text-white shadow", urgencyBadge.bg)}>
+            <span className={cn("text-[9px] font-bold px-2 py-0.5 rounded-full text-white shadow", urgencyBadge.bg)}>
               {urgencyBadge.text}
             </span>
           )}
         </div>
 
-        {/* Heart */}
+        {/* Heart — top-right */}
         {!hideSave && onSave && (
           <button
             onClick={(e) => { e.stopPropagation(); onSave(id, type); }}
-            className="absolute top-2.5 right-2.5 z-20 h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-white/90 shadow-md flex items-center justify-center hover:scale-110 active:scale-95 transition-transform"
+            className="absolute top-2.5 right-2.5 z-20 h-8 w-8 rounded-full bg-white/90 shadow-md flex items-center justify-center hover:scale-110 active:scale-95 transition-transform"
           >
-            <Heart className={cn("h-3.5 w-3.5 sm:h-4 sm:w-4", isSaved ? "fill-red-500 text-red-500" : "text-slate-500")} />
+            <Heart className={cn("h-4 w-4", isSaved ? "fill-red-500 text-red-500" : "text-slate-500")} />
           </button>
         )}
 
-        {/* Duration pill */}
+        {/* Duration pill — bottom-left, over gradient */}
         {durationText && (
-          <div className="absolute bottom-2.5 left-2.5 z-20 flex items-center gap-1 bg-black/70 backdrop-blur-sm rounded-full px-2 py-0.5 sm:px-2.5 sm:py-1">
+          <div className="absolute bottom-2.5 left-2.5 z-20 flex items-center gap-1 bg-black/70 backdrop-blur-sm rounded-full px-2.5 py-1">
             <Timer className="h-3 w-3 text-white" />
-            <span className="text-[10px] sm:text-[11px] font-bold text-white leading-none">{durationText}</span>
+            <span className="text-[11px] font-bold text-white leading-none">{durationText}</span>
           </div>
         )}
 
-        {/* Rating pill */}
+        {/* Rating pill — bottom-right, over gradient */}
         {avgRating != null && avgRating > 0 && (
-          <div className="absolute bottom-2.5 right-2.5 z-20 flex items-center gap-1 bg-white/95 rounded-full px-1.5 py-0.5 sm:px-2 sm:py-0.5 shadow">
+          <div className="absolute bottom-2.5 right-2.5 z-20 flex items-center gap-1 bg-white/95 rounded-full px-2 py-0.5 shadow">
             <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-            <span className="text-[10px] sm:text-[11px] font-black text-slate-800 leading-none">{avgRating.toFixed(1)}</span>
+            <span className="text-[11px] font-black text-slate-800 leading-none">{avgRating.toFixed(1)}</span>
             {reviewCount != null && reviewCount > 0 && (
-              <span className="text-[8px] sm:text-[9px] font-semibold text-slate-500">({reviewCount})</span>
+              <span className="text-[9px] font-semibold text-slate-500">({reviewCount})</span>
             )}
           </div>
         )}
@@ -381,105 +316,81 @@ const ListingCardComponent = ({
         {/* Unavailable overlay */}
         {isUnavailable && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40 backdrop-blur-[1px]">
-            <span className="rounded-lg border border-white/70 px-2.5 py-1 text-[10px] sm:text-[11px] font-black uppercase text-white tracking-wider">
+            <span className="rounded-lg border border-white/70 px-3 py-1 text-[11px] font-black uppercase text-white tracking-wider">
               {isSoldOut ? "Sold Out" : "Unavailable"}
             </span>
           </div>
         )}
       </div>
 
-      {/* ── Info Panel ── */}
-      <div className="flex flex-col p-3 gap-2 bg-white flex-1 justify-between">
+      {/* ── Info panel ── */}
+      <div className="flex flex-col p-3 gap-2 bg-white">
 
-        {/* Top block: name + location */}
-        <div className="flex flex-col gap-1">
-          <h3 className="font-black text-slate-900 leading-tight line-clamp-2 text-[12px] sm:text-[13px] tracking-tight sm:tracking-[-0.01em]">
-            {formattedName}
-          </h3>
+        {/* Name — large, heavy, dark, always visible */}
+        <h3
+          className="font-black text-slate-900 leading-tight line-clamp-2"
+          style={{ fontSize: "13px", letterSpacing: "-0.01em" }}
+        >
+          {formattedName}
+        </h3>
 
-          {locationString.trim().length > 0 && (
-            <div className="flex items-center gap-1 mt-0.5">
-              <MapPin className="h-3 w-3 sm:h-3.5 sm:w-3.5 flex-shrink-0" style={{ color: accentColor }} />
-              <span
-                className="text-[10px] sm:text-[11px] font-bold truncate capitalize"
-                style={{ color: "#1e293b" }}
-              >
-                {locationString.toLowerCase()}
-              </span>
-            </div>
-          )}
+        {/* Location — distinct teal-tinted, clearly readable */}
+        <div className="flex items-center gap-1.5">
+          <MapPin className="h-3.5 w-3.5 flex-shrink-0" style={{ color: accentColor }} />
+          <span
+            className="text-[11px] font-bold truncate capitalize"
+            style={{ color: "#1e293b" }}
+          >
+            {locationString.toLowerCase()}
+          </span>
         </div>
 
-        {/* Bottom block: price + meta */}
-        <div className="flex flex-col gap-1 mt-auto pt-1">
-          {!hidePrice && price != null && price > 0 && (
-            <div className={cn("flex items-baseline gap-1", isUnavailable && "opacity-50 line-through")}>
-              <span
-                className="font-black leading-none text-sm sm:text-[15px]"
-                style={{ color: accentColor }}
-              >
-                {isFlexibleDate && isTrip ? `From ${formatPrice(price)}` : formatPrice(price)}
+        {/* Price — prominent, coloured */}
+        {!hidePrice && price != null && price > 0 && (
+          <div className={cn("flex items-baseline gap-1", isUnavailable && "opacity-50 line-through")}>
+            <span
+              className="font-black leading-none"
+              style={{ fontSize: "15px", color: accentColor }}
+            >
+              {isFlexibleDate && isTrip ? `From ${formatPrice(price)}` : formatPrice(price)}
+            </span>
+            <span className="text-[10px] font-semibold text-slate-500">
+              {getPriceLabel(isFlexibleDate, isTrip)}
+            </span>
+          </div>
+        )}
+
+        {/* Meta row — date / flexible / hours / duration */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          {/* Date (trips) */}
+          {isTrip && date && !isFlexibleDate && (
+            <div className="flex items-center gap-1">
+              <Calendar className="h-3 w-3 text-slate-400" />
+              <span className="text-[11px] font-semibold text-slate-700">
+                {new Date(date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
               </span>
-              {!(isFlexibleDate && isTrip) && (
-                <span className="text-[9px] sm:text-[10px] font-semibold text-slate-500">
-                  {getPriceLabel(isFlexibleDate, isTrip)}
-                </span>
-              )}
+            </div>
+          )}
+          {isTrip && isFlexibleDate && (
+            <div className="flex items-center gap-1">
+              <Calendar className="h-3 w-3 text-slate-400" />
+              <span className="text-[11px] font-semibold text-slate-700">Flexible</span>
             </div>
           )}
 
-          {hasMetaContent && (
-            <div className="flex flex-col gap-1">
+          {/* Duration */}
+          {durationText && (
+            <div className="flex items-center gap-1">
+              <Timer className="h-3 w-3 text-slate-400" />
+              <span className="text-[11px] font-semibold text-slate-700">{durationText}</span>
+            </div>
+          )}
 
-              {/* Trip date / flexible */}
-              {isTrip && date && !isFlexibleDate && (
-                <div className="flex items-center gap-1">
-                  <Calendar className="h-3 w-3 text-slate-400 shrink-0" />
-                  <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700">
-                    {new Date(date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })} UTC
-                  </span>
-                </div>
-              )}
-              {isTrip && isFlexibleDate && (
-                <div className="flex items-center gap-1">
-                  <Calendar className="h-3 w-3 text-slate-400 shrink-0" />
-                  <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700">Flexible</span>
-                </div>
-              )}
-
-              {/* Duration */}
-              {durationText && (
-                <div className="flex items-center gap-1">
-                  <Timer className="h-3 w-3 text-slate-400 shrink-0" />
-                  <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700">{durationText}</span>
-                </div>
-              )}
-
-              {/* Adventure Place: Opening & Closing hours */}
-              {isAdventurePlace && workingHoursDisplay && (
-                <div className="flex items-start gap-1">
-                  <Clock className="h-3 w-3 text-slate-400 shrink-0 mt-0.5" />
-                  <div className="flex flex-col leading-tight">
-                    <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">Hours (UTC)</span>
-                    <span className="text-[10px] sm:text-[11px] font-bold text-slate-700">
-                      {workingHoursDisplay}
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {/* Adventure Place: Working days */}
-              {isAdventurePlace && workingDaysDisplay && (
-                <div className="flex items-start gap-1">
-                  <Calendar className="h-3 w-3 text-slate-400 shrink-0 mt-0.5" />
-                  <div className="flex flex-col leading-tight">
-                    <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">Open</span>
-                    <span className="text-[10px] sm:text-[11px] font-bold text-slate-700">
-                      {workingDaysDisplay}
-                    </span>
-                  </div>
-                </div>
-              )}
+          {/* Opening hours (adventure places) */}
+          {hoursText && (
+            <div className="flex items-center gap-1">
+              <Clock className="h-3 w-3 text-slate-400" />
+              <span className="text-[11px] font-semibold text-slate-700">{hoursText}</span>
             </div>
           )}
         </div>

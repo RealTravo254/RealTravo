@@ -8,11 +8,6 @@ import { useNavigate } from "react-router-dom";
 import { createDetailPath } from "@/lib/slugUtils";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 
-const getPriceLabel = (isFlexibleDate: boolean, isTrip: boolean) => {
-  if (isFlexibleDate && isTrip) return "/group";
-  return "/person";
-};
-
 const CATEGORY_LABELS: Record<string, string> = {
   hotel:         "Hotel",
   park:          "Park",
@@ -122,12 +117,26 @@ const ListingCardComponent = ({
   }, [allSlideImages.length, loadedSlides]);
 
   const hoursText = useMemo(() => {
-    // Shows hours if explicitly provided, or forces a default display for guided tours/trips
-    if (openingHours || closingHours) {
-      return `${openingHours ?? "08:00"} - ${closingHours ?? "18:00"}`;
-    }
-    if (isGuidedTour || isTrip) {
-      return "08:00 - 18:00"; // Default fallback hours for tours if none provided
+    const start = openingHours ?? "08:00";
+    const end = closingHours ?? "18:00";
+
+    // Show hours layout for tours/trips or explicitly when provided
+    if (openingHours || closingHours || isGuidedTour || isTrip) {
+      try {
+        const [startH, startM] = start.split(":").map(Number);
+        const [endH, endM] = end.split(":").map(Number);
+        
+        // Basic calculation for duration within standard operational boundaries
+        let durationMinutes = (endH * 60 + endM) - (startH * 60 + startM);
+        if (durationMinutes < 0) durationMinutes += 24 * 60; // handles overnight windows if applicable
+
+        const hours = Math.floor(durationMinutes / 60);
+        const durationText = hours > 0 ? ` (${hours} hours)` : "";
+
+        return `${start} - ${end}${durationText}`;
+      } catch (err) {
+        return `${start} - ${end}`;
+      }
     }
     return null;
   }, [openingHours, closingHours, isGuidedTour, isTrip]);
@@ -226,7 +235,7 @@ const ListingCardComponent = ({
       {/* ── TEXT CONTENT AREA ── */}
       <div className="flex flex-col gap-2 p-4 min-w-0" style={{ backgroundColor: "#ffffff" }}>
         
-        {/* Title Block - Made font-normal instead of font-black */}
+        {/* Title Block */}
         <h3 
           className="line-clamp-2 text-sm font-normal leading-snug tracking-tight"
           style={{ color: "#090d16", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}
@@ -234,41 +243,41 @@ const ListingCardComponent = ({
           {formattedName}
         </h3>
 
-        {/* Location Block - Made font-normal and slightly darker slate for contrast */}
+        {/* Location Block - Set text and icon stroke to soft grey (#64748b) */}
         <div className="flex items-center gap-2">
-          <MapPin className="h-4 w-4 flex-shrink-0" style={{ stroke: "#475569" }} />
-          <span className="text-xs font-normal truncate capitalize" style={{ color: "#334155" }}>
+          <MapPin className="h-4 w-4 flex-shrink-0" style={{ stroke: "#64748b" }} />
+          <span className="text-xs font-normal truncate capitalize" style={{ color: "#64748b" }}>
             {locationString}
           </span>
         </div>
 
-        {/* Price Block - Sub-label made font-normal */}
+        {/* Price Block - Reformatted to display "From [Price]" explicitly */}
         {!hidePrice && price != null && price > 0 && (
           <div className={cn("flex items-baseline gap-1 mt-0.5", isUnavailable && "opacity-40 line-through")}>
+            <span className="text-xs font-normal mr-0.5" style={{ color: "#475569" }}>
+              From
+            </span>
             <span className="text-base font-black whitespace-nowrap" style={{ color: "#020617" }}>
               {formatPrice(price)}
-            </span>
-            <span className="text-xs font-normal" style={{ color: "#475569" }}>
-              {getPriceLabel(isFlexibleDate, isTrip)}
             </span>
           </div>
         )}
 
-        {/* Date / Trip details Block - Made font-normal and updated text color */}
+        {/* Date / Trip details Block - Set text and icon stroke to soft grey (#64748b) */}
         {isTrip && (date || isFlexibleDate) && (
           <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 flex-shrink-0" style={{ stroke: "#475569" }} />
-            <span className="text-xs font-normal" style={{ color: "#334155" }}>
+            <Calendar className="h-4 w-4 flex-shrink-0" style={{ stroke: "#64748b" }} />
+            <span className="text-xs font-normal" style={{ color: "#64748b" }}>
               {isFlexibleDate ? "Flexible Dates" : new Date(date!).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
             </span>
           </div>
         )}
 
-        {/* Operational Hours Block - Made font-normal and updated text color */}
+        {/* Operational Hours Block - Set text and icon stroke to soft grey (#64748b) */}
         {hoursText && (
           <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 flex-shrink-0" style={{ stroke: "#475569" }} />
-            <span className="text-xs font-normal" style={{ color: "#334155" }}>
+            <Clock className="h-4 w-4 flex-shrink-0" style={{ stroke: "#64748b" }} />
+            <span className="text-xs font-normal" style={{ color: "#64748b" }}>
               {hoursText}
             </span>
           </div>

@@ -122,9 +122,15 @@ const ListingCardComponent = ({
   }, [allSlideImages.length, loadedSlides]);
 
   const hoursText = useMemo(() => {
-    if (openingHours || closingHours) return `${openingHours ?? "08:00"} - ${closingHours ?? "18:00"}`;
+    // Shows hours if explicitly provided, or forces a default display for guided tours/trips
+    if (openingHours || closingHours) {
+      return `${openingHours ?? "08:00"} - ${closingHours ?? "18:00"}`;
+    }
+    if (isGuidedTour || isTrip) {
+      return "08:00 - 18:00"; // Default fallback hours for tours if none provided
+    }
     return null;
-  }, [openingHours, closingHours]);
+  }, [openingHours, closingHours, isGuidedTour, isTrip]);
 
   return (
     <Card
@@ -220,49 +226,49 @@ const ListingCardComponent = ({
       {/* ── TEXT CONTENT AREA ── */}
       <div className="flex flex-col gap-2 p-4 min-w-0" style={{ backgroundColor: "#ffffff" }}>
         
-        {/* Title Block */}
+        {/* Title Block - Made font-normal instead of font-black */}
         <h3 
-          className="line-clamp-2 text-sm font-black leading-snug tracking-tight"
+          className="line-clamp-2 text-sm font-normal leading-snug tracking-tight"
           style={{ color: "#090d16", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}
         >
           {formattedName}
         </h3>
 
-        {/* Location Block */}
+        {/* Location Block - Made font-normal and slightly darker slate for contrast */}
         <div className="flex items-center gap-2">
-          <MapPin className="h-4 w-4 flex-shrink-0" style={{ stroke: "#334155" }} />
-          <span className="text-xs font-extrabold truncate capitalize" style={{ color: "#1e293b" }}>
+          <MapPin className="h-4 w-4 flex-shrink-0" style={{ stroke: "#475569" }} />
+          <span className="text-xs font-normal truncate capitalize" style={{ color: "#334155" }}>
             {locationString}
           </span>
         </div>
 
-        {/* Price Block */}
+        {/* Price Block - Sub-label made font-normal */}
         {!hidePrice && price != null && price > 0 && (
           <div className={cn("flex items-baseline gap-1 mt-0.5", isUnavailable && "opacity-40 line-through")}>
             <span className="text-base font-black whitespace-nowrap" style={{ color: "#020617" }}>
               {formatPrice(price)}
             </span>
-            <span className="text-xs font-bold" style={{ color: "#475569" }}>
+            <span className="text-xs font-normal" style={{ color: "#475569" }}>
               {getPriceLabel(isFlexibleDate, isTrip)}
             </span>
           </div>
         )}
 
-        {/* Date / Trip details Block */}
+        {/* Date / Trip details Block - Made font-normal and updated text color */}
         {isTrip && (date || isFlexibleDate) && (
           <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 flex-shrink-0" style={{ stroke: "#334155" }} />
-            <span className="text-xs font-extrabold" style={{ color: "#1e293b" }}>
+            <Calendar className="h-4 w-4 flex-shrink-0" style={{ stroke: "#475569" }} />
+            <span className="text-xs font-normal" style={{ color: "#334155" }}>
               {isFlexibleDate ? "Flexible Dates" : new Date(date!).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
             </span>
           </div>
         )}
 
-        {/* Operational Hours Block */}
+        {/* Operational Hours Block - Made font-normal and updated text color */}
         {hoursText && (
           <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 flex-shrink-0" style={{ stroke: "#334155" }} />
-            <span className="text-xs font-extrabold" style={{ color: "#1e293b" }}>
+            <Clock className="h-4 w-4 flex-shrink-0" style={{ stroke: "#475569" }} />
+            <span className="text-xs font-normal" style={{ color: "#334155" }}>
               {hoursText}
             </span>
           </div>

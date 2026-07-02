@@ -9,7 +9,8 @@ import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const getPriceLabel = (isFlexibleDate: boolean, isTrip: boolean) => {
-  // Always returns "/person" now instead of "/group"
+  // If it's a flexible trip, we handle the "From" label inline, so no suffix is returned here
+  if (isFlexibleDate && isTrip) return "";
   return "/person";
 };
 
@@ -354,9 +355,11 @@ const ListingCardComponent = ({
             >
               {isFlexibleDate && isTrip ? `From ${formatPrice(price)}` : formatPrice(price)}
             </span>
-            <span className="text-[10px] font-semibold text-slate-500">
-              {getPriceLabel(isFlexibleDate, isTrip)}
-            </span>
+            {!(isFlexibleDate && isTrip) && (
+              <span className="text-[10px] font-semibold text-slate-500">
+                {getPriceLabel(isFlexibleDate, isTrip)}
+              </span>
+            )}
           </div>
         )}
 

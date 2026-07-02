@@ -732,9 +732,14 @@ const CreateTripEvent = () => {
                           </div>
                         )}
                         <div>
-                          <FieldLabel required>{formData.type === "trip" ? "Max Slots Per Day" : "Max Slots"}</FieldLabel>
+                          {/* For flexible-date trips, available_tickets now means the
+                              maximum a single booking can reserve for a given day —
+                              not the total capacity for that day. Multiple separate
+                              bookings can still be made for the same day, each up to
+                              this limit. Column name in the DB is unchanged. */}
+                          <FieldLabel required>{formData.type === "trip" ? "Max Booking Limit Per Day" : "Max Slots"}</FieldLabel>
                           <StyledInput isInvalid={validationErrors.includes("available_tickets")} type="number" value={formData.available_tickets} onChange={(e) => { setFormData({ ...formData, available_tickets: e.target.value }); if (e.target.value && parseInt(e.target.value) > 0) setValidationErrors(prev => prev.filter(err => err !== "available_tickets")); }} />
-                          {formData.type === "trip" && <p className="text-[10px] text-slate-400 mt-1 font-medium">Since this trip is flexible-date, this is the capacity available each day — it resets daily.</p>}
+                          {formData.type === "trip" && <p className="text-[10px] text-slate-400 mt-1 font-medium">Since this trip is flexible-date, this is the maximum number of slots a single booking can reserve for any given day — not the day's total capacity.</p>}
                           {validationErrors.includes("available_tickets") && <p className="text-red-500 text-[10px] font-semibold mt-1">⚠ Enter number of slots (min 1)</p>}
                         </div>
                       </div>

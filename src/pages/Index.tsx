@@ -132,8 +132,8 @@ GridSection.displayName = "GridSection";
 // ── Category cards ────────────────────────────────────────────────────────────
 // Attraction and Park removed — add them back here when their pages are ready.
 const CATEGORIES = [
-  { icon: Building2, title: "Hotels",         path: "/category/hotels & Accommodations",        bgImage: "/images/category-hotels.jpg" },
-  { icon: Home,       title: "Accommodations", path: "/category/AirBnb & stays", bgImage: "/images/category-accommodations.png" },
+  { icon: Building2, title: "Hotels",         path: "/category/hotels",        bgImage: "/images/category-hotels.jpg" },
+  { icon: Home,       title: "Accommodations", path: "/category/accommodations", bgImage: "/images/category-accommodations.png" },
   { icon: Tent,       title: "Campsites",      path: "/category/campsite",       bgImage: "/images/category-adventures.jpg" },
   { icon: Map,        title: "Tours & Trips",  path: "/category/guided",          bgImage: "/images/category-trips.jpg" },
 ];
@@ -141,8 +141,8 @@ const CATEGORIES = [
 // ── Quick-nav shortcuts ───────────────────────────────────────────────────────
 // Attraction and Park removed — add them back here when their pages are ready.
 const QUICK_NAV = [
-  { icon: Building2, title: "Hotels",         path: "/category/hotels",        color: "hsl(205, 85%, 45%)" },
-  { icon: Home,       title: "Accommodations", path: "/category/accommodations", color: "hsl(160, 70%, 40%)" },
+  { icon: Building2, title: "Hotels",         path: "/category/hotels & accommodations",        color: "hsl(205, 85%, 45%)" },
+  { icon: Home,       title: "Accommodations", path: "/category/AirBnb & Stay", color: "hsl(160, 70%, 40%)" },
   { icon: Tent,       title: "Campsites",      path: "/category/campsite",       color: "hsl(278, 90%, 50%)" },
   { icon: Map,        title: "Tours & Trips",  path: "/category/guided",          color: "hsl(235, 90%, 50%)" },
   { icon: Ticket,     title: "Bookings",       path: "/bookings",                color: "hsl(200, 70%, 45%)" },

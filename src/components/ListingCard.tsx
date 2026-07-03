@@ -1,5 +1,5 @@
 import React, { useState, memo, useCallback, useMemo, useRef } from "react";
-import { MapPin, Star, ChevronLeft, ChevronRight, Clock, Heart, Navigation } from "lucide-react";
+import { MapPin, Star, Calendar, ChevronLeft, ChevronRight, Clock, Heart, Navigation } from "lucide-react";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -8,7 +8,31 @@ import { useNavigate } from "react-router-dom";
 import { createDetailPath } from "@/lib/slugUtils";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 
+// ── Price label ─────────────────────────────────────────────────────────────
+// Guided tours (isFlexibleDate && isTrip) show the tour's start time in UTC
+// instead of a "/group" suffix, since group pricing isn't meaningful without
+// knowing when the tour departs. Falls back to a plain "UTC" tag if no date
+// is available yet.
+const getPriceLabel = (isFlexibleDate: boolean, isTrip: boolean, date?: string) => {
+  // TRIPS/GUIDED TOURS DISABLED — commented out, kept for reference
+  // if (isFlexibleDate && isTrip) {
+  //   if (date) {
+  //     const utcTime = new Date(date).toLocaleTimeString("en-GB", {
+  //       hour: "2-digit",
+  //       minute: "2-digit",
+  //       timeZone: "UTC",
+  //     });
+  //     return `${utcTime} UTC`;
+  //   }
+  //   return "UTC";
+  // }
+  return "/person";
+};
+
 // ── Category badge labels ────────────────────────────────────────────────────
+// Color is intentionally not set per-category here — the badge always falls
+// back to the same dark slate used by the "Guided tour" badge, so adventure
+// place and guided tour badges read as one consistent visual language.
 const CATEGORY_LABELS: Record<string, string> = {
   hotel: "Hotel",
   park: "Park",
@@ -21,9 +45,15 @@ const DEFAULT_CATEGORY_LABEL = "Campsite";
 const PriceText = ({
   price,
   isUnavailable,
+  isFlexibleDate,
+  isTrip,
+  date,
 }: {
   price: number;
   isUnavailable: boolean;
+  isFlexibleDate: boolean;
+  isTrip: boolean;
+  date?: string;
 }) => {
   const { formatPrice } = useCurrency();
   return (
@@ -32,20 +62,25 @@ const PriceText = ({
       <span className="text-sm font-bold text-slate-900 tabular-nums whitespace-nowrap">
         {formatPrice(price)}
       </span>
-      <span className="text-[10px] text-slate-500 font-medium">/person</span>
+      <span className="text-[10px] text-slate-500 font-medium">
+        {getPriceLabel(isFlexibleDate, isTrip, date)}
+      </span>
     </div>
   );
 };
 
 export interface ListingCardProps {
   id: string;
-  type: "ADVENTURE PLACE" | "ATTRACTION";
+  type: "TRIP" | "ADVENTURE PLACE" | "ATTRACTION";
   category?: string;
   name: string;
   imageUrl: string;
   location: string;
   country: string;
   price?: number;
+  date?: string;
+  isCustomDate?: boolean;
+  isFlexibleDate?: boolean;
   isOutdated?: boolean;
   onSave?: (id: string, type: string) => void;
   isSaved?: boolean;
@@ -53,6 +88,8 @@ export interface ListingCardProps {
   amenities?: string[];
   activities?: any[];
   hidePrice?: boolean;
+  availableTickets?: number;
+  bookedTickets?: number;
   showBadge?: boolean;
   priority?: boolean;
   minimalDisplay?: boolean;
@@ -62,6 +99,7 @@ export interface ListingCardProps {
   avgRating?: number;
   reviewCount?: number;
   place?: string;
+  showFlexibleDate?: boolean;
   description?: string;
   categoryColor?: string;
   galleryImages?: string[];
@@ -71,10 +109,11 @@ export interface ListingCardProps {
 }
 
 const ListingCardComponent = ({
-  id, type, category, name, imageUrl, location, price,
+  id, type, category, name, imageUrl, location, price, date,
   isOutdated = false, onSave, isSaved = false, hideSave = false,
+  availableTickets = 0, bookedTickets = 0,
   priority = false, avgRating, reviewCount, place,
-  hidePrice = false, categoryColor,
+  isFlexibleDate = false, hidePrice = false, categoryColor,
   openingHours, closingHours, distance,
 }: ListingCardProps) => {
   const navigate = useNavigate();
@@ -87,8 +126,17 @@ const ListingCardComponent = ({
   const shouldLoad = priority || isIntersecting;
 
   const allSlideImages = useMemo(() => [imageUrl].filter(Boolean), [imageUrl]);
+  const isTrip = false; // TRIPS DISABLED — was: type === "TRIP"
   const isAdventurePlace = type === "ADVENTURE PLACE";
-  const isUnavailable = isOutdated;
+  // const remainingTickets = availableTickets - bookedTickets; // TRIPS DISABLED
+  // const isSoldOut = isTrip && availableTickets > 0 && remainingTickets <= 0; // TRIPS DISABLED
+  // const fewSlotsRemaining = isTrip && remainingTickets > 0 && remainingTickets <= 10; // TRIPS DISABLED
+  const remainingTickets = 0;
+  const isSoldOut = false;
+  const fewSlotsRemaining = false;
+  const isUnavailable = isOutdated || isSoldOut;
+  // const isGuidedTour = isFlexibleDate && isTrip; // TRIPS/GUIDED TOURS DISABLED
+  const isGuidedTour = false;
 
   const categoryLabel = useMemo(() => {
     if (!isAdventurePlace) return null;
@@ -97,12 +145,15 @@ const ListingCardComponent = ({
 
   const displayType = useMemo(() => {
     if (isAdventurePlace) return categoryLabel!;
+    // TRIPS/GUIDED TOURS DISABLED — commented out, kept for reference
+    // if (isGuidedTour) return "Guided tour";
+    // if (isTrip) return "Trip";
     return "Attraction";
-  }, [isAdventurePlace, categoryLabel]);
+  }, [isAdventurePlace, isGuidedTour, isTrip, categoryLabel]);
 
-  // Same fallback color as before (no categoryMeta color lookup here anymore)
-  // so every badge type shares one visual language unless the caller
-  // explicitly passes categoryColor.
+  // Same fallback color as the "Guided tour" badge (no categoryMeta color
+  // lookup here anymore) so every badge type shares one visual language
+  // unless the caller explicitly passes categoryColor.
   const badgeColor = categoryColor;
 
   // Proper title case once, rather than lowercase-then-CSS-capitalize fighting
@@ -119,6 +170,7 @@ const ListingCardComponent = ({
 
   const handleCardClick = useCallback(() => {
     const typeMap: Record<string, string> = {
+      // TRIP: "trip", // TRIPS DISABLED
       "ADVENTURE PLACE": "adventure",
       ATTRACTION: "attraction",
     };
@@ -126,10 +178,17 @@ const ListingCardComponent = ({
   }, [navigate, type, id, name, location]);
 
   const urgencyBadge = useMemo(() => {
+    // TRIPS/GUIDED TOURS DISABLED — sold out / few-slots badges only ever
+    // applied to trips, so these branches are effectively dead now, but
+    // left in place (commented) for when trips come back.
+    // if (isSoldOut)
+    //   return { text: "Sold out", color: "bg-destructive/10 text-destructive border-destructive/20" };
     if (isOutdated)
       return { text: "Passed", color: "bg-muted text-muted-foreground border-border" };
+    // if (fewSlotsRemaining)
+    //   return { text: `${remainingTickets} left`, color: "bg-orange-50 text-orange-700 border-orange-200" };
     return null;
-  }, [isOutdated]);
+  }, [isSoldOut, isOutdated, fewSlotsRemaining, remainingTickets]);
 
   const goToSlide = useCallback(
     (index: number, e?: React.MouseEvent) => {
@@ -325,11 +384,11 @@ const ListingCardComponent = ({
           </div>
         )}
 
-        {/* Unavailable overlay */}
+        {/* Sold-out / unavailable overlay */}
         {isUnavailable && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/45 backdrop-blur-[1px]">
             <span className="rounded-md border border-white/60 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-white">
-              Unavailable
+              {isSoldOut ? "Sold out" : "Unavailable"}
             </span>
           </div>
         )}
@@ -361,13 +420,23 @@ const ListingCardComponent = ({
           )}
         </div>
 
-        {/* Secondary meta row: distance only — only render what applies */}
-        {distanceText ? (
+        {/* Secondary meta row: date / distance — only render what applies */}
+        {/* TRIPS/GUIDED TOURS DISABLED — the trip date badge branch is commented
+            out below; only distance still renders in this row. */}
+        {(/* (isTrip && (date || isFlexibleDate)) || */ distanceText) ? (
           <div className="flex items-center gap-2.5 flex-wrap text-slate-500">
-            <span className="flex items-center gap-1 text-[10px] font-medium">
-              <Navigation className="h-3 w-3" />
-              {distanceText}
-            </span>
+            {/* {isTrip && (date || isFlexibleDate) && (
+              <span className="flex items-center gap-1 text-[10px] font-medium">
+                <Calendar className="h-3 w-3" />
+                {isFlexibleDate ? "Flexible" : new Date(date!).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
+              </span>
+            )} */}
+            {distanceText && (
+              <span className="flex items-center gap-1 text-[10px] font-medium">
+                <Navigation className="h-3 w-3" />
+                {distanceText}
+              </span>
+            )}
           </div>
         ) : null}
 
@@ -387,7 +456,7 @@ const ListingCardComponent = ({
         {/* Price, anchored to the bottom of the card */}
         {!hidePrice && price != null && price > 0 && (
           <div className="pt-0.5">
-            <PriceText price={price} isUnavailable={isUnavailable} />
+            <PriceText price={price} isUnavailable={isUnavailable} isFlexibleDate={isFlexibleDate} isTrip={isTrip} date={date} />
           </div>
         )}
       </div>

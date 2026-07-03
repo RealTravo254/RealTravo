@@ -30,8 +30,9 @@ const Explore = () => {
   const { position }               = useGeolocation();
 
   const allItemIds    = useMemo(() => listings.map(l => l.id), [listings]);
-  // Guided tours track bookings; fixed trips and events are disabled so we
-  // only gather booking stats for guided (flexible/custom-date) trips.
+  // Guided tours, fixed trips, and events are all disabled (see fetchAllData
+  // below) — listings will never contain type === "TRIP" items, so this is
+  // always []. Kept so useRealtimeBookings still gets a stable argument.
   const guidedTripIds = useMemo(
     () => listings.filter(l => l.type === "TRIP" && (l.is_flexible_date || l.is_custom_date)).map(l => l.id),
     [listings],
@@ -49,8 +50,10 @@ const Explore = () => {
     let result = sortedListings;
 
     if (activeFilter !== "all") {
+      // "guided" tab is hidden in CategoryTabsBar and trips are never fetched
+      // below, so this branch is effectively dead code — kept only so a
+      // stray ?category=guided link doesn't crash.
       if (activeFilter === "guided") {
-        // Tours & Trips tab → guided / flexible-date trips only
         result = result.filter(l => l.type === "TRIP" && (l.is_flexible_date || l.is_custom_date));
       }
       // Fixed trips tab disabled — uncomment if re-enabling the fetch below
@@ -102,32 +105,34 @@ const Explore = () => {
   }, [loadingMore, filteredListings.length]);
 
   // ── Data fetch ──────────────────────────────────────────────────────────
+  // Trip / guided-tour fetching is disabled site-wide — only adventure
+  // places (hotels, accommodations, campsites, etc.) are fetched here now.
   const fetchAllData = useCallback(async (query?: string) => {
     setLoading(true);
 
     const [
-      guidedTrips,
+      // guidedTrips, // guided trips fetch disabled — uncomment to re-enable
       adventures,
       // events,     // events fetch disabled — uncomment to re-enable
       // fixedTrips, // fixed trips fetch disabled — uncomment to re-enable
     ] = await Promise.all([
-      // ── Guided / flexible-date tours ────────────────────────────────────
-      supabase.from("trips")
-        .select("id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child,description,opening_hours,closing_hours")
-        .eq("approval_status", "approved").eq("is_hidden", false)
-        .eq("type", "trip").or("is_flexible_date.eq.true,is_custom_date.eq.true")
-        .order("created_at", { ascending: false }).limit(50)
-        .then(r => {
-          let data = r.data || [];
-          if (query) {
-            const q = query.toLowerCase();
-            data = data.filter((i: any) =>
-              i.name?.toLowerCase().includes(q) || i.location?.toLowerCase().includes(q) ||
-              i.country?.toLowerCase().includes(q) || i.place?.toLowerCase().includes(q),
-            );
-          }
-          return data.map((i: any) => ({ ...i, type: "TRIP" }));
-        }),
+      // ── Guided / flexible-date tours (disabled — uncomment to re-enable) ──
+      // supabase.from("trips")
+      //   .select("id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child,description,opening_hours,closing_hours")
+      //   .eq("approval_status", "approved").eq("is_hidden", false)
+      //   .eq("type", "trip").or("is_flexible_date.eq.true,is_custom_date.eq.true")
+      //   .order("created_at", { ascending: false }).limit(50)
+      //   .then(r => {
+      //     let data = r.data || [];
+      //     if (query) {
+      //       const q = query.toLowerCase();
+      //       data = data.filter((i: any) =>
+      //         i.name?.toLowerCase().includes(q) || i.location?.toLowerCase().includes(q) ||
+      //         i.country?.toLowerCase().includes(q) || i.place?.toLowerCase().includes(q),
+      //       );
+      //     }
+      //     return data.map((i: any) => ({ ...i, type: "TRIP" }));
+      //   }),
 
       // ── Adventure places (hotels, accommodations, campsites, etc.) ───────
       supabase.from("adventure_places")
@@ -163,7 +168,7 @@ const Explore = () => {
       //   .then(r => (r.data || []).map((i: any) => ({ ...i, type: "TRIP" }))),
     ]);
 
-    const combined = [...adventures, ...guidedTrips]
+    const combined = [...adventures]
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     setListings(combined);
     setLoading(false);

@@ -136,8 +136,8 @@ GridSection.displayName = "GridSection";
 // and the matching one in QUICK_NAV, and restore guided trip fetching in
 // fetchScrollableRows, to bring trips back.
 const CATEGORIES = [
-  { icon: Building2, title: "Hotels",         path: "/category/hotels",        bgImage: "/images/category-hotels.jpg" },
-  { icon: Home,       title: "Accommodations/AirBnbs", path: "/category/accommodations", bgImage: "/images/category-accommodations.png" },
+  { icon: Building2, title: "Hotels & Accommodation",         path: "/category/hotels",        bgImage: "/images/category-hotels.jpg" },
+  { icon: Home,       title: "AirBnbs", path: "/category/accommodations", bgImage: "/images/category-accommodations.png" },
   { icon: Tent,       title: "Campsites",      path: "/category/campsite",       bgImage: "/images/category-adventures.jpg" },
   // { icon: Map,        title: "Tours & Trips",  path: "/category/guided",          bgImage: "/images/category-trips.jpg" },
 ];

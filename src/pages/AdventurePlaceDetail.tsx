@@ -947,42 +947,46 @@ const AdventurePlaceDetail = () => {
         <DesktopGallery images={allImages} name={place.name} />
       )}
 
-      <div className="max-w-6xl mx-auto px-4 pt-4 pb-1 bg-background relative z-10">
-        <h1 className="text-2xl font-black tracking-tighter leading-tight text-foreground">{toTitleCase(place.name)}</h1>
-        <div className="flex items-center gap-1.5 mt-1 text-muted-foreground">
-          <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
-          <span className="text-sm font-semibold">{[place.place, place.location, place.country].filter(Boolean).join(", ")}</span>
-        </div>
-
-        {/* Category + live Open now/Closed badges */}
-        {(categoryLabel || isHotelOrCampsite) && (
-          <div className="flex items-center gap-1.5 mt-2.5">
-            {categoryLabel && (
-              <span
-                className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full text-white shadow-sm"
-                style={{ background: TEAL }}
-              >
-                {categoryLabel}
-              </span>
-            )}
-            {isHotelOrCampsite && (
-              <span
-                className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full text-white shadow-sm ${isOpenNow ? "bg-green-600" : "bg-red-600"}`}
-              >
-                {isOpenNow ? "Open now" : "Closed"}
-              </span>
-            )}
-          </div>
-        )}
-      </div>
-
-      <div className="md:hidden container px-4 mt-3 max-w-6xl mx-auto">
-        <QuickNavigationBar hasFacilities={place.facilities?.length > 0} hasActivities={place.activities?.length > 0} hasContact={false} />
-      </div>
-
-      <main className="container px-4 mt-5 relative z-10 max-w-6xl mx-auto">
+      <main className="container px-4 mt-4 relative z-10 max-w-6xl mx-auto">
+        {/* On large screens this row now sits directly under the gallery, with
+            the name/location/badges on the left and the booking card on the
+            right — both starting at the same top edge, instead of the booking
+            card being pushed down below a full-width header. */}
         <div className="grid grid-cols-1 lg:grid-cols-[1.8fr,1fr] gap-6">
           <div className="space-y-6">
+            <div>
+              <h1 className="text-2xl font-black tracking-tighter leading-tight text-foreground">{toTitleCase(place.name)}</h1>
+              <div className="flex items-center gap-1.5 mt-1 text-muted-foreground">
+                <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
+                <span className="text-sm font-semibold">{[place.place, place.location, place.country].filter(Boolean).join(", ")}</span>
+              </div>
+
+              {/* Category + live Open now/Closed badges */}
+              {(categoryLabel || isHotelOrCampsite) && (
+                <div className="flex items-center gap-1.5 mt-2.5">
+                  {categoryLabel && (
+                    <span
+                      className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full text-white shadow-sm"
+                      style={{ background: TEAL }}
+                    >
+                      {categoryLabel}
+                    </span>
+                  )}
+                  {isHotelOrCampsite && (
+                    <span
+                      className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full text-white shadow-sm ${isOpenNow ? "bg-green-600" : "bg-red-600"}`}
+                    >
+                      {isOpenNow ? "Open now" : "Closed"}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="md:hidden">
+              <QuickNavigationBar hasFacilities={place.facilities?.length > 0} hasActivities={place.activities?.length > 0} hasContact={false} />
+            </div>
+
             {generalAmenities.length > 0 && <AmenitiesScroll amenities={generalAmenities} accentColor={TEAL} />}
 
             {/* Booking card — mobile only */}

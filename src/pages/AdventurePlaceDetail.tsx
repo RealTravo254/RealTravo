@@ -54,6 +54,41 @@ const toTitleCase = (str?: string) => {
   return str.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
 };
 
+// ── Time / day helpers for the Open now / Closed check ──────────────────────
+// Understands both 24-hour ("08:00", "23:59") and 12-hour ("8:00 AM",
+// "11:59 PM") strings, since opening_hours/closing_hours have been seen
+// stored in both formats. Returns null if the string can't be parsed.
+const parseTimeToMinutes = (t?: string | null): number | null => {
+  if (!t) return null;
+  const trimmed = t.trim();
+
+  const ampm = trimmed.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (ampm) {
+    let h = Number(ampm[1]);
+    const m = Number(ampm[2]);
+    const mod = ampm[3].toUpperCase();
+    if (mod === "PM" && h < 12) h += 12;
+    if (mod === "AM" && h === 12) h = 0;
+    return h * 60 + m;
+  }
+
+  const hhmm = trimmed.match(/^(\d{1,2}):(\d{2})/);
+  if (hhmm) {
+    const h = Number(hhmm[1]);
+    const m = Number(hhmm[2]);
+    if (Number.isNaN(h) || Number.isNaN(m)) return null;
+    return h * 60 + m;
+  }
+
+  return null;
+};
+
+// Days can be stored as full names ("Monday"), short names ("Mon"), or mixed
+// case. Normalizing to a 3-letter lowercase abbreviation lets the working-day
+// check line up regardless of which format a given record uses.
+const DAY_ABBREV = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+const normalizeDayAbbrev = (d: string) => d.trim().slice(0, 3).toLowerCase();
+
 // ─── Screen-size hook ─────────────────────────────────────────────────────────
 // Used so we only ever mount ONE of <MobileCarousel /> / <DesktopGallery />.
 // Previously both were mounted at once (just hidden with CSS), which meant
@@ -400,7 +435,7 @@ const InlineFacilitiesGrid = ({ facilities, accentColor }: { facilities: any[]; 
                   {fac.price > 0 && <p className="text-[10px] font-bold mt-0.5" style={{ color: accentColor }}>KSh {fac.price?.toLocaleString()}</p>}
                   {Array.isArray(fac.amenities) && fac.amenities.length > 0 && (
                     <div className="flex flex-wrap gap-0.5 mt-1">
-                      {fac.amenities.slice(0, 3).map((a: any, ai: number) => (
+                      {fac.amenities.slice(0, 5).map((a: any, ai: number) => (
                         <span key={ai} className="text-[8px] font-bold px-1.5 py-0.5 rounded normal-case" style={{ background: `${accentColor}12`, color: accentColor }}>{facilityAmenityLabel(a)}</span>
                       ))}
                     </div>
@@ -758,24 +793,35 @@ const AdventurePlaceDetail = () => {
     if (!place) return;
     const checkOpen = () => {
       const now = new Date();
-      const currentDay = now.toLocaleString("en-us", { weekday: "long" }).toLowerCase();
-      if (place.opening_hours === "00:00" && place.closing_hours === "23:59") {
-        const days = Array.isArray(place.days_opened) ? place.days_opened.map((d: string) => d.toLowerCase()) : [];
-        setIsOpenNow(!days.length || days.includes(currentDay)); return;
+      const currentDayAbbrev = DAY_ABBREV[now.getDay()];
+
+      // Normalize whatever format days_opened is stored in ("Mon", "Monday",
+      // "MON", etc.) to a 3-letter lowercase abbreviation so it reliably
+      // lines up with currentDayAbbrev. Empty/missing list = open every day.
+      const days = Array.isArray(place.days_opened)
+        ? place.days_opened.map((d: string) => normalizeDayAbbrev(d))
+        : [];
+      const isWorkingDay = !days.length || days.includes(currentDayAbbrev);
+
+      if (!isWorkingDay) { setIsOpenNow(false); return; }
+
+      const openMinutes  = parseTimeToMinutes(place.opening_hours) ?? 0;
+      const closeMinutes = parseTimeToMinutes(place.closing_hours) ?? (24 * 60 - 1);
+
+      // Figure out the span between open and close (handling overnight
+      // wraparound, e.g. opens 18:00 closes 02:00) — if it covers ~the whole
+      // day, treat it as open 24 hours on this working day.
+      let spanMinutes = closeMinutes - openMinutes;
+      if (spanMinutes <= 0) spanMinutes += 24 * 60;
+      if (spanMinutes >= 23 * 60 + 59) { setIsOpenNow(true); return; }
+
+      const nowMinutes = now.getHours() * 60 + now.getMinutes();
+      if (closeMinutes <= openMinutes) {
+        // Overnight span, e.g. 18:00 – 02:00
+        setIsOpenNow(nowMinutes >= openMinutes || nowMinutes < closeMinutes);
+      } else {
+        setIsOpenNow(nowMinutes >= openMinutes && nowMinutes < closeMinutes);
       }
-      const cur = now.getHours() * 60 + now.getMinutes();
-      const parseT = (t: string) => {
-        if (!t) return 0;
-        const [time, mod] = t.split(" ");
-        let [h, m] = time.split(":").map(Number);
-        if (mod === "PM" && h < 12) h += 12;
-        if (mod === "AM" && h === 12) h = 0;
-        return h * 60 + m;
-      };
-      const open  = parseT(place.opening_hours || "08:00 AM");
-      const close = parseT(place.closing_hours  || "06:00 PM");
-      const days  = Array.isArray(place.days_opened) ? place.days_opened.map((d: string) => d.toLowerCase()) : [];
-      setIsOpenNow((!days.length || days.includes(currentDay)) && cur >= open && cur <= close);
     };
     checkOpen();
     const iv = setInterval(checkOpen, 60_000);
@@ -818,7 +864,13 @@ const AdventurePlaceDetail = () => {
   );
 
   const allImages = [place.image_url, ...(place.gallery_images || [])].filter(Boolean).slice(0, 12);
-  const is24Hours       = place.opening_hours === "00:00" && place.closing_hours === "23:59";
+  const is24Hours = (() => {
+    const openMinutes  = parseTimeToMinutes(place.opening_hours) ?? 0;
+    const closeMinutes = parseTimeToMinutes(place.closing_hours) ?? (24 * 60 - 1);
+    let spanMinutes = closeMinutes - openMinutes;
+    if (spanMinutes <= 0) spanMinutes += 24 * 60;
+    return spanMinutes >= 23 * 60 + 59;
+  })();
   const resolvedId      = place.id;
   const generalAmenities: string[] = Array.isArray(place.amenities) ? place.amenities.map((a: any) => typeof a === "string" ? a : a.name || "") : [];
   const capacityPerDay: number | null = place.daily_capacity ?? place.capacity_per_day ?? place.capacity ?? null;

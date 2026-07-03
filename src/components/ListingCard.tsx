@@ -106,7 +106,45 @@ export interface ListingCardProps {
   images?: string[];
   openingHours?: string;
   closingHours?: string;
+  // Days of the week the place is open, e.g. ["Mon","Tue","Wed"]. Used to
+  // build the working-days line and to decide whether today counts as a
+  // working day for the open/closed badge.
+  workingDays?: string[];
 }
+
+// Canonical day order, used both for sorting and for collapsing consecutive
+// days into a readable range (e.g. "Mon–Fri").
+const DAY_ORDER = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+// Turns a list of day abbreviations into a compact, human-friendly string:
+// all 7 days → "Every day", a run of consecutive days → "Mon–Fri", isolated
+// days are comma-separated, e.g. "Mon–Fri, Sun".
+const formatWorkingDays = (days: string[]): string | null => {
+  if (!days || days.length === 0) return null;
+  const present = DAY_ORDER.filter((d) => days.includes(d));
+  if (present.length === 0) return null;
+  if (present.length === 7) return "Every day";
+
+  const ranges: string[] = [];
+  let rangeStart = present[0];
+  let prevIndex = DAY_ORDER.indexOf(present[0]);
+
+  for (let i = 1; i <= present.length; i++) {
+    const day = present[i];
+    const dayIndex = day ? DAY_ORDER.indexOf(day) : -1;
+    if (day && dayIndex === prevIndex + 1) {
+      prevIndex = dayIndex;
+      continue;
+    }
+    const rangeEnd = DAY_ORDER[prevIndex];
+    ranges.push(rangeStart === rangeEnd ? rangeStart : `${rangeStart}–${rangeEnd}`);
+    if (day) {
+      rangeStart = day;
+      prevIndex = dayIndex;
+    }
+  }
+  return ranges.join(", ");
+};
 
 const ListingCardComponent = ({
   id, type, category, name, imageUrl, location, price, date,
@@ -114,7 +152,7 @@ const ListingCardComponent = ({
   availableTickets = 0, bookedTickets = 0,
   priority = false, avgRating, reviewCount, place,
   isFlexibleDate = false, hidePrice = false, categoryColor,
-  openingHours, closingHours, distance,
+  openingHours, closingHours, distance, workingDays,
 }: ListingCardProps) => {
   const navigate = useNavigate();
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -253,6 +291,42 @@ const ListingCardComponent = ({
     return distance < 1 ? `${Math.round(distance * 1000)} m away` : `${distance.toFixed(1)} km away`;
   }, [distance]);
 
+  const workingDaysText = useMemo(
+    () => (isAdventurePlace && workingDays ? formatWorkingDays(workingDays) : null),
+    [isAdventurePlace, workingDays],
+  );
+
+  // Only hotels and campsites get a live "Open now / Closed" badge — other
+  // categories (park, attraction, accommodation) don't have hours that are
+  // meaningful to gate this way.
+  const isHotelOrCampsite = category === "hotel" || category === "campsite";
+
+  // Compares the device's current local day/time against openingHours,
+  // closingHours, and workingDays. Handles overnight spans (e.g. opens
+  // 18:00, closes 02:00) the same way hoursText does. Returns null when
+  // there isn't enough data to decide.
+  const isOpenNow = useMemo(() => {
+    if (!isAdventurePlace || !isHotelOrCampsite) return null;
+    if (!openingHours || !closingHours) return null;
+
+    const now = new Date();
+    const dayAbbrev = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][now.getDay()];
+    if (workingDays && workingDays.length > 0 && !workingDays.includes(dayAbbrev)) {
+      return false;
+    }
+
+    const openMinutes = parseTimeToMinutes(openingHours);
+    const closeMinutes = parseTimeToMinutes(closingHours);
+    if (openMinutes == null || closeMinutes == null) return null;
+
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    if (closeMinutes <= openMinutes) {
+      // Overnight span, e.g. 18:00 – 02:00
+      return nowMinutes >= openMinutes || nowMinutes < closeMinutes;
+    }
+    return nowMinutes >= openMinutes && nowMinutes < closeMinutes;
+  }, [isAdventurePlace, isHotelOrCampsite, openingHours, closingHours, workingDays]);
+
   return (
     <Card
       ref={cardRef}
@@ -324,6 +398,20 @@ const ListingCardComponent = ({
           {urgencyBadge && (
             <span className={cn("text-[9px] font-bold px-1.5 py-1 rounded-full border backdrop-blur-sm", urgencyBadge.color)}>
               {urgencyBadge.text}
+            </span>
+          )}
+          {/* Open/Closed badge — hotels and campsites only, based on opening
+              hours, closing hours, and working days. */}
+          {isOpenNow !== null && (
+            <span
+              className={cn(
+                "text-[9px] font-bold px-1.5 py-1 rounded-full border backdrop-blur-sm",
+                isOpenNow
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                  : "bg-red-50 text-red-600 border-red-200",
+              )}
+            >
+              {isOpenNow ? "Open now" : "Closed"}
             </span>
           )}
         </div>
@@ -450,6 +538,9 @@ const ListingCardComponent = ({
               <Clock className="h-3 w-3" />
               {hoursText}
             </span>
+            {workingDaysText && (
+              <span className="text-[10px] font-medium text-slate-500">{workingDaysText}</span>
+            )}
           </div>
         )}
 

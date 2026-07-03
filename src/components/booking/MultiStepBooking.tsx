@@ -167,6 +167,44 @@ const isValidPhone = (phone: string) => {
   return false;
 };
 
+// ── Working-day helpers ─────────────────────────────────────────────────────
+// workingDays can arrive in mixed formats ("Mon", "Monday", "MON", etc). We
+// normalize to a 3-letter lowercase abbreviation so it reliably lines up
+// with the day-of-week produced by Date#getDay(). An empty list — or a list
+// that (once normalized) already covers all 7 distinct days — means "open
+// every day", so nothing gets disabled.
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+const normalizeDayAbbrev = (d: string) =>
+  String(d ?? "").replace(/[^a-zA-Z]/g, "").slice(0, 3).toLowerCase();
+
+const isWorkingDayDate = (date: Date, workingDays: string[]): boolean => {
+  if (!workingDays || workingDays.length === 0) return true;
+  const normalized = workingDays.map(normalizeDayAbbrev).filter(Boolean);
+  const unique = new Set(normalized);
+  if (unique.size >= 7) return true;
+  const dayAbbrev = normalizeDayAbbrev(DAY_NAMES[date.getDay()]);
+  return unique.has(dayAbbrev);
+};
+
+// Small legend used under both the visit-date calendar and the facility
+// start/end date calendars so it's always clear what each color means.
+const CalendarLegend = ({ showBooked = false }: { showBooked?: boolean }) => (
+  <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-1">
+    <span className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wide text-slate-500">
+      <span className="w-2.5 h-2.5 rounded-full border border-slate-300 bg-white" /> Available
+    </span>
+    {showBooked && (
+      <span className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wide text-slate-500">
+        <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: "#fee2e2" }} /> Booked
+      </span>
+    )}
+    <span className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wide text-slate-500">
+      <span className="w-2.5 h-2.5 rounded-full bg-slate-200" /> Closed
+    </span>
+  </div>
+);
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Component
 // ─────────────────────────────────────────────────────────────────────────────
@@ -742,10 +780,23 @@ export const MultiStepBooking = ({
                         <Calendar mode="single"
                           selected={selected?.startDate ? parseISO(selected.startDate) : undefined}
                           onSelect={date => { if (date) updateFacilityDates(facility.name, format(date, "yyyy-MM-dd"), selected?.endDate); }}
-                          disabled={date => isBefore(date, new Date()) || isFacilityDateBooked(facility.name, date)}
-                          modifiers={{ booked: date => isFacilityDateBooked(facility.name, date) }}
-                          modifiersStyles={{ booked: { backgroundColor: "#fee2e2", color: "#ef4444", textDecoration: "line-through" } }}
+                          disabled={date =>
+                            isBefore(date, new Date()) ||
+                            isFacilityDateBooked(facility.name, date) ||
+                            !isWorkingDayDate(date, workingDays)
+                          }
+                          modifiers={{
+                            booked: date => isFacilityDateBooked(facility.name, date),
+                            closed: date => !isWorkingDayDate(date, workingDays),
+                          }}
+                          modifiersStyles={{
+                            booked: { backgroundColor: "#fee2e2", color: "#ef4444", textDecoration: "line-through" },
+                            closed: { opacity: 0.35, textDecoration: "line-through" },
+                          }}
                           initialFocus />
+                        <div className="px-3 pb-3">
+                          <CalendarLegend showBooked />
+                        </div>
                       </PopoverContent>
                     </Popover>
                   </div>
@@ -764,14 +815,31 @@ export const MultiStepBooking = ({
                         <Calendar mode="single"
                           selected={selected?.endDate ? parseISO(selected.endDate) : undefined}
                           onSelect={date => { if (date) updateFacilityDates(facility.name, selected?.startDate, format(date, "yyyy-MM-dd")); }}
-                          disabled={date => isBefore(date, selected?.startDate ? parseISO(selected.startDate) : new Date()) || isFacilityDateBooked(facility.name, date)}
-                          modifiers={{ booked: date => isFacilityDateBooked(facility.name, date) }}
-                          modifiersStyles={{ booked: { backgroundColor: "#fee2e2", color: "#ef4444", textDecoration: "line-through" } }}
+                          disabled={date =>
+                            isBefore(date, selected?.startDate ? parseISO(selected.startDate) : new Date()) ||
+                            isFacilityDateBooked(facility.name, date) ||
+                            !isWorkingDayDate(date, workingDays)
+                          }
+                          modifiers={{
+                            booked: date => isFacilityDateBooked(facility.name, date),
+                            closed: date => !isWorkingDayDate(date, workingDays),
+                          }}
+                          modifiersStyles={{
+                            booked: { backgroundColor: "#fee2e2", color: "#ef4444", textDecoration: "line-through" },
+                            closed: { opacity: 0.35, textDecoration: "line-through" },
+                          }}
                           initialFocus />
+                        <div className="px-3 pb-3">
+                          <CalendarLegend showBooked />
+                        </div>
                       </PopoverContent>
                     </Popover>
                   </div>
                 </div>
+
+                {/* Quick-glance legend so people don't have to open a picker to
+                    understand the color coding used inside it. */}
+                <CalendarLegend showBooked />
 
                 {facilityError && (
                   <div className="flex items-center gap-2 text-xs text-red-500 bg-red-50 p-2 rounded-xl">
@@ -1058,20 +1126,53 @@ export const MultiStepBooking = ({
           <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
             When would you like to visit?
           </Label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline"
-                className={cn("w-full justify-start text-left font-bold rounded-2xl h-14 border-slate-200",
-                  !visitDate && "text-muted-foreground")}>
-                <CalendarIcon className="mr-2 h-4 w-4" style={{ color: TEAL }} />
-                {visitDate ? format(visitDate, "PPP") : "Select a date"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0">
-              <Calendar mode="single" selected={visitDate} onSelect={setVisitDate}
-                disabled={date => isBefore(date, new Date())} initialFocus />
-            </PopoverContent>
-          </Popover>
+
+          {/* Open / working days at a glance */}
+          <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+              Open Days
+            </p>
+            {workingDays.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {workingDays.map((day, i) => (
+                  <span key={i}
+                    className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide"
+                    style={{ backgroundColor: `${TEAL}15`, color: TEAL }}>
+                    {day}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs font-semibold text-slate-500">Open every day</p>
+            )}
+          </div>
+
+          {/* Inline calendar — no button/popover, the calendar itself is the
+              date picker. Past dates and days outside the working days above
+              are disabled and shown faded/struck-through. */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-2">
+            <Calendar
+              mode="single"
+              selected={visitDate}
+              onSelect={setVisitDate}
+              disabled={date => isBefore(date, new Date()) || !isWorkingDayDate(date, workingDays)}
+              modifiers={{ closed: date => !isWorkingDayDate(date, workingDays) }}
+              modifiersStyles={{ closed: { opacity: 0.35, textDecoration: "line-through" } }}
+              className="mx-auto"
+              initialFocus
+            />
+          </div>
+
+          <CalendarLegend />
+
+          {visitDate && (
+            <div className="p-3 rounded-xl flex items-center gap-2" style={{ backgroundColor: `${TEAL}10` }}>
+              <CalendarIcon className="h-4 w-4 flex-shrink-0" style={{ color: TEAL }} />
+              <span className="text-sm font-bold" style={{ color: TEAL }}>
+                {format(visitDate, "PPP")}
+              </span>
+            </div>
+          )}
         </div>
       )}
 
@@ -1483,4 +1584,4 @@ export const MultiStepBooking = ({
       </div>
     </div>
   );
-}; 
+};

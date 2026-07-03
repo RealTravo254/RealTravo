@@ -346,9 +346,9 @@ const AmenitiesScroll = ({ amenities, accentColor }: { amenities: string[]; acce
 
 const CARD_IMG_HEIGHT = 100;
 
-// Facility card image height: unchanged on mobile/tablet, noticeably taller
-// on large screens so the whole card reads as bigger, not just wider.
-const FACILITY_IMG_HEIGHT_CLASS = "h-[100px] md:h-[130px] lg:h-[170px]";
+// Facility card image height stays fixed at every breakpoint — the card
+// grows by getting WIDER on large screens (fewer grid columns), not taller.
+const FACILITY_IMG_HEIGHT_CLASS = "h-[100px]";
 
 // ─── FacSlideshow ─────────────────────────────────────────────────────────────
 // Renders ONLY the active image — not the whole array — so a facility's other
@@ -415,10 +415,10 @@ const InlineFacilitiesGrid = ({ facilities, accentColor }: { facilities: any[]; 
       {modalImages && <ImageGalleryModal images={modalImages} name={modalName} startIndex={modalStart} onClose={() => setModalImages(null)} />}
       <section>
         <h2 className="text-base font-black uppercase tracking-tight mb-3" style={{ color: accentColor }}>Facilities</h2>
-        {/* Fewer columns on large screens (4 instead of 5) so each card gets
-            noticeably more room and reads as a "larger" card, not just a
-            resized thumbnail. */}
-        <div className="flex gap-2 overflow-x-auto pb-1 md:grid md:grid-cols-3 lg:grid-cols-4 md:overflow-visible md:pb-0 lg:gap-4">
+        {/* Fewer columns on large screens (3 instead of 5) so each card gets
+            noticeably WIDER — image height stays fixed, only the card's
+            width (and the image filling it) grows. */}
+        <div className="flex gap-2 overflow-x-auto pb-1 md:grid md:grid-cols-3 lg:grid-cols-3 md:overflow-visible md:pb-0 lg:gap-4">
           {visibleFacilities.map((fac: any, i: number) => {
             const imgs: string[] = Array.isArray(fac.images) ? fac.images.filter(Boolean) : [];
             // "see all" only shows up when there's actually more than one photo to see
@@ -953,7 +953,12 @@ const AdventurePlaceDetail = () => {
             right — both starting at the same top edge, instead of the booking
             card being pushed down below a full-width header. */}
         <div className="grid grid-cols-1 lg:grid-cols-[1.8fr,1fr] gap-6">
-          <div className="space-y-6">
+          {/* flex + lg:order-* (instead of space-y-6 block stacking) so we can
+              reorder sections on large screens — About moves up to sit right
+              after General Amenities — without touching the mobile order,
+              which stays exactly as it is written below (no order classes
+              applied below the lg breakpoint). */}
+          <div className="flex flex-col gap-6">
             <div>
               <h1 className="text-2xl font-black tracking-tighter leading-tight text-foreground">{toTitleCase(place.name)}</h1>
               <div className="flex items-center gap-1.5 mt-1 text-muted-foreground">
@@ -987,26 +992,35 @@ const AdventurePlaceDetail = () => {
               <QuickNavigationBar hasFacilities={place.facilities?.length > 0} hasActivities={place.activities?.length > 0} hasContact={false} />
             </div>
 
-            {generalAmenities.length > 0 && <AmenitiesScroll amenities={generalAmenities} accentColor={TEAL} />}
+            {generalAmenities.length > 0 && (
+              <div className="lg:order-1">
+                <AmenitiesScroll amenities={generalAmenities} accentColor={TEAL} />
+              </div>
+            )}
 
             {/* Booking card — mobile only */}
             <div className="bg-white rounded-2xl p-5 shadow-lg border border-slate-100 lg:hidden">
               <BookingCard {...bookingCardProps} />
             </div>
 
-            {specialPrices.length > 0 && <SpecialPricesSection tiers={specialPrices} formatPrice={formatPrice} />}
-
-            {place.facilities?.length > 0 && <div id="facilities-section"><InlineFacilitiesGrid facilities={place.facilities} accentColor={TEAL} /></div>}
-            {place.activities?.length > 0 && <div id="activities-section"><InlineActivitiesGrid activities={place.activities} formatPrice={formatPrice} /></div>}
-
+            {/* About this Place: on large screens this now sits right after
+                General Amenities (lg:order-2, just after Amenities' lg:order-1)
+                instead of near the bottom of the page. */}
             {place.description && (
-              <section className="bg-white rounded-2xl px-5 py-4 shadow-sm border border-slate-100">
+              <section className="bg-white rounded-2xl px-5 py-4 shadow-sm border border-slate-100 lg:order-2">
                 <h2 className="text-base font-black uppercase tracking-tight mb-3" style={{ color: TEAL }}>About this Place</h2>
                 <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{place.description}</p>
               </section>
             )}
 
-            <AlwaysOpenMapSection name={place.name} latitude={place.latitude} longitude={place.longitude} location={place.location} country={place.country} />
+            {specialPrices.length > 0 && <div className="lg:order-3"><SpecialPricesSection tiers={specialPrices} formatPrice={formatPrice} /></div>}
+
+            {place.facilities?.length > 0 && <div id="facilities-section" className="lg:order-4"><InlineFacilitiesGrid facilities={place.facilities} accentColor={TEAL} /></div>}
+            {place.activities?.length > 0 && <div id="activities-section" className="lg:order-5"><InlineActivitiesGrid activities={place.activities} formatPrice={formatPrice} /></div>}
+
+            <div className="lg:order-6">
+              <AlwaysOpenMapSection name={place.name} latitude={place.latitude} longitude={place.longitude} location={place.location} country={place.country} />
+            </div>
           </div>
 
           <div className="hidden lg:block">

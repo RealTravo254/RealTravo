@@ -38,6 +38,17 @@ const FACILITY_LABELS: Record<string, string> = {
 const facilityLabel = (id: string) =>
   FACILITY_LABELS[id] ?? id.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
+// ── Category badge labels ────────────────────────────────────────────────────
+// Mirrors the same mapping used on ListingCard so the "Hotel" / "Campsite" /
+// etc. wording is consistent between the listing grids and this detail page.
+const CATEGORY_LABELS: Record<string, string> = {
+  hotel: "Hotel",
+  park: "Park",
+  campsite: "Campsite",
+  attraction: "Attraction",
+  accommodation: "Accommodation",
+};
+
 const toTitleCase = (str?: string) => {
   if (!str) return "";
   return str.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
@@ -617,8 +628,10 @@ const BookingCard = ({ place, is24Hours, daysOpened, capacityPerDay, formatPrice
 
   return (
     <>
-      {/* ── Pricing: only show the citizen/non-citizen grid, nothing above it ── */}
-      {isPaid ? (
+      {/* ── Pricing: only rendered when entry is actually paid. Free places
+          skip this block entirely — no "Free Entry" label is shown anywhere
+          on the page, per product request. ── */}
+      {isPaid && (
         <div className="rounded-xl border border-slate-100 bg-slate-50 overflow-hidden">
           <div className="grid grid-cols-2 divide-x divide-slate-200">
             {/* Citizen column */}
@@ -646,11 +659,6 @@ const BookingCard = ({ place, is24Hours, daysOpened, capacityPerDay, formatPrice
               )}
             </div>
           </div>
-        </div>
-      ) : (
-        /* Free entry — simple badge */
-        <div className="flex items-center justify-center py-3 rounded-xl bg-emerald-50 border border-emerald-100">
-          <span className="text-base font-black text-emerald-600">Free Entry</span>
         </div>
       )}
 
@@ -817,6 +825,17 @@ const AdventurePlaceDetail = () => {
   const daysOpened: string[] = Array.isArray(place.days_opened) ? place.days_opened : [];
   const specialPrices: SpecialPriceTier[] = Array.isArray(place.special_entry_prices) ? place.special_entry_prices : [];
 
+  // Category badge label (e.g. "Hotel", "Campsite") — falls back to a
+  // title-cased version of whatever category string is on the record so
+  // unmapped categories still display something sensible.
+  const categoryLabel: string | null = place.category
+    ? (CATEGORY_LABELS[place.category] ?? toTitleCase(place.category))
+    : null;
+
+  // The live Open now / Closed badge is only meaningful for hotels and
+  // campsites, matching the same rule used on the listing cards.
+  const isHotelOrCampsite = place.category === "hotel" || place.category === "campsite";
+
   const bookingCardProps = {
     place, is24Hours, daysOpened, capacityPerDay, formatPrice,
     onCheckAvailability: handleCheckAvailability,
@@ -856,6 +875,27 @@ const AdventurePlaceDetail = () => {
           <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
           <span className="text-sm font-semibold">{[place.place, place.location, place.country].filter(Boolean).join(", ")}</span>
         </div>
+
+        {/* Category + live Open now/Closed badges */}
+        {(categoryLabel || isHotelOrCampsite) && (
+          <div className="flex items-center gap-1.5 mt-2.5">
+            {categoryLabel && (
+              <span
+                className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full text-white shadow-sm"
+                style={{ background: TEAL }}
+              >
+                {categoryLabel}
+              </span>
+            )}
+            {isHotelOrCampsite && (
+              <span
+                className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full text-white shadow-sm ${isOpenNow ? "bg-green-600" : "bg-red-600"}`}
+              >
+                {isOpenNow ? "Open now" : "Closed"}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="md:hidden container px-4 mt-3 max-w-6xl mx-auto">
@@ -901,6 +941,8 @@ const AdventurePlaceDetail = () => {
       <div className="fixed bottom-0 left-0 right-0 z-[100] md:hidden bg-white border-t border-slate-200 shadow-[0_-4px_20px_rgb(0,0,0,0.08)]" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
         <div className="flex items-center justify-between px-4 py-3">
           <div>
+            {/* Free places show no price / label here at all — the bar just
+                keeps the "Check availability" button, no "Free Entry" text. */}
             {place.entry_fee && place.entry_fee > 0 ? (
               <div className="flex items-baseline gap-1">
                 <span className="text-xs text-slate-500">From</span>
@@ -912,9 +954,7 @@ const AdventurePlaceDetail = () => {
                 <span className="text-xs text-slate-500">From</span>
                 <span className="text-lg font-black text-slate-900">{formatPrice(getStartingPrice())}</span>
               </div>
-            ) : (
-              <span className="text-sm font-bold text-emerald-600">Free Entry</span>
-            )}
+            ) : null}
           </div>
           <Button onClick={handleCheckAvailability} className="px-6 py-5 rounded-xl text-sm font-bold text-white border-none" style={{ background: `linear-gradient(135deg, ${CORAL_LIGHT} 0%, ${CORAL} 100%)` }}>
             Check availability

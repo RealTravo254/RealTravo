@@ -1,5 +1,5 @@
 import React, { useState, memo, useCallback, useMemo, useRef } from "react";
-import { MapPin, Star, Calendar, ChevronLeft, ChevronRight, Clock, Heart, Navigation } from "lucide-react";
+import { MapPin, Star, ChevronLeft, ChevronRight, Clock, Heart, Navigation } from "lucide-react";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -8,30 +8,7 @@ import { useNavigate } from "react-router-dom";
 import { createDetailPath } from "@/lib/slugUtils";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 
-// ── Price label ─────────────────────────────────────────────────────────────
-// Guided tours (isFlexibleDate && isTrip) show the tour's start time in UTC
-// instead of a "/group" suffix, since group pricing isn't meaningful without
-// knowing when the tour departs. Falls back to a plain "UTC" tag if no date
-// is available yet.
-const getPriceLabel = (isFlexibleDate: boolean, isTrip: boolean, date?: string) => {
-  if (isFlexibleDate && isTrip) {
-    if (date) {
-      const utcTime = new Date(date).toLocaleTimeString("en-GB", {
-        hour: "2-digit",
-        minute: "2-digit",
-        timeZone: "UTC",
-      });
-      return `${utcTime} UTC`;
-    }
-    return "UTC";
-  }
-  return "/person";
-};
-
 // ── Category badge labels ────────────────────────────────────────────────────
-// Color is intentionally not set per-category here — the badge always falls
-// back to the same dark slate used by the "Guided tour" badge, so adventure
-// place and guided tour badges read as one consistent visual language.
 const CATEGORY_LABELS: Record<string, string> = {
   hotel: "Hotel",
   park: "Park",
@@ -44,15 +21,9 @@ const DEFAULT_CATEGORY_LABEL = "Campsite";
 const PriceText = ({
   price,
   isUnavailable,
-  isFlexibleDate,
-  isTrip,
-  date,
 }: {
   price: number;
   isUnavailable: boolean;
-  isFlexibleDate: boolean;
-  isTrip: boolean;
-  date?: string;
 }) => {
   const { formatPrice } = useCurrency();
   return (
@@ -61,25 +32,20 @@ const PriceText = ({
       <span className="text-sm font-bold text-slate-900 tabular-nums whitespace-nowrap">
         {formatPrice(price)}
       </span>
-      <span className="text-[10px] text-slate-500 font-medium">
-        {getPriceLabel(isFlexibleDate, isTrip, date)}
-      </span>
+      <span className="text-[10px] text-slate-500 font-medium">/person</span>
     </div>
   );
 };
 
 export interface ListingCardProps {
   id: string;
-  type: "TRIP" | "ADVENTURE PLACE" | "ATTRACTION";
+  type: "ADVENTURE PLACE" | "ATTRACTION";
   category?: string;
   name: string;
   imageUrl: string;
   location: string;
   country: string;
   price?: number;
-  date?: string;
-  isCustomDate?: boolean;
-  isFlexibleDate?: boolean;
   isOutdated?: boolean;
   onSave?: (id: string, type: string) => void;
   isSaved?: boolean;
@@ -87,8 +53,6 @@ export interface ListingCardProps {
   amenities?: string[];
   activities?: any[];
   hidePrice?: boolean;
-  availableTickets?: number;
-  bookedTickets?: number;
   showBadge?: boolean;
   priority?: boolean;
   minimalDisplay?: boolean;
@@ -98,7 +62,6 @@ export interface ListingCardProps {
   avgRating?: number;
   reviewCount?: number;
   place?: string;
-  showFlexibleDate?: boolean;
   description?: string;
   categoryColor?: string;
   galleryImages?: string[];
@@ -108,11 +71,10 @@ export interface ListingCardProps {
 }
 
 const ListingCardComponent = ({
-  id, type, category, name, imageUrl, location, price, date,
+  id, type, category, name, imageUrl, location, price,
   isOutdated = false, onSave, isSaved = false, hideSave = false,
-  availableTickets = 0, bookedTickets = 0,
   priority = false, avgRating, reviewCount, place,
-  isFlexibleDate = false, hidePrice = false, categoryColor,
+  hidePrice = false, categoryColor,
   openingHours, closingHours, distance,
 }: ListingCardProps) => {
   const navigate = useNavigate();
@@ -125,13 +87,8 @@ const ListingCardComponent = ({
   const shouldLoad = priority || isIntersecting;
 
   const allSlideImages = useMemo(() => [imageUrl].filter(Boolean), [imageUrl]);
-  const isTrip = type === "TRIP";
   const isAdventurePlace = type === "ADVENTURE PLACE";
-  const remainingTickets = availableTickets - bookedTickets;
-  const isSoldOut = isTrip && availableTickets > 0 && remainingTickets <= 0;
-  const fewSlotsRemaining = isTrip && remainingTickets > 0 && remainingTickets <= 10;
-  const isUnavailable = isOutdated || isSoldOut;
-  const isGuidedTour = isFlexibleDate && isTrip;
+  const isUnavailable = isOutdated;
 
   const categoryLabel = useMemo(() => {
     if (!isAdventurePlace) return null;
@@ -140,14 +97,12 @@ const ListingCardComponent = ({
 
   const displayType = useMemo(() => {
     if (isAdventurePlace) return categoryLabel!;
-    if (isGuidedTour) return "Guided tour";
-    if (isTrip) return "Trip";
     return "Attraction";
-  }, [isAdventurePlace, isGuidedTour, isTrip, categoryLabel]);
+  }, [isAdventurePlace, categoryLabel]);
 
-  // Same fallback color as the "Guided tour" badge (no categoryMeta color
-  // lookup here anymore) so every badge type shares one visual language
-  // unless the caller explicitly passes categoryColor.
+  // Same fallback color as before (no categoryMeta color lookup here anymore)
+  // so every badge type shares one visual language unless the caller
+  // explicitly passes categoryColor.
   const badgeColor = categoryColor;
 
   // Proper title case once, rather than lowercase-then-CSS-capitalize fighting
@@ -164,7 +119,6 @@ const ListingCardComponent = ({
 
   const handleCardClick = useCallback(() => {
     const typeMap: Record<string, string> = {
-      TRIP: "trip",
       "ADVENTURE PLACE": "adventure",
       ATTRACTION: "attraction",
     };
@@ -172,14 +126,10 @@ const ListingCardComponent = ({
   }, [navigate, type, id, name, location]);
 
   const urgencyBadge = useMemo(() => {
-    if (isSoldOut)
-      return { text: "Sold out", color: "bg-destructive/10 text-destructive border-destructive/20" };
     if (isOutdated)
       return { text: "Passed", color: "bg-muted text-muted-foreground border-border" };
-    if (fewSlotsRemaining)
-      return { text: `${remainingTickets} left`, color: "bg-orange-50 text-orange-700 border-orange-200" };
     return null;
-  }, [isSoldOut, isOutdated, fewSlotsRemaining, remainingTickets]);
+  }, [isOutdated]);
 
   const goToSlide = useCallback(
     (index: number, e?: React.MouseEvent) => {
@@ -375,11 +325,11 @@ const ListingCardComponent = ({
           </div>
         )}
 
-        {/* Sold-out / unavailable overlay */}
+        {/* Unavailable overlay */}
         {isUnavailable && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/45 backdrop-blur-[1px]">
             <span className="rounded-md border border-white/60 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-white">
-              {isSoldOut ? "Sold out" : "Unavailable"}
+              Unavailable
             </span>
           </div>
         )}
@@ -411,21 +361,13 @@ const ListingCardComponent = ({
           )}
         </div>
 
-        {/* Secondary meta row: date / distance — only render what applies */}
-        {(isTrip && (date || isFlexibleDate)) || distanceText ? (
+        {/* Secondary meta row: distance only — only render what applies */}
+        {distanceText ? (
           <div className="flex items-center gap-2.5 flex-wrap text-slate-500">
-            {isTrip && (date || isFlexibleDate) && (
-              <span className="flex items-center gap-1 text-[10px] font-medium">
-                <Calendar className="h-3 w-3" />
-                {isFlexibleDate ? "Flexible" : new Date(date!).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
-              </span>
-            )}
-            {distanceText && (
-              <span className="flex items-center gap-1 text-[10px] font-medium">
-                <Navigation className="h-3 w-3" />
-                {distanceText}
-              </span>
-            )}
+            <span className="flex items-center gap-1 text-[10px] font-medium">
+              <Navigation className="h-3 w-3" />
+              {distanceText}
+            </span>
           </div>
         ) : null}
 
@@ -445,7 +387,7 @@ const ListingCardComponent = ({
         {/* Price, anchored to the bottom of the card */}
         {!hidePrice && price != null && price > 0 && (
           <div className="pt-0.5">
-            <PriceText price={price} isUnavailable={isUnavailable} isFlexibleDate={isFlexibleDate} isTrip={isTrip} date={date} />
+            <PriceText price={price} isUnavailable={isUnavailable} />
           </div>
         )}
       </div>

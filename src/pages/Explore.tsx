@@ -135,8 +135,10 @@ const Explore = () => {
       //   }),
 
       // ── Adventure places (hotels, accommodations, campsites, etc.) ───────
+      // days_opened added so ListingCard can render the working-days line
+      // and the Open now/Closed badge for hotel/campsite categories.
       supabase.from("adventure_places")
-        .select("id,name,location,place,country,image_url,gallery_images,images,entry_fee,activities,latitude,longitude,created_at,description,opening_hours,closing_hours,category")
+        .select("id,name,location,place,country,image_url,gallery_images,images,entry_fee,activities,latitude,longitude,created_at,description,opening_hours,closing_hours,category,days_opened")
         .eq("approval_status", "approved").eq("is_hidden", false)
         .order("created_at", { ascending: false }).limit(50)
         .then(r => {
@@ -270,6 +272,7 @@ const Explore = () => {
                     images={listing.images}
                     openingHours={listing.opening_hours}
                     closingHours={listing.closing_hours}
+                    workingDays={listing.days_opened}
                   />
                 );
               })}

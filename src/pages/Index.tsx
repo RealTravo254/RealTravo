@@ -146,7 +146,7 @@ const CATEGORIES = [
 // Attraction and Park removed — add them back here when their pages are ready.
 // Tours & Trips commented out to match CATEGORIES above (trip fetching disabled).
 const QUICK_NAV = [
-  { icon: Building2, title: "hotels ",         path: "/category/hotels",        color: "hsl(205, 85%, 45%)" },
+  { icon: Building2, title: "hotels  ",         path: "/category/hotels",        color: "hsl(205, 85%, 45%)" },
   { icon: Home,       title: "AirBnb", path: "/category/accomodations", color: "hsl(160, 70%, 40%)" },
   { icon: Tent,       title: "Campsites",      path: "/category/campsite",       color: "hsl(278, 90%, 50%)" },
   // { icon: Map,        title: "Tours & Trips",  path: "/category/guided",          color: "hsl(235, 90%, 50%)" },

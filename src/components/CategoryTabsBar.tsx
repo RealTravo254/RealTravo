@@ -6,7 +6,9 @@ import { cn } from "@/lib/utils";
 // Mirrors the categories shown on the Index page (CATEGORIES / QUICK_NAV)
 // so every listing page (Explore, CategoryDetail, CountyDetail) offers the
 // exact same set of categories to jump between: Hotels, Accommodations,
-// Campsites, Tours — plus an "All" entry. (Parks, Attraction, and Trips are commented out)
+// Campsites — plus an "All" entry. (Parks, Attraction, Tours/Guided, and
+// Trips are all commented out — trip/tour fetching is disabled site-wide,
+// so there's nothing to show at /category/guided or /category/trips.)
 export interface CategoryTabItem {
   key: string;
   label: string;
@@ -22,8 +24,8 @@ export const CATEGORY_TABS: CategoryTabItem[] = [
   { key: "attraction",     label: "Attraction",     icon: Landmark,   path: "/category/attraction" },
   */
   { key: "campsite",       label: "Campsites",      icon: Tent,       path: "/category/campsite" },
-  { key: "guided",         label: "Tours",          icon: Map,        path: "/category/guided" },
   /*
+  { key: "guided",         label: "Tours",          icon: Map,        path: "/category/guided" },
   { key: "trips",          label: "Trips",          icon: Calendar,   path: "/category/trips" },
   */
 ];

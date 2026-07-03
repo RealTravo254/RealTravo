@@ -12,7 +12,7 @@ import { useSavedItems } from "@/hooks/useSavedItems";
 import { useGeolocation, calculateDistance } from "@/hooks/useGeolocation";
 import { useRatings, sortByRating } from "@/hooks/useRatings";
 import { useRealtimeBookings } from "@/hooks/useRealtimeBookings";
-import { KENYA_COUNTIES } from "@/lib/kenyaCounties";
+import { KENYA_COUNTIES } from "@/lib/kenyaCounties"; 
 import { CategoryTabsBar } from "@/components/CategoryTabsBar";
 
 const ITEMS_PER_PAGE = 10;
@@ -22,6 +22,8 @@ const SKELETON_COUNT_DESKTOP = 20;
 const ADVENTURE_PLACE_FIELDS =
   "id,name,location,place,country,image_url,gallery_images,images,entry_fee,available_slots,activities,latitude,longitude,created_at,description,opening_hours,closing_hours,category";
 
+// TRIP_FIELDS is unused while trip/guided category config is disabled below —
+// kept in case it's needed again when trips are re-enabled.
 const TRIP_FIELDS =
   "id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child,description,opening_hours,closing_hours";
 
@@ -41,7 +43,9 @@ const CategoryDetail = () => {
   const [userId, setUserId]               = useState<string | null>(null);
   const [selectedCounty, setSelectedCounty] = useState<string>(searchParams.get("county") || "All");
 
-  const showCountyTabs = category === "campsite" || category === "guided";
+  // "guided" removed — county filter now only applies to campsite (trip
+  // fetching is disabled, see categoryConfig below).
+  const showCountyTabs = category === "campsite";
 
   const { position }  = useGeolocation();
   const [isSearchFocusedLocal, setIsSearchFocusedLocal] = useState(false);
@@ -53,9 +57,13 @@ const CategoryDetail = () => {
 
   // ── Category config ─────────────────────────────────────────────────────
   // Park and Attraction are commented out — uncomment when their pages are ready.
-  // Fixed trips are commented out — uncomment to re-enable.
+  // Guided tours and fixed trips are both commented out — trip/tour fetching
+  // is disabled site-wide. With "guided" removed from this config, a request
+  // to /category/guided resolves to `config === null` below, which renders
+  // "Category not found" and never calls fetchData/supabase for the "trips"
+  // table. Uncomment to re-enable.
   const categoryConfig: { [key: string]: any } = {
-    guided:         { title: "Guided Tours",          tables: ["trips"],            type: "TRIP",            tripType: "trip", flexibleOnly: true },
+    // guided:      { title: "Guided Tours",          tables: ["trips"],            type: "TRIP",            tripType: "trip", flexibleOnly: true },
 
     hotels:         { title: "Hotels",                tables: ["adventure_places"], type: "ADVENTURE PLACE", placeCategory: "hotel"         },
     accommodations: { title: "Accommodations",        tables: ["adventure_places"], type: "ADVENTURE PLACE", placeCategory: "accommodation"  },
@@ -110,6 +118,8 @@ const CategoryDetail = () => {
     setLoadingMore(false);
   };
 
+  // "guided" no longer exists in categoryConfig, so this is always [] now —
+  // kept so useRealtimeBookings below still has a stable, valid argument.
   const tripIds = useMemo(() => {
     if (category !== "guided") return [];
     return items.map((item: any) => item.id);
@@ -118,6 +128,9 @@ const CategoryDetail = () => {
   const { bookingStats } = useRealtimeBookings(tripIds);
 
   const fetchData = async (offset: number, limit: number) => {
+    // config is null for "guided"/"trips" now (removed from categoryConfig
+    // above), so this returns [] immediately for those routes — no
+    // supabase.from("trips") query is ever made.
     if (!config) return [];
     const allData: any[] = [];
     const today = new Date().toISOString().split("T")[0];
@@ -214,7 +227,7 @@ const CategoryDetail = () => {
         {/* Category tabs — navigates to the tapped category page */}
         {!isSearchFocusedLocal && <CategoryTabsBar activeKey={activeTabKey} />}
 
-        {/* County filter — only for campsite and guided category pages */}
+        {/* County filter — only for campsite category pages now (guided disabled) */}
         {showCountyTabs && !isSearchFocusedLocal && (
           <div className="bg-background border-t border-border/60">
             <div className="container mx-auto px-4 py-2">

@@ -107,44 +107,15 @@ export interface ListingCardProps {
   openingHours?: string;
   closingHours?: string;
   // Days of the week the place is open, e.g. ["Mon","Tue","Wed"]. Used to
-  // build the working-days line and to decide whether today counts as a
+  // build the working-days pill row and to decide whether today counts as a
   // working day for the open/closed badge.
   workingDays?: string[];
 }
 
-// Canonical day order, used both for sorting and for collapsing consecutive
-// days into a readable range (e.g. "Mon–Fri").
+// Canonical day order, used both for sorting and for rendering the fixed
+// Mon..Sun pill row (each day always renders — highlighted if open, dimmed
+// with a strikethrough if closed).
 const DAY_ORDER = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-// Turns a list of day abbreviations into a compact, human-friendly string:
-// all 7 days → "Every day", a run of consecutive days → "Mon–Fri", isolated
-// days are comma-separated, e.g. "Mon–Fri, Sun".
-const formatWorkingDays = (days: string[]): string | null => {
-  if (!days || days.length === 0) return null;
-  const present = DAY_ORDER.filter((d) => days.includes(d));
-  if (present.length === 0) return null;
-  if (present.length === 7) return "Every day";
-
-  const ranges: string[] = [];
-  let rangeStart = present[0];
-  let prevIndex = DAY_ORDER.indexOf(present[0]);
-
-  for (let i = 1; i <= present.length; i++) {
-    const day = present[i];
-    const dayIndex = day ? DAY_ORDER.indexOf(day) : -1;
-    if (day && dayIndex === prevIndex + 1) {
-      prevIndex = dayIndex;
-      continue;
-    }
-    const rangeEnd = DAY_ORDER[prevIndex];
-    ranges.push(rangeStart === rangeEnd ? rangeStart : `${rangeStart}–${rangeEnd}`);
-    if (day) {
-      rangeStart = day;
-      prevIndex = dayIndex;
-    }
-  }
-  return ranges.join(", ");
-};
 
 const ListingCardComponent = ({
   id, type, category, name, imageUrl, location, price, date,
@@ -290,11 +261,6 @@ const ListingCardComponent = ({
     if (distance == null) return null;
     return distance < 1 ? `${Math.round(distance * 1000)} m away` : `${distance.toFixed(1)} km away`;
   }, [distance]);
-
-  const workingDaysText = useMemo(
-    () => (isAdventurePlace && workingDays ? formatWorkingDays(workingDays) : null),
-    [isAdventurePlace, workingDays],
-  );
 
   // Only hotels and campsites get a live "Open now / Closed" badge — other
   // categories (park, attraction, accommodation) don't have hours that are
@@ -529,9 +495,11 @@ const ListingCardComponent = ({
           </div>
         ) : null}
 
-        {/* Working hours — labeled block, adventure places only */}
+        {/* Working hours — labeled block, adventure places only. Shows the
+            hours range plus a fixed Mon..Sun pill row: open days highlighted,
+            closed days dimmed with a strikethrough. */}
         {isAdventurePlace && hoursText && (
-          <div className="flex flex-col gap-0.5">
+          <div className="flex flex-col gap-1">
             <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">
               Working hours
             </span>
@@ -539,8 +507,25 @@ const ListingCardComponent = ({
               <Clock className="h-3 w-3" />
               {hoursText}
             </span>
-            {workingDaysText && (
-              <span className="text-[10px] font-medium text-slate-500">{workingDaysText}</span>
+            {workingDays && workingDays.length > 0 && (
+              <div className="flex items-center gap-1 flex-wrap pt-0.5">
+                {DAY_ORDER.map((day) => {
+                  const isOpenDay = workingDays.includes(day);
+                  return (
+                    <span
+                      key={day}
+                      className={cn(
+                        "text-[9px] font-bold px-1.5 py-0.5 rounded-md",
+                        isOpenDay
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-slate-100 text-slate-400 line-through decoration-slate-300",
+                      )}
+                    >
+                      {day}
+                    </span>
+                  );
+                })}
+              </div>
             )}
           </div>
         )}

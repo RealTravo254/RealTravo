@@ -17,7 +17,6 @@ import { trackReferralClick } from "@/lib/referralUtils";
 import { getShareLink } from "@/lib/shareUtils";
 import { extractIdFromSlug } from "@/lib/slugUtils";
 import { DetailNavBar } from "@/components/detail/DetailNavBar";
-import { QuickNavigationBar } from "@/components/detail/QuickNavigationBar";
 import { TealLoader } from "@/components/ui/teal-loader";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { Footer } from "@/components/Footer";
@@ -117,6 +116,8 @@ interface SpecialPriceTier {
 }
 
 const ITEMS_PER_PAGE = 5;
+// Only 5 images are ever fetched for the main gallery up front.
+const GALLERY_IMAGE_LIMIT = 5;
 
 // ─── Image Gallery Modal ──────────────────────────────────────────────────────
 const ImageGalleryModal = ({
@@ -259,6 +260,7 @@ const DesktopGallery = ({ images, name }: { images: string[]; name: string }) =>
 // ─── Mobile carousel ──────────────────────────────────────────────────────────
 // Only the currently active slide is ever in the DOM, so only it gets fetched.
 // The full set is only requested once the person taps "see all" (modal above).
+// No border radius on the image container on small screens (per request).
 const MobileCarousel = ({ images, name }: { images: string[]; name: string }) => {
   const [active, setActive] = useState(0);
   const [loaded, setLoaded] = useState(false);
@@ -276,7 +278,7 @@ const MobileCarousel = ({ images, name }: { images: string[]; name: string }) =>
   const go = (idx: number) => setActive((idx + images.length) % images.length);
 
   if (!images.length) return (
-    <div className="w-full bg-slate-200 flex items-center justify-center text-slate-400 font-black uppercase text-xs rounded-b-3xl" style={{ height: "45vh", minHeight: "200px", maxHeight: "360px" }}>
+    <div className="w-full bg-slate-200 flex items-center justify-center text-slate-400 font-black uppercase text-xs" style={{ height: "45vh", minHeight: "200px", maxHeight: "360px" }}>
       No Image
     </div>
   );
@@ -284,7 +286,7 @@ const MobileCarousel = ({ images, name }: { images: string[]; name: string }) =>
   return (
     <>
       {modalOpen && <ImageGalleryModal images={images} name={name} startIndex={modalStart} onClose={() => setModalOpen(false)} />}
-      <div className="relative overflow-hidden bg-slate-900 rounded-b-3xl" style={{ height: "45vh", minHeight: "200px", maxHeight: "360px" }}>
+      <div className="relative overflow-hidden bg-slate-900" style={{ height: "45vh", minHeight: "200px", maxHeight: "360px" }}>
         <img
           key={active}
           src={images[active]}
@@ -350,41 +352,23 @@ const CARD_IMG_HEIGHT = 100;
 // grows by getting WIDER on large screens (fewer grid columns), not taller.
 const FACILITY_IMG_HEIGHT_CLASS = "h-[100px]";
 
-// ─── FacSlideshow ─────────────────────────────────────────────────────────────
-// Renders ONLY the active image — not the whole array — so a facility's other
-// photos aren't fetched until that facility's "see all" is opened.
-// Fills the height of its parent (set by the caller via FACILITY_IMG_HEIGHT_CLASS)
-// so the same component works at any card size without hardcoding pixels here.
-const FacSlideshow = ({ images, name, onClick }: { images: string[]; name: string; onClick?: () => void }) => {
-  const [active, setActive] = useState(0);
+// ─── FacImage ─────────────────────────────────────────────────────────────────
+// Renders ONLY a single static image (the first one) — no auto-rotating
+// slideshow, so each facility only ever fetches ONE image on initial load.
+// The rest of that facility's photos are only fetched if "see all" is opened.
+const FacImage = ({ images, name, onClick }: { images: string[]; name: string; onClick?: () => void }) => {
   const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
-    if (images.length <= 1) return;
-    const iv = setInterval(() => setActive((p) => (p + 1) % images.length), 3000);
-    return () => clearInterval(iv);
-  }, [images.length]);
-
-  useEffect(() => { setLoaded(false); }, [active]);
 
   return (
     <div className="relative overflow-hidden h-full" style={{ cursor: onClick ? "pointer" : "default" }} onClick={onClick}>
       <img
-        key={active}
-        src={images[active]}
+        src={images[0]}
         alt={name}
         loading="lazy"
         onLoad={() => setLoaded(true)}
         className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
         style={{ opacity: loaded ? 1 : 0 }}
       />
-      {images.length > 1 && (
-        <div className="absolute bottom-1 left-0 right-0 flex justify-center gap-0.5 pointer-events-none z-10">
-          {images.map((_, idx) => (
-            <span key={idx} className="transition-all duration-300 block" style={{ width: active === idx ? "10px" : "3px", height: "3px", borderRadius: "2px", background: active === idx ? "white" : "rgba(255,255,255,0.4)" }} />
-          ))}
-        </div>
-      )}
     </div>
   );
 };
@@ -427,7 +411,7 @@ const InlineFacilitiesGrid = ({ facilities, accentColor }: { facilities: any[]; 
               <div key={i} className="bg-white overflow-hidden shadow-sm border border-slate-100 flex-shrink-0 w-[150px] md:w-auto rounded-xl">
                 {imgs.length > 0 ? (
                   <div className={`relative overflow-hidden ${FACILITY_IMG_HEIGHT_CLASS}`}>
-                    <FacSlideshow images={imgs} name={fac.name} onClick={() => openCardGallery(imgs, fac.name, 0)} />
+                    <FacImage images={imgs} name={fac.name} onClick={() => openCardGallery(imgs, fac.name, 0)} />
                     {hasMultiple && (
                       <button onClick={(e) => { e.stopPropagation(); openCardGallery(imgs, fac.name, 0); }} className="absolute top-1.5 right-1.5 z-20 flex items-center gap-0.5 bg-black/50 backdrop-blur-sm text-white text-[8px] lg:text-[10px] font-medium normal-case px-1.5 py-0.5 rounded-full hover:bg-black/70 transition-all">
                         <Grid2X2 className="h-2 w-2 lg:h-2.5 lg:w-2.5" /> see all
@@ -481,19 +465,9 @@ const InlineFacilitiesGrid = ({ facilities, accentColor }: { facilities: any[]; 
 };
 
 // ─── Activity Card ────────────────────────────────────────────────────────────
-// Same lazy-slideshow treatment as FacSlideshow: only the active image loads.
+// Same single-image treatment as FacImage: only the first photo loads.
 const ActivityCard = ({ act, imgs, formatPrice, onImageClick }: { act: any; imgs: string[]; formatPrice: (n: number) => string; onImageClick?: () => void }) => {
-  const [active, setActive] = useState(0);
   const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
-    if (imgs.length <= 1) return;
-    const iv = setInterval(() => setActive((p) => (p + 1) % imgs.length), 3200);
-    return () => clearInterval(iv);
-  }, [imgs.length]);
-
-  useEffect(() => { setLoaded(false); }, [active]);
-
   const hasMultiple = imgs.length > 1;
 
   return (
@@ -501,8 +475,7 @@ const ActivityCard = ({ act, imgs, formatPrice, onImageClick }: { act: any; imgs
       <div className="relative overflow-hidden" style={{ height: CARD_IMG_HEIGHT, cursor: imgs.length > 0 ? "pointer" : "default" }} onClick={imgs.length > 0 ? onImageClick : undefined}>
         {imgs.length > 0 ? (
           <img
-            key={active}
-            src={imgs[active]}
+            src={imgs[0]}
             alt={act.name}
             loading="lazy"
             onLoad={() => setLoaded(true)}
@@ -518,13 +491,6 @@ const ActivityCard = ({ act, imgs, formatPrice, onImageClick }: { act: any; imgs
           <button onClick={(e) => { e.stopPropagation(); onImageClick?.(); }} className="absolute top-1.5 right-1.5 z-20 flex items-center gap-0.5 bg-black/50 backdrop-blur-sm text-white text-[8px] font-medium normal-case px-1.5 py-0.5 rounded-full hover:bg-black/70 transition-all">
             <Grid2X2 className="h-2 w-2" /> see all
           </button>
-        )}
-        {hasMultiple && (
-          <div className="absolute bottom-1 right-1.5 flex gap-0.5 z-20 pointer-events-none">
-            {imgs.map((_, idx) => (
-              <span key={idx} className="transition-all duration-300 block" style={{ width: active === idx ? "10px" : "3px", height: "3px", borderRadius: "2px", background: active === idx ? "white" : "rgba(255,255,255,0.4)" }} />
-            ))}
-          </div>
         )}
       </div>
       <div className="p-2">
@@ -561,7 +527,6 @@ const InlineActivitiesGrid = ({ activities, formatPrice }: { activities: any[]; 
         <h2 className="text-base font-black uppercase tracking-tight mb-3" style={{ color: CORAL }}>Activities</h2>
         <div className="flex gap-2 overflow-x-auto pb-1 md:grid md:grid-cols-3 lg:grid-cols-5 md:overflow-visible md:pb-0">
           {visibleActivities.map((act: any, i: number) => {
-            // No longer capped at 1 image — activities can now have a full gallery + "see all" just like facilities
             const imgs: string[] = Array.isArray(act.images) ? act.images.filter(Boolean) : [];
             return (
               <div key={i} className="flex-shrink-0 w-[150px] md:w-auto">
@@ -889,7 +854,9 @@ const AdventurePlaceDetail = () => {
     </div>
   );
 
-  const allImages = [place.image_url, ...(place.gallery_images || [])].filter(Boolean).slice(0, 12);
+  // Gallery is capped at 5 images so page detail (text) renders and is usable
+  // before the browser is asked to fetch a long run of gallery photos.
+  const allImages = [place.image_url, ...(place.gallery_images || [])].filter(Boolean).slice(0, GALLERY_IMAGE_LIMIT);
   const is24Hours = (() => {
     const openMinutes  = parseTimeToMinutes(place.opening_hours) ?? parseTimeToMinutes("08:00")!;
     const closeMinutes = parseTimeToMinutes(place.closing_hours) ?? parseTimeToMinutes("18:00")!;
@@ -948,16 +915,13 @@ const AdventurePlaceDetail = () => {
       )}
 
       <main className="container px-4 mt-4 relative z-10 max-w-6xl mx-auto">
-        {/* On large screens this row now sits directly under the gallery, with
-            the name/location/badges on the left and the booking card on the
-            right — both starting at the same top edge, instead of the booking
-            card being pushed down below a full-width header. */}
+        {/* Single consistent order on every screen size now:
+            Title/badges -> About -> Amenities -> (mobile booking card) ->
+            Special Prices -> Facilities -> Activities -> Map.
+            About sits directly under the name/location/category block and
+            above Facilities/Activities, so the page's text content is ready
+            before those image-heavy sections come into view. */}
         <div className="grid grid-cols-1 lg:grid-cols-[1.8fr,1fr] gap-6">
-          {/* flex + lg:order-* (instead of space-y-6 block stacking) so we can
-              reorder sections on large screens — About moves up to sit right
-              after General Amenities — without touching the mobile order,
-              which stays exactly as it is written below (no order classes
-              applied below the lg breakpoint). */}
           <div className="flex flex-col gap-6">
             <div>
               <h1 className="text-2xl font-black tracking-tighter leading-tight text-foreground">{toTitleCase(place.name)}</h1>
@@ -988,14 +952,18 @@ const AdventurePlaceDetail = () => {
               )}
             </div>
 
-            <div className="md:hidden">
-              <QuickNavigationBar hasFacilities={place.facilities?.length > 0} hasActivities={place.activities?.length > 0} hasContact={false} />
-            </div>
+            {/* About this Place — moved up to sit right under the category
+                badges, above Amenities/Facilities/Activities, on every
+                screen size. */}
+            {place.description && (
+              <section className="bg-white rounded-2xl px-5 py-4 shadow-sm border border-slate-100">
+                <h2 className="text-base font-black uppercase tracking-tight mb-3" style={{ color: TEAL }}>About this Place</h2>
+                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{place.description}</p>
+              </section>
+            )}
 
             {generalAmenities.length > 0 && (
-              <div className="lg:order-1">
-                <AmenitiesScroll amenities={generalAmenities} accentColor={TEAL} />
-              </div>
+              <AmenitiesScroll amenities={generalAmenities} accentColor={TEAL} />
             )}
 
             {/* Booking card — mobile only */}
@@ -1003,24 +971,12 @@ const AdventurePlaceDetail = () => {
               <BookingCard {...bookingCardProps} />
             </div>
 
-            {/* About this Place: on large screens this now sits right after
-                General Amenities (lg:order-2, just after Amenities' lg:order-1)
-                instead of near the bottom of the page. */}
-            {place.description && (
-              <section className="bg-white rounded-2xl px-5 py-4 shadow-sm border border-slate-100 lg:order-2">
-                <h2 className="text-base font-black uppercase tracking-tight mb-3" style={{ color: TEAL }}>About this Place</h2>
-                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{place.description}</p>
-              </section>
-            )}
+            {specialPrices.length > 0 && <SpecialPricesSection tiers={specialPrices} formatPrice={formatPrice} />}
 
-            {specialPrices.length > 0 && <div className="lg:order-3"><SpecialPricesSection tiers={specialPrices} formatPrice={formatPrice} /></div>}
+            {place.facilities?.length > 0 && <div id="facilities-section"><InlineFacilitiesGrid facilities={place.facilities} accentColor={TEAL} /></div>}
+            {place.activities?.length > 0 && <div id="activities-section"><InlineActivitiesGrid activities={place.activities} formatPrice={formatPrice} /></div>}
 
-            {place.facilities?.length > 0 && <div id="facilities-section" className="lg:order-4"><InlineFacilitiesGrid facilities={place.facilities} accentColor={TEAL} /></div>}
-            {place.activities?.length > 0 && <div id="activities-section" className="lg:order-5"><InlineActivitiesGrid activities={place.activities} formatPrice={formatPrice} /></div>}
-
-            <div className="lg:order-6">
-              <AlwaysOpenMapSection name={place.name} latitude={place.latitude} longitude={place.longitude} location={place.location} country={place.country} />
-            </div>
+            <AlwaysOpenMapSection name={place.name} latitude={place.latitude} longitude={place.longitude} location={place.location} country={place.country} />
           </div>
 
           <div className="hidden lg:block">

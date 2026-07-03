@@ -17,8 +17,10 @@ const LOAD_MORE_COUNT = 10;
 const SKELETON_COUNT_MOBILE  = 8;
 const SKELETON_COUNT_DESKTOP = 20;
 
+// days_opened added so ListingCard can render the working-days line and the
+// Open now/Closed badge for hotel/campsite categories.
 const ADVENTURE_PLACE_FIELDS =
-  "id,name,location,place,country,image_url,gallery_images,images,entry_fee,activities,latitude,longitude,created_at,description,opening_hours,closing_hours,category";
+  "id,name,location,place,country,image_url,gallery_images,images,entry_fee,activities,latitude,longitude,created_at,description,opening_hours,closing_hours,category,days_opened";
 
 // TRIP_FIELDS is unused while trip/guided fetching is disabled below — kept
 // in case it's needed again when trips are re-enabled.
@@ -245,6 +247,7 @@ const CountyDetail = () => {
                     images={item.images}
                     openingHours={item.opening_hours}
                     closingHours={item.closing_hours}
+                    workingDays={item.days_opened}
                   />
                 );
               })}

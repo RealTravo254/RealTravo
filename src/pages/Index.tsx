@@ -292,9 +292,12 @@ const Index = () => {
         //   .order("date", { ascending: true }).limit(fetchLimit),
 
         // ── Adventure places / campsites ──────────────────────────────────
+        // category and days_opened added so ListingCard can render the
+        // category badge correctly and the working-days / Open now-Closed
+        // badge for hotel/campsite categories.
         supabase
           .from("adventure_places")
-          .select("id,name,location,place,country,image_url,gallery_images,images,entry_fee,activities,latitude,longitude,created_at,description,opening_hours,closing_hours")
+          .select("id,name,location,place,country,image_url,gallery_images,images,entry_fee,activities,latitude,longitude,created_at,description,opening_hours,closing_hours,category,days_opened")
           .eq("approval_status", "approved").eq("is_hidden", false).limit(fetchLimit),
 
         // ── Events (disabled — uncomment to re-enable) ────────────────────
@@ -330,9 +333,12 @@ const Index = () => {
     if (!position) return;
     setLoadingNearby(true);
     try {
+      // category, days_opened, opening_hours, and closing_hours added so
+      // ListingCard can render the category badge, working-days line, and
+      // Open now/Closed badge for hotel/campsite categories in this row too.
       const { data } = await supabase
         .from("adventure_places")
-        .select("id,name,location,place,country,image_url,entry_fee,activities,latitude,longitude,created_at,description")
+        .select("id,name,location,place,country,image_url,entry_fee,activities,latitude,longitude,created_at,description,opening_hours,closing_hours,category,days_opened")
         .eq("approval_status", "approved").eq("is_hidden", false).limit(50);
       const withDist = (data || [])
         .map(item => ({
@@ -408,6 +414,7 @@ const Index = () => {
         key={item.id}
         id={item.id}
         type={type as any}
+        category={item.category}
         name={item.name}
         imageUrl={item.image_url}
         location={item.location}
@@ -436,6 +443,7 @@ const Index = () => {
         images={item.images}
         openingHours={item.opening_hours}
         closingHours={item.closing_hours}
+        workingDays={item.days_opened}
       />
     );
   }, [position, ratings, savedItems, handleSave, bookingStats]);
@@ -463,6 +471,7 @@ const Index = () => {
           key={item.id}
           id={item.id}
           type={a.__cardType || "ADVENTURE PLACE"}
+          category={a.category}
           name={item.name}
           imageUrl={a.image_url}
           location={a.location}
@@ -486,6 +495,9 @@ const Index = () => {
           availableTickets={isGuided ? a.available_tickets : undefined}
           bookedTickets={isGuided ? bookingStats[item.id] || 0 : undefined}
           description={a.description}
+          openingHours={a.opening_hours}
+          closingHours={a.closing_hours}
+          workingDays={a.days_opened}
         />
       );
     }),

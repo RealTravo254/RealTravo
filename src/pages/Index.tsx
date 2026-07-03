@@ -363,7 +363,7 @@ const Index = () => {
       const c = (cached.scrollableRows as any) || {};
       const rows = {
         trips: [], campsites: c.campsites || [],
-        events: [], guidedTrips: c.guidedTrips || [],
+        events: [], guidedTrips: [], // guided trips disabled — ignore any stale cached trip data
       };
       setScrollableRows(rows);
       setNearbyPlacesHotels(cached.nearbyPlacesHotels || []);

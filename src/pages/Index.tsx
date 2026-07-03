@@ -131,20 +131,25 @@ GridSection.displayName = "GridSection";
 
 // ── Category cards ────────────────────────────────────────────────────────────
 // Attraction and Park removed — add them back here when their pages are ready.
+// Tours & Trips commented out — trip fetching is disabled below, so there's
+// nothing to show at /category/guided right now. Uncomment both this entry
+// and the matching one in QUICK_NAV, and restore guided trip fetching in
+// fetchScrollableRows, to bring trips back.
 const CATEGORIES = [
   { icon: Building2, title: "Hotels",         path: "/category/hotels",        bgImage: "/images/category-hotels.jpg" },
   { icon: Home,       title: "Accommodations/AirBnbs", path: "/category/accommodations", bgImage: "/images/category-accommodations.png" },
   { icon: Tent,       title: "Campsites",      path: "/category/campsite",       bgImage: "/images/category-adventures.jpg" },
-  { icon: Map,        title: "Tours & Trips",  path: "/category/guided",          bgImage: "/images/category-trips.jpg" },
+  // { icon: Map,        title: "Tours & Trips",  path: "/category/guided",          bgImage: "/images/category-trips.jpg" },
 ];
 
 // ── Quick-nav shortcuts ───────────────────────────────────────────────────────
 // Attraction and Park removed — add them back here when their pages are ready.
+// Tours & Trips commented out to match CATEGORIES above (trip fetching disabled).
 const QUICK_NAV = [
   { icon: Building2, title: "hotels ",         path: "/category/hotels",        color: "hsl(205, 85%, 45%)" },
   { icon: Home,       title: "AirBnb", path: "/category/accomodations", color: "hsl(160, 70%, 40%)" },
   { icon: Tent,       title: "Campsites",      path: "/category/campsite",       color: "hsl(278, 90%, 50%)" },
-  { icon: Map,        title: "Tours & Trips",  path: "/category/guided",          color: "hsl(235, 90%, 50%)" },
+  // { icon: Map,        title: "Tours & Trips",  path: "/category/guided",          color: "hsl(235, 90%, 50%)" },
   { icon: Ticket,     title: "Bookings",       path: "/bookings",                color: "hsl(200, 70%, 45%)" },
   { icon: Heart,      title: "Saved",          path: "/saved",                   color: "hsl(350, 80%, 55%)" },
 ];
@@ -201,14 +206,15 @@ const Index = () => {
     // scrollableRows.trips.forEach(i => ids.add(i.id)); // fixed trips disabled
     scrollableRows.campsites.forEach(i => ids.add(i.id));
     // scrollableRows.events.forEach(i => ids.add(i.id)); // events disabled
-    scrollableRows.guidedTrips.forEach(i => ids.add(i.id));
+    // scrollableRows.guidedTrips.forEach(i => ids.add(i.id)); // guided trips disabled — always [] now
     return Array.from(ids);
   }, [nearbyPlacesHotels, scrollableRows]);
 
   const tripEventIds = useMemo(() => {
     // const ids = [...scrollableRows.trips, ...scrollableRows.events, ...scrollableRows.guidedTrips].map(i => i.id);
-    // Fixed trips and events removed — only guided trips track bookings now
-    const ids = [...scrollableRows.guidedTrips].map(i => i.id);
+    // Fixed trips, events, and guided trips all disabled — nothing left to track bookings for.
+    // const ids = [...scrollableRows.guidedTrips].map(i => i.id);
+    const ids: string[] = [];
     return [...new Set(ids)];
   }, [scrollableRows.guidedTrips]);
 
@@ -223,7 +229,7 @@ const Index = () => {
     const seen = new Set(places.map((p: any) => p.id));
     const others = [
       // ...scrollableRows.trips.map(item => ({ ...item, __cardType: "TRIP" as const })),   // fixed trips disabled
-      ...scrollableRows.guidedTrips.map(item => ({ ...item, __cardType: "TRIP" as const })),
+      // ...scrollableRows.guidedTrips.map(item => ({ ...item, __cardType: "TRIP" as const })), // guided trips disabled
       // ...scrollableRows.events.map(item => ({ ...item, __cardType: "EVENT" as const })),  // events disabled
     ]
       .filter(item => {
@@ -248,7 +254,7 @@ const Index = () => {
     const combined = [
       ...scrollableRows.campsites.map(item => ({ ...item, __cardType: "ADVENTURE PLACE" as const })),
       // ...scrollableRows.trips.map(item => ({ ...item, __cardType: "TRIP" as const })),   // fixed trips disabled
-      ...scrollableRows.guidedTrips.map(item => ({ ...item, __cardType: "TRIP" as const })),
+      // ...scrollableRows.guidedTrips.map(item => ({ ...item, __cardType: "TRIP" as const })), // guided trips disabled
       // ...scrollableRows.events.map(item => ({ ...item, __cardType: "EVENT" as const })), // events disabled
     ];
     return combined
@@ -275,7 +281,7 @@ const Index = () => {
         // tripsData,   // fixed trips fetch disabled — uncomment to re-enable
         campsitesData,
         // eventsData,  // events fetch disabled — uncomment to re-enable
-        guidedData,
+        // guidedData,  // guided trips fetch disabled — uncomment to re-enable
       ] = await Promise.all([
         // ── Fixed-date trips (disabled — uncomment to re-enable) ──────────
         // supabase
@@ -298,20 +304,20 @@ const Index = () => {
         //   .eq("approval_status", "approved").eq("is_hidden", false)
         //   .eq("type", "event").order("date", { ascending: true }).limit(fetchLimit),
 
-        // ── Guided tours (flexible / custom-date trips) ───────────────────
-        supabase
-          .from("trips")
-          .select("id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child,description,opening_hours,closing_hours")
-          .eq("approval_status", "approved").eq("is_hidden", false)
-          .eq("type", "trip").or("is_flexible_date.eq.true,is_custom_date.eq.true")
-          .order("created_at", { ascending: false }).limit(fetchLimit),
+        // ── Guided tours (flexible / custom-date trips) — disabled ────────
+        // supabase
+        //   .from("trips")
+        //   .select("id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child,description,opening_hours,closing_hours")
+        //   .eq("approval_status", "approved").eq("is_hidden", false)
+        //   .eq("type", "trip").or("is_flexible_date.eq.true,is_custom_date.eq.true")
+        //   .order("created_at", { ascending: false }).limit(fetchLimit),
       ]);
 
       setScrollableRows({
         trips:       [],                    // fixed trips disabled
         campsites:   campsitesData.data || [],
         events:      [],                    // events disabled
-        guidedTrips: guidedData.data    || [],
+        guidedTrips: [],                     // guided trips disabled
       });
     } catch (err) {
       console.error("Error fetching rows:", err);
@@ -604,40 +610,39 @@ const Index = () => {
           {/* ── All content constrained to container width (never bleeds to screen edge on desktop) ── */}
           <div className="container mx-auto px-4 md:px-6 py-3 md:py-5 space-y-2 md:space-y-6">
 
-            {/* Categories ── 4 cards, equal-width columns, constrained to container */}
+            {/* Categories ── 3 cards (Tours & Trips commented out above), full
+                screen width on mobile via the -mx-4/px-4 bleed technique used
+                by the horizontal scroll sections below, constrained back to
+                the container on md+ screens. */}
             <section className="mb-4 md:mb-8">
               <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-3">
                 Browse by category
               </h2>
-              {/* grid-cols-4 on all screens — 4 categories always sit in one row,
-                  each column takes an equal share of the container width.
-                  On mobile the cards are a bit narrow but still readable;
-                  if you add more categories back, bump to grid-cols-2 sm:grid-cols-4.
-                  aspectRatio "8 / 3" is half the height of the original "4 / 3"
-                  at the same width — icon/text sizes below are scaled down to match. */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 md:gap-4">
-                {CATEGORIES.map(cat => (
-                  <Link
-                    key={cat.title}
-                    to={cat.path}
-                    className="relative flex flex-col items-center justify-center gap-1.5 rounded-xl overflow-hidden cursor-pointer"
-                    style={{ aspectRatio: "8 / 3" }}
-                  >
-                    <img
-                      src={cat.bgImage}
-                      alt=""
-                      aria-hidden="true"
-                      loading="lazy"
-                      decoding="async"
-                      className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none select-none"
-                    />
-                    <div className="absolute inset-0 bg-black/50 hover:bg-black/60 transition-colors" />
-                    <cat.icon className="relative z-10 h-3.5 w-3.5 md:h-5 md:w-5 text-white shrink-0 drop-shadow" />
-                    <span className="relative z-10 text-white text-[10px] md:text-sm font-extrabold leading-tight text-center drop-shadow px-1">
-                      {cat.title}
-                    </span>
-                  </Link>
-                ))}
+              <div className="-mx-4 px-4 md:mx-0 md:px-0">
+                <div className="grid grid-cols-3 gap-2 md:gap-4">
+                  {CATEGORIES.map(cat => (
+                    <Link
+                      key={cat.title}
+                      to={cat.path}
+                      className="relative flex flex-col items-center justify-center gap-1.5 rounded-xl overflow-hidden cursor-pointer"
+                      style={{ aspectRatio: "8 / 3" }}
+                    >
+                      <img
+                        src={cat.bgImage}
+                        alt=""
+                        aria-hidden="true"
+                        loading="lazy"
+                        decoding="async"
+                        className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none select-none"
+                      />
+                      <div className="absolute inset-0 bg-black/50 hover:bg-black/60 transition-colors" />
+                      <cat.icon className="relative z-10 h-3.5 w-3.5 md:h-5 md:w-5 text-white shrink-0 drop-shadow" />
+                      <span className="relative z-10 text-white text-[10px] md:text-sm font-extrabold leading-tight text-center drop-shadow px-1">
+                        {cat.title}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
               </div>
             </section>
 

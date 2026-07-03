@@ -87,7 +87,8 @@ const parseTimeToMinutes = (t?: string | null): number | null => {
 // case. Normalizing to a 3-letter lowercase abbreviation lets the working-day
 // check line up regardless of which format a given record uses.
 const DAY_ABBREV = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
-const normalizeDayAbbrev = (d: string) => d.trim().slice(0, 3).toLowerCase();
+const normalizeDayAbbrev = (d: string) =>
+  String(d ?? "").replace(/[^a-zA-Z]/g, "").slice(0, 3).toLowerCase();
 
 // ─── Screen-size hook ─────────────────────────────────────────────────────────
 // Used so we only ever mount ONE of <MobileCarousel /> / <DesktopGallery />.
@@ -657,7 +658,7 @@ interface BookingCardProps {
 }
 
 const BookingCard = ({ place, is24Hours, daysOpened, capacityPerDay, formatPrice, onCheckAvailability, onMap, onCopy, onShare }: BookingCardProps) => {
-  const isPaid = place.entry_fee && Number(place.entry_fee) > 0;
+  const isPaid = !!(place.entry_fee && Number(place.entry_fee) > 0);
   const hasNonCitizen = !!place.has_non_citizen_pricing &&
     (Number(place.non_citizen_entry_fee) > 0 || Number(place.non_citizen_child_entry_fee) > 0);
 
@@ -797,16 +798,23 @@ const AdventurePlaceDetail = () => {
 
       // Normalize whatever format days_opened is stored in ("Mon", "Monday",
       // "MON", etc.) to a 3-letter lowercase abbreviation so it reliably
-      // lines up with currentDayAbbrev. Empty/missing list = open every day.
+      // lines up with currentDayAbbrev. Empty list = open every day. A list
+      // that already covers all 7 distinct days is also unambiguously "every
+      // day", even if an individual entry's format ever fails to normalize
+      // cleanly against currentDayAbbrev.
       const days = Array.isArray(place.days_opened)
-        ? place.days_opened.map((d: string) => normalizeDayAbbrev(d))
+        ? place.days_opened.map((d: string) => normalizeDayAbbrev(d)).filter(Boolean)
         : [];
-      const isWorkingDay = !days.length || days.includes(currentDayAbbrev);
+      const uniqueDays = new Set(days);
+      const isWorkingDay = !days.length || uniqueDays.size >= 7 || days.includes(currentDayAbbrev);
 
       if (!isWorkingDay) { setIsOpenNow(false); return; }
 
-      const openMinutes  = parseTimeToMinutes(place.opening_hours) ?? 0;
-      const closeMinutes = parseTimeToMinutes(place.closing_hours) ?? (24 * 60 - 1);
+      // Missing hours default to a normal 08:00–18:00 window (matching what
+      // the "Hours" line itself falls back to), not a silent full-day span —
+      // so a place only reads as "open 24 hours" when its data actually says so.
+      const openMinutes  = parseTimeToMinutes(place.opening_hours) ?? parseTimeToMinutes("08:00")!;
+      const closeMinutes = parseTimeToMinutes(place.closing_hours) ?? parseTimeToMinutes("18:00")!;
 
       // Figure out the span between open and close (handling overnight
       // wraparound, e.g. opens 18:00 closes 02:00) — if it covers ~the whole
@@ -865,8 +873,8 @@ const AdventurePlaceDetail = () => {
 
   const allImages = [place.image_url, ...(place.gallery_images || [])].filter(Boolean).slice(0, 12);
   const is24Hours = (() => {
-    const openMinutes  = parseTimeToMinutes(place.opening_hours) ?? 0;
-    const closeMinutes = parseTimeToMinutes(place.closing_hours) ?? (24 * 60 - 1);
+    const openMinutes  = parseTimeToMinutes(place.opening_hours) ?? parseTimeToMinutes("08:00")!;
+    const closeMinutes = parseTimeToMinutes(place.closing_hours) ?? parseTimeToMinutes("18:00")!;
     let spanMinutes = closeMinutes - openMinutes;
     if (spanMinutes <= 0) spanMinutes += 24 * 60;
     return spanMinutes >= 23 * 60 + 59;

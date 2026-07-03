@@ -400,20 +400,6 @@ const ListingCardComponent = ({
               {urgencyBadge.text}
             </span>
           )}
-          {/* Open/Closed badge — hotels and campsites only, based on opening
-              hours, closing hours, and working days. */}
-          {isOpenNow !== null && (
-            <span
-              className={cn(
-                "text-[9px] font-bold px-1.5 py-1 rounded-full border backdrop-blur-sm",
-                isOpenNow
-                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                  : "bg-red-50 text-red-600 border-red-200",
-              )}
-            >
-              {isOpenNow ? "Open now" : "Closed"}
-            </span>
-          )}
         </div>
 
         {/* Save / heart button — top-right */}
@@ -477,6 +463,21 @@ const ListingCardComponent = ({
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/45 backdrop-blur-[1px]">
             <span className="rounded-md border border-white/60 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-white">
               {isSoldOut ? "Sold out" : "Unavailable"}
+            </span>
+          </div>
+        )}
+
+        {/* Open/Closed badge — hotels and campsites only, based on opening
+            hours, closing hours, and working days. Bottom-right of the image. */}
+        {isOpenNow !== null && (
+          <div className="absolute bottom-2.5 right-2.5 z-20">
+            <span
+              className={cn(
+                "text-[9px] font-bold uppercase tracking-wide px-2 py-1 rounded-md shadow-sm text-white",
+                isOpenNow ? "bg-green-600" : "bg-red-600",
+              )}
+            >
+              {isOpenNow ? "Open now" : "Closed"}
             </span>
           </div>
         )}

@@ -346,10 +346,16 @@ const AmenitiesScroll = ({ amenities, accentColor }: { amenities: string[]; acce
 
 const CARD_IMG_HEIGHT = 100;
 
+// Facility card image height: unchanged on mobile/tablet, noticeably taller
+// on large screens so the whole card reads as bigger, not just wider.
+const FACILITY_IMG_HEIGHT_CLASS = "h-[100px] md:h-[130px] lg:h-[170px]";
+
 // ─── FacSlideshow ─────────────────────────────────────────────────────────────
 // Renders ONLY the active image — not the whole array — so a facility's other
 // photos aren't fetched until that facility's "see all" is opened.
-const FacSlideshow = ({ images, name, height, onClick }: { images: string[]; name: string; height: number; onClick?: () => void }) => {
+// Fills the height of its parent (set by the caller via FACILITY_IMG_HEIGHT_CLASS)
+// so the same component works at any card size without hardcoding pixels here.
+const FacSlideshow = ({ images, name, onClick }: { images: string[]; name: string; onClick?: () => void }) => {
   const [active, setActive] = useState(0);
   const [loaded, setLoaded] = useState(false);
 
@@ -362,7 +368,7 @@ const FacSlideshow = ({ images, name, height, onClick }: { images: string[]; nam
   useEffect(() => { setLoaded(false); }, [active]);
 
   return (
-    <div className="relative overflow-hidden" style={{ height, cursor: onClick ? "pointer" : "default" }} onClick={onClick}>
+    <div className="relative overflow-hidden h-full" style={{ cursor: onClick ? "pointer" : "default" }} onClick={onClick}>
       <img
         key={active}
         src={images[active]}
@@ -409,7 +415,10 @@ const InlineFacilitiesGrid = ({ facilities, accentColor }: { facilities: any[]; 
       {modalImages && <ImageGalleryModal images={modalImages} name={modalName} startIndex={modalStart} onClose={() => setModalImages(null)} />}
       <section>
         <h2 className="text-base font-black uppercase tracking-tight mb-3" style={{ color: accentColor }}>Facilities</h2>
-        <div className="flex gap-2 overflow-x-auto pb-1 md:grid md:grid-cols-3 lg:grid-cols-5 md:overflow-visible md:pb-0">
+        {/* Fewer columns on large screens (4 instead of 5) so each card gets
+            noticeably more room and reads as a "larger" card, not just a
+            resized thumbnail. */}
+        <div className="flex gap-2 overflow-x-auto pb-1 md:grid md:grid-cols-3 lg:grid-cols-4 md:overflow-visible md:pb-0 lg:gap-4">
           {visibleFacilities.map((fac: any, i: number) => {
             const imgs: string[] = Array.isArray(fac.images) ? fac.images.filter(Boolean) : [];
             // "see all" only shows up when there's actually more than one photo to see
@@ -417,27 +426,36 @@ const InlineFacilitiesGrid = ({ facilities, accentColor }: { facilities: any[]; 
             return (
               <div key={i} className="bg-white overflow-hidden shadow-sm border border-slate-100 flex-shrink-0 w-[150px] md:w-auto rounded-xl">
                 {imgs.length > 0 ? (
-                  <div className="relative overflow-hidden" style={{ height: CARD_IMG_HEIGHT }}>
-                    <FacSlideshow images={imgs} name={fac.name} height={CARD_IMG_HEIGHT} onClick={() => openCardGallery(imgs, fac.name, 0)} />
+                  <div className={`relative overflow-hidden ${FACILITY_IMG_HEIGHT_CLASS}`}>
+                    <FacSlideshow images={imgs} name={fac.name} onClick={() => openCardGallery(imgs, fac.name, 0)} />
                     {hasMultiple && (
-                      <button onClick={(e) => { e.stopPropagation(); openCardGallery(imgs, fac.name, 0); }} className="absolute top-1.5 right-1.5 z-20 flex items-center gap-0.5 bg-black/50 backdrop-blur-sm text-white text-[8px] font-medium normal-case px-1.5 py-0.5 rounded-full hover:bg-black/70 transition-all">
-                        <Grid2X2 className="h-2 w-2" /> see all
+                      <button onClick={(e) => { e.stopPropagation(); openCardGallery(imgs, fac.name, 0); }} className="absolute top-1.5 right-1.5 z-20 flex items-center gap-0.5 bg-black/50 backdrop-blur-sm text-white text-[8px] lg:text-[10px] font-medium normal-case px-1.5 py-0.5 rounded-full hover:bg-black/70 transition-all">
+                        <Grid2X2 className="h-2 w-2 lg:h-2.5 lg:w-2.5" /> see all
                       </button>
                     )}
                   </div>
                 ) : (
-                  <div className="flex items-center justify-center bg-slate-100" style={{ height: CARD_IMG_HEIGHT }}>
-                    <MapPin className="h-5 w-5 text-slate-300" />
+                  <div className={`flex items-center justify-center bg-slate-100 ${FACILITY_IMG_HEIGHT_CLASS}`}>
+                    <MapPin className="h-5 w-5 lg:h-7 lg:w-7 text-slate-300" />
                   </div>
                 )}
-                <div className="p-2">
-                  <p className="font-black text-[11px] text-slate-800 uppercase tracking-tight leading-tight">{fac.name}</p>
-                  {fac.capacity && <p className="text-[9px] text-slate-500 mt-0.5 flex items-center gap-0.5"><Users className="h-2.5 w-2.5" /> {fac.capacity}</p>}
-                  {fac.price > 0 && <p className="text-[10px] font-bold mt-0.5" style={{ color: accentColor }}>KSh {fac.price?.toLocaleString()}</p>}
+                <div className="p-2 lg:p-3.5">
+                  <p className="font-black text-[11px] lg:text-sm text-slate-800 uppercase tracking-tight leading-tight">{fac.name}</p>
+                  {fac.capacity && <p className="text-[9px] lg:text-xs text-slate-500 mt-0.5 flex items-center gap-0.5"><Users className="h-2.5 w-2.5 lg:h-3.5 lg:w-3.5" /> {fac.capacity}</p>}
+                  {fac.price > 0 && <p className="text-[10px] lg:text-sm font-bold mt-0.5" style={{ color: accentColor }}>KSh {fac.price?.toLocaleString()}</p>}
                   {Array.isArray(fac.amenities) && fac.amenities.length > 0 && (
-                    <div className="flex flex-wrap gap-0.5 mt-1">
+                    <div className="flex flex-wrap gap-0.5 lg:gap-1 mt-1 lg:mt-2">
                       {fac.amenities.slice(0, 5).map((a: any, ai: number) => (
-                        <span key={ai} className="text-[8px] font-bold px-1.5 py-0.5 rounded normal-case" style={{ background: `${accentColor}12`, color: accentColor }}>{facilityAmenityLabel(a)}</span>
+                        // Amenity name shown in dark grey (not the accent color) for
+                        // better readability and to keep the accent color reserved
+                        // for prices / headings.
+                        <span
+                          key={ai}
+                          className="text-[8px] lg:text-[10px] font-bold px-1.5 lg:px-2 py-0.5 rounded normal-case text-slate-600"
+                          style={{ background: `${accentColor}12` }}
+                        >
+                          {facilityAmenityLabel(a)}
+                        </span>
                       ))}
                     </div>
                   )}

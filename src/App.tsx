@@ -14,7 +14,7 @@ import { OfflineFullScreen } from "@/components/OfflineIndicator";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
 import Index from "./pages/Index";
-
+ 
 const Auth = lazy(() => import("./pages/Auth"));
 const AuthCallback = lazy(() => import("./pages/AuthCallback"));
 const AppAuthHandler = lazy(() => import("./pages/AppAuthHandler"));

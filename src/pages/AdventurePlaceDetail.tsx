@@ -53,7 +53,26 @@ const toTitleCase = (str?: string) => {
   return str.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
 };
 
-// ── Time / day helpers for the Open now / Closed check ──────────────────────
+// ── Derive a human-readable place name straight from the URL slug ───────────
+// Used ONLY for the initial "Loading <name>…" spinner text, before the actual
+// record has been fetched from Supabase. Most slugs look like
+// "amboseli-national-park-3f9c2b1a" (name + trailing id), so we strip a
+// trailing id-looking segment (a run of 8+ hex/alphanumeric/hyphen chars) and
+// title-case what's left. Falls back gracefully to the raw slug if nothing
+// can be stripped, and to "" if there's no slug at all.
+const slugToDisplayName = (slug?: string | null) => {
+  if (!slug) return "";
+  const withoutId = slug.replace(/-[0-9a-fA-F]{6,}$/, "");
+  const base = (withoutId || slug).trim();
+  if (!base) return "";
+  return base
+    .split("-")
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+};
+
+// ─── Time / day helpers for the Open now / Closed check ──────────────────────
 // Understands both 24-hour ("08:00", "23:59") and 12-hour ("8:00 AM",
 // "11:59 PM") strings, since opening_hours/closing_hours have been seen
 // stored in both formats. Returns null if the string can't be parsed.
@@ -845,7 +864,15 @@ const AdventurePlaceDetail = () => {
 
   const handleCheckAvailability = () => { navigateToBooking(`/booking/adventure_place/${resolvedId}`); };
 
-  if (loading) return <TealLoader />;
+  // While the record is still being fetched, show the actual place name if
+  // we already have it (e.g. re-render after a state update), otherwise
+  // derive a readable name straight from the URL slug so the spinner reads
+  // "Loading Amboseli National Park…" instead of a generic
+  // "Loading Adventure…" message.
+  if (loading) {
+    const loadingName = place?.name ? toTitleCase(place.name) : slugToDisplayName(rawSlug);
+    return <TealLoader text={loadingName ? `Loading ${loadingName}…` : "Loading…"} />;
+  }
   if (!place) return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-4">
       <AlertCircle className="h-12 w-12 text-red-400" />

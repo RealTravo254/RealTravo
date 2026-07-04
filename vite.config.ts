@@ -5,46 +5,38 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  base: "/", // 👈 FIXED: Explicitly sets asset base path to root
   server: {
     host: "::",
     port: 8080,
-    hmr: false, // 👈 1. Added this to completely disable code-change auto-refreshes
+    hmr: false,
   },
   build: {
     sourcemap: false,
     rollupOptions: {
       output: {
-        // FIXED: Added the explicit ": string" type declaration to the id parameter here
         manualChunks(id: string) {
-          // Let mapbox-gl be code-split naturally via dynamic imports
           if (id.includes('mapbox-gl')) {
             return 'mapbox';
           }
-          // Core vendor chunk - smaller subset
           if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/')) {
             return 'react-vendor';
           }
-          // Router chunk
           if (id.includes('react-router')) {
             return 'router';
           }
-          // UI components chunk
           if (id.includes('@radix-ui')) {
             return 'ui';
           }
-          // Supabase chunk - defer auth loading
           if (id.includes('@supabase')) {
             return 'supabase';
           }
-          // PDF generation chunk - only loaded when downloading
           if (id.includes('jspdf') || id.includes('qrcode')) {
             return 'pdf';
           }
-          // Calendar/date picker chunk
           if (id.includes('react-day-picker') || id.includes('date-fns')) {
             return 'calendar';
           }
-          // Paystack chunk - only loaded on payment pages
           if (id.includes('@paystack')) {
             return 'paystack';
           }
@@ -54,9 +46,8 @@ export default defineConfig(({ mode }) => ({
   },
   plugins: [
     react(),
-    // 👈 2. Lovable tagger completely removed from here
     VitePWA({
-      registerType: 'prompt', // 👈 3. Changed from 'autoUpdate' to 'prompt' so it stops refreshing on background updates
+      registerType: 'prompt',
       injectRegister: 'inline',
       includeAssets: ['favicon.ico', 'robots.txt'],
       manifest: {
@@ -88,7 +79,7 @@ export default defineConfig(({ mode }) => ({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg,woff,woff2}'],
-        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [/^\/api/, /^\/supabase/, /^\/~oauth/],
         skipWaiting: true,
@@ -101,7 +92,7 @@ export default defineConfig(({ mode }) => ({
               cacheName: 'supabase-api-cache',
               expiration: {
                 maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24 // 24 hours
+                maxAgeSeconds: 60 * 60 * 24
               },
               networkTimeoutSeconds: 10,
               cacheableResponse: {
@@ -116,7 +107,7 @@ export default defineConfig(({ mode }) => ({
               cacheName: 'supabase-storage-cache',
               expiration: {
                 maxEntries: 200,
-                maxAgeSeconds: 60 * 60 * 24 * 7 // 7 days
+                maxAgeSeconds: 60 * 60 * 24 * 7
               },
               cacheableResponse: {
                 statuses: [0, 200]
@@ -130,7 +121,7 @@ export default defineConfig(({ mode }) => ({
               cacheName: 'unsplash-images-cache',
               expiration: {
                 maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
+                maxAgeSeconds: 60 * 60 * 24 * 30
               },
               cacheableResponse: {
                 statuses: [0, 200]
@@ -144,7 +135,7 @@ export default defineConfig(({ mode }) => ({
               cacheName: 'images-cache',
               expiration: {
                 maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
+                maxAgeSeconds: 60 * 60 * 24 * 30
               }
             }
           },
@@ -162,7 +153,7 @@ export default defineConfig(({ mode }) => ({
               cacheName: 'google-fonts-webfonts',
               expiration: {
                 maxEntries: 30,
-                maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
+                maxAgeSeconds: 60 * 60 * 24 * 365
               }
             }
           }

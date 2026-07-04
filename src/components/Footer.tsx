@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useCurrency } from "@/contexts/CurrencyContext";
 import {
   Compass,
   Instagram,
@@ -68,7 +67,6 @@ const LANGUAGES = [
 
 export const Footer = ({ className = "" }: { className?: string }) => {
   const { t, i18n } = useTranslation();
-  const { currency, setCurrency, rate, loading: rateLoading } = useCurrency();
   const [language, setLanguage] = useState(i18n.language || "en");
 
   const handleLanguageChange = (lang: string) => {
@@ -81,63 +79,27 @@ export const Footer = ({ className = "" }: { className?: string }) => {
     <footer className={`bg-slate-50 border-t mt-8 text-slate-800 text-xs ${className}`}>
       <div className="container px-4 py-8 mx-auto max-w-6xl">
         
-        {/* --- TOP SECTION: Global Settings --- */}
+        {/* --- TOP SECTION: Language Settings --- */}
         <div className="mb-8 bg-slate-800 rounded-xl p-5 shadow-md">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-            
-            {/* Currency Selector */}
-            <div className="space-y-1.5">
-              <h3 className="text-white text-[10px] uppercase tracking-[0.1em] flex items-center gap-1.5">
-                💱 {t('footer.currency', 'Currency')}
-              </h3>
-              <div className="flex gap-1.5">
-                <button
-                  onClick={() => setCurrency("KES")}
-                  className={`flex-1 px-3 py-1.5 rounded text-xs transition-all ${
-                    currency === "KES"
-                      ? "bg-teal-500 text-white"
-                      : "bg-white/10 text-white/70 hover:bg-white/20"
-                  }`}
-                >
-                  KSh (KES)
-                </button>
-                <button
-                  onClick={() => setCurrency("USD")}
-                  className={`flex-1 px-3 py-1.5 rounded text-xs transition-all ${
-                    currency === "USD"
-                      ? "bg-teal-500 text-white"
-                      : "bg-white/10 text-white/70 hover:bg-white/20"
-                  }`}
-                >
-                  $ (USD)
-                </button>
-              </div>
-              <p className="text-white/40 text-[9px]">
-                {rateLoading ? "Fetching live rate..." : `Live rate: 1 USD = ${rate.toFixed(2)} KES`}
-              </p>
-            </div>
-
-            {/* Language Selector */}
-            <div className="space-y-1.5">
-              <h3 className="text-white text-[10px] uppercase tracking-[0.1em] flex items-center gap-1.5">
-                <Globe className="h-3 w-3 text-teal-400" />
-                {t('footer.language')}
-              </h3>
-              <select
-                value={language}
-                onChange={(e) => handleLanguageChange(e.target.value)}
-                className="w-full px-3 py-1.5 rounded bg-white text-slate-900 text-xs focus:outline-none focus:ring-1 focus:ring-teal-400 cursor-pointer"
-              >
-                {LANGUAGES.map((l) => (
-                  <option key={l.code} value={l.code}>
-                    {l.name}
-                  </option>
-                ))}
-              </select>
-              <p className="text-white/40 text-[9px]">
-                {t('footer.moreLangSoon')}
-              </p>
-            </div>
+          <div className="max-w-md mx-auto space-y-1.5">
+            <h3 className="text-white text-[10px] uppercase tracking-[0.1em] flex items-center gap-1.5 justify-center">
+              <Globe className="h-3 w-3 text-teal-400" />
+              {t('footer.language')}
+            </h3>
+            <select
+              value={language}
+              onChange={(e) => handleLanguageChange(e.target.value)}
+              className="w-full px-3 py-1.5 rounded bg-white text-slate-900 text-xs focus:outline-none focus:ring-1 focus:ring-teal-400 cursor-pointer text-center"
+            >
+              {LANGUAGES.map((l) => (
+                <option key={l.code} value={l.code}>
+                  {l.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-white/40 text-[9px] text-center">
+              {t('footer.moreLangSoon')}
+            </p>
           </div>
         </div>
 
@@ -162,8 +124,6 @@ export const Footer = ({ className = "" }: { className?: string }) => {
             <h3 className="text-slate-900 text-[11px] uppercase tracking-wider">{t('footer.explore')}</h3>
             <ul className="space-y-1.5 text-[11px]">
               <li><Link to="/" className="text-slate-500 hover:text-[#008080] transition-colors">{t('Destinations')}</Link></li>
-              <li><Link to="/category/guided" className="text-slate-500 hover:text-[#008080] transition-colors">{t('Guided tours')}</Link></li>
-              <li><Link to="/category/trips" className="text-slate-500 hover:text-[#008080] transition-colors">{t('Trips')}</Link></li>
             </ul>
           </div>
 
@@ -181,7 +141,6 @@ export const Footer = ({ className = "" }: { className?: string }) => {
             <ul className="space-y-1.5 text-[11px]">
               <li><Link to="/privacy-policy" className="text-slate-500 hover:text-[#008080] transition-colors">{t('footer.privacyPolicy')}</Link></li>
               <li><Link to="/terms-of-service" className="text-slate-500 hover:text-[#008080] transition-colors">{t('footer.termsOfService')}</Link></li>
-              <li><Link to="/trip-guide" className="text-slate-500 hover:text-[#008080] transition-colors">{t('footer.tripEventGuide')}</Link></li>
               <li><Link to="/campsite-guide" className="text-slate-500 hover:text-[#008080] transition-colors">{t('footer.campsiteGuide')}</Link></li>
             </ul>
           </div>

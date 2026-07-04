@@ -18,11 +18,6 @@ const COLORS = { TEAL: "#008080", CORAL: "#FF7F50" };
 type BookingType = "trip" | "event" | "hotel" | "adventure_place" | "attraction";
 
 // ─── Dark-mode lockout ──────────────────────────────────────────────────────
-// This page must always render in light mode, regardless of the app-wide
-// theme toggle. We scope a fresh set of the standard shadcn/ui light CSS
-// variables to a wrapper class so any component underneath (Button, Dialog,
-// Input, etc.) that reads var(--background), var(--foreground), etc. gets
-// the light values even if an ancestor has the `dark` class applied.
 const LOCK_LIGHT_CLASS = "rt-booking-force-light";
 const ForceLightModeStyles = () => (
   <style>{`
@@ -106,6 +101,18 @@ const generateQRDataUrl = (text: string, size = 120): Promise<string> =>
     } catch { resolve(""); }
   });
 
+// ── Entry-ticket tag helper ──────────────────────────────────────────────
+// EntryTicketSelection.type looks like "citizen_adult", "citizen_child",
+// "non_citizen_adult", "non_citizen_child", or a special tier's own id
+// (e.g. "abc123-tier-uuid"). We derive a human-readable tag from that
+// prefix — there is no separate "category" field on the object.
+const getEntryTicketTag = (type: string): string => {
+  if (!type) return "";
+  if (type.startsWith("citizen_"))     return "Citizen";
+  if (type.startsWith("non_citizen_")) return "Non-Citizen";
+  return "Special";
+};
+
 export const generateBookingPDF = async (bookingData: any, reference: string) => {
   const d       = bookingData?.booking_details || bookingData || {};
   const rawType = bookingData?.booking_type || d.booking_type || "booking";
@@ -147,8 +154,23 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
   const gEmail = bookingData?.guest_email || d.guest_email;
   const gPhone = bookingData?.guest_phone || d.guest_phone;
 
+  // ── Entry tickets: every type the guest actually selected ──────────────
+  // Matches EntryTicketSelection from MultiStepBooking: { type, label,
+  // price, quantity }. Normalized here so every citizen/non-citizen/special
+  // tier the guest picked gets its own row, tagged clearly.
+  const rawEntryTickets =
+    (Array.isArray(d.entryTicketSelections) && d.entryTicketSelections.length > 0)
+      ? d.entryTicketSelections
+      : (Array.isArray(d.entry_ticket_selections) ? d.entry_ticket_selections : []);
+
+  const entryTicketSelections = rawEntryTickets.map((t: any) => ({
+    label:    t.label || "Entry Ticket",
+    price:    Number(t.price) || 0,
+    quantity: Number(t.quantity) || 1,
+    tag:      getEntryTicketTag(t.type || ""),
+  }));
+
   const ticketSelections      = d.ticketSelections      || d.ticket_selections      || [];
-  const entryTicketSelections = d.entryTicketSelections || d.entry_ticket_selections || [];
   const selectedActivities    = d.selectedActivities    || d.selected_activities    || d.activities || [];
   const selectedFacilities    = d.selectedFacilities    || d.selected_facilities    || d.facilities || [];
   const visitDate             = bookingData?.visit_date || d.visit_date || d.date || "";
@@ -324,15 +346,21 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
   infoRow("Location",     d.location || d.locationName);
   y += 6;
 
-  // ── Entry tickets (adventure_place) ─────────────────────────────
+  // ── Entry tickets (adventure_place) — every type the guest picked ──────
+  // One row per selected ticket type (Citizen Adult, Citizen Child,
+  // Non-Citizen Adult, Non-Citizen Child, and any Special tier), tagged
+  // using the type-derived label, plus a running subtotal row.
   if (entryTicketSelections.length > 0) {
     section("ENTRY TICKETS");
     tableHeader("TICKET TYPE", "SUBTOTAL");
-    entryTicketSelections.forEach((t: any) => {
-      const qty = t.quantity || 1;
-      tableRow(t.label, fmtMoney(t.price * qty),
+    entryTicketSelections.forEach((t) => {
+      const qty = t.quantity;
+      const tag = t.tag ? ` (${t.tag})` : "";
+      tableRow(`${t.label}${tag}`, fmtMoney(t.price * qty),
         `${qty} person${qty > 1 ? "s" : ""} × ${fmtMoney(t.price)} per ticket`);
     });
+    const entryTicketsTotal = entryTicketSelections.reduce((s, t) => s + t.price * t.quantity, 0);
+    tableRow("Entry Tickets Subtotal", fmtMoney(entryTicketsTotal));
     y += 6;
   }
 
@@ -600,7 +628,6 @@ const BookingPage = () => {
         ).eq("id", id).maybeSingle();
         data = r.data; error = r.error;
       } else if (type === "adventure_place" || type === "adventure") {
-        // ✅ Fetch new non-citizen + special pricing columns
         const r = await supabase.from("adventure_places").select(
           "id,name,location,place,country,image_url,description,amenities," +
           "facilities,activities,phone_numbers,email,opening_hours,closing_hours," +
@@ -686,7 +713,6 @@ const BookingPage = () => {
         }
       } else if (type === "adventure_place" || type === "adventure") {
         if (!isFacilityOnly) {
-          // ✅ Use the granular entry ticket breakdown when available
           if (formData.entryTicketSelections?.length) {
             formData.entryTicketSelections.forEach(t => (totalAmount += t.price * t.quantity));
           } else {
@@ -757,7 +783,6 @@ const BookingPage = () => {
           selectedFacilities:     formData.selectedFacilities,
           activities:             formData.selectedActivities,
           selectedActivities:     formData.selectedActivities,
-          // ✅ Store entry tickets in both keys so PDF + DB queries both find them
           entry_ticket_selections: formData.entryTicketSelections,
           entryTicketSelections:   formData.entryTicketSelections,
         },
@@ -851,14 +876,11 @@ const BookingPage = () => {
       return {
         ...baseProps,
         bookingType:             "adventure_place",
-        // Citizen fees
         priceAdult:              item.entry_fee       || 0,
         priceChild:              item.child_entry_fee || item.entry_fee || 0,
-        // ✅ Non-citizen fees from new columns
         nonCitizenEntryFee:      item.non_citizen_entry_fee       || 0,
         nonCitizenChildEntryFee: item.non_citizen_child_entry_fee || 0,
         hasNonCitizenPricing:    item.has_non_citizen_pricing     || false,
-        // ✅ Special / custom tiers
         specialEntryPrices:      Array.isArray(item.special_entry_prices)
                                    ? item.special_entry_prices
                                    : [],

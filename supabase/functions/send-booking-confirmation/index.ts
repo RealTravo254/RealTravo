@@ -42,16 +42,28 @@ function formatDate(dateStr: string): string {
   } catch { return dateStr; }
 }
 
+// ── Entry-ticket tag helper ──────────────────────────────────────────────
+// EntryTicketSelection.type looks like "citizen_adult", "citizen_child",
+// "non_citizen_adult", "non_citizen_child", or a special tier's own id.
+// We derive a human-readable tag from that prefix — there is no separate
+// "category" field on the object client-side.
+function getEntryTicketTag(type: string): string {
+  if (!type) return '';
+  if (type.startsWith('citizen_'))     return 'Citizen';
+  if (type.startsWith('non_citizen_')) return 'Non-Citizen';
+  return 'Special';
+}
+
 function buildDetailsHTML(bookingDetails: any, guestName: string, guestEmail: string, guestPhone: string, bookingType: string, itemName: string, visitDate: string | null, totalAmount: number, bookingId: string, isPaid: boolean, hostInfo?: { name?: string; email?: string; phone?: string }): string {
   const details = typeof bookingDetails === 'string' ? JSON.parse(bookingDetails) : (bookingDetails || {});
   const safeGuestName = escapeHtml(guestName);
   const safeItemName = escapeHtml(itemName);
   const typeDisplay = escapeHtml(bookingType).charAt(0).toUpperCase() + escapeHtml(bookingType).slice(1);
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(bookingId)}`;
-  
+
   const totalPeople = (Number(details.adults) || 0) + (Number(details.children) || 0);
 
-  // Ticket types
+  // Ticket types (trip / event tickets)
   let ticketHTML = '';
   if (details.ticketSelections && Array.isArray(details.ticketSelections) && details.ticketSelections.length > 0) {
     ticketHTML = `<div style="background:#f0fdf4;padding:15px;border-radius:8px;margin:15px 0;">
@@ -59,6 +71,40 @@ function buildDetailsHTML(bookingDetails: any, guestName: string, guestEmail: st
       <table style="width:100%;border-collapse:collapse;">
         <tr style="border-bottom:1px solid #ddd;"><th style="text-align:left;padding:6px 0;">Type</th><th style="text-align:center;">Qty</th><th style="text-align:right;">Price</th></tr>
         ${details.ticketSelections.map((t: any) => `<tr style="border-bottom:1px dashed #eee;"><td style="padding:6px 0;">${escapeHtml(t.name || 'General')}</td><td style="text-align:center;">${t.quantity}</td><td style="text-align:right;">KES ${(Number(t.price) * Number(t.quantity)).toLocaleString()}</td></tr>`).join('')}
+      </table>
+    </div>`;
+  }
+
+  // ── Entry tickets (adventure_place) — every type the guest selected ──
+  // Reads from either key spelling the client stores it under, and covers
+  // every ticket tier the guest picked: citizen adult/child, non-citizen
+  // adult/child, and any custom "special entry price" tier. Each tier gets
+  // its own row with quantity, unit price, subtotal, and a Citizen /
+  // Non-Citizen / Special tag derived from `type`, plus a running total.
+  let entryTicketHTML = '';
+  const rawEntryTickets =
+    (Array.isArray(details.entryTicketSelections) && details.entryTicketSelections.length > 0)
+      ? details.entryTicketSelections
+      : (Array.isArray(details.entry_ticket_selections) ? details.entry_ticket_selections : []);
+
+  const entryTickets = rawEntryTickets.map((t: any) => ({
+    label:    t.label || 'Entry Ticket',
+    price:    Number(t.price) || 0,
+    quantity: Number(t.quantity) || 1,
+    tag:      getEntryTicketTag(t.type || ''),
+  }));
+
+  if (entryTickets.length > 0) {
+    const entryTicketsTotal = entryTickets.reduce((sum, t) => sum + t.price * t.quantity, 0);
+    entryTicketHTML = `<div style="background:#f0fdf4;padding:15px;border-radius:8px;margin:15px 0;">
+      <h3 style="color:#008080;font-size:14px;margin-bottom:10px;text-transform:uppercase;">Entry Tickets</h3>
+      <table style="width:100%;border-collapse:collapse;">
+        <tr style="border-bottom:1px solid #ddd;"><th style="text-align:left;padding:6px 0;">Type</th><th style="text-align:center;">Qty</th><th style="text-align:right;">Subtotal</th></tr>
+        ${entryTickets.map((t) => {
+          const label = escapeHtml(t.tag ? `${t.label} (${t.tag})` : t.label);
+          return `<tr style="border-bottom:1px dashed #eee;"><td style="padding:6px 0;">${label}</td><td style="text-align:center;">${t.quantity}</td><td style="text-align:right;">KES ${(t.price * t.quantity).toLocaleString()}</td></tr>`;
+        }).join('')}
+        <tr><td style="padding:8px 0 0;font-weight:bold;">Entry Tickets Subtotal</td><td></td><td style="text-align:right;padding:8px 0 0;font-weight:bold;color:#008080;">KES ${entryTicketsTotal.toLocaleString()}</td></tr>
       </table>
     </div>`;
   }
@@ -95,9 +141,10 @@ function buildDetailsHTML(bookingDetails: any, guestName: string, guestEmail: st
     </div>`;
   }
 
-  // Entry fee line
+  // Entry fee line (guest counts) — only shown when no itemized entry
+  // tickets exist, so we don't show both a generic count AND itemized rows.
   let entryFeeHTML = '';
-  if (details.adults || details.children) {
+  if ((details.adults || details.children) && entryTickets.length === 0) {
     entryFeeHTML = `<p><strong>Guests:</strong> ${Number(details.adults) || 0} Adults, ${Number(details.children) || 0} Children (${totalPeople} total)</p>`;
   }
   if (details.rooms) {
@@ -140,7 +187,7 @@ function buildDetailsHTML(bookingDetails: any, guestName: string, guestEmail: st
         <p class="amount">Total: KES ${Number(totalAmount).toLocaleString()}</p>
         <span class="status-badge ${isPaid ? 'status-paid' : 'status-pending'}">${isPaid ? 'Payment Confirmed' : 'Payment Pending'}</span>
       </div>
-      ${ticketHTML}${facilitiesHTML}${activitiesHTML}
+      ${ticketHTML}${entryTicketHTML}${facilitiesHTML}${activitiesHTML}
       ${(hostInfo && (hostInfo.name || hostInfo.email || hostInfo.phone)) ? `<div class="detail-box"><h2>Host Contact</h2>
         ${hostInfo.name ? `<div class="info-row"><span class="info-label">Host</span><span class="info-value">${escapeHtml(hostInfo.name)}</span></div>` : ''}
         ${hostInfo.email ? `<div class="info-row"><span class="info-label">Email</span><span class="info-value">${escapeHtml(hostInfo.email)}</span></div>` : ''}
@@ -199,7 +246,6 @@ const handler = async (req: Request): Promise<Response> => {
     const isPaid = paymentStatus === 'paid' || paymentStatus === 'completed' || booking.payment_status === 'paid' || booking.payment_status === 'completed';
     const guestPhone = bookingDetails?.phone || booking.guest_phone || '';
 
-    // Resolve host contact info from item + profile
     const bookingDetailsObject = typeof bookingDetails === 'string' ? JSON.parse(bookingDetails) : (bookingDetails || {});
     let hostInfo: { name?: string; email?: string; phone?: string } = {};
     try {
@@ -224,7 +270,6 @@ const handler = async (req: Request): Promise<Response> => {
       }
     } catch (e) { console.error('Host info lookup failed:', e); }
 
-    // Build and send guest email
     const emailHTML = buildDetailsHTML(bookingDetails, guestName, recipientEmail, guestPhone, bookingType, itemName, visitDate || null, totalAmount, bookingId, isPaid, hostInfo);
 
     const { error: sendError } = await resend.emails.send({
@@ -247,14 +292,41 @@ const handler = async (req: Request): Promise<Response> => {
       else if (booking.booking_type === 'adventure' || booking.booking_type === 'adventure_place') tableName = 'adventure_places';
 
       const { data: item } = await supabaseClient.from(tableName).select('created_by').eq('id', booking.item_id).single();
-      
+
       if (item?.created_by) {
         const { data: host } = await supabaseClient.from('profiles').select('email, name').eq('id', item.created_by).single();
-        
+
         if (host?.email) {
           const safeHostName = escapeHtml(host.name || 'Host');
           const details = typeof bookingDetails === 'string' ? JSON.parse(bookingDetails) : (bookingDetails || {});
           const totalPeople = (Number(details.adults) || 0) + (Number(details.children) || 0);
+
+          // Same entry-ticket normalization as the guest email, so the host
+          // notification also lists every ticket type that was selected,
+          // tagged Citizen / Non-Citizen / Special.
+          const rawEntryTicketsHost =
+            (Array.isArray(details.entryTicketSelections) && details.entryTicketSelections.length > 0)
+              ? details.entryTicketSelections
+              : (Array.isArray(details.entry_ticket_selections) ? details.entry_ticket_selections : []);
+
+          const entryTicketsHost = rawEntryTicketsHost.map((t: any) => ({
+            label:    t.label || 'Entry Ticket',
+            price:    Number(t.price) || 0,
+            quantity: Number(t.quantity) || 1,
+            tag:      getEntryTicketTag(t.type || ''),
+          }));
+
+          const entryTicketsHostHTML = entryTicketsHost.length > 0
+            ? `<div class="detail-box"><h2>Entry Tickets</h2>
+                <table style="width:100%;border-collapse:collapse;">
+                  <tr style="border-bottom:1px solid #ddd;"><th style="text-align:left;padding:6px 0;">Type</th><th style="text-align:center;">Qty</th><th style="text-align:right;">Subtotal</th></tr>
+                  ${entryTicketsHost.map((t) => {
+                    const label = escapeHtml(t.tag ? `${t.label} (${t.tag})` : t.label);
+                    return `<tr style="border-bottom:1px dashed #eee;"><td style="padding:6px 0;">${label}</td><td style="text-align:center;">${t.quantity}</td><td style="text-align:right;">KES ${(t.price * t.quantity).toLocaleString()}</td></tr>`;
+                  }).join('')}
+                </table>
+              </div>`
+            : '';
 
           const hostHTML = `<!DOCTYPE html><html><head><style>
             body{font-family:Arial,sans-serif;line-height:1.6;color:#333;}
@@ -281,6 +353,7 @@ const handler = async (req: Request): Promise<Response> => {
                 <p class="amount">Amount: KES ${Number(totalAmount).toLocaleString()}</p>
                 <p><strong>Payment:</strong> ${isPaid ? '✅ Paid' : '⏳ Pending'}</p>
               </div>
+              ${entryTicketsHostHTML}
               <p>Please prepare to welcome your guest. View full details in your dashboard.</p>
             </div>
           </div></body></html>`;

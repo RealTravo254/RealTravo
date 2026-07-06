@@ -10,10 +10,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import { MapPin, Calendar, Edit3, EyeOff, LayoutDashboard, ReceiptText, Star, Loader2, ArrowLeft, RotateCcw } from "lucide-react";
+import {
+  MapPin, Calendar, Edit3, EyeOff, LayoutDashboard, ReceiptText, Star, Loader2, ArrowLeft, RotateCcw,
+  BarChart3, TrendingUp, DollarSign, ChevronDown, ChevronUp,
+} from "lucide-react";
 
 const COLORS = {
-  TEAL: "#008080",
+  TEAL: "#008080", 
   CORAL: "#FF7F50",
   KHAKI_DARK: "#857F3E",
   SOFT_GRAY: "#F8F9FA",
@@ -36,6 +39,29 @@ const getTableForType = (type: string) => {
   if (type === "adventure" || type === "adventure_place") return "adventure_places";
   return null;
 };
+
+// ── Per-item analytics types ────────────────────────────────────────────────
+type AnalyticsItemType = "trip" | "adventure";
+
+interface DailyStat {
+  date: string; // YYYY-MM-DD, or "unknown"
+  count: number;
+  amount: number; // net (after service fee)
+}
+
+interface ItemAnalyticsData {
+  id: string;
+  name: string;
+  type: AnalyticsItemType;
+  image_url?: string | null;
+  totalBookings: number;
+  grossEarnings: number;
+  serviceFee: number;
+  netEarnings: number;
+  daily: DailyStat[]; // sorted newest first
+}
+
+const formatKsh = (n: number) => `KSh ${Math.round(n).toLocaleString()}`;
 
 const MyListing = () => {
   const { user } = useAuth();
@@ -62,6 +88,12 @@ const MyListing = () => {
   const [companyStatus, setCompanyStatus] = useState<string | null>(null);
   // Adventure host — detected via adventure_places table, not hosting_category
   const [isAdventureHost, setIsAdventureHost] = useState(false);
+
+  // ── Per-item analytics state (Earnings & Daily Bookings tab) ─────────────
+  const [analyticsData, setAnalyticsData] = useState<ItemAnalyticsData[]>([]);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsFetched, setAnalyticsFetched] = useState(false);
+  const [expandedAnalytics, setExpandedAnalytics] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!user) {
@@ -274,6 +306,141 @@ const MyListing = () => {
     }
   };
 
+  // ── Per-item earnings & daily bookings analytics ──────────────────────────
+  // Fetched lazily the first time the "Analytics" tab is opened, covering ALL
+  // of the host's trips + adventure places (not just the currently paginated
+  // page), so every item gets its own complete breakdown.
+  const fetchAnalytics = async () => {
+    if (!user) return;
+    setAnalyticsLoading(true);
+    try {
+      const [tripsRes, adventuresRes] = await Promise.all([
+        supabase
+          .from("trips")
+          .select("id,name,image_url,type,service_fee_percentage")
+          .eq("created_by", user.id),
+        supabase
+          .from("adventure_places")
+          .select("id,name,image_url,service_fee_percentage")
+          .eq("created_by", user.id),
+      ]);
+
+      type Meta = {
+        name: string;
+        type: AnalyticsItemType;
+        image_url?: string | null;
+        feeRate: number | null;
+      };
+      const itemMeta = new Map<string, Meta>();
+
+      (tripsRes.data || [])
+        .filter((t: any) => t.type !== "event")
+        .forEach((t: any) => {
+          itemMeta.set(t.id, {
+            name: t.name,
+            type: "trip",
+            image_url: t.image_url,
+            feeRate: t.service_fee_percentage != null ? Number(t.service_fee_percentage) : null,
+          });
+        });
+
+      (adventuresRes.data || []).forEach((a: any) => {
+        itemMeta.set(a.id, {
+          name: a.name,
+          type: "adventure",
+          image_url: a.image_url,
+          feeRate: a.service_fee_percentage != null ? Number(a.service_fee_percentage) : null,
+        });
+      });
+
+      const itemIds = [...itemMeta.keys()];
+      if (itemIds.length === 0) {
+        setAnalyticsData([]);
+        setAnalyticsFetched(true);
+        return;
+      }
+
+      const { data: bookingsData } = await supabase
+        .from("bookings")
+        .select("id,item_id,booking_type,status,payment_status,total_amount,visit_date,booking_details,created_at")
+        .in("item_id", itemIds)
+        .eq("payment_status", "completed");
+
+      const realBookings = (bookingsData || []).filter((b: any) => b.status === "confirmed");
+
+      const byItem = new Map<string, any[]>();
+      realBookings.forEach((b: any) => {
+        if (!byItem.has(b.item_id)) byItem.set(b.item_id, []);
+        byItem.get(b.item_id)!.push(b);
+      });
+
+      const result: ItemAnalyticsData[] = [];
+
+      for (const [itemId, meta] of itemMeta.entries()) {
+        const itemBookings = byItem.get(itemId) || [];
+        const feeRate = meta.feeRate ?? 0;
+
+        let gross = 0;
+        let fee = 0;
+        const dailyMap = new Map<string, { count: number; amount: number }>();
+
+        for (const b of itemBookings) {
+          const amount = Number(b.total_amount);
+          gross += amount;
+          const bFee = (amount * feeRate) / 100;
+          fee += bFee;
+
+          const rawDate = b.visit_date || b.booking_details?.date || b.created_at;
+          const dateKey = rawDate ? new Date(rawDate).toISOString().slice(0, 10) : "unknown";
+
+          const entry = dailyMap.get(dateKey) || { count: 0, amount: 0 };
+          entry.count += 1;
+          entry.amount += amount - bFee;
+          dailyMap.set(dateKey, entry);
+        }
+
+        const daily: DailyStat[] = [...dailyMap.entries()]
+          .map(([date, v]) => ({ date, count: v.count, amount: v.amount }))
+          .sort((a, b) => (a.date < b.date ? 1 : -1)); // newest first
+
+        result.push({
+          id: itemId,
+          name: meta.name,
+          type: meta.type,
+          image_url: meta.image_url,
+          totalBookings: itemBookings.length,
+          grossEarnings: gross,
+          serviceFee: fee,
+          netEarnings: gross - fee,
+          daily,
+        });
+      }
+
+      result.sort((a, b) => b.netEarnings - a.netEarnings);
+      setAnalyticsData(result);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setAnalyticsLoading(false);
+      setAnalyticsFetched(true);
+    }
+  };
+
+  const toggleExpandAnalytics = (id: string) => {
+    setExpandedAnalytics(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleTabChange = (value: string) => {
+    if (value === "analytics" && !analyticsFetched && !analyticsLoading) {
+      fetchAnalytics();
+    }
+  };
+
   const getCategoryCount = (category: string) => myContent.filter(item => item.type === category).length;
   const getBookingCount  = (category: string) => bookings.filter(b => b.booking_type === category).length;
 
@@ -469,6 +636,144 @@ const MyListing = () => {
     );
   };
 
+  // ── Renders the per-item "Earnings & Daily Bookings" analytics tab ────────
+  const renderAnalytics = () => {
+    if (analyticsLoading) {
+      return (
+        <div className="flex justify-center py-16">
+          <Loader2 className="h-6 w-6 animate-spin" style={{ color: COLORS.TEAL }} />
+        </div>
+      );
+    }
+
+    if (analyticsData.length === 0) {
+      return (
+        <div className="p-8 text-center bg-white rounded-[28px] border border-dashed border-slate-200 text-slate-400 font-bold uppercase text-xs tracking-widest">
+          No listings to analyze yet
+        </div>
+      );
+    }
+
+    const maxDailyCount = Math.max(1, ...analyticsData.flatMap(i => i.daily.map(d => d.count)));
+
+    return (
+      <div className="grid gap-3">
+        {analyticsData.map((item) => {
+          const isOpen = expandedAnalytics.has(item.id);
+          const color = item.type === "adventure" ? COLORS.CORAL : COLORS.TEAL;
+
+          return (
+            <Card key={item.id} className="bg-white rounded-[28px] border border-slate-100 shadow-sm overflow-hidden">
+              <button
+                onClick={() => toggleExpandAnalytics(item.id)}
+                className="w-full flex items-center justify-between p-4 text-left"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <img
+                    src={item.image_url || "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&q=80"}
+                    alt={item.name}
+                    className="h-12 w-12 rounded-2xl object-cover shrink-0"
+                  />
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-black text-sm uppercase tracking-tight text-slate-800 truncate">
+                        {item.name}
+                      </p>
+                      <Badge
+                        className="shrink-0 rounded-full px-2 py-0.5 text-[8px] font-black uppercase tracking-widest border-none"
+                        style={{ backgroundColor: `${color}20`, color }}
+                      >
+                        {item.type === "adventure" ? "Adventure" : "Trip"}
+                      </Badge>
+                    </div>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                      {item.totalBookings} bookings · {formatKsh(item.netEarnings)} net
+                    </p>
+                  </div>
+                </div>
+                {isOpen ? (
+                  <ChevronUp className="h-4 w-4 text-slate-400 shrink-0" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-slate-400 shrink-0" />
+                )}
+              </button>
+
+              {isOpen && (
+                <div className="px-4 pb-4 border-t border-slate-50 pt-3">
+                  <div className="grid grid-cols-3 gap-2 mb-4">
+                    <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-100">
+                      <div className="flex items-center gap-1.5 mb-1 text-slate-500">
+                        <DollarSign className="h-3.5 w-3.5" />
+                        <span className="text-[8px] font-bold uppercase tracking-widest">Gross</span>
+                      </div>
+                      <p className="text-sm font-black text-slate-800">{formatKsh(item.grossEarnings)}</p>
+                    </div>
+                    <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-100">
+                      <div className="flex items-center gap-1.5 mb-1" style={{ color }}>
+                        <TrendingUp className="h-3.5 w-3.5" />
+                        <span className="text-[8px] font-bold uppercase tracking-widest">Net</span>
+                      </div>
+                      <p className="text-sm font-black" style={{ color }}>{formatKsh(item.netEarnings)}</p>
+                    </div>
+                    <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-100">
+                      <div className="flex items-center gap-1.5 mb-1 text-slate-500">
+                        <Calendar className="h-3.5 w-3.5" />
+                        <span className="text-[8px] font-bold uppercase tracking-widest">Bookings</span>
+                      </div>
+                      <p className="text-sm font-black text-slate-800">{item.totalBookings}</p>
+                    </div>
+                  </div>
+
+                  {item.daily.length === 0 ? (
+                    <p className="text-[10px] text-slate-400 font-bold uppercase text-center py-4">
+                      No bookings yet
+                    </p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <BarChart3 className="h-3 w-3 text-slate-400" />
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">
+                          Daily Bookings
+                        </p>
+                      </div>
+                      {item.daily.map((d) => (
+                        <div key={d.date} className="flex items-center gap-2">
+                          <span className="text-[9px] font-bold text-slate-400 w-16 shrink-0">
+                            {d.date === "unknown"
+                              ? "Unknown"
+                              : new Date(d.date).toLocaleDateString("en-GB", {
+                                  day: "2-digit",
+                                  month: "short",
+                                })}
+                          </span>
+                          <div className="flex-1 h-4 bg-slate-100 rounded-full overflow-hidden">
+                            <div
+                              className="h-full rounded-full"
+                              style={{
+                                width: `${(d.count / maxDailyCount) * 100}%`,
+                                backgroundColor: color,
+                              }}
+                            />
+                          </div>
+                          <span className="text-[9px] font-black text-slate-800 w-6 text-right shrink-0">
+                            {d.count}
+                          </span>
+                          <span className="text-[9px] font-black text-slate-800 w-16 text-right shrink-0">
+                            {formatKsh(d.amount)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </Card>
+          );
+        })}
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F8F9FA]">
@@ -535,8 +840,8 @@ const MyListing = () => {
           </div>
         </header>
 
-        <Tabs defaultValue="listings" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 h-14 p-1.5 bg-slate-200/50 rounded-2xl mb-8">
+        <Tabs defaultValue="listings" className="w-full" onValueChange={handleTabChange}>
+          <TabsList className="grid w-full grid-cols-3 h-14 p-1.5 bg-slate-200/50 rounded-2xl mb-8">
             <TabsTrigger
               value="listings"
               className="rounded-xl font-black uppercase text-[11px] tracking-widest data-[state=active]:bg-white data-[state=active]:text-[#008080] data-[state=active]:shadow-sm transition-all"
@@ -550,6 +855,13 @@ const MyListing = () => {
             >
               <ReceiptText className="h-3.5 w-3.5 mr-2" />
               Sales Feed
+            </TabsTrigger>
+            <TabsTrigger
+              value="analytics"
+              className="rounded-xl font-black uppercase text-[11px] tracking-widest data-[state=active]:bg-white data-[state=active]:text-[#857F3E] data-[state=active]:shadow-sm transition-all"
+            >
+              <BarChart3 className="h-3.5 w-3.5 mr-2" />
+              Analytics
             </TabsTrigger>
           </TabsList>
 
@@ -641,6 +953,19 @@ const MyListing = () => {
                 </Button>
               </div>
             )}
+          </TabsContent>
+
+          {/* ── Analytics tab: per-item earnings + daily bookings ── */}
+          <TabsContent value="analytics" className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <div className="mb-2">
+              <h2 className="text-xl font-black uppercase tracking-tight" style={{ color: COLORS.KHAKI_DARK }}>
+                Item Analytics
+              </h2>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                Earnings &amp; daily bookings, per listing — tap a card to expand
+              </p>
+            </div>
+            {renderAnalytics()}
           </TabsContent>
         </Tabs>
       </main>

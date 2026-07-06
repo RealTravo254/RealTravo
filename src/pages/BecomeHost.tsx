@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import {
-  Plus, ArrowLeft, LayoutDashboard, Map, Building2, Tent,
+  Plus, ArrowLeft, LayoutDashboard, Map, Building2, Tent, Home,
   Clock, CheckCircle2, XCircle, MapPin, RefreshCw, Ban, Info,
 } from "lucide-react";
 
@@ -25,6 +25,7 @@ type ViewState =
   | { screen: "adventure-pending"; place: any }
   | { screen: "adventure-no-place" }
   | { screen: "adventure-rejected"; place: any }
+  | { screen: "adventure-accommodation-dashboard"; places: any[] }
   | { screen: "guide-company-dashboard"; content: any[] };
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -99,7 +100,7 @@ const AdventurePendingCard = ({ place }: { place: any }) => {
           <Clock className="h-3.5 w-3.5 text-amber-500" /> Under Review
         </div>
         <div className="absolute bottom-4 left-4 right-4">
-          <p className="text-[9px] font-black text-white/60 uppercase tracking-widest mb-0.5">Your Adventure Place</p>
+          <p className="text-[9px] font-black text-white/60 uppercase tracking-widest mb-0.5">Your Listing</p>
           <h3 className="text-xl font-black text-white uppercase tracking-tight leading-tight line-clamp-1">{place.name}</h3>
           {(place.location || place.place) && (
             <div className="flex items-center gap-1 mt-1">
@@ -119,7 +120,7 @@ const AdventurePendingCard = ({ place }: { place: any }) => {
           <div>
             <p className="text-sm font-black text-amber-800 uppercase tracking-wide mb-1">Pending Approval</p>
             <p className="text-[12px] text-amber-700 font-medium leading-relaxed">
-              Your adventure place has been submitted and is currently being reviewed by our team. We'll notify you once it goes live. This usually takes 24–48 hours.
+              Your listing has been submitted and is currently being reviewed by our team. We'll notify you once it goes live. This usually takes 24–48 hours.
             </p>
           </div>
         </div>
@@ -142,9 +143,46 @@ const AdventurePendingCard = ({ place }: { place: any }) => {
         <div className="mt-4 flex items-start gap-2 px-1">
           <Info className="h-3.5 w-3.5 text-slate-400 mt-0.5 shrink-0" />
           <p className="text-[10px] text-slate-400 leading-relaxed">
-            You cannot submit another adventure place while your submission is under review.
+            You cannot submit another listing while this submission is under review.
           </p>
         </div>
+      </div>
+    </div>
+  );
+};
+
+// ── Accommodation card (used once approved — supports multiple listings) ─────
+const AccommodationCard = ({ place, onManage }: { place: any; onManage: () => void }) => {
+  const imageUrl = place.image_url || place.gallery_images?.[0];
+  return (
+    <div className="bg-white rounded-[24px] overflow-hidden shadow-lg border border-slate-100 flex flex-col">
+      <div className="relative h-40 overflow-hidden">
+        {imageUrl ? (
+          <img src={imageUrl} alt={place.name} className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-emerald-50 to-emerald-100 flex items-center justify-center">
+            <Home className="h-10 w-10 text-emerald-300" />
+          </div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+        <div className="absolute top-3 left-3">
+          <Badge className="bg-emerald-500 text-white border-none text-[9px] font-black uppercase">Live</Badge>
+        </div>
+        <div className="absolute bottom-3 left-4 right-4">
+          <h3 className="text-base font-black text-white uppercase tracking-tight line-clamp-1">{place.name}</h3>
+          {(place.place || place.location) && (
+            <div className="flex items-center gap-1 mt-0.5">
+              <MapPin className="h-3 w-3 text-white/70" />
+              <p className="text-[11px] text-white/75 font-semibold">
+                {[place.place, place.location].filter(Boolean).join(", ")}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="p-4 flex items-center justify-between">
+        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Accommodation</span>
+        <Button variant="ghost" onClick={onManage} className="text-[10px] font-black uppercase text-slate-400 px-2">Manage →</Button>
       </div>
     </div>
   );
@@ -206,31 +244,52 @@ const BecomeHost = () => {
           return;
         }
 
-        // ── 3. Not a guide/company — check adventure place ───────────────────
+        // ── 3. Not a guide/company — check adventure place(s) ────────────────
+        // NOTE: no .limit(1) here anymore — a user may hold several rows once
+        // Accommodation listings are allowed to multiply after approval.
         const { data: advPlaces } = await supabase
           .from("adventure_places")
-          .select("id, name, image_url, gallery_images, location, place, approval_status")
+          .select("id, name, image_url, gallery_images, location, place, approval_status, category")
           .eq("created_by", user.id)
-          .order("created_at", { ascending: false })
-          .limit(1);
+          .order("created_at", { ascending: false });
 
         if (cancelled) return;
 
-        const adventurePlace = advPlaces?.[0] ?? null;
+        const places = advPlaces ?? [];
 
-        if (adventurePlace !== null) {
-          const status = (adventurePlace.approval_status ?? "").toLowerCase().trim();
+        if (places.length === 0) {
+          setView({ screen: "type-selection" });
+          return;
+        }
 
-          if (status === "approved") {
-            setView({ screen: "redirect", to: "/my-listing" });
+        const normStatus = (p: any) => (p.approval_status ?? "").toLowerCase().trim();
+        const approved = places.filter((p) => normStatus(p) === "approved");
+        const rejected = places.filter((p) => normStatus(p) === "rejected");
+        const pending  = places.filter((p) => normStatus(p) !== "approved" && normStatus(p) !== "rejected");
+
+        if (approved.length > 0) {
+          const allAccommodation = approved.every((p) => p.category === "accommodation");
+
+          if (allAccommodation) {
+            // Accommodation hosts can hold multiple approved listings — show the
+            // dashboard with an active "Add Accommodation" entry point.
+            setView({ screen: "adventure-accommodation-dashboard", places: approved });
             return;
           }
-          if (status === "rejected") {
-            setView({ screen: "adventure-rejected", place: adventurePlace });
-            return;
-          }
-          // pending / unknown → show pending screen
-          setView({ screen: "adventure-pending", place: adventurePlace });
+
+          // Legacy single-listing hosting types (hotel/campsite/park/attraction)
+          // remain capped at one listing and keep using /my-listing.
+          setView({ screen: "redirect", to: "/my-listing" });
+          return;
+        }
+
+        if (pending.length > 0) {
+          setView({ screen: "adventure-pending", place: pending[0] });
+          return;
+        }
+
+        if (rejected.length > 0) {
+          setView({ screen: "adventure-rejected", place: rejected[0] });
           return;
         }
 
@@ -311,22 +370,22 @@ const BecomeHost = () => {
         <div className="flex items-start gap-2.5 p-3.5 rounded-2xl bg-amber-50 border border-amber-200 mb-8">
           <Info className="h-4 w-4 text-amber-500 flex-shrink-0 mt-0.5" />
           <p className="text-[11px] text-amber-700 font-medium leading-relaxed">
-            <span className="font-black uppercase">Note:</span> An Adventure Place is a standalone hosting type — it cannot be combined with Tour Guide or Company hosting. Each account is limited to one adventure place listing.
+            <span className="font-black uppercase">Note:</span> Accommodation / Airbnb is a standalone hosting type — it cannot be combined with Tour Guide or Company hosting. Once your first listing is approved, you can add more Accommodation properties from your dashboard.
           </p>
         </div>
 
         {/* ── Tour Guide and Register Company hosting types disabled ──────────
-            Only Adventure Place hosting is offered right now. This also means
-            guided trips, fixed-date trips, and events (which are created via
-            the Tour Guide / Company paths) are not reachable from this page.
+            Only Accommodation / Airbnb hosting is offered right now. This also
+            means guided trips, fixed-date trips, and events (which are created
+            via the Tour Guide / Company paths) are not reachable from this page.
             Uncomment the two SelectionCards below, and restore the grid to
             grid-cols-1 md:grid-cols-3, to bring these hosting types back. */}
         <div className="grid grid-cols-1 gap-6">
           <div className="max-w-sm">
             <SelectionCard
-              icon={<Tent className="h-8 w-8 text-emerald-600" />}
-              title="Adventure Place"
-              desc="List your campsite, park, or private adventure destination. One listing per account — standalone only."
+              icon={<Home className="h-8 w-8 text-emerald-600" />}
+              title="Accommodation / Airbnb"
+              desc="List your home, apartment, or private stay. Once approved, you can add unlimited Accommodation listings from your dashboard."
               onClick={() => navigate("/create-adventure")}
               bg="bg-emerald-50"
             />
@@ -364,7 +423,7 @@ const BecomeHost = () => {
           </Button>
           <div>
             <h1 className="text-3xl font-black uppercase tracking-tighter text-slate-900">
-              My <span style={{ color: COLORS.CORAL }}>Adventure Place</span>
+              My <span style={{ color: COLORS.CORAL }}>Listing</span>
             </h1>
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Host Dashboard</p>
           </div>
@@ -386,7 +445,7 @@ const BecomeHost = () => {
           </Button>
           <div>
             <h1 className="text-3xl font-black uppercase tracking-tighter text-slate-900">
-              My <span style={{ color: COLORS.CORAL }}>Adventure Place</span>
+              My <span style={{ color: COLORS.CORAL }}>Listing</span>
             </h1>
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Host Dashboard</p>
           </div>
@@ -399,7 +458,7 @@ const BecomeHost = () => {
             </div>
             <div className="flex-1">
               <h2 className="text-base font-black uppercase tracking-tight text-red-700 mb-1">
-                Your adventure place was rejected
+                Your listing was rejected
               </h2>
               <p className="text-[12px] text-red-600 font-medium leading-relaxed mb-3">
                 Your submission for <span className="font-black">{view.place?.name}</span> did not meet our listing requirements. Please review your details and resubmit.
@@ -421,9 +480,9 @@ const BecomeHost = () => {
         </h2>
         <div className="max-w-sm">
           <SelectionCard
-            icon={<Tent className="h-8 w-8 text-emerald-600" />}
-            title="Adventure Place"
-            desc="Fix your details and resubmit your campsite, park, or adventure destination."
+            icon={<Home className="h-8 w-8 text-emerald-600" />}
+            title="Accommodation / Airbnb"
+            desc="Fix your details and resubmit your home, apartment, or private stay."
             onClick={() => navigate("/create-adventure")}
             bg="bg-emerald-50"
           />
@@ -444,29 +503,76 @@ const BecomeHost = () => {
           </Button>
           <div>
             <h1 className="text-3xl font-black uppercase tracking-tighter text-slate-900">
-              My <span style={{ color: COLORS.CORAL }}>Adventure Place</span>
+              My <span style={{ color: COLORS.CORAL }}>Listing</span>
             </h1>
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Host Dashboard</p>
           </div>
         </div>
         <div className="bg-white rounded-[28px] p-8 text-center shadow-lg border border-slate-100">
           <div className="w-16 h-16 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-4">
-            <Tent className="h-8 w-8 text-emerald-600" />
+            <Home className="h-8 w-8 text-emerald-600" />
           </div>
           <h3 className="text-xl font-black uppercase tracking-tight text-slate-900 mb-2">No Place Submitted Yet</h3>
-          <p className="text-sm text-slate-500 mb-6">You haven't submitted an adventure place yet. Create your listing to get started.</p>
+          <p className="text-sm text-slate-500 mb-6">You haven't submitted a listing yet. Create your listing to get started.</p>
           <Button
             onClick={() => navigate("/create-adventure")}
             className="px-6 py-3 rounded-xl text-sm font-black uppercase tracking-widest text-white border-none"
             style={{ background: `linear-gradient(135deg, ${COLORS.KHAKI_DARK} 0%, ${COLORS.KHAKI_DARK}cc 100%)` }}
           >
-            <Plus className="h-4 w-4 mr-2" /> Submit Adventure Place
+            <Plus className="h-4 w-4 mr-2" /> Submit Listing
           </Button>
         </div>
       </main>
       <MobileBottomBar />
     </div>
   );
+
+  // ── Adventure: Accommodation dashboard (multiple approved listings) ───────
+  if (view.screen === "adventure-accommodation-dashboard") {
+    const { places } = view;
+    return (
+      <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
+        <Header />
+        <main className="flex-1 container px-4 py-12 mx-auto mb-24 max-w-4xl">
+          <div className="flex items-center justify-between gap-3 mb-8 flex-wrap">
+            <div className="flex items-center gap-3">
+              <Button variant="ghost" size="icon" onClick={() => navigate("/")} className="rounded-full bg-white shadow-sm border">
+                <ArrowLeft className="h-5 w-5 text-slate-600" />
+              </Button>
+              <div>
+                <h1 className="text-3xl font-black uppercase tracking-tighter text-slate-900">
+                  My <span style={{ color: COLORS.CORAL }}>Accommodations</span>
+                </h1>
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                  Host Dashboard · {places.length} Listing{places.length !== 1 ? "s" : ""}
+                </p>
+              </div>
+            </div>
+            {/* Accommodation hosts CAN create additional listings — unlike the
+                disabled "Add" pattern used for guide/company trips above. */}
+            <Button
+              onClick={() => navigate("/create-adventure")}
+              className="rounded-xl text-[11px] font-black uppercase tracking-widest text-white border-none px-5 py-5"
+              style={{ background: `linear-gradient(135deg, ${COLORS.TEAL} 0%, #005f5f 100%)` }}
+            >
+              <Plus className="h-4 w-4 mr-2" /> Add Accommodation
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {places.map((place) => (
+              <AccommodationCard
+                key={place.id}
+                place={place}
+                onManage={() => navigate(`/edit-listing/adventure/${place.id}`)}
+              />
+            ))}
+          </div>
+        </main>
+        <MobileBottomBar />
+      </div>
+    );
+  }
 
   // ── Guide / Company dashboard — Trips only ────────────────────────────────
   if (view.screen === "guide-company-dashboard") {

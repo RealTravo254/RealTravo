@@ -46,13 +46,18 @@ const safeObjectUrl = (file: File): string => { try { return URL.createObjectURL
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"];
 const isImageFile = (file: File) => ALLOWED_IMAGE_TYPES.includes(file.type) || file.type.startsWith("image/");
 
-// ─── Listing Category (Hotel / Campsite / Accommodation) ──────────────────────
-// Park and Attraction are commented out — uncomment when their pages are ready.
+// ─── Listing Category ──────────────────────────────────────────────────────────
+// Accommodation / Airbnb is the ONLY selectable category right now. Hosting an
+// Accommodation listing is the only path that allows a user to create MULTIPLE
+// approved listings on their account (see database policy + BecomeHost logic).
+// Hotel / Campsite / Park / Attraction are commented out — uncomment to restore
+// them, but note doing so re-enables the "one listing per account" cap for those
+// categories only; Accommodation remains multi-listing regardless.
 const CATEGORY_OPTIONS: { value: string; label: string; icon: any }[] = [
-  { value: "hotel", label: "Hotel", icon: Building2 },
-  { value: "accommodation", label: "Accommodation", icon: Home },
+  { value: "accommodation", label: "Accommodation / Airbnb", icon: Home },
+  // { value: "hotel", label: "Hotel", icon: Building2 }, // disabled — accommodation only for now
   // { value: "park", label: "Park", icon: TreePine }, // uncomment when Park pages are ready
-  { value: "campsite", label: "Campsite", icon: Tent },
+  // { value: "campsite", label: "Campsite", icon: Tent }, // disabled — accommodation only for now
   // { value: "attraction", label: "Attraction", icon: Landmark }, // uncomment when Attraction pages are ready
 ];
 
@@ -115,14 +120,15 @@ const SectionCard = ({ title, subtitle, icon: Icon, children, accent = COLORS.TE
   </div>
 );
 
-// ─── Category Selector (Hotel / Campsite / Accommodation) ─────────────────────
+// ─── Category Selector (Accommodation / Airbnb only for now) ─────────────────
 const CategorySelector = ({
   value, onChange, isInvalid,
 }: { value: string; onChange: (v: string) => void; isInvalid?: boolean }) => (
   <div>
     <div
       className={cn(
-        "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 p-1 rounded-xl",
+        "grid gap-2.5 p-1 rounded-xl",
+        CATEGORY_OPTIONS.length === 1 ? "grid-cols-1 max-w-xs" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5",
         isInvalid && "ring-2 ring-red-300"
       )}
     >
@@ -148,7 +154,7 @@ const CategorySelector = ({
       })}
     </div>
     {isInvalid && (
-      <p className="text-red-400 text-[10px] font-semibold mt-1.5">Please select a category to continue</p>
+      <p className="text-red-400 text-[10px] font-semibold mt-1.5">Please select Accommodation / Airbnb to continue</p>
     )}
   </div>
 );
@@ -671,8 +677,8 @@ const StepSidebar = ({ steps, currentStep, onStepClick }: { steps: any[]; curren
       <img src="/images/category-campsite.webp" className="w-full h-full object-cover" alt="" />
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
       <div className="absolute bottom-4 left-5 right-5">
-        <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: COLORS.KHAKI }}>Adventure Place</span>
-        <h2 className="text-white text-xl font-black uppercase tracking-tight leading-tight mt-0.5">Create Adventure</h2>
+        <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: COLORS.KHAKI }}>Accommodation / Airbnb</span>
+        <h2 className="text-white text-xl font-black uppercase tracking-tight leading-tight mt-0.5">Create Listing</h2>
       </div>
     </div>
     <nav className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
@@ -725,8 +731,10 @@ const CreateAdventure = () => {
   const [showErrors, setShowErrors] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
 
-  // ── Listing Category (Hotel / Campsite / Accommodation) ──
-  const [category, setCategory] = useState<string>("");
+  // ── Listing Category — defaults to (and, for now, is locked to) Accommodation
+  // since it's the only option in CATEGORY_OPTIONS. Kept as free-form state so
+  // re-enabling other categories later is a one-line change.
+  const [category, setCategory] = useState<string>(CATEGORY_OPTIONS[0]?.value ?? "accommodation");
 
   const [formData, setFormData] = useState({
     registrationName: "", registrationNumber: "", locationName: "", place: "",
@@ -760,7 +768,7 @@ const CreateAdventure = () => {
     if (!user) {
       toast({
         title: "Login Required",
-        description: "You must be logged in to host an adventure place.",
+        description: "You must be logged in to host a listing.",
         variant: "destructive",
       });
       navigate("/login");
@@ -820,7 +828,7 @@ const CreateAdventure = () => {
     if (currentStep === 1) {
       if (!category) {
         setShowErrors(true);
-        toast({ title: "Select a Category", description: "Please choose Hotel, Campsite, or Accommodation to continue.", variant: "destructive" });
+        toast({ title: "Select a Category", description: "Please choose Accommodation / Airbnb to continue.", variant: "destructive" });
         return false;
       }
       if (!formData.registrationName.trim() || !formData.registrationNumber.trim() || !formData.country) {
@@ -1002,9 +1010,13 @@ const CreateAdventure = () => {
           requirement: t.requirement.trim(),
         }));
 
+      // NOTE: the database enforces the multi-listing rule (see
+      // adventure_places_policy.sql) — this insert will be rejected by a
+      // trigger if it violates the "one listing unless Accommodation" rule,
+      // so the try/catch below surfaces that as a normal submission error.
       const { error } = await supabase.from("adventure_places").insert([{
         id: friendlySlug, slug: friendlySlug, name: formData.registrationName,
-        // ── Listing category (hotel / campsite / accommodation) ──
+        // ── Listing category (accommodation only, for now) ──
         category,
         registration_number: formData.registrationNumber,
         tra_license_url: traLicenceUrl,
@@ -1038,7 +1050,7 @@ const CreateAdventure = () => {
         { onConflict: "user_id" }
       );
 
-      toast({ title: "Experience Submitted", description: `Ref: ${friendlySlug} — Pending admin review.`, duration: 5000 });
+      toast({ title: "Listing Submitted", description: `Ref: ${friendlySlug} — Pending admin review.`, duration: 5000 });
       navigate("/become-host");
     } catch (err: any) {
       toast({ title: "Submission Error", description: err?.message ?? "Something went wrong.", variant: "destructive" });
@@ -1062,7 +1074,7 @@ const CreateAdventure = () => {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <h1 className="text-xl font-black text-white uppercase tracking-tight">
-            Create <span style={{ color: COLORS.KHAKI }}>Adventure</span>
+            Create <span style={{ color: COLORS.KHAKI }}>Listing</span>
           </h1>
           <p className="text-white/60 text-xs font-semibold mt-0.5">Step {currentStep} of {STEP_NAMES.length}</p>
         </div>
@@ -1132,12 +1144,12 @@ const CreateAdventure = () => {
 
             {/* ══ STEP 2 ══ */}
             {currentStep === 2 && (
-              <SectionCard title="Location Details" subtitle="Where is your adventure place located?" icon={MapPin}>
+              <SectionCard title="Location Details" subtitle="Where is your listing located?" icon={MapPin}>
                 <div className="grid gap-5">
                   <div className="grid lg:grid-cols-2 gap-4">
                     <div>
                       <FieldLabel required>Location Name</FieldLabel>
-                      <StyledInput value={formData.locationName} onChange={(e) => setFormData({ ...formData, locationName: e.target.value })} placeholder="Area / Forest / Beach" isInvalid={isMissing(formData.locationName)} />
+                      <StyledInput value={formData.locationName} onChange={(e) => setFormData({ ...formData, locationName: e.target.value })} placeholder="Area / Estate / Neighbourhood" isInvalid={isMissing(formData.locationName)} />
                     </div>
                     <div>
                       <FieldLabel required>{formData.country === "Other" ? "Region / City" : "County"}</FieldLabel>
@@ -1206,7 +1218,7 @@ const CreateAdventure = () => {
                         if (e.target.value.trim() === "" || words.length <= 20)
                           setFormData({ ...formData, description: e.target.value });
                       }}
-                      placeholder="Describe your adventure place in 20 words or less..."
+                      placeholder="Describe your listing in 20 words or less..."
                       rows={4}
                       className={cn("rounded-xl border text-sm font-medium resize-none transition-all", isMissing(formData.description) ? "border-red-400 ring-2 ring-red-100 bg-red-50" : "border-slate-200 focus:ring-2 focus:ring-[#008080]/20 focus:border-[#008080]")}
                     />
@@ -1303,7 +1315,7 @@ const CreateAdventure = () => {
 
             {/* ══ STEP 5 ══ */}
             {currentStep === 5 && (
-              <SectionCard title="Amenities, Facilities & Activities" subtitle="What can visitors enjoy at your adventure place?" icon={DollarSign}>
+              <SectionCard title="Amenities, Facilities & Activities" subtitle="What can guests enjoy at your listing?" icon={DollarSign}>
                 <div className="space-y-8">
                   <GeneralFacilitiesSelector selected={generalFacilities} onChange={setGeneralFacilities} accentColor={COLORS.TEAL} />
                   <FacilityBuilder items={facilities} onChange={setFacilities} showErrors={showErrors} onValidationFail={onValidationFail} />
@@ -1388,5 +1400,5 @@ const CreateAdventure = () => {
     </div>
   );
 };
- 
+
 export default CreateAdventure;

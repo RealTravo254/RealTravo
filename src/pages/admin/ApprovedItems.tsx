@@ -5,7 +5,6 @@ import { Footer } from "@/components/Footer";
 import { MobileBottomBar } from "@/components/MobileBottomBar";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { createDetailPath } from "@/lib/slugUtils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +27,11 @@ const ITEMS_PER_PAGE = 10;
 type ItemType = "trip" | "adventure_place";
 type FilterType = "all" | ItemType;
 
+// The exact Supabase table-name literal union that supabase.from() accepts
+// for these two tables. Keeping this as a literal union (not `string`) is
+// what makes `supabase.from(table)` type-check correctly everywhere below.
+type SupabaseTable = "trips" | "adventure_places";
+
 interface ListingRow {
   id: string;
   name: string;
@@ -40,9 +44,18 @@ interface ListingRow {
   created_at?: string | null;
 }
 
-const TYPE_TABLE_MAP: Record<ItemType, string> = {
+const TYPE_TABLE_MAP: Record<ItemType, SupabaseTable> = {
   trip: "trips",
   adventure_place: "adventure_places",
+};
+
+// Maps our internal itemType to the URL segment used by /admin/review/:itemType/:id
+// AdminReviewDetail accepts "adventure" (and "adventure_place") for adventures,
+// and PendingApprovalItems.tsx already navigates using "adventure" — so we
+// match that here to keep links consistent, e.g. /admin/review/adventure/<id>
+const NAV_TYPE_MAP: Record<ItemType, string> = {
+  trip: "trip",
+  adventure_place: "adventure",
 };
 
 const TYPE_LABELS: Record<ItemType, string> = {
@@ -86,7 +99,6 @@ const ListingCard = ({
   onOpenReview: (item: ListingRow) => void;
 }) => {
   const badge = TYPE_BADGE_COLORS[item.itemType];
-  const detailHref = createDetailPath(item.itemType, item.id, item.name, item.location || "");
 
   return (
     <div
@@ -135,17 +147,19 @@ const ListingCard = ({
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
-        <a
-          href={detailHref}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
+        {/* "View live" now opens the ADMIN REVIEW page, e.g. /admin/review/adventure/<id> */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenReview(item);
+          }}
           className="h-9 w-9 rounded-full bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-slate-400 transition-all"
-          aria-label="View live listing"
-          title="View live public page"
+          aria-label="Open admin review page"
+          title="Open admin review page"
         >
           <ExternalLink size={14} />
-        </a>
+        </button>
 
         <Button
           type="button"
@@ -197,21 +211,17 @@ const AdminApproved = () => {
   // Navigate to the same admin review/approve page used for pending items.
   // AdminReviewDetail reads useParams() as { itemType, id }, and itemType
   // must be one of "trip" | "event" | "hotel" | "adventure" | "adventure_place".
-  // Our ListingRow.itemType is already "trip" or "adventure_place", which
-  // matches AdminReviewDetail's checks directly — no transform needed.
+  // We translate our ListingRow.itemType ("trip" | "adventure_place") into the
+  // URL segment via NAV_TYPE_MAP so adventure links look like
+  // /admin/review/adventure/<id> — matching the rest of the admin flow.
   const onOpenReview = useCallback((item: ListingRow) => {
-    navigate(`/admin/review/${item.itemType}/${item.id}`);
+    navigate(`/admin/review/${NAV_TYPE_MAP[item.itemType]}/${item.id}`);
   }, [navigate]);
 
   const fetchAllApproved = useCallback(async () => {
     setIsLoading(true);
     setRlsSuspected(false);
     try {
-      // We deliberately do NOT filter approval_status in the query itself —
-      // we pull everything visible to this client and filter client-side
-      // after lower-casing/trimming. This avoids silently returning 0 rows
-      // just because the stored value is "Approved" / " approved " instead
-      // of an exact "approved".
       const [tripsRes, adventuresRes] = await Promise.all([
         supabase
           .from("trips")
@@ -233,18 +243,11 @@ const AdminApproved = () => {
       const adventuresRaw = adventuresRes.data || [];
       setDebugInfo({ tripsCount: tripsRaw.length, adventuresCount: adventuresRaw.length });
 
-      // Diagnostics — check your browser console if the page still shows 0 items.
       console.log("[AdminApproved] trips fetched:", tripsRaw.length, "approved:", tripsRaw.filter((t: any) => isApproved(t.approval_status)).length);
       console.log("[AdminApproved] adventure_places fetched:", adventuresRaw.length, "approved:", adventuresRaw.filter((a: any) => isApproved(a.approval_status)).length);
       if (tripsRaw.length > 0) console.log("[AdminApproved] sample trip approval_status value:", JSON.stringify(tripsRaw[0].approval_status));
       if (adventuresRaw.length > 0) console.log("[AdminApproved] sample adventure_place approval_status value:", JSON.stringify(adventuresRaw[0].approval_status));
 
-      // No SQL error AND zero rows from BOTH tables, even though the schema
-      // requires approval_status to default to 'pending' and be NOT NULL
-      // (so rows definitely exist) — this is the fingerprint of Row Level
-      // Security silently filtering everything out for this client/session,
-      // most commonly a `created_by = auth.uid()` style policy that only
-      // lets a host see their own rows.
       if (tripsRaw.length === 0 && adventuresRaw.length === 0) {
         setRlsSuspected(true);
         console.warn(
@@ -256,7 +259,6 @@ const AdminApproved = () => {
         );
       }
 
-      // Only trips (events excluded entirely)
       const trips: ListingRow[] = tripsRaw
         .filter((t: any) => isApproved(t.approval_status) && t.type !== "event")
         .map((t: any) => ({
@@ -316,12 +318,13 @@ const AdminApproved = () => {
     fetchAllApproved();
   }, [fetchAllApproved]);
 
-  // Reset to page 1 whenever filters change
   useEffect(() => {
     setPage(1);
   }, [filterType, searchQuery]);
 
-  const tableForType = (itemType: ItemType): string => TYPE_TABLE_MAP[itemType];
+  // Return type is the literal Supabase table-name union (not `string`),
+  // so `supabase.from(table)` type-checks against the generated overloads.
+  const tableForType = (itemType: ItemType): SupabaseTable => TYPE_TABLE_MAP[itemType];
 
   const requestToggleVisibility = (item: ListingRow) => {
     setPendingItem(item);
@@ -365,7 +368,6 @@ const AdminApproved = () => {
     }
   };
 
-  // ── Filtering ──────────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
     let rows = listings;
     if (filterType !== "all") {
@@ -462,7 +464,6 @@ create policy "Admins can view all adventure places"
           </div>
         )}
 
-        {/* Filters */}
         <div className="bg-white rounded-2xl border border-slate-100 p-4 mb-5 space-y-4">
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
@@ -475,7 +476,6 @@ create policy "Admins can view all adventure places"
               />
             </div>
 
-            {/* Mobile: select dropdown for type */}
             <div className="sm:hidden">
               <Select value={filterType} onValueChange={(v) => setFilterType(v as FilterType)}>
                 <SelectTrigger className="h-11 rounded-xl border-slate-200 font-semibold">
@@ -490,7 +490,6 @@ create policy "Admins can view all adventure places"
             </div>
           </div>
 
-          {/* Desktop: pill filters */}
           <div className="hidden sm:flex items-center gap-2 overflow-x-auto pb-0.5">
             <FilterPill active={filterType === "all"} onClick={() => setFilterType("all")}>
               All ({counts.all})
@@ -504,7 +503,6 @@ create policy "Admins can view all adventure places"
           </div>
         </div>
 
-        {/* List */}
         <main className="space-y-3">
           {isLoading ? (
             <div className="space-y-3">
@@ -533,7 +531,6 @@ create policy "Admins can view all adventure places"
                 ))}
               </div>
 
-              {/* Pagination */}
               {totalPages > 1 && (
                 <div className="flex items-center justify-between pt-4">
                   <p className="text-xs font-semibold text-slate-400">
@@ -572,7 +569,6 @@ create policy "Admins can view all adventure places"
         </main>
       </div>
 
-      {/* Confirm dialog */}
       <AlertDialog open={!!pendingItem} onOpenChange={(open) => !open && setPendingItem(null)}>
         <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>

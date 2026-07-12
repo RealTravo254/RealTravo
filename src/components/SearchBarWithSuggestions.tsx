@@ -48,6 +48,29 @@ interface LocationSuggestion {
   type: string;
 }
 
+// Small words that should stay lowercase in a title, UNLESS they are the first word.
+const MINOR_WORDS = new Set([
+  "a", "an", "the",
+  "of", "on", "in", "at", "by", "for", "to", "from", "with", "as",
+  "and", "or", "nor", "but"
+]);
+
+// Formats a name/title so only the first letter of each major word is capitalized.
+// Articles/prepositions/conjunctions ("of", "on", "in", "the", "and", etc.) stay
+// lowercase unless they are the very first word of the string.
+const formatTitle = (str?: string | null): string => {
+  if (!str) return "";
+  return str
+    .split(" ")
+    .map((word, index) => {
+      if (!word) return word;
+      const lower = word.toLowerCase();
+      if (index !== 0 && MINOR_WORDS.has(lower)) return lower;
+      return lower.charAt(0).toUpperCase() + lower.slice(1);
+    })
+    .join(" ");
+};
+
 
 export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchBarProps>(({ value, onChange, onSubmit, onSuggestionSearch, onFocus, onBlur, onBack, showBackButton = false }, _ref) => {
   const { user } = useAuth();
@@ -345,27 +368,27 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
               // onMouseDown prevents the input's onBlur from firing when clicking
               // inside the dropdown, so suggestions stay open on click
               onMouseDown={(e) => e.preventDefault()}
-              className="absolute left-0 right-0 top-full mt-2 bg-card border border-border rounded-[24px] shadow-2xl max-h-[70vh] md:max-h-[500px] overflow-y-auto z-[9999] animate-in fade-in slide-in-from-top-2 duration-200"
+              className="absolute left-0 right-0 top-full mt-2 bg-card border border-border rounded-lg shadow-xl max-h-[70vh] md:max-h-[500px] overflow-y-auto z-[9999] animate-in fade-in slide-in-from-top-2 duration-200"
               style={{ position: 'absolute' }}
             >
               {/* History / Trending / Most Popular (shown when input is empty) */}
               {!value.trim() && (
-                <div className="p-2 min-h-[60px]">
+                <div className="p-1.5 min-h-[60px]">
                   {/* Popular Locations */}
                   {locationSuggestions.length > 0 && (
-                    <div className="mb-3">
-                      <div className="flex items-center gap-2 px-3 py-2">
-                        <MapPin className="h-3.5 w-3.5 text-primary" />
-                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Popular Locations</p>
+                    <div className="mb-2">
+                      <div className="flex items-center gap-1.5 px-2 py-1.5">
+                        <MapPin className="h-3 w-3 text-primary" />
+                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.15em]">Popular Locations</p>
                       </div>
-                      <div className="flex flex-wrap gap-1.5 px-3">
+                      <div className="flex flex-wrap gap-1 px-2">
                         {locationSuggestions.map((loc) => (
                           <Badge
                             key={loc.location}
                             onClick={() => { onChange(loc.location); setShowSuggestions(false); onSubmit(); }}
-                            className="cursor-pointer bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 py-1 px-2.5 rounded-xl text-[10px] font-bold transition-colors"
+                            className="cursor-pointer bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 py-0.5 px-2 rounded-md text-[9px] font-bold transition-colors"
                           >
-                            {loc.location}
+                            {formatTitle(loc.location)}
                           </Badge>
                         ))}
                       </div>
@@ -374,23 +397,23 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
 
                   {/* Most Popular */}
                   {mostPopular.length > 0 && (
-                    <div className="mb-3">
-                      <div className="flex items-center gap-2 px-3 py-2">
-                        <Sparkles className="h-3.5 w-3.5 text-primary" />
-                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Most Popular</p>
+                    <div className="mb-2">
+                      <div className="flex items-center gap-1.5 px-2 py-1.5">
+                        <Sparkles className="h-3 w-3 text-primary" />
+                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.15em]">Most Popular</p>
                       </div>
                       <div className="space-y-0.5">
                         {mostPopular.slice(0, 5).map((item) => (
                           <button
                             key={item.id}
                             onClick={() => handleSuggestionClick(item)}
-                            className="w-full p-2 flex gap-3 hover:bg-muted transition-all group text-left rounded-[18px]"
+                            className="w-full p-1.5 flex gap-2 hover:bg-muted transition-all group text-left rounded-md"
                           >
                             <div className="flex-1 flex flex-col justify-center min-w-0">
-                              <h4 className="font-black text-foreground uppercase tracking-tight text-sm truncate">{item.name}</h4>
+                              <h4 className="font-bold text-foreground tracking-tight text-xs truncate">{formatTitle(item.name)}</h4>
                               <div className="flex items-center gap-1 text-muted-foreground">
-                                <MapPin className="h-3 w-3" />
-                                <span className="text-[10px] font-bold uppercase truncate">{item.location || item.country}</span>
+                                <MapPin className="h-2.5 w-2.5" />
+                                <span className="text-[9px] font-semibold truncate">{formatTitle(item.location || item.country)}</span>
                               </div>
                             </div>
                           </button>
@@ -401,20 +424,20 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
 
                   {/* Recent History */}
                   {searchHistory.length > 0 && (
-                    <div className="mb-3">
-                      <div className="flex items-center justify-between px-3 py-2">
-                        <div className="flex items-center gap-2">
-                          <Clock className="h-3.5 w-3.5 text-primary" />
-                          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Recent</p>
+                    <div className="mb-2">
+                      <div className="flex items-center justify-between px-2 py-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <Clock className="h-3 w-3 text-primary" />
+                          <p className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.15em]">Recent</p>
                         </div>
-                        <button onClick={(e) => { e.stopPropagation(); clearHistory(); }} className="text-[10px] font-black uppercase text-destructive hover:underline">Clear</button>
+                        <button onClick={(e) => { e.stopPropagation(); clearHistory(); }} className="text-[9px] font-black uppercase text-destructive hover:underline">Clear</button>
                       </div>
-                      <div className="flex flex-wrap gap-1.5 px-3">
+                      <div className="flex flex-wrap gap-1 px-2">
                         {searchHistory.map((item, i) => (
                           <Badge 
                             key={i} 
                             onClick={() => { onChange(item); saveToHistory(item); onSubmit(); setShowSuggestions(false); }} 
-                            className="cursor-pointer bg-muted hover:bg-primary/10 text-muted-foreground border border-border py-1 px-3 rounded-xl text-xs font-bold transition-colors"
+                            className="cursor-pointer bg-muted hover:bg-primary/10 text-muted-foreground border border-border py-0.5 px-2 rounded-md text-[10px] font-semibold transition-colors"
                           >
                             {item}
                           </Badge>
@@ -426,18 +449,18 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
                   {/* Trending Destinations */}
                   {trendingSearches.length > 0 && (
                     <div>
-                      <div className="flex items-center gap-2 px-3 py-2">
-                        <TrendingUp className="h-3.5 w-3.5 text-secondary" />
-                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Trending Destinations</p>
+                      <div className="flex items-center gap-1.5 px-2 py-1.5">
+                        <TrendingUp className="h-3 w-3 text-secondary" />
+                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.15em]">Trending Destinations</p>
                       </div>
                       {trendingSearches.slice(0, 5).map((item, index) => (
                         <button 
                           key={index} 
                           onClick={() => { onChange(item.query); saveToHistory(item.query); onSubmit(); setShowSuggestions(false); }} 
-                          className="w-full px-3 py-2.5 flex items-center justify-between hover:bg-muted transition-colors group text-left rounded-[16px]"
+                          className="w-full px-2 py-2 flex items-center justify-between hover:bg-muted transition-colors group text-left rounded-md"
                         >
-                          <span className="text-sm font-black text-foreground uppercase tracking-tight group-hover:text-primary">{item.query}</span>
-                          <span className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-tighter">{item.search_count} explores</span>
+                          <span className="text-xs font-bold text-foreground tracking-tight group-hover:text-primary">{formatTitle(item.query)}</span>
+                          <span className="text-[9px] font-semibold text-muted-foreground/50 tracking-tight">{item.search_count} explores</span>
                         </button>
                       ))}
                     </div>
@@ -447,12 +470,12 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
 
               {/* Result Suggestions (shown when typing) */}
               {value.trim() && (
-                <div className="p-2">
+                <div className="p-1.5">
                   {/* Loading State — only shown during fallback network fetch */}
                   {isSearching && (
-                    <div className="p-6 flex flex-col items-center justify-center gap-2">
-                      <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                      <span className="text-muted-foreground text-xs font-bold uppercase tracking-widest">Searching...</span>
+                    <div className="p-5 flex flex-col items-center justify-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                      <span className="text-muted-foreground text-[10px] font-semibold uppercase tracking-widest">Searching...</span>
                     </div>
                   )}
 
@@ -462,19 +485,19 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
                     const matchedCounties = q ? KENYA_COUNTIES.filter(c => c.toLowerCase().includes(q)) : [];
                     if (matchedCounties.length > 0) {
                       return (
-                        <div className="mb-2">
-                          <div className="flex items-center gap-2 px-3 py-2">
-                            <Map className="h-3.5 w-3.5 text-primary" />
-                            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Counties</p>
+                        <div className="mb-1.5">
+                          <div className="flex items-center gap-1.5 px-2 py-1.5">
+                            <Map className="h-3 w-3 text-primary" />
+                            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.15em]">Counties</p>
                           </div>
-                          <div className="flex flex-wrap gap-1.5 px-3">
+                          <div className="flex flex-wrap gap-1 px-2">
                             {matchedCounties.slice(0, 6).map(county => (
                               <Badge
                                 key={county}
                                 onClick={() => { setShowSuggestions(false); navigate(`/county/${encodeURIComponent(county)}`); }}
-                                className="cursor-pointer bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 py-1 px-2.5 rounded-xl text-[10px] font-bold transition-colors"
+                                className="cursor-pointer bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 py-0.5 px-2 rounded-md text-[9px] font-bold transition-colors"
                               >
-                                {county} County
+                                {formatTitle(county)} County
                               </Badge>
                             ))}
                           </div>
@@ -487,34 +510,34 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
                   {/* Results */}
                   {!isSearching && suggestions.length > 0 && (
                     <>
-                      <p className="px-3 py-2 text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Top Matches</p>
+                      <p className="px-2 py-1.5 text-[9px] font-black text-muted-foreground uppercase tracking-[0.15em]">Top Matches</p>
                       {suggestions.slice(0, 5).map((result) => (
                         <button
                           key={result.id}
                           onClick={() => handleSuggestionClick(result)}
-                          className="w-full p-2 flex gap-3 hover:bg-muted transition-all group text-left rounded-[18px]"
+                          className="w-full p-1.5 flex gap-2 hover:bg-muted transition-all group text-left rounded-md"
                         >
                           <div className="flex-1 flex flex-col justify-center min-w-0">
-                            <div className="flex items-center gap-2 mb-1 flex-wrap">
-                              <span className="text-[9px] font-black bg-primary text-primary-foreground px-2 py-0.5 rounded-full uppercase tracking-widest">
+                            <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                              <span className="text-[8px] font-black bg-primary text-primary-foreground px-1.5 py-0.5 rounded-sm uppercase tracking-wider">
                                 {getTypeLabel(result.type)}
                               </span>
                               {result.matchedActivity && (
-                                <span className="text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider bg-accent/15 text-accent border border-accent/20">
-                                  🎯 {result.matchedActivity}
+                                <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-sm uppercase bg-accent/15 text-accent border border-accent/20">
+                                  🎯 {formatTitle(result.matchedActivity)}
                                 </span>
                               )}
                             </div>
-                            <h4 className="font-black text-foreground uppercase tracking-tight text-sm truncate">{result.name}</h4>
-                            <div className="flex items-center gap-1.5 text-muted-foreground group-hover:text-primary transition-colors mt-0.5">
-                              <MapPin className="h-3 w-3 shrink-0" />
-                              <span className="text-[10px] font-bold uppercase">
-                                {[result.location, result.place, result.country].filter(Boolean).join(" · ")}
+                            <h4 className="font-bold text-foreground tracking-tight text-xs truncate">{formatTitle(result.name)}</h4>
+                            <div className="flex items-center gap-1 text-muted-foreground group-hover:text-primary transition-colors mt-0.5">
+                              <MapPin className="h-2.5 w-2.5 shrink-0" />
+                              <span className="text-[9px] font-semibold">
+                                {formatTitle([result.location, result.place, result.country].filter(Boolean).join(" · "))}
                               </span>
                             </div>
                             {getActivitiesText(result.activities) && !result.matchedActivity && (
                               <p className="text-[9px] text-muted-foreground/70 mt-0.5 truncate">
-                                {getActivitiesText(result.activities)}
+                                {formatTitle(getActivitiesText(result.activities))}
                               </p>
                             )}
                           </div>
@@ -525,9 +548,9 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
 
                   {/* Not Available */}
                   {!isSearching && hasSearched && suggestions.length === 0 && KENYA_COUNTIES.filter(c => c.toLowerCase().includes(value.trim().toLowerCase())).length === 0 && (
-                    <div className="p-6 text-center">
-                      <p className="text-muted-foreground text-xs font-bold uppercase tracking-widest mb-2">Not Available</p>
-                      <p className="text-muted-foreground/50 text-[10px]">No results found for "{value}"</p>
+                    <div className="p-5 text-center">
+                      <p className="text-muted-foreground text-[10px] font-semibold uppercase tracking-widest mb-1.5">Not Available</p>
+                      <p className="text-muted-foreground/50 text-[9px]">No results found for "{value}"</p>
                     </div>
                   )}
                 </div>

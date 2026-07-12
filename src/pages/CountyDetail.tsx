@@ -154,8 +154,10 @@ const CountyDetail = () => {
     }, 500);
   }, [loadingMore, filtered.length]);
 
-  const isFiltering = searchQuery.length > 0 || activeCategory !== "all";
-  const showSkeleton = loading || (!loading && filtered.length === 0 && !isFiltering);
+  // Show the skeleton mockup any time there are no items — whether we're
+  // still loading, filtering down to nothing, or loading finished empty —
+  // so the page never falls back to a "no items" message.
+  const showSkeleton = filtered.length === 0;
 
   const renderLoadMoreSkeletons = (count: number) => (
     <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4 mt-3 md:mt-4">
@@ -208,8 +210,6 @@ const CountyDetail = () => {
               ))}
             </div>
           </>
-        ) : filtered.length === 0 && isFiltering ? (
-          <div className="text-center py-20 text-muted-foreground italic">No items found.</div>
         ) : (
           <>
             <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">

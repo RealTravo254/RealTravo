@@ -194,7 +194,10 @@ const CategoryDetail = () => {
   }, [sortedItems, searchQuery, selectedCounty, applyFilters]);
 
   const isFiltering      = searchQuery.length > 0 || selectedCounty !== "All";
-  const showSkeleton     = loading || (!loading && filteredItems.length === 0 && !isFiltering);
+  // Show the skeleton mockup any time there are no items — whether we're
+  // still loading, filtering down to nothing, or loading finished empty —
+  // so the page never falls back to a "no items" message.
+  const showSkeleton     = filteredItems.length === 0;
   const showSeeAllButton = !showSkeleton && hasMore && filteredItems.length > 0 && !isFiltering;
 
   if (!config) return <div className="p-10 text-center">Category not found</div>;
@@ -313,11 +316,6 @@ const CategoryDetail = () => {
               </div>
             )}
 
-            {filteredItems.length === 0 && isFiltering && (
-              <div className="text-center py-20 text-muted-foreground italic">
-                No items found matching your filters.
-              </div>
-            )}
           </>
         )}
 

@@ -304,22 +304,24 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
   return (
     <div className="w-full">
       <div className="w-full px-3 md:container md:mx-auto md:px-6 lg:px-8">
+        {/* ── Search bar: height reduced ~40% (h-10/h-16 → h-6/h-10) so it takes
+            up noticeably less vertical space on both mobile and desktop. ── */}
         <div ref={wrapperRef} className="relative w-full max-w-4xl mx-auto" style={{ isolation: 'isolate' }}>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
 
             {/* ── Home button — visible on ALL screen sizes when showBackButton is true ── */}
             {showBackButton && (
               <button
                 onClick={() => navigate("/")}
                 aria-label="Go to Home"
-                className="shrink-0 h-10 w-10 md:h-12 md:w-12 rounded-full flex items-center justify-center bg-white/20 hover:bg-white/35 text-white transition-all active:scale-95"
+                className="shrink-0 h-6 w-6 md:h-8 md:w-8 rounded-full flex items-center justify-center bg-white/20 hover:bg-white/35 text-white transition-all active:scale-95"
               >
-                <Home className="h-5 w-5" />
+                <Home className="h-3.5 w-3.5 md:h-4 md:w-4" />
               </button>
             )}
 
             <div className="relative flex-1 group">
-              <SearchIcon className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground z-10 group-focus-within:text-primary transition-colors" />
+              <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 md:h-4 md:w-4 text-muted-foreground z-10 group-focus-within:text-primary transition-colors" />
               <Input
                 type="text"
                 placeholder="Where to next? Search trips, adventures, campsites..."
@@ -327,11 +329,11 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
                 onChange={(e) => { onChange(e.target.value); setShowSuggestions(true); }}
                 onKeyDown={handleKeyPress}
                 onFocus={() => { setShowSuggestions(true); onFocus?.(); }}
-                className="pl-14 pr-32 h-10 md:h-16 text-sm md:text-base rounded-full border-2 border-border shadow-md bg-card text-foreground focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary placeholder:text-muted-foreground placeholder:font-medium transition-all"
+                className="pl-8 pr-20 h-6 md:h-10 text-xs md:text-sm rounded-full border-2 border-border shadow-md bg-card text-foreground focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary placeholder:text-muted-foreground placeholder:font-medium transition-all"
               />
               <Button
                 onClick={() => { saveToHistory(value); onSubmit(); setShowSuggestions(false); }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-7 md:h-12 px-4 md:px-6 text-[10px] md:text-xs font-black uppercase tracking-widest bg-primary hover:bg-primary-dark text-primary-foreground shadow-lg transition-transform active:scale-95 border-none"
+                className="absolute right-1 top-1/2 -translate-y-1/2 rounded-full h-4 md:h-7 px-2.5 md:px-3.5 text-[8px] md:text-[10px] font-black uppercase tracking-widest bg-primary hover:bg-primary-dark text-primary-foreground shadow-lg transition-transform active:scale-95 border-none"
               >
                 Search
               </Button>
@@ -343,25 +345,25 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
               // onMouseDown prevents the input's onBlur from firing when clicking
               // inside the dropdown, so suggestions stay open on click
               onMouseDown={(e) => e.preventDefault()}
-              className="absolute left-0 right-0 top-full mt-3 bg-card border border-border rounded-[32px] shadow-2xl max-h-[70vh] md:max-h-[500px] overflow-y-auto z-[9999] animate-in fade-in slide-in-from-top-2 duration-200"
+              className="absolute left-0 right-0 top-full mt-2 bg-card border border-border rounded-[24px] shadow-2xl max-h-[70vh] md:max-h-[500px] overflow-y-auto z-[9999] animate-in fade-in slide-in-from-top-2 duration-200"
               style={{ position: 'absolute' }}
             >
               {/* History / Trending / Most Popular (shown when input is empty) */}
               {!value.trim() && (
-                <div className="p-2 min-h-[100px]">
+                <div className="p-2 min-h-[60px]">
                   {/* Popular Locations */}
                   {locationSuggestions.length > 0 && (
-                    <div className="mb-4">
-                      <div className="flex items-center gap-2 px-5 py-3">
-                        <MapPin className="h-4 w-4 text-primary" />
+                    <div className="mb-3">
+                      <div className="flex items-center gap-2 px-3 py-2">
+                        <MapPin className="h-3.5 w-3.5 text-primary" />
                         <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Popular Locations</p>
                       </div>
-                      <div className="flex flex-wrap gap-2 px-4">
+                      <div className="flex flex-wrap gap-1.5 px-3">
                         {locationSuggestions.map((loc) => (
                           <Badge
                             key={loc.location}
                             onClick={() => { onChange(loc.location); setShowSuggestions(false); onSubmit(); }}
-                            className="cursor-pointer bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 py-2 px-3 rounded-xl text-[10px] font-bold transition-colors"
+                            className="cursor-pointer bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 py-1 px-2.5 rounded-xl text-[10px] font-bold transition-colors"
                           >
                             {loc.location}
                           </Badge>
@@ -372,17 +374,17 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
 
                   {/* Most Popular */}
                   {mostPopular.length > 0 && (
-                    <div className="mb-4">
-                      <div className="flex items-center gap-2 px-5 py-3">
-                        <Sparkles className="h-4 w-4 text-primary" />
+                    <div className="mb-3">
+                      <div className="flex items-center gap-2 px-3 py-2">
+                        <Sparkles className="h-3.5 w-3.5 text-primary" />
                         <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Most Popular</p>
                       </div>
-                      <div className="space-y-1">
+                      <div className="space-y-0.5">
                         {mostPopular.slice(0, 5).map((item) => (
                           <button
                             key={item.id}
                             onClick={() => handleSuggestionClick(item)}
-                            className="w-full p-3 flex gap-4 hover:bg-muted transition-all group text-left rounded-[24px]"
+                            className="w-full p-2 flex gap-3 hover:bg-muted transition-all group text-left rounded-[18px]"
                           >
                             <div className="flex-1 flex flex-col justify-center min-w-0">
                               <h4 className="font-black text-foreground uppercase tracking-tight text-sm truncate">{item.name}</h4>
@@ -399,20 +401,20 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
 
                   {/* Recent History */}
                   {searchHistory.length > 0 && (
-                    <div className="mb-4">
-                      <div className="flex items-center justify-between px-5 py-3">
+                    <div className="mb-3">
+                      <div className="flex items-center justify-between px-3 py-2">
                         <div className="flex items-center gap-2">
-                          <Clock className="h-4 w-4 text-primary" />
+                          <Clock className="h-3.5 w-3.5 text-primary" />
                           <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Recent</p>
                         </div>
                         <button onClick={(e) => { e.stopPropagation(); clearHistory(); }} className="text-[10px] font-black uppercase text-destructive hover:underline">Clear</button>
                       </div>
-                      <div className="flex flex-wrap gap-2 px-4">
+                      <div className="flex flex-wrap gap-1.5 px-3">
                         {searchHistory.map((item, i) => (
                           <Badge 
                             key={i} 
                             onClick={() => { onChange(item); saveToHistory(item); onSubmit(); setShowSuggestions(false); }} 
-                            className="cursor-pointer bg-muted hover:bg-primary/10 text-muted-foreground border border-border py-2 px-4 rounded-xl text-xs font-bold transition-colors"
+                            className="cursor-pointer bg-muted hover:bg-primary/10 text-muted-foreground border border-border py-1 px-3 rounded-xl text-xs font-bold transition-colors"
                           >
                             {item}
                           </Badge>
@@ -424,15 +426,15 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
                   {/* Trending Destinations */}
                   {trendingSearches.length > 0 && (
                     <div>
-                      <div className="flex items-center gap-2 px-5 py-3">
-                        <TrendingUp className="h-4 w-4 text-secondary" />
+                      <div className="flex items-center gap-2 px-3 py-2">
+                        <TrendingUp className="h-3.5 w-3.5 text-secondary" />
                         <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Trending Destinations</p>
                       </div>
                       {trendingSearches.slice(0, 5).map((item, index) => (
                         <button 
                           key={index} 
                           onClick={() => { onChange(item.query); saveToHistory(item.query); onSubmit(); setShowSuggestions(false); }} 
-                          className="w-full px-5 py-4 flex items-center justify-between hover:bg-muted transition-colors group text-left rounded-[20px]"
+                          className="w-full px-3 py-2.5 flex items-center justify-between hover:bg-muted transition-colors group text-left rounded-[16px]"
                         >
                           <span className="text-sm font-black text-foreground uppercase tracking-tight group-hover:text-primary">{item.query}</span>
                           <span className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-tighter">{item.search_count} explores</span>
@@ -448,8 +450,8 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
                 <div className="p-2">
                   {/* Loading State — only shown during fallback network fetch */}
                   {isSearching && (
-                    <div className="p-10 flex flex-col items-center justify-center gap-3">
-                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    <div className="p-6 flex flex-col items-center justify-center gap-2">
+                      <Loader2 className="h-5 w-5 animate-spin text-primary" />
                       <span className="text-muted-foreground text-xs font-bold uppercase tracking-widest">Searching...</span>
                     </div>
                   )}
@@ -461,16 +463,16 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
                     if (matchedCounties.length > 0) {
                       return (
                         <div className="mb-2">
-                          <div className="flex items-center gap-2 px-5 py-3">
-                            <Map className="h-4 w-4 text-primary" />
+                          <div className="flex items-center gap-2 px-3 py-2">
+                            <Map className="h-3.5 w-3.5 text-primary" />
                             <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Counties</p>
                           </div>
-                          <div className="flex flex-wrap gap-2 px-4">
+                          <div className="flex flex-wrap gap-1.5 px-3">
                             {matchedCounties.slice(0, 6).map(county => (
                               <Badge
                                 key={county}
                                 onClick={() => { setShowSuggestions(false); navigate(`/county/${encodeURIComponent(county)}`); }}
-                                className="cursor-pointer bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 py-2 px-3 rounded-xl text-[10px] font-bold transition-colors"
+                                className="cursor-pointer bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 py-1 px-2.5 rounded-xl text-[10px] font-bold transition-colors"
                               >
                                 {county} County
                               </Badge>
@@ -485,12 +487,12 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
                   {/* Results */}
                   {!isSearching && suggestions.length > 0 && (
                     <>
-                      <p className="px-5 py-3 text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Top Matches</p>
+                      <p className="px-3 py-2 text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Top Matches</p>
                       {suggestions.slice(0, 5).map((result) => (
                         <button
                           key={result.id}
                           onClick={() => handleSuggestionClick(result)}
-                          className="w-full p-3 flex gap-4 hover:bg-muted transition-all group text-left rounded-[24px]"
+                          className="w-full p-2 flex gap-3 hover:bg-muted transition-all group text-left rounded-[18px]"
                         >
                           <div className="flex-1 flex flex-col justify-center min-w-0">
                             <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -523,7 +525,7 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
 
                   {/* Not Available */}
                   {!isSearching && hasSearched && suggestions.length === 0 && KENYA_COUNTIES.filter(c => c.toLowerCase().includes(value.trim().toLowerCase())).length === 0 && (
-                    <div className="p-10 text-center">
+                    <div className="p-6 text-center">
                       <p className="text-muted-foreground text-xs font-bold uppercase tracking-widest mb-2">Not Available</p>
                       <p className="text-muted-foreground/50 text-[10px]">No results found for "{value}"</p>
                     </div>

@@ -24,8 +24,6 @@ const SKELETON_COUNT_DESKTOP = 20;
 const ADVENTURE_PLACE_FIELDS =
   "id,name,location,place,country,image_url,gallery_images,images,entry_fee,available_slots,activities,latitude,longitude,created_at,description,opening_hours,closing_hours,category,days_opened";
 
-// TRIP_FIELDS is unused while trip/guided category config is disabled below —
-// kept in case it's needed again when trips are re-enabled.
 const TRIP_FIELDS =
   "id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child,description,opening_hours,closing_hours";
 
@@ -45,9 +43,8 @@ const CategoryDetail = () => {
   const [userId, setUserId]               = useState<string | null>(null);
   const [selectedCounty, setSelectedCounty] = useState<string>(searchParams.get("county") || "All");
 
-  // "guided" removed — county filter now only applies to campsite (trip
-  // fetching is disabled, see categoryConfig below).
-  const showCountyTabs = category === "campsite";
+  // County filter now applies to campsite and guided-tour category pages.
+  const showCountyTabs = category === "campsite" || category === "guided";
 
   const { position }  = useGeolocation();
   const [isSearchFocusedLocal, setIsSearchFocusedLocal] = useState(false);
@@ -59,22 +56,19 @@ const CategoryDetail = () => {
 
   // ── Category config ─────────────────────────────────────────────────────
   // Park and Attraction are commented out — uncomment when their pages are ready.
-  // Guided tours and fixed trips are both commented out — trip/tour fetching
-  // is disabled site-wide. With "guided" removed from this config, a request
-  // to /category/guided resolves to `config === null` below, which renders
-  // "Category not found" and never calls fetchData/supabase for the "trips"
-  // table. Uncomment to re-enable.
+  // Accommodations (Airbnb) removed from this config — that category page is
+  // no longer reachable/fetched. Guided tours and fixed-date trips are both
+  // re-enabled below.
   const categoryConfig: { [key: string]: any } = {
-    // guided:      { title: "Guided Tours",          tables: ["trips"],            type: "TRIP",            tripType: "trip", flexibleOnly: true },
+    guided:         { title: "Guided Tours",          tables: ["trips"],            type: "TRIP",            tripType: "trip", flexibleOnly: true },
 
     hotels:         { title: "Hotels",                tables: ["adventure_places"], type: "ADVENTURE PLACE", placeCategory: "hotel"         },
-    accommodations: { title: "Accommodations",        tables: ["adventure_places"], type: "ADVENTURE PLACE", placeCategory: "accommodation"  },
+    // accommodations: { title: "Accommodations",     tables: ["adventure_places"], type: "ADVENTURE PLACE", placeCategory: "accommodation"  }, // Airbnb hidden
     // parks:       { title: "Parks",                 tables: ["adventure_places"], type: "ADVENTURE PLACE", placeCategory: "park"          }, // uncomment when ready
     campsite:       { title: "Campsite & Experience", tables: ["adventure_places"], type: "ADVENTURE PLACE", placeCategory: "campsite"       },
     // attraction:  { title: "Attractions",           tables: ["adventure_places"], type: "ADVENTURE PLACE", placeCategory: "attraction"    }, // uncomment when ready
 
-    // Fixed-date trips disabled — uncomment to re-enable
-    // trips:       { title: "Trips",                 tables: ["trips"],            type: "TRIP",            tripType: "trip", filterType: "trips" },
+    trips:          { title: "Trips",                 tables: ["trips"],            type: "TRIP",            tripType: "trip", filterType: "trips" },
 
     // Legacy catch-all (backwards compat for old /category/adventure links)
     adventure:      { title: "Adventure Places",      tables: ["adventure_places"], type: "ADVENTURE PLACE" },
@@ -120,8 +114,8 @@ const CategoryDetail = () => {
     setLoadingMore(false);
   };
 
-  // "guided" no longer exists in categoryConfig, so this is always [] now —
-  // kept so useRealtimeBookings below still has a stable, valid argument.
+  // Only guided-tour listings need live booking-stat tracking (ticket
+  // counts change in real time as people book).
   const tripIds = useMemo(() => {
     if (category !== "guided") return [];
     return items.map((item: any) => item.id);
@@ -130,9 +124,6 @@ const CategoryDetail = () => {
   const { bookingStats } = useRealtimeBookings(tripIds);
 
   const fetchData = async (offset: number, limit: number) => {
-    // config is null for "guided"/"trips" now (removed from categoryConfig
-    // above), so this returns [] immediately for those routes — no
-    // supabase.from("trips") query is ever made.
     if (!config) return [];
     const allData: any[] = [];
     const today = new Date().toISOString().split("T")[0];
@@ -146,6 +137,7 @@ const CategoryDetail = () => {
 
       if (config.tripType)      query = query.eq("type", config.tripType);
       if (config.flexibleOnly)  query = query.or("is_flexible_date.eq.true,is_custom_date.eq.true");
+      if (config.filterType === "trips") query = query.eq("is_flexible_date", false).eq("is_custom_date", false);
       if (config.placeCategory) query = query.eq("category", config.placeCategory);
 
       const { data } = await query.range(offset, offset + limit - 1);
@@ -229,7 +221,7 @@ const CategoryDetail = () => {
         {/* Category tabs — navigates to the tapped category page */}
         {!isSearchFocusedLocal && <CategoryTabsBar activeKey={activeTabKey} />}
 
-        {/* County filter — only for campsite category pages now (guided disabled) */}
+        {/* County filter — campsite and guided-tour category pages */}
         {showCountyTabs && !isSearchFocusedLocal && (
           <div className="bg-background border-t border-border/60">
             <div className="container mx-auto px-4 py-2">
@@ -294,7 +286,7 @@ const CategoryDetail = () => {
                       isOutdated={item.isOutdated}
                       isSaved={savedItems.has(item.id)}
                       onSave={handleSave}
-                      availableTickets={isGuided ? item.available_tickets : undefined}
+                      availableTickets={item.itemType === "TRIP" ? item.available_tickets : undefined}
                       bookedTickets={isGuided ? bookingStats[item.id] || 0 : undefined}
                       hidePrice={item.itemType === "ADVENTURE PLACE"}
                       activities={item.activities}

@@ -22,8 +22,6 @@ const SKELETON_COUNT_DESKTOP = 20;
 const ADVENTURE_PLACE_FIELDS =
   "id,name,location,place,country,image_url,gallery_images,images,entry_fee,activities,latitude,longitude,created_at,description,opening_hours,closing_hours,category,days_opened";
 
-// TRIP_FIELDS is unused while trip/guided fetching is disabled below — kept
-// in case it's needed again when trips are re-enabled.
 const TRIP_FIELDS =
   "id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child,description,opening_hours,closing_hours";
 
@@ -50,40 +48,42 @@ const CountyDetail = () => {
   }, [setSearchFocused]);
 
   // ── Data fetch ──────────────────────────────────────────────────────────
-  // Trip / guided-tour fetching is disabled site-wide — only adventure places
-  // (hotels, accommodations, campsites, etc.) are fetched here now.
+  // Adventure places (excluding Airbnb/accommodation), guided tours, and
+  // fixed-date trips are all fetched for this county.
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [adventuresRes] = await Promise.all([
-          // Adventure places (hotels, accommodations, campsites, etc.)
+        const [adventuresRes, guidedRes, fixedTripsRes] = await Promise.all([
+          // Adventure places (hotels, campsites, etc.) — Airbnb/accommodation
+          // excluded from this page.
           supabase.from("adventure_places")
             .select(ADVENTURE_PLACE_FIELDS)
             .eq("approval_status", "approved").eq("is_hidden", false)
+            .neq("category", "accommodation")
             .eq("place", decodedCounty),
 
-          // ── Guided / flexible-date tours (disabled — uncomment to re-enable) ──
-          // supabase.from("trips")
-          //   .select(TRIP_FIELDS)
-          //   .eq("approval_status", "approved").eq("is_hidden", false)
-          //   .eq("type", "trip")
-          //   .or("is_flexible_date.eq.true,is_custom_date.eq.true")
-          //   .eq("place", decodedCounty),
+          // ── Guided / flexible-date tours ──────────────────────────────────
+          supabase.from("trips")
+            .select(TRIP_FIELDS)
+            .eq("approval_status", "approved").eq("is_hidden", false)
+            .eq("type", "trip")
+            .or("is_flexible_date.eq.true,is_custom_date.eq.true")
+            .eq("place", decodedCounty),
 
-          // ── Fixed-date trips (disabled — uncomment to re-enable) ──────────
-          // supabase.from("trips")
-          //   .select(TRIP_FIELDS)
-          //   .eq("approval_status", "approved").eq("is_hidden", false)
-          //   .eq("type", "trip")
-          //   .eq("is_flexible_date", false).eq("is_custom_date", false)
-          //   .eq("place", decodedCounty),
+          // ── Fixed-date trips ───────────────────────────────────────────────
+          supabase.from("trips")
+            .select(TRIP_FIELDS)
+            .eq("approval_status", "approved").eq("is_hidden", false)
+            .eq("type", "trip")
+            .eq("is_flexible_date", false).eq("is_custom_date", false)
+            .eq("place", decodedCounty),
         ]);
 
         const combined = [
           ...(adventuresRes.data || []).map((i: any) => ({ ...i, itemType: "ADVENTURE PLACE" })),
-          // ...(guidedRes.data     || []).map((i: any) => ({ ...i, itemType: "TRIP", __guided: true })), // guided trips disabled
-          // ...(fixedTripsRes.data || []).map((i: any) => ({ ...i, itemType: "FIXED TRIP" })), // fixed trips disabled
+          ...(guidedRes.data     || []).map((i: any) => ({ ...i, itemType: "TRIP", __guided: true })),
+          ...(fixedTripsRes.data || []).map((i: any) => ({ ...i, itemType: "FIXED TRIP" })),
         ];
         setItems(combined);
       } catch (err) {
@@ -108,18 +108,12 @@ const CountyDetail = () => {
     let result = sorted;
 
     if (activeCategory !== "all") {
-      // "guided" tab is hidden in CategoryTabsBar and trips are never fetched
-      // above, so this branch is effectively dead code — kept only so a
-      // stray /county/:county?category=guided link doesn't crash.
       if (activeCategory === "guided") {
         result = result.filter(i => i.itemType === "TRIP" && i.__guided);
-      }
-      // Fixed trips tab disabled — uncomment if re-enabling the fetch above
-      // else if (activeCategory === "trips") {
-      //   result = result.filter(i => i.itemType === "FIXED TRIP");
-      // }
-      else {
-        // hotels / accommodations / campsite — filter by category column
+      } else if (activeCategory === "trips") {
+        result = result.filter(i => i.itemType === "FIXED TRIP");
+      } else {
+        // hotels / campsite — filter by category column
         // Parks and Attraction are commented out in CategoryTabsBar,
         // but if a user somehow hits those keys the filter still works.
         result = result.filter(
@@ -248,6 +242,7 @@ const CountyDetail = () => {
                     openingHours={item.opening_hours}
                     closingHours={item.closing_hours}
                     workingDays={item.days_opened}
+                    availableTickets={item.available_tickets}
                   />
                 );
               })}

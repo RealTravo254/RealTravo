@@ -30,9 +30,7 @@ const Explore = () => {
   const { position }               = useGeolocation();
 
   const allItemIds    = useMemo(() => listings.map(l => l.id), [listings]);
-  // Guided tours, fixed trips, and events are all disabled (see fetchAllData
-  // below) — listings will never contain type === "TRIP" items, so this is
-  // always []. Kept so useRealtimeBookings still gets a stable argument.
+  // Only guided (flexible/custom-date) trips get live booking-stat tracking.
   const guidedTripIds = useMemo(
     () => listings.filter(l => l.type === "TRIP" && (l.is_flexible_date || l.is_custom_date)).map(l => l.id),
     [listings],
@@ -50,20 +48,16 @@ const Explore = () => {
     let result = sortedListings;
 
     if (activeFilter !== "all") {
-      // "guided" tab is hidden in CategoryTabsBar and trips are never fetched
-      // below, so this branch is effectively dead code — kept only so a
-      // stray ?category=guided link doesn't crash.
       if (activeFilter === "guided") {
         result = result.filter(l => l.type === "TRIP" && (l.is_flexible_date || l.is_custom_date));
-      }
-      // Fixed trips tab disabled — uncomment if re-enabling the fetch below
-      // else if (activeFilter === "trips") {
-      //   result = result.filter(l => l.type === "TRIP" && !l.is_flexible_date && !l.is_custom_date);
-      // }
-      else {
-        // hotels / accommodations / campsite — filter adventure_places by category
+      } else if (activeFilter === "trips") {
+        result = result.filter(l => l.type === "TRIP" && !l.is_flexible_date && !l.is_custom_date);
+      } else {
+        // hotels / campsite — filter adventure_places by category
         // Parks and Attraction keys are commented out in CategoryTabsBar but
         // this filter still handles them correctly if they're re-added.
+        // Accommodation (Airbnb) is excluded from the fetch below, so this
+        // branch will never match it even if the key is hit directly.
         result = result.filter(l => l.type === "ADVENTURE PLACE" && l.category === activeFilter);
       }
     }
@@ -105,41 +99,44 @@ const Explore = () => {
   }, [loadingMore, filteredListings.length]);
 
   // ── Data fetch ──────────────────────────────────────────────────────────
-  // Trip / guided-tour fetching is disabled site-wide — only adventure
-  // places (hotels, accommodations, campsites, etc.) are fetched here now.
+  // Guided tours and fixed-date trips are fetched alongside adventure places.
+  // Accommodation (Airbnb) listings are excluded from the adventure_places
+  // fetch below. Events remain disabled.
   const fetchAllData = useCallback(async (query?: string) => {
     setLoading(true);
 
     const [
-      // guidedTrips, // guided trips fetch disabled — uncomment to re-enable
+      guidedTrips,
       adventures,
       // events,     // events fetch disabled — uncomment to re-enable
-      // fixedTrips, // fixed trips fetch disabled — uncomment to re-enable
+      fixedTrips,
     ] = await Promise.all([
-      // ── Guided / flexible-date tours (disabled — uncomment to re-enable) ──
-      // supabase.from("trips")
-      //   .select("id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child,description,opening_hours,closing_hours")
-      //   .eq("approval_status", "approved").eq("is_hidden", false)
-      //   .eq("type", "trip").or("is_flexible_date.eq.true,is_custom_date.eq.true")
-      //   .order("created_at", { ascending: false }).limit(50)
-      //   .then(r => {
-      //     let data = r.data || [];
-      //     if (query) {
-      //       const q = query.toLowerCase();
-      //       data = data.filter((i: any) =>
-      //         i.name?.toLowerCase().includes(q) || i.location?.toLowerCase().includes(q) ||
-      //         i.country?.toLowerCase().includes(q) || i.place?.toLowerCase().includes(q),
-      //       );
-      //     }
-      //     return data.map((i: any) => ({ ...i, type: "TRIP" }));
-      //   }),
+      // ── Guided / flexible-date tours ───────────────────────────────────
+      supabase.from("trips")
+        .select("id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child,description,opening_hours,closing_hours")
+        .eq("approval_status", "approved").eq("is_hidden", false)
+        .eq("type", "trip").or("is_flexible_date.eq.true,is_custom_date.eq.true")
+        .order("created_at", { ascending: false }).limit(50)
+        .then(r => {
+          let data = r.data || [];
+          if (query) {
+            const q = query.toLowerCase();
+            data = data.filter((i: any) =>
+              i.name?.toLowerCase().includes(q) || i.location?.toLowerCase().includes(q) ||
+              i.country?.toLowerCase().includes(q) || i.place?.toLowerCase().includes(q),
+            );
+          }
+          return data.map((i: any) => ({ ...i, type: "TRIP" }));
+        }),
 
-      // ── Adventure places (hotels, accommodations, campsites, etc.) ───────
+      // ── Adventure places (hotels, campsites, etc.) ───────────────────────
       // days_opened added so ListingCard can render the working-days line
       // and the Open now/Closed badge for hotel/campsite categories.
+      // Accommodation (Airbnb) excluded here per request.
       supabase.from("adventure_places")
         .select("id,name,location,place,country,image_url,gallery_images,images,entry_fee,activities,latitude,longitude,created_at,description,opening_hours,closing_hours,category,days_opened")
         .eq("approval_status", "approved").eq("is_hidden", false)
+        .neq("category", "accommodation")
         .order("created_at", { ascending: false }).limit(50)
         .then(r => {
           let data = r.data || [];
@@ -161,16 +158,26 @@ const Explore = () => {
       //   .order("date", { ascending: true }).limit(50)
       //   .then(r => (r.data || []).map((i: any) => ({ ...i, type: "EVENT" }))),
 
-      // ── Fixed-date trips (disabled — uncomment to re-enable) ──────────
-      // supabase.from("trips")
-      //   .select("id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child,description,opening_hours,closing_hours")
-      //   .eq("approval_status", "approved").eq("is_hidden", false).eq("type", "trip")
-      //   .eq("is_flexible_date", false).eq("is_custom_date", false)
-      //   .order("date", { ascending: true }).limit(50)
-      //   .then(r => (r.data || []).map((i: any) => ({ ...i, type: "TRIP" }))),
+      // ── Fixed-date trips ─────────────────────────────────────────────────
+      supabase.from("trips")
+        .select("id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child,description,opening_hours,closing_hours")
+        .eq("approval_status", "approved").eq("is_hidden", false).eq("type", "trip")
+        .eq("is_flexible_date", false).eq("is_custom_date", false)
+        .order("date", { ascending: true }).limit(50)
+        .then(r => {
+          let data = r.data || [];
+          if (query) {
+            const q = query.toLowerCase();
+            data = data.filter((i: any) =>
+              i.name?.toLowerCase().includes(q) || i.location?.toLowerCase().includes(q) ||
+              i.country?.toLowerCase().includes(q) || i.place?.toLowerCase().includes(q),
+            );
+          }
+          return data.map((i: any) => ({ ...i, type: "TRIP" }));
+        }),
     ]);
 
-    const combined = [...adventures]
+    const combined = [...guidedTrips, ...adventures, ...fixedTrips]
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     setListings(combined);
     setLoading(false);
@@ -259,7 +266,7 @@ const Explore = () => {
                     isOutdated={isOutdated}
                     isSaved={savedItems.has(listing.id)}
                     onSave={handleSave}
-                    availableTickets={isGuided ? listing.available_tickets : undefined}
+                    availableTickets={listing.type === "TRIP" ? listing.available_tickets : undefined}
                     bookedTickets={isGuided ? bookingStats[listing.id] || 0 : undefined}
                     showBadge={true}
                     priority={index < 4}

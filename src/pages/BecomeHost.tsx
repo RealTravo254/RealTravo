@@ -66,11 +66,7 @@ const HostCategoryCard = ({ title, subtitle, image, icon, count, onManage, onAdd
         </div>
         <Button variant="ghost" onClick={onManage} className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 px-2">All →</Button>
       </div>
-      {/* ── "Add Trip" / create-trip entry point disabled ──────────────────────
-          Creating new trips and events is temporarily hidden. Guests already
-          approved as a guide/company can still view and manage existing
-          listings via "All →" above — they just can't create new ones from
-          here right now. Uncomment to restore the create flow.
+      {/* ── "Add Trip" / create-trip entry point re-enabled ───────────────── */}
       <Button
         onClick={onAdd}
         className="w-full py-3 rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest text-white transition-all active:scale-95 border-none"
@@ -78,7 +74,6 @@ const HostCategoryCard = ({ title, subtitle, image, icon, count, onManage, onAdd
       >
         <Plus className="h-3 w-3 mr-1 stroke-[3px]" /> Add {title.split(" ")[0]}
       </Button>
-      */}
     </div>
   </div>
 );
@@ -374,23 +369,18 @@ const BecomeHost = () => {
           </p>
         </div>
 
-        {/* ── Tour Guide and Register Company hosting types disabled ──────────
-            Only Accommodation / Airbnb hosting is offered right now. This also
-            means guided trips, fixed-date trips, and events (which are created
-            via the Tour Guide / Company paths) are not reachable from this page.
-            Uncomment the two SelectionCards below, and restore the grid to
-            grid-cols-1 md:grid-cols-3, to bring these hosting types back. */}
-        <div className="grid grid-cols-1 gap-6">
-          <div className="max-w-sm">
-            <SelectionCard
-              icon={<Home className="h-8 w-8 text-emerald-600" />}
-              title="Accommodation / Airbnb"
-              desc="List your home, apartment, or private stay. Once approved, you can add unlimited Accommodation listings from your dashboard."
-              onClick={() => navigate("/create-adventure")}
-              bg="bg-emerald-50"
-            />
-          </div>
-          {/*
+        {/* ── Tour Guide and Register Company hosting types re-enabled ────────
+            All three hosting types are now offered, restoring the path to
+            create trips (via Tour Guide / Company verification → the
+            guide-company dashboard → "Add Trip" → /create-trip). */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <SelectionCard
+            icon={<Home className="h-8 w-8 text-emerald-600" />}
+            title="Accommodation / Airbnb"
+            desc="List your home, apartment, or private stay. Once approved, you can add unlimited Accommodation listings from your dashboard."
+            onClick={() => navigate("/create-adventure")}
+            bg="bg-emerald-50"
+          />
           <SelectionCard
             icon={<Map className="h-8 w-8 text-blue-600" />}
             title="Tour Guide"
@@ -405,7 +395,6 @@ const BecomeHost = () => {
             onClick={() => navigate("/host-verification?category=company")}
             bg="bg-orange-50"
           />
-          */}
         </div>
       </main>
       <MobileBottomBar />
@@ -600,9 +589,7 @@ const BecomeHost = () => {
           </div>
 
           <div className="max-w-lg">
-            {/* onAdd is wired but the "Add Trip" button itself is commented out
-                inside HostCategoryCard above, so this currently has no visible
-                create-trip entry point — only "All →" to manage existing trips. */}
+            {/* "Add Trip" entry point is now live, navigating to /create-trip. */}
             <HostCategoryCard
               title="Trips & Tours"
               subtitle="Guided Experiences"

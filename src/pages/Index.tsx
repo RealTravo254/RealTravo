@@ -62,7 +62,10 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: G
     }, 500);
   };
 
-  const showSkeletons = loading && items.length === 0;
+  // Show the skeleton mockup any time there are no items — whether we're
+  // still loading, or loading finished and simply came back empty — so the
+  // section never collapses to a blank gap.
+  const showSkeletons = items.length === 0;
   const cardWidthClasses = "w-[75vw] sm:w-[230px] md:w-[240px] lg:w-[260px] shrink-0";
 
   const Skeletons = ({ count }: { count: number }) => (

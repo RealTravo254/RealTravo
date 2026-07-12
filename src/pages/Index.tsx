@@ -131,27 +131,24 @@ GridSection.displayName = "GridSection";
 
 // ── Category cards ────────────────────────────────────────────────────────────
 // Attraction and Park removed — add them back here when their pages are ready.
-// Tours & Trips commented out — trip fetching is disabled below, so there's
-// nothing to show at /category/guided right now. Uncomment both this entry
-// and the matching one in QUICK_NAV, and restore guided trip fetching in
-// fetchScrollableRows, to bring trips back.
+// AirBnbs hidden per request — uncomment to bring it back.
 const CATEGORIES = [
   { icon: Building2, title: "Hotels",         path: "/category/hotels",        bgImage: "/images/category-hotels.jpg" },
-  { icon: Home,       title: "AirBnbs", path: "/category/accommodations", bgImage: "/images/category-accommodations.png" },
   { icon: Tent,       title: "Campsites",      path: "/category/campsite",       bgImage: "/images/category-adventures.jpg" },
-  // { icon: Map,        title: "Tours & Trips",  path: "/category/guided",          bgImage: "/images/category-trips.jpg" },
+  { icon: Map,        title: "Tours & Trips",  path: "/category/guided",          bgImage: "/images/category-trips.jpg" },
+  // { icon: Home,       title: "AirBnbs", path: "/category/accommodations", bgImage: "/images/category-accommodations.png" },
 ];
 
 // ── Quick-nav shortcuts ───────────────────────────────────────────────────────
 // Attraction and Park removed — add them back here when their pages are ready.
-// Tours & Trips commented out to match CATEGORIES above (trip fetching disabled).
+// AirBnb hidden per request — uncomment to bring it back.
 const QUICK_NAV = [
   { icon: Building2, title: "hotels  ",         path: "/category/hotels",        color: "hsl(205, 85%, 45%)" },
-  { icon: Home,       title: "AirBnb", path: "/category/accomodations", color: "hsl(160, 70%, 40%)" },
   { icon: Tent,       title: "Campsites",      path: "/category/campsite",       color: "hsl(278, 90%, 50%)" },
-  // { icon: Map,        title: "Tours & Trips",  path: "/category/guided",          color: "hsl(235, 90%, 50%)" },
+  { icon: Map,        title: "Tours & Trips",  path: "/category/guided",          color: "hsl(235, 90%, 50%)" },
   { icon: Ticket,     title: "Bookings",       path: "/bookings",                color: "hsl(200, 70%, 45%)" },
   { icon: Heart,      title: "Saved",          path: "/saved",                   color: "hsl(350, 80%, 55%)" },
+  // { icon: Home,       title: "AirBnb", path: "/category/accomodations", color: "hsl(160, 70%, 40%)" },
 ];
 
 // ── Main page ─────────────────────────────────────────────────────────────────
@@ -206,15 +203,14 @@ const Index = () => {
     // scrollableRows.trips.forEach(i => ids.add(i.id)); // fixed trips disabled
     scrollableRows.campsites.forEach(i => ids.add(i.id));
     // scrollableRows.events.forEach(i => ids.add(i.id)); // events disabled
-    // scrollableRows.guidedTrips.forEach(i => ids.add(i.id)); // guided trips disabled — always [] now
+    scrollableRows.guidedTrips.forEach(i => ids.add(i.id));
     return Array.from(ids);
   }, [nearbyPlacesHotels, scrollableRows]);
 
   const tripEventIds = useMemo(() => {
-    // const ids = [...scrollableRows.trips, ...scrollableRows.events, ...scrollableRows.guidedTrips].map(i => i.id);
-    // Fixed trips, events, and guided trips all disabled — nothing left to track bookings for.
-    // const ids = [...scrollableRows.guidedTrips].map(i => i.id);
-    const ids: string[] = [];
+    // const ids = [...scrollableRows.trips, ...scrollableRows.events].map(i => i.id);
+    // Fixed trips and events remain disabled — only guided trips are tracked for bookings.
+    const ids = [...scrollableRows.guidedTrips].map(i => i.id);
     return [...new Set(ids)];
   }, [scrollableRows.guidedTrips]);
 
@@ -229,7 +225,7 @@ const Index = () => {
     const seen = new Set(places.map((p: any) => p.id));
     const others = [
       // ...scrollableRows.trips.map(item => ({ ...item, __cardType: "TRIP" as const })),   // fixed trips disabled
-      // ...scrollableRows.guidedTrips.map(item => ({ ...item, __cardType: "TRIP" as const })), // guided trips disabled
+      ...scrollableRows.guidedTrips.map(item => ({ ...item, __cardType: "TRIP" as const })),
       // ...scrollableRows.events.map(item => ({ ...item, __cardType: "EVENT" as const })),  // events disabled
     ]
       .filter(item => {
@@ -254,7 +250,7 @@ const Index = () => {
     const combined = [
       ...scrollableRows.campsites.map(item => ({ ...item, __cardType: "ADVENTURE PLACE" as const })),
       // ...scrollableRows.trips.map(item => ({ ...item, __cardType: "TRIP" as const })),   // fixed trips disabled
-      // ...scrollableRows.guidedTrips.map(item => ({ ...item, __cardType: "TRIP" as const })), // guided trips disabled
+      ...scrollableRows.guidedTrips.map(item => ({ ...item, __cardType: "TRIP" as const })),
       // ...scrollableRows.events.map(item => ({ ...item, __cardType: "EVENT" as const })), // events disabled
     ];
     return combined
@@ -281,7 +277,7 @@ const Index = () => {
         // tripsData,   // fixed trips fetch disabled — uncomment to re-enable
         campsitesData,
         // eventsData,  // events fetch disabled — uncomment to re-enable
-        // guidedData,  // guided trips fetch disabled — uncomment to re-enable
+        guidedData,
       ] = await Promise.all([
         // ── Fixed-date trips (disabled — uncomment to re-enable) ──────────
         // supabase
@@ -307,20 +303,20 @@ const Index = () => {
         //   .eq("approval_status", "approved").eq("is_hidden", false)
         //   .eq("type", "event").order("date", { ascending: true }).limit(fetchLimit),
 
-        // ── Guided tours (flexible / custom-date trips) — disabled ────────
-        // supabase
-        //   .from("trips")
-        //   .select("id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child,description,opening_hours,closing_hours")
-        //   .eq("approval_status", "approved").eq("is_hidden", false)
-        //   .eq("type", "trip").or("is_flexible_date.eq.true,is_custom_date.eq.true")
-        //   .order("created_at", { ascending: false }).limit(fetchLimit),
+        // ── Guided tours (flexible / custom-date trips) — re-enabled ──────
+        supabase
+          .from("trips")
+          .select("id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child,description,opening_hours,closing_hours")
+          .eq("approval_status", "approved").eq("is_hidden", false)
+          .eq("type", "trip").or("is_flexible_date.eq.true,is_custom_date.eq.true")
+          .order("created_at", { ascending: false }).limit(fetchLimit),
       ]);
 
       setScrollableRows({
         trips:       [],                    // fixed trips disabled
         campsites:   campsitesData.data || [],
         events:      [],                    // events disabled
-        guidedTrips: [],                     // guided trips disabled
+        guidedTrips: guidedData.data || [],
       });
     } catch (err) {
       console.error("Error fetching rows:", err);
@@ -369,7 +365,7 @@ const Index = () => {
       const c = (cached.scrollableRows as any) || {};
       const rows = {
         trips: [], campsites: c.campsites || [],
-        events: [], guidedTrips: [], // guided trips disabled — ignore any stale cached trip data
+        events: [], guidedTrips: c.guidedTrips || [],
       };
       setScrollableRows(rows);
       setNearbyPlacesHotels(cached.nearbyPlacesHotels || []);
@@ -622,10 +618,10 @@ const Index = () => {
           {/* ── All content constrained to container width (never bleeds to screen edge on desktop) ── */}
           <div className="container mx-auto px-4 md:px-6 py-3 md:py-5 space-y-2 md:space-y-6">
 
-            {/* Categories ── 3 cards (Tours & Trips commented out above), full
-                screen width on mobile via the -mx-4/px-4 bleed technique used
-                by the horizontal scroll sections below, constrained back to
-                the container on md+ screens. */}
+            {/* Categories ── 3 cards, full screen width on mobile via the
+                -mx-4/px-4 bleed technique used by the horizontal scroll
+                sections below, constrained back to the container on md+
+                screens. */}
             <section className="mb-4 md:mb-8">
               <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-3">
                 Browse by category

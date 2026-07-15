@@ -646,22 +646,19 @@ const CreateTripEvent = () => {
               <div className="space-y-5">
                 {/* Date */}
                 <SectionCard title="Date Settings" icon={Calendar}>
-                  {/* ── Fixed-date trips disabled ──────────────────────────────
-                      Trips no longer offer a "Flexible dates" toggle — every
-                      trip is flexible-date only (is_custom_date is forced to
-                      true for type === "trip" in the initial formData state
-                      above). Uncomment below to restore the fixed/flexible
-                      choice for trips.
+                  {/* ── Fixed-date trips re-enabled ──────────────────────────
+                      Trips can now be either flexible-date (guests pick their
+                      own day) or fixed-date (a single specific date), chosen
+                      via this toggle. Events remain fixed-date only. */}
                   {formData.type === "trip" && (
                     <label className="flex items-center gap-3 cursor-pointer mb-5 p-4 bg-slate-50 rounded-xl border border-slate-100 hover:bg-slate-100 transition-all">
                       <Checkbox id="custom_date" checked={formData.is_custom_date} onCheckedChange={(checked) => setFormData({ ...formData, is_custom_date: checked as boolean })} />
                       <div>
                         <p className="text-sm font-bold text-slate-700">Flexible dates</p>
-                        <p className="text-xs text-slate-400">Open availability — guests choose their own date</p>
+                        <p className="text-xs text-slate-400">Open availability — guests choose their own date. Uncheck for a fixed, single-date trip.</p>
                       </div>
                     </label>
                   )}
-                  */}
                   {formData.is_custom_date ? (
                     <div className="space-y-3">
                       <FieldLabel>Listing Duration</FieldLabel>
@@ -766,9 +763,10 @@ const CreateTripEvent = () => {
                               not the total capacity for that day. Multiple separate
                               bookings can still be made for the same day, each up to
                               this limit. Column name in the DB is unchanged. */}
-                          <FieldLabel required>{formData.type === "trip" ? "Max Booking Limit Per Day" : "Max Slots"}</FieldLabel>
+                          <FieldLabel required>{formData.type === "trip" && formData.is_custom_date ? "Max Booking Limit Per Day" : "Max Slots"}</FieldLabel>
                           <StyledInput isInvalid={validationErrors.includes("available_tickets")} type="number" value={formData.available_tickets} onChange={(e) => { setFormData({ ...formData, available_tickets: e.target.value }); if (e.target.value && parseInt(e.target.value) > 0) setValidationErrors(prev => prev.filter(err => err !== "available_tickets")); }} />
-                          {formData.type === "trip" && <p className="text-[10px] text-slate-400 mt-1 font-medium">Since this trip is flexible-date, this is the maximum number of slots a single booking can reserve for any given day — not the day's total capacity.</p>}
+                          {formData.type === "trip" && formData.is_custom_date && <p className="text-[10px] text-slate-400 mt-1 font-medium">Since this trip is flexible-date, this is the maximum number of slots a single booking can reserve for any given day — not the day's total capacity.</p>}
+                          {formData.type === "trip" && !formData.is_custom_date && <p className="text-[10px] text-slate-400 mt-1 font-medium">Total number of slots available for this trip's date.</p>}
                           {validationErrors.includes("available_tickets") && <p className="text-red-500 text-[10px] font-semibold mt-1">⚠ Enter number of slots (min 1)</p>}
                         </div>
                       </div>

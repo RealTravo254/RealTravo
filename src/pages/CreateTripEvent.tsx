@@ -83,6 +83,14 @@ const SectionCard = ({ title, subtitle, icon: Icon, children, accent = COLORS.TE
   </div>
 );
 
+// ─── Compressing Indicator ────────────────────────────────────────────────────
+const CompressingBanner = ({ label = "Compressing photos…" }: { label?: string }) => (
+  <div className="mb-3 flex items-center gap-2 px-4 py-2.5 bg-teal-50 border border-teal-200 rounded-xl">
+    <Loader2 className="h-4 w-4 animate-spin text-teal-600" />
+    <p className="text-teal-700 text-xs font-semibold">{label}</p>
+  </div>
+);
+
 // ─── Step Sidebar ─────────────────────────────────────────────────────────────
 const StepSidebar = ({ steps, currentStep, onStepClick, type }: { steps: any[]; currentStep: number; onStepClick?: (i: number) => void; type: string }) => (
   <aside className="hidden lg:flex flex-col w-72 shrink-0 sticky top-24 self-start">
@@ -224,8 +232,10 @@ const CreateTripEvent = () => {
   const [locationMode, setLocationMode] = useState<'link' | 'gps' | null>(null);
   const [workingDays, setWorkingDays] = useState<WorkingDays>({ Mon: true, Tue: true, Wed: true, Thu: true, Fri: true, Sat: true, Sun: true });
   const [galleryImages, setGalleryImages] = useState<File[]>([]);
+  const [isCompressingGallery, setIsCompressingGallery] = useState(false);
   const [eventCertificate, setEventCertificate] = useState<File | null>(null);
   const [certificatePreview, setCertificatePreview] = useState<string | null>(null);
+  const [isCompressingCertificate, setIsCompressingCertificate] = useState(false);
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -315,6 +325,7 @@ const CreateTripEvent = () => {
   const handleImageUpload = async (files: FileList | null) => {
     if (!files) return;
     const newFiles = Array.from(files).slice(0, 5 - galleryImages.length);
+    setIsCompressingGallery(true);
     try {
       const compressed = await compressImages(newFiles);
       const updated = [...galleryImages, ...compressed.map(c => c.file)].slice(0, 5);
@@ -324,10 +335,28 @@ const CreateTripEvent = () => {
       const updated = [...galleryImages, ...newFiles].slice(0, 5);
       setGalleryImages(updated);
       if (updated.length >= 5) setValidationErrors(prev => prev.filter(e => e !== "gallery"));
+    } finally {
+      setIsCompressingGallery(false);
     }
   };
 
   const removeImage = (index: number) => setGalleryImages(prev => prev.filter((_, i) => i !== index));
+
+  const handleCertificateUpload = async (file: File | undefined) => {
+    if (!file) return;
+    setIsCompressingCertificate(true);
+    try {
+      const [compressed] = await compressImages([file]);
+      setEventCertificate(compressed.file);
+      setCertificatePreview(URL.createObjectURL(compressed.file));
+    } catch {
+      setEventCertificate(file);
+      setCertificatePreview(URL.createObjectURL(file));
+    } finally {
+      setIsCompressingCertificate(false);
+      setValidationErrors(prev => prev.filter(err => err !== "event_certificate"));
+    }
+  };
 
   const addTicketType = () => {
     if (!newTicketName.trim() || !newTicketPrice || parseFloat(newTicketPrice) < 0) {
@@ -825,6 +854,7 @@ const CreateTripEvent = () => {
                       <p className="text-red-600 text-xs font-semibold">You need exactly 5 photos. Please upload {5 - galleryImages.length} more.</p>
                     </div>
                   )}
+                  {isCompressingGallery && <CompressingBanner />}
                   <ImageGalleryGrid images={galleryImages} onRemove={removeImage} onAdd={handleImageUpload} isInvalid={validationErrors.includes("gallery")} />
                   <p className="text-[10px] text-slate-400 mt-3 font-medium">First photo becomes your cover image. Use landscape photos for best results.</p>
                 </SectionCard>
@@ -832,6 +862,7 @@ const CreateTripEvent = () => {
                 {/* Event Certificate */}
                 {formData.type === 'event' && (
                   <SectionCard title="Event Certificate / Permit" subtitle="Prove you're authorized to host this event" icon={FileImage}>
+                    {isCompressingCertificate && <CompressingBanner label="Compressing certificate image…" />}
                     {certificatePreview ? (
                       <div className="relative rounded-xl overflow-hidden border border-slate-200">
                         <img src={certificatePreview} alt="Event Certificate" className="w-full h-48 object-cover" />
@@ -849,10 +880,7 @@ const CreateTripEvent = () => {
                         <FileImage className={`h-8 w-8 mb-2 ${validationErrors.includes("event_certificate") ? "text-red-400" : "text-slate-300"}`} />
                         <span className={`text-xs font-bold ${validationErrors.includes("event_certificate") ? "text-red-500" : "text-slate-400"}`}>Click to upload certificate image</span>
                         <span className="text-[10px] text-slate-300 mt-0.5">PNG, JPG up to 10MB</span>
-                        <input type="file" className="hidden" accept="image/*" onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) { setEventCertificate(file); setCertificatePreview(URL.createObjectURL(file)); setValidationErrors(prev => prev.filter(err => err !== "event_certificate")); }
-                        }} />
+                        <input type="file" className="hidden" accept="image/*" onChange={(e) => handleCertificateUpload(e.target.files?.[0])} />
                       </label>
                     )}
                     {validationErrors.includes("event_certificate") && <p className="text-red-500 text-[10px] font-semibold mt-2">⚠ Event certificate is required to host an event</p>}

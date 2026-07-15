@@ -120,6 +120,14 @@ const SectionCard = ({ title, subtitle, icon: Icon, children, accent = COLORS.TE
   </div>
 );
 
+// ─── Compressing Indicator ────────────────────────────────────────────────────
+const CompressingBanner = ({ label = "Compressing photos…" }: { label?: string }) => (
+  <div className="mb-3 flex items-center gap-2 px-4 py-2.5 bg-teal-50 border border-teal-200 rounded-xl">
+    <Loader2 className="h-4 w-4 animate-spin text-teal-600" />
+    <p className="text-teal-700 text-xs font-semibold">{label}</p>
+  </div>
+);
+
 // ─── Category Selector (Accommodation / Airbnb only for now) ─────────────────
 const CategorySelector = ({
   value, onChange, isInvalid,
@@ -196,10 +204,10 @@ const ImageGalleryGrid = ({
 
 // ─── TRA Licence Upload ───────────────────────────────────────────────────────
 const TraLicenceUpload = ({
-  file, preview, onAdd, onRemove, onReject, isInvalid,
+  file, preview, onAdd, onRemove, onReject, isInvalid, isCompressing,
 }: {
   file: File | null; preview: string; onAdd: (f: File) => void; onRemove: () => void;
-  onReject: (reason: string) => void; isInvalid?: boolean;
+  onReject: (reason: string) => void; isInvalid?: boolean; isCompressing?: boolean;
 }) => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const picked = e.target.files?.[0];
@@ -230,6 +238,8 @@ const TraLicenceUpload = ({
         </div>
         <span className="ml-auto shrink-0 text-[10px] font-bold uppercase tracking-widest bg-amber-50 text-amber-600 border border-amber-200 px-2.5 py-1 rounded-full">Required</span>
       </div>
+
+      {isCompressing && <CompressingBanner label="Compressing licence image…" />}
 
       {preview ? (
         <div className={`relative rounded-2xl overflow-hidden border-2 transition-all ${isInvalid ? "border-red-300" : "border-teal-200"}`} style={{ background: "linear-gradient(135deg,#f0fdfa,#e6fffa)" }}>
@@ -414,6 +424,8 @@ const FacilityBuilder = ({ items, onChange, showErrors, onValidationFail }: {
   showErrors: boolean; onValidationFail: (msg: string) => void;
 }) => {
   const { usdHint } = useCurrency();
+  // Track which facility IDs are currently mid-compression, so each card can show its own banner.
+  const [compressingIds, setCompressingIds] = useState<Set<string>>(new Set());
   const update = (id: string, patch: Partial<FacilityItem>) => onChange(items.map((f) => f.id === id ? { ...f, ...patch } : f));
   const addItem = () => onChange([...items, emptyFacility()]);
   const removeItem = (id: string) => onChange(items.filter((f) => f.id !== id));
@@ -424,6 +436,14 @@ const FacilityBuilder = ({ items, onChange, showErrors, onValidationFail }: {
   };
   const removeAmenityTag = (item: FacilityItem, idx: number) => update(item.id, { amenities: item.amenities.filter((_, i) => i !== idx) });
 
+  const setCompressing = (id: string, value: boolean) => {
+    setCompressingIds((prev) => {
+      const next = new Set(prev);
+      if (value) next.add(id); else next.delete(id);
+      return next;
+    });
+  };
+
   const handleImages = async (id: string, fileList: FileList | null, existing: File[]) => {
     if (!fileList || fileList.length === 0) return;
     const slots = 5 - existing.length;
@@ -431,9 +451,11 @@ const FacilityBuilder = ({ items, onChange, showErrors, onValidationFail }: {
     const incoming = Array.from(fileList).slice(0, slots);
     const rejected = incoming.filter((f) => !isImageFile(f));
     if (rejected.length > 0) { onValidationFail("Only image files (JPG, PNG) are accepted."); return; }
+    setCompressing(id, true);
     let merged: File[];
     try { const compressed = await compressImages(incoming); merged = [...existing, ...compressed.map((c) => c.file)].slice(0, 5); }
     catch { merged = [...existing, ...incoming].slice(0, 5); }
+    finally { setCompressing(id, false); }
     update(id, { images: merged, previewUrls: merged.map(safeObjectUrl) });
   };
 
@@ -506,6 +528,7 @@ const FacilityBuilder = ({ items, onChange, showErrors, onValidationFail }: {
                 <FieldLabel required>
                   Photos (min 2, max 5){showErrors && item.images.length < 2 && <span className="text-red-400 text-[10px] normal-case font-normal"> — at least 2 required</span>}
                 </FieldLabel>
+                {compressingIds.has(item.id) && <CompressingBanner />}
                 <ImageGalleryGrid images={item.images} previews={item.previewUrls} onRemove={(i) => removeImage(item.id, i, item.images)} onAdd={(files) => handleImages(item.id, files, item.images)} isInvalid={showErrors && item.images.length < 2} slots={5} />
               </div>
               <div className="flex gap-3 pt-1">
@@ -531,9 +554,19 @@ const ActivityBuilder = ({ items, onChange, showErrors, onValidationFail }: {
   showErrors: boolean; onValidationFail: (msg: string) => void;
 }) => {
   const { usdHint } = useCurrency();
+  // Track which activity IDs are currently mid-compression, so each card can show its own banner.
+  const [compressingIds, setCompressingIds] = useState<Set<string>>(new Set());
   const update = (id: string, patch: Partial<ActivityItem>) => onChange(items.map((a) => a.id === id ? { ...a, ...patch } : a));
   const addItem = () => onChange([...items, emptyActivity()]);
   const removeItem = (id: string) => onChange(items.filter((a) => a.id !== id));
+
+  const setCompressing = (id: string, value: boolean) => {
+    setCompressingIds((prev) => {
+      const next = new Set(prev);
+      if (value) next.add(id); else next.delete(id);
+      return next;
+    });
+  };
 
   const handleImages = async (id: string, fileList: FileList | null, existing: File[]) => {
     if (!fileList || fileList.length === 0) return;
@@ -542,9 +575,11 @@ const ActivityBuilder = ({ items, onChange, showErrors, onValidationFail }: {
     const incoming = Array.from(fileList).slice(0, slots);
     const rejected = incoming.filter((f) => !isImageFile(f));
     if (rejected.length > 0) { onValidationFail("Only image files (JPG, PNG) are accepted."); return; }
+    setCompressing(id, true);
     let merged: File[];
     try { const compressed = await compressImages(incoming); merged = [...existing, ...compressed.map((c) => c.file)].slice(0, 5); }
     catch { merged = [...existing, ...incoming].slice(0, 5); }
+    finally { setCompressing(id, false); }
     update(id, { images: merged, previewUrls: merged.map(safeObjectUrl) });
   };
 
@@ -608,6 +643,7 @@ const ActivityBuilder = ({ items, onChange, showErrors, onValidationFail }: {
                     <span className="text-[10px] font-bold text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">{item.images.length}/5 uploaded</span>
                   )}
                 </div>
+                {compressingIds.has(item.id) && <CompressingBanner />}
                 {item.previewUrls.length > 0 && (
                   <div className="flex flex-wrap gap-2 mb-3">
                     {item.previewUrls.map((url, i) => (
@@ -750,6 +786,7 @@ const CreateAdventure = () => {
 
   const [traLicenceFile, setTraLicenceFile] = useState<File | null>(null);
   const [traLicencePreview, setTraLicencePreview] = useState<string>("");
+  const [isCompressingTraLicence, setIsCompressingTraLicence] = useState(false);
   const [locationMode, setLocationMode] = useState<"link" | "gps" | null>(null);
   const [workingDays, setWorkingDays] = useState({ Mon: true, Tue: true, Wed: true, Thu: true, Fri: true, Sat: true, Sun: true });
   const [generalFacilities, setGeneralFacilities] = useState<string[]>([]);
@@ -759,6 +796,7 @@ const CreateAdventure = () => {
   const [specialPrices, setSpecialPrices] = useState<SpecialPriceTier[]>([]);
   const [galleryImages, setGalleryImages] = useState<File[]>([]);
   const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
+  const [isCompressingGallery, setIsCompressingGallery] = useState(false);
 
   const onValidationFail = useCallback((msg: string) => toast({ title: "Required", description: msg, variant: "destructive" }), [toast]);
 
@@ -788,10 +826,19 @@ const CreateAdventure = () => {
       });
   }, [user, navigate, toast]);
 
-  // ── TRA Licence handlers ──────────────────────────────────────────────────
-  const handleTraLicenceAdd = (file: File) => {
-    setTraLicenceFile(file);
-    setTraLicencePreview(safeObjectUrl(file));
+  // ── TRA Licence handlers (now compressed like every other image upload) ───
+  const handleTraLicenceAdd = async (file: File) => {
+    setIsCompressingTraLicence(true);
+    try {
+      const [compressed] = await compressImages([file]);
+      setTraLicenceFile(compressed.file);
+      setTraLicencePreview(safeObjectUrl(compressed.file));
+    } catch {
+      setTraLicenceFile(file);
+      setTraLicencePreview(safeObjectUrl(file));
+    } finally {
+      setIsCompressingTraLicence(false);
+    }
   };
   const handleTraLicenceRemove = () => {
     setTraLicenceFile(null);
@@ -933,9 +980,11 @@ const CreateAdventure = () => {
       toast({ title: "File type not supported", description: "Only JPG and PNG images are accepted.", variant: "destructive" });
       return;
     }
+    setIsCompressingGallery(true);
     let merged: File[];
     try { const compressed = await compressImages(incoming); merged = [...galleryImages, ...compressed.map((c) => c.file)].slice(0, 5); }
     catch { merged = [...galleryImages, ...incoming].slice(0, 5); }
+    finally { setIsCompressingGallery(false); }
     setGalleryImages(merged);
     setGalleryPreviews(merged.map(safeObjectUrl));
   };
@@ -1137,6 +1186,7 @@ const CreateAdventure = () => {
                     file={traLicenceFile} preview={traLicencePreview}
                     onAdd={handleTraLicenceAdd} onRemove={handleTraLicenceRemove}
                     onReject={handleTraLicenceReject} isInvalid={showErrors && !traLicenceFile}
+                    isCompressing={isCompressingTraLicence}
                   />
                 </div>
               </SectionCard>
@@ -1338,6 +1388,7 @@ const CreateAdventure = () => {
                     <p className="text-red-600 text-xs font-semibold">Upload at least {5 - galleryImages.length} more photos</p>
                   </div>
                 )}
+                {isCompressingGallery && <CompressingBanner />}
                 <ImageGalleryGrid images={galleryImages} previews={galleryPreviews} onRemove={removeGalleryImage} onAdd={handleGalleryUpload} isInvalid={showErrors && galleryImages.length < 5} slots={5} />
                 <p className="text-[10px] text-slate-400 mt-3 font-medium">JPG or PNG only. First photo becomes your cover image.</p>
               </SectionCard>

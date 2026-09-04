@@ -135,10 +135,12 @@ GridSection.displayName = "GridSection";
 // ── Category cards ────────────────────────────────────────────────────────────
 // Attraction and Park removed — add them back here when their pages are ready.
 // AirBnbs hidden per request — uncomment to bring it back.
+// Hotels + Campsites merged into a single "Hotels & Campsites" card per request.
+// If you later add a dedicated combined route, update the `path` below —
+// it currently points at the existing hotels category page.
 const CATEGORIES = [
-  { icon: Building2, title: "Hotels",         path: "/category/hotels",        bgImage: "/images/category-hotels.jpg" },
-  { icon: Tent,       title: "Campsites",      path: "/category/campsite",       bgImage: "/images/category-adventures.jpg" },
-  { icon: Map,        title: "Tours & Trips",  path: "/category/guided",          bgImage: "/images/category-trips.jpg" },
+  { icon: Building2, title: "Hotels & Campsites", path: "/category/hotels",        bgImage: "/images/category-hotels.jpg" },
+  { icon: Map,        title: "Tours & Trips",       path: "/category/guided",        bgImage: "/images/category-trips.jpg" },
   // { icon: Home,       title: "AirBnbs", path: "/category/accommodations", bgImage: "/images/category-accommodations.png" },
 ];
 
@@ -621,16 +623,16 @@ const Index = () => {
           {/* ── All content constrained to container width (never bleeds to screen edge on desktop) ── */}
           <div className="container mx-auto px-4 md:px-6 py-3 md:py-5 space-y-2 md:space-y-6">
 
-            {/* Categories ── 3 cards, full screen width on mobile via the
-                -mx-4/px-4 bleed technique used by the horizontal scroll
-                sections below, constrained back to the container on md+
-                screens. */}
+            {/* Categories ── now 2 cards (Hotels & Campsites merged, Tours & Trips),
+                full screen width on mobile via the -mx-4/px-4 bleed technique used by
+                the horizontal scroll sections below, constrained back to the
+                container on md+ screens. */}
             <section className="mb-4 md:mb-8">
               <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-3">
                 Browse by category
               </h2>
               <div className="-mx-4 px-4 md:mx-0 md:px-0">
-                <div className="grid grid-cols-3 gap-2 md:gap-4">
+                <div className="grid grid-cols-2 gap-2 md:gap-4">
                   {CATEGORIES.map(cat => (
                     <Link
                       key={cat.title}

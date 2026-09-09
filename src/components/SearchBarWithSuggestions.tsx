@@ -26,6 +26,9 @@ interface SearchResult {
   id: string;
   name: string;
   type: "trip" | "adventure";
+  // category distinguishes adventure_places rows (hotel / campsite / accommodation / etc.)
+  // so the badge label and icon can be accurate instead of always saying "Campsite".
+  category?: string;
   location?: string;
   place?: string;
   country?: string;
@@ -110,7 +113,7 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
           .limit(100),
         supabase
           .from("adventure_places")
-          .select("id, name, location, place, country, activities")
+          .select("id, name, location, place, country, activities, category")
           .eq("approval_status", "approved")
           .eq("is_hidden", false)
           .limit(100),
@@ -167,7 +170,7 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
     try {
       const [tripsData, adventuresData] = await Promise.all([
         supabase.from("trips").select("id, name, location, place, country, type").eq("approval_status", "approved").eq("is_hidden", false).eq("type", "trip").order("created_at", { ascending: false }).limit(4),
-        supabase.from("adventure_places").select("id, name, location, place, country").eq("approval_status", "approved").eq("is_hidden", false).order("created_at", { ascending: false }).limit(4)
+        supabase.from("adventure_places").select("id, name, location, place, country, category").eq("approval_status", "approved").eq("is_hidden", false).order("created_at", { ascending: false }).limit(4)
       ]);
 
       const popular: SearchResult[] = [
@@ -243,7 +246,7 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
     try {
       const [tripsData, adventuresData] = await Promise.all([
         supabase.from("trips").select("id, name, location, place, country, activities").eq("approval_status", "approved").eq("is_hidden", false).eq("type", "trip").limit(20),
-        supabase.from("adventure_places").select("id, name, location, place, country, activities").eq("approval_status", "approved").eq("is_hidden", false).limit(20)
+        supabase.from("adventure_places").select("id, name, location, place, country, activities, category").eq("approval_status", "approved").eq("is_hidden", false).limit(20)
       ]);
 
       let combined: SearchResult[] = [
@@ -319,9 +322,22 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
     navigate(`/${result.type}/${result.id}`);
   };
 
-  const getTypeLabel = (type: string) => {
-    const labels: Record<string, string> = { trip: "Trip", adventure: "Campsite" };
-    return labels[type] || type;
+  // Labels now reflect the actual listing category rather than lumping every
+  // adventure_places row under "Campsite" — AirBnb / hotel listings get their
+  // own badge text so search results read correctly.
+  const getTypeLabel = (type: string, category?: string) => {
+    if (type === "trip") return "Trip";
+    if (type === "adventure") {
+      const categoryLabels: Record<string, string> = {
+        accommodation: "AirBnb",
+        hotel: "Hotel",
+        campsite: "Campsite",
+        park: "Park",
+        attraction: "Attraction",
+      };
+      return categoryLabels[category ?? ""] || "Campsite";
+    }
+    return type;
   };
 
   return (
@@ -520,7 +536,7 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
                           <div className="flex-1 flex flex-col justify-center min-w-0">
                             <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
                               <span className="text-[8px] font-black bg-primary text-primary-foreground px-1.5 py-0.5 rounded-sm uppercase tracking-wider">
-                                {getTypeLabel(result.type)}
+                                {getTypeLabel(result.type, result.category)}
                               </span>
                               {result.matchedActivity && (
                                 <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-sm uppercase bg-accent/15 text-accent border border-accent/20">

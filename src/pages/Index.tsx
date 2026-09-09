@@ -627,9 +627,6 @@ const Index = () => {
                 at the lg breakpoint and up, so they no longer stretch tall on big
                 screens. */}
             <section className="mb-4 md:mb-8">
-              <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-3">
-                Browse by category
-              </h2>
               <div className="-mx-4 px-4 md:mx-0 md:px-0">
                 <div className="grid grid-cols-2 gap-2 md:gap-4">
                   {CATEGORIES.map(cat => (

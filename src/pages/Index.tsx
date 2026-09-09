@@ -24,7 +24,6 @@ import { getUserId } from "@/lib/sessionManager";
 import { useGeolocation, calculateDistance } from "@/hooks/useGeolocation";
 import { ListingSkeleton } from "@/components/ui/listing-skeleton";
 import { useSavedItems } from "@/hooks/useSavedItems";
-import { getCachedHomePageData, setCachedHomePageData } from "@/hooks/useHomePageCache";
 import { useRatings, sortByRating } from "@/hooks/useRatings";
 import { useRealtimeBookings } from "@/hooks/useRealtimeBookings";
 import { useResponsiveLimit } from "@/hooks/useResponsiveLimit";
@@ -274,8 +273,11 @@ const Index = () => {
   }, [scrollableRows.campsites, scrollableRows.guidedTrips, ratings]);
 
   // ── Data fetching ──────────────────────────────────────────────────────────
-  const fetchScrollableRows = useCallback(async (limit: number) => {
-    setLoadingScrollable(true);
+  const fetchScrollableRows = useCallback(async (limit: number, opts: { background?: boolean } = {}) => {
+    // `background` refreshes silently update data without flipping the
+    // loading flag, so the skeleton/spinner never reappears once content
+    // is already on screen — only the very first load shows it.
+    if (!opts.background) setLoadingScrollable(true);
     const fetchLimit = Math.max(limit * 3, 60);
     try {
       const [
@@ -326,13 +328,13 @@ const Index = () => {
     } catch (err) {
       console.error("Error fetching rows:", err);
     } finally {
-      setLoadingScrollable(false);
+      if (!opts.background) setLoadingScrollable(false);
     }
   }, []);
 
-  const fetchNearbyPlacesAndHotels = useCallback(async () => {
+  const fetchNearbyPlacesAndHotels = useCallback(async (opts: { background?: boolean } = {}) => {
     if (!position) return;
-    setLoadingNearby(true);
+    if (!opts.background) setLoadingNearby(true);
     try {
       // category, days_opened, opening_hours, and closing_hours added so
       // ListingCard can render the category badge, working-days line, and
@@ -357,42 +359,36 @@ const Index = () => {
     } catch (err) {
       console.error("Error fetching nearby places:", err);
     } finally {
-      setLoadingNearby(false);
+      if (!opts.background) setLoadingNearby(false);
     }
   }, [position]);
 
   // ── Effects ────────────────────────────────────────────────────────────────
   useEffect(() => { requestLocation(); }, [requestLocation]);
 
+  // Caching removed — the home page now always fetches fresh data on load
+  // instead of reusing a previously stored snapshot.
   useEffect(() => {
-    const cached = getCachedHomePageData();
-    if (cached) {
-      const c = (cached.scrollableRows as any) || {};
-      const rows = {
-        trips: [], campsites: c.campsites || [],
-        events: [], guidedTrips: c.guidedTrips || [],
-      };
-      setScrollableRows(rows);
-      setNearbyPlacesHotels(cached.nearbyPlacesHotels || []);
-      setLoadingScrollable(false);
-      setLoadingNearby(false);
-      const age = Date.now() - (cached.cachedAt || 0);
-      const hasData = rows.campsites.length > 0 || rows.guidedTrips.length > 0;
-      if (age < 5 * 60 * 1000 && hasData) { getUserId().then(setUserId); return; }
-    }
     fetchScrollableRows(cardLimit);
     getUserId().then(setUserId);
   }, [cardLimit, fetchScrollableRows]);
 
   useEffect(() => {
-    const hasData = scrollableRows.campsites.length > 0 || scrollableRows.guidedTrips.length > 0;
-    if (!loadingScrollable && hasData)
-      setCachedHomePageData({ scrollableRows, listings: [], nearbyPlacesHotels });
-  }, [loadingScrollable, scrollableRows, nearbyPlacesHotels]);
-
-  useEffect(() => {
     if (position) fetchNearbyPlacesAndHotels();
   }, [position, fetchNearbyPlacesAndHotels]);
+
+  // Silent background refresh — re-fetches data periodically without
+  // flipping any loading state, so the front end never shows a skeleton
+  // or visibly reloads. Existing content stays on screen and is swapped
+  // in place once the new data arrives.
+  const BACKGROUND_REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      fetchScrollableRows(cardLimit, { background: true });
+      if (position) fetchNearbyPlacesAndHotels({ background: true });
+    }, BACKGROUND_REFRESH_INTERVAL_MS);
+    return () => window.clearInterval(interval);
+  }, [cardLimit, fetchScrollableRows, position, fetchNearbyPlacesAndHotels]);
 
   useEffect(() => {
     const ctrl = () => setShowSearchIcon(window.scrollY > 0);
@@ -626,7 +622,10 @@ const Index = () => {
             {/* Categories ── now 2 cards (Hotels & Campsites merged, Tours & Trips),
                 full screen width on mobile via the -mx-4/px-4 bleed technique used by
                 the horizontal scroll sections below, constrained back to the
-                container on md+ screens. */}
+                container on md+ screens. Cards use an aspect-ratio on mobile/tablet
+                (so they scale nicely with column width) but switch to a FIXED height
+                at the lg breakpoint and up, so they no longer stretch tall on big
+                screens. */}
             <section className="mb-4 md:mb-8">
               <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-3">
                 Browse by category
@@ -637,8 +636,7 @@ const Index = () => {
                     <Link
                       key={cat.title}
                       to={cat.path}
-                      className="relative flex flex-col items-center justify-center gap-1.5 rounded-xl overflow-hidden cursor-pointer"
-                      style={{ aspectRatio: "8 / 3" }}
+                      className="relative flex flex-col items-center justify-center gap-1.5 rounded-xl overflow-hidden cursor-pointer aspect-[8/3] lg:aspect-auto lg:h-40 xl:h-48"
                     >
                       <img
                         src={cat.bgImage}

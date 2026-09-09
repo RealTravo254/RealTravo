@@ -133,26 +133,26 @@ GridSection.displayName = "GridSection";
 
 // ── Category cards ────────────────────────────────────────────────────────────
 // Attraction and Park removed — add them back here when their pages are ready.
-// AirBnbs hidden per request — uncomment to bring it back.
 // Hotels + Campsites merged into a single "Hotels & Campsites" card per request.
 // If you later add a dedicated combined route, update the `path` below —
 // it currently points at the existing hotels category page.
+// AirBnbs restored per request — points at the accommodations category page.
 const CATEGORIES = [
-  { icon: Building2, title: "Hotels & Campsites", path: "/category/hotels",        bgImage: "/images/category-hotels.jpg" },
+  { icon: Building2, title: "Hotels & Campsites", path: "/category/hotels",         bgImage: "/images/category-hotels.jpg" },
   { icon: Map,        title: "Tours & Trips",       path: "/category/guided",        bgImage: "/images/category-trips.jpg" },
-  // { icon: Home,       title: "AirBnbs", path: "/category/accommodations", bgImage: "/images/category-accommodations.png" },
+  { icon: Home,        title: "AirBnbs",            path: "/category/accommodations", bgImage: "/images/category-accommodations.png" },
 ];
 
 // ── Quick-nav shortcuts ───────────────────────────────────────────────────────
 // Attraction and Park removed — add them back here when their pages are ready.
-// AirBnb hidden per request — uncomment to bring it back.
+// AirBnb restored per request.
 const QUICK_NAV = [
-  { icon: Building2, title: "hotels  ",         path: "/category/hotels",        color: "hsl(205, 85%, 45%)" },
-  { icon: Tent,       title: "Campsites",      path: "/category/campsite",       color: "hsl(278, 90%, 50%)" },
-  { icon: Map,        title: "Tours & Trips",  path: "/category/guided",          color: "hsl(235, 90%, 50%)" },
-  { icon: Ticket,     title: "Bookings",       path: "/bookings",                color: "hsl(200, 70%, 45%)" },
-  { icon: Heart,      title: "Saved",          path: "/saved",                   color: "hsl(350, 80%, 55%)" },
-  // { icon: Home,       title: "AirBnb", path: "/category/accomodations", color: "hsl(160, 70%, 40%)" },
+  { icon: Building2, title: "hotels  ",         path: "/category/hotels",          color: "hsl(205, 85%, 45%)" },
+  { icon: Tent,       title: "Campsites",      path: "/category/campsite",         color: "hsl(278, 90%, 50%)" },
+  { icon: Map,        title: "Tours & Trips",  path: "/category/guided",           color: "hsl(235, 90%, 50%)" },
+  { icon: Home,       title: "AirBnb",         path: "/category/accommodations",   color: "hsl(160, 70%, 40%)" },
+  { icon: Ticket,     title: "Bookings",       path: "/bookings",                  color: "hsl(200, 70%, 45%)" },
+  { icon: Heart,      title: "Saved",          path: "/saved",                     color: "hsl(350, 80%, 55%)" },
 ];
 
 // ── Main page ─────────────────────────────────────────────────────────────────
@@ -187,8 +187,8 @@ const Index = () => {
   }, []);
 
   const [scrollableRows, setScrollableRows] = useState<{
-    trips: any[]; campsites: any[]; events: any[]; guidedTrips: any[];
-  }>({ trips: [], campsites: [], events: [], guidedTrips: [] });
+    trips: any[]; campsites: any[]; events: any[]; guidedTrips: any[]; accommodations: any[];
+  }>({ trips: [], campsites: [], events: [], guidedTrips: [], accommodations: [] });
 
   const [nearbyPlacesHotels, setNearbyPlacesHotels] = useState<any[]>([]);
   const [loadingScrollable, setLoadingScrollable]   = useState(true);
@@ -208,6 +208,7 @@ const Index = () => {
     scrollableRows.campsites.forEach(i => ids.add(i.id));
     // scrollableRows.events.forEach(i => ids.add(i.id)); // events disabled
     scrollableRows.guidedTrips.forEach(i => ids.add(i.id));
+    scrollableRows.accommodations.forEach(i => ids.add(i.id));
     return Array.from(ids);
   }, [nearbyPlacesHotels, scrollableRows]);
 
@@ -248,7 +249,7 @@ const Index = () => {
     return [...places, ...others];
   }, [nearbyPlacesHotels, ratings, position, scrollableRows.guidedTrips]);
 
-  // "Browsers guide" — campsites + guided trips, ranked by rating
+  // "Browsers guide" — campsites + guided trips + accommodations, ranked by rating
   const displayBrowseGuides = useMemo(() => {
     const seen = new Set<string>();
     const combined = [
@@ -256,6 +257,7 @@ const Index = () => {
       // ...scrollableRows.trips.map(item => ({ ...item, __cardType: "TRIP" as const })),   // fixed trips disabled
       ...scrollableRows.guidedTrips.map(item => ({ ...item, __cardType: "TRIP" as const })),
       // ...scrollableRows.events.map(item => ({ ...item, __cardType: "EVENT" as const })), // events disabled
+      ...scrollableRows.accommodations.map(item => ({ ...item, __cardType: "ACCOMMODATION" as const })),
     ];
     return combined
       .filter(item => {
@@ -270,7 +272,7 @@ const Index = () => {
         const sb = rb ? rb.avgRating * Math.log1p(rb.reviewCount) : 0;
         return sb - sa;
       });
-  }, [scrollableRows.campsites, scrollableRows.guidedTrips, ratings]);
+  }, [scrollableRows.campsites, scrollableRows.guidedTrips, scrollableRows.accommodations, ratings]);
 
   // ── Data fetching ──────────────────────────────────────────────────────────
   const fetchScrollableRows = useCallback(async (limit: number, opts: { background?: boolean } = {}) => {
@@ -285,6 +287,7 @@ const Index = () => {
         campsitesData,
         // eventsData,  // events fetch disabled — uncomment to re-enable
         guidedData,
+        accommodationsData,
       ] = await Promise.all([
         // ── Fixed-date trips (disabled — uncomment to re-enable) ──────────
         // supabase
@@ -317,13 +320,28 @@ const Index = () => {
           .eq("approval_status", "approved").eq("is_hidden", false)
           .eq("type", "trip").or("is_flexible_date.eq.true,is_custom_date.eq.true")
           .order("created_at", { ascending: false }).limit(fetchLimit),
+
+        // ── AirBnb-style accommodations — new ─────────────────────────────
+        // Assumes an "accommodations" table with a shape similar to
+        // adventure_places (price per night instead of entry fee). Adjust
+        // the table/column names here if your schema differs.
+        supabase
+          .from("accommodations")
+          .select("id,name,location,place,country,image_url,gallery_images,images,price,activities,latitude,longitude,created_at,description,category")
+          .eq("approval_status", "approved").eq("is_hidden", false)
+          .order("created_at", { ascending: false }).limit(fetchLimit),
       ]);
 
+      if (accommodationsData.error) {
+        console.error("Error fetching accommodations:", accommodationsData.error);
+      }
+
       setScrollableRows({
-        trips:       [],                    // fixed trips disabled
-        campsites:   campsitesData.data || [],
-        events:      [],                    // events disabled
-        guidedTrips: guidedData.data || [],
+        trips:          [],                          // fixed trips disabled
+        campsites:      campsitesData.data || [],
+        events:         [],                          // events disabled
+        guidedTrips:    guidedData.data || [],
+        accommodations: accommodationsData.data || [],
       });
     } catch (err) {
       console.error("Error fetching rows:", err);
@@ -449,8 +467,9 @@ const Index = () => {
   const browseGuideNodes = useMemo(() =>
     displayBrowseGuides.map((item: any, i) => {
       const isGuided = item.__cardType === "TRIP";
+      const isAccommodation = item.__cardType === "ACCOMMODATION";
       return renderCard(item, item.__cardType, i, {
-        hidePrice: !isGuided,
+        hidePrice: !isGuided && !isAccommodation,
         isTrip: isGuided,
       });
     }),
@@ -619,16 +638,16 @@ const Index = () => {
           {/* ── All content constrained to container width (never bleeds to screen edge on desktop) ── */}
           <div className="container mx-auto px-4 md:px-6 py-3 md:py-5 space-y-2 md:space-y-6">
 
-            {/* Categories ── now 2 cards (Hotels & Campsites merged, Tours & Trips),
-                full screen width on mobile via the -mx-4/px-4 bleed technique used by
-                the horizontal scroll sections below, constrained back to the
-                container on md+ screens. Cards use an aspect-ratio on mobile/tablet
-                (so they scale nicely with column width) but switch to a FIXED height
-                at the lg breakpoint and up, so they no longer stretch tall on big
-                screens. */}
+            {/* Categories ── now 3 cards (Hotels & Campsites merged, Tours & Trips,
+                AirBnbs), full screen width on mobile via the -mx-4/px-4 bleed
+                technique used by the horizontal scroll sections below, constrained
+                back to the container on md+ screens. Cards use an aspect-ratio on
+                mobile/tablet (so they scale nicely with column width) but switch to
+                a FIXED height at the lg breakpoint and up, so they no longer
+                stretch tall on big screens. */}
             <section className="mb-4 md:mb-8">
               <div className="-mx-4 px-4 md:mx-0 md:px-0">
-                <div className="grid grid-cols-2 gap-2 md:gap-4">
+                <div className="grid grid-cols-3 gap-2 md:gap-4">
                   {CATEGORIES.map(cat => (
                     <Link
                       key={cat.title}

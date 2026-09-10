@@ -348,4 +348,4 @@ const CategoryDetail = () => {
   );
 };
 
-export default CategoryDetail;
+export default CategoryDetail;GQQQQQQQQQQQQQQQQQQQ

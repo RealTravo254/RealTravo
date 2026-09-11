@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  MapPin, Compass, Heart, Ticket, LogIn, UserPlus, Sparkles,
+  MapPin, Compass, Heart, Ticket, LogIn, UserPlus,
   User, LogOut, Briefcase, ChevronRight,
   CreditCard, Shield, CalendarCheck,
   LayoutDashboard,
@@ -12,7 +12,7 @@ import {
 /* ══════════════════════════════════════════════════════════════════
    GUEST VIEW
 ══════════════════════════════════════════════════════════════════ */
-const GuestView = ({ onBack }: { onBack: () => void }) => {
+const GuestView = () => {
   const navigate = useNavigate();
   const go = (path: string) => navigate(path);
 
@@ -25,14 +25,6 @@ const GuestView = ({ onBack }: { onBack: () => void }) => {
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
-      {/* ── Header ── */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b bg-primary flex-shrink-0">
-        <div className="flex items-center gap-1.5">
-          <Sparkles className="h-4 w-4 text-white" />
-          <span className="text-white font-extrabold text-base tracking-tight italic">Real Travo</span>
-        </div>
-      </div>
-
       <div className="px-4 pt-5 pb-4">
         <h2 className="text-lg font-black text-foreground leading-tight mb-0.5">
           Travel smarter, host better.
@@ -176,15 +168,6 @@ const AuthenticatedView = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
-      {/* ── Header ── */}
-      <div className="bg-primary px-4 py-3.5 flex items-center flex-shrink-0 border-b border-primary-foreground/10">
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-primary-foreground">
-            My Account
-          </p>
-        </div>
-      </div>
-
       <div className="flex-1 py-3 px-3 space-y-3">
         {menuItems
           .filter((s) => s.section !== "Admin Control")
@@ -255,8 +238,6 @@ const AuthenticatedView = () => {
 ══════════════════════════════════════════════════════════════════ */
 const AccountPage = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();
-  const onBack = () => navigate(-1);
 
   return (
     <div
@@ -265,7 +246,7 @@ const AccountPage = () => {
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
       }}
     >
-      {user ? <AuthenticatedView /> : <GuestView onBack={onBack} />}
+      {user ? <AuthenticatedView /> : <GuestView />}
     </div>
   );
 };

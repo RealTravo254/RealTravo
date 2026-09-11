@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import {
   MapPin, Compass, Heart, Ticket, LogIn, UserPlus,
-  User, LogOut, Briefcase, ChevronRight,
+  User, LogOut, Briefcase, ChevronRight, ArrowLeft,
   CreditCard, Shield, CalendarCheck,
   LayoutDashboard,
 } from "lucide-react";
@@ -12,7 +12,7 @@ import {
 /* ══════════════════════════════════════════════════════════════════
    GUEST VIEW
 ══════════════════════════════════════════════════════════════════ */
-const GuestView = () => {
+const GuestView = ({ onBack }: { onBack: () => void }) => {
   const navigate = useNavigate();
   const go = (path: string) => navigate(path);
 
@@ -25,7 +25,18 @@ const GuestView = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
-      <div className="px-4 pt-5 pb-4">
+      {/* Top Navigation */}
+      <div className="px-4 pt-3 pb-1">
+        <button
+          onClick={onBack}
+          aria-label="Go back"
+          className="h-8 w-8 rounded-full bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4 text-foreground" />
+        </button>
+      </div>
+
+      <div className="px-4 pt-3 pb-4">
         <h2 className="text-lg font-black text-foreground leading-tight mb-0.5">
           Travel smarter, host better.
         </h2>
@@ -95,7 +106,7 @@ const GuestView = () => {
 /* ══════════════════════════════════════════════════════════════════
    AUTHENTICATED VIEW
 ══════════════════════════════════════════════════════════════════ */
-const AuthenticatedView = () => {
+const AuthenticatedView = ({ onBack }: { onBack: () => void }) => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading]   = useState(true);
@@ -168,7 +179,18 @@ const AuthenticatedView = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
-      <div className="flex-1 py-3 px-3 space-y-3">
+      {/* Top Navigation */}
+      <div className="px-3 pt-3 pb-1">
+        <button
+          onClick={onBack}
+          aria-label="Go back"
+          className="h-8 w-8 rounded-full bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4 text-foreground" />
+        </button>
+      </div>
+
+      <div className="flex-1 py-2 px-3 space-y-3">
         {menuItems
           .filter((s) => s.section !== "Admin Control")
           .map((section, idx) => {
@@ -238,6 +260,8 @@ const AuthenticatedView = () => {
 ══════════════════════════════════════════════════════════════════ */
 const AccountPage = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const onBack = () => navigate(-1);
 
   return (
     <div
@@ -246,7 +270,7 @@ const AccountPage = () => {
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
       }}
     >
-      {user ? <AuthenticatedView /> : <GuestView />}
+      {user ? <AuthenticatedView onBack={onBack} /> : <GuestView onBack={onBack} />}
     </div>
   );
 };

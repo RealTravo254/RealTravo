@@ -12,7 +12,7 @@ import { AuthGate } from "@/components/AuthGate";
 import { TealLoader } from "@/components/ui/teal-loader";
 import { OfflineFullScreen } from "@/components/OfflineIndicator";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
-
+import AccountPage from "@/pages/AccountPage";
 import Index from "./pages/Index";
  
 const Auth = lazy(() => import("./pages/Auth"));
@@ -74,6 +74,7 @@ const AccountsOverview = lazy(() => import("./pages/admin/AccountsOverview"));
 const Explore = lazy(() => import("./pages/Explore"));
 const CountyDetail = lazy(() => import("./pages/CountyDetail"));
 const AdminWithdrawals = lazy(() => import("./pages/admin/AdminWithdrawals"));
+
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -169,6 +170,7 @@ const App = () => {
                       } />
 
                       {/* All other routes show page name in loader */}
+                      <Route path="/account" element={<AccountPage />} />
                       <Route path="/explore" element={<Suspense fallback={<OfflineFallback text="Explore" />}><Explore /></Suspense>} />
                       <Route path="/saved" element={<Suspense fallback={<OfflineFallback text="Saved" />}><Saved /></Suspense>} />
                       <Route path="/bookings" element={<Suspense fallback={<OfflineFallback text="Bookings" />}><Bookings /></Suspense>} />

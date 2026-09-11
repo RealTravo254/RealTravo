@@ -2,9 +2,8 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
-  ArrowLeft, MapPin, Compass, Heart, Ticket, LogIn, UserPlus, Sparkles,
+  MapPin, Compass, Heart, Ticket, LogIn, UserPlus, Sparkles,
   User, LogOut, Briefcase, ChevronRight,
   CreditCard, Shield, CalendarCheck,
   LayoutDashboard,
@@ -28,13 +27,6 @@ const GuestView = ({ onBack }: { onBack: () => void }) => {
     <div className="flex flex-col min-h-screen bg-background">
       {/* ── Header ── */}
       <div className="flex items-center gap-2 px-4 py-3 border-b bg-primary flex-shrink-0">
-        <button
-          onClick={onBack}
-          aria-label="Back"
-          className="h-7 w-7 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/25 transition-colors"
-        >
-          <ArrowLeft className="h-3.5 w-3.5 text-white" />
-        </button>
         <div className="flex items-center gap-1.5">
           <Sparkles className="h-4 w-4 text-white" />
           <span className="text-white font-extrabold text-base tracking-tight italic">Real Travo</span>
@@ -111,11 +103,10 @@ const GuestView = ({ onBack }: { onBack: () => void }) => {
 /* ══════════════════════════════════════════════════════════════════
    AUTHENTICATED VIEW
 ══════════════════════════════════════════════════════════════════ */
-const AuthenticatedView = ({ onBack }: { onBack: () => void }) => {
+const AuthenticatedView = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading]   = useState(true);
-  const [userName, setUserName] = useState("");
   const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
@@ -123,13 +114,11 @@ const AuthenticatedView = ({ onBack }: { onBack: () => void }) => {
     const fetch = async () => {
       setLoading(true);
       try {
-        const [profileRes, rolesRes] = await Promise.all([
-          supabase.from("profiles").select("name, profile_picture_url").eq("id", user.id).single(),
-          supabase.from("user_roles").select("role").eq("user_id", user.id),
-        ]);
-        if (profileRes.data) {
-          setUserName(profileRes.data.name || "User");
-        }
+        const rolesRes = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", user.id);
+          
         if (rolesRes.data && rolesRes.data.length > 0) {
           const roleList = rolesRes.data.map((r) => r.role);
           setUserRole(roleList.includes("admin") ? "admin" : "user");
@@ -187,27 +176,12 @@ const AuthenticatedView = ({ onBack }: { onBack: () => void }) => {
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
-      {/* ── Header (no profile picture / avatar icon) ── */}
-      <div className="bg-primary px-4 py-3.5 flex items-center gap-3 flex-shrink-0 border-b border-primary-foreground/10">
-        <button
-          onClick={onBack}
-          aria-label="Back"
-          className="h-7 w-7 rounded-full bg-primary-foreground/10 flex items-center justify-center hover:bg-primary-foreground/20 transition-colors flex-shrink-0"
-        >
-          <ArrowLeft className="h-3.5 w-3.5 text-primary-foreground" />
-        </button>
-
+      {/* ── Header ── */}
+      <div className="bg-primary px-4 py-3.5 flex items-center flex-shrink-0 border-b border-primary-foreground/10">
         <div>
-          <p className="text-[9px] font-black uppercase tracking-[0.25em] text-primary-foreground/40 mb-0.5">
+          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-primary-foreground">
             My Account
           </p>
-          {loading ? (
-            <Skeleton className="h-3.5 w-24 bg-primary-foreground/20 rounded" />
-          ) : (
-            <p className="text-sm font-extrabold text-primary-foreground truncate leading-tight">
-              {userName}
-            </p>
-          )}
         </div>
       </div>
 
@@ -291,7 +265,7 @@ const AccountPage = () => {
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
       }}
     >
-      {user ? <AuthenticatedView onBack={onBack} /> : <GuestView onBack={onBack} />}
+      {user ? <AuthenticatedView /> : <GuestView onBack={onBack} />}
     </div>
   );
 };

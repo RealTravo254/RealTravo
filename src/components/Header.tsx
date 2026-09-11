@@ -7,7 +7,6 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { NavigationDrawer } from "./NavigationDrawer";
 import { Link, useNavigate } from "react-router-dom";
 import { NotificationBell } from "./NotificationBell";
-import { AccountSheet } from "./AccountSheet";
 
 export interface HeaderProps {
   onSearchClick?: () => void;
@@ -119,13 +118,14 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
             <NotificationBell />
           </div>
 
-          {/* Account — desktop only — always opens AccountSheet (handles guest state internally) */}
-          <AccountSheet>
-            <button className="hidden md:flex h-9 px-4 rounded-xl items-center gap-2 transition-all font-semibold text-xs text-[#008080] bg-white hover:brightness-95">
-              <User className="h-4 w-4" />
-              <span>{user ? t("nav.profile") : t("nav.login")}</span>
-            </button>
-          </AccountSheet>
+          {/* Account — desktop only — navigates to the /account page (real route, not a popup) */}
+          <button
+            onClick={() => navigate("/account")}
+            className="hidden md:flex h-9 px-4 rounded-xl items-center gap-2 transition-all font-semibold text-xs text-[#008080] bg-white hover:brightness-95"
+          >
+            <User className="h-4 w-4" />
+            <span>{user ? t("nav.profile") : t("nav.login")}</span>
+          </button>
         </div>
       </div>
     </header>

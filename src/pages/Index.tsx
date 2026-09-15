@@ -137,14 +137,14 @@ GridSection.displayName = "GridSection";
 // (or swap the path to whatever campsite hero image you actually have) since the
 // old hotels image is no longer appropriate here.
 const CATEGORIES = [
-  { icon: Tent, title: "Campsites",     path: "/category/campsite", bgImage: "/images/category-campsite.jpg" },
+  { icon: Tent, title: "Outdoor Campsites",     path: "/category/campsite", bgImage: "/images/category-campsite.jpg" },
   { icon: Map,  title: "Tours & Trips", path: "/category/guided",   bgImage: "/images/category-trips.jpg" },
 ];
 
 // ── Quick-nav shortcuts ───────────────────────────────────────────────────────
 // Hotels and AirBnb removed per request.
 const QUICK_NAV = [
-  { icon: Tent,   title: "Campsites",     path: "/category/campsite", color: "hsl(278, 90%, 50%)" },
+  { icon: Tent,   title: "Outdoors & Campsites",     path: "/category/campsite", color: "hsl(278, 90%, 50%)" },
   { icon: Map,    title: "Tours & Trips", path: "/category/guided",   color: "hsl(235, 90%, 50%)" },
   { icon: Ticket, title: "Bookings",      path: "/bookings",          color: "hsl(200, 70%, 45%)" },
   { icon: Heart,  title: "Saved",         path: "/saved",             color: "hsl(350, 80%, 55%)" },

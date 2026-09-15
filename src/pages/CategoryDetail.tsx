@@ -27,11 +27,6 @@ const ADVENTURE_PLACE_FIELDS =
 const TRIP_FIELDS =
   "id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child,description,opening_hours,closing_hours";
 
-// AirBnb-style accommodations — separate table, priced per stay rather than
-// an entry fee. Keep in sync with the fields fetched on the homepage.
-const ACCOMMODATION_FIELDS =
-  "id,name,location,place,country,image_url,gallery_images,images,price,activities,latitude,longitude,created_at,description,category";
-
 const CategoryDetail = () => {
   const { category }    = useParams<{ category: string }>();
   const [searchParams]  = useSearchParams();
@@ -60,24 +55,19 @@ const CategoryDetail = () => {
   }, [setSearchFocused]);
 
   // ── Category config ─────────────────────────────────────────────────────
-  // Park and Attraction are commented out — uncomment when their pages are ready.
-  // Accommodations (Airbnb) restored — now backed by its own "accommodations"
-  // table (not adventure_places) since it needs a per-stay price field
-  // rather than an entry fee. Guided tours and fixed-date trips are both
-  // re-enabled below.
+  // Hotels and Accommodations (Airbnb) removed per request — only guided
+  // tours, campsites, and fixed-date trips remain. Park and Attraction stay
+  // commented out until their pages are ready. The old legacy "adventure"
+  // catch-all was also removed since it had no category filter and would
+  // otherwise still be able to surface hotel-category rows.
   const categoryConfig: { [key: string]: any } = {
-    guided:         { title: "Guided Tours",          tables: ["trips"],            type: "TRIP",            tripType: "trip", flexibleOnly: true },
+    guided:   { title: "Guided Tours",          tables: ["trips"],            type: "TRIP",            tripType: "trip", flexibleOnly: true },
 
-    hotels:         { title: "Hotels",                tables: ["adventure_places"], type: "ADVENTURE PLACE", placeCategory: "hotel"         },
-    accommodations: { title: "AirBnbs",                tables: ["accommodations"],   type: "ACCOMMODATION" },
-    // parks:       { title: "Parks",                 tables: ["adventure_places"], type: "ADVENTURE PLACE", placeCategory: "park"          }, // uncomment when ready
-    campsite:       { title: "Campsite & Experience", tables: ["adventure_places"], type: "ADVENTURE PLACE", placeCategory: "campsite"       },
-    // attraction:  { title: "Attractions",           tables: ["adventure_places"], type: "ADVENTURE PLACE", placeCategory: "attraction"    }, // uncomment when ready
+    // parks:  { title: "Parks",                 tables: ["adventure_places"], type: "ADVENTURE PLACE", placeCategory: "park"       }, // uncomment when ready
+    campsite: { title: "Campsite & Experience", tables: ["adventure_places"], type: "ADVENTURE PLACE", placeCategory: "campsite"    },
+    // attraction: { title: "Attractions",       tables: ["adventure_places"], type: "ADVENTURE PLACE", placeCategory: "attraction" }, // uncomment when ready
 
-    trips:          { title: "Trips",                 tables: ["trips"],            type: "TRIP",            tripType: "trip", filterType: "trips" },
-
-    // Legacy catch-all (backwards compat for old /category/adventure links)
-    adventure:      { title: "Adventure Places",      tables: ["adventure_places"], type: "ADVENTURE PLACE" },
+    trips:    { title: "Trips",                 tables: ["trips"],            type: "TRIP",            tripType: "trip", filterType: "trips" },
   };
 
   const config = category ? categoryConfig[category] : null;
@@ -135,10 +125,7 @@ const CategoryDetail = () => {
     const today = new Date().toISOString().split("T")[0];
 
     for (const table of config.tables) {
-      const fields =
-        table === "trips" ? TRIP_FIELDS :
-        table === "accommodations" ? ACCOMMODATION_FIELDS :
-        ADVENTURE_PLACE_FIELDS;
+      const fields = table === "trips" ? TRIP_FIELDS : ADVENTURE_PLACE_FIELDS;
 
       let query = supabase
         .from(table as any)
@@ -151,16 +138,13 @@ const CategoryDetail = () => {
       if (config.filterType === "trips") query = query.eq("is_flexible_date", false).eq("is_custom_date", false);
       if (config.placeCategory) query = query.eq("category", config.placeCategory);
 
-      // Accommodations have no fixed date field, so newest listings first.
-      if (table === "accommodations") query = query.order("created_at", { ascending: false });
-
       const { data } = await query.range(offset, offset + limit - 1);
 
       if (data) {
         allData.push(...data.map((item: any) => ({
           ...item,
           table,
-          itemType: table === "trips" ? "TRIP" : table === "accommodations" ? "ACCOMMODATION" : "ADVENTURE PLACE",
+          itemType: table === "trips" ? "TRIP" : "ADVENTURE PLACE",
           isOutdated: table === "trips" && item.date && !item.is_custom_date && new Date(item.date) < new Date(today),
         })));
       }

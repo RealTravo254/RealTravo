@@ -10,7 +10,7 @@ import { SearchBarWithSuggestions } from "@/components/SearchBarWithSuggestions"
 import { useSearchFocus } from "@/components/PageLayout";
 import { ListingCard } from "@/components/ListingCard";
 import {
-  Calendar, Tent, MapPin, Building2, Home, Map,
+  Tent, Map,
   Navigation, Heart, Ticket, Star, Search as SearchIcon,
 } from "lucide-react";
 import { FEATURED_COUNTIES, COUNTY_IMAGES } from "@/lib/kenyaCounties";
@@ -132,27 +132,22 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: G
 GridSection.displayName = "GridSection";
 
 // ── Category cards ────────────────────────────────────────────────────────────
-// Attraction and Park removed — add them back here when their pages are ready.
-// Hotels + Campsites merged into a single "Hotels & Campsites" card per request.
-// If you later add a dedicated combined route, update the `path` below —
-// it currently points at the existing hotels category page.
-// AirBnbs restored per request — points at the accommodations category page.
+// Hotels and AirBnbs removed per request — only Campsites and Tours & Trips remain.
+// NOTE: bgImage below points at "/images/category-campsite.jpg" — add that asset
+// (or swap the path to whatever campsite hero image you actually have) since the
+// old hotels image is no longer appropriate here.
 const CATEGORIES = [
-  { icon: Building2, title: "Hotels & Campsites", path: "/category/hotels",         bgImage: "/images/category-hotels.jpg" },
-  { icon: Map,        title: "Tours & Trips",       path: "/category/guided",        bgImage: "/images/category-trips.jpg" },
-  { icon: Home,        title: "AirBnbs",            path: "/category/accommodations", bgImage: "/images/category-accommodations.png" },
+  { icon: Tent, title: "Campsites",     path: "/category/campsite", bgImage: "/images/category-campsite.jpg" },
+  { icon: Map,  title: "Tours & Trips", path: "/category/guided",   bgImage: "/images/category-trips.jpg" },
 ];
 
 // ── Quick-nav shortcuts ───────────────────────────────────────────────────────
-// Attraction and Park removed — add them back here when their pages are ready.
-// AirBnb restored per request.
+// Hotels and AirBnb removed per request.
 const QUICK_NAV = [
-  { icon: Building2, title: "hotels  ",         path: "/category/hotels",          color: "hsl(205, 85%, 45%)" },
-  { icon: Tent,       title: "Campsites",      path: "/category/campsite",         color: "hsl(278, 90%, 50%)" },
-  { icon: Map,        title: "Tours & Trips",  path: "/category/guided",           color: "hsl(235, 90%, 50%)" },
-  { icon: Home,       title: "AirBnb",         path: "/category/accommodations",   color: "hsl(160, 70%, 40%)" },
-  { icon: Ticket,     title: "Bookings",       path: "/bookings",                  color: "hsl(200, 70%, 45%)" },
-  { icon: Heart,      title: "Saved",          path: "/saved",                     color: "hsl(350, 80%, 55%)" },
+  { icon: Tent,   title: "Campsites",     path: "/category/campsite", color: "hsl(278, 90%, 50%)" },
+  { icon: Map,    title: "Tours & Trips", path: "/category/guided",   color: "hsl(235, 90%, 50%)" },
+  { icon: Ticket, title: "Bookings",      path: "/bookings",          color: "hsl(200, 70%, 45%)" },
+  { icon: Heart,  title: "Saved",         path: "/saved",             color: "hsl(350, 80%, 55%)" },
 ];
 
 // ── Main page ─────────────────────────────────────────────────────────────────
@@ -186,11 +181,13 @@ const Index = () => {
     return () => window.removeEventListener("resize", measure);
   }, []);
 
+  // "accommodations" key removed — AirBnb is no longer fetched anywhere on this page.
   const [scrollableRows, setScrollableRows] = useState<{
-    trips: any[]; campsites: any[]; events: any[]; guidedTrips: any[]; accommodations: any[];
-  }>({ trips: [], campsites: [], events: [], guidedTrips: [], accommodations: [] });
+    trips: any[]; campsites: any[]; events: any[]; guidedTrips: any[];
+  }>({ trips: [], campsites: [], events: [], guidedTrips: [] });
 
-  const [nearbyPlacesHotels, setNearbyPlacesHotels] = useState<any[]>([]);
+  // Renamed from nearbyPlacesHotels — this now only ever contains campsites.
+  const [nearbyPlaces, setNearbyPlaces]             = useState<any[]>([]);
   const [loadingScrollable, setLoadingScrollable]   = useState(true);
   const [loadingNearby, setLoadingNearby]           = useState(false);
   const [isSearchFocused, setIsSearchFocusedLocal]  = useState(false);
@@ -203,14 +200,13 @@ const Index = () => {
 
   const allItemIds = useMemo(() => {
     const ids = new Set<string>();
-    nearbyPlacesHotels.forEach(i => ids.add(i.id));
+    nearbyPlaces.forEach(i => ids.add(i.id));
     // scrollableRows.trips.forEach(i => ids.add(i.id)); // fixed trips disabled
     scrollableRows.campsites.forEach(i => ids.add(i.id));
     // scrollableRows.events.forEach(i => ids.add(i.id)); // events disabled
     scrollableRows.guidedTrips.forEach(i => ids.add(i.id));
-    scrollableRows.accommodations.forEach(i => ids.add(i.id));
     return Array.from(ids);
-  }, [nearbyPlacesHotels, scrollableRows]);
+  }, [nearbyPlaces, scrollableRows]);
 
   const tripEventIds = useMemo(() => {
     // const ids = [...scrollableRows.trips, ...scrollableRows.events].map(i => i.id);
@@ -222,9 +218,9 @@ const Index = () => {
   const { bookingStats } = useRealtimeBookings(tripEventIds);
   const { ratings }      = useRatings(allItemIds);
 
-  // "Nearest to You" — adventure places sorted by distance, guided trips by rating appended after
+  // "Nearest to You" — campsites sorted by distance, guided trips by rating appended after
   const sortedNearbyPlaces = useMemo(() => {
-    const places = sortByRating(nearbyPlacesHotels, ratings, position, calculateDistance)
+    const places = sortByRating(nearbyPlaces, ratings, position, calculateDistance)
       .map((item: any) => ({ ...item, __cardType: "ADVENTURE PLACE" as const }));
 
     const seen = new Set(places.map((p: any) => p.id));
@@ -247,9 +243,9 @@ const Index = () => {
       });
 
     return [...places, ...others];
-  }, [nearbyPlacesHotels, ratings, position, scrollableRows.guidedTrips]);
+  }, [nearbyPlaces, ratings, position, scrollableRows.guidedTrips]);
 
-  // "Browsers guide" — campsites + guided trips + accommodations, ranked by rating
+  // "Browsers guide" — campsites + guided trips, ranked by rating (accommodations removed)
   const displayBrowseGuides = useMemo(() => {
     const seen = new Set<string>();
     const combined = [
@@ -257,7 +253,6 @@ const Index = () => {
       // ...scrollableRows.trips.map(item => ({ ...item, __cardType: "TRIP" as const })),   // fixed trips disabled
       ...scrollableRows.guidedTrips.map(item => ({ ...item, __cardType: "TRIP" as const })),
       // ...scrollableRows.events.map(item => ({ ...item, __cardType: "EVENT" as const })), // events disabled
-      ...scrollableRows.accommodations.map(item => ({ ...item, __cardType: "ACCOMMODATION" as const })),
     ];
     return combined
       .filter(item => {
@@ -272,7 +267,7 @@ const Index = () => {
         const sb = rb ? rb.avgRating * Math.log1p(rb.reviewCount) : 0;
         return sb - sa;
       });
-  }, [scrollableRows.campsites, scrollableRows.guidedTrips, scrollableRows.accommodations, ratings]);
+  }, [scrollableRows.campsites, scrollableRows.guidedTrips, ratings]);
 
   // ── Data fetching ──────────────────────────────────────────────────────────
   const fetchScrollableRows = useCallback(async (limit: number, opts: { background?: boolean } = {}) => {
@@ -287,7 +282,6 @@ const Index = () => {
         campsitesData,
         // eventsData,  // events fetch disabled — uncomment to re-enable
         guidedData,
-        accommodationsData,
       ] = await Promise.all([
         // ── Fixed-date trips (disabled — uncomment to re-enable) ──────────
         // supabase
@@ -297,14 +291,15 @@ const Index = () => {
         //   .eq("type", "trip").eq("is_flexible_date", false).eq("is_custom_date", false)
         //   .order("date", { ascending: true }).limit(fetchLimit),
 
-        // ── Adventure places / campsites ──────────────────────────────────
-        // category and days_opened added so ListingCard can render the
-        // category badge correctly and the working-days / Open now-Closed
-        // badge for hotel/campsite categories.
+        // ── Campsites only — hotels excluded via the category filter below ──
+        // category and days_opened kept so ListingCard can render the
+        // category badge and the working-days / Open now-Closed badge.
         supabase
           .from("adventure_places")
           .select("id,name,location,place,country,image_url,gallery_images,images,entry_fee,activities,latitude,longitude,created_at,description,opening_hours,closing_hours,category,days_opened")
-          .eq("approval_status", "approved").eq("is_hidden", false).limit(fetchLimit),
+          .eq("approval_status", "approved").eq("is_hidden", false)
+          .eq("category", "campsite")
+          .limit(fetchLimit),
 
         // ── Events (disabled — uncomment to re-enable) ────────────────────
         // supabase
@@ -313,7 +308,7 @@ const Index = () => {
         //   .eq("approval_status", "approved").eq("is_hidden", false)
         //   .eq("type", "event").order("date", { ascending: true }).limit(fetchLimit),
 
-        // ── Guided tours (flexible / custom-date trips) — re-enabled ──────
+        // ── Guided tours (flexible / custom-date trips) ───────────────────
         supabase
           .from("trips")
           .select("id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child,description,opening_hours,closing_hours")
@@ -321,27 +316,14 @@ const Index = () => {
           .eq("type", "trip").or("is_flexible_date.eq.true,is_custom_date.eq.true")
           .order("created_at", { ascending: false }).limit(fetchLimit),
 
-        // ── AirBnb-style accommodations — new ─────────────────────────────
-        // Assumes an "accommodations" table with a shape similar to
-        // adventure_places (price per night instead of entry fee). Adjust
-        // the table/column names here if your schema differs.
-        supabase
-          .from("accommodations")
-          .select("id,name,location,place,country,image_url,gallery_images,images,price,activities,latitude,longitude,created_at,description,category")
-          .eq("approval_status", "approved").eq("is_hidden", false)
-          .order("created_at", { ascending: false }).limit(fetchLimit),
+        // ── AirBnb-style accommodations — REMOVED, no longer fetched ──────
       ]);
-
-      if (accommodationsData.error) {
-        console.error("Error fetching accommodations:", accommodationsData.error);
-      }
 
       setScrollableRows({
         trips:          [],                          // fixed trips disabled
         campsites:      campsitesData.data || [],
         events:         [],                          // events disabled
         guidedTrips:    guidedData.data || [],
-        accommodations: accommodationsData.data || [],
       });
     } catch (err) {
       console.error("Error fetching rows:", err);
@@ -350,17 +332,20 @@ const Index = () => {
     }
   }, []);
 
-  const fetchNearbyPlacesAndHotels = useCallback(async (opts: { background?: boolean } = {}) => {
+  const fetchNearbyPlaces = useCallback(async (opts: { background?: boolean } = {}) => {
     if (!position) return;
     if (!opts.background) setLoadingNearby(true);
     try {
-      // category, days_opened, opening_hours, and closing_hours added so
+      // category, days_opened, opening_hours, and closing_hours kept so
       // ListingCard can render the category badge, working-days line, and
-      // Open now/Closed badge for hotel/campsite categories in this row too.
+      // Open now/Closed badge. Filtered to campsite category only — hotels
+      // are excluded entirely.
       const { data } = await supabase
         .from("adventure_places")
         .select("id,name,location,place,country,image_url,entry_fee,activities,latitude,longitude,created_at,description,opening_hours,closing_hours,category,days_opened")
-        .eq("approval_status", "approved").eq("is_hidden", false).limit(50);
+        .eq("approval_status", "approved").eq("is_hidden", false)
+        .eq("category", "campsite")
+        .limit(50);
       const withDist = (data || [])
         .map(item => ({
           ...item,
@@ -373,7 +358,7 @@ const Index = () => {
           if (a.distance !== undefined && b.distance !== undefined) return a.distance - b.distance;
           return a.distance !== undefined ? -1 : 1;
         });
-      setNearbyPlacesHotels(withDist);
+      setNearbyPlaces(withDist);
     } catch (err) {
       console.error("Error fetching nearby places:", err);
     } finally {
@@ -392,8 +377,8 @@ const Index = () => {
   }, [cardLimit, fetchScrollableRows]);
 
   useEffect(() => {
-    if (position) fetchNearbyPlacesAndHotels();
-  }, [position, fetchNearbyPlacesAndHotels]);
+    if (position) fetchNearbyPlaces();
+  }, [position, fetchNearbyPlaces]);
 
   // Silent background refresh — re-fetches data periodically without
   // flipping any loading state, so the front end never shows a skeleton
@@ -403,10 +388,10 @@ const Index = () => {
   useEffect(() => {
     const interval = window.setInterval(() => {
       fetchScrollableRows(cardLimit, { background: true });
-      if (position) fetchNearbyPlacesAndHotels({ background: true });
+      if (position) fetchNearbyPlaces({ background: true });
     }, BACKGROUND_REFRESH_INTERVAL_MS);
     return () => window.clearInterval(interval);
-  }, [cardLimit, fetchScrollableRows, position, fetchNearbyPlacesAndHotels]);
+  }, [cardLimit, fetchScrollableRows, position, fetchNearbyPlaces]);
 
   useEffect(() => {
     const ctrl = () => setShowSearchIcon(window.scrollY > 0);
@@ -467,9 +452,8 @@ const Index = () => {
   const browseGuideNodes = useMemo(() =>
     displayBrowseGuides.map((item: any, i) => {
       const isGuided = item.__cardType === "TRIP";
-      const isAccommodation = item.__cardType === "ACCOMMODATION";
       return renderCard(item, item.__cardType, i, {
-        hidePrice: !isGuided && !isAccommodation,
+        hidePrice: !isGuided,
         isTrip: isGuided,
       });
     }),
@@ -638,16 +622,13 @@ const Index = () => {
           {/* ── All content constrained to container width (never bleeds to screen edge on desktop) ── */}
           <div className="container mx-auto px-4 md:px-6 py-3 md:py-5 space-y-2 md:space-y-6">
 
-            {/* Categories ── now 3 cards (Hotels & Campsites merged, Tours & Trips,
-                AirBnbs), full screen width on mobile via the -mx-4/px-4 bleed
-                technique used by the horizontal scroll sections below, constrained
-                back to the container on md+ screens. Cards use an aspect-ratio on
-                mobile/tablet (so they scale nicely with column width) but switch to
-                a FIXED height at the lg breakpoint and up, so they no longer
-                stretch tall on big screens. */}
+            {/* Categories — now 2 cards (Campsites, Tours & Trips). Cards use an
+                aspect-ratio on mobile/tablet (so they scale nicely with column
+                width) but switch to a FIXED height at the lg breakpoint and up,
+                so they no longer stretch tall on big screens. */}
             <section className="mb-4 md:mb-8">
               <div className="-mx-4 px-4 md:mx-0 md:px-0">
-                <div className="grid grid-cols-3 gap-2 md:gap-4">
+                <div className="grid grid-cols-2 gap-2 md:gap-4">
                   {CATEGORIES.map(cat => (
                     <Link
                       key={cat.title}
@@ -713,7 +694,7 @@ const Index = () => {
             />
 
             {/* Nearest to You */}
-            {(position || nearbyPlacesHotels.length > 0) && (
+            {(position || nearbyPlaces.length > 0) && (
               <GridSection
                 title={t("sections.nearestToYou")}
                 viewAllPath="/explore"
@@ -726,7 +707,7 @@ const Index = () => {
             {/* Quick Navigation */}
             <section className="mb-4 md:mb-8">
               <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-3">Quick Access</h2>
-              <div className="grid grid-cols-6 gap-1.5">
+              <div className="grid grid-cols-4 gap-1.5">
                 {QUICK_NAV.map(nav => (
                   <button
                     key={nav.title}

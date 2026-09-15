@@ -18,7 +18,7 @@ const SKELETON_COUNT_MOBILE  = 8;
 const SKELETON_COUNT_DESKTOP = 20;
 
 // days_opened added so ListingCard can render the working-days line and the
-// Open now/Closed badge for hotel/campsite categories.
+// Open now/Closed badge for the campsite category.
 const ADVENTURE_PLACE_FIELDS =
   "id,name,location,place,country,image_url,gallery_images,images,entry_fee,activities,latitude,longitude,created_at,description,opening_hours,closing_hours,category,days_opened";
 
@@ -48,19 +48,19 @@ const CountyDetail = () => {
   }, [setSearchFocused]);
 
   // ── Data fetch ──────────────────────────────────────────────────────────
-  // Adventure places (excluding Airbnb/accommodation), guided tours, and
-  // fixed-date trips are all fetched for this county.
+  // Only campsites (adventure_places filtered to category="campsite"),
+  // guided tours, and fixed-date trips are fetched for this county. Hotels
+  // and Airbnb/accommodation are excluded entirely.
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
         const [adventuresRes, guidedRes, fixedTripsRes] = await Promise.all([
-          // Adventure places (hotels, campsites, etc.) — Airbnb/accommodation
-          // excluded from this page.
+          // Campsites only — hotels are excluded by this explicit category filter.
           supabase.from("adventure_places")
             .select(ADVENTURE_PLACE_FIELDS)
             .eq("approval_status", "approved").eq("is_hidden", false)
-            .neq("category", "accommodation")
+            .eq("category", "campsite")
             .eq("place", decodedCounty),
 
           // ── Guided / flexible-date tours ──────────────────────────────────
@@ -113,9 +113,10 @@ const CountyDetail = () => {
       } else if (activeCategory === "trips") {
         result = result.filter(i => i.itemType === "FIXED TRIP");
       } else {
-        // hotels / campsite — filter by category column
-        // Parks and Attraction are commented out in CategoryTabsBar,
-        // but if a user somehow hits those keys the filter still works.
+        // campsite — filter by category column. (Parks/Attraction stay
+        // commented out in CategoryTabsBar; if a tab for them is ever added
+        // this still works since it's a generic category match. Hotels can
+        // no longer appear here at all since they're never fetched above.)
         result = result.filter(
           i => i.itemType === "ADVENTURE PLACE" && i.category === activeCategory,
         );

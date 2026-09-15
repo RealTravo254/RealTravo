@@ -223,7 +223,7 @@ export default function AccountPage() {
 
           <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border/60">
             <button
-              onClick={() => navigate("/my-booking")}
+              onClick={() => navigate("/host-bookings")}
               className="w-full p-3.5 flex items-center justify-between hover:bg-muted/40 transition-colors text-left"
             >
               <div className="flex items-center gap-3">
@@ -266,7 +266,7 @@ export default function AccountPage() {
 
           <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border/60">
             <button
-              onClick={() => navigate("/edit-profile")}
+              onClick={() => navigate("/profile")}
               className="w-full p-3.5 flex items-center justify-between hover:bg-muted/40 transition-colors text-left"
             >
               <div className="flex items-center gap-3">
@@ -307,7 +307,7 @@ export default function AccountPage() {
 
           <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border/60">
             <button
-              onClick={() => navigate("/help")}
+              onClick={() => navigate("/Terms-Of-Services")}
               className="w-full p-3.5 flex items-center justify-between hover:bg-muted/40 transition-colors text-left"
             >
               <div className="flex items-center gap-3">

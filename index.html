@@ -15,6 +15,7 @@
     <meta name="description" content="Discover and book campsites, and trip and giuded tours with Real Travo. Explore campsite activities and facilities for unforgettable experiences." />
     <meta name="keywords" content="Real Travo, campsite booking and outdoor experieces" />
     
+    <link rel="preload" as="image" href="/fulllogo.png" fetchpriority="high" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="preconnect" href="https://lmkxpzemfvmffxppxzky.supabase.co" crossorigin />
@@ -99,26 +100,42 @@
 
       #splash {
         display: flex;
-        flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 16px;
         height: 100vh;
         background-color: #f4f7f6;
       }
 
+      #splash-brand {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: clamp(12px, 3vh, 28px);
+        height: 60vh;
+        max-height: 60vh;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+      }
+
+      #splash-brand.is-ready {
+        opacity: 1;
+      }
+
       #splash-logo-img {
-        width: 96px;
-        height: 96px;
+        width: auto;
+        height: 60%;
+        max-width: 60vw;
         object-fit: contain;
       }
 
       #splash-logo {
         font-family: system-ui, -apple-system, sans-serif;
-        font-size: 2.6rem;
+        font-size: clamp(2rem, 8vw, 4rem);
         font-weight: 700;
         letter-spacing: -0.5px;
         line-height: 1;
+        white-space: nowrap;
       }
 
       #splash-logo .real {
@@ -142,11 +159,40 @@
 
     <div id="root">
       <div id="splash">
-        <img id="splash-logo-img" src="/fulllogo.png" alt="Real Travo" />
-        <span id="splash-logo">
-          <span class="real">Real</span><span class="travo">Travo</span>
-        </span>
+        <div id="splash-brand">
+          <img
+            id="splash-logo-img"
+            src="/fulllogo.png"
+            alt="Real Travo"
+            fetchpriority="high"
+            decoding="sync"
+            onload="document.getElementById('splash-brand').classList.add('is-ready')"
+          />
+          <span id="splash-logo">
+            <span class="real">Real</span><span class="travo">Travo</span>
+          </span>
+        </div>
       </div>
+      <script>
+        // Fallback in case the image was already cached before onload could attach,
+        // or if it fails to load at all — the name should still appear either way.
+        (function () {
+          var img = document.getElementById('splash-logo-img');
+          var brand = document.getElementById('splash-brand');
+          if (img && img.complete) {
+            brand.classList.add('is-ready');
+          }
+          if (img) {
+            img.addEventListener('error', function () {
+              brand.classList.add('is-ready');
+            });
+          }
+          // Absolute safety net: never hide the brand for more than 1.5s.
+          setTimeout(function () {
+            if (brand) brand.classList.add('is-ready');
+          }, 1500);
+        })();
+      </script>
     </div>
 
     <script type="module" src="/src/main.tsx"></script>

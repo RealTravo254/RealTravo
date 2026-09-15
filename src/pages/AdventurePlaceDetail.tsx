@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import {
   MapPin, Clock, Share2, Copy, Navigation, AlertCircle,
   Users, CheckCircle2, ChevronLeft, ChevronRight, Grid2X2, ExternalLink,
-  Globe, Sparkles, Info,
+  Globe, Sparkles, Info, TreePine, Tent, Compass, Building2, Home as HomeIcon,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSavedItems } from "@/hooks/useSavedItems";
@@ -21,9 +21,40 @@ import { TealLoader } from "@/components/ui/teal-loader";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { Footer } from "@/components/Footer";
 
-const TEAL        = "#008080";
-const CORAL       = "#FF7F50";
-const CORAL_LIGHT = "#FF9E7A";
+// ── Design tokens ─────────────────────────────────────────────────────────
+// A field-guide / park-signage palette: deep forest for structure and trust,
+// a warm clay for the primary action, and a dry-grass gold reserved for
+// "special" content. Ink is a green-tinted charcoal rather than pure black.
+const FOREST       = "#1F4D3A";
+const FOREST_DEEP  = "#123322";
+const FOREST_SOFT  = "#EAF0EA";
+const CLAY         = "#C1552F";
+const CLAY_LIGHT   = "#E0824F";
+const GOLD         = "#B98A2A";
+const GOLD_SOFT    = "#FBF2DD";
+const INK          = "#1C2B22";
+const INK_SOFT     = "#5B6B60";
+const HAIRLINE     = "#DCE3DC";
+const CANVAS       = "#F4F6F2";
+const OPEN_COLOR   = "#2F6F4E";
+const CLOSED_COLOR = "#9C3B2B";
+
+const FONT_DISPLAY = "'Fraunces', ui-serif, Georgia, serif";
+const FONT_BODY = "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif";
+
+// Injects the two typefaces once, without needing to touch the app's index.html.
+const useInjectFonts = () => {
+  useEffect(() => {
+    const id = "adventure-detail-fonts";
+    if (document.getElementById(id)) return;
+    const link = document.createElement("link");
+    link.id = id;
+    link.rel = "stylesheet";
+    link.href =
+      "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&display=swap";
+    document.head.appendChild(link);
+  }, []);
+};
 
 const FACILITY_LABELS: Record<string, string> = {
   wifi: "Free Wi-Fi", parking: "On-site Parking", toilet: "Flush Toilets",
@@ -37,15 +68,24 @@ const FACILITY_LABELS: Record<string, string> = {
 const facilityLabel = (id: string) =>
   FACILITY_LABELS[id] ?? id.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
-// ── Category badge labels ────────────────────────────────────────────────────
+// ── Category badge labels + icons ────────────────────────────────────────
 // Mirrors the same mapping used on ListingCard so the "Hotel" / "Campsite" /
 // etc. wording is consistent between the listing grids and this detail page.
+// Each category also gets a small icon so the badge reads at a glance,
+// rather than relying on color alone.
 const CATEGORY_LABELS: Record<string, string> = {
   hotel: "Hotel",
   park: "Park",
   campsite: "Campsite",
   attraction: "Attraction",
   accommodation: "Accommodation",
+};
+const CATEGORY_ICONS: Record<string, any> = {
+  hotel: Building2,
+  park: TreePine,
+  campsite: Tent,
+  attraction: Compass,
+  accommodation: HomeIcon,
 };
 
 const toTitleCase = (str?: string) => {
@@ -138,6 +178,22 @@ const ITEMS_PER_PAGE = 5;
 // Only 5 images are ever fetched for the main gallery up front.
 const GALLERY_IMAGE_LIMIT = 5;
 
+// ─── Small shared bits ────────────────────────────────────────────────────────
+// A section heading with a short colored rule underneath instead of an
+// all-caps tracked-out eyebrow — the rule reads as a deliberate underline,
+// not decoration.
+const SectionHeading = ({ title, color }: { title: string; color: string }) => (
+  <div className="mb-3.5">
+    <h2
+      className="text-lg md:text-xl font-semibold leading-none"
+      style={{ fontFamily: FONT_DISPLAY, color: INK }}
+    >
+      {title}
+    </h2>
+    <span className="block w-9 h-[3px] rounded-full mt-2" style={{ background: color }} />
+  </div>
+);
+
 // ─── Image Gallery Modal ──────────────────────────────────────────────────────
 const ImageGalleryModal = ({
   images, name, startIndex = 0, onClose,
@@ -164,7 +220,7 @@ const ImageGalleryModal = ({
   const modal = (
     <div
       style={{
-        position: "fixed", inset: 0, background: "#000000",
+        position: "fixed", inset: 0, background: "#0E1712",
         display: "flex", flexDirection: "column",
         zIndex: 2147483647,
         paddingTop: "env(safe-area-inset-top, 0px)",
@@ -172,11 +228,11 @@ const ImageGalleryModal = ({
       }}
     >
       <div style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px" }}>
-        <span style={{ color: "rgba(255,255,255,0.55)", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em" }}>
+        <span style={{ fontFamily: FONT_BODY, color: "rgba(255,255,255,0.6)", fontSize: 12, fontWeight: 600 }}>
           {name}
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, fontWeight: 700 }}>
+          <span style={{ fontFamily: FONT_BODY, color: "rgba(255,255,255,0.45)", fontSize: 12, fontWeight: 600 }}>
             {current + 1} / {images.length}
           </span>
           <button
@@ -222,7 +278,7 @@ const ImageGalleryModal = ({
             {images.map((img, idx) => (
               <button
                 key={idx} onClick={() => setCurrent(idx)}
-                style={{ flexShrink: 0, width: 56, height: 42, padding: 0, border: idx === current ? `2px solid ${CORAL}` : "2px solid rgba(255,255,255,0.22)", borderRadius: 8, outline: "none", opacity: idx === current ? 1 : 0.5, cursor: "pointer", overflow: "hidden", boxSizing: "border-box", transition: "opacity 0.15s, border-color 0.15s" }}
+                style={{ flexShrink: 0, width: 56, height: 42, padding: 0, border: idx === current ? `2px solid ${CLAY_LIGHT}` : "2px solid rgba(255,255,255,0.22)", borderRadius: 8, outline: "none", opacity: idx === current ? 1 : 0.5, cursor: "pointer", overflow: "hidden", boxSizing: "border-box", transition: "opacity 0.15s, border-color 0.15s" }}
               >
                 {/* Thumbnails only load once the modal/"see all" is actually opened */}
                 <img src={img} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", borderRadius: 6 }} />
@@ -247,25 +303,25 @@ const DesktopGallery = ({ images, name }: { images: string[]; name: string }) =>
   return (
     <>
       {modalOpen && <ImageGalleryModal images={images} name={name} startIndex={modalStart} onClose={() => setModalOpen(false)} />}
-      <div className="max-w-6xl mx-auto px-4 pt-4">
+      <div className="max-w-6xl mx-auto px-4 pt-5">
         <div
-          className="rounded-2xl overflow-hidden border-2 border-black/[0.08]"
-          style={{ display: "grid", gridTemplateColumns: "1.55fr 1fr", gridTemplateRows: "200px 130px", gap: "3px" }}
+          className="rounded-[28px] overflow-hidden"
+          style={{ display: "grid", gridTemplateColumns: "1.55fr 1fr", gridTemplateRows: "210px 136px", gap: "4px", border: `1px solid ${HAIRLINE}` }}
         >
           {/* Only the 3 visible thumbnails are fetched — the rest stay unloaded until "see all" is opened */}
           <div style={{ gridRow: "1 / 3", overflow: "hidden", cursor: "pointer" }} onClick={() => open(0)}>
             <img src={images[0]} alt={name} loading="eager" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
           </div>
           <div style={{ overflow: "hidden", cursor: "pointer" }} onClick={() => open(1)}>
-            {images[1] ? <img src={images[1]} alt={`${name} 2`} loading="eager" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" /> : <div className="w-full h-full bg-slate-200" />}
+            {images[1] ? <img src={images[1]} alt={`${name} 2`} loading="eager" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" /> : <div className="w-full h-full" style={{ background: FOREST_SOFT }} />}
           </div>
           <div style={{ overflow: "hidden", position: "relative", cursor: "pointer" }} onClick={() => open(2)}>
-            {images[2] ? <img src={images[2]} alt={`${name} 3`} loading="eager" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-slate-200" />}
+            {images[2] ? <img src={images[2]} alt={`${name} 3`} loading="eager" className="w-full h-full object-cover" /> : <div className="w-full h-full" style={{ background: FOREST_SOFT }} />}
             {images.length > 3 && (
-              <div className="absolute inset-0 bg-black/52 flex items-center justify-center backdrop-blur-[1px]">
+              <div className="absolute inset-0 flex items-center justify-center backdrop-blur-[1px]" style={{ background: "rgba(18,51,34,0.58)" }}>
                 <div className="text-center">
-                  <span className="text-white text-2xl font-black">+{images.length - 3}</span>
-                  <p className="text-white text-[10px] font-medium normal-case tracking-tight mt-0.5">see all</p>
+                  <span className="text-white text-2xl font-semibold" style={{ fontFamily: FONT_DISPLAY }}>+{images.length - 3}</span>
+                  <p className="text-white/85 text-[11px] font-medium mt-0.5" style={{ fontFamily: FONT_BODY }}>See all photos</p>
                 </div>
               </div>
             )}
@@ -279,7 +335,6 @@ const DesktopGallery = ({ images, name }: { images: string[]; name: string }) =>
 // ─── Mobile carousel ──────────────────────────────────────────────────────────
 // Only the currently active slide is ever in the DOM, so only it gets fetched.
 // The full set is only requested once the person taps "see all" (modal above).
-// No border radius on the image container on small screens (per request).
 const MobileCarousel = ({ images, name }: { images: string[]; name: string }) => {
   const [active, setActive] = useState(0);
   const [loaded, setLoaded] = useState(false);
@@ -297,15 +352,15 @@ const MobileCarousel = ({ images, name }: { images: string[]; name: string }) =>
   const go = (idx: number) => setActive((idx + images.length) % images.length);
 
   if (!images.length) return (
-    <div className="w-full bg-slate-200 flex items-center justify-center text-slate-400 font-black uppercase text-xs" style={{ height: "45vh", minHeight: "200px", maxHeight: "360px" }}>
-      No Image
+    <div className="w-full flex items-center justify-center font-semibold text-sm" style={{ height: "45vh", minHeight: "200px", maxHeight: "360px", background: FOREST_SOFT, color: INK_SOFT, fontFamily: FONT_BODY }}>
+      No photo yet
     </div>
   );
 
   return (
     <>
       {modalOpen && <ImageGalleryModal images={images} name={name} startIndex={modalStart} onClose={() => setModalOpen(false)} />}
-      <div className="relative overflow-hidden bg-slate-900" style={{ height: "45vh", minHeight: "200px", maxHeight: "360px" }}>
+      <div className="relative overflow-hidden" style={{ height: "45vh", minHeight: "200px", maxHeight: "360px", background: FOREST_DEEP }}>
         <img
           key={active}
           src={images[active]}
@@ -315,13 +370,13 @@ const MobileCarousel = ({ images, name }: { images: string[]; name: string }) =>
           className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
           style={{ opacity: loaded ? 1 : 0 }}
         />
-        <div className="absolute bottom-0 left-0 right-0 h-20 pointer-events-none z-10" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.5), transparent)" }} />
+        <div className="absolute bottom-0 left-0 right-0 h-24 pointer-events-none z-10" style={{ background: "linear-gradient(to top, rgba(14,23,18,0.55), transparent)" }} />
         {images.length > 1 && (
           <>
-            <button onClick={() => go(active - 1)} className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
+            <button onClick={() => go(active - 1)} className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-sm" style={{ background: "rgba(14,23,18,0.45)" }}>
               <ChevronLeft className="h-4 w-4 text-white" />
             </button>
-            <button onClick={() => go(active + 1)} className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
+            <button onClick={() => go(active + 1)} className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-sm" style={{ background: "rgba(14,23,18,0.45)" }}>
               <ChevronRight className="h-4 w-4 text-white" />
             </button>
           </>
@@ -336,11 +391,11 @@ const MobileCarousel = ({ images, name }: { images: string[]; name: string }) =>
         )}
         <div className="absolute top-3 right-3 z-20 flex items-center gap-2">
           {images.length > 1 && (
-            <button onClick={() => { setModalStart(active); setModalOpen(true); }} className="flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white text-[10px] font-medium normal-case px-2.5 py-1 rounded-full hover:bg-black/70 transition-all">
-              <Grid2X2 className="h-3 w-3" /> see all
+            <button onClick={() => { setModalStart(active); setModalOpen(true); }} className="flex items-center gap-1 backdrop-blur-sm text-white text-[11px] font-medium px-2.5 py-1 rounded-full transition-all" style={{ background: "rgba(14,23,18,0.5)", fontFamily: FONT_BODY }}>
+              <Grid2X2 className="h-3 w-3" /> See all
             </button>
           )}
-          <div className="bg-black/50 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full">{active + 1} / {images.length}</div>
+          <div className="backdrop-blur-sm text-white text-[11px] font-semibold px-2.5 py-1 rounded-full" style={{ background: "rgba(14,23,18,0.5)", fontFamily: FONT_BODY }}>{active + 1} / {images.length}</div>
         </div>
       </div>
     </>
@@ -351,13 +406,13 @@ const MobileCarousel = ({ images, name }: { images: string[]; name: string }) =>
 const AmenitiesScroll = ({ amenities, accentColor }: { amenities: string[]; accentColor: string }) => {
   if (!amenities.length) return null;
   return (
-    <section className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
-      <h2 className="text-base font-black uppercase tracking-tight mb-3" style={{ color: accentColor }}>General Amenities</h2>
+    <section className="bg-white rounded-2xl p-4 md:p-5" style={{ border: `1px solid ${HAIRLINE}`, fontFamily: FONT_BODY }}>
+      <SectionHeading title="Amenities" color={accentColor} />
       <div className="flex flex-wrap gap-1.5">
         {amenities.map((fId, i) => (
-          <div key={i} className="flex items-center gap-1 px-2 py-1 rounded-full border" style={{ background: `${accentColor}10`, borderColor: `${accentColor}30` }}>
-            <CheckCircle2 className="h-2.5 w-2.5 flex-shrink-0" style={{ color: accentColor }} />
-            <span className="text-[9px] font-bold uppercase tracking-tight whitespace-nowrap" style={{ color: accentColor }}>{facilityLabel(fId)}</span>
+          <div key={i} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full" style={{ background: FOREST_SOFT, border: `1px solid ${accentColor}22` }}>
+            <CheckCircle2 className="h-3 w-3 flex-shrink-0" style={{ color: accentColor }} />
+            <span className="text-[11px] font-medium whitespace-nowrap" style={{ color: INK }}>{facilityLabel(fId)}</span>
           </div>
         ))}
       </div>
@@ -365,11 +420,11 @@ const AmenitiesScroll = ({ amenities, accentColor }: { amenities: string[]; acce
   );
 };
 
-const CARD_IMG_HEIGHT = 100;
+const CARD_IMG_HEIGHT = 104;
 
 // Facility card image height stays fixed at every breakpoint — the card
 // grows by getting WIDER on large screens (fewer grid columns), not taller.
-const FACILITY_IMG_HEIGHT_CLASS = "h-[100px]";
+const FACILITY_IMG_HEIGHT_CLASS = "h-[104px]";
 
 // ─── FacImage ─────────────────────────────────────────────────────────────────
 // Renders ONLY a single static image (the first one) — no auto-rotating
@@ -416,46 +471,43 @@ const InlineFacilitiesGrid = ({ facilities, accentColor }: { facilities: any[]; 
   return (
     <>
       {modalImages && <ImageGalleryModal images={modalImages} name={modalName} startIndex={modalStart} onClose={() => setModalImages(null)} />}
-      <section>
-        <h2 className="text-base font-black uppercase tracking-tight mb-3" style={{ color: accentColor }}>Facilities</h2>
+      <section style={{ fontFamily: FONT_BODY }}>
+        <SectionHeading title="Facilities" color={accentColor} />
         {/* Fewer columns on large screens (3 instead of 5) so each card gets
             noticeably WIDER — image height stays fixed, only the card's
             width (and the image filling it) grows. */}
-        <div className="flex gap-2 overflow-x-auto pb-1 md:grid md:grid-cols-3 lg:grid-cols-3 md:overflow-visible md:pb-0 lg:gap-4">
+        <div className="flex gap-3 overflow-x-auto pb-1 md:grid md:grid-cols-3 lg:grid-cols-3 md:overflow-visible md:pb-0 lg:gap-4">
           {visibleFacilities.map((fac: any, i: number) => {
             const imgs: string[] = Array.isArray(fac.images) ? fac.images.filter(Boolean) : [];
             // "see all" only shows up when there's actually more than one photo to see
             const hasMultiple = imgs.length > 1;
             return (
-              <div key={i} className="bg-white overflow-hidden shadow-sm border border-slate-100 flex-shrink-0 w-[150px] md:w-auto rounded-xl">
+              <div key={i} className="bg-white overflow-hidden flex-shrink-0 w-[160px] md:w-auto rounded-2xl" style={{ border: `1px solid ${HAIRLINE}` }}>
                 {imgs.length > 0 ? (
                   <div className={`relative overflow-hidden ${FACILITY_IMG_HEIGHT_CLASS}`}>
                     <FacImage images={imgs} name={fac.name} onClick={() => openCardGallery(imgs, fac.name, 0)} />
                     {hasMultiple && (
-                      <button onClick={(e) => { e.stopPropagation(); openCardGallery(imgs, fac.name, 0); }} className="absolute top-1.5 right-1.5 z-20 flex items-center gap-0.5 bg-black/50 backdrop-blur-sm text-white text-[8px] lg:text-[10px] font-medium normal-case px-1.5 py-0.5 rounded-full hover:bg-black/70 transition-all">
-                        <Grid2X2 className="h-2 w-2 lg:h-2.5 lg:w-2.5" /> see all
+                      <button onClick={(e) => { e.stopPropagation(); openCardGallery(imgs, fac.name, 0); }} className="absolute top-1.5 right-1.5 z-20 flex items-center gap-0.5 backdrop-blur-sm text-white text-[9px] lg:text-[10px] font-medium px-1.5 py-0.5 rounded-full transition-all" style={{ background: "rgba(14,23,18,0.55)" }}>
+                        <Grid2X2 className="h-2 w-2 lg:h-2.5 lg:w-2.5" /> See all
                       </button>
                     )}
                   </div>
                 ) : (
-                  <div className={`flex items-center justify-center bg-slate-100 ${FACILITY_IMG_HEIGHT_CLASS}`}>
-                    <MapPin className="h-5 w-5 lg:h-7 lg:w-7 text-slate-300" />
+                  <div className={`flex items-center justify-center ${FACILITY_IMG_HEIGHT_CLASS}`} style={{ background: FOREST_SOFT }}>
+                    <MapPin className="h-5 w-5 lg:h-7 lg:w-7" style={{ color: `${FOREST}55` }} />
                   </div>
                 )}
-                <div className="p-2 lg:p-3.5">
-                  <p className="font-black text-[11px] lg:text-sm text-slate-800 uppercase tracking-tight leading-tight">{fac.name}</p>
-                  {fac.capacity && <p className="text-[9px] lg:text-xs text-slate-500 mt-0.5 flex items-center gap-0.5"><Users className="h-2.5 w-2.5 lg:h-3.5 lg:w-3.5" /> {fac.capacity}</p>}
-                  {fac.price > 0 && <p className="text-[10px] lg:text-sm font-bold mt-0.5" style={{ color: accentColor }}>KSh {fac.price?.toLocaleString()}</p>}
+                <div className="p-2.5 lg:p-3.5">
+                  <p className="font-semibold text-[12px] lg:text-sm leading-tight" style={{ color: INK }}>{fac.name}</p>
+                  {fac.capacity && <p className="text-[10px] lg:text-xs mt-0.5 flex items-center gap-1" style={{ color: INK_SOFT }}><Users className="h-2.5 w-2.5 lg:h-3.5 lg:w-3.5" /> {fac.capacity}</p>}
+                  {fac.price > 0 && <p className="text-[11px] lg:text-sm font-semibold mt-1" style={{ color: accentColor }}>KSh {fac.price?.toLocaleString()}</p>}
                   {Array.isArray(fac.amenities) && fac.amenities.length > 0 && (
-                    <div className="flex flex-wrap gap-0.5 lg:gap-1 mt-1 lg:mt-2">
+                    <div className="flex flex-wrap gap-1 mt-1.5 lg:mt-2">
                       {fac.amenities.slice(0, 5).map((a: any, ai: number) => (
-                        // Amenity name shown in dark grey (not the accent color) for
-                        // better readability and to keep the accent color reserved
-                        // for prices / headings.
                         <span
                           key={ai}
-                          className="text-[8px] lg:text-[10px] font-bold px-1.5 lg:px-2 py-0.5 rounded normal-case text-slate-600"
-                          style={{ background: `${accentColor}12` }}
+                          className="text-[9px] lg:text-[10px] font-medium px-1.5 lg:px-2 py-0.5 rounded-full"
+                          style={{ background: FOREST_SOFT, color: INK_SOFT }}
                         >
                           {facilityAmenityLabel(a)}
                         </span>
@@ -468,12 +520,12 @@ const InlineFacilitiesGrid = ({ facilities, accentColor }: { facilities: any[]; 
           })}
         </div>
         {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-3 mt-3">
-            <button onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0} aria-label="Previous facilities" className="w-7 h-7 rounded-full flex items-center justify-center border transition-all disabled:opacity-30" style={{ borderColor: `${accentColor}40`, color: accentColor }}>
+          <div className="flex items-center justify-center gap-3 mt-4">
+            <button onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0} aria-label="Previous facilities" className="w-7 h-7 rounded-full flex items-center justify-center transition-all disabled:opacity-30" style={{ border: `1px solid ${accentColor}40`, color: accentColor }}>
               <ChevronLeft className="h-3.5 w-3.5" />
             </button>
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Page {page + 1} of {totalPages}</span>
-            <button onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={page === totalPages - 1} aria-label="Next facilities" className="w-7 h-7 rounded-full flex items-center justify-center border transition-all disabled:opacity-30" style={{ borderColor: `${accentColor}40`, color: accentColor }}>
+            <span className="text-[11px] font-medium" style={{ color: INK_SOFT }}>Page {page + 1} of {totalPages}</span>
+            <button onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={page === totalPages - 1} aria-label="Next facilities" className="w-7 h-7 rounded-full flex items-center justify-center transition-all disabled:opacity-30" style={{ border: `1px solid ${accentColor}40`, color: accentColor }}>
               <ChevronRight className="h-3.5 w-3.5" />
             </button>
           </div>
@@ -490,7 +542,7 @@ const ActivityCard = ({ act, imgs, formatPrice, onImageClick }: { act: any; imgs
   const hasMultiple = imgs.length > 1;
 
   return (
-    <div className="bg-white overflow-hidden shadow-sm border border-slate-100 rounded-xl">
+    <div className="bg-white overflow-hidden rounded-2xl" style={{ border: `1px solid ${HAIRLINE}` }}>
       <div className="relative overflow-hidden" style={{ height: CARD_IMG_HEIGHT, cursor: imgs.length > 0 ? "pointer" : "default" }} onClick={imgs.length > 0 ? onImageClick : undefined}>
         {imgs.length > 0 ? (
           <img
@@ -502,22 +554,22 @@ const ActivityCard = ({ act, imgs, formatPrice, onImageClick }: { act: any; imgs
             style={{ opacity: loaded ? 1 : 0 }}
           />
         ) : (
-          <div className="absolute inset-0 bg-slate-200 flex items-center justify-center"><MapPin className="h-5 w-5 text-slate-300" /></div>
+          <div className="absolute inset-0 flex items-center justify-center" style={{ background: FOREST_SOFT }}><MapPin className="h-5 w-5" style={{ color: `${FOREST}55` }} /></div>
         )}
-        <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.45) 0%, transparent 55%)" }} />
+        <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(to top, rgba(14,23,18,0.45) 0%, transparent 55%)" }} />
         {/* "see all" only appears when this activity actually has more than one photo */}
         {hasMultiple && (
-          <button onClick={(e) => { e.stopPropagation(); onImageClick?.(); }} className="absolute top-1.5 right-1.5 z-20 flex items-center gap-0.5 bg-black/50 backdrop-blur-sm text-white text-[8px] font-medium normal-case px-1.5 py-0.5 rounded-full hover:bg-black/70 transition-all">
-            <Grid2X2 className="h-2 w-2" /> see all
+          <button onClick={(e) => { e.stopPropagation(); onImageClick?.(); }} className="absolute top-1.5 right-1.5 z-20 flex items-center gap-0.5 backdrop-blur-sm text-white text-[9px] font-medium px-1.5 py-0.5 rounded-full transition-all" style={{ background: "rgba(14,23,18,0.55)" }}>
+            <Grid2X2 className="h-2 w-2" /> See all
           </button>
         )}
       </div>
-      <div className="p-2">
-        <p className="font-black text-[11px] text-slate-800 uppercase tracking-tight leading-tight">{act.name}</p>
+      <div className="p-2.5">
+        <p className="font-semibold text-[12px] leading-tight" style={{ color: INK }}>{act.name}</p>
         {act.price > 0 ? (
-          <p className="text-[10px] font-bold mt-0.5" style={{ color: CORAL }}>{formatPrice(Number(act.price))}</p>
+          <p className="text-[11px] font-semibold mt-1" style={{ color: CLAY }}>{formatPrice(Number(act.price))}</p>
         ) : (
-          <p className="text-[10px] font-bold mt-0.5 text-emerald-600">Free</p>
+          <p className="text-[11px] font-semibold mt-1" style={{ color: OPEN_COLOR }}>Free</p>
         )}
       </div>
     </div>
@@ -542,9 +594,9 @@ const InlineActivitiesGrid = ({ activities, formatPrice }: { activities: any[]; 
   return (
     <>
       {modalImages && <ImageGalleryModal images={modalImages} name={modalName} startIndex={modalStart} onClose={() => setModalImages(null)} />}
-      <section>
-        <h2 className="text-base font-black uppercase tracking-tight mb-3" style={{ color: CORAL }}>Activities</h2>
-        <div className="flex gap-2 overflow-x-auto pb-1 md:grid md:grid-cols-3 lg:grid-cols-5 md:overflow-visible md:pb-0">
+      <section style={{ fontFamily: FONT_BODY }}>
+        <SectionHeading title="Activities" color={CLAY} />
+        <div className="flex gap-3 overflow-x-auto pb-1 md:grid md:grid-cols-3 lg:grid-cols-5 md:overflow-visible md:pb-0">
           {visibleActivities.map((act: any, i: number) => {
             const imgs: string[] = Array.isArray(act.images) ? act.images.filter(Boolean) : [];
             return (
@@ -555,12 +607,12 @@ const InlineActivitiesGrid = ({ activities, formatPrice }: { activities: any[]; 
           })}
         </div>
         {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-3 mt-3">
-            <button onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0} aria-label="Previous activities" className="w-7 h-7 rounded-full flex items-center justify-center border transition-all disabled:opacity-30" style={{ borderColor: `${CORAL}40`, color: CORAL }}>
+          <div className="flex items-center justify-center gap-3 mt-4">
+            <button onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0} aria-label="Previous activities" className="w-7 h-7 rounded-full flex items-center justify-center transition-all disabled:opacity-30" style={{ border: `1px solid ${CLAY}40`, color: CLAY }}>
               <ChevronLeft className="h-3.5 w-3.5" />
             </button>
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Page {page + 1} of {totalPages}</span>
-            <button onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={page === totalPages - 1} aria-label="Next activities" className="w-7 h-7 rounded-full flex items-center justify-center border transition-all disabled:opacity-30" style={{ borderColor: `${CORAL}40`, color: CORAL }}>
+            <span className="text-[11px] font-medium" style={{ color: INK_SOFT }}>Page {page + 1} of {totalPages}</span>
+            <button onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={page === totalPages - 1} aria-label="Next activities" className="w-7 h-7 rounded-full flex items-center justify-center transition-all disabled:opacity-30" style={{ border: `1px solid ${CLAY}40`, color: CLAY }}>
               <ChevronRight className="h-3.5 w-3.5" />
             </button>
           </div>
@@ -574,33 +626,33 @@ const InlineActivitiesGrid = ({ activities, formatPrice }: { activities: any[]; 
 const SpecialPricesSection = ({ tiers, formatPrice }: { tiers: SpecialPriceTier[]; formatPrice: (n: number) => string }) => {
   if (!tiers?.length) return null;
   return (
-    <section className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+    <section className="bg-white rounded-2xl p-5" style={{ border: `1px solid ${HAIRLINE}`, fontFamily: FONT_BODY }}>
       <div className="flex items-center gap-2 mb-4">
-        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "#a855f718" }}>
-          <Sparkles className="h-3.5 w-3.5 text-purple-500" />
+        <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: GOLD_SOFT }}>
+          <Sparkles className="h-4 w-4" style={{ color: GOLD }} />
         </div>
-        <h2 className="text-base font-black uppercase tracking-tight text-purple-600">Special Entry Prices</h2>
+        <h2 className="text-lg font-semibold" style={{ fontFamily: FONT_DISPLAY, color: INK }}>Special entry prices</h2>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {tiers.map((tier, i) => (
-          <div key={tier.id ?? i} className="rounded-xl border border-purple-100 bg-purple-50/40 p-3.5">
-            <p className="font-black text-sm text-slate-800 uppercase tracking-tight">{tier.label}</p>
+          <div key={tier.id ?? i} className="rounded-2xl p-4" style={{ border: `1px solid ${GOLD}30`, background: `${GOLD_SOFT}80` }}>
+            <p className="font-semibold text-sm" style={{ color: INK }}>{tier.label}</p>
             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 mt-1.5">
-              <span className="text-sm font-bold text-purple-600">
+              <span className="text-sm font-semibold" style={{ color: GOLD }}>
                 {formatPrice(Number(tier.citizen_price) || 0)}{" "}
-                <span className="text-[10px] text-slate-400 font-semibold normal-case">citizen</span>
+                <span className="text-[11px] font-normal" style={{ color: INK_SOFT }}>citizen</span>
               </span>
               {tier.non_citizen_price != null && Number(tier.non_citizen_price) > 0 && (
-                <span className="text-sm font-bold text-amber-600">
+                <span className="text-sm font-semibold" style={{ color: CLAY }}>
                   {formatPrice(Number(tier.non_citizen_price))}{" "}
-                  <span className="text-[10px] text-slate-400 font-semibold normal-case">non-citizen</span>
+                  <span className="text-[11px] font-normal" style={{ color: INK_SOFT }}>non-citizen</span>
                 </span>
               )}
             </div>
             {tier.requirement?.trim() && (
-              <div className="flex items-start gap-1.5 mt-2 pt-2 border-t border-purple-100">
-                <Info className="h-3 w-3 text-purple-400 mt-0.5 flex-shrink-0" />
-                <p className="text-[11px] text-slate-500 leading-snug">{tier.requirement}</p>
+              <div className="flex items-start gap-1.5 mt-2.5 pt-2.5" style={{ borderTop: `1px solid ${GOLD}25` }}>
+                <Info className="h-3 w-3 mt-0.5 flex-shrink-0" style={{ color: GOLD }} />
+                <p className="text-[11px] leading-snug" style={{ color: INK_SOFT }}>{tier.requirement}</p>
               </div>
             )}
           </div>
@@ -621,24 +673,24 @@ const AlwaysOpenMapSection = ({ name, latitude, longitude, location, country }: 
     : `https://maps.google.com/maps?q=${encodeURIComponent(`${name}, ${location || ""}, ${country || ""}`)}&z=13&output=embed`;
 
   return (
-    <section className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100">
-      <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100">
-        <div className="flex items-center gap-2">
-          <MapPin className="h-4 w-4" style={{ color: TEAL }} />
+    <section className="bg-white rounded-2xl overflow-hidden" style={{ border: `1px solid ${HAIRLINE}`, fontFamily: FONT_BODY }}>
+      <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: `1px solid ${HAIRLINE}` }}>
+        <div className="flex items-center gap-2.5">
+          <MapPin className="h-4 w-4" style={{ color: FOREST }} />
           <div>
-            <h2 className="text-sm font-black uppercase tracking-tight" style={{ color: TEAL }}>Location</h2>
-            <p className="text-[10px] text-slate-400 font-medium">{[name, location, country].filter(Boolean).join(", ")}</p>
+            <h2 className="text-sm font-semibold" style={{ fontFamily: FONT_DISPLAY, color: INK }}>Location</h2>
+            <p className="text-[11px] mt-0.5" style={{ color: INK_SOFT }}>{[name, location, country].filter(Boolean).join(", ")}</p>
           </div>
         </div>
-        <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-white text-[10px] font-bold transition-all hover:opacity-90 active:scale-95" style={{ background: `linear-gradient(135deg, ${TEAL}, #005f5f)` }}>
-          <ExternalLink className="h-3 w-3" /> View on Google Maps
+        <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-white text-[11px] font-semibold transition-all hover:opacity-90 active:scale-95" style={{ background: `linear-gradient(135deg, ${FOREST}, ${FOREST_DEEP})` }}>
+          <ExternalLink className="h-3 w-3" /> Open in Google Maps
         </a>
       </div>
       <div style={{ height: "300px", position: "relative" }}>
         <iframe title={`Map of ${name}`} src={embedUrl} width="100%" height="100%" style={{ border: 0, display: "block" }} allowFullScreen loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
-        <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 bg-white/95 backdrop-blur-sm shadow-md rounded-full px-3 py-1.5 pointer-events-none">
-          <MapPin className="h-3 w-3" style={{ color: CORAL }} />
-          <span className="text-[10px] font-black uppercase tracking-tight text-slate-700">{name}</span>
+        <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 bg-white shadow-md rounded-full px-3 py-1.5 pointer-events-none">
+          <MapPin className="h-3 w-3" style={{ color: CLAY }} />
+          <span className="text-[11px] font-semibold" style={{ color: INK }}>{name}</span>
         </div>
       </div>
     </section>
@@ -646,9 +698,14 @@ const AlwaysOpenMapSection = ({ name, latitude, longitude, location, country }: 
 };
 
 const UtilityButton = ({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) => (
-  <Button variant="ghost" onClick={onClick} className="flex-col h-auto py-2.5 bg-slate-50 text-slate-500 rounded-xl border border-slate-100 hover:bg-slate-100 transition-colors flex-1">
-    <div className="mb-0.5">{icon}</div>
-    <span className="text-[9px] font-bold uppercase">{label}</span>
+  <Button
+    variant="ghost"
+    onClick={onClick}
+    className="flex-col h-auto py-2.5 rounded-xl flex-1 hover:bg-transparent"
+    style={{ background: FOREST_SOFT, border: `1px solid ${HAIRLINE}`, color: INK_SOFT, fontFamily: FONT_BODY }}
+  >
+    <div className="mb-1">{icon}</div>
+    <span className="text-[10px] font-medium">{label}</span>
   </Button>
 );
 
@@ -665,35 +722,35 @@ const BookingCard = ({ place, is24Hours, daysOpened, capacityPerDay, formatPrice
     (Number(place.non_citizen_entry_fee) > 0 || Number(place.non_citizen_child_entry_fee) > 0);
 
   return (
-    <>
+    <div style={{ fontFamily: FONT_BODY }} className="space-y-4">
       {/* ── Pricing: only rendered when entry is actually paid. Free places
           skip this block entirely — no "Free Entry" label is shown anywhere
           on the page, per product request. ── */}
       {isPaid && (
-        <div className="rounded-xl border border-slate-100 bg-slate-50 overflow-hidden">
-          <div className="grid grid-cols-2 divide-x divide-slate-200">
+        <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${HAIRLINE}` }}>
+          <div className="grid grid-cols-2" style={{ background: CANVAS }}>
             {/* Citizen column */}
-            <div className="p-3">
-              <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Citizen</p>
-              <p className="text-sm font-black text-slate-800">{formatPrice(Number(place.entry_fee))}</p>
+            <div className="p-3.5" style={{ borderRight: `1px solid ${HAIRLINE}` }}>
+              <p className="text-[10px] font-medium mb-1" style={{ color: INK_SOFT }}>Citizen</p>
+              <p className="text-sm font-semibold" style={{ color: INK }}>{formatPrice(Number(place.entry_fee))}</p>
               {Number(place.child_entry_fee) > 0 && (
-                <p className="text-[10px] text-slate-500 mt-0.5">Child: {formatPrice(Number(place.child_entry_fee))}</p>
+                <p className="text-[10px] mt-0.5" style={{ color: INK_SOFT }}>Child: {formatPrice(Number(place.child_entry_fee))}</p>
               )}
             </div>
             {/* Non-citizen column */}
-            <div className="p-3" style={{ background: hasNonCitizen ? "#FFFBEB" : undefined }}>
-              <p className="text-[9px] font-black uppercase tracking-widest text-amber-600 mb-1 flex items-center gap-1">
-                <Globe className="h-2.5 w-2.5" /> Non-Citizen
+            <div className="p-3.5" style={{ background: hasNonCitizen ? GOLD_SOFT : undefined }}>
+              <p className="text-[10px] font-medium mb-1 flex items-center gap-1" style={{ color: GOLD }}>
+                <Globe className="h-2.5 w-2.5" /> Non-citizen
               </p>
               {hasNonCitizen ? (
                 <>
-                  <p className="text-sm font-black text-amber-700">{formatPrice(Number(place.non_citizen_entry_fee))}</p>
+                  <p className="text-sm font-semibold" style={{ color: "#8A6716" }}>{formatPrice(Number(place.non_citizen_entry_fee))}</p>
                   {Number(place.non_citizen_child_entry_fee) > 0 && (
-                    <p className="text-[10px] text-amber-600 mt-0.5">Child: {formatPrice(Number(place.non_citizen_child_entry_fee))}</p>
+                    <p className="text-[10px] mt-0.5" style={{ color: "#8A6716" }}>Child: {formatPrice(Number(place.non_citizen_child_entry_fee))}</p>
                   )}
                 </>
               ) : (
-                <p className="text-[11px] text-slate-400 font-semibold">Same as citizen</p>
+                <p className="text-[11px] font-medium" style={{ color: INK_SOFT }}>Same as citizen</p>
               )}
             </div>
           </div>
@@ -701,54 +758,56 @@ const BookingCard = ({ place, is24Hours, daysOpened, capacityPerDay, formatPrice
       )}
 
       {/* Hours & days */}
-      <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+      <div className="p-3.5 rounded-2xl" style={{ background: CANVAS, border: `1px solid ${HAIRLINE}` }}>
         <div className="flex justify-between items-center mb-2">
-          <span className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-1">
-            <Clock className="h-3 w-3" /> Hours
+          <span className="text-[11px] font-medium flex items-center gap-1.5" style={{ color: INK_SOFT }}>
+            <Clock className="h-3.5 w-3.5" /> Hours
           </span>
-          <span className="text-xs font-black text-slate-700">
-            {is24Hours ? "Open 24 Hours" : `${place.opening_hours || "08:00"} – ${place.closing_hours || "18:00"}`}
+          <span className="text-[13px] font-semibold" style={{ color: INK }}>
+            {is24Hours ? "Open 24 hours" : `${place.opening_hours || "08:00"} – ${place.closing_hours || "18:00"}`}
           </span>
         </div>
         {daysOpened.length > 0 && (
           <div>
-            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1.5">Available Days</p>
+            <p className="text-[10px] font-medium mb-1.5" style={{ color: INK_SOFT }}>Available days</p>
             <div className="flex flex-wrap gap-1">
               {daysOpened.map((day, i) => (
-                <span key={i} className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase border" style={{ background: `${TEAL}12`, color: TEAL, borderColor: `${TEAL}30` }}>{day}</span>
+                <span key={i} className="px-2 py-0.5 rounded-md text-[10px] font-semibold" style={{ background: FOREST_SOFT, color: FOREST }}>{day}</span>
               ))}
             </div>
           </div>
         )}
         {capacityPerDay != null && capacityPerDay > 0 && (
-          <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-200">
-            <span className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-1">
-              <Users className="h-3 w-3" /> Daily Capacity
+          <div className="flex justify-between items-center mt-2 pt-2" style={{ borderTop: `1px solid ${HAIRLINE}` }}>
+            <span className="text-[11px] font-medium flex items-center gap-1.5" style={{ color: INK_SOFT }}>
+              <Users className="h-3.5 w-3.5" /> Daily capacity
             </span>
-            <span className="text-xs font-black text-slate-700">{capacityPerDay} guests</span>
+            <span className="text-[13px] font-semibold" style={{ color: INK }}>{capacityPerDay} guests</span>
           </div>
         )}
       </div>
 
       <Button
         onClick={onCheckAvailability}
-        className="w-full py-6 rounded-xl text-sm font-bold text-white border-none shadow-md transition-all active:scale-95"
-        style={{ background: `linear-gradient(135deg, ${CORAL_LIGHT} 0%, ${CORAL} 100%)` }}
+        className="w-full py-6 rounded-2xl text-sm font-semibold text-white border-none shadow-sm transition-all active:scale-[0.98] hover:opacity-95"
+        style={{ background: `linear-gradient(135deg, ${CLAY_LIGHT} 0%, ${CLAY} 100%)`, fontFamily: FONT_BODY }}
       >
         Check availability
       </Button>
 
-      <div className="grid grid-cols-3 gap-2 pt-3 border-t border-slate-100">
+      <div className="grid grid-cols-3 gap-2 pt-3" style={{ borderTop: `1px solid ${HAIRLINE}` }}>
         <UtilityButton icon={<Navigation className="h-4 w-4" />} label="Map" onClick={onMap} />
         <UtilityButton icon={<Copy className="h-4 w-4" />} label="Copy" onClick={onCopy} />
         <UtilityButton icon={<Share2 className="h-4 w-4" />} label="Share" onClick={onShare} />
       </div>
-    </>
+    </div>
   );
 };
 
 // ─── Main component ───────────────────────────────────────────────────────────
 const AdventurePlaceDetail = () => {
+  useInjectFonts();
+
   const { slug: rawSlug } = useParams();
   const id = rawSlug ? extractIdFromSlug(rawSlug) : null;
   const navigate = useNavigate();
@@ -874,10 +933,10 @@ const AdventurePlaceDetail = () => {
     return <TealLoader text={loadingName ? `Loading ${loadingName}…` : "Loading…"} />;
   }
   if (!place) return (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-4">
-      <AlertCircle className="h-12 w-12 text-red-400" />
-      <p className="text-lg font-black uppercase text-slate-500">Place not found</p>
-      <Button onClick={() => navigate(-1)} className="rounded-full bg-teal-600 text-white border-none">Go Back</Button>
+    <div className="min-h-screen flex flex-col items-center justify-center gap-4" style={{ background: CANVAS, fontFamily: FONT_BODY }}>
+      <AlertCircle className="h-12 w-12" style={{ color: CLAY }} />
+      <p className="text-lg font-semibold" style={{ fontFamily: FONT_DISPLAY, color: INK }}>Place not found</p>
+      <Button onClick={() => navigate(-1)} className="rounded-full text-white border-none" style={{ background: FOREST }}>Go back</Button>
     </div>
   );
 
@@ -903,6 +962,7 @@ const AdventurePlaceDetail = () => {
   const categoryLabel: string | null = place.category
     ? (CATEGORY_LABELS[place.category] ?? toTitleCase(place.category))
     : null;
+  const CategoryIcon = (place.category && CATEGORY_ICONS[place.category]) || MapPin;
 
   // The live Open now / Closed badge is only meaningful for hotels and
   // campsites, matching the same rule used on the listing cards.
@@ -919,17 +979,17 @@ const AdventurePlaceDetail = () => {
     ),
     onCopy: async () => {
       await navigator.clipboard.writeText(getShareLink(resolvedId, "adventure_place", place.name, place.location));
-      toast({ title: "Link Copied!" });
+      toast({ title: "Link copied" });
     },
     onShare: async () => {
       const link = getShareLink(resolvedId, "adventure_place", place.name, place.location);
       if (navigator.share) { try { await navigator.share({ title: place.name, url: link }); } catch {} }
-      else { await navigator.clipboard.writeText(link); toast({ title: "Link Copied!" }); }
+      else { await navigator.clipboard.writeText(link); toast({ title: "Link copied" }); }
     },
   };
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen pb-24" style={{ background: CANVAS }}>
       <DetailNavBar scrolled={scrolled} itemName={toTitleCase(place.name)} isSaved={isSaved} onSave={() => handleSaveItem(resolvedId, "adventure_place")} onBack={goBack} />
       <div style={{ height: "calc(56px + env(safe-area-inset-top, 0px))" }} />
 
@@ -941,7 +1001,7 @@ const AdventurePlaceDetail = () => {
         <DesktopGallery images={allImages} name={place.name} />
       )}
 
-      <main className="container px-4 mt-4 relative z-10 max-w-6xl mx-auto">
+      <main className="container px-4 mt-5 relative z-10 max-w-6xl mx-auto" style={{ fontFamily: FONT_BODY }}>
         {/* Single consistent order on every screen size now:
             Title/badges -> About -> Amenities -> (mobile booking card) ->
             Special Prices -> Facilities -> Activities -> Map.
@@ -951,27 +1011,29 @@ const AdventurePlaceDetail = () => {
         <div className="grid grid-cols-1 lg:grid-cols-[1.8fr,1fr] gap-6">
           <div className="flex flex-col gap-6">
             <div>
-              <h1 className="text-2xl font-black tracking-tighter leading-tight text-foreground">{toTitleCase(place.name)}</h1>
-              <div className="flex items-center gap-1.5 mt-1 text-muted-foreground">
+              <h1 className="text-[28px] md:text-[34px] font-semibold leading-tight tracking-tight" style={{ fontFamily: FONT_DISPLAY, color: INK }}>{toTitleCase(place.name)}</h1>
+              <div className="flex items-center gap-1.5 mt-1.5" style={{ color: INK_SOFT }}>
                 <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
-                <span className="text-sm font-semibold">{[place.place, place.location, place.country].filter(Boolean).join(", ")}</span>
+                <span className="text-[13px] font-medium">{[place.place, place.location, place.country].filter(Boolean).join(", ")}</span>
               </div>
 
               {/* Category + live Open now/Closed badges */}
               {(categoryLabel || isHotelOrCampsite) && (
-                <div className="flex items-center gap-1.5 mt-2.5">
+                <div className="flex items-center gap-2 mt-3">
                   {categoryLabel && (
                     <span
-                      className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full text-white shadow-sm"
-                      style={{ background: TEAL }}
+                      className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1 rounded-full"
+                      style={{ background: FOREST_SOFT, color: FOREST, border: `1px solid ${FOREST}25` }}
                     >
-                      {categoryLabel}
+                      <CategoryIcon className="h-3 w-3" /> {categoryLabel}
                     </span>
                   )}
                   {isHotelOrCampsite && (
                     <span
-                      className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full text-white shadow-sm ${isOpenNow ? "bg-green-600" : "bg-red-600"}`}
+                      className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1 rounded-full text-white"
+                      style={{ background: isOpenNow ? OPEN_COLOR : CLOSED_COLOR }}
                     >
+                      <span className="w-1.5 h-1.5 rounded-full bg-white/90" />
                       {isOpenNow ? "Open now" : "Closed"}
                     </span>
                   )}
@@ -983,31 +1045,31 @@ const AdventurePlaceDetail = () => {
                 badges, above Amenities/Facilities/Activities, on every
                 screen size. */}
             {place.description && (
-              <section className="bg-white rounded-2xl px-5 py-4 shadow-sm border border-slate-100">
-                <h2 className="text-base font-black uppercase tracking-tight mb-3" style={{ color: TEAL }}>About this Place</h2>
-                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{place.description}</p>
+              <section className="bg-white rounded-2xl px-5 py-4.5" style={{ border: `1px solid ${HAIRLINE}` }}>
+                <SectionHeading title="About this place" color={FOREST} />
+                <p className="text-[14px] leading-relaxed whitespace-pre-line" style={{ color: INK }}>{place.description}</p>
               </section>
             )}
 
             {generalAmenities.length > 0 && (
-              <AmenitiesScroll amenities={generalAmenities} accentColor={TEAL} />
+              <AmenitiesScroll amenities={generalAmenities} accentColor={FOREST} />
             )}
 
             {/* Booking card — mobile only */}
-            <div className="bg-white rounded-2xl p-5 shadow-lg border border-slate-100 lg:hidden">
+            <div className="bg-white rounded-2xl p-5 lg:hidden" style={{ border: `1px solid ${HAIRLINE}` }}>
               <BookingCard {...bookingCardProps} />
             </div>
 
             {specialPrices.length > 0 && <SpecialPricesSection tiers={specialPrices} formatPrice={formatPrice} />}
 
-            {place.facilities?.length > 0 && <div id="facilities-section"><InlineFacilitiesGrid facilities={place.facilities} accentColor={TEAL} /></div>}
+            {place.facilities?.length > 0 && <div id="facilities-section"><InlineFacilitiesGrid facilities={place.facilities} accentColor={FOREST} /></div>}
             {place.activities?.length > 0 && <div id="activities-section"><InlineActivitiesGrid activities={place.activities} formatPrice={formatPrice} /></div>}
 
             <AlwaysOpenMapSection name={place.name} latitude={place.latitude} longitude={place.longitude} location={place.location} country={place.country} />
           </div>
 
           <div className="hidden lg:block">
-            <div className="sticky top-24 bg-white rounded-2xl p-6 shadow-lg border border-slate-200 space-y-4">
+            <div className="sticky top-24 bg-white rounded-2xl p-6" style={{ border: `1px solid ${HAIRLINE}`, boxShadow: "0 8px 30px rgba(28,43,34,0.06)" }}>
               <BookingCard {...bookingCardProps} />
             </div>
           </div>
@@ -1017,25 +1079,25 @@ const AdventurePlaceDetail = () => {
       <Footer />
 
       {/* Mobile bottom bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-[100] md:hidden bg-white border-t border-slate-200 shadow-[0_-4px_20px_rgb(0,0,0,0.08)]" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+      <div className="fixed bottom-0 left-0 right-0 z-[100] md:hidden bg-white" style={{ borderTop: `1px solid ${HAIRLINE}`, boxShadow: "0 -6px 24px rgba(28,43,34,0.08)", paddingBottom: "env(safe-area-inset-bottom, 0px)", fontFamily: FONT_BODY }}>
         <div className="flex items-center justify-between px-4 py-3">
           <div>
             {/* Free places show no price / label here at all — the bar just
                 keeps the "Check availability" button, no "Free Entry" text. */}
             {place.entry_fee && place.entry_fee > 0 ? (
               <div className="flex items-baseline gap-1">
-                <span className="text-xs text-slate-500">From</span>
-                <span className="text-lg font-black text-slate-900">{formatPrice(Number(place.entry_fee))}</span>
-                <span className="text-xs text-slate-500">/ person</span>
+                <span className="text-xs" style={{ color: INK_SOFT }}>From</span>
+                <span className="text-lg font-semibold" style={{ color: INK }}>{formatPrice(Number(place.entry_fee))}</span>
+                <span className="text-xs" style={{ color: INK_SOFT }}>/ person</span>
               </div>
             ) : getStartingPrice() > 0 ? (
               <div className="flex items-baseline gap-1">
-                <span className="text-xs text-slate-500">From</span>
-                <span className="text-lg font-black text-slate-900">{formatPrice(getStartingPrice())}</span>
+                <span className="text-xs" style={{ color: INK_SOFT }}>From</span>
+                <span className="text-lg font-semibold" style={{ color: INK }}>{formatPrice(getStartingPrice())}</span>
               </div>
             ) : null}
           </div>
-          <Button onClick={handleCheckAvailability} className="px-6 py-5 rounded-xl text-sm font-bold text-white border-none" style={{ background: `linear-gradient(135deg, ${CORAL_LIGHT} 0%, ${CORAL} 100%)` }}>
+          <Button onClick={handleCheckAvailability} className="px-6 py-5 rounded-xl text-sm font-semibold text-white border-none" style={{ background: `linear-gradient(135deg, ${CLAY_LIGHT} 0%, ${CLAY} 100%)` }}>
             Check availability
           </Button>
         </div>

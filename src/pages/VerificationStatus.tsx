@@ -1,24 +1,15 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
+import { Footer } from "@/components/Footer";
 import { MobileBottomBar } from "@/components/MobileBottomBar";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { CheckCircle2, XCircle, Clock, ArrowLeft, ShieldCheck } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, ArrowLeft, ShieldCheck, Loader2 } from "lucide-react";
 
-const COLORS = {
-  TEAL: "#008080",
-  CORAL: "#FF7F50",
-  CORAL_LIGHT: "#FF9E7A",
-  KHAKI: "#F0E68C",
-  KHAKI_DARK: "#857F3E",
-  RED: "#FF0000",
-  SOFT_GRAY: "#F8F9FA"
-};
-
-const VerificationStatus = () => {
+export default function VerificationStatus() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [verification, setVerification] = useState<any>(null);
@@ -31,7 +22,7 @@ const VerificationStatus = () => {
     }
 
     const fetchVerification = async () => {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from("host_verifications")
         .select("*")
         .eq("user_id", user.id)
@@ -46,150 +37,174 @@ const VerificationStatus = () => {
     fetchVerification();
   }, [user, navigate]);
 
-  if (loading) return <div className="min-h-screen bg-[#F8F9FA] animate-pulse" />;
-
   return (
-    <div className="min-h-screen bg-[#F8F9FA] pb-24">
-      <Header className="hidden md:block" />
+    <div
+      className="flex flex-col min-h-screen bg-background"
+      style={{
+        paddingTop: "env(safe-area-inset-top, 0px)",
+        paddingBottom: "env(safe-area-inset-bottom, 0px)",
+      }}
+    >
+      <Header />
 
-      {/* Decorative Header Background */}
-      <div className="h-48 w-full bg-[#008080] relative overflow-hidden">
-        <div className="absolute inset-0 opacity-20" 
-             style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '24px 24px' }} />
-        <div className="container px-4 h-full flex items-end pb-12">
-           <Button 
-            onClick={() => navigate(-1)} 
-            className="rounded-full bg-white/20 backdrop-blur-md text-white border-none w-10 h-10 p-0 hover:bg-white/30 mb-4"
+      <main className="flex-1 px-4 pt-3 pb-12 max-w-lg mx-auto w-full space-y-4">
+        {/* Navigation Bar Header */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate(-1)}
+            aria-label="Go back"
+            className="h-8 w-8 rounded-full bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors shrink-0"
           >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
+            <ArrowLeft className="h-4 w-4 text-foreground" />
+          </button>
+          <div>
+            <h1 className="text-lg font-black text-foreground leading-tight">
+              Verification Status
+            </h1>
+            <p className="text-[11px] font-medium text-muted-foreground">
+              Community safety & identity checks
+            </p>
+          </div>
         </div>
-      </div>
 
-      <main className="container px-4 mx-auto -mt-16 relative z-50">
-        <Card className="bg-white rounded-[40px] p-8 md:p-12 shadow-2xl border-none">
-          
-          {!verification ? (
-            <div className="text-center space-y-6">
-              <div className="w-20 h-20 bg-slate-50 rounded-[28px] flex items-center justify-center mx-auto border border-slate-100">
-                <ShieldCheck className="h-10 w-10 text-slate-300" />
+        {loading ? (
+          <div className="p-12 flex justify-center items-center">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        ) : (
+          <Card className="rounded-xl border border-border bg-card p-5 shadow-sm">
+            {!verification ? (
+              /* State 1: Unverified / No Submission */
+              <div className="text-center space-y-4 py-2">
+                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto text-primary">
+                  <ShieldCheck className="h-6 w-6" />
+                </div>
+                
+                <div className="space-y-1">
+                  <h2 className="text-base font-bold text-foreground">
+                    Identity Verification Required
+                  </h2>
+                  <p className="text-xs text-muted-foreground max-w-xs mx-auto leading-relaxed">
+                    To start hosting experiences and receiving payouts, you'll need to verify your identity.
+                  </p>
+                </div>
+
+                <Button
+                  onClick={() => navigate("/host-verification")}
+                  className="w-full h-10 rounded-xl text-xs font-bold text-primary-foreground bg-primary hover:bg-primary/90 transition-all active:scale-95"
+                >
+                  Start Verification
+                </Button>
               </div>
-              <div>
-                <h1 className="text-3xl font-black uppercase tracking-tighter leading-none mb-3" style={{ color: COLORS.TEAL }}>
-                  Identity Status
-                </h1>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Safety & Trust</p>
-              </div>
-              <p className="text-slate-500 text-sm leading-relaxed max-w-sm mx-auto">
-                To start hosting experiences, you'll need to verify your identity with our community team.
-              </p>
-              <Button 
-                onClick={() => navigate("/host-verification")}
-                className="w-full py-8 rounded-2xl text-md font-black uppercase tracking-[0.2em] text-white shadow-xl transition-all active:scale-95 border-none mt-4"
-                style={{ 
-                    background: `linear-gradient(135deg, ${COLORS.CORAL_LIGHT} 0%, ${COLORS.CORAL} 100%)`,
-                    boxShadow: `0 12px 24px -8px ${COLORS.CORAL}88`
-                }}
-              >
-                Start Verification
-              </Button>
-            </div>
-          ) : (
-            <>
-              {verification.status === "pending" && (
-                <div className="text-center space-y-6">
-                  <div className="relative w-24 h-24 mx-auto">
-                    <div className="absolute inset-0 rounded-full border-4 border-dashed border-[#F0E68C] animate-spin-slow" />
-                    <div className="absolute inset-2 bg-[#F0E68C]/20 rounded-full flex items-center justify-center">
-                      <Clock className="h-10 w-10 text-[#857F3E]" />
+            ) : (
+              <>
+                {/* State 2: Pending Review */}
+                {verification.status === "pending" && (
+                  <div className="text-center space-y-4 py-2">
+                    <div className="h-12 w-12 rounded-full bg-amber-500/10 flex items-center justify-center mx-auto text-amber-500">
+                      <Clock className="h-6 w-6 animate-pulse" />
                     </div>
-                  </div>
-                  <div>
-                    <h1 className="text-3xl font-black uppercase tracking-tighter leading-none mb-3" style={{ color: COLORS.KHAKI_DARK }}>
-                      Review Pending
-                    </h1>
-                    <p className="text-[10px] font-black text-[#857F3E] uppercase tracking-[0.2em]">In Progress</p>
-                  </div>
-                  <p className="text-slate-500 text-sm leading-relaxed">
-                    Our team is currently reviewing your documents. This usually takes 24-48 hours.
-                  </p>
-                  <div className="bg-[#F0E68C]/10 p-5 rounded-[24px] border border-[#F0E68C]/30 inline-block w-full">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Submitted On</p>
-                    <p className="text-sm font-black text-[#857F3E] uppercase">
-                        {new Date(verification.submitted_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}
-                    </p>
-                  </div>
-                  <Button 
-                    variant="ghost" 
-                    onClick={() => navigate("/")}
-                    className="text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-[#008080]"
-                  >
-                    Back to Exploration
-                  </Button>
-                </div>
-              )}
 
-              {verification.status === "approved" && (
-                <div className="text-center space-y-6">
-                  <div className="w-24 h-24 bg-green-50 rounded-full flex items-center justify-center mx-auto border-4 border-green-100">
-                    <CheckCircle2 className="h-12 w-12 text-green-600" />
-                  </div>
-                  <div>
-                    <h1 className="text-3xl font-black uppercase tracking-tighter leading-none mb-3 text-green-600">
-                      You're Verified!
-                    </h1>
-                    <p className="text-[10px] font-black text-green-500/60 uppercase tracking-[0.2em]">Verified Host</p>
-                  </div>
-                  <p className="text-slate-500 text-sm leading-relaxed">
-                    Congratulations! Your identity has been confirmed. You can now list and host amazing experiences.
-                  </p>
-                  <Button 
-                    onClick={() => navigate("/become-host")}
-                    className="w-full py-8 rounded-2xl text-md font-black uppercase tracking-[0.2em] text-white shadow-xl transition-all active:scale-95 border-none"
-                    style={{ 
-                        background: `linear-gradient(135deg, ${COLORS.TEAL} 0%, #006666 100%)`,
-                        boxShadow: `0 12px 24px -8px ${COLORS.TEAL}88`
-                    }}
-                  >
-                    Hosting Dashboard
-                  </Button>
-                </div>
-              )}
+                    <div className="space-y-1">
+                      <h2 className="text-base font-bold text-foreground">
+                        Review Pending
+                      </h2>
+                      <p className="text-xs text-muted-foreground max-w-xs mx-auto leading-relaxed">
+                        Our team is currently reviewing your documents. Reviews typically take 24 to 48 hours.
+                      </p>
+                    </div>
 
-              {verification.status === "rejected" && (
-                <div className="text-center space-y-6">
-                  <div className="w-24 h-24 bg-red-50 rounded-full flex items-center justify-center mx-auto border-4 border-red-100">
-                    <XCircle className="h-12 w-12 text-red-600" />
+                    <div className="p-3 rounded-lg bg-muted/40 border border-border">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                        Submitted On
+                      </p>
+                      <p className="text-xs font-semibold text-foreground mt-0.5">
+                        {new Date(verification.submitted_at).toLocaleDateString('en-GB', {
+                          day: '2-digit',
+                          month: 'long',
+                          year: 'numeric'
+                        })}
+                      </p>
+                    </div>
+
+                    <Button
+                      variant="outline"
+                      onClick={() => navigate("/")}
+                      className="w-full h-10 rounded-xl text-xs font-bold text-muted-foreground border-border hover:bg-muted"
+                    >
+                      Back to Home
+                    </Button>
                   </div>
-                  <div>
-                    <h1 className="text-3xl font-black uppercase tracking-tighter leading-none mb-3 text-red-600">
-                      Action Required
-                    </h1>
-                    <p className="text-[10px] font-black text-red-400 uppercase tracking-[0.2em]">Verification Failed</p>
+                )}
+
+                {/* State 3: Approved */}
+                {verification.status === "approved" && (
+                  <div className="text-center space-y-4 py-2">
+                    <div className="h-12 w-12 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto text-emerald-500">
+                      <CheckCircle2 className="h-6 w-6" />
+                    </div>
+
+                    <div className="space-y-1">
+                      <h2 className="text-base font-bold text-emerald-600 dark:text-emerald-400">
+                        You're Verified!
+                      </h2>
+                      <p className="text-xs text-muted-foreground max-w-xs mx-auto leading-relaxed">
+                        Your identity has been confirmed. You now have full access to hosting tools and payouts.
+                      </p>
+                    </div>
+
+                    <Button
+                      onClick={() => navigate("/become-host")}
+                      className="w-full h-10 rounded-xl text-xs font-bold text-primary-foreground bg-primary hover:bg-primary/90 transition-all active:scale-95"
+                    >
+                      Go to Host Dashboard
+                    </Button>
                   </div>
-                  <div className="bg-red-50/50 p-6 rounded-[28px] border border-red-100 text-left">
-                    <h4 className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-2">Reviewer Feedback</h4>
-                    <p className="text-sm font-medium text-slate-600 italic">"{verification.rejection_reason}"</p>
+                )}
+
+                {/* State 4: Rejected */}
+                {verification.status === "rejected" && (
+                  <div className="text-center space-y-4 py-2">
+                    <div className="h-12 w-12 rounded-full bg-destructive/10 flex items-center justify-center mx-auto text-destructive">
+                      <XCircle className="h-6 w-6" />
+                    </div>
+
+                    <div className="space-y-1">
+                      <h2 className="text-base font-bold text-destructive">
+                        Verification Failed
+                      </h2>
+                      <p className="text-xs text-muted-foreground max-w-xs mx-auto leading-relaxed">
+                        We were unable to verify your identity with the provided documents.
+                      </p>
+                    </div>
+
+                    {verification.rejection_reason && (
+                      <div className="p-3 rounded-lg bg-destructive/5 border border-destructive/20 text-left">
+                        <p className="text-[10px] font-bold text-destructive uppercase tracking-wider mb-1">
+                          Feedback
+                        </p>
+                        <p className="text-xs text-foreground font-medium">
+                          "{verification.rejection_reason}"
+                        </p>
+                      </div>
+                    )}
+
+                    <Button
+                      onClick={() => navigate("/host-verification")}
+                      className="w-full h-10 rounded-xl text-xs font-bold text-destructive-foreground bg-destructive hover:bg-destructive/90 transition-all active:scale-95"
+                    >
+                      Resubmit Documents
+                    </Button>
                   </div>
-                  <Button 
-                    onClick={() => navigate("/become-host")}
-                    className="w-full py-8 rounded-2xl text-md font-black uppercase tracking-[0.2em] text-white shadow-xl transition-all active:scale-95 border-none"
-                    style={{ 
-                        background: `linear-gradient(135deg, ${COLORS.RED} 0%, #CC0000 100%)`,
-                        boxShadow: `0 12px 24px -8px ${COLORS.RED}88`
-                    }}
-                  >
-                    Back to Become a Host
-                  </Button>
-                </div>
-              )}
-            </>
-          )}
-        </Card>
+                )}
+              </>
+            )}
+          </Card>
+        )}
       </main>
+
+      <Footer />
       <MobileBottomBar />
     </div>
   );
-};
-
-export default VerificationStatus;
+}

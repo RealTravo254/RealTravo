@@ -99,10 +99,18 @@
 
       #splash {
         display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
+        gap: 16px;
         height: 100vh;
         background-color: #f4f7f6;
+      }
+
+      #splash-logo-img {
+        width: 96px;
+        height: 96px;
+        object-fit: contain;
       }
 
       #splash-logo {
@@ -134,12 +142,13 @@
 
     <div id="root">
       <div id="splash">
+        <img id="splash-logo-img" src="/fulllogo.png" alt="Real Travo" />
         <span id="splash-logo">
-          <span class="real">Real</span><span class="travo"> Travo</span>
+          <span class="real">Real</span><span class="travo">Travo</span>
         </span>
       </div>
     </div>
 
     <script type="module" src="/src/main.tsx"></script>
   </body>
-</html> 
+</html>

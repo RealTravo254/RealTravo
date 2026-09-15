@@ -193,7 +193,7 @@ export default function AccountPage() {
               <p className="text-[10px] text-muted-foreground">Manage your existing listings and check daily revenue.</p>
             </div>
             <button
-              onClick={() => navigate("/my-listings")}
+              onClick={() => navigate("/my-listing")}
               className="h-8 px-3 rounded-lg text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition-all shrink-0 active:scale-95"
             >
               My Listings

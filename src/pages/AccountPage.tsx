@@ -307,7 +307,7 @@ export default function AccountPage() {
 
           <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border/60">
             <button
-              onClick={() => navigate("/Terms-Of-Services")}
+              onClick={() => navigate("/terms-of-service")}
               className="w-full p-3.5 flex items-center justify-between hover:bg-muted/40 transition-colors text-left"
             >
               <div className="flex items-center gap-3">

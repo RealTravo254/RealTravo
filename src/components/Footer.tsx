@@ -10,14 +10,14 @@ import {
   Globe,
 } from "lucide-react";
 
-// Official Brand Colors
+// Official Brand Colors for Social Media
 const BRAND_COLORS = {
   WHATSAPP: "#25D366",
   INSTAGRAM: "#E4405F",
-  TIKTOK: "#000000",
+  TIKTOK: "currentColor",
   YOUTUBE: "#FF0000",
   FACEBOOK: "#1877F2",
-  X: "#000000",
+  X: "currentColor",
   LINKEDIN: "#0A66C2",
   PINTEREST: "#BD081C",
 };
@@ -76,20 +76,20 @@ export const Footer = ({ className = "" }: { className?: string }) => {
   };
 
   return (
-    <footer className={`bg-slate-50 border-t mt-8 text-slate-800 text-xs ${className}`}>
+    <footer className={`bg-muted/40 border-t border-border mt-8 text-foreground text-xs ${className}`}>
       <div className="container px-4 py-8 mx-auto max-w-6xl">
         
         {/* --- TOP SECTION: Language Settings --- */}
-        <div className="mb-8 bg-slate-800 rounded-xl p-5 shadow-md">
-          <div className="max-w-md mx-auto space-y-1.5">
-            <h3 className="text-white text-[10px] uppercase tracking-[0.1em] flex items-center gap-1.5 justify-center">
-              <Globe className="h-3 w-3 text-teal-400" />
+        <div className="mb-8 bg-card border border-border rounded-xl p-5 shadow-sm">
+          <div className="max-w-md mx-auto space-y-2">
+            <h3 className="text-foreground text-[10px] font-bold uppercase tracking-[0.1em] flex items-center gap-1.5 justify-center">
+              <Globe className="h-3.5 w-3.5 text-primary" />
               {t('footer.language')}
             </h3>
             <select
               value={language}
               onChange={(e) => handleLanguageChange(e.target.value)}
-              className="w-full px-3 py-1.5 rounded bg-white text-slate-900 text-xs focus:outline-none focus:ring-1 focus:ring-teal-400 cursor-pointer text-center"
+              className="w-full px-3 py-1.5 rounded-lg bg-background border border-input text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer text-center font-medium shadow-xs"
             >
               {LANGUAGES.map((l) => (
                 <option key={l.code} value={l.code}>
@@ -97,7 +97,7 @@ export const Footer = ({ className = "" }: { className?: string }) => {
                 </option>
               ))}
             </select>
-            <p className="text-white/40 text-[9px] text-center">
+            <p className="text-muted-foreground text-[9px] text-center font-medium">
               {t('footer.moreLangSoon')}
             </p>
           </div>
@@ -108,46 +108,46 @@ export const Footer = ({ className = "" }: { className?: string }) => {
           
           {/* Brand Info */}
           <div className="space-y-2 col-span-2 md:col-span-1">
-            <div className="flex items-center gap-1.5">
-              <div className="bg-[#008080] p-1.5 rounded-lg">
-                <Compass className="h-4 w-4 text-white" />
+            <div className="flex items-center gap-2">
+              <div className="bg-primary p-1.5 rounded-lg text-primary-foreground shadow-xs">
+                <Compass className="h-4 w-4" />
               </div>
-              <span className="text-lg tracking-tighter italic font-normal">RealTravo</span>
+              <span className="text-lg tracking-tighter italic font-extrabold text-foreground">RealTravo</span>
             </div>
-            <p className="text-[11px] leading-relaxed text-slate-500">
+            <p className="text-[11px] leading-relaxed text-muted-foreground font-medium">
               {t('footer.tagline')}
             </p>
           </div>
           
           {/* Links Columns */}
           <div className="flex flex-col gap-2">
-            <h3 className="text-slate-900 text-[11px] uppercase tracking-wider">{t('footer.explore')}</h3>
+            <h3 className="text-foreground text-[11px] font-bold uppercase tracking-wider">{t('footer.explore')}</h3>
             <ul className="space-y-1.5 text-[11px]">
-              <li><Link to="/" className="text-slate-500 hover:text-[#008080] transition-colors">{t('Destinations')}</Link></li>
+              <li><Link to="/" className="text-muted-foreground hover:text-primary transition-colors font-medium">{t('Destinations')}</Link></li>
             </ul>
           </div>
 
           <div className="flex flex-col gap-2">
-            <h3 className="text-slate-900 text-[11px] uppercase tracking-wider">{t('footer.support')}</h3>
+            <h3 className="text-foreground text-[11px] font-bold uppercase tracking-wider">{t('footer.support')}</h3>
             <ul className="space-y-1.5 text-[11px]">
-              <li><Link to="/about" className="text-slate-500 hover:text-[#008080] transition-colors">{t('footer.aboutUs')}</Link></li>
-              <li><Link to="/contact" className="text-slate-500 hover:text-[#008080] transition-colors">{t('footer.contact')}</Link></li>
-              <li><Link to="/become-host" className="text-slate-500 hover:text-[#008080] transition-colors">{t('footer.becomeHost')}</Link></li>
+              <li><Link to="/about" className="text-muted-foreground hover:text-primary transition-colors font-medium">{t('footer.aboutUs')}</Link></li>
+              <li><Link to="/contact" className="text-muted-foreground hover:text-primary transition-colors font-medium">{t('footer.contact')}</Link></li>
+              <li><Link to="/become-host" className="text-muted-foreground hover:text-primary transition-colors font-medium">{t('footer.becomeHost')}</Link></li>
             </ul>
           </div>
 
           <div className="flex flex-col gap-2">
-            <h3 className="text-slate-900 text-[11px] uppercase tracking-wider">{t('footer.legal')}</h3>
+            <h3 className="text-foreground text-[11px] font-bold uppercase tracking-wider">{t('footer.legal')}</h3>
             <ul className="space-y-1.5 text-[11px]">
-              <li><Link to="/privacy-policy" className="text-slate-500 hover:text-[#008080] transition-colors">{t('footer.privacyPolicy')}</Link></li>
-              <li><Link to="/terms-of-service" className="text-slate-500 hover:text-[#008080] transition-colors">{t('footer.termsOfService')}</Link></li>
-              <li><Link to="/campsite-guide" className="text-slate-500 hover:text-[#008080] transition-colors">{t('footer.campsiteGuide')}</Link></li>
+              <li><Link to="/privacy-policy" className="text-muted-foreground hover:text-primary transition-colors font-medium">{t('footer.privacyPolicy')}</Link></li>
+              <li><Link to="/terms-of-service" className="text-muted-foreground hover:text-primary transition-colors font-medium">{t('footer.termsOfService')}</Link></li>
+              <li><Link to="/campsite-guide" className="text-muted-foreground hover:text-primary transition-colors font-medium">{t('footer.campsiteGuide')}</Link></li>
             </ul>
           </div>
 
           {/* Social Media Grid */}
           <div className="flex flex-col gap-2 col-span-2 md:col-span-1">
-            <h3 className="text-slate-900 text-[10px] uppercase tracking-[0.1em]">{t('footer.followJourney')}</h3>
+            <h3 className="text-foreground text-[10px] font-bold uppercase tracking-[0.1em]">{t('footer.followJourney')}</h3>
             <div className="grid grid-cols-4 gap-1.5">
               <SocialIcon href="https://wa.me/0758800117" color={BRAND_COLORS.WHATSAPP} icon={<WhatsAppIcon />} />
               <SocialIcon href="https://www.instagram.com/realtravo_/" color={BRAND_COLORS.INSTAGRAM} icon={<Instagram className="h-4 w-4" />} />
@@ -159,7 +159,7 @@ export const Footer = ({ className = "" }: { className?: string }) => {
               <SocialIcon href="https://x.com/RealTravo" color={BRAND_COLORS.X} icon={<XIcon />} />
             </div>
             
-            <a href="mailto:support@realtravo.com" className="mt-1 flex items-center gap-1.5 text-[10px] text-slate-600 hover:text-[#008080] transition-all">
+            <a href="mailto:support@realtravo.com" className="mt-1 flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground hover:text-primary transition-all">
               <Mail className="h-3.5 w-3.5" />
               <span>SUPPORT@REALTRAVO.COM</span>
             </a>
@@ -167,10 +167,10 @@ export const Footer = ({ className = "" }: { className?: string }) => {
         </div>
 
         {/* --- BOTTOM SECTION: Disclosure & Copyright --- */}
-        <div className="mt-8 border-t border-slate-200 pt-4 flex flex-col sm:flex-row justify-between items-center gap-2 text-[9px] uppercase tracking-widest text-slate-400">
+        <div className="mt-8 border-t border-border pt-4 flex flex-col sm:flex-row justify-between items-center gap-2 text-[9px] uppercase tracking-widest text-muted-foreground font-semibold">
           <p>{t('footer.allRights')}</p>
           <div className="flex gap-2 items-center">
-            <span className="h-0.5 w-0.5 rounded-full bg-slate-300"></span>
+            <span className="h-1 w-1 rounded-full bg-border"></span>
             <p>{t('footer.madeFor')}</p>
           </div>
         </div>
@@ -184,8 +184,8 @@ const SocialIcon = ({ color, icon, href = "#" }: { color: string, icon: React.Re
     href={href}
     target="_blank"
     rel="noopener noreferrer"
-    className="flex items-center justify-center h-8 w-8 rounded-lg bg-white border border-slate-100 shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-0.5"
-    style={{ color: color }}
+    className="flex items-center justify-center h-8 w-8 rounded-lg bg-card border border-border shadow-xs transition-all duration-300 hover:shadow-sm hover:-translate-y-0.5 hover:border-primary/40 text-muted-foreground hover:text-foreground"
+    style={{ color: color !== "currentColor" ? color : undefined }}
   >
     {icon}
   </a>

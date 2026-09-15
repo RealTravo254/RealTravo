@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import {
   Ticket, Heart, Phone, LogOut, User,
-  Shield, ChevronRight, Briefcase, Languages, DollarSign, X,
+  Shield, ChevronRight, Briefcase, Languages, DollarSign,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -97,15 +97,6 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
           style={{ background: "linear-gradient(135deg,#008080 0%,#005f5f 100%)" }}
         >
           <div className="pointer-events-none absolute -top-6 -right-6 h-20 w-20 rounded-full border border-white/10" />
-
-          {/* Single Close button */}
-          <button
-            onClick={onClose}
-            aria-label="Close menu"
-            className="absolute top-3 right-3 h-6 w-6 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/25 transition-colors"
-          >
-            <X className="h-3 w-3 text-white" />
-          </button>
 
           {user ? (
             <div className="flex items-center gap-2.5">

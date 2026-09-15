@@ -17,7 +17,6 @@ export interface CategoryTabItem {
 
 export const CATEGORY_TABS: CategoryTabItem[] = [
   { key: "all",            label: "All",            icon: Compass,    path: "/explore" },
-  { key: "hotels",         label: "Hotels",         icon: Building2,  path: "/category/hotels" },
   /* { key: "accommodations", label: "Accommodations", icon: Home,       path: "/category/accommodations" }, */
   /* { key: "parks",          label: "Parks",          icon: TreePine,   path: "/category/parks" },
   { key: "attraction",     label: "Attraction",     icon: Landmark,   path: "/category/attraction" },

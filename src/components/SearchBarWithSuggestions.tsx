@@ -329,8 +329,6 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
     if (type === "trip") return "Trip";
     if (type === "adventure") {
       const categoryLabels: Record<string, string> = {
-        accommodation: "AirBnb",
-        hotel: "Hotel",
         campsite: "Campsite",
         park: "Park",
         attraction: "Attraction",

@@ -240,7 +240,7 @@ export default function AccountPage() {
 
             {isHost && (
               <button
-                onClick={() => navigate("/my-listings")}
+                onClick={() => navigate("/my-listing")}
                 className="w-full p-3.5 flex items-center justify-between hover:bg-muted/40 transition-colors text-left"
               >
                 <div className="flex items-center gap-3">

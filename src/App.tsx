@@ -90,10 +90,15 @@ const queryClient = new QueryClient({
 
 // Branded loader for Index and Auth pages only
 const RealtravoBrandLoader = () => (
-  <div className="min-h-screen flex items-center justify-center bg-background">
+  <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
+    <img
+      src="/fulllogo.png"
+      alt="RealTravo"
+      style={{ width: "96px", height: "96px", objectFit: "contain" }}
+    />
     <span style={{
       fontFamily: "system-ui, -apple-system, sans-serif",
-      fontSize: "2.4rem",
+      fontSize: "2rem",
       fontWeight: 700,
       letterSpacing: "-0.5px",
       lineHeight: 1,
@@ -101,6 +106,21 @@ const RealtravoBrandLoader = () => (
       <span style={{ color: "#0d2b4e" }}>Real </span>
       <span style={{ color: "#008080" }}>Travo</span>
     </span>
+    <div
+      style={{
+        width: "28px",
+        height: "28px",
+        border: "3px solid #e5e7eb",
+        borderTopColor: "#008080",
+        borderRadius: "50%",
+        animation: "spin 0.8s linear infinite",
+      }}
+    />
+    <style>{`
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+    `}</style>
   </div>
 );
 

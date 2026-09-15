@@ -208,19 +208,28 @@ export const LoginForm = ({ onSwitchToSignup }: { onSwitchToSignup: () => void }
     <form onSubmit={handleLogin} className="space-y-2">
       <div className="space-y-1">
         <Label className="text-[10px] uppercase text-slate-500">Email</Label>
-        <Input 
-          type="email" 
-          value={email} 
-          onChange={(e) => setEmail(e.target.value)} 
-          className={inputStyle} 
+        <Input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className={inputStyle}
           disabled={codeSent}
-          required 
+          required
         />
       </div>
 
       {loginMethod === "password" ? (
         <div className="space-y-1">
-          <Label className="text-[10px] uppercase text-slate-500">Password</Label>
+          <div className="flex items-center justify-between">
+            <Label className="text-[10px] uppercase text-slate-500">Password</Label>
+            <button
+              type="button"
+              onClick={() => navigate("/forgot-password", { state: { email } })}
+              className="text-[10px] text-[rgb(0,128,128)] hover:underline"
+            >
+              Forgot password?
+            </button>
+          </div>
           <div className="relative">
             <Input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} className={inputStyle} required />
             <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500">
@@ -232,18 +241,18 @@ export const LoginForm = ({ onSwitchToSignup }: { onSwitchToSignup: () => void }
         codeSent && (
           <div className="space-y-1">
             <Label className="text-[10px] uppercase text-slate-500">Verification Code</Label>
-            <Input 
-              type="text" 
-              value={otpCode} 
-              onChange={(e) => setOtpCode(e.target.value)} 
-              className={inputStyle} 
+            <Input
+              type="text"
+              value={otpCode}
+              onChange={(e) => setOtpCode(e.target.value)}
+              className={inputStyle}
               placeholder="123456"
-              required 
+              required
             />
           </div>
         )
       )}
-      
+
       <Button type="submit" disabled={loading || googleLoading} className="w-full h-8 bg-[rgb(0,128,128)] text-xs font-bold uppercase mt-1">
         {loading ? (
           <Loader2 className="w-4 h-4 animate-spin" />
@@ -273,9 +282,9 @@ export const LoginForm = ({ onSwitchToSignup }: { onSwitchToSignup: () => void }
         <div className="flex-grow border-t border-white/5"></div>
       </div>
 
-      <Button 
-        type="button" 
-        disabled={loading || googleLoading} 
+      <Button
+        type="button"
+        disabled={loading || googleLoading}
         onClick={handleGoogleSignIn}
         className="w-full h-8 bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-bold uppercase transition-all flex items-center justify-center gap-2"
       >

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Menu, Heart, Ticket, Home, User, Search, Compass, Briefcase } from "lucide-react";
+import { Menu, Heart, Ticket, Home, User, Search, Compass, Briefcase, ChevronDown } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -22,6 +22,7 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
   const { t } = useTranslation();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [hasScrolled, setHasScrolled] = useState(false);
+  const [firstName, setFirstName] = useState<string>("");
 
   useEffect(() => {
     const handleScroll = () => setHasScrolled(window.scrollY > 50);
@@ -31,10 +32,27 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
 
   useEffect(() => {
     const fetchUserProfile = async () => {
-      if (!user) return;
-      const { error } = await supabase.from("profiles").select("name").eq("id", user.id).maybeSingle();
-      if (error) console.error("Error fetching profile:", error.message);
+      if (!user) {
+        setFirstName("");
+        return;
+      }
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("first_name, name")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error("Error fetching profile:", error.message);
+        return;
+      }
+
+      if (data) {
+        const fname = data.first_name || (data.name ? data.name.split(" ")[0] : "");
+        setFirstName(fname);
+      }
     };
+
     fetchUserProfile();
   }, [user]);
 
@@ -51,7 +69,6 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
 
         {/* Left — hamburger + logo */}
         <div className="flex items-center gap-2">
-          {/* Navigation Drawer — constrained width on desktop */}
           <Sheet open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
             <SheetTrigger asChild>
               <button className={headerIconStyles} aria-label="Open Menu">
@@ -76,10 +93,10 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
         {/* Center nav — desktop only */}
         <nav className="hidden lg:flex items-center gap-6">
           {[
-            { to: "/",         icon: <Home    className="h-4 w-4" />, label: t("nav.home")     },
+            { to: "/",         icon: <Home     className="h-4 w-4" />, label: t("nav.home")     },
             { to: "/explore",  icon: <Compass className="h-4 w-4" />, label: "Explore"          },
             { to: "/bookings", icon: <Ticket  className="h-4 w-4" />, label: t("nav.bookings") },
-            { to: "/saved",    icon: <Heart   className="h-4 w-4" />, label: t("nav.saved") },
+            { to: "/saved",    icon: <Heart   className="h-4 w-4" />, label: t("nav.saved")    },
           ].map(item => (
             <Link
               key={item.to}
@@ -113,19 +130,22 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
             <Briefcase className="h-4 w-4" /><span>Become Host</span>
           </button>
 
-          {/* NotificationBell — desktop only, constrained */}
+          {/* NotificationBell — desktop only */}
           <div className="hidden md:flex [&_button]:text-white [&_button]:h-9 [&_button]:w-9 [&_[data-radix-popper-content-wrapper]]:!max-w-[320px]">
             <NotificationBell />
           </div>
 
-          {/* Account — desktop only — navigates to the /account page (real route, not a popup) */}
-          <button
-            onClick={() => navigate("/account")}
-            className="hidden md:flex h-9 px-4 rounded-xl items-center gap-2 transition-all font-semibold text-xs text-[#008080] bg-white hover:brightness-95"
+          {/* Account Link with Icon, Text & Dropdown Arrow */}
+          <div
+            onClick={() => navigate(user ? "/account" : "/auth")}
+            className="hidden md:flex items-center gap-1.5 cursor-pointer text-white/90 hover:text-white transition-colors py-1 px-2"
           >
             <User className="h-4 w-4" />
-            <span>{user ? t("nav.profile") : t("nav.login")}</span>
-          </button>
+            <span className="text-xs font-semibold max-w-[100px] truncate">
+              {user ? (firstName || t("nav.profile")) : "Guest"}
+            </span>
+            <ChevronDown className="h-3.5 w-3.5 opacity-80" />
+          </div>
         </div>
       </div>
     </header>

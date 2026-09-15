@@ -27,21 +27,20 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
   const { t, i18n } = useTranslation();
   const { currency, setCurrency } = useCurrency();
   const navigate = useNavigate();
-  const [userName, setUserName]     = useState("");
-  const [userAvatar, setUserAvatar] = useState<string | null>(null);
-  const [language, setLanguage]     = useState(i18n.language || "en");
+  const [userName, setUserName] = useState("");
+  const [language, setLanguage] = useState(i18n.language || "en");
 
   useEffect(() => {
     if (!user) return;
     supabase
       .from("profiles")
-      .select("name, profile_picture_url")
+      .select("first_name, name")
       .eq("id", user.id)
       .single()
       .then(({ data }) => {
         if (data) {
-          setUserName(data.name || "");
-          setUserAvatar(data.profile_picture_url || null);
+          const fname = data.first_name || data.name || "";
+          setUserName(fname);
         }
       });
   }, [user]);
@@ -91,7 +90,7 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
 
       {/* Scrollable Upper Area */}
       <div className="flex-1 overflow-y-auto">
-        {/* ── Compact Header / Profile Banner ── */}
+        {/* Profile Banner */}
         <div
           className="relative px-4 pt-6 pb-4 flex-shrink-0 overflow-hidden mb-2"
           style={{ background: "linear-gradient(135deg,#008080 0%,#005f5f 100%)" }}
@@ -100,12 +99,8 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
 
           {user ? (
             <div className="flex items-center gap-2.5">
-              <div className="h-9 w-9 rounded-lg bg-white/20 flex items-center justify-center overflow-hidden border border-white/15 flex-shrink-0">
-                {userAvatar ? (
-                  <img src={userAvatar} alt={userName} className="h-full w-full object-cover" />
-                ) : (
-                  <User className="text-white h-5 w-5" />
-                )}
+              <div className="h-9 w-9 rounded-lg bg-white/20 flex items-center justify-center border border-white/15 flex-shrink-0">
+                <User className="text-white h-5 w-5" />
               </div>
               <div>
                 <p className="text-white font-extrabold text-xs leading-tight">{userName || t("drawer.traveler")}</p>
@@ -197,7 +192,7 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
         </div>
       </div>
 
-      {/* ── Fixed Bottom Actions Layer ── */}
+      {/* Fixed Bottom Actions Layer */}
       <div className="p-3 border-t bg-muted/20 mt-auto">
         {user ? (
           <button

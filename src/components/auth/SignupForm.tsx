@@ -7,12 +7,26 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 
+const MIN_SIGNUP_AGE = 12;
+
+function calculateAge(dob: string) {
+  const birth = new Date(dob);
+  if (isNaN(birth.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+  return age;
+}
+
 export const SignupForm = ({ onSwitchToLogin }: { onSwitchToLogin: () => void }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [name, setName] = useState(""); 
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [gender, setGender] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -21,15 +35,54 @@ export const SignupForm = ({ onSwitchToLogin }: { onSwitchToLogin: () => void })
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (password !== confirmPassword) {
       toast({ title: "Validation Error", description: "Passwords do not match.", variant: "destructive" });
       return;
     }
+
+    if (!firstName.trim() || !lastName.trim()) {
+      toast({ title: "Validation Error", description: "Please enter your first name and surname.", variant: "destructive" });
+      return;
+    }
+
+    if (!gender) {
+      toast({ title: "Validation Error", description: "Please select your gender.", variant: "destructive" });
+      return;
+    }
+
+    if (!dateOfBirth) {
+      toast({ title: "Validation Error", description: "Please enter your date of birth.", variant: "destructive" });
+      return;
+    }
+
+    const age = calculateAge(dateOfBirth);
+    if (age === null) {
+      toast({ title: "Validation Error", description: "Please enter a valid date of birth.", variant: "destructive" });
+      return;
+    }
+    if (age < MIN_SIGNUP_AGE) {
+      toast({
+        title: "Age Restriction",
+        description: `You must be at least ${MIN_SIGNUP_AGE} years old to create an account.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
-    const { error } = await supabase.auth.signUp({ 
-      email, 
-      password, 
-      options: { data: { name, gender } } 
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+          name: `${firstName.trim()} ${lastName.trim()}`,
+          gender,
+          date_of_birth: dateOfBirth,
+        },
+      },
     });
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -59,18 +112,38 @@ export const SignupForm = ({ onSwitchToLogin }: { onSwitchToLogin: () => void })
     <form onSubmit={handleSignup} className="space-y-1.5">
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-0.5">
-          <Label className="text-[9px] uppercase text-slate-500 font-bold ml-0.5">Full Name</Label>
-          <Input value={name} onChange={(e) => setName(e.target.value)} className="h-8 bg-black/20 border-white/10 text-xs rounded-md" required />
+          <Label className="text-[9px] uppercase text-slate-500 font-bold ml-0.5">First Name</Label>
+          <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} className="h-8 bg-black/20 border-white/10 text-xs rounded-md" required />
+        </div>
+        <div className="space-y-0.5">
+          <Label className="text-[9px] uppercase text-slate-500 font-bold ml-0.5">Surname</Label>
+          <Input value={lastName} onChange={(e) => setLastName(e.target.value)} className="h-8 bg-black/20 border-white/10 text-xs rounded-md" required />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-0.5">
+          <Label className="text-[9px] uppercase text-slate-500 font-bold ml-0.5">Date of Birth</Label>
+          <Input
+            type="date"
+            value={dateOfBirth}
+            onChange={(e) => setDateOfBirth(e.target.value)}
+            max={new Date().toISOString().split("T")[0]}
+            className="h-8 bg-black/20 border-white/10 text-xs rounded-md"
+            required
+          />
         </div>
         <div className="space-y-0.5">
           <Label className="text-[9px] uppercase text-slate-500 font-bold ml-0.5">Gender</Label>
-          <Select onValueChange={setGender}>
+          <Select value={gender} onValueChange={setGender}>
             <SelectTrigger className="h-8 bg-black/20 border-white/10 text-xs rounded-md">
               <SelectValue placeholder="-" />
             </SelectTrigger>
             <SelectContent className="bg-slate-900 border-white/10 text-white">
               <SelectItem value="male">Male</SelectItem>
               <SelectItem value="female">Female</SelectItem>
+              <SelectItem value="other">Other</SelectItem>
+              <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -115,17 +188,15 @@ export const SignupForm = ({ onSwitchToLogin }: { onSwitchToLogin: () => void })
         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create Account"}
       </Button>
 
-      {/* Decorative Separator Line */}
       <div className="relative flex py-0.5 items-center">
         <div className="flex-grow border-t border-white/5"></div>
         <span className="flex-shrink mx-2 text-[8px] text-slate-600 uppercase font-bold tracking-wider">Or</span>
         <div className="flex-grow border-t border-white/5"></div>
       </div>
 
-      {/* Clean Google Signup Action */}
-      <Button 
-        type="button" 
-        disabled={loading || googleLoading} 
+      <Button
+        type="button"
+        disabled={loading || googleLoading}
         onClick={handleGoogleSignUp}
         className="w-full h-8 bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-bold uppercase transition-all flex items-center justify-center gap-2"
       >

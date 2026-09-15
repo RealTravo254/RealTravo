@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
+import { Footer } from "@/components/Footer";
 import { MobileBottomBar } from "@/components/MobileBottomBar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,14 +10,24 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { User, Calendar, Globe, Phone, ArrowLeft, Loader2, ShieldCheck } from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { CountrySelector } from "@/components/creation/CountrySelector";
+
+const GENDER_LABELS: Record<string, string> = {
+  male: "Male",
+  female: "Female",
+  other: "Other",
+  prefer_not_to_say: "Private",
+};
+
+function calculateAge(dob: string) {
+  if (!dob) return null;
+  const birth = new Date(dob);
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+  return age;
+}
 
 export default function ProfileEdit() {
   const navigate = useNavigate();
@@ -25,13 +36,15 @@ export default function ProfileEdit() {
   const [loading, setLoading] = useState(false);
   const [fetchingProfile, setFetchingProfile] = useState(true);
   const [profileData, setProfileData] = useState<{
-    name: string;
-    gender: "male" | "female" | "other" | "prefer_not_to_say" | "";
+    first_name: string;
+    last_name: string;
+    gender: string;
     date_of_birth: string;
     country: string;
     phone_number: string;
   }>({
-    name: "",
+    first_name: "",
+    last_name: "",
     gender: "",
     date_of_birth: "",
     country: "",
@@ -60,7 +73,8 @@ export default function ProfileEdit() {
 
       if (data) {
         setProfileData({
-          name: data.name || "",
+          first_name: data.first_name || "",
+          last_name: data.last_name || "",
           gender: data.gender || "",
           date_of_birth: data.date_of_birth || "",
           country: data.country || "",
@@ -115,19 +129,23 @@ export default function ProfileEdit() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!profileData.first_name.trim() || !profileData.last_name.trim()) {
+      toast({ title: "Error", description: "First name and surname are required.", variant: "destructive" });
+      return;
+    }
     if (profileData.phone_number !== originalPhone && !showVerification) {
       toast({ title: "Action Required", description: "Verify your new phone number first.", variant: "destructive" });
       return;
     }
     setLoading(true);
     try {
+      // Note: gender and date_of_birth are intentionally NOT sent here — they are locked after signup.
       const { error } = await supabase
         .from("profiles")
         .update({
-          name: profileData.name,
-          date_of_birth: profileData.date_of_birth || null,
+          first_name: profileData.first_name.trim(),
+          last_name: profileData.last_name.trim(),
           country: profileData.country || null,
-          gender: profileData.gender || null,
         })
         .eq("id", user!.id);
 
@@ -141,6 +159,8 @@ export default function ProfileEdit() {
     }
   };
 
+  const age = calculateAge(profileData.date_of_birth);
+
   return (
     <div
       className="flex flex-col min-h-screen bg-background"
@@ -152,7 +172,6 @@ export default function ProfileEdit() {
       <Header />
 
       <main className="flex-1 px-4 pt-3 pb-12 max-w-lg mx-auto w-full space-y-4">
-        {/* Navigation Bar Header */}
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate(-1)}
@@ -178,42 +197,46 @@ export default function ProfileEdit() {
         ) : (
           <form onSubmit={handleSubmit} className="space-y-3">
             <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border/60 shadow-sm">
-              {/* Full Name */}
-              <ProfileField icon={<User className="h-4 w-4" />} label="Full Name">
+              {/* First Name */}
+              <ProfileField icon={<User className="h-4 w-4" />} label="First Name">
                 <Input
-                  value={profileData.name}
-                  onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
-                  placeholder="Enter full name"
+                  value={profileData.first_name}
+                  onChange={(e) => setProfileData({ ...profileData, first_name: e.target.value })}
+                  placeholder="Enter first name"
                   className="border-none shadow-none p-0 h-8 font-bold text-xs text-foreground focus-visible:ring-0 placeholder:text-muted-foreground bg-transparent"
                 />
               </ProfileField>
 
-              {/* Date of Birth */}
-              <ProfileField icon={<Calendar className="h-4 w-4" />} label="Date of Birth">
+              {/* Surname */}
+              <ProfileField icon={<User className="h-4 w-4" />} label="Surname">
                 <Input
-                  type="date"
-                  value={profileData.date_of_birth}
-                  onChange={(e) => setProfileData({ ...profileData, date_of_birth: e.target.value })}
-                  className="border-none shadow-none p-0 h-8 font-bold text-xs text-foreground focus-visible:ring-0 bg-transparent"
+                  value={profileData.last_name}
+                  onChange={(e) => setProfileData({ ...profileData, last_name: e.target.value })}
+                  placeholder="Enter surname"
+                  className="border-none shadow-none p-0 h-8 font-bold text-xs text-foreground focus-visible:ring-0 placeholder:text-muted-foreground bg-transparent"
                 />
               </ProfileField>
 
-              {/* Gender */}
+              {/* Date of Birth — locked */}
+              <ProfileField icon={<Calendar className="h-4 w-4" />} label="Date of Birth">
+                <span className="font-bold text-xs text-foreground">
+                  {profileData.date_of_birth
+                    ? `${profileData.date_of_birth}${age !== null ? ` (age ${age})` : ""}`
+                    : "Not set"}
+                </span>
+                <span className="block text-[10px] text-muted-foreground font-normal mt-0.5">
+                  Can't be changed after signup
+                </span>
+              </ProfileField>
+
+              {/* Gender — locked */}
               <ProfileField icon={<User className="h-4 w-4" />} label="Gender Identity">
-                <Select
-                  value={profileData.gender}
-                  onValueChange={(v: any) => setProfileData({ ...profileData, gender: v })}
-                >
-                  <SelectTrigger className="border-none shadow-none p-0 h-8 font-bold text-xs text-foreground focus:ring-0 bg-transparent">
-                    <SelectValue placeholder="Select Gender" />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-lg border-border bg-popover">
-                    <SelectItem value="male">Male</SelectItem>
-                    <SelectItem value="female">Female</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                    <SelectItem value="prefer_not_to_say">Private</SelectItem>
-                  </SelectContent>
-                </Select>
+                <span className="font-bold text-xs text-foreground">
+                  {profileData.gender ? GENDER_LABELS[profileData.gender] ?? profileData.gender : "Not set"}
+                </span>
+                <span className="block text-[10px] text-muted-foreground font-normal mt-0.5">
+                  Can't be changed after signup
+                </span>
               </ProfileField>
 
               {/* Home Country */}
@@ -281,7 +304,6 @@ export default function ProfileEdit() {
               </ProfileField>
             </div>
 
-            {/* Submit & Cancel Actions */}
             <div className="pt-2 flex gap-2">
               <Button
                 type="submit"
@@ -309,7 +331,6 @@ export default function ProfileEdit() {
   );
 }
 
-/* Helper Component for Form Row Rows */
 const ProfileField = ({
   icon,
   label,
@@ -328,7 +349,7 @@ const ProfileField = ({
       <Label className="text-[10px] font-black text-muted-foreground uppercase tracking-wider mb-0.5 block">
         {label}
       </Label>
-      <div className="min-h-[28px] flex items-center">{children}</div>
+      <div className="min-h-[28px] flex items-center flex-col items-start">{children}</div>
     </div>
   </div>
 );

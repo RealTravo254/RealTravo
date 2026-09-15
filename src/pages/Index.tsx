@@ -137,7 +137,7 @@ GridSection.displayName = "GridSection";
 // (or swap the path to whatever campsite hero image you actually have) since the
 // old hotels image is no longer appropriate here.
 const CATEGORIES = [
-  { icon: Tent, title: "Outdoor Campsites",     path: "/category/campsite", bgImage: "/images/category-campsite.jpg" },
+  { icon: Tent, title: "Outdoor & Campsites",     path: "/category/campsite", bgImage: "/images/category-campsite.jpg" },
   { icon: Map,  title: "Tours & Trips", path: "/category/guided",   bgImage: "/images/category-trips.jpg" },
 ];
 

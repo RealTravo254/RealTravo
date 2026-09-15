@@ -230,6 +230,10 @@ const CreateTripEvent = () => {
   const [activityNames, setActivityNames] = useState<string[]>([]);
   const [newActivityName, setNewActivityName] = useState("");
   const [locationMode, setLocationMode] = useState<'link' | 'gps' | null>(null);
+  // Tracks whether a GPS lookup is currently in flight, so the "Use My GPS"
+  // button can show a spinner and stop spinning once location is accessed
+  // (either captured successfully or the browser reports an error).
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [workingDays, setWorkingDays] = useState<WorkingDays>({ Mon: true, Tue: true, Wed: true, Thu: true, Fri: true, Sat: true, Sun: true });
   const [galleryImages, setGalleryImages] = useState<File[]>([]);
   const [isCompressingGallery, setIsCompressingGallery] = useState(false);
@@ -309,15 +313,24 @@ const CreateTripEvent = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // Captures the device's GPS location. isGettingLocation flips on right
+  // before the browser prompt/lookup starts and flips back off in both the
+  // success and error callbacks, so the button's spinner always stops once
+  // location has been accessed (or the attempt has failed).
   const getCurrentLocation = () => {
     if ("geolocation" in navigator) {
+      setIsGettingLocation(true);
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           const mapUrl = `https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`;
           setFormData(prev => ({ ...prev, map_link: mapUrl, latitude: pos.coords.latitude, longitude: pos.coords.longitude }));
           toast({ title: "Location Added", description: "Current location pinned." });
+          setIsGettingLocation(false);
         },
-        () => toast({ title: "Error", description: "Unable to get location.", variant: "destructive" })
+        () => {
+          toast({ title: "Error", description: "Unable to get location.", variant: "destructive" });
+          setIsGettingLocation(false);
+        }
       );
     }
   };
@@ -631,10 +644,19 @@ const CreateTripEvent = () => {
                     </div>
                   )}
                   {locationMode === 'gps' && (
-                    <button type="button" onClick={getCurrentLocation}
-                      className="flex items-center gap-2.5 px-6 py-3 rounded-xl text-white text-sm font-bold transition-all active:scale-[0.98] shadow-md hover:opacity-90"
-                      style={{ background: formData.map_link ? "#16a34a" : COLORS.CORAL }}>
-                      {formData.map_link ? <><CheckCircle2 className="h-4 w-4" /> Location Captured</> : <><Navigation className="h-4 w-4" /> Capture My Location</>}
+                    <button
+                      type="button"
+                      onClick={getCurrentLocation}
+                      disabled={isGettingLocation}
+                      className="flex items-center gap-2.5 px-6 py-3 rounded-xl text-white text-sm font-bold transition-all active:scale-[0.98] shadow-md hover:opacity-90 disabled:opacity-70 disabled:cursor-not-allowed"
+                      style={{ background: formData.map_link ? "#16a34a" : COLORS.CORAL }}
+                    >
+                      {isGettingLocation
+                        ? <><Loader2 className="h-4 w-4 animate-spin" /> Getting Location...</>
+                        : formData.map_link
+                        ? <><CheckCircle2 className="h-4 w-4" /> Location Captured</>
+                        : <><Navigation className="h-4 w-4" /> Capture My Location</>
+                      }
                     </button>
                   )}
                 </SectionCard>

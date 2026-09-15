@@ -13,7 +13,7 @@ import { useBanCheck } from "@/hooks/useBanCheck";
 import {
   MapPin, Navigation, Clock, X, Plus, Camera, CheckCircle2, Info, ArrowLeft, Loader2,
   DollarSign, ChevronLeft, ChevronRight, Link2, ShieldCheck, FileImage, Upload,
-  Globe, Users, Sparkles, Building2, Home, TreePine, Tent, Landmark,
+  Globe, Users, Sparkles, TreePine, Tent, Landmark,
 } from "lucide-react";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -47,17 +47,19 @@ const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp
 const isImageFile = (file: File) => ALLOWED_IMAGE_TYPES.includes(file.type) || file.type.startsWith("image/");
 
 // ─── Listing Category ──────────────────────────────────────────────────────────
-// Accommodation / Airbnb is the ONLY selectable category right now. Hosting an
-// Accommodation listing is the only path that allows a user to create MULTIPLE
-// approved listings on their account (see database policy + BecomeHost logic).
-// Hotel / Campsite / Park / Attraction are commented out — uncomment to restore
-// them, but note doing so re-enables the "one listing per account" cap for those
-// categories only; Accommodation remains multi-listing regardless.
+// Outdoor Place (campsite) is the ONLY selectable category right now.
+// Accommodation / Airbnb hosting and Hotel hosting have both been removed
+// completely (no commented-out remnants left for either — this was a
+// deliberate, permanent removal, not a temporary disable).
+// Hosting an Outdoor Place listing is the only path that allows a user to
+// create MULTIPLE approved listings on their account (see database policy +
+// BecomeHost logic). Park / Attraction remain commented out below — uncomment
+// to restore them, but note doing so re-enables the "one listing per account"
+// cap for those categories only; Outdoor Place remains multi-listing
+// regardless.
 const CATEGORY_OPTIONS: { value: string; label: string; icon: any }[] = [
-  { value: "accommodation", label: "Accommodation / Airbnb", icon: Home },
-  // { value: "hotel", label: "Hotel", icon: Building2 }, // disabled — accommodation only for now
+  { value: "campsite", label: "Outdoor Place", icon: Tent },
   // { value: "park", label: "Park", icon: TreePine }, // uncomment when Park pages are ready
-  // { value: "campsite", label: "Campsite", icon: Tent }, // disabled — accommodation only for now
   // { value: "attraction", label: "Attraction", icon: Landmark }, // uncomment when Attraction pages are ready
 ];
 
@@ -128,7 +130,7 @@ const CompressingBanner = ({ label = "Compressing photos…" }: { label?: string
   </div>
 );
 
-// ─── Category Selector (Accommodation / Airbnb only for now) ─────────────────
+// ─── Category Selector (Outdoor Place only for now) ───────────────────────────
 const CategorySelector = ({
   value, onChange, isInvalid,
 }: { value: string; onChange: (v: string) => void; isInvalid?: boolean }) => (
@@ -162,7 +164,7 @@ const CategorySelector = ({
       })}
     </div>
     {isInvalid && (
-      <p className="text-red-400 text-[10px] font-semibold mt-1.5">Please select Accommodation / Airbnb to continue</p>
+      <p className="text-red-400 text-[10px] font-semibold mt-1.5">Please select Outdoor Place to continue</p>
     )}
   </div>
 );
@@ -713,7 +715,7 @@ const StepSidebar = ({ steps, currentStep, onStepClick }: { steps: any[]; curren
       <img src="/images/category-campsite.webp" className="w-full h-full object-cover" alt="" />
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
       <div className="absolute bottom-4 left-5 right-5">
-        <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: COLORS.KHAKI }}>Accommodation / Airbnb</span>
+        <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: COLORS.KHAKI }}>Outdoor Place</span>
         <h2 className="text-white text-xl font-black uppercase tracking-tight leading-tight mt-0.5">Create Listing</h2>
       </div>
     </div>
@@ -767,10 +769,10 @@ const CreateAdventure = () => {
   const [showErrors, setShowErrors] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
 
-  // ── Listing Category — defaults to (and, for now, is locked to) Accommodation
-  // since it's the only option in CATEGORY_OPTIONS. Kept as free-form state so
-  // re-enabling other categories later is a one-line change.
-  const [category, setCategory] = useState<string>(CATEGORY_OPTIONS[0]?.value ?? "accommodation");
+  // ── Listing Category — defaults to (and, for now, is locked to) Outdoor
+  // Place (campsite) since it's the only option in CATEGORY_OPTIONS. Kept as
+  // free-form state so re-enabling other categories later is a one-line change.
+  const [category, setCategory] = useState<string>(CATEGORY_OPTIONS[0]?.value ?? "campsite");
 
   const [formData, setFormData] = useState({
     registrationName: "", registrationNumber: "", locationName: "", place: "",
@@ -788,6 +790,10 @@ const CreateAdventure = () => {
   const [traLicencePreview, setTraLicencePreview] = useState<string>("");
   const [isCompressingTraLicence, setIsCompressingTraLicence] = useState(false);
   const [locationMode, setLocationMode] = useState<"link" | "gps" | null>(null);
+  // Tracks whether a GPS lookup is currently in flight, so the "Use My GPS"
+  // button can show a spinner and stop spinning once location is accessed
+  // (either captured successfully or the browser reports an error).
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [workingDays, setWorkingDays] = useState({ Mon: true, Tue: true, Wed: true, Thu: true, Fri: true, Sat: true, Sun: true });
   const [generalFacilities, setGeneralFacilities] = useState<string[]>([]);
   const [facilities, setFacilities] = useState<FacilityItem[]>(() => [emptyFacility()]);
@@ -875,7 +881,7 @@ const CreateAdventure = () => {
     if (currentStep === 1) {
       if (!category) {
         setShowErrors(true);
-        toast({ title: "Select a Category", description: "Please choose Accommodation / Airbnb to continue.", variant: "destructive" });
+        toast({ title: "Select a Category", description: "Please choose Outdoor Place to continue.", variant: "destructive" });
         return false;
       }
       if (!formData.registrationName.trim() || !formData.registrationNumber.trim() || !formData.country) {
@@ -959,14 +965,23 @@ const CreateAdventure = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  // Captures the device's GPS location. isGettingLocation flips on right
+  // before the browser prompt/lookup starts and flips back off in both the
+  // success and error callbacks, so the button's spinner always stops once
+  // location has been accessed (or the attempt has failed).
   const getCurrentLocation = () => {
     if (!("geolocation" in navigator)) return;
+    setIsGettingLocation(true);
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
         setFormData((p) => ({ ...p, latitude: coords.latitude, longitude: coords.longitude }));
         toast({ title: "Location captured", description: `${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}` });
+        setIsGettingLocation(false);
       },
-      () => toast({ title: "GPS Error", description: "Could not get location.", variant: "destructive" })
+      () => {
+        toast({ title: "GPS Error", description: "Could not get location.", variant: "destructive" });
+        setIsGettingLocation(false);
+      }
     );
   };
 
@@ -1061,11 +1076,11 @@ const CreateAdventure = () => {
 
       // NOTE: the database enforces the multi-listing rule (see
       // adventure_places_policy.sql) — this insert will be rejected by a
-      // trigger if it violates the "one listing unless Accommodation" rule,
+      // trigger if it violates the "one listing unless Outdoor Place" rule,
       // so the try/catch below surfaces that as a normal submission error.
       const { error } = await supabase.from("adventure_places").insert([{
         id: friendlySlug, slug: friendlySlug, name: formData.registrationName,
-        // ── Listing category (accommodation only, for now) ──
+        // ── Listing category (Outdoor Place / campsite only, for now) ──
         category,
         registration_number: formData.registrationNumber,
         tra_license_url: traLicenceUrl,
@@ -1227,10 +1242,16 @@ const CreateAdventure = () => {
                       <StyledInput value={formData.locationLink} onChange={(e) => setFormData({ ...formData, locationLink: e.target.value })} placeholder="https://maps.google.com/..." />
                     )}
                     {locationMode === "gps" && (
-                      <button type="button" onClick={getCurrentLocation}
-                        className="flex items-center gap-2.5 px-6 py-3 rounded-xl text-white text-sm font-bold transition-all active:scale-[0.98] shadow-md hover:opacity-90"
-                        style={{ background: formData.latitude ? "#16a34a" : COLORS.KHAKI_DARK }}>
-                        {formData.latitude
+                      <button
+                        type="button"
+                        onClick={getCurrentLocation}
+                        disabled={isGettingLocation}
+                        className="flex items-center gap-2.5 px-6 py-3 rounded-xl text-white text-sm font-bold transition-all active:scale-[0.98] shadow-md hover:opacity-90 disabled:opacity-70 disabled:cursor-not-allowed"
+                        style={{ background: formData.latitude ? "#16a34a" : COLORS.KHAKI_DARK }}
+                      >
+                        {isGettingLocation
+                          ? <><Loader2 className="h-4 w-4 animate-spin" /> Getting Location...</>
+                          : formData.latitude
                           ? <><CheckCircle2 className="h-4 w-4" /> Location Captured — {formData.latitude.toFixed(4)}, {formData.longitude?.toFixed(4)}</>
                           : <><Navigation className="h-4 w-4" /> Tap to Capture GPS Location</>
                         }

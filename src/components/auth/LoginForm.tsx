@@ -2,10 +2,22 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import { Button } from "@/components/ui/button"; 
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, ShieldCheck } from "lucide-react";
+
+const DEVICE_ID_KEY = "rt_device_id";
+const STALE_LOGIN_DAYS = 7;
+
+function getDeviceId() {
+  let id = localStorage.getItem(DEVICE_ID_KEY);
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem(DEVICE_ID_KEY, id);
+  }
+  return id;
+}
 
 export const LoginForm = ({ onSwitchToSignup }: { onSwitchToSignup: () => void }) => {
   const [email, setEmail] = useState("");
@@ -15,24 +27,102 @@ export const LoginForm = ({ onSwitchToSignup }: { onSwitchToSignup: () => void }
   const [codeSent, setCodeSent] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false); 
+  const [googleLoading, setGoogleLoading] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // Step-up verification state (new device or stale login)
+  const [needsDeviceVerification, setNeedsDeviceVerification] = useState(false);
+  const [deviceVerifyCode, setDeviceVerifyCode] = useState("");
+  const [pendingUserId, setPendingUserId] = useState<string | null>(null);
+
+  const clientAuth = (supabase as any).auth;
+
+  // Mark this device trusted + stamp last_login_at, once verification (of whatever kind) has passed
+  const finalizeLogin = async (userId: string) => {
+    const deviceId = getDeviceId();
+    await supabase.from("user_devices").upsert(
+      { user_id: userId, device_id: deviceId, trusted: true, last_seen: new Date().toISOString() },
+      { onConflict: "user_id,device_id" }
+    );
+    await supabase.from("profiles").update({ last_login_at: new Date().toISOString() }).eq("id", userId);
+  };
+
+  // After password auth succeeds: decide whether this device/timing needs an extra code
+  const checkDeviceAndProceed = async (userId: string) => {
+    const deviceId = getDeviceId();
+
+    const { data: deviceRow } = await supabase
+      .from("user_devices")
+      .select("trusted")
+      .eq("user_id", userId)
+      .eq("device_id", deviceId)
+      .maybeSingle();
+
+    const { data: profileRow } = await supabase
+      .from("profiles")
+      .select("last_login_at")
+      .eq("id", userId)
+      .single();
+
+    const lastLogin = profileRow?.last_login_at ? new Date(profileRow.last_login_at) : null;
+    const daysSinceLogin = lastLogin ? (Date.now() - lastLogin.getTime()) / 86_400_000 : Infinity;
+
+    const isNewDevice = !deviceRow?.trusted;
+    const isStale = daysSinceLogin > STALE_LOGIN_DAYS;
+
+    if (isNewDevice || isStale) {
+      setPendingUserId(userId);
+      setNeedsDeviceVerification(true);
+      const { error: otpError } = await clientAuth.signInWithOtp({
+        email,
+        options: { shouldCreateUser: false },
+      });
+      if (otpError) {
+        toast({ title: "Error", description: otpError.message, variant: "destructive" });
+      } else {
+        toast({
+          title: isNewDevice ? "New device detected" : "Welcome back",
+          description: "We've emailed you a code — enter it to continue.",
+        });
+      }
+      setLoading(false);
+      return;
+    }
+
+    await finalizeLogin(userId);
+    navigate("/");
+  };
+
+  const handleDeviceVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pendingUserId) return;
+    setLoading(true);
+    const { error } = await clientAuth.verifyOtp({ email, token: deviceVerifyCode, type: "magiclink" });
+    if (error) {
+      toast({ title: "Verification Error", description: error.message, variant: "destructive" });
+      setLoading(false);
+      return;
+    }
+    await finalizeLogin(pendingUserId);
+    navigate("/");
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    // Guaranteed type safe interface pointer bypass
-    const clientAuth = (supabase as any).auth;
-
     if (loginMethod === "password") {
-      const { error } = await clientAuth.signInWithPassword({ email, password });
+      const { data, error } = await clientAuth.signInWithPassword({ email, password });
       if (error) {
         toast({ title: "Error", description: error.message, variant: "destructive" });
         setLoading(false);
-      } else { 
-        navigate("/"); 
+        return;
+      }
+      if (data?.user) {
+        await checkDeviceAndProceed(data.user.id);
+      } else {
+        setLoading(false);
       }
     } else {
       if (!codeSent) {
@@ -45,13 +135,15 @@ export const LoginForm = ({ onSwitchToSignup }: { onSwitchToSignup: () => void }
         }
         setLoading(false);
       } else {
-        const { error } = await clientAuth.verifyOtp({ email, token: otpCode, type: 'magiclink' });
+        const { data, error } = await clientAuth.verifyOtp({ email, token: otpCode, type: "magiclink" });
         if (error) {
           toast({ title: "Verification Error", description: error.message, variant: "destructive" });
           setLoading(false);
-        } else {
-          navigate("/");
+          return;
         }
+        // Email-code login already re-proves identity — trust this device too.
+        if (data?.user) await finalizeLogin(data.user.id);
+        navigate("/");
       }
     }
   };
@@ -71,6 +163,46 @@ export const LoginForm = ({ onSwitchToSignup }: { onSwitchToSignup: () => void }
   };
 
   const inputStyle = "h-8 bg-black/20 border-white/10 text-xs rounded-md";
+
+  if (needsDeviceVerification) {
+    return (
+      <form onSubmit={handleDeviceVerify} className="space-y-2">
+        <div className="flex items-center gap-1.5 text-[rgb(0,128,128)]">
+          <ShieldCheck className="w-3.5 h-3.5" />
+          <Label className="text-[10px] uppercase text-slate-400 font-bold">Confirm it's you</Label>
+        </div>
+        <p className="text-[10px] text-slate-500 leading-tight">
+          It's been a while, or this looks like a new device. Enter the code we sent to {email}.
+        </p>
+        <div className="space-y-1">
+          <Label className="text-[10px] uppercase text-slate-500">Verification Code</Label>
+          <Input
+            type="text"
+            value={deviceVerifyCode}
+            onChange={(e) => setDeviceVerifyCode(e.target.value)}
+            className={inputStyle}
+            placeholder="123456"
+            maxLength={6}
+            required
+          />
+        </div>
+        <Button type="submit" disabled={loading} className="w-full h-8 bg-[rgb(0,128,128)] text-xs font-bold uppercase mt-1">
+          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Confirm & Continue"}
+        </Button>
+        <button
+          type="button"
+          onClick={() => {
+            setNeedsDeviceVerification(false);
+            setPendingUserId(null);
+            setDeviceVerifyCode("");
+          }}
+          className="w-full text-center text-[10px] text-slate-500 hover:underline"
+        >
+          Back to login
+        </button>
+      </form>
+    );
+  }
 
   return (
     <form onSubmit={handleLogin} className="space-y-2">

@@ -14,6 +14,46 @@ import {
   Mail, AlertTriangle, LogIn,
 } from "lucide-react";
 
+// ── Design tokens ─────────────────────────────────────────────────────────
+// Same field-guide / park-signage system used across the detail pages: deep
+// forest for structure and brand marks, a warm clay for the primary action,
+// and a dry-grass gold for caution/pending states. Ink is a green-tinted
+// charcoal rather than pure black.
+const FOREST       = "#1F4D3A";
+const FOREST_SOFT  = "#EAF0EA";
+const CLAY         = "#C1552F";
+const CLAY_SOFT    = "#F7E9E5";
+const GOLD         = "#B98A2A";
+const GOLD_SOFT    = "#FBF2DD";
+const GOLD_TEXT    = "#8A6716";
+const INK          = "#1C2B22";
+const INK_SOFT     = "#5B6B60";
+const HAIRLINE     = "#DCE3DC";
+const CANVAS       = "#F4F6F2";
+const SUCCESS      = "#2F6F4E";
+const SUCCESS_SOFT = "#EAF3EC";
+const DANGER       = "#9C3B2B";
+const DANGER_SOFT  = "#F7E9E5";
+const INFO         = "#3E5590";
+const INFO_SOFT    = "#EEF1F8";
+
+const FONT_DISPLAY = "'Fraunces', ui-serif, Georgia, serif";
+const FONT_BODY = "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif";
+
+// Injects the two typefaces once, without needing to touch the app's index.html.
+const useInjectFonts = () => {
+  useEffect(() => {
+    const id = "adventure-detail-fonts";
+    if (document.getElementById(id)) return;
+    const link = document.createElement("link");
+    link.id = id;
+    link.rel = "stylesheet";
+    link.href =
+      "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&display=swap";
+    document.head.appendChild(link);
+  }, []);
+};
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Booking {
@@ -35,7 +75,6 @@ interface Booking {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const TEAL = "#008080";
 const RESCHEDULABLE_TYPES = ["trip", "event", "hotel", "adventure_place", "adventure"];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -98,7 +137,7 @@ const getBookingMeta = (booking: Booking): { typeLabel: string; contactLabel: st
 const generateQRDataUrl = (text: string, size = 120): Promise<string> =>
   new Promise((resolve) => {
     try {
-      const url = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(text)}&color=008080&bgcolor=ffffff&margin=4`;
+      const url = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(text)}&color=1f4d3a&bgcolor=ffffff&margin=4`;
       const img = new Image();
       img.crossOrigin = "anonymous";
       img.onload = () => {
@@ -115,16 +154,24 @@ const generateQRDataUrl = (text: string, size = 120): Promise<string> =>
 
 // ─── Status pill ──────────────────────────────────────────────────────────────
 
+const STATUS_STYLES: Record<string, { bg: string; text: string; border: string }> = {
+  confirmed: { bg: SUCCESS_SOFT, text: SUCCESS,   border: `${SUCCESS}40` },
+  paid:      { bg: SUCCESS_SOFT, text: SUCCESS,   border: `${SUCCESS}40` },
+  pending:   { bg: GOLD_SOFT,    text: GOLD_TEXT, border: `${GOLD}50` },
+  cancelled: { bg: DANGER_SOFT,  text: DANGER,    border: `${DANGER}40` },
+  unpaid:    { bg: CANVAS,       text: INK_SOFT,  border: HAIRLINE },
+};
+
+// Uses inline styles rather than Tailwind arbitrary-value classes, since
+// those class names are built from runtime variables and Tailwind's JIT
+// compiler can only pick up class names that appear literally in source.
 const StatusPill = ({ status }: { status: string }) => {
-  const map: Record<string, string> = {
-    confirmed: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    pending:   "bg-amber-50 text-amber-700 border-amber-200",
-    cancelled: "bg-red-50 text-red-600 border-red-200",
-    paid:      "bg-emerald-50 text-emerald-700 border-emerald-200",
-    unpaid:    "bg-slate-50 text-slate-500 border-slate-200",
-  };
+  const s = STATUS_STYLES[status?.toLowerCase()] ?? { bg: CANVAS, text: INK_SOFT, border: HAIRLINE };
   return (
-    <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${map[status?.toLowerCase()] ?? "bg-slate-100 text-slate-500 border-slate-200"}`}>
+    <span
+      className="text-[9px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full border"
+      style={{ background: s.bg, color: s.text, borderColor: s.border, fontFamily: FONT_BODY }}
+    >
       {status}
     </span>
   );
@@ -133,11 +180,11 @@ const StatusPill = ({ status }: { status: string }) => {
 // ─── Detail row ───────────────────────────────────────────────────────────────
 
 const Row = ({ icon: Icon, label, value }: { icon: any; label: string; value: React.ReactNode }) => (
-  <div className="flex items-start gap-2 py-2 border-b border-dashed border-slate-100 last:border-0">
-    <Icon className="h-3.5 w-3.5 text-teal-500 flex-shrink-0 mt-0.5" />
+  <div className="flex items-start gap-2.5 py-2.5" style={{ borderBottom: `1px dashed ${HAIRLINE}` }}>
+    <Icon className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" style={{ color: FOREST }} />
     <div className="flex-1 min-w-0">
-      <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">{label}</p>
-      <p className="text-xs font-semibold text-slate-700 break-words">{value || "—"}</p>
+      <p className="text-[10px] font-medium" style={{ color: INK_SOFT }}>{label}</p>
+      <p className="text-[13px] font-semibold break-words" style={{ color: INK }}>{value || "—"}</p>
     </div>
   </div>
 );
@@ -184,14 +231,18 @@ const downloadBooking = async (booking: Booking) => {
   const W   = doc.internal.pageSize.getWidth();
   const H   = doc.internal.pageSize.getHeight();
 
-  const TEAL_RGB:  [number,number,number] = [0,128,128];
-  const CORAL_RGB: [number,number,number] = [255,127,80];
-  const SLATE_RGB: [number,number,number] = [51,65,85];
-  const LIGHT_RGB: [number,number,number] = [248,249,250];
-  const MUTED_RGB: [number,number,number] = [100,116,139];
-  const AMBER_RGB: [number,number,number] = [180,120,0];
-  const WHITE:     [number,number,number] = [255,255,255];
-  const GREEN_RGB: [number,number,number] = [16,185,129];
+  // ── Palette used inside the PDF, mirroring the on-page design tokens ────
+  const FOREST_RGB:      [number,number,number] = [31,77,58];    // FOREST
+  const FOREST_TINT_RGB: [number,number,number] = [234,240,234]; // FOREST_SOFT
+  const CLAY_RGB:        [number,number,number] = [193,85,47];   // CLAY
+  const INK_RGB:         [number,number,number] = [28,43,34];    // INK
+  const CANVAS_RGB:      [number,number,number] = [244,246,242]; // CANVAS
+  const INK_SOFT_RGB:    [number,number,number] = [91,107,96];   // INK_SOFT
+  const GOLD_TEXT_RGB:   [number,number,number] = [138,103,22];  // GOLD_TEXT
+  const GOLD_SOFT_RGB:   [number,number,number] = [251,242,221]; // GOLD_SOFT
+  const WHITE:           [number,number,number] = [255,255,255];
+  const SUCCESS_RGB:     [number,number,number] = [47,111,78];   // SUCCESS
+  const SOFT_MINT_RGB:   [number,number,number] = [200,224,208]; // pale forest text-on-dark
 
   let y = 0;
   const M = 36;
@@ -205,11 +256,11 @@ const downloadBooking = async (booking: Booking) => {
   const section = (title: string) => {
     newPage(50);
     y += 4;
-    doc.setFillColor(...TEAL_RGB);
+    doc.setFillColor(...FOREST_RGB);
     doc.rect(M, y, 3, 13, "F");
-    doc.setFillColor(240, 253, 250);
+    doc.setFillColor(...FOREST_TINT_RGB);
     doc.roundedRect(M + 3, y, CW - 3, 13, 2, 2, "F");
-    doc.setTextColor(...TEAL_RGB);
+    doc.setTextColor(...FOREST_RGB);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
     doc.text(title, M + 10, y + 9.5);
@@ -223,13 +274,13 @@ const downloadBooking = async (booking: Booking) => {
     const maxW   = CW - 100;
     const lines: string[] = doc.splitTextToSize(valStr, maxW);
     const rowH = lines.length > 1 ? 14 + lines.length * 11 : 22;
-    doc.setFillColor(...LIGHT_RGB);
+    doc.setFillColor(...CANVAS_RGB);
     doc.roundedRect(M, y, CW, rowH, 3, 3, "F");
-    doc.setTextColor(...MUTED_RGB);
+    doc.setTextColor(...INK_SOFT_RGB);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(6.5);
     doc.text(String(label).toUpperCase(), M + 8, y + 9);
-    doc.setTextColor(...SLATE_RGB);
+    doc.setTextColor(...INK_RGB);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
     if (lines.length > 1) {
@@ -242,10 +293,10 @@ const downloadBooking = async (booking: Booking) => {
     y += rowH + 5;
   };
 
-  // Table header row (teal bg)
+  // Table header row (forest bg)
   const tableHeader = (left: string, right: string) => {
     newPage(22);
-    doc.setFillColor(...TEAL_RGB);
+    doc.setFillColor(...FOREST_RGB);
     doc.roundedRect(M, y, CW, 18, 3, 3, "F");
     doc.setTextColor(...WHITE);
     doc.setFont("helvetica", "bold");
@@ -259,9 +310,9 @@ const downloadBooking = async (booking: Booking) => {
   const tableRow = (left: string, right: string, sub?: string) => {
     newPage(32);
     const rowH = sub ? 32 : 22;
-    doc.setFillColor(...LIGHT_RGB);
+    doc.setFillColor(...CANVAS_RGB);
     doc.roundedRect(M, y, CW, rowH, 3, 3, "F");
-    doc.setTextColor(...SLATE_RGB);
+    doc.setTextColor(...INK_RGB);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
     const maxL = CW - 100;
@@ -270,11 +321,11 @@ const downloadBooking = async (booking: Booking) => {
       doc.text(ln, M + 8, y + 13 + i * 10)
     );
     if (sub) {
-      doc.setTextColor(...MUTED_RGB);
+      doc.setTextColor(...INK_SOFT_RGB);
       doc.setFontSize(7);
       doc.text(sub, M + 8, y + 25, { maxWidth: maxL });
     }
-    doc.setTextColor(...TEAL_RGB);
+    doc.setTextColor(...FOREST_RGB);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
     doc.text(right, W - M - 8, y + (sub ? 17 : 14), { align: "right" });
@@ -282,9 +333,9 @@ const downloadBooking = async (booking: Booking) => {
   };
 
   // ── HEADER BANNER ─────────────────────────────────────────────
-  doc.setFillColor(...TEAL_RGB);
+  doc.setFillColor(...FOREST_RGB);
   doc.rect(0, 0, W, 96, "F");
-  doc.setFillColor(...CORAL_RGB);
+  doc.setFillColor(...CLAY_RGB);
   doc.triangle(W - 110, 0, W, 0, W, 96, "F");
 
   doc.setTextColor(...WHITE);
@@ -304,10 +355,10 @@ const downloadBooking = async (booking: Booking) => {
 
   // ── STATUS BADGE ──────────────────────────────────────────────
   const sColors: Record<string,[number,number,number]> = {
-    confirmed:[16,185,129], paid:[16,185,129],
-    pending:[245,158,11],   cancelled:[239,68,68],
+    confirmed: SUCCESS_RGB, paid: SUCCESS_RGB,
+    pending: [185,138,42],  cancelled: [156,59,43],
   };
-  const sc = sColors[booking.status?.toLowerCase()] ?? [100,116,139];
+  const sc = sColors[booking.status?.toLowerCase()] ?? INK_SOFT_RGB;
   doc.setFillColor(...sc);
   doc.roundedRect(W - 132, 98, 96, 22, 11, 11, "F");
   doc.setTextColor(...WHITE);
@@ -316,13 +367,13 @@ const downloadBooking = async (booking: Booking) => {
   doc.text((booking.status || "").toUpperCase(), W - 84, 113, { align: "center" });
 
   // ── ITEM NAME ─────────────────────────────────────────────────
-  doc.setTextColor(...TEAL_RGB);
+  doc.setTextColor(...FOREST_RGB);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(19);
   doc.text(listingName, M, y, { maxWidth: W - M * 2 - 110 });
   y += 18;
 
-  doc.setTextColor(...MUTED_RGB);
+  doc.setTextColor(...INK_SOFT_RGB);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.text(`${typeLabel.toUpperCase()} BOOKING`, M, y);
@@ -338,7 +389,7 @@ const downloadBooking = async (booking: Booking) => {
   y += 10;
 
   // ── DIVIDER ───────────────────────────────────────────────────
-  doc.setDrawColor(...TEAL_RGB);
+  doc.setDrawColor(...FOREST_RGB);
   doc.setLineWidth(0.4);
   doc.line(M, y, W - M, y);
   y += 14;
@@ -450,19 +501,19 @@ const downloadBooking = async (booking: Booking) => {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 7. HOST / ORGANIZER CONTACT  (amber notice + phone + email)
+  // 7. HOST / ORGANIZER CONTACT  (gold notice + phone + email)
   // ─────────────────────────────────────────────────────────────
   if (hostPhone || hostEmail) {
     section(`${contactLabel.toUpperCase()} CONTACT`);
 
-    // Amber notice banner
+    // Gold notice banner
     newPage(60);
-    doc.setFillColor(255, 251, 235);
+    doc.setFillColor(...GOLD_SOFT_RGB);
     doc.roundedRect(M, y, CW, 46, 5, 5, "F");
-    doc.setDrawColor(...AMBER_RGB);
+    doc.setDrawColor(...GOLD_TEXT_RGB);
     doc.setLineWidth(0.5);
     doc.roundedRect(M, y, CW, 46, 5, 5, "S");
-    doc.setTextColor(...AMBER_RGB);
+    doc.setTextColor(...GOLD_TEXT_RGB);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
     doc.text(`Contact the ${contactLabel} below for inquiries,`, M + 10, y + 14);
@@ -482,7 +533,7 @@ const downloadBooking = async (booking: Booking) => {
   // ─────────────────────────────────────────────────────────────
   newPage(60);
   y += 10;
-  doc.setFillColor(...TEAL_RGB);
+  doc.setFillColor(...FOREST_RGB);
   doc.roundedRect(M, y, CW, 48, 6, 6, "F");
   doc.setTextColor(...WHITE);
   doc.setFont("helvetica", "bold");
@@ -490,7 +541,7 @@ const downloadBooking = async (booking: Booking) => {
   doc.text("TOTAL AMOUNT PAID", M + 14, y + 18);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7);
-  doc.setTextColor(179, 230, 230);
+  doc.setTextColor(...SOFT_MINT_RGB);
   doc.text((booking.payment_status || "").toUpperCase(), M + 14, y + 32);
   doc.setTextColor(...WHITE);
   doc.setFont("helvetica", "bold");
@@ -512,9 +563,9 @@ const downloadBooking = async (booking: Booking) => {
     newPage(boxH + 10);
     y += 8;
 
-    doc.setFillColor(...LIGHT_RGB);
+    doc.setFillColor(...CANVAS_RGB);
     doc.roundedRect(M, y, CW, boxH, 8, 8, "F");
-    doc.setDrawColor(...TEAL_RGB);
+    doc.setDrawColor(...FOREST_RGB);
     doc.setLineWidth(0.5);
     doc.roundedRect(M, y, CW, boxH, 8, 8, "S");
 
@@ -524,12 +575,12 @@ const downloadBooking = async (booking: Booking) => {
     // Right-side text block
     const rx = M + 130;
 
-    doc.setTextColor(...TEAL_RGB);
+    doc.setTextColor(...FOREST_RGB);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
     doc.text("BOOKING QR CODE", rx, y + 32);
 
-    doc.setTextColor(...MUTED_RGB);
+    doc.setTextColor(...INK_SOFT_RGB);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
     ["Scan this QR code at the venue to verify",
@@ -537,7 +588,7 @@ const downloadBooking = async (booking: Booking) => {
      "code on your mobile device to the host."]
       .forEach((ln, i) => doc.text(ln, rx, y + 50 + i * 13));
 
-    doc.setTextColor(...SLATE_RGB);
+    doc.setTextColor(...INK_RGB);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
     doc.text(`Booking ID: ${booking.id}`, rx, y + 108);
@@ -546,13 +597,13 @@ const downloadBooking = async (booking: Booking) => {
     if (hasContact) {
       const contactY = y + 130 + 6;
 
-      // Thin teal divider across full card width (inset)
-      doc.setDrawColor(...TEAL_RGB);
+      // Thin forest divider across full card width (inset)
+      doc.setDrawColor(...FOREST_RGB);
       doc.setLineWidth(0.3);
       doc.line(M + 10, contactY, M + CW - 10, contactY);
 
       // Section label
-      doc.setTextColor(...TEAL_RGB);
+      doc.setTextColor(...FOREST_RGB);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(7);
       doc.text(
@@ -565,21 +616,21 @@ const downloadBooking = async (booking: Booking) => {
 
       if (hostPhone) {
         // Phone pill
-        doc.setFillColor(240, 253, 250);
+        doc.setFillColor(...FOREST_TINT_RGB);
         doc.roundedRect(M + 14, cy - 9, (CW - 28) / 2 - 4, 18, 4, 4, "F");
-        doc.setDrawColor(...TEAL_RGB);
+        doc.setDrawColor(...FOREST_RGB);
         doc.setLineWidth(0.3);
         doc.roundedRect(M + 14, cy - 9, (CW - 28) / 2 - 4, 18, 4, 4, "S");
 
         // Phone icon (simple circle + lines)
-        doc.setFillColor(...TEAL_RGB);
+        doc.setFillColor(...FOREST_RGB);
         doc.circle(M + 22, cy, 3.5, "F");
         doc.setTextColor(...WHITE);
         doc.setFont("helvetica", "bold");
         doc.setFontSize(5.5);
         doc.text("📞", M + 20, cy + 2);
 
-        doc.setTextColor(...TEAL_RGB);
+        doc.setTextColor(...FOREST_RGB);
         doc.setFont("helvetica", "bold");
         doc.setFontSize(7.5);
         doc.text(hostPhone, M + 30, cy + 1.5);
@@ -588,13 +639,13 @@ const downloadBooking = async (booking: Booking) => {
           // Email pill (second column)
           const ex = M + 14 + (CW - 28) / 2 + 4;
           const ew = (CW - 28) / 2 - 4;
-          doc.setFillColor(240, 253, 250);
+          doc.setFillColor(...FOREST_TINT_RGB);
           doc.roundedRect(ex, cy - 9, ew, 18, 4, 4, "F");
-          doc.setDrawColor(...TEAL_RGB);
+          doc.setDrawColor(...FOREST_RGB);
           doc.setLineWidth(0.3);
           doc.roundedRect(ex, cy - 9, ew, 18, 4, 4, "S");
 
-          doc.setTextColor(...TEAL_RGB);
+          doc.setTextColor(...FOREST_RGB);
           doc.setFont("helvetica", "bold");
           doc.setFontSize(7.5);
           const emailLines: string[] = doc.splitTextToSize(hostEmail, ew - 20);
@@ -603,13 +654,13 @@ const downloadBooking = async (booking: Booking) => {
         cy += 22;
       } else if (hostEmail) {
         // Email only — full-width pill
-        doc.setFillColor(240, 253, 250);
+        doc.setFillColor(...FOREST_TINT_RGB);
         doc.roundedRect(M + 14, cy - 9, CW - 28, 18, 4, 4, "F");
-        doc.setDrawColor(...TEAL_RGB);
+        doc.setDrawColor(...FOREST_RGB);
         doc.setLineWidth(0.3);
         doc.roundedRect(M + 14, cy - 9, CW - 28, 18, 4, 4, "S");
 
-        doc.setTextColor(...TEAL_RGB);
+        doc.setTextColor(...FOREST_RGB);
         doc.setFont("helvetica", "bold");
         doc.setFontSize(7.5);
         doc.text(hostEmail, M + 22, cy + 1.5);
@@ -624,23 +675,23 @@ const downloadBooking = async (booking: Booking) => {
   // 10. FOOTER
   // ─────────────────────────────────────────────────────────────
   const footerY = H - 52;
-  doc.setFillColor(240, 253, 250);
+  doc.setFillColor(...FOREST_TINT_RGB);
   doc.rect(0, footerY - 12, W, 64, "F");
-  doc.setDrawColor(...TEAL_RGB);
+  doc.setDrawColor(...FOREST_RGB);
   doc.setLineWidth(1.2);
   doc.line(0, footerY - 12, W, footerY - 12);
 
-  doc.setFillColor(...TEAL_RGB);
+  doc.setFillColor(...FOREST_RGB);
   doc.circle(M, footerY + 10, 3, "F");
-  doc.setFillColor(...CORAL_RGB);
+  doc.setFillColor(...CLAY_RGB);
   doc.circle(M + 10, footerY + 10, 3, "F");
 
-  doc.setTextColor(...TEAL_RGB);
+  doc.setTextColor(...FOREST_RGB);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
   doc.text("realtravo.com", W / 2, footerY + 4, { align: "center" });
 
-  doc.setTextColor(...MUTED_RGB);
+  doc.setTextColor(...INK_SOFT_RGB);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7);
   doc.text("Thank you for booking with Realtravo!  ·  support@realtravo.com", W / 2, footerY + 18, { align: "center" });
@@ -679,56 +730,63 @@ const RescheduleModal = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
+      className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm px-4"
+      style={{ background: "rgba(14,23,18,0.6)" }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
-        <div className="px-5 py-4 flex items-center justify-between border-b border-slate-100">
-          <div className="flex items-center gap-2">
-            <CalendarClock className="h-4 w-4 text-teal-600" />
+      <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden" style={{ boxShadow: "0 24px 60px rgba(14,23,18,0.25)", fontFamily: FONT_BODY }}>
+        <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: `1px solid ${HAIRLINE}` }}>
+          <div className="flex items-center gap-2.5">
+            <CalendarClock className="h-4 w-4" style={{ color: FOREST }} />
             <div>
-              <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Reschedule</p>
-              <p className="text-sm font-black text-slate-800 truncate max-w-[200px]">{name}</p>
+              <p className="text-[10px] font-medium" style={{ color: INK_SOFT }}>Reschedule</p>
+              <p className="text-sm font-semibold truncate max-w-[200px]" style={{ color: INK }}>{name}</p>
             </div>
           </div>
-          <button onClick={onClose} className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors">
-            <X className="h-3.5 w-3.5 text-slate-500" />
+          <button onClick={onClose} className="w-7 h-7 rounded-full flex items-center justify-center transition-colors" style={{ background: CANVAS }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = HAIRLINE)}
+            onMouseLeave={(e) => (e.currentTarget.style.background = CANVAS)}>
+            <X className="h-3.5 w-3.5" style={{ color: INK_SOFT }} />
           </button>
         </div>
 
         <div className="p-5">
           {done ? (
             <div className="flex flex-col items-center py-6 gap-2 text-center">
-              <CheckCircle className="h-12 w-12 text-emerald-500" />
-              <p className="font-black text-lg text-slate-800">All Set!</p>
-              <p className="text-slate-500 text-sm">Rescheduled to <span className="font-bold text-slate-800">{fmt(newDate)}</span></p>
-              <p className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-3 py-1 mt-1">⚠ This was your one allowed reschedule</p>
+              <CheckCircle className="h-12 w-12" style={{ color: SUCCESS }} />
+              <p className="font-semibold text-lg" style={{ fontFamily: FONT_DISPLAY, color: INK }}>All set</p>
+              <p className="text-sm" style={{ color: INK_SOFT }}>Rescheduled to <span className="font-semibold" style={{ color: INK }}>{fmt(newDate)}</span></p>
+              <p className="text-[11px] rounded-full px-3 py-1 mt-1" style={{ color: GOLD_TEXT, background: GOLD_SOFT }}>This was your one allowed reschedule</p>
             </div>
           ) : (
             <>
               {current && (
-                <div className="mb-4 flex items-center gap-2 bg-slate-50 rounded-xl px-3 py-2.5">
-                  <Calendar className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                <div className="mb-4 flex items-center gap-2.5 rounded-xl px-3.5 py-3" style={{ background: CANVAS }}>
+                  <Calendar className="h-3.5 w-3.5 flex-shrink-0" style={{ color: INK_SOFT }} />
                   <div>
-                    <p className="text-[9px] uppercase tracking-widest font-bold text-slate-400">Current Date</p>
-                    <p className="text-xs font-semibold text-slate-700">{fmt(current)}</p>
+                    <p className="text-[10px] font-medium" style={{ color: INK_SOFT }}>Current date</p>
+                    <p className="text-[13px] font-semibold" style={{ color: INK }}>{fmt(current)}</p>
                   </div>
                 </div>
               )}
               <div className="mb-4">
-                <label className="block text-[9px] font-black uppercase tracking-widest text-slate-500 mb-1.5">Select New Date</label>
+                <label className="block text-[10px] font-medium mb-1.5" style={{ color: INK_SOFT }}>Select new date</label>
                 <input type="date" min={getTomorrow()} value={newDate} onChange={(e) => setNewDate(e.target.value)}
-                  className="w-full border border-slate-200 focus:border-teal-500 rounded-xl px-3 py-2.5 text-sm font-semibold bg-white outline-none transition-colors" />
+                  className="w-full rounded-xl px-3 py-2.5 text-sm font-semibold bg-white outline-none transition-colors"
+                  style={{ border: `1px solid ${HAIRLINE}`, color: INK }}
+                  onFocus={(e) => (e.currentTarget.style.borderColor = FOREST)}
+                  onBlur={(e) => (e.currentTarget.style.borderColor = HAIRLINE)} />
               </div>
-              <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 mb-4">
-                <AlertTriangle className="h-3.5 w-3.5 text-amber-500 flex-shrink-0 mt-0.5" />
-                <p className="text-[10px] text-amber-700 font-medium leading-relaxed">You can only reschedule this booking <strong>once</strong>. This action cannot be undone.</p>
+              <div className="flex items-start gap-2.5 rounded-xl px-3.5 py-3 mb-4" style={{ background: GOLD_SOFT }}>
+                <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" style={{ color: GOLD }} />
+                <p className="text-[11px] font-medium leading-relaxed" style={{ color: GOLD_TEXT }}>You can only reschedule this booking <strong>once</strong>. This action cannot be undone.</p>
               </div>
               <div className="flex gap-2">
-                <button onClick={onClose} className="flex-1 border border-slate-200 text-slate-600 font-bold rounded-xl py-2.5 text-xs hover:bg-slate-50 transition-colors">Cancel</button>
+                <button onClick={onClose} className="flex-1 rounded-xl py-2.5 text-xs font-semibold transition-colors"
+                  style={{ border: `1px solid ${HAIRLINE}`, color: INK_SOFT }}>Cancel</button>
                 <button onClick={handle} disabled={!newDate || saving}
-                  className="flex-1 text-white font-black rounded-xl py-2.5 text-xs disabled:opacity-40 disabled:bg-slate-200 disabled:text-slate-400 transition-all"
-                  style={newDate && !saving ? { backgroundColor: TEAL } : undefined}>
+                  className="flex-1 text-white font-semibold rounded-xl py-2.5 text-xs transition-all disabled:opacity-40"
+                  style={newDate && !saving ? { background: `linear-gradient(135deg, #E0824F, ${CLAY})` } : { background: HAIRLINE, color: INK_SOFT }}>
                   {saving ? "Saving…" : "Confirm"}
                 </button>
               </div>
@@ -767,11 +825,11 @@ const BookingDetail = ({ booking, onReschedule }: { booking: Booking; onReschedu
   };
 
   return (
-    <div className="border-t border-slate-100 bg-slate-50/50 px-4 py-4">
+    <div className="px-4 py-4" style={{ borderTop: `1px solid ${HAIRLINE}`, background: `${CANVAS}80`, fontFamily: FONT_BODY }}>
       <div className="mb-3">
-        <p className="text-[9px] uppercase tracking-widest font-bold text-slate-400">Item</p>
-        <p className="text-sm font-black text-slate-800">{name}</p>
-        <p className="text-[9px] text-slate-400 font-mono mt-0.5">{booking.id}</p>
+        <p className="text-[10px] font-medium" style={{ color: INK_SOFT }}>Item</p>
+        <p className="text-sm font-semibold" style={{ color: INK }}>{name}</p>
+        <p className="text-[10px] font-mono mt-0.5" style={{ color: INK_SOFT }}>{booking.id}</p>
       </div>
 
       {(booking.guest_name  || d.guest_name)  && <Row icon={Users}  label="Guest"  value={booking.guest_name  || d.guest_name}  />}
@@ -789,18 +847,18 @@ const BookingDetail = ({ booking, onReschedule }: { booking: Booking; onReschedu
 
       {/* Tickets */}
       {tickets?.length > 0 && (
-        <div className="py-2 border-b border-dashed border-slate-100">
-          <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 flex items-center gap-1">
+        <div className="py-2.5" style={{ borderBottom: `1px dashed ${HAIRLINE}` }}>
+          <p className="text-[10px] font-medium mb-1.5 flex items-center gap-1.5" style={{ color: INK_SOFT }}>
             <Ticket className="h-3 w-3" /> Tickets
           </p>
           <div className="space-y-1.5 ml-4">
             {tickets.map((t: any, i: number) => (
-              <div key={i} className="text-xs">
+              <div key={i} className="text-[13px]">
                 <div className="flex justify-between">
-                  <span className="font-semibold text-slate-700">{t.name}</span>
-                  <span className="font-bold text-slate-700">{fmtMoney(t.price * (t.quantity || 1))}</span>
+                  <span className="font-semibold" style={{ color: INK }}>{t.name}</span>
+                  <span className="font-semibold" style={{ color: INK }}>{fmtMoney(t.price * (t.quantity || 1))}</span>
                 </div>
-                <p className="text-[10px] text-slate-400">{t.quantity || 1} person{(t.quantity || 1) > 1 ? "s" : ""} × {fmtMoney(t.price)} per ticket</p>
+                <p className="text-[11px]" style={{ color: INK_SOFT }}>{t.quantity || 1} person{(t.quantity || 1) > 1 ? "s" : ""} × {fmtMoney(t.price)} per ticket</p>
               </div>
             ))}
           </div>
@@ -809,20 +867,20 @@ const BookingDetail = ({ booking, onReschedule }: { booking: Booking; onReschedu
 
       {/* Activities */}
       {acts?.length > 0 && (
-        <div className="py-2 border-b border-dashed border-slate-100">
-          <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 flex items-center gap-1">
+        <div className="py-2.5" style={{ borderBottom: `1px dashed ${HAIRLINE}` }}>
+          <p className="text-[10px] font-medium mb-1.5 flex items-center gap-1.5" style={{ color: INK_SOFT }}>
             <Activity className="h-3 w-3" /> Activities
           </p>
           <div className="space-y-1.5 ml-4">
             {acts.map((a: any, i: number) => {
               const ppl = a.numberOfPeople || a.number_of_people || 1;
               return (
-                <div key={i} className="text-xs">
+                <div key={i} className="text-[13px]">
                   <div className="flex justify-between">
-                    <span className="font-semibold text-slate-700">{a.name}</span>
-                    <span className="font-bold text-slate-700">{fmtMoney((a.price || 0) * ppl)}</span>
+                    <span className="font-semibold" style={{ color: INK }}>{a.name}</span>
+                    <span className="font-semibold" style={{ color: INK }}>{fmtMoney((a.price || 0) * ppl)}</span>
                   </div>
-                  <p className="text-[10px] text-slate-400">{ppl} person{ppl > 1 ? "s" : ""} × {fmtMoney(a.price || 0)} per person</p>
+                  <p className="text-[11px]" style={{ color: INK_SOFT }}>{ppl} person{ppl > 1 ? "s" : ""} × {fmtMoney(a.price || 0)} per person</p>
                 </div>
               );
             })}
@@ -832,8 +890,8 @@ const BookingDetail = ({ booking, onReschedule }: { booking: Booking; onReschedu
 
       {/* Facilities */}
       {facs?.length > 0 && (
-        <div className="py-2 border-b border-dashed border-slate-100">
-          <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 flex items-center gap-1">
+        <div className="py-2.5" style={{ borderBottom: `1px dashed ${HAIRLINE}` }}>
+          <p className="text-[10px] font-medium mb-1.5 flex items-center gap-1.5" style={{ color: INK_SOFT }}>
             <Building2 className="h-3 w-3" /> Facilities
           </p>
           <div className="space-y-2 ml-4">
@@ -844,18 +902,18 @@ const BookingDetail = ({ booking, onReschedule }: { booking: Booking; onReschedu
               const total = (f.price || 0) * Math.max(days, 1);
               const ppl   = f.numberOfPeople || f.number_of_people;
               return (
-                <div key={i} className="text-xs">
+                <div key={i} className="text-[13px]">
                   <div className="flex justify-between">
-                    <span className="font-semibold text-slate-700">{f.name}</span>
-                    <span className="font-bold text-slate-700">{fmtMoney(total)}</span>
+                    <span className="font-semibold" style={{ color: INK }}>{f.name}</span>
+                    <span className="font-semibold" style={{ color: INK }}>{fmtMoney(total)}</span>
                   </div>
                   {f.startDate && (
-                    <p className="text-[10px] text-slate-400 mt-0.5">
+                    <p className="text-[11px] mt-0.5" style={{ color: INK_SOFT }}>
                       From: {fmtShort(f.startDate)} → To: {fmtShort(f.endDate)}
                       {days > 0 && ` · ${days} day${days > 1 ? "s" : ""} · ${fmtMoney(f.price || 0)}/day`}
                     </p>
                   )}
-                  {ppl && <p className="text-[10px] text-slate-400">{ppl} person{ppl > 1 ? "s" : ""}</p>}
+                  {ppl && <p className="text-[11px]" style={{ color: INK_SOFT }}>{ppl} person{ppl > 1 ? "s" : ""}</p>}
                 </div>
               );
             })}
@@ -865,22 +923,24 @@ const BookingDetail = ({ booking, onReschedule }: { booking: Booking; onReschedu
 
       {/* Host / Organizer Contact */}
       {(hostPhone || hostEmail) && (
-        <div className="mt-3 rounded-xl overflow-hidden border border-amber-200">
-          <div className="flex items-center gap-2 px-3 py-2.5 bg-amber-50 border-b border-amber-100">
-            <AlertTriangle className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />
+        <div className="mt-3 rounded-xl overflow-hidden" style={{ border: `1px solid ${GOLD}40` }}>
+          <div className="flex items-center gap-2.5 px-3.5 py-3" style={{ background: GOLD_SOFT, borderBottom: `1px solid ${GOLD}30` }}>
+            <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" style={{ color: GOLD }} />
             <div className="flex-1 min-w-0">
-              <p className="text-[9px] font-black uppercase tracking-widest text-amber-700">{contactLabel}</p>
-              <p className="text-[10px] text-amber-600 mt-0.5 leading-snug">Contact for inquiries, cancellations, refunds, or transfers</p>
+              <p className="text-[10px] font-semibold" style={{ color: GOLD_TEXT }}>{contactLabel}</p>
+              <p className="text-[11px] mt-0.5 leading-snug" style={{ color: GOLD_TEXT }}>Contact for inquiries, cancellations, refunds, or transfers</p>
             </div>
           </div>
-          <div className="px-3 py-2.5 bg-white flex flex-wrap gap-2">
+          <div className="px-3.5 py-3 bg-white flex flex-wrap gap-2">
             {hostPhone && (
-              <a href={`tel:${hostPhone}`} className="flex items-center gap-1.5 text-[11px] font-bold text-teal-700 bg-teal-50 border border-teal-200 rounded-lg px-3 py-1.5 hover:bg-teal-100 transition-colors">
+              <a href={`tel:${hostPhone}`} className="flex items-center gap-1.5 text-[11px] font-semibold rounded-lg px-3 py-1.5 transition-colors"
+                style={{ color: FOREST, background: FOREST_SOFT, border: `1px solid ${FOREST}25` }}>
                 <Phone className="h-3 w-3" />{hostPhone}
               </a>
             )}
             {hostEmail && (
-              <a href={`mailto:${hostEmail}`} className="flex items-center gap-1.5 text-[11px] font-bold text-teal-700 bg-teal-50 border border-teal-200 rounded-lg px-3 py-1.5 hover:bg-teal-100 transition-colors">
+              <a href={`mailto:${hostEmail}`} className="flex items-center gap-1.5 text-[11px] font-semibold rounded-lg px-3 py-1.5 transition-colors"
+                style={{ color: FOREST, background: FOREST_SOFT, border: `1px solid ${FOREST}25` }}>
                 <Mail className="h-3 w-3" />{hostEmail}
               </a>
             )}
@@ -891,19 +951,23 @@ const BookingDetail = ({ booking, onReschedule }: { booking: Booking; onReschedu
       {/* Actions */}
       <div className="flex gap-2 pt-4">
         <button onClick={handleDownload} disabled={downloading}
-          className="flex-1 flex items-center justify-center gap-1.5 border border-slate-200 text-slate-600 rounded-xl py-2 text-xs font-bold hover:border-teal-400 hover:text-teal-700 transition-all disabled:opacity-50">
+          className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-semibold transition-all disabled:opacity-50"
+          style={{ border: `1px solid ${HAIRLINE}`, color: INK_SOFT }}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = FOREST; e.currentTarget.style.color = FOREST; }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = HAIRLINE; e.currentTarget.style.color = INK_SOFT; }}>
           <Download className="h-3.5 w-3.5" />
           {downloading ? "Generating…" : "Download PDF"}
         </button>
 
         {isReschedulable(booking) ? (
           <button onClick={onReschedule}
-            className="flex-1 flex items-center justify-center gap-1.5 text-white rounded-xl py-2 text-xs font-bold hover:opacity-90 transition-opacity"
-            style={{ backgroundColor: TEAL }}>
+            className="flex-1 flex items-center justify-center gap-1.5 text-white rounded-xl py-2 text-xs font-semibold hover:opacity-90 transition-opacity"
+            style={{ background: `linear-gradient(135deg, #E0824F, ${CLAY})` }}>
             <CalendarClock className="h-3.5 w-3.5" /> Reschedule
           </button>
         ) : booking.booking_details?.rescheduled_at ? (
-          <div className="flex-1 flex items-center justify-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-600 rounded-xl py-2 text-xs font-bold cursor-not-allowed">
+          <div className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-semibold cursor-not-allowed"
+            style={{ background: GOLD_SOFT, border: `1px solid ${GOLD}30`, color: GOLD_TEXT }}>
             <AlertTriangle className="h-3.5 w-3.5" /> Rescheduled
           </div>
         ) : null}
@@ -922,24 +986,26 @@ const BookingCard = ({ booking, onReschedule }: { booking: Booking; onReschedule
   const displayDate = booking.visit_date || d.date;
 
   return (
-    <div className={`bg-white rounded-xl border overflow-hidden transition-all ${open ? "border-teal-200" : "border-slate-100"}`}>
+    <div className="bg-white rounded-xl overflow-hidden transition-all" style={{ border: `1px solid ${open ? FOREST + "40" : HAIRLINE}`, fontFamily: FONT_BODY }}>
       <button onClick={() => setOpen((v) => !v)}
-        className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-slate-50/60 transition-colors">
+        className="w-full text-left px-4 py-3.5 flex items-center gap-3 transition-colors"
+        onMouseEnter={(e) => (e.currentTarget.style.background = `${CANVAS}90`)}
+        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
-            <span className="text-[9px] font-bold uppercase tracking-widest text-teal-600">{typeLabel}</span>
+          <div className="flex items-center gap-1.5 flex-wrap mb-1">
+            <span className="text-[10px] font-semibold" style={{ color: FOREST }}>{typeLabel}</span>
             <StatusPill status={booking.status} />
             {d.rescheduled_at && (
-              <span className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full border bg-blue-50 text-blue-600 border-blue-200">Rescheduled</span>
+              <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full border" style={{ background: INFO_SOFT, color: INFO, borderColor: `${INFO}30` }}>Rescheduled</span>
             )}
           </div>
-          <p className="font-bold text-sm text-slate-800 truncate">{name}</p>
-          <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5 text-[10px] text-slate-400 font-medium">
+          <p className="font-semibold text-[14px] truncate" style={{ color: INK }}>{name}</p>
+          <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-[11px] font-medium" style={{ color: INK_SOFT }}>
             {displayDate && (
-              <span className="flex items-center gap-0.5"><Calendar className="h-2.5 w-2.5" />{fmt(displayDate)}</span>
+              <span className="flex items-center gap-1"><Calendar className="h-2.5 w-2.5" />{fmt(displayDate)}</span>
             )}
             {(d.adults || d.num_adults) && (
-              <span className="flex items-center gap-0.5">
+              <span className="flex items-center gap-1">
                 <Users className="h-2.5 w-2.5" />
                 {d.adults || d.num_adults} adults
                 {(d.children || d.num_children) ? ` · ${d.children || d.num_children} kids` : ""}
@@ -948,9 +1014,9 @@ const BookingCard = ({ booking, onReschedule }: { booking: Booking; onReschedule
           </div>
         </div>
         <div className="flex flex-col items-end gap-1 flex-shrink-0">
-          <p className="text-sm font-black" style={{ color: TEAL }}>{fmtMoney(booking.total_amount)}</p>
+          <p className="text-sm font-semibold" style={{ color: CLAY }}>{fmtMoney(booking.total_amount)}</p>
           <StatusPill status={booking.payment_status} />
-          <span className="text-[9px] text-slate-400 font-bold flex items-center gap-0.5 mt-0.5">
+          <span className="text-[10px] font-medium flex items-center gap-0.5 mt-0.5" style={{ color: INK_SOFT }}>
             {open ? <><ChevronUp className="h-3 w-3" /> less</> : <><ChevronDown className="h-3 w-3" /> details</>}
           </span>
         </div>
@@ -963,6 +1029,8 @@ const BookingCard = ({ booking, onReschedule }: { booking: Booking; onReschedule
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 const Bookings = () => {
+  useInjectFonts();
+
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [bookings, setBookings]         = useState<Booking[]>([]);
@@ -1016,7 +1084,7 @@ const Bookings = () => {
     }
 
     setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, booking_details: updated } : b)));
-    toast({ title: "Rescheduled ✓", description: `Moved to ${fmt(newDate)}` });
+    toast({ title: "Rescheduled", description: `Moved to ${fmt(newDate)}` });
   };
 
   const now = new Date();
@@ -1035,11 +1103,11 @@ const Bookings = () => {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-[#F8F9FA] pb-20 md:pb-0">
+      <div className="min-h-screen pb-20 md:pb-0" style={{ background: CANVAS }}>
         <Header />
         <main className="container px-4 py-12 flex flex-col items-center justify-center gap-3">
-          <div className="w-10 h-10 rounded-full border-2 border-teal-200 border-t-teal-600 animate-spin" />
-          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 animate-pulse">Loading…</p>
+          <div className="w-10 h-10 rounded-full animate-spin" style={{ border: `2px solid ${FOREST_SOFT}`, borderTopColor: FOREST }} />
+          <p className="text-[11px] font-medium animate-pulse" style={{ color: INK_SOFT, fontFamily: FONT_BODY }}>Loading…</p>
         </main>
         <MobileBottomBar />
       </div>
@@ -1047,28 +1115,28 @@ const Bookings = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] pb-20 md:pb-0">
+    <div className="min-h-screen pb-20 md:pb-0" style={{ background: CANVAS }}>
       <Header />
-      <main className="container max-w-2xl mx-auto px-4 py-6">
+      <main className="container max-w-2xl mx-auto px-4 py-6" style={{ fontFamily: FONT_BODY }}>
         <div className="mb-6">
-          <p className="text-[9px] font-bold uppercase tracking-widest text-teal-600 mb-0.5">My Account</p>
-          <h1 className="text-2xl font-black text-slate-800 tracking-tight">Bookings</h1>
-          <p className="text-xs text-slate-400 mt-0.5">{bookings.length} booking{bookings.length !== 1 ? "s" : ""}</p>
+          <p className="text-[10px] font-semibold mb-1" style={{ color: FOREST }}>My account</p>
+          <h1 className="text-[28px] font-semibold tracking-tight" style={{ fontFamily: FONT_DISPLAY, color: INK }}>Bookings</h1>
+          <p className="text-[13px] mt-0.5" style={{ color: INK_SOFT }}>{bookings.length} booking{bookings.length !== 1 ? "s" : ""}</p>
         </div>
 
         {/* Guest notice — bookings only live on this device until they log in */}
         {!user && (
-          <div className="mb-5 flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-xl px-3.5 py-3">
-            <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0 mt-0.5" />
+          <div className="mb-5 flex items-start gap-2.5 rounded-xl px-3.5 py-3.5" style={{ background: GOLD_SOFT, border: `1px solid ${GOLD}30` }}>
+            <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: GOLD }} />
             <div className="flex-1">
-              <p className="text-xs font-bold text-amber-700">Saved on this device only</p>
-              <p className="text-[11px] text-amber-600 mt-0.5 leading-relaxed">
+              <p className="text-[13px] font-semibold" style={{ color: GOLD_TEXT }}>Saved on this device only</p>
+              <p className="text-[11px] mt-0.5 leading-relaxed" style={{ color: GOLD_TEXT }}>
                 You're not logged in, so these bookings are stored locally and won't appear on another device or after the app is uninstalled.
               </p>
               <button
                 onClick={() => navigate("/auth")}
-                className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-bold text-white rounded-lg px-3 py-1.5 hover:opacity-90 transition-opacity"
-                style={{ backgroundColor: TEAL }}
+                className="mt-2.5 inline-flex items-center gap-1.5 text-[11px] font-semibold text-white rounded-lg px-3 py-1.5 hover:opacity-90 transition-opacity"
+                style={{ background: `linear-gradient(135deg, #E0824F, ${CLAY})` }}
               >
                 <LogIn className="h-3 w-3" /> Log in to keep them safe
               </button>
@@ -1077,12 +1145,12 @@ const Bookings = () => {
         )}
 
         {bookings.length > 0 && (
-          <div className="flex gap-1.5 mb-5 bg-white rounded-xl p-1 border border-slate-100">
+          <div className="flex gap-1.5 mb-5 bg-white rounded-xl p-1" style={{ border: `1px solid ${HAIRLINE}` }}>
             {(["all", "upcoming", "past"] as const).map((f) => (
               <button key={f} onClick={() => setFilter(f)}
-                className={`flex-1 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${filter === f ? "text-white" : "text-slate-400 hover:text-slate-600"}`}
-                style={filter === f ? { backgroundColor: TEAL } : undefined}>
-                {f} <span className="opacity-60">({counts[f]})</span>
+                className="flex-1 py-2 rounded-lg text-[11px] font-semibold capitalize transition-all"
+                style={filter === f ? { background: FOREST, color: "#fff" } : { color: INK_SOFT }}>
+                {f} <span className="opacity-70">({counts[f]})</span>
               </button>
             ))}
           </div>
@@ -1090,19 +1158,20 @@ const Bookings = () => {
 
         {bookings.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
-            <div className="w-14 h-14 rounded-2xl bg-teal-50 flex items-center justify-center text-3xl">🗺️</div>
-            <h2 className="text-lg font-black text-slate-700">No Bookings Yet</h2>
-            <p className="text-slate-400 text-xs max-w-xs">Your trips, events, and reservations will appear here once you book something.</p>
-            <button onClick={() => navigate("/")} className="mt-1 text-white font-bold rounded-xl px-5 py-2.5 text-xs hover:opacity-90 transition-opacity" style={{ backgroundColor: TEAL }}>
-              Explore Now
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl" style={{ background: FOREST_SOFT }}>🗺️</div>
+            <h2 className="text-lg font-semibold" style={{ fontFamily: FONT_DISPLAY, color: INK }}>No bookings yet</h2>
+            <p className="text-[13px] max-w-xs" style={{ color: INK_SOFT }}>Your trips, events, and reservations will appear here once you book something.</p>
+            <button onClick={() => navigate("/")} className="mt-1 text-white font-semibold rounded-xl px-5 py-2.5 text-[13px] hover:opacity-90 transition-opacity"
+              style={{ background: `linear-gradient(135deg, #E0824F, ${CLAY})` }}>
+              Explore now
             </button>
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-slate-400 text-sm font-semibold">No {filter} bookings</p>
+            <p className="text-sm font-semibold" style={{ color: INK_SOFT }}>No {filter} bookings</p>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             {filtered.map((booking) => (
               <BookingCard key={booking.id} booking={booking} onReschedule={setRescheduling} />
             ))}

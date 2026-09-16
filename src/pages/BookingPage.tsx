@@ -13,7 +13,38 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import { PaymentSuccessDialog } from "@/components/booking/PaymentSuccessDialog";
 import { jsPDF } from "jspdf";
 
-const COLORS = { TEAL: "#008080", CORAL: "#FF7F50" };
+// ── Design tokens ─────────────────────────────────────────────────────────
+// Same field-guide / park-signage system used across the other booking and
+// detail pages: deep forest for structure and brand marks, a warm clay for
+// the primary action. Ink is a green-tinted charcoal rather than pure black.
+const FOREST       = "#1F4D3A";
+const FOREST_DEEP  = "#123322";
+const FOREST_SOFT  = "#EAF0EA";
+const CLAY         = "#C1552F";
+const CLAY_LIGHT   = "#E0824F";
+const INK          = "#1C2B22";
+const INK_SOFT     = "#5B6B60";
+const HAIRLINE     = "#DCE3DC";
+const CANVAS       = "#F4F6F2";
+
+const COLORS = { TEAL: FOREST, CORAL: CLAY };
+
+const FONT_DISPLAY = "'Fraunces', ui-serif, Georgia, serif";
+const FONT_BODY = "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif";
+
+// Injects the two typefaces once, without needing to touch the app's index.html.
+const useInjectFonts = () => {
+  useEffect(() => {
+    const id = "adventure-detail-fonts";
+    if (document.getElementById(id)) return;
+    const link = document.createElement("link");
+    link.id = id;
+    link.rel = "stylesheet";
+    link.href =
+      "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&display=swap";
+    document.head.appendChild(link);
+  }, []);
+};
 
 type BookingType = "trip" | "event" | "hotel" | "adventure_place" | "attraction";
 
@@ -86,7 +117,7 @@ const getBookingMeta = (
 const generateQRDataUrl = (text: string, size = 120): Promise<string> =>
   new Promise(resolve => {
     try {
-      const url = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(text)}&color=008080&bgcolor=ffffff&margin=4`;
+      const url = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(text)}&color=1f4d3a&bgcolor=ffffff&margin=4`;
       const img = new Image();
       img.crossOrigin = "anonymous";
       img.onload = () => {
@@ -179,13 +210,18 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
   const W   = doc.internal.pageSize.getWidth();
   const H   = doc.internal.pageSize.getHeight();
 
-  const TEAL_RGB:  [number,number,number] = [0,128,128];
-  const CORAL_RGB: [number,number,number] = [255,127,80];
-  const SLATE_RGB: [number,number,number] = [51,65,85];
-  const LIGHT_RGB: [number,number,number] = [248,249,250];
-  const MUTED_RGB: [number,number,number] = [100,116,139];
-  const AMBER_RGB: [number,number,number] = [180,120,0];
-  const WHITE:     [number,number,number] = [255,255,255];
+  // ── Palette used inside the PDF, mirroring the on-page design tokens ────
+  const FOREST_RGB:      [number,number,number] = [31,77,58];    // FOREST
+  const FOREST_TINT_RGB: [number,number,number] = [234,240,234]; // FOREST_SOFT
+  const CLAY_RGB:        [number,number,number] = [193,85,47];   // CLAY
+  const INK_RGB:         [number,number,number] = [28,43,34];    // INK
+  const CANVAS_RGB:      [number,number,number] = [244,246,242]; // CANVAS
+  const INK_SOFT_RGB:    [number,number,number] = [91,107,96];   // INK_SOFT
+  const GOLD_TEXT_RGB:   [number,number,number] = [138,103,22];  // GOLD_TEXT
+  const GOLD_SOFT_RGB:   [number,number,number] = [251,242,221]; // GOLD_SOFT
+  const WHITE:           [number,number,number] = [255,255,255];
+  const SUCCESS_RGB:     [number,number,number] = [47,111,78];   // SUCCESS
+  const SOFT_MINT_RGB:   [number,number,number] = [200,224,208]; // pale forest text-on-dark
 
   let y = 0;
   const M  = 36;
@@ -198,11 +234,11 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
   const section = (title: string) => {
     newPage(50);
     y += 4;
-    doc.setFillColor(...TEAL_RGB);
+    doc.setFillColor(...FOREST_RGB);
     doc.rect(M, y, 3, 13, "F");
-    doc.setFillColor(240, 253, 250);
+    doc.setFillColor(...FOREST_TINT_RGB);
     doc.roundedRect(M + 3, y, CW - 3, 13, 2, 2, "F");
-    doc.setTextColor(...TEAL_RGB);
+    doc.setTextColor(...FOREST_RGB);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
     doc.text(title, M + 10, y + 9.5);
@@ -216,13 +252,13 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
     const maxW   = CW - 100;
     const lines: string[] = doc.splitTextToSize(valStr, maxW);
     const rowH  = lines.length > 1 ? 14 + lines.length * 11 : 22;
-    doc.setFillColor(...LIGHT_RGB);
+    doc.setFillColor(...CANVAS_RGB);
     doc.roundedRect(M, y, CW, rowH, 3, 3, "F");
-    doc.setTextColor(...MUTED_RGB);
+    doc.setTextColor(...INK_SOFT_RGB);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(6.5);
     doc.text(String(label).toUpperCase(), M + 8, y + 9);
-    doc.setTextColor(...SLATE_RGB);
+    doc.setTextColor(...INK_RGB);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
     if (lines.length > 1) {
@@ -237,7 +273,7 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
 
   const tableHeader = (left: string, right: string) => {
     newPage(22);
-    doc.setFillColor(...TEAL_RGB);
+    doc.setFillColor(...FOREST_RGB);
     doc.roundedRect(M, y, CW, 18, 3, 3, "F");
     doc.setTextColor(...WHITE);
     doc.setFont("helvetica", "bold");
@@ -250,19 +286,19 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
   const tableRow = (left: string, right: string, sub?: string) => {
     newPage(36);
     const rowH = sub ? 32 : 22;
-    doc.setFillColor(...LIGHT_RGB);
+    doc.setFillColor(...CANVAS_RGB);
     doc.roundedRect(M, y, CW, rowH, 3, 3, "F");
-    doc.setTextColor(...SLATE_RGB);
+    doc.setTextColor(...INK_RGB);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
     const maxL: string[] = doc.splitTextToSize(left, CW - 100);
     maxL.slice(0, 2).forEach((ln: string, i: number) => doc.text(ln, M + 8, y + 13 + i * 10));
     if (sub) {
-      doc.setTextColor(...MUTED_RGB);
+      doc.setTextColor(...INK_SOFT_RGB);
       doc.setFontSize(7);
       doc.text(sub, M + 8, y + 26, { maxWidth: CW - 100 });
     }
-    doc.setTextColor(...TEAL_RGB);
+    doc.setTextColor(...FOREST_RGB);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
     doc.text(right, W - M - 8, y + (sub ? 17 : 14), { align: "right" });
@@ -270,9 +306,9 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
   };
 
   // ── Header banner ──────────────────────────────────────────────
-  doc.setFillColor(...TEAL_RGB);
+  doc.setFillColor(...FOREST_RGB);
   doc.rect(0, 0, W, 96, "F");
-  doc.setFillColor(...CORAL_RGB);
+  doc.setFillColor(...CLAY_RGB);
   doc.triangle(W - 110, 0, W, 0, W, 96, "F");
   doc.setTextColor(...WHITE);
   doc.setFont("helvetica", "bold");
@@ -286,19 +322,19 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
   doc.text(`Generated: ${new Date().toLocaleDateString()}`, M, 82);
   y = 108;
 
-  doc.setFillColor(16, 185, 129);
+  doc.setFillColor(...SUCCESS_RGB);
   doc.roundedRect(W - 132, 98, 96, 22, 11, 11, "F");
   doc.setTextColor(...WHITE);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8);
   doc.text("CONFIRMED", W - 84, 113, { align: "center" });
 
-  doc.setTextColor(...TEAL_RGB);
+  doc.setTextColor(...FOREST_RGB);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(19);
   doc.text(itemName, M, y, { maxWidth: W - M * 2 - 110 });
   y += 18;
-  doc.setTextColor(...MUTED_RGB);
+  doc.setTextColor(...INK_SOFT_RGB);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.text(`${typeLabel.toUpperCase()} BOOKING`, M, y);
@@ -310,7 +346,7 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
     y += 14;
   }
   y += 10;
-  doc.setDrawColor(...TEAL_RGB);
+  doc.setDrawColor(...FOREST_RGB);
   doc.setLineWidth(0.4);
   doc.line(M, y, W - M, y);
   y += 14;
@@ -410,12 +446,12 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
   if (hostPhone || hostEmail) {
     section(`${contactLabel.toUpperCase()} CONTACT`);
     newPage(60);
-    doc.setFillColor(255, 251, 235);
+    doc.setFillColor(...GOLD_SOFT_RGB);
     doc.roundedRect(M, y, CW, 50, 5, 5, "F");
-    doc.setDrawColor(...AMBER_RGB);
+    doc.setDrawColor(...GOLD_TEXT_RGB);
     doc.setLineWidth(0.5);
     doc.roundedRect(M, y, CW, 50, 5, 5, "S");
-    doc.setTextColor(...AMBER_RGB);
+    doc.setTextColor(...GOLD_TEXT_RGB);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
     doc.text(`Contact the ${contactLabel} below for any inquiries,`, M + 10, y + 15);
@@ -431,7 +467,7 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
 
   newPage(60);
   y += 10;
-  doc.setFillColor(...TEAL_RGB);
+  doc.setFillColor(...FOREST_RGB);
   doc.roundedRect(M, y, CW, 48, 6, 6, "F");
   doc.setTextColor(...WHITE);
   doc.setFont("helvetica", "bold");
@@ -439,7 +475,7 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
   doc.text("TOTAL AMOUNT PAID", M + 14, y + 18);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7);
-  doc.setTextColor(179, 230, 230);
+  doc.setTextColor(...SOFT_MINT_RGB);
   doc.text("CONFIRMED & PAID", M + 14, y + 32);
   doc.setTextColor(...WHITE);
   doc.setFont("helvetica", "bold");
@@ -452,24 +488,24 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
   if (qrDataUrl) {
     newPage(140);
     y += 8;
-    doc.setFillColor(...LIGHT_RGB);
+    doc.setFillColor(...CANVAS_RGB);
     doc.roundedRect(M, y, CW, 130, 8, 8, "F");
-    doc.setDrawColor(...TEAL_RGB);
+    doc.setDrawColor(...FOREST_RGB);
     doc.setLineWidth(0.5);
     doc.roundedRect(M, y, CW, 130, 8, 8, "S");
     doc.addImage(qrDataUrl, "PNG", M + 14, y + 15, 100, 100);
-    doc.setTextColor(...TEAL_RGB);
+    doc.setTextColor(...FOREST_RGB);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
     doc.text("BOOKING QR CODE", M + 130, y + 32);
-    doc.setTextColor(...MUTED_RGB);
+    doc.setTextColor(...INK_SOFT_RGB);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
     ["Scan this QR code at the venue to verify",
      "your booking. Present this PDF or the QR",
      "code on your mobile device to the host."]
       .forEach((ln, i) => doc.text(ln, M + 130, y + 50 + i * 13));
-    doc.setTextColor(...SLATE_RGB);
+    doc.setTextColor(...INK_RGB);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
     doc.text(`Booking Ref: ${reference}`, M + 130, y + 108);
@@ -477,20 +513,20 @@ export const generateBookingPDF = async (bookingData: any, reference: string) =>
   }
 
   const footerY = H - 52;
-  doc.setFillColor(240, 253, 250);
+  doc.setFillColor(...FOREST_TINT_RGB);
   doc.rect(0, footerY - 12, W, 64, "F");
-  doc.setDrawColor(...TEAL_RGB);
+  doc.setDrawColor(...FOREST_RGB);
   doc.setLineWidth(1.2);
   doc.line(0, footerY - 12, W, footerY - 12);
-  doc.setFillColor(...TEAL_RGB);
+  doc.setFillColor(...FOREST_RGB);
   doc.circle(M, footerY + 10, 3, "F");
-  doc.setFillColor(...CORAL_RGB);
+  doc.setFillColor(...CLAY_RGB);
   doc.circle(M + 10, footerY + 10, 3, "F");
-  doc.setTextColor(...TEAL_RGB);
+  doc.setTextColor(...FOREST_RGB);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
   doc.text("realtravo.com", W / 2, footerY + 4, { align: "center" });
-  doc.setTextColor(...MUTED_RGB);
+  doc.setTextColor(...INK_SOFT_RGB);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7);
   doc.text("Thank you for booking with Realtravo!  ·  support@realtravo.com", W / 2, footerY + 18, { align: "center" });
@@ -504,12 +540,13 @@ const PaystackFloatingHeader = ({ itemName, onBack }: { itemName: string; onBack
     <div style={{
       position: "fixed", top: 0, left: 0, right: 0, zIndex: 2147483647,
       pointerEvents: "auto",
-      backgroundColor: "#008080",
+      backgroundColor: FOREST,
       borderBottom: "1px solid rgba(255,255,255,0.15)",
-      boxShadow: "0 1px 8px rgba(0,0,0,0.12)",
+      boxShadow: "0 1px 8px rgba(14,23,18,0.2)",
       paddingTop: "max(env(safe-area-inset-top, 0px), 10px)",
       paddingBottom: "10px", paddingLeft: "16px", paddingRight: "16px",
       display: "flex", alignItems: "center", gap: "12px",
+      fontFamily: FONT_BODY,
     }}>
       <button onClick={onBack} aria-label="Back to checkout" style={{
         width: 36, height: 36, borderRadius: "50%",
@@ -526,14 +563,14 @@ const PaystackFloatingHeader = ({ itemName, onBack }: { itemName: string; onBack
         </svg>
       </button>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ margin: 0, fontSize: 10, fontWeight: 700,
-          color: "rgba(255,255,255,0.75)", textTransform: "uppercase",
-          letterSpacing: "0.08em", lineHeight: 1.2 }}>
-          Back to Checkout
+        <p style={{ margin: 0, fontSize: 10, fontWeight: 600,
+          color: "rgba(255,255,255,0.72)",
+          letterSpacing: "0.04em", lineHeight: 1.2 }}>
+          Back to checkout
         </p>
-        <p style={{ margin: 0, fontSize: 15, fontWeight: 900,
-          color: "#ffffff", textTransform: "uppercase",
-          letterSpacing: "-0.03em", lineHeight: 1.2,
+        <p style={{ margin: 0, fontSize: 15, fontWeight: 600, fontFamily: FONT_DISPLAY,
+          color: "#ffffff",
+          letterSpacing: "-0.01em", lineHeight: 1.25,
           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {itemName}
         </p>
@@ -541,7 +578,7 @@ const PaystackFloatingHeader = ({ itemName, onBack }: { itemName: string; onBack
       <div style={{
         display: "flex", alignItems: "center", gap: 5,
         backgroundColor: "rgba(255,255,255,0.2)", color: "#ffffff",
-        fontSize: 11, fontWeight: 700, padding: "6px 12px",
+        fontSize: 11, fontWeight: 600, padding: "6px 12px",
         borderRadius: 999, flexShrink: 0,
       }}>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
@@ -549,7 +586,7 @@ const PaystackFloatingHeader = ({ itemName, onBack }: { itemName: string; onBack
           <rect x="2" y="5" width="20" height="14" rx="2" />
           <line x1="2" y1="10" x2="22" y2="10" />
         </svg>
-        Secure Pay
+        Secure pay
       </div>
     </div>,
     document.body
@@ -557,6 +594,8 @@ const PaystackFloatingHeader = ({ itemName, onBack }: { itemName: string; onBack
 
 // ── Main page ──────────────────────────────────────────────────────────────────
 const BookingPage = () => {
+  useInjectFonts();
+
   const { type, id } = useParams<{ type: string; id: string }>();
   const navigate     = useNavigate();
   const goBack       = useSafeBack();
@@ -824,12 +863,12 @@ const BookingPage = () => {
     return (
       <div
         className={`${LOCK_LIGHT_CLASS} flex flex-col items-center justify-center min-h-screen`}
-        style={{ backgroundColor: "#008080", paddingTop: "env(safe-area-inset-top, 0px)", colorScheme: "light" }}
+        style={{ background: `linear-gradient(160deg, ${FOREST} 0%, ${FOREST_DEEP} 100%)`, paddingTop: "env(safe-area-inset-top, 0px)", colorScheme: "light" }}
       >
         <ForceLightModeStyles />
         <Loader2 className="h-10 w-10 animate-spin text-white mb-4" />
-        <p className="text-sm font-black uppercase tracking-tighter animate-pulse text-white">
-          Loading...
+        <p className="text-sm font-semibold text-white/90 animate-pulse" style={{ fontFamily: FONT_BODY }}>
+          Loading…
         </p>
       </div>
     );
@@ -915,7 +954,7 @@ const BookingPage = () => {
   const itemTypeLabel    = getItemTypeLabel();
 
   return (
-    <div className={`${LOCK_LIGHT_CLASS} min-h-screen bg-[#F8F9FA]`} style={{ colorScheme: "light" }}>
+    <div className={`${LOCK_LIGHT_CLASS} min-h-screen`} style={{ background: CANVAS, colorScheme: "light" }}>
       <ForceLightModeStyles />
 
       {paystackIsActive && item && (
@@ -924,8 +963,8 @@ const BookingPage = () => {
 
       {!isCompleted && !showPaystackContainer && (
         <div
-          className="sticky top-0 z-50 bg-white/80 backdrop-blur-lg border-b border-slate-100"
-          style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
+          className="sticky top-0 z-50 bg-white/85 backdrop-blur-lg"
+          style={{ paddingTop: "env(safe-area-inset-top, 0px)", borderBottom: `1px solid ${HAIRLINE}`, fontFamily: FONT_BODY }}
         >
           <div className="container max-w-2xl mx-auto px-4 py-4 flex items-center gap-4">
             <Button
@@ -937,20 +976,21 @@ const BookingPage = () => {
                   goBack();
                 }
               }}
-              className="rounded-full bg-slate-100 hover:bg-slate-200"
+              className="rounded-full hover:bg-transparent"
+              style={{ background: FOREST_SOFT }}
             >
-              <ArrowLeft className="h-5 w-5" />
+              <ArrowLeft className="h-5 w-5" style={{ color: FOREST }} />
             </Button>
             <div className="flex-1 min-w-0">
               <h1
-                className="text-lg font-black uppercase tracking-tight truncate"
-                style={{ color: COLORS.TEAL }}
+                className="text-lg font-semibold truncate"
+                style={{ fontFamily: FONT_DISPLAY, color: INK }}
               >
                 {isVerifying ? "Checkout" : `Book ${itemTypeLabel} — ${item.name}`}
               </h1>
-              <p className="text-xs text-slate-500 truncate">
+              <p className="text-[13px] truncate" style={{ color: INK_SOFT }}>
                 {isVerifying
-                  ? "Processing payment..."
+                  ? "Processing payment…"
                   : `${item.location}, ${item.country}`}
               </p>
             </div>
@@ -961,21 +1001,20 @@ const BookingPage = () => {
       {isVerifying && !isCompleted && (
         <div
           className="flex flex-col items-center justify-center min-h-[70vh] px-6"
-          style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
+          style={{ paddingTop: "env(safe-area-inset-top, 0px)", fontFamily: FONT_BODY }}
         >
-          <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-6 animate-pulse">
-            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          <div className="w-20 h-20 rounded-full flex items-center justify-center mb-6 animate-pulse" style={{ background: FOREST_SOFT }}>
+            <Loader2 className="h-10 w-10 animate-spin" style={{ color: FOREST }} />
           </div>
-          <h2 className="text-xl font-black uppercase tracking-tight text-foreground mb-2 text-center">
-            Processing Your Booking
+          <h2 className="text-xl font-semibold mb-2 text-center" style={{ fontFamily: FONT_DISPLAY, color: INK }}>
+            Processing your booking
           </h2>
-          <p className="text-sm text-muted-foreground text-center max-w-xs">
-            Please wait while we verify your payment and confirm your booking...
+          <p className="text-sm text-center max-w-xs" style={{ color: INK_SOFT }}>
+            Please wait while we verify your payment and confirm your booking…
           </p>
           <div className="mt-6 flex items-center gap-2">
             {[0, 150, 300].map(delay => (
-              <div key={delay} className="w-2 h-2 rounded-full bg-primary animate-bounce"
-                style={{ animationDelay: `${delay}ms` }} />
+              <div key={delay} className="w-2 h-2 rounded-full animate-bounce" style={{ background: CLAY, animationDelay: `${delay}ms` }} />
             ))}
           </div>
         </div>
@@ -983,12 +1022,12 @@ const BookingPage = () => {
 
       {showPaystackContainer && !isCompleted && !isVerifying && (
         <div className="container max-w-2xl mx-auto px-4 py-6 pb-24">
-          <div className="bg-white rounded-[32px] shadow-xl border border-slate-100 overflow-hidden">
-            <div className="p-6 border-b border-slate-100">
-              <h2 className="text-lg font-black uppercase tracking-tight mb-1" style={{ color: COLORS.TEAL }}>
-                Complete Payment
+          <div className="bg-white rounded-[28px] overflow-hidden" style={{ border: `1px solid ${HAIRLINE}`, boxShadow: "0 8px 30px rgba(28,43,34,0.08)", fontFamily: FONT_BODY }}>
+            <div className="p-6" style={{ borderBottom: `1px solid ${HAIRLINE}` }}>
+              <h2 className="text-lg font-semibold mb-1" style={{ fontFamily: FONT_DISPLAY, color: INK }}>
+                Complete payment
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-[13px]" style={{ color: INK_SOFT }}>
                 Enter your payment details below to complete your booking
               </p>
             </div>
@@ -999,7 +1038,7 @@ const BookingPage = () => {
 
       {!isCompleted && !isVerifying && !showPaystackContainer && (
         <div className="container max-w-2xl mx-auto px-4 py-6 pb-24">
-          <div className="bg-white rounded-[32px] shadow-xl border border-slate-100">
+          <div className="bg-white rounded-[28px]" style={{ border: `1px solid ${HAIRLINE}`, boxShadow: "0 8px 30px rgba(28,43,34,0.06)" }}>
             <MultiStepBooking {...getMultiStepProps()} />
           </div>
         </div>

@@ -4,14 +4,24 @@ import { Footer } from "@/components/Footer";
 import { MobileBottomBar } from "@/components/MobileBottomBar";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import {
-  MapPin, Edit3, EyeOff, Compass, Loader2, ArrowLeft, RotateCcw,
-  TrendingUp, Wallet, CalendarDays, ChevronDown, ChevronUp,
+  MapPin, Edit3, EyeOff, Eye, Compass, Loader2, ArrowLeft, RotateCcw,
+  TrendingUp, Wallet, CalendarDays, ChevronDown, ChevronUp, Trash2, KeyRound, Lock,
 } from "lucide-react";
 
 // ── Design tokens ────────────────────────────────────────────────────────
@@ -74,6 +84,9 @@ const STATUS_STYLES: Record<string, { color: string; bg: string; label: string }
   rejected: { color: COLORS.RUST, bg: `${COLORS.RUST}1A`, label: "Rejected" },
 };
 
+// ── Delete-flow step type ────────────────────────────────────────────────
+type DeleteStep = "password" | "code";
+
 const MyListing = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -87,6 +100,18 @@ const MyListing = () => {
   // Tracks which item IDs are currently mid-resubmit, so we can disable
   // the button and show a spinner per-card without blocking the whole page.
   const [resubmittingIds, setResubmittingIds] = useState<Set<string>>(new Set());
+
+  // Tracks which item IDs are currently mid hide/unhide toggle.
+  const [hidingIds, setHidingIds] = useState<Set<string>>(new Set());
+
+  // ── Delete confirmation flow state ───────────────────────────────────────
+  // Two-step: 1) re-enter account password, 2) enter the one-time code
+  // emailed to the user, THEN the row is actually deleted from the DB.
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
+  const [deleteStep, setDeleteStep] = useState<DeleteStep>("password");
+  const [passwordInput, setPasswordInput] = useState("");
+  const [codeInput, setCodeInput] = useState("");
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
 
   // Host type state
   const [hostingCategory, setHostingCategory] = useState<string | null>(null);
@@ -275,6 +300,162 @@ const MyListing = () => {
     }
   };
 
+  // ── Hide / unhide a listing from other users (creator only) ─────────────
+  // This just flips is_hidden — no confirmation needed since it's instantly
+  // reversible, unlike deletion.
+  const handleToggleHide = async (item: any) => {
+    if (hidingIds.has(item.id)) return;
+
+    const tableName = getTableForType(item.type);
+    if (!tableName) {
+      toast({ title: "Failed", description: "Unknown listing type.", variant: "destructive" });
+      return;
+    }
+
+    setHidingIds(prev => new Set(prev).add(item.id));
+    const nextHidden = !item.is_hidden;
+
+    try {
+      const { error } = await supabase
+        .from(tableName as "trips" | "adventure_places")
+        .update({ is_hidden: nextHidden })
+        .eq("id", item.id);
+
+      if (error) throw error;
+
+      setMyContent(prev =>
+        prev.map(c => (c.id === item.id ? { ...c, is_hidden: nextHidden } : c))
+      );
+
+      toast({
+        title: nextHidden ? "Listing hidden" : "Listing is now visible",
+        description: nextHidden
+          ? "Other users can no longer see this listing."
+          : "This listing is visible to other users again.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Failed",
+        description: error?.message ?? "Something went wrong. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setHidingIds(prev => {
+        const next = new Set(prev);
+        next.delete(item.id);
+        return next;
+      });
+    }
+  };
+
+  // ── Delete flow: step 1 open dialog ──────────────────────────────────────
+  const openDeleteDialog = (item: any) => {
+    setDeleteTarget(item);
+    setDeleteStep("password");
+    setPasswordInput("");
+    setCodeInput("");
+    setDeleteSubmitting(false);
+  };
+
+  const closeDeleteDialog = () => {
+    setDeleteTarget(null);
+    setDeleteStep("password");
+    setPasswordInput("");
+    setCodeInput("");
+    setDeleteSubmitting(false);
+  };
+
+  // ── Delete flow: step 2 — verify password, then email a one-time code ───
+  const handleConfirmPassword = async () => {
+    if (!user?.email) return;
+    if (!passwordInput) {
+      toast({ title: "Password required", description: "Please enter your password to continue.", variant: "destructive" });
+      return;
+    }
+
+    setDeleteSubmitting(true);
+    try {
+      // Re-check the account password without disturbing the current session.
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: passwordInput,
+      });
+
+      if (signInError) {
+        toast({ title: "Incorrect password", description: "Please re-enter your password.", variant: "destructive" });
+        return;
+      }
+
+      // Password confirmed — now send a one-time code to the account email
+      // as the second confirmation step before we actually delete anything.
+      const { error: otpError } = await supabase.auth.signInWithOtp({
+        email: user.email,
+        options: { shouldCreateUser: false },
+      });
+
+      if (otpError) {
+        toast({ title: "Couldn't send code", description: otpError.message, variant: "destructive" });
+        return;
+      }
+
+      toast({ title: "Code sent", description: `We emailed a confirmation code to ${user.email}.` });
+      setDeleteStep("code");
+    } catch (error: any) {
+      toast({ title: "Something went wrong", description: error?.message ?? "Please try again.", variant: "destructive" });
+    } finally {
+      setDeleteSubmitting(false);
+    }
+  };
+
+  // ── Delete flow: step 3 — verify code, then actually delete the row ─────
+  const handleVerifyAndDelete = async () => {
+    if (!user?.email || !deleteTarget) return;
+    if (!codeInput) {
+      toast({ title: "Code required", description: "Please enter the code we emailed you.", variant: "destructive" });
+      return;
+    }
+
+    setDeleteSubmitting(true);
+    try {
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        email: user.email,
+        token: codeInput.trim(),
+        type: "magiclink",
+      });
+
+      if (verifyError) {
+        toast({ title: "Invalid code", description: "That code is incorrect or has expired.", variant: "destructive" });
+        return;
+      }
+
+      const tableName = getTableForType(deleteTarget.type);
+      if (!tableName) throw new Error("Unknown listing type.");
+
+      const { error: deleteError } = await supabase
+        .from(tableName as "trips" | "adventure_places")
+        .delete()
+        .eq("id", deleteTarget.id);
+
+      if (deleteError) throw deleteError;
+
+      setMyContent(prev => prev.filter(c => c.id !== deleteTarget.id));
+
+      toast({
+        title: "Listing deleted",
+        description: `"${deleteTarget.name}" has been permanently removed.`,
+      });
+      closeDeleteDialog();
+    } catch (error: any) {
+      toast({
+        title: "Delete failed",
+        description: error?.message ?? "Something went wrong. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleteSubmitting(false);
+    }
+  };
+
   // ── Per-item earnings & daily bookings analytics ──────────────────────────
   // Fetched lazily the first time the "Analytics" tab is opened, covering ALL
   // of the host's trips + adventure places (not just the currently paginated
@@ -438,6 +619,7 @@ const MyListing = () => {
         {items.map((item) => {
           const isRejected = item.approval_status === "rejected";
           const isResubmitting = resubmittingIds.has(item.id);
+          const isHiding = hidingIds.has(item.id);
           const status = STATUS_STYLES[item.approval_status] || STATUS_STYLES.pending;
 
           return (
@@ -543,6 +725,26 @@ const MyListing = () => {
                         </Button>
                       )}
 
+                      {item.isCreator && (
+                        <Button
+                          onClick={() => handleToggleHide(item)}
+                          disabled={isHiding}
+                          size="sm"
+                          variant="outline"
+                          className="h-9 px-4 rounded-lg text-xs font-medium border disabled:opacity-60"
+                          style={{ borderColor: COLORS.GOLD, color: COLORS.GOLD, backgroundColor: "transparent" }}
+                        >
+                          {isHiding ? (
+                            <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                          ) : item.is_hidden ? (
+                            <Eye className="h-3.5 w-3.5 mr-2" />
+                          ) : (
+                            <EyeOff className="h-3.5 w-3.5 mr-2" />
+                          )}
+                          {item.is_hidden ? "Unhide" : "Hide"}
+                        </Button>
+                      )}
+
                       <Button
                         onClick={() => navigate(`/edit-listing/${item.type}/${item.id}`)}
                         size="sm"
@@ -553,6 +755,19 @@ const MyListing = () => {
                         <Edit3 className="h-3.5 w-3.5 mr-2" />
                         Edit
                       </Button>
+
+                      {item.isCreator && (
+                        <Button
+                          onClick={() => openDeleteDialog(item)}
+                          size="sm"
+                          variant="outline"
+                          className="h-9 px-4 rounded-lg text-xs font-medium border"
+                          style={{ borderColor: COLORS.RUST, color: COLORS.RUST, backgroundColor: "transparent" }}
+                        >
+                          <Trash2 className="h-3.5 w-3.5 mr-2" />
+                          Delete
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -861,6 +1076,115 @@ const MyListing = () => {
       </main>
       <Footer />
       <MobileBottomBar />
+
+      {/* ── Delete confirmation dialog: password step, then emailed-code step ── */}
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) closeDeleteDialog(); }}>
+        <DialogContent className="sm:max-w-sm rounded-2xl" style={{ backgroundColor: COLORS.CARD }}>
+          {deleteStep === "password" ? (
+            <>
+              <DialogHeader>
+                <div className="flex justify-center mb-2">
+                  <div className="p-3 rounded-full" style={{ backgroundColor: `${COLORS.RUST}1A` }}>
+                    <Lock className="h-6 w-6" style={{ color: COLORS.RUST }} />
+                  </div>
+                </div>
+                <DialogTitle className="text-center" style={{ fontFamily: SERIF, color: COLORS.INK }}>
+                  Confirm your password
+                </DialogTitle>
+                <DialogDescription className="text-center">
+                  Deleting "{deleteTarget?.name}" is permanent. Enter your account password to continue.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-1.5 mt-2">
+                <Label className="text-xs" style={{ color: COLORS.MUTED }}>Password</Label>
+                <Input
+                  type="password"
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  placeholder="Enter your password"
+                  onKeyDown={(e) => { if (e.key === "Enter") handleConfirmPassword(); }}
+                  autoFocus
+                />
+              </div>
+
+              <DialogFooter className="flex-col gap-2 sm:flex-col mt-4">
+                <Button
+                  onClick={handleConfirmPassword}
+                  disabled={deleteSubmitting}
+                  className="w-full text-white border-none"
+                  style={{ backgroundColor: COLORS.RUST }}
+                >
+                  {deleteSubmitting ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Verifying…</>
+                  ) : (
+                    "Continue"
+                  )}
+                </Button>
+                <Button
+                  onClick={closeDeleteDialog}
+                  disabled={deleteSubmitting}
+                  variant="outline"
+                  className="w-full"
+                >
+                  Cancel
+                </Button>
+              </DialogFooter>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <div className="flex justify-center mb-2">
+                  <div className="p-3 rounded-full" style={{ backgroundColor: `${COLORS.RUST}1A` }}>
+                    <KeyRound className="h-6 w-6" style={{ color: COLORS.RUST }} />
+                  </div>
+                </div>
+                <DialogTitle className="text-center" style={{ fontFamily: SERIF, color: COLORS.INK }}>
+                  Enter confirmation code
+                </DialogTitle>
+                <DialogDescription className="text-center">
+                  We emailed a code to {user?.email}. Enter it below to permanently delete "{deleteTarget?.name}".
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-1.5 mt-2">
+                <Label className="text-xs" style={{ color: COLORS.MUTED }}>Confirmation code</Label>
+                <Input
+                  value={codeInput}
+                  onChange={(e) => setCodeInput(e.target.value)}
+                  placeholder="Enter the code"
+                  inputMode="numeric"
+                  onKeyDown={(e) => { if (e.key === "Enter") handleVerifyAndDelete(); }}
+                  autoFocus
+                />
+              </div>
+
+              <DialogFooter className="flex-col gap-2 sm:flex-col mt-4">
+                <Button
+                  onClick={handleVerifyAndDelete}
+                  disabled={deleteSubmitting}
+                  className="w-full text-white border-none"
+                  style={{ backgroundColor: COLORS.RUST }}
+                >
+                  {deleteSubmitting ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Deleting…</>
+                  ) : (
+                    <><Trash2 className="h-4 w-4 mr-2" />Confirm & Delete</>
+                  )}
+                </Button>
+                <Button
+                  onClick={() => setDeleteStep("password")}
+                  disabled={deleteSubmitting}
+                  variant="outline"
+                  className="w-full"
+                >
+                  Back
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

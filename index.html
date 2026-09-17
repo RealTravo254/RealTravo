@@ -3,10 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-     
-    <meta name="theme-color" content="#008080" />
+      
+    <!-- Dynamic status bar colors based on user system preference -->
+    <meta name="theme-color" content="#008080" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#1a2332" media="(prefers-color-scheme: dark)" />
+
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Real Travo" />
     <link rel="manifest" href="/manifest.json" />
 
@@ -27,8 +30,18 @@
     <meta property="og:image" content="https://realtravo.com/fulllogo.png" />
 
     <style>
+      :root {
+        --safe-bar-bg: #008080;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --safe-bar-bg: #1a2332;
+        }
+      }
+
       html {
-        background-color: #008080;
+        background-color: var(--safe-bar-bg);
       }
 
       body {
@@ -43,9 +56,7 @@
 
       /*
        * Safe-area bars (notch / status bar / home indicator strips).
-       * These are the ONLY elements allowed to react to the system's
-       * light/dark color scheme — everything else on the page stays
-       * fixed regardless of prefers-color-scheme.
+       * Dynamic background color based on system light/dark theme preference.
        */
       body::before {
         content: "";
@@ -54,7 +65,7 @@
         left: 0;
         right: 0;
         height: env(safe-area-inset-top, 0px);
-        background-color: #008080;
+        background-color: var(--safe-bar-bg);
         z-index: 99999;
         pointer-events: none;
       }
@@ -66,17 +77,9 @@
         left: 0;
         right: 0;
         height: env(safe-area-inset-bottom, 0px);
-        background-color: #008080;
+        background-color: var(--safe-bar-bg);
         z-index: 99999;
         pointer-events: none;
-      }
-
-      @media (prefers-color-scheme: dark) {
-        /* Safe-area bars only — do not add any other selectors here. */
-        body::before,
-        body::after {
-          background-color: #1a2332;
-        }
       }
 
       .glass-effect {
@@ -174,8 +177,6 @@
         </div>
       </div>
       <script>
-        // Fallback in case the image was already cached before onload could attach,
-        // or if it fails to load at all — the name should still appear either way.
         (function () {
           var img = document.getElementById('splash-logo-img');
           var brand = document.getElementById('splash-brand');
@@ -187,7 +188,6 @@
               brand.classList.add('is-ready');
             });
           }
-          // Absolute safety net: never hide the brand for more than 1.5s.
           setTimeout(function () {
             if (brand) brand.classList.add('is-ready');
           }, 1500);

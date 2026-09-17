@@ -66,17 +66,15 @@
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
-
-    /* Safe Area dynamic colors (Default: Light Mode) */
-    --safe-area-bg: #ffffff;
   }
 
-  /* Automatically switch safe area background based on user device theme */
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --safe-area-bg: #000000;
-    }
-  }
+  /*
+   * NOTE: The old `@media (prefers-color-scheme: dark) { :root { ... } }`
+   * block that swapped all these theme variables to dark values has been
+   * removed on purpose. Dark/light mode should only affect the safe-area
+   * bars (see index.html), not the rest of the app. The variables above
+   * now stay fixed regardless of the system color scheme.
+   */
 }
 
 @layer base {
@@ -86,7 +84,6 @@
 
   body {
     @apply bg-background text-foreground;
-    background-color: var(--safe-area-bg);
     padding-left: env(safe-area-inset-left, 0px);
     padding-right: env(safe-area-inset-right, 0px);
   }

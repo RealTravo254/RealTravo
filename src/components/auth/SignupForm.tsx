@@ -19,7 +19,15 @@ function calculateAge(dob: string) {
   return age;
 }
 
-export const SignupForm = ({ onSwitchToLogin }: { onSwitchToLogin: () => void }) => {
+interface SignupFormProps {
+  onSwitchToLogin: () => void;
+  // Called once the account is created and the "verify your email" toast has
+  // fired. AuthModal uses this to flip to the Sign In tab; harmless to omit
+  // when this form is rendered on the standalone /auth page.
+  onSignupSuccess?: () => void;
+}
+
+export const SignupForm = ({ onSwitchToLogin, onSignupSuccess }: SignupFormProps) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -88,6 +96,7 @@ export const SignupForm = ({ onSwitchToLogin }: { onSwitchToLogin: () => void })
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Success", description: "Verify your email to continue." });
+      onSignupSuccess?.();
     }
     setLoading(false);
   };

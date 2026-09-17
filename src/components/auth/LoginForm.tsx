@@ -19,7 +19,15 @@ function getDeviceId() {
   return id;
 }
 
-export const LoginForm = ({ onSwitchToSignup }: { onSwitchToSignup: () => void }) => {
+interface LoginFormProps {
+  onSwitchToSignup: () => void;
+  // Called right after a successful login (password, device-code, or email-code).
+  // Used by AuthModal to close the overlay; harmless to omit when this form
+  // is rendered on the standalone /auth page.
+  onAuthSuccess?: () => void;
+}
+
+export const LoginForm = ({ onSwitchToSignup, onAuthSuccess }: LoginFormProps) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [otpCode, setOtpCode] = useState("");
@@ -91,6 +99,7 @@ export const LoginForm = ({ onSwitchToSignup }: { onSwitchToSignup: () => void }
     }
 
     await finalizeLogin(userId);
+    onAuthSuccess?.();
     navigate("/");
   };
 
@@ -105,6 +114,7 @@ export const LoginForm = ({ onSwitchToSignup }: { onSwitchToSignup: () => void }
       return;
     }
     await finalizeLogin(pendingUserId);
+    onAuthSuccess?.();
     navigate("/");
   };
 
@@ -143,6 +153,7 @@ export const LoginForm = ({ onSwitchToSignup }: { onSwitchToSignup: () => void }
         }
         // Email-code login already re-proves identity — trust this device too.
         if (data?.user) await finalizeLogin(data.user.id);
+        onAuthSuccess?.();
         navigate("/");
       }
     }

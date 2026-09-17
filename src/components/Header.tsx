@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Menu, Heart, Ticket, Home, User, Search, Compass, Briefcase, ChevronDown } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAuthModal } from "@/contexts/AuthModalContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { NavigationDrawer } from "./NavigationDrawer";
@@ -45,6 +46,7 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
 
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { openAuthModal } = useAuthModal();
   const { t } = useTranslation();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [hasScrolled, setHasScrolled] = useState(false);
@@ -86,6 +88,16 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
 
   const headerIconStyles =
     "h-9 w-9 rounded-xl flex items-center justify-center transition-all duration-200 active:scale-90 text-white hover:bg-white/20";
+
+  // Logged-in users go to their account page; guests get the auth modal
+  // instead of being navigated away to a full /auth page.
+  const handleAccountClick = () => {
+    if (user) {
+      navigate("/account");
+    } else {
+      openAuthModal("login");
+    }
+  };
 
   return (
     <header
@@ -171,7 +183,7 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
 
           {/* Account Link with Icon, Text & Dropdown Arrow */}
           <div
-            onClick={() => navigate(user ? "/account" : "/auth")}
+            onClick={handleAccountClick}
             className="hidden md:flex items-center gap-1.5 cursor-pointer text-white/90 hover:text-white transition-colors py-1 px-2"
           >
             <User className="h-4 w-4" />

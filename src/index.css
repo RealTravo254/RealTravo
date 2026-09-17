@@ -3,7 +3,6 @@
 @tailwind utilities;
 
 @layer base {
-  /* Light Theme (Default) */
   :root {
     --background: 0 0% 100%;
     --foreground: 210 20% 15%;
@@ -67,64 +66,15 @@
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Safe Area dynamic colors (Default: Light Mode) */
+    --safe-area-bg: #ffffff;
   }
 
-  /* Dark Theme (Adapts to user device settings) */
+  /* Automatically switch safe area background based on user device theme */
   @media (prefers-color-scheme: dark) {
     :root {
-      --background: 222.2 84% 4.9%;
-      --foreground: 210 40% 98%;
-
-      --card: 222.2 84% 4.9%;
-      --card-foreground: 210 40% 98%;
-
-      --popover: 222.2 84% 4.9%;
-      --popover-foreground: 210 40% 98%;
-
-      --primary: 180 100% 30%;
-      --primary-foreground: 0 0% 100%;
-
-      --primary-light: 180 100% 40%;
-      --primary-dark: 180 100% 20%;
-
-      --secondary: 217.2 32.6% 17.5%;
-      --secondary-foreground: 210 40% 98%;
-
-      --muted: 217.2 32.6% 17.5%;
-      --muted-foreground: 215 20.2% 65.1%;
-
-      --accent: 217.2 32.6% 17.5%;
-      --accent-foreground: 210 40% 98%;
-
-      --destructive: 0 62.8% 30.6%;
-      --destructive-foreground: 210 40% 98%;
-
-      --border: 217.2 32.6% 17.5%;
-      --input: 217.2 32.6% 17.5%;
-      --ring: 180 100% 30%;
-
-      --popup-accent: 174 100% 30%;
-      --popup-accent-foreground: 0 0% 100%;
-
-      --header-bg: 222.2 84% 4.9%;
-      --header-foreground: 210 40% 98%;
-      --header-hover: 217.2 32.6% 17.5%;
-
-      --gradient-primary: linear-gradient(135deg, hsl(180, 100%, 20%), hsl(180, 80%, 25%));
-      --gradient-hero: linear-gradient(to bottom, hsl(222.2, 84%, 4.9%), hsl(217.2, 32.6%, 10%));
-
-      --shadow-soft: 0 2px 8px hsla(0, 0%, 0%, 0.4);
-      --shadow-medium: 0 4px 16px hsla(0, 0%, 0%, 0.5);
-      --shadow-elevated: 0 8px 24px hsla(0, 0%, 0%, 0.6);
-
-      --sidebar-background: 240 5.9% 10%;
-      --sidebar-foreground: 240 4.8% 95.9%;
-      --sidebar-primary: 224.3 76.3% 48%;
-      --sidebar-primary-foreground: 0 0% 100%;
-      --sidebar-accent: 240 3.7% 15.9%;
-      --sidebar-accent-foreground: 240 4.8% 95.9%;
-      --sidebar-border: 240 3.7% 15.9%;
-      --sidebar-ring: 217.2 91.2% 59.8%;
+      --safe-area-bg: #000000;
     }
   }
 }
@@ -136,6 +86,7 @@
 
   body {
     @apply bg-background text-foreground;
+    background-color: var(--safe-area-bg);
     padding-left: env(safe-area-inset-left, 0px);
     padding-right: env(safe-area-inset-right, 0px);
   }

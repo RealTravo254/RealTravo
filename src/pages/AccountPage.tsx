@@ -16,10 +16,13 @@ import {
   Compass,
   Building2,
   BadgeCheck,
-  AlertCircle,
   PlusCircle,
   HelpCircle,
   Settings,
+  CreditCard,
+  History,
+  ShieldAlert,
+  LayoutDashboard,
 } from "lucide-react";
 
 interface UserProfile {
@@ -41,6 +44,7 @@ export default function AccountPage() {
   const [hasCompany, setHasCompany] = useState(false);
   const [companyStatus, setCompanyStatus] = useState<string | null>(null);
   const [isAdventureHost, setIsAdventureHost] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -99,6 +103,18 @@ export default function AccountPage() {
 
       if (advPlaces && advPlaces.length > 0) {
         setIsAdventureHost(true);
+      }
+
+      // 5. Check Admin Role
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .eq("role", "admin")
+        .maybeSingle();
+
+      if (roleData || user.app_metadata?.role === "admin" || user.user_metadata?.is_admin) {
+        setIsAdmin(true);
       }
     } catch (err) {
       console.error("Error fetching account details:", err);
@@ -160,6 +176,11 @@ export default function AccountPage() {
 
               {/* Status Badges */}
               <div className="flex flex-wrap gap-1 mt-1.5">
+                {isAdmin && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                    <ShieldAlert className="h-2.5 w-2.5" /> Administrator
+                  </span>
+                )}
                 {isGuideApproved && (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                     <BadgeCheck className="h-2.5 w-2.5" /> Certified Guide
@@ -175,7 +196,7 @@ export default function AccountPage() {
                     <Compass className="h-2.5 w-2.5" /> Adventure Host
                   </span>
                 )}
-                {!isHost && (
+                {!isHost && !isAdmin && (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-medium bg-muted text-muted-foreground">
                     Explorer
                   </span>
@@ -184,6 +205,28 @@ export default function AccountPage() {
             </div>
           </div>
         </div>
+
+        {/* Admin Access Banner (Visible only to Admins) */}
+        {isAdmin && (
+          <div className="p-3.5 rounded-xl border border-purple-500/30 bg-purple-500/5 flex items-center justify-between gap-3">
+            <div className="space-y-0.5">
+              <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                <ShieldAlert className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
+                Admin Panel Access
+              </p>
+              <p className="text-[10px] text-muted-foreground">
+                Manage platform users, verify hosts, and oversee system transactions.
+              </p>
+            </div>
+            <button
+              onClick={() => navigate("/admin")}
+              className="h-8 px-3 rounded-lg text-xs font-bold bg-purple-600 text-white hover:bg-purple-700 transition-all shrink-0 active:scale-95 flex items-center gap-1"
+            >
+              <LayoutDashboard className="h-3.5 w-3.5" />
+              Admin Panel
+            </button>
+          </div>
+        )}
 
         {/* Host Actions Banner */}
         {isHost ? (
@@ -215,7 +258,7 @@ export default function AccountPage() {
           </div>
         )}
 
-        {/* Navigation Section 1: Bookings & Listings */}
+        {/* Navigation Section 1: Activity & Management */}
         <div className="space-y-1">
           <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground px-1">
             Activity &amp; Management
@@ -258,7 +301,48 @@ export default function AccountPage() {
           </div>
         </div>
 
-        {/* Navigation Section 2: Account & Safety */}
+        {/* Navigation Section 2: Payments & Transactions */}
+        <div className="space-y-1">
+          <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground px-1">
+            Payments &amp; Transactions
+          </p>
+
+          <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border/60">
+            <button
+              onClick={() => navigate("/payment")}
+              className="w-full p-3.5 flex items-center justify-between hover:bg-muted/40 transition-colors text-left"
+            >
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center text-foreground shrink-0">
+                  <CreditCard className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-foreground">Payments &amp; Payouts</p>
+                  <p className="text-[10px] text-muted-foreground">Manage payment methods and payouts</p>
+                </div>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+            </button>
+
+            <button
+              onClick={() => navigate("/payment-history")}
+              className="w-full p-3.5 flex items-center justify-between hover:bg-muted/40 transition-colors text-left"
+            >
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center text-foreground shrink-0">
+                  <History className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-foreground">Payment History</p>
+                  <p className="text-[10px] text-muted-foreground">View receipts and transaction logs</p>
+                </div>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+            </button>
+          </div>
+        </div>
+
+        {/* Navigation Section 3: Account & Safety */}
         <div className="space-y-1">
           <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground px-1">
             Account &amp; Security
@@ -299,7 +383,7 @@ export default function AccountPage() {
           </div>
         </div>
 
-        {/* Navigation Section 3: Support & Legal */}
+        {/* Navigation Section 4: Support */}
         <div className="space-y-1">
           <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground px-1">
             Support

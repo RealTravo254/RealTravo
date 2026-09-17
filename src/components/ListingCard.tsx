@@ -1,4 +1,4 @@
-import React, { useState, memo, useCallback, useMemo, useRef } from "react";
+import React, { useState, memo, useCallback, useMemo, useRef, useEffect } from "react";
 import { MapPin, Star, Calendar, ChevronLeft, ChevronRight, Clock, Heart, Navigation } from "lucide-react";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { Card } from "@/components/ui/card";
@@ -7,6 +7,42 @@ import { cn, optimizeSupabaseImage } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { createDetailPath } from "@/lib/slugUtils";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
+
+// ── Design tokens ─────────────────────────────────────────────────────────
+// Same field-guide / park-signage system used across the detail, booking,
+// and checkout pages: deep forest for structure and brand marks, a warm
+// clay for the primary/favorited action, and a dry-grass gold reserved for
+// caution states. Ink is a green-tinted charcoal rather than pure black.
+const FOREST       = "#1F4D3A";
+const FOREST_DEEP  = "#123322";
+const FOREST_SOFT  = "#EAF0EA";
+const CLAY         = "#C1552F";
+const GOLD         = "#B98A2A";
+const INK          = "#1C2B22";
+const INK_SOFT     = "#5B6B60";
+const HAIRLINE     = "#DCE3DC";
+const DANGER       = "#9C3B2B";
+const DANGER_SOFT  = "#F7E9E5";
+const SUCCESS      = "#2F6F4E";
+
+const FONT_DISPLAY = "'Fraunces', ui-serif, Georgia, serif";
+const FONT_BODY = "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif";
+
+// Injects the two typefaces once per page, without needing to touch the
+// app's index.html. Guarded by element id, so it's cheap even though this
+// hook runs in every card instance in a grid.
+const useInjectFonts = () => {
+  useEffect(() => {
+    const id = "adventure-detail-fonts";
+    if (document.getElementById(id)) return;
+    const link = document.createElement("link");
+    link.id = id;
+    link.rel = "stylesheet";
+    link.href =
+      "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&display=swap";
+    document.head.appendChild(link);
+  }, []);
+};
 
 // ── Price label ─────────────────────────────────────────────────────────────
 // Guided tours (isFlexibleDate && isTrip) show the tour's start time in UTC
@@ -30,8 +66,9 @@ const getPriceLabel = (isFlexibleDate: boolean, isTrip: boolean, date?: string) 
 
 // ── Category badge labels ────────────────────────────────────────────────────
 // Color is intentionally not set per-category here — the badge always falls
-// back to the same dark slate used by the "Guided tour" badge, so adventure
-// place and guided tour badges read as one consistent visual language.
+// back to the same deep forest tint used by the "Guided tour" badge, so
+// adventure place and guided tour badges read as one consistent visual
+// language.
 // NOTE: "accommodation" (Airbnb) intentionally has no label here — Airbnb
 // listings are not surfaced in this card right now.
 const CATEGORY_LABELS: Record<string, string> = {
@@ -57,12 +94,12 @@ const PriceText = ({
 }) => {
   const { formatPrice } = useCurrency();
   return (
-    <div className={cn("flex items-baseline gap-1", isUnavailable && "opacity-50 line-through")}>
-      <span className="text-[10px] text-slate-500 font-medium">From</span>
-      <span className="text-sm font-bold text-slate-900 tabular-nums whitespace-nowrap">
+    <div className={cn("flex items-baseline gap-1", isUnavailable && "opacity-50 line-through")} style={{ fontFamily: FONT_BODY }}>
+      <span className="text-[10px] font-medium" style={{ color: INK_SOFT }}>From</span>
+      <span className="text-sm font-semibold tabular-nums whitespace-nowrap" style={{ color: INK }}>
         {formatPrice(price)}
       </span>
-      <span className="text-[10px] text-slate-500 font-medium">
+      <span className="text-[10px] font-medium" style={{ color: INK_SOFT }}>
         {getPriceLabel(isFlexibleDate, isTrip, date)}
       </span>
     </div>
@@ -125,6 +162,8 @@ const ListingCardComponent = ({
   isFlexibleDate = false, hidePrice = false, categoryColor,
   openingHours, closingHours, distance, workingDays,
 }: ListingCardProps) => {
+  useInjectFonts();
+
   const navigate = useNavigate();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [loadedSlides, setLoadedSlides] = useState(2);
@@ -183,11 +222,11 @@ const ListingCardComponent = ({
 
   const urgencyBadge = useMemo(() => {
     if (isSoldOut)
-      return { text: "Sold out", color: "bg-destructive/10 text-destructive border-destructive/20" };
+      return { text: "Sold out", style: { background: DANGER_SOFT, color: DANGER, borderColor: `${DANGER}40` } };
     if (isOutdated)
-      return { text: "Passed", color: "bg-muted text-muted-foreground border-border" };
+      return { text: "Passed", style: { background: "#F1F3EF", color: INK_SOFT, borderColor: HAIRLINE } };
     if (fewSlotsRemaining)
-      return { text: `${remainingTickets} left`, color: "bg-orange-50 text-orange-700 border-orange-200" };
+      return { text: `${remainingTickets} left`, style: { background: "#FBF2DD", color: "#8A6716", borderColor: `${GOLD}50` } };
     return null;
   }, [isSoldOut, isOutdated, fewSlotsRemaining, remainingTickets]);
 
@@ -294,12 +333,20 @@ const ListingCardComponent = ({
       onKeyDown={(e) => { if (e.key === "Enter") handleCardClick(); }}
       className={cn(
         "group relative flex flex-col overflow-hidden cursor-pointer bg-card transition-all duration-300",
-        "rounded-xl border border-border shadow-sm",
-        "hover:shadow-lg hover:-translate-y-0.5 hover:border-primary/30",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+        "rounded-xl shadow-sm",
+        "hover:shadow-lg hover:-translate-y-0.5",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
         "w-full",
         isUnavailable && "opacity-80",
       )}
+      style={{
+        border: `1px solid ${HAIRLINE}`,
+        fontFamily: FONT_BODY,
+        // @ts-ignore custom property consumed by the focus-visible ring utility above
+        "--tw-ring-color": FOREST,
+      }}
+      onMouseEnter={(e) => (e.currentTarget.style.borderColor = `${CLAY}50`)}
+      onMouseLeave={(e) => (e.currentTarget.style.borderColor = HAIRLINE)}
     >
       {/* ── Image area ── */}
       <div
@@ -343,18 +390,18 @@ const ListingCardComponent = ({
         </div>
 
         {/* Scrim so top badges stay legible on bright photos */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/35 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-16" style={{ background: "linear-gradient(to bottom, rgba(14,23,18,0.4), transparent)" }} />
 
         {/* Category badge — top-left */}
         <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-1.5">
           <span
-            className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md shadow-sm text-white"
-            style={{ backgroundColor: badgeColor ? `${badgeColor}E6` : "rgba(15,23,42,0.85)" }}
+            className="text-[10px] font-semibold px-2 py-1 rounded-md shadow-sm text-white"
+            style={{ backgroundColor: badgeColor ? `${badgeColor}E6` : `${FOREST_DEEP}E6`, fontFamily: FONT_BODY }}
           >
             {displayType}
           </span>
           {urgencyBadge && (
-            <span className={cn("text-[9px] font-bold px-1.5 py-1 rounded-full border backdrop-blur-sm", urgencyBadge.color)}>
+            <span className="text-[9px] font-semibold px-1.5 py-1 rounded-full border backdrop-blur-sm" style={urgencyBadge.style}>
               {urgencyBadge.text}
             </span>
           )}
@@ -368,7 +415,7 @@ const ListingCardComponent = ({
             aria-pressed={isSaved}
             className="absolute top-2.5 right-2.5 z-20 h-8 w-8 rounded-full bg-white/90 shadow flex items-center justify-center hover:bg-white active:scale-90 transition-all"
           >
-            <Heart className={cn("h-4 w-4 transition-colors", isSaved ? "fill-red-500 text-red-500" : "text-slate-600")} />
+            <Heart className="h-4 w-4 transition-colors" style={isSaved ? { fill: CLAY, color: CLAY } : { color: INK_SOFT }} />
           </button>
         )}
 
@@ -381,7 +428,7 @@ const ListingCardComponent = ({
                 aria-label="Previous photo"
                 className="absolute left-2 top-1/2 -translate-y-1/2 z-20 h-7 w-7 rounded-full bg-white/90 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
               >
-                <ChevronLeft className="h-4 w-4 text-foreground" />
+                <ChevronLeft className="h-4 w-4" style={{ color: INK }} />
               </button>
             )}
             {currentSlide < visibleDots - 1 && (
@@ -390,7 +437,7 @@ const ListingCardComponent = ({
                 aria-label="Next photo"
                 className="absolute right-2 top-1/2 -translate-y-1/2 z-20 h-7 w-7 rounded-full bg-white/90 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
               >
-                <ChevronRight className="h-4 w-4 text-foreground" />
+                <ChevronRight className="h-4 w-4" style={{ color: INK }} />
               </button>
             )}
           </>
@@ -418,8 +465,8 @@ const ListingCardComponent = ({
 
         {/* Sold-out / unavailable overlay */}
         {isUnavailable && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/45 backdrop-blur-[1px]">
-            <span className="rounded-md border border-white/60 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-white">
+          <div className="absolute inset-0 z-10 flex items-center justify-center backdrop-blur-[1px]" style={{ background: "rgba(14,23,18,0.5)" }}>
+            <span className="rounded-md border border-white/60 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-white">
               {isSoldOut ? "Sold out" : "Unavailable"}
             </span>
           </div>
@@ -430,10 +477,8 @@ const ListingCardComponent = ({
         {isOpenNow !== null && (
           <div className="absolute bottom-2.5 right-2.5 z-20">
             <span
-              className={cn(
-                "text-[9px] font-bold uppercase tracking-wide px-2 py-1 rounded-md shadow-sm text-white",
-                isOpenNow ? "bg-green-600" : "bg-red-600",
-              )}
+              className="text-[9px] font-semibold uppercase tracking-wide px-2 py-1 rounded-md shadow-sm text-white"
+              style={{ background: isOpenNow ? SUCCESS : DANGER }}
             >
               {isOpenNow ? "Open now" : "Closed"}
             </span>
@@ -444,24 +489,24 @@ const ListingCardComponent = ({
       {/* ── Text content ── */}
       <div className="flex flex-col gap-1.5 p-3 min-w-0">
         {/* Title */}
-        <h3 className="line-clamp-2 text-sm font-bold leading-snug text-slate-900">
+        <h3 className="line-clamp-2 text-[15px] font-semibold leading-snug" style={{ fontFamily: FONT_DISPLAY, color: INK }}>
           {formattedName}
         </h3>
 
         {/* Location + rating, on one row so the card doesn't feel like a stack of separate facts */}
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1 min-w-0 text-slate-500">
+          <div className="flex items-center gap-1 min-w-0" style={{ color: INK_SOFT }}>
             <MapPin className="h-3 w-3 flex-shrink-0" />
             <span className="text-[11px] font-medium truncate">{locationString}</span>
           </div>
           {avgRating != null && avgRating > 0 && (
             <div className="flex items-center gap-0.5 flex-shrink-0">
-              <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-              <span className="text-[11px] font-bold text-slate-800 tabular-nums">
+              <Star className="h-3 w-3" style={{ fill: GOLD, color: GOLD }} />
+              <span className="text-[11px] font-semibold tabular-nums" style={{ color: INK }}>
                 {avgRating.toFixed(1)}
               </span>
               {reviewCount != null && reviewCount > 0 && (
-                <span className="text-[10px] text-slate-500">({reviewCount})</span>
+                <span className="text-[10px]" style={{ color: INK_SOFT }}>({reviewCount})</span>
               )}
             </div>
           )}
@@ -469,7 +514,7 @@ const ListingCardComponent = ({
 
         {/* Secondary meta row: date / distance — only render what applies */}
         {((isTrip && (date || isFlexibleDate)) || distanceText) ? (
-          <div className="flex items-center gap-2.5 flex-wrap text-slate-500">
+          <div className="flex items-center gap-2.5 flex-wrap" style={{ color: INK_SOFT }}>
             {isTrip && (date || isFlexibleDate) && (
               <span className="flex items-center gap-1 text-[10px] font-medium">
                 <Calendar className="h-3 w-3" />
@@ -490,10 +535,10 @@ const ListingCardComponent = ({
             closed days dimmed with a strikethrough. */}
         {isAdventurePlace && hoursText && (
           <div className="flex flex-col gap-1">
-            <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">
+            <span className="text-[9px] font-semibold uppercase tracking-wide" style={{ color: "#9CA8A0" }}>
               Working hours
             </span>
-            <span className="flex items-center gap-1 text-[10px] font-medium text-slate-600">
+            <span className="flex items-center gap-1 text-[10px] font-medium" style={{ color: INK_SOFT }}>
               <Clock className="h-3 w-3" />
               {hoursText}
             </span>
@@ -504,12 +549,12 @@ const ListingCardComponent = ({
                   return (
                     <span
                       key={day}
-                      className={cn(
-                        "text-[9px] font-bold px-1.5 py-0.5 rounded-md",
+                      className="text-[9px] font-semibold px-1.5 py-0.5 rounded-md"
+                      style={
                         isOpenDay
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "bg-slate-100 text-slate-400 line-through decoration-slate-300",
-                      )}
+                          ? { background: FOREST_SOFT, color: FOREST }
+                          : { background: "#F1F3EF", color: "#A7B2AB", textDecoration: "line-through", textDecorationColor: "#C7D0CB" }
+                      }
                     >
                       {day}
                     </span>

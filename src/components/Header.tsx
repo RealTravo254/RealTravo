@@ -8,6 +8,30 @@ import { NavigationDrawer } from "./NavigationDrawer";
 import { Link, useNavigate } from "react-router-dom";
 import { NotificationBell } from "./NotificationBell";
 
+// ── Design tokens ─────────────────────────────────────────────────────────
+// Same field-guide / park-signage system used across the rest of the app:
+// deep forest for structure and brand marks, a warm clay for the primary
+// action.
+const FOREST      = "#1F4D3A";
+const FOREST_DEEP = "#123322";
+
+const FONT_DISPLAY = "'Fraunces', ui-serif, Georgia, serif";
+const FONT_BODY = "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif";
+
+// Injects the two typefaces once, without needing to touch the app's index.html.
+const useInjectFonts = () => {
+  useEffect(() => {
+    const id = "adventure-detail-fonts";
+    if (document.getElementById(id)) return;
+    const link = document.createElement("link");
+    link.id = id;
+    link.rel = "stylesheet";
+    link.href =
+      "https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,600&family=Inter:wght@400;500;600;700;800&display=swap";
+    document.head.appendChild(link);
+  }, []);
+};
+
 export interface HeaderProps {
   onSearchClick?: () => void;
   showSearchIcon?: boolean;
@@ -17,6 +41,8 @@ export interface HeaderProps {
 }
 
 export const Header = ({ onSearchClick, showSearchIcon = true, className, __fromLayout }: HeaderProps) => {
+  useInjectFonts();
+
   const navigate = useNavigate();
   const { user } = useAuth();
   const { t } = useTranslation();
@@ -63,8 +89,13 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
 
   return (
     <header
-      className={`z-[100] items-center fixed top-0 left-0 right-0 flex py-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:bg-[#008080] transition-colors duration-300 ${className || ""}`}
+      className={`z-[100] items-center fixed top-0 left-0 right-0 flex py-3 pt-[max(0.75rem,env(safe-area-inset-top))] transition-colors duration-300 ${className || ""}`}
+      style={{ fontFamily: FONT_BODY }}
     >
+      <div
+        className="absolute inset-0 -z-10 hidden md:block"
+        style={{ background: `linear-gradient(135deg, ${FOREST} 0%, ${FOREST_DEEP} 100%)` }}
+      />
       <div className="container mx-auto px-4 flex items-center justify-between h-full">
 
         {/* Left — hamburger + logo */}
@@ -84,7 +115,10 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
           </Sheet>
 
           <Link to="/" className="flex items-center gap-2 group ml-1">
-            <span className="font-bold text-lg tracking-tight italic text-white hidden md:inline">
+            <span
+              className="text-lg text-white hidden md:inline"
+              style={{ fontFamily: FONT_DISPLAY, fontStyle: "italic", fontWeight: 600, letterSpacing: "-0.01em" }}
+            >
               Real Travo
             </span>
           </Link>
@@ -101,7 +135,7 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
             <Link
               key={item.to}
               to={item.to}
-              className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-white/80 hover:text-white transition-colors"
+              className="flex items-center gap-1.5 text-[13px] font-medium text-white/80 hover:text-white transition-colors"
             >
               {item.icon}<span>{item.label}</span>
             </Link>
@@ -125,9 +159,9 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
           {/* Become Host — desktop only */}
           <button
             onClick={() => navigate("/become-host")}
-            className="hidden md:flex h-9 px-3 rounded-xl items-center gap-2 transition-all font-semibold text-xs text-white bg-white/20 hover:bg-white/30 active:scale-95"
+            className="hidden md:flex h-9 px-3 rounded-xl items-center gap-2 transition-all font-semibold text-[13px] text-white bg-white/15 hover:bg-white/25 active:scale-95"
           >
-            <Briefcase className="h-4 w-4" /><span>Become Host</span>
+            <Briefcase className="h-4 w-4" /><span>Become a host</span>
           </button>
 
           {/* NotificationBell — desktop only */}
@@ -141,7 +175,7 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
             className="hidden md:flex items-center gap-1.5 cursor-pointer text-white/90 hover:text-white transition-colors py-1 px-2"
           >
             <User className="h-4 w-4" />
-            <span className="text-xs font-semibold max-w-[100px] truncate">
+            <span className="text-[13px] font-medium max-w-[100px] truncate">
               {user ? (firstName || t("nav.profile")) : "Guest"}
             </span>
             <ChevronDown className="h-3.5 w-3.5 opacity-80" />

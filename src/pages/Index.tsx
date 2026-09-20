@@ -224,10 +224,8 @@ const Index = () => {
   const { setSearchFocused } = useSearchFocus();
 
   // ── Nearby feature state ───────────────────────────────────────────────────
-  // nearbyRequested: the user tapped a "Nearby" button, so we always show the section.
   // awaitingLocation: we asked the browser for a location and are waiting for it.
   // nearbyRadius: how far (in km) to look; null = any distance.
-  const [nearbyRequested, setNearbyRequested]   = useState(false);
   const [awaitingLocation, setAwaitingLocation] = useState(false);
   const [nearbyRadius, setNearbyRadius]         = useState<number | null>(25);
 
@@ -265,30 +263,6 @@ const Index = () => {
       .sort((a, b) => a.distance - b.distance),
     [nearbyPlaces, nearbyRadius],
   );
-
-  // "Browsers guide" — campsites + guided trips, ranked by rating (accommodations removed)
-  const displayBrowseGuides = useMemo(() => {
-    const seen = new Set<string>();
-    const combined = [
-      ...scrollableRows.campsites.map(item => ({ ...item, __cardType: "ADVENTURE PLACE" as const })),
-      // ...scrollableRows.trips.map(item => ({ ...item, __cardType: "TRIP" as const })),   // fixed trips disabled
-      ...scrollableRows.guidedTrips.map(item => ({ ...item, __cardType: "TRIP" as const })),
-      // ...scrollableRows.events.map(item => ({ ...item, __cardType: "EVENT" as const })), // events disabled
-    ];
-    return combined
-      .filter(item => {
-        if (seen.has(item.id)) return false;
-        seen.add(item.id);
-        return true;
-      })
-      .sort((a, b) => {
-        const ra = ratings.get(a.id);
-        const rb = ratings.get(b.id);
-        const sa = ra ? ra.avgRating * Math.log1p(ra.reviewCount) : 0;
-        const sb = rb ? rb.avgRating * Math.log1p(rb.reviewCount) : 0;
-        return sb - sa;
-      });
-  }, [scrollableRows.campsites, scrollableRows.guidedTrips, ratings]);
 
   // ── Data fetching ──────────────────────────────────────────────────────────
   const fetchScrollableRows = useCallback(async (limit: number, opts: { background?: boolean } = {}) => {
@@ -424,12 +398,11 @@ const Index = () => {
   }, []);
 
   // ── Nearby: tap handler ────────────────────────────────────────────────────
-  // 1) reveals the Nearby section and scrolls to it,
+  // 1) scrolls to the Nearby section,
   // 2) asks the browser for the user's location if we don't have it yet,
   // 3) if location is blocked (or nothing arrives in time) shows the
   //    "turn on location" dialog with a Try again button.
   const handleNearbyTap = useCallback(() => {
-    setNearbyRequested(true);
     window.setTimeout(() => {
       nearbyRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 120);
@@ -515,17 +488,6 @@ const Index = () => {
   }, [position, ratings, savedItems, handleSave, bookingStats]);
 
   // ── Pre-build node arrays ──────────────────────────────────────────────────
-  const browseGuideNodes = useMemo(() =>
-    displayBrowseGuides.map((item: any, i) => {
-      const isGuided = item.__cardType === "TRIP";
-      return renderCard(item, item.__cardType, i, {
-        hidePrice: !isGuided,
-        isTrip: isGuided,
-      });
-    }),
-    [displayBrowseGuides, renderCard],
-  );
-
   // Nearby cards — same card as everywhere else, with the distance badge filled in.
   const nearbyNodes = useMemo(() =>
     nearbyFiltered.map((item: any, i) =>
@@ -809,31 +771,22 @@ const Index = () => {
               </div>
             </section>
 
-            {/* Browsers guide */}
-            <GridSection
-              title="Browsers guide"
-              viewAllPath="/explore"
-              accentColor="hsl(25, 90%, 50%)"
-              items={browseGuideNodes}
-              loading={loadingScrollable}
-            />
-
-            {/* Nearby — appears once the user taps Nearby (or location is already on).
-                Shows places sorted by distance, with distance chips and helpful
-                states for "locating…", "location off" and "nothing in range". */}
-            {(nearbyRequested || position || nearbyPlaces.length > 0) && (
-              <div ref={nearbyRef} className="scroll-mt-24">
-                <GridSection
-                  title="Nearby"
-                  viewAllPath="/explore"
-                  accentColor="hsl(200, 70%, 45%)"
-                  items={nearbyNodes}
-                  loading={loadingNearby}
-                  headerExtra={nearbyHeaderExtra}
-                  emptyState={nearbyEmptyState}
-                />
-              </div>
-            )}
+            {/* Nearby — replaces the old "Browsers guide" section.
+                Always visible. Shows places sorted by distance from the user, with
+                distance chips, and helpful states for "locating…", "location off"
+                and "nothing in range". The hero button and Quick Access tile
+                scroll here. */}
+            <div ref={nearbyRef} className="scroll-mt-24">
+              <GridSection
+                title="Nearby"
+                viewAllPath="/explore"
+                accentColor="hsl(25, 90%, 50%)"
+                items={nearbyNodes}
+                loading={loadingNearby}
+                headerExtra={nearbyHeaderExtra}
+                emptyState={nearbyEmptyState}
+              />
+            </div>
 
             {/* Quick Navigation */}
             <section className="mb-4 md:mb-8">

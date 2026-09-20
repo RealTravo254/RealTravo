@@ -12,6 +12,7 @@ import { ListingCard } from "@/components/ListingCard";
 import {
   Tent, Map,
   Navigation, Heart, Ticket, Star, Search as SearchIcon,
+  MapPin, LocateFixed, Loader2,
 } from "lucide-react";
 import { FEATURED_COUNTIES, COUNTY_IMAGES } from "@/lib/kenyaCounties";
 import {
@@ -24,7 +25,7 @@ import { getUserId } from "@/lib/sessionManager";
 import { useGeolocation, calculateDistance } from "@/hooks/useGeolocation";
 import { ListingSkeleton } from "@/components/ui/listing-skeleton";
 import { useSavedItems } from "@/hooks/useSavedItems";
-import { useRatings, sortByRating } from "@/hooks/useRatings";
+import { useRatings } from "@/hooks/useRatings";
 import { useRealtimeBookings } from "@/hooks/useRealtimeBookings";
 import { useResponsiveLimit } from "@/hooks/useResponsiveLimit";
 
@@ -38,9 +39,13 @@ interface GridSectionProps {
   accentColor: string;
   items: React.ReactNode[];
   loading: boolean;
+  /** Optional content shown right under the section header (e.g. filter chips). */
+  headerExtra?: React.ReactNode;
+  /** Optional content shown instead of skeletons when there are no items. */
+  emptyState?: React.ReactNode;
 }
 
-const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: GridSectionProps) => {
+const GridSection = memo(({ title, viewAllPath, accentColor, items, loading, headerExtra, emptyState }: GridSectionProps) => {
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_COUNT);
   const [loadingMore, setLoadingMore]   = useState(false);
 
@@ -61,10 +66,10 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: G
     }, 500);
   };
 
-  // Show the skeleton mockup any time there are no items — whether we're
-  // still loading, or loading finished and simply came back empty — so the
-  // section never collapses to a blank gap.
-  const showSkeletons = items.length === 0;
+  // With no items we show either the caller's emptyState (if given) or the
+  // skeleton mockup, so the section never collapses to a blank gap.
+  const showEmptyState = items.length === 0 && !!emptyState;
+  const showSkeletons  = items.length === 0 && !emptyState;
   const cardWidthClasses = "w-[75vw] sm:w-[230px] md:w-[240px] lg:w-[260px] shrink-0";
 
   const Skeletons = ({ count }: { count: number }) => (
@@ -98,7 +103,11 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: G
         </Link>
       </div>
 
-      {showSkeletons ? (
+      {headerExtra}
+
+      {showEmptyState ? (
+        emptyState
+      ) : showSkeletons ? (
         <div className="flex gap-2.5 md:gap-4 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory -mx-4 px-4 md:mx-0 md:px-0">
           <Skeletons count={INITIAL_VISIBLE_COUNT} />
         </div>
@@ -143,12 +152,31 @@ const CATEGORIES = [
 
 // ── Quick-nav shortcuts ───────────────────────────────────────────────────────
 // Hotels and AirBnb removed per request.
-const QUICK_NAV = [
+// The "Nearby" tile has no path — it runs the same location flow as the hero button.
+const QUICK_NAV: {
+  icon: typeof Tent; title: string; path?: string; color: string; action?: "nearby";
+}[] = [
+  { icon: LocateFixed, title: "Nearby",        color: "hsl(160, 70%, 38%)", action: "nearby" },
   { icon: Tent,   title: "Outdoors & Campsites",     path: "/category/campsite", color: "hsl(278, 90%, 50%)" },
   { icon: Map,    title: "Tours & Trips", path: "/category/guided",   color: "hsl(235, 90%, 50%)" },
   { icon: Ticket, title: "Bookings",      path: "/bookings",          color: "hsl(200, 70%, 45%)" },
   { icon: Heart,  title: "Saved",         path: "/saved",             color: "hsl(350, 80%, 55%)" },
 ];
+
+// ── Nearby radius filter ──────────────────────────────────────────────────────
+// Values are in the same unit that calculateDistance() returns (kilometres for a
+// standard haversine). If yours returns miles or metres, change these numbers
+// and the "km" labels below. `null` means "any distance".
+const NEARBY_RADIUS_OPTIONS: { value: number | null; label: string }[] = [
+  { value: 5,    label: "5 km" },
+  { value: 10,   label: "10 km" },
+  { value: 25,   label: "25 km" },
+  { value: 50,   label: "50 km" },
+  { value: null, label: "Any distance" },
+];
+// How long to wait for a location fix after the user taps Nearby before we
+// assume permission was refused and show the "turn on location" dialog.
+const LOCATION_WAIT_MS = 8000;
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 const Index = () => {
@@ -166,6 +194,7 @@ const Index = () => {
   const [headerHeight, setHeaderHeight]           = useState(0);
   const searchRef   = useRef<HTMLDivElement>(null);
   const countiesRef = useRef<HTMLDivElement>(null);
+  const nearbyRef   = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const measure = () => {
@@ -190,8 +219,17 @@ const Index = () => {
   const [nearbyPlaces, setNearbyPlaces]             = useState<any[]>([]);
   const [loadingScrollable, setLoadingScrollable]   = useState(true);
   const [loadingNearby, setLoadingNearby]           = useState(false);
+  const [nearbyLoaded, setNearbyLoaded]             = useState(false);
   const [isSearchFocused, setIsSearchFocusedLocal]  = useState(false);
   const { setSearchFocused } = useSearchFocus();
+
+  // ── Nearby feature state ───────────────────────────────────────────────────
+  // nearbyRequested: the user tapped a "Nearby" button, so we always show the section.
+  // awaitingLocation: we asked the browser for a location and are waiting for it.
+  // nearbyRadius: how far (in km) to look; null = any distance.
+  const [nearbyRequested, setNearbyRequested]   = useState(false);
+  const [awaitingLocation, setAwaitingLocation] = useState(false);
+  const [nearbyRadius, setNearbyRadius]         = useState<number | null>(25);
 
   const setIsSearchFocused = useCallback((v: boolean) => {
     setIsSearchFocusedLocal(v);
@@ -218,32 +256,15 @@ const Index = () => {
   const { bookingStats } = useRealtimeBookings(tripEventIds);
   const { ratings }      = useRatings(allItemIds);
 
-  // "Nearest to You" — campsites sorted by distance, guided trips by rating appended after
-  const sortedNearbyPlaces = useMemo(() => {
-    const places = sortByRating(nearbyPlaces, ratings, position, calculateDistance)
-      .map((item: any) => ({ ...item, __cardType: "ADVENTURE PLACE" as const }));
-
-    const seen = new Set(places.map((p: any) => p.id));
-    const others = [
-      // ...scrollableRows.trips.map(item => ({ ...item, __cardType: "TRIP" as const })),   // fixed trips disabled
-      ...scrollableRows.guidedTrips.map(item => ({ ...item, __cardType: "TRIP" as const })),
-      // ...scrollableRows.events.map(item => ({ ...item, __cardType: "EVENT" as const })),  // events disabled
-    ]
-      .filter(item => {
-        if (seen.has(item.id)) return false;
-        seen.add(item.id);
-        return true;
-      })
-      .sort((a, b) => {
-        const ra = ratings.get(a.id);
-        const rb = ratings.get(b.id);
-        const sa = ra ? ra.avgRating * Math.log1p(ra.reviewCount) : 0;
-        const sb = rb ? rb.avgRating * Math.log1p(rb.reviewCount) : 0;
-        return sb - sa;
-      });
-
-    return [...places, ...others];
-  }, [nearbyPlaces, ratings, position, scrollableRows.guidedTrips]);
+  // "Nearby" — campsites that have a known distance from the user, closest first,
+  // limited to the selected radius. (Guided trips have no coordinates, so they
+  // can't be placed "near" anyone and are not part of this list.)
+  const nearbyFiltered = useMemo(() =>
+    nearbyPlaces
+      .filter(p => p.distance !== undefined && (nearbyRadius === null || p.distance <= nearbyRadius))
+      .sort((a, b) => a.distance - b.distance),
+    [nearbyPlaces, nearbyRadius],
+  );
 
   // "Browsers guide" — campsites + guided trips, ranked by rating (accommodations removed)
   const displayBrowseGuides = useMemo(() => {
@@ -340,12 +361,14 @@ const Index = () => {
       // ListingCard can render the category badge, working-days line, and
       // Open now/Closed badge. Filtered to campsite category only — hotels
       // are excluded entirely.
+      // Limit raised from 50 to 200 so the closest places aren't cut off before
+      // we sort by distance on the client.
       const { data } = await supabase
         .from("adventure_places")
         .select("id,name,location,place,country,image_url,entry_fee,activities,latitude,longitude,created_at,description,opening_hours,closing_hours,category,days_opened")
         .eq("approval_status", "approved").eq("is_hidden", false)
         .eq("category", "campsite")
-        .limit(50);
+        .limit(200);
       const withDist = (data || [])
         .map(item => ({
           ...item,
@@ -363,6 +386,7 @@ const Index = () => {
       console.error("Error fetching nearby places:", err);
     } finally {
       if (!opts.background) setLoadingNearby(false);
+      setNearbyLoaded(true);
     }
   }, [position]);
 
@@ -398,6 +422,48 @@ const Index = () => {
     window.addEventListener("scroll", ctrl, { passive: true });
     return () => window.removeEventListener("scroll", ctrl);
   }, []);
+
+  // ── Nearby: tap handler ────────────────────────────────────────────────────
+  // 1) reveals the Nearby section and scrolls to it,
+  // 2) asks the browser for the user's location if we don't have it yet,
+  // 3) if location is blocked (or nothing arrives in time) shows the
+  //    "turn on location" dialog with a Try again button.
+  const handleNearbyTap = useCallback(() => {
+    setNearbyRequested(true);
+    window.setTimeout(() => {
+      nearbyRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 120);
+
+    if (position) return; // already have a location, nothing else to do
+
+    setAwaitingLocation(true);
+    forceRequestLocation(); // called straight from the tap so the browser allows the prompt
+
+    // Where supported, spot a permanently blocked permission right away
+    // instead of making the user wait for the timeout below.
+    try {
+      navigator.permissions
+        ?.query({ name: "geolocation" as PermissionName })
+        .then(status => {
+          if (status.state === "denied") {
+            setAwaitingLocation(false);
+            setShowLocationDialog(true);
+          }
+        })
+        .catch(() => { /* not supported — the timeout handles it */ });
+    } catch { /* ignore */ }
+  }, [position, forceRequestLocation]);
+
+  // Stop waiting once we get a location; give up (and show the dialog) if none arrives.
+  useEffect(() => {
+    if (!awaitingLocation) return;
+    if (position) { setAwaitingLocation(false); return; }
+    const timer = window.setTimeout(() => {
+      setAwaitingLocation(false);
+      setShowLocationDialog(true);
+    }, LOCATION_WAIT_MS);
+    return () => window.clearTimeout(timer);
+  }, [awaitingLocation, position]);
 
   // ── Card renderer ──────────────────────────────────────────────────────────
   const renderCard = useCallback((
@@ -460,49 +526,97 @@ const Index = () => {
     [displayBrowseGuides, renderCard],
   );
 
+  // Nearby cards — same card as everywhere else, with the distance badge filled in.
   const nearbyNodes = useMemo(() =>
-    sortedNearbyPlaces.map((item: any, i) => {
-      const a = item as any;
-      const rd = ratings.get(item.id);
-      const isGuided = a.__cardType === "TRIP";
-      const today = new Date().toISOString().split("T")[0];
-      return (
-        <ListingCard
-          key={item.id}
-          id={item.id}
-          type={a.__cardType || "ADVENTURE PLACE"}
-          category={a.category}
-          name={item.name}
-          imageUrl={a.image_url}
-          location={a.location}
-          country={a.country}
-          price={isGuided ? (a.price || 0) : (a.entry_fee || 0)}
-          date={isGuided ? (a.date || "") : ""}
-          isCustomDate={a.is_custom_date}
-          isFlexibleDate={a.is_flexible_date}
-          isOutdated={isGuided && a.date && !a.is_flexible_date && a.date < today}
-          isSaved={savedItems.has(item.id)}
-          onSave={handleSave}
-          hideSave={false}
-          hidePrice={!isGuided}
-          showBadge={true}
-          priority={i === 0}
-          activities={a.activities}
-          distance={a.distance}
-          avgRating={rd?.avgRating}
-          reviewCount={rd?.reviewCount}
-          place={a.place}
-          availableTickets={isGuided ? a.available_tickets : undefined}
-          bookedTickets={isGuided ? bookingStats[item.id] || 0 : undefined}
-          description={a.description}
-          openingHours={a.opening_hours}
-          closingHours={a.closing_hours}
-          workingDays={a.days_opened}
-        />
-      );
-    }),
-    [sortedNearbyPlaces, ratings, savedItems, handleSave, bookingStats],
+    nearbyFiltered.map((item: any, i) =>
+      renderCard(item, "ADVENTURE PLACE", i, { hidePrice: true }),
+    ),
+    [nearbyFiltered, renderCard],
   );
+
+  // ── Nearby: section extras ─────────────────────────────────────────────────
+  const radiusLabel = NEARBY_RADIUS_OPTIONS.find(o => o.value === nearbyRadius)?.label ?? "";
+
+  // Status line + distance chips (only once we know where the user is).
+  const nearbyHeaderExtra = position ? (
+    <div className="mb-3">
+      <p className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2">
+        <MapPin className="h-3.5 w-3.5 shrink-0" />
+        {nearbyLoaded
+          ? `${nearbyFiltered.length} ${nearbyFiltered.length === 1 ? "place" : "places"} ${nearbyRadius === null ? "sorted by distance from you" : `within ${radiusLabel} of you`}`
+          : "Looking for places near you…"}
+      </p>
+      <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
+        {NEARBY_RADIUS_OPTIONS.map(opt => {
+          const active = opt.value === nearbyRadius;
+          return (
+            <button
+              key={opt.label}
+              onClick={() => setNearbyRadius(opt.value)}
+              aria-pressed={active}
+              className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-bold border transition-all active:scale-95 ${
+                active
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-card text-foreground border-border hover:bg-muted"
+              }`}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  ) : null;
+
+  // What to show instead of cards when there's nothing to list yet.
+  // Returns undefined while data is loading, so skeletons show instead.
+  const nearbyEmptyState = (() => {
+    // 1) We don't have a location yet
+    if (!position) {
+      const locating = awaitingLocation || locationLoading;
+      return (
+        <div className="flex flex-col items-center text-center gap-3 rounded-2xl border border-border bg-card px-4 py-8">
+          {locating
+            ? <Loader2 className="h-7 w-7 animate-spin text-primary" />
+            : <MapPin className="h-7 w-7 text-primary" />}
+          <p className="text-sm text-muted-foreground max-w-xs">
+            {locating
+              ? "Finding your location…"
+              : "Turn on your location to see campsites close to you."}
+          </p>
+          {!locating && (
+            <button
+              onClick={handleNearbyTap}
+              className="px-5 py-2 rounded-full bg-primary text-primary-foreground text-sm font-bold active:scale-95 transition-all"
+            >
+              Use my location
+            </button>
+          )}
+        </div>
+      );
+    }
+    // 2) We have a location but the places haven't loaded yet → skeletons
+    if (!nearbyLoaded || loadingNearby) return undefined;
+    // 3) Loaded, but nothing inside the chosen distance
+    return (
+      <div className="flex flex-col items-center text-center gap-3 rounded-2xl border border-border bg-card px-4 py-8">
+        <MapPin className="h-7 w-7 text-muted-foreground" />
+        <p className="text-sm text-muted-foreground max-w-xs">
+          {nearbyRadius === null
+            ? "We couldn't find any places with a known location yet."
+            : `No places within ${radiusLabel} of you.`}
+        </p>
+        {nearbyRadius !== null && (
+          <button
+            onClick={() => setNearbyRadius(null)}
+            className="px-5 py-2 rounded-full bg-primary text-primary-foreground text-sm font-bold active:scale-95 transition-all"
+          >
+            Show any distance
+          </button>
+        )}
+      </div>
+    );
+  })();
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -611,6 +725,17 @@ const Index = () => {
                     showBackButton={false}
                   />
                 </div>
+
+                {/* Nearby — tap to use your location and jump to places close to you */}
+                <button
+                  onClick={handleNearbyTap}
+                  className="mt-3 inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-white text-primary text-sm font-bold shadow-lg hover:bg-white/90 active:scale-95 transition-all"
+                >
+                  {awaitingLocation
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <LocateFixed className="h-4 w-4" />}
+                  {awaitingLocation ? "Finding you…" : "Nearby"}
+                </button>
               </div>
             </div>
           </div>
@@ -693,25 +818,31 @@ const Index = () => {
               loading={loadingScrollable}
             />
 
-            {/* Nearest to You */}
-            {(position || nearbyPlaces.length > 0) && (
-              <GridSection
-                title={t("sections.nearestToYou")}
-                viewAllPath="/explore"
-                accentColor="hsl(200, 70%, 45%)"
-                items={nearbyNodes}
-                loading={loadingNearby}
-              />
+            {/* Nearby — appears once the user taps Nearby (or location is already on).
+                Shows places sorted by distance, with distance chips and helpful
+                states for "locating…", "location off" and "nothing in range". */}
+            {(nearbyRequested || position || nearbyPlaces.length > 0) && (
+              <div ref={nearbyRef} className="scroll-mt-24">
+                <GridSection
+                  title="Nearby"
+                  viewAllPath="/explore"
+                  accentColor="hsl(200, 70%, 45%)"
+                  items={nearbyNodes}
+                  loading={loadingNearby}
+                  headerExtra={nearbyHeaderExtra}
+                  emptyState={nearbyEmptyState}
+                />
+              </div>
             )}
 
             {/* Quick Navigation */}
             <section className="mb-4 md:mb-8">
               <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-3">Quick Access</h2>
-              <div className="grid grid-cols-4 gap-1.5">
+              <div className="grid grid-cols-5 gap-1.5">
                 {QUICK_NAV.map(nav => (
                   <button
                     key={nav.title}
-                    onClick={() => navigate(nav.path)}
+                    onClick={() => (nav.action === "nearby" ? handleNearbyTap() : navigate(nav.path!))}
                     className="flex flex-col items-center gap-1 py-2 px-1 rounded-xl bg-card border border-border hover:shadow-md transition-all active:scale-95"
                   >
                     <div
@@ -767,7 +898,8 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Location permission dialog */}
+        {/* Location permission dialog — now opens when the user taps Nearby
+            and location is blocked or doesn't arrive in time. */}
         <AlertDialog open={showLocationDialog} onOpenChange={setShowLocationDialog}>
           <AlertDialogContent className="max-w-sm">
             <AlertDialogHeader>
@@ -781,7 +913,11 @@ const Index = () => {
             </AlertDialogHeader>
             <AlertDialogFooter className="flex-col gap-2 sm:flex-col">
               <AlertDialogAction
-                onClick={() => { setShowLocationDialog(false); forceRequestLocation(); }}
+                onClick={() => {
+                  setShowLocationDialog(false);
+                  setAwaitingLocation(true);
+                  forceRequestLocation();
+                }}
                 className="w-full bg-primary hover:bg-primary/90"
               >
                 {t("location.tryAgain")}

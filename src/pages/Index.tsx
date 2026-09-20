@@ -152,11 +152,11 @@ const CATEGORIES = [
 
 // ── Quick-nav shortcuts ───────────────────────────────────────────────────────
 // Hotels and AirBnb removed per request.
-// The "Nearby" tile has no path — it runs the same location flow as the hero button.
+// The "My location" tile has no path — it runs the same location flow as the hero button.
 const QUICK_NAV: {
   icon: typeof Tent; title: string; path?: string; color: string; action?: "nearby";
 }[] = [
-  { icon: LocateFixed, title: "Nearby",        color: "hsl(160, 70%, 38%)", action: "nearby" },
+  { icon: LocateFixed, title: "My location",   color: "hsl(160, 70%, 38%)", action: "nearby" },
   { icon: Tent,   title: "Outdoors & Campsites",     path: "/category/campsite", color: "hsl(278, 90%, 50%)" },
   { icon: Map,    title: "Tours & Trips", path: "/category/guided",   color: "hsl(235, 90%, 50%)" },
   { icon: Ticket, title: "Bookings",      path: "/bookings",          color: "hsl(200, 70%, 45%)" },
@@ -185,7 +185,7 @@ const Index = () => {
   const { savedItems, handleSave } = useSavedItems();
   const [userId, setUserId] = useState<string | null>(null);
   const { toast } = useToast();
-  const { position, loading: locationLoading, requestLocation, forceRequestLocation } = useGeolocation();
+  const { position, loading: locationLoading, forceRequestLocation } = useGeolocation();
   const [showLocationDialog, setShowLocationDialog] = useState(false);
   const { cardLimit } = useResponsiveLimit();
 
@@ -365,8 +365,6 @@ const Index = () => {
   }, [position]);
 
   // ── Effects ────────────────────────────────────────────────────────────────
-  useEffect(() => { requestLocation(); }, [requestLocation]);
-
   // Caching removed — the home page now always fetches fresh data on load
   // instead of reusing a previously stored snapshot.
   useEffect(() => {
@@ -496,11 +494,43 @@ const Index = () => {
     [nearbyFiltered, renderCard],
   );
 
+  // Before the user shares their location: the same campsite cards, ranked by
+  // rating, with no distance badge. Once they tap "My location" these are
+  // swapped for the distance-sorted list above.
+  const defaultNodes = useMemo(() => {
+    const score = (id: string) => {
+      const r = ratings.get(id);
+      return r ? r.avgRating * Math.log1p(r.reviewCount) : 0;
+    };
+    return [...scrollableRows.campsites]
+      .sort((a, b) => score(b.id) - score(a.id))
+      .map((item: any, i) => renderCard(item, "ADVENTURE PLACE", i, { hidePrice: true }));
+  }, [scrollableRows.campsites, ratings, renderCard]);
+
+  const sectionNodes = position ? nearbyNodes : defaultNodes;
+
   // ── Nearby: section extras ─────────────────────────────────────────────────
   const radiusLabel = NEARBY_RADIUS_OPTIONS.find(o => o.value === nearbyRadius)?.label ?? "";
 
-  // Status line + distance chips (only once we know where the user is).
-  const nearbyHeaderExtra = position ? (
+  // Before location: a "My location" button. After: status line + distance chips.
+  const locating = awaitingLocation || locationLoading;
+  const nearbyHeaderExtra = !position ? (
+    <div className="mb-3 flex items-center justify-between gap-3">
+      <p className="text-xs text-muted-foreground">
+        Showing all places. Tap My location to see what's closest to you.
+      </p>
+      <button
+        onClick={handleNearbyTap}
+        disabled={locating}
+        className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-primary text-primary-foreground text-xs font-bold shadow-sm active:scale-95 disabled:opacity-70 transition-all"
+      >
+        {locating
+          ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          : <LocateFixed className="h-3.5 w-3.5" />}
+        {locating ? "Finding you…" : "My location"}
+      </button>
+    </div>
+  ) : (
     <div className="mb-3">
       <p className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2">
         <MapPin className="h-3.5 w-3.5 shrink-0" />
@@ -528,38 +558,16 @@ const Index = () => {
         })}
       </div>
     </div>
-  ) : null;
+  );
 
   // What to show instead of cards when there's nothing to list yet.
   // Returns undefined while data is loading, so skeletons show instead.
   const nearbyEmptyState = (() => {
-    // 1) We don't have a location yet
-    if (!position) {
-      const locating = awaitingLocation || locationLoading;
-      return (
-        <div className="flex flex-col items-center text-center gap-3 rounded-2xl border border-border bg-card px-4 py-8">
-          {locating
-            ? <Loader2 className="h-7 w-7 animate-spin text-primary" />
-            : <MapPin className="h-7 w-7 text-primary" />}
-          <p className="text-sm text-muted-foreground max-w-xs">
-            {locating
-              ? "Finding your location…"
-              : "Turn on your location to see campsites close to you."}
-          </p>
-          {!locating && (
-            <button
-              onClick={handleNearbyTap}
-              className="px-5 py-2 rounded-full bg-primary text-primary-foreground text-sm font-bold active:scale-95 transition-all"
-            >
-              Use my location
-            </button>
-          )}
-        </div>
-      );
-    }
-    // 2) We have a location but the places haven't loaded yet → skeletons
+    // Without a location the default list is shown, so there's no empty state.
+    if (!position) return undefined;
+    // We have a location but the places haven't loaded yet → skeletons
     if (!nearbyLoaded || loadingNearby) return undefined;
-    // 3) Loaded, but nothing inside the chosen distance
+    // Loaded, but nothing inside the chosen distance
     return (
       <div className="flex flex-col items-center text-center gap-3 rounded-2xl border border-border bg-card px-4 py-8">
         <MapPin className="h-7 w-7 text-muted-foreground" />
@@ -688,7 +696,7 @@ const Index = () => {
                   />
                 </div>
 
-                {/* Nearby — tap to use your location and jump to places close to you */}
+                {/* My location — tap to use your location; the Nearby list below then switches to places close to you */}
                 <button
                   onClick={handleNearbyTap}
                   className="mt-3 inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-white text-primary text-sm font-bold shadow-lg hover:bg-white/90 active:scale-95 transition-all"
@@ -696,7 +704,7 @@ const Index = () => {
                   {awaitingLocation
                     ? <Loader2 className="h-4 w-4 animate-spin" />
                     : <LocateFixed className="h-4 w-4" />}
-                  {awaitingLocation ? "Finding you…" : "Nearby"}
+                  {awaitingLocation ? "Finding you…" : "My location"}
                 </button>
               </div>
             </div>
@@ -772,17 +780,16 @@ const Index = () => {
             </section>
 
             {/* Nearby — replaces the old "Browsers guide" section.
-                Always visible. Shows places sorted by distance from the user, with
-                distance chips, and helpful states for "locating…", "location off"
-                and "nothing in range". The hero button and Quick Access tile
-                scroll here. */}
+                Always visible. Before the user taps My location it lists all places;
+                after, it lists places sorted by distance with distance chips. The hero
+                button and Quick Access tile scroll here. */}
             <div ref={nearbyRef} className="scroll-mt-24">
               <GridSection
                 title="Nearby"
                 viewAllPath="/explore"
                 accentColor="hsl(25, 90%, 50%)"
-                items={nearbyNodes}
-                loading={loadingNearby}
+                items={sectionNodes}
+                loading={position ? loadingNearby : loadingScrollable}
                 headerExtra={nearbyHeaderExtra}
                 emptyState={nearbyEmptyState}
               />

@@ -47,66 +47,6 @@ const useInjectFonts = () => {
 
 const ITEMS_PER_PAGE = 20;
 
-// Skeleton row that mirrors the real item's layout exactly (remove button +
-// thumbnail + text lines + chevron), so the list never "pops" in from blank.
-const SavedItemSkeleton = () => (
-  <div className="flex items-center gap-2">
-    <div className="shrink-0 p-3 rounded-full" style={{ background: DANGER_SOFT, border: `1px solid ${DANGER}25`, width: 42, height: 42 }} />
-    <div
-      className="flex-1 flex items-center gap-4 bg-white p-3 sm:p-4 rounded-[22px] min-w-0"
-      style={{ border: `1px solid ${HAIRLINE}` }}
-    >
-      <Skeleton className="h-16 w-16 rounded-xl shrink-0" />
-      <div className="flex-1 min-w-0 space-y-2">
-        <Skeleton className="h-2.5 w-16 rounded-full" />
-        <Skeleton className="h-4 w-3/5 rounded-md" />
-        <Skeleton className="h-3 w-2/5 rounded-md" />
-      </div>
-      <Skeleton className="h-8 w-8 rounded-full shrink-0" />
-    </div>
-  </div>
-);
-
-// Thumbnail that shows a skeleton until the actual image has loaded, so a
-// slow network never leaves a blank square in the row.
-const ItemThumbnail = ({ src, alt }: { src?: string; alt: string }) => {
-  const [loaded, setLoaded] = useState(false);
-  const [errored, setErrored] = useState(false);
-
-  useEffect(() => {
-    // Reset when the underlying src changes (e.g. list re-fetches).
-    setLoaded(false);
-    setErrored(false);
-  }, [src]);
-
-  return (
-    <div className="relative h-16 w-16 rounded-xl shrink-0 overflow-hidden">
-      {(!loaded || !src) && !errored && (
-        <Skeleton className="absolute inset-0 h-full w-full rounded-xl" />
-      )}
-      {src && !errored && (
-        <img
-          src={src}
-          alt={alt}
-          draggable={false}
-          onLoad={() => setLoaded(true)}
-          onError={() => setErrored(true)}
-          className="h-16 w-16 rounded-xl object-cover"
-          style={{ opacity: loaded ? 1 : 0, transition: "opacity 150ms ease" }}
-        />
-      )}
-      {errored && (
-        <div
-          className="absolute inset-0 flex items-center justify-center rounded-xl"
-          style={{ background: CANVAS, color: INK_SOFT }}
-        >
-          <MapPin size={16} />
-        </div>
-      )}
-    </div>
-  );
-};
-
 const Saved = () => {
   useInjectFonts();
 
@@ -162,7 +102,7 @@ const Saved = () => {
   useEffect(() => {
     const initializeData = async () => {
       if (authLoading) return;
-
+      
       if (!user) {
         // Not logged in - show local saved items
         fetchLocalSavedDetails();
@@ -346,14 +286,7 @@ const Saved = () => {
           )}
 
           {isLoading ? (
-            // Show a handful of realistic item-shaped skeletons instead of one
-            // big generic block, so the layout the person will actually see
-            // is already implied while data is in flight.
-            <div className="grid gap-3">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <SavedItemSkeleton key={`initial-skeleton-${i}`} />
-              ))}
-            </div>
+            <Skeleton className="h-64 w-full rounded-[28px]" />
           ) : savedListings.length === 0 ? (
             <div className="bg-white rounded-[28px] p-20 text-center" style={{ color: INK_SOFT, border: `1px solid ${HAIRLINE}` }}>
               No items saved yet.
@@ -402,7 +335,12 @@ const Saved = () => {
                       }}
                       draggable={false}
                     >
-                      <ItemThumbnail src={item.image_url} alt="" />
+                      <img
+                        src={item.image_url}
+                        className="h-16 w-16 rounded-xl object-cover shrink-0"
+                        alt=""
+                        draggable={false}
+                      />
 
                       <div className="flex-1 min-w-0">
                         <p className="text-[10px] font-semibold mb-0.5 capitalize" style={{ color: FOREST }}>
@@ -429,16 +367,6 @@ const Saved = () => {
                   </div>
                 );
               })}
-
-              {/* Skeleton rows for the next page while it loads, appended
-                  below the real items so "Load more" never flashes blank. */}
-              {loadingMore && (
-                <>
-                  {Array.from({ length: 3 }).map((_, i) => (
-                    <SavedItemSkeleton key={`more-skeleton-${i}`} />
-                  ))}
-                </>
-              )}
             </div>
           )}
           {user && hasMore && savedListings.length > 0 && (

@@ -15,6 +15,35 @@ import { useRealtimeBookings } from "@/hooks/useRealtimeBookings";
 import { KENYA_COUNTIES } from "@/lib/kenyaCounties"; 
 import { CategoryTabsBar } from "@/components/CategoryTabsBar";
 
+// ── Design tokens ─────────────────────────────────────────────────────────
+// Same field-guide / park-signage system used across the rest of the app:
+// deep forest for the search header and active filter pills, a warm clay
+// for the "See all" action.
+const FOREST      = "#1F4D3A";
+const FOREST_DEEP = "#123322";
+const CLAY        = "#C1552F";
+const INK         = "#1C2B22";
+const INK_SOFT    = "#5B6B60";
+const HAIRLINE    = "#DCE3DC";
+const CANVAS      = "#F4F6F2";
+
+const FONT_DISPLAY = "'Fraunces', ui-serif, Georgia, serif";
+const FONT_BODY = "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif";
+
+// Injects the two typefaces once, without needing to touch the app's index.html.
+const useInjectFonts = () => {
+  useEffect(() => {
+    const id = "adventure-detail-fonts";
+    if (document.getElementById(id)) return;
+    const link = document.createElement("link");
+    link.id = id;
+    link.rel = "stylesheet";
+    link.href =
+      "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&display=swap";
+    document.head.appendChild(link);
+  }, []);
+};
+
 const ITEMS_PER_PAGE = 10;
 const SKELETON_COUNT_MOBILE  = 8;
 const SKELETON_COUNT_DESKTOP = 20;
@@ -28,6 +57,8 @@ const TRIP_FIELDS =
   "id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child,description,opening_hours,closing_hours";
 
 const CategoryDetail = () => {
+  useInjectFonts();
+
   const { category }    = useParams<{ category: string }>();
   const [searchParams]  = useSearchParams();
   const navigate        = useNavigate();
@@ -198,14 +229,14 @@ const CategoryDetail = () => {
   const showSkeleton     = filteredItems.length === 0;
   const showSeeAllButton = !showSkeleton && hasMore && filteredItems.length > 0 && !isFiltering;
 
-  if (!config) return <div className="p-10 text-center">Category not found</div>;
+  if (!config) return <div className="p-10 text-center" style={{ fontFamily: FONT_BODY, color: INK_SOFT }}>Category not found</div>;
 
   return (
-    <div className="bg-background">
+    <div style={{ background: CANVAS, fontFamily: FONT_BODY }}>
 
-      {/* ── Sticky top: teal search header + category tabs ── */}
+      {/* ── Sticky top: forest search header + category tabs ── */}
       <div className="sticky top-0 z-50 shadow-md" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
-        <div className="bg-primary">
+        <div style={{ background: `linear-gradient(135deg, ${FOREST} 0%, ${FOREST_DEEP} 100%)` }}>
           <div className="container mx-auto px-4 py-3">
             <SearchBarWithSuggestions
               value={searchQuery}
@@ -224,19 +255,19 @@ const CategoryDetail = () => {
 
         {/* County filter — campsite and guided-tour category pages */}
         {showCountyTabs && !isSearchFocusedLocal && (
-          <div className="bg-background border-t border-border/60">
+          <div className="bg-white" style={{ borderTop: `1px solid ${HAIRLINE}` }}>
             <div className="container mx-auto px-4 py-2">
               <div className="flex gap-2 overflow-x-auto scrollbar-hide">
                 {["All", ...KENYA_COUNTIES.filter(c => items.some(item => item.place === c))].map(county => (
                   <button
                     key={county}
                     onClick={() => setSelectedCounty(county)}
-                    className={cn(
-                      "px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-all shrink-0 border",
+                    className="px-3 py-1.5 rounded-full text-[11px] font-semibold whitespace-nowrap transition-all shrink-0 border"
+                    style={
                       selectedCounty === county
-                        ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                        : "bg-card text-muted-foreground border-border hover:bg-muted",
-                    )}
+                        ? { background: FOREST, color: "#fff", borderColor: FOREST }
+                        : { background: "#fff", color: INK_SOFT, borderColor: HAIRLINE }
+                    }
                   >
                     {county}
                   </button>
@@ -321,9 +352,10 @@ const CategoryDetail = () => {
           <div className="flex justify-center mt-10">
             <Button
               onClick={loadMore}
-              className="rounded-2xl font-black uppercase text-[10px] tracking-widest h-12 px-8 bg-primary"
+              className="rounded-2xl font-semibold text-[12px] h-12 px-8 text-white border-none hover:opacity-95"
+              style={{ background: `linear-gradient(135deg, #E0824F, ${CLAY})` }}
             >
-              See All
+              See all
             </Button>
           </div>
         )}

@@ -12,6 +12,34 @@ import { useRatings, sortByRating } from "@/hooks/useRatings";
 import { Button } from "@/components/ui/button";
 import { CategoryTabsBar } from "@/components/CategoryTabsBar";
 
+// ── Design tokens ─────────────────────────────────────────────────────────
+// Same field-guide / park-signage system used across the rest of the app:
+// deep forest for the search header, a warm clay for the "See all" action.
+const FOREST      = "#1F4D3A";
+const FOREST_DEEP = "#123322";
+const CLAY        = "#C1552F";
+const INK         = "#1C2B22";
+const INK_SOFT    = "#5B6B60";
+const HAIRLINE    = "#DCE3DC";
+const CANVAS      = "#F4F6F2";
+
+const FONT_DISPLAY = "'Fraunces', ui-serif, Georgia, serif";
+const FONT_BODY = "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif";
+
+// Injects the two typefaces once, without needing to touch the app's index.html.
+const useInjectFonts = () => {
+  useEffect(() => {
+    const id = "adventure-detail-fonts";
+    if (document.getElementById(id)) return;
+    const link = document.createElement("link");
+    link.id = id;
+    link.rel = "stylesheet";
+    link.href =
+      "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&display=swap";
+    document.head.appendChild(link);
+  }, []);
+};
+
 const INITIAL_VISIBLE_COUNT = 10;
 const LOAD_MORE_COUNT = 10;
 const SKELETON_COUNT_MOBILE  = 8;
@@ -26,6 +54,8 @@ const TRIP_FIELDS =
   "id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child,description,opening_hours,closing_hours";
 
 const CountyDetail = () => {
+  useInjectFonts();
+
   const { county } = useParams<{ county: string }>();
   const navigate   = useNavigate();
   const decodedCounty = decodeURIComponent(county || "");
@@ -169,11 +199,11 @@ const CountyDetail = () => {
   );
 
   return (
-    <div className="bg-background">
+    <div style={{ background: CANVAS, fontFamily: FONT_BODY }}>
 
-      {/* ── Sticky top: teal search header + category tabs ── */}
+      {/* ── Sticky top: forest search header + category tabs ── */}
       <div className="sticky top-0 z-50 shadow-md" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
-        <div className="bg-primary">
+        <div style={{ background: `linear-gradient(135deg, ${FOREST} 0%, ${FOREST_DEEP} 100%)` }}>
           <div className="container mx-auto px-4 py-3">
             <SearchBarWithSuggestions
               value={searchQuery}
@@ -196,7 +226,7 @@ const CountyDetail = () => {
         "container px-4 py-6 transition-opacity duration-200",
         isSearchFocusedLocal && "pointer-events-none opacity-20",
       )}>
-        <h1 className="text-lg font-extrabold mb-4">{decodedCounty} County</h1>
+        <h1 className="text-xl font-semibold mb-4" style={{ fontFamily: FONT_DISPLAY, color: INK }}>{decodedCounty} County</h1>
 
         {showSkeleton ? (
           <>
@@ -253,8 +283,13 @@ const CountyDetail = () => {
 
             {hasMore && !loadingMore && (
               <div className="flex justify-center mt-6">
-                <Button variant="outline" onClick={handleSeeAll} className="rounded-full px-6 font-bold text-sm">
-                  See All
+                <Button
+                  variant="outline"
+                  onClick={handleSeeAll}
+                  className="rounded-full px-6 font-semibold text-sm hover:bg-transparent"
+                  style={{ borderColor: HAIRLINE, color: CLAY }}
+                >
+                  See all
                 </Button>
               </div>
             )}

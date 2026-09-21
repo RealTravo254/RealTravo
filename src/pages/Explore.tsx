@@ -13,10 +13,38 @@ import { SEOHead } from "@/components/SEOHead";
 import { Button } from "@/components/ui/button";
 import { CategoryTabsBar, CATEGORY_TABS } from "@/components/CategoryTabsBar";
 
+// ── Design tokens ─────────────────────────────────────────────────────────
+// Same field-guide / park-signage system used across the rest of the app:
+// deep forest for the search header, a warm clay for the "See all" action.
+const FOREST      = "#1F4D3A";
+const FOREST_DEEP = "#123322";
+const CLAY        = "#C1552F";
+const CLAY_LIGHT  = "#E0824F";
+const INK_SOFT    = "#5B6B60";
+const HAIRLINE    = "#DCE3DC";
+
+const FONT_BODY = "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif";
+
+// Injects the shared typefaces once, without needing to touch the app's index.html.
+const useInjectFonts = () => {
+  useEffect(() => {
+    const id = "adventure-detail-fonts";
+    if (document.getElementById(id)) return;
+    const link = document.createElement("link");
+    link.id = id;
+    link.rel = "stylesheet";
+    link.href =
+      "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&display=swap";
+    document.head.appendChild(link);
+  }, []);
+};
+
 const INITIAL_VISIBLE_COUNT = 10;
 const LOAD_MORE_COUNT = 10;
 
 const Explore = () => {
+  useInjectFonts();
+
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery]   = useState("");
   const [activeFilter, setActiveFilter] = useState("all");
@@ -205,12 +233,12 @@ const Explore = () => {
   );
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen flex flex-col" style={{ background: "#F4F6F2", fontFamily: FONT_BODY }}>
       <SEOHead title="Explore - RealTravo" description="Search and discover trips, adventures and events" />
 
-      {/* ── Sticky top: teal search header + category tabs ── */}
+      {/* ── Sticky top: forest search header + category tabs ── */}
       <div className="sticky top-0 z-50 shadow-md" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
-        <div className="bg-primary">
+        <div style={{ background: `linear-gradient(135deg, ${FOREST} 0%, ${FOREST_DEEP} 100%)` }}>
           <div className="container mx-auto px-4 py-3">
             <SearchBarWithSuggestions
               value={searchQuery}
@@ -232,7 +260,7 @@ const Explore = () => {
 
       {/* Results */}
       <main className="flex-1 container mx-auto px-4 py-4 pb-24 md:pb-8">
-        <p className="text-xs text-muted-foreground mb-3 font-medium">
+        <p className="text-xs mb-3 font-medium" style={{ color: INK_SOFT }}>
           {searchQuery ? `Results for "${searchQuery}"` : "Discover"}
           {activeFilter !== "all" && activeTabLabel && ` in ${activeTabLabel}`}
         </p>
@@ -289,8 +317,13 @@ const Explore = () => {
 
             {hasMore && !loadingMore && (
               <div className="flex justify-center mt-6">
-                <Button variant="outline" onClick={handleSeeAll} className="rounded-full px-6 font-bold text-sm">
-                  See All
+                <Button
+                  variant="outline"
+                  onClick={handleSeeAll}
+                  className="rounded-full px-6 font-semibold text-sm hover:bg-transparent"
+                  style={{ borderColor: HAIRLINE, color: CLAY }}
+                >
+                  See all
                 </Button>
               </div>
             )}

@@ -5,7 +5,7 @@ import {
   Settings, CalendarCheck, Wallet, ChevronRight,
   Clock, CheckCircle2, XCircle, ClipboardList, BarChart3,
 } from "lucide-react";
-import VisitAnalyticsPanel from "@/components/admin/VisitAnalyticsPanel";
+import VisitAnalyticsPanel from "@/pages/admin/VisitAnalyticsPanel";
 
 /* ══════════════════════════════════════════════════════════════════
    ADMIN DASHBOARD — FULL PAGE, SAFE-AREA AWARE

@@ -15,6 +15,7 @@ import { AuthGate } from "@/components/AuthGate";
 import { TealLoader } from "@/components/ui/teal-loader";
 import { OfflineFullScreen } from "@/components/OfflineIndicator";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import VisitTracker from "@/components/VisitTracker";
 import AccountPage from "@/pages/AccountPage";
 import Index from "./pages/Index";
  
@@ -176,6 +177,7 @@ const App = () => {
           <AuthProvider>
             <CurrencyProvider>
               <ScrollToTop />
+              <VisitTracker />
               <AuthGate>
                 <PageLayout>
                   <div className="w-full">

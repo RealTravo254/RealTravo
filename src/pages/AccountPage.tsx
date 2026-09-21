@@ -323,22 +323,6 @@ export default function AccountPage() {
               </div>
               <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
             </button>
-
-            <button
-              onClick={() => navigate("/payment-history")}
-              className="w-full p-3.5 flex items-center justify-between hover:bg-muted/40 transition-colors text-left"
-            >
-              <div className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center text-foreground shrink-0">
-                  <History className="h-4 w-4" />
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-foreground">Payment History</p>
-                  <p className="text-[10px] text-muted-foreground">View receipts and transaction logs</p>
-                </div>
-              </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-            </button>
           </div>
         </div>
 

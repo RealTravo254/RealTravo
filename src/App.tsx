@@ -70,7 +70,6 @@ const PaymentVerify = lazy(() => import("./pages/PaymentVerify"));
 const TripEventGuide = lazy(() => import("./pages/TripEventGuide"));
 const CampsiteGuide = lazy(() => import("./pages/CampsiteGuide"));
 const HotelGuide = lazy(() => import("./pages/HotelGuide"));
-const PaymentHistory = lazy(() => import("./pages/PaymentHistory"));
 const AdminPaymentVerification = lazy(() => import("./pages/AdminPaymentVerification"));
 const AccountsOverview = lazy(() => import("./pages/admin/AccountsOverview"));
 const Explore = lazy(() => import("./pages/Explore"));
@@ -253,7 +252,6 @@ const App = () => {
                       <Route path="/trip-event-guide" element={<Suspense fallback={<OfflineFallback text="Trip & Event Guide" />}><TripEventGuide /></Suspense>} />
                       <Route path="/campsite-guide" element={<Suspense fallback={<OfflineFallback text="Campsite Guide" />}><CampsiteGuide /></Suspense>} />
                       <Route path="/hotel-guide" element={<Suspense fallback={<OfflineFallback text="Hotel Guide" />}><HotelGuide /></Suspense>} />
-                      <Route path="/payment-history" element={<Suspense fallback={<OfflineFallback text="Payment History" />}><PaymentHistory /></Suspense>} />
                       <Route path="/admin/payment-verification" element={<Suspense fallback={<OfflineFallback text="Payment Verification" />}><AdminPaymentVerification /></Suspense>} />
                       <Route path="/admin/accounts" element={<Suspense fallback={<OfflineFallback text="Accounts Overview" />}><AccountsOverview /></Suspense>} />
                       <Route path="*" element={<Suspense fallback={<OfflineFallback text="Loading" />}><NotFound /></Suspense>} />

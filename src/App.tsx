@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AuthModalProvider } from "@/contexts/AuthModalContext";
 import { AuthModal } from "@/components/auth/AuthModal";
+import { CompleteProfileGate } from "@/components/auth/CompleteProfileGate";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import { PageLayout } from "@/components/PageLayout";
 import { ScrollToTop } from "@/components/ScrollToTop";
@@ -260,6 +261,7 @@ const App = () => {
                 </PageLayout>
               </AuthGate>
               <AuthModal />
+              <CompleteProfileGate />
             </CurrencyProvider>
           </AuthProvider>
           </AuthModalProvider>

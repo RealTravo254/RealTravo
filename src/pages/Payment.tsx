@@ -264,37 +264,43 @@ export default function Payment() {
         title="Payment Dashboard | Realtravo"
         description="View your earnings, referral commissions, and manage withdrawals on Realtravo."
       />
-      <main className="container px-4 py-4 mx-auto">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate("/")}
-          className="mb-3 rounded-lg text-[9px] font-bold uppercase tracking-widest px-3 h-7"
-        >
-          <ArrowLeft className="mr-1 h-3 w-3" /> Home
-        </Button>
 
-        <div className="mb-4">
-          <h1 className="text-lg font-black uppercase tracking-tight text-foreground">
+      {/* max-w keeps line lengths sane on desktop; padding scales up so the
+          page never feels cramped on large screens or blown-out on small ones */}
+      <main className="container mx-auto max-w-5xl px-4 py-5 sm:px-6 lg:px-8 lg:py-10">
+        <div className="flex items-center justify-between mb-5 lg:mb-8">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate("/")}
+            className="rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-widest px-3 h-8"
+          >
+            <ArrowLeft className="mr-1 h-3.5 w-3.5" /> Home
+          </Button>
+        </div>
+
+        <div className="mb-6 lg:mb-10">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-black uppercase tracking-tight text-foreground">
             Payment Dashboard
           </h1>
-          <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">
+          <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">
             Earnings, referrals & withdrawals
           </p>
         </div>
-        {/* ── Balance Cards ── */}
-        <div className="grid grid-cols-1 gap-2 mb-1">
-          <div className="bg-card rounded-xl p-4 border border-border">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-destructive/10">
-                  <Wallet className="h-5 w-5 text-destructive" />
+
+        {/* ── Balance section ──────────────────────────────────────────── */}
+        <section className="mb-3">
+          <div className="bg-card rounded-2xl p-5 sm:p-6 border border-border">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-destructive/10 shrink-0">
+                  <Wallet className="h-6 w-6 text-destructive" />
                 </div>
                 <div>
-                  <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">
+                  <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-widest">
                     Available Balance
                   </p>
-                  <p className="text-2xl font-black text-destructive">
+                  <p className="text-3xl sm:text-4xl font-black text-destructive mt-0.5">
                     {formatPrice(stats.withdrawableBalance)}
                   </p>
                 </div>
@@ -302,279 +308,191 @@ export default function Payment() {
               <Button
                 onClick={() => setShowWithdrawDialog(true)}
                 disabled={!canWithdraw}
-                size="sm"
-                className="rounded-lg text-[9px] font-bold uppercase h-8 px-4"
+                className="rounded-lg text-xs font-bold uppercase h-10 px-6 w-full sm:w-auto"
               >
                 {canWithdraw ? "Withdraw" : `Min ${formatPrice(MIN_WITHDRAWAL)}`}
               </Button>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
             {stats.heldBalance > 0 && (
-              <div className="bg-amber-50 dark:bg-amber-950/20 rounded-xl p-3 border border-amber-200 dark:border-amber-800">
-                <div className="flex items-center gap-2 mb-1">
-                  <Lock className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-                  <p className="text-[8px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-widest">
+              <div className="bg-amber-50 dark:bg-amber-950/20 rounded-xl p-4 border border-amber-200 dark:border-amber-800">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <Lock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                  <p className="text-[10px] sm:text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-widest">
                     On Hold
                   </p>
                 </div>
-                <p className="text-sm font-black text-amber-700 dark:text-amber-300">
+                <p className="text-lg sm:text-xl font-black text-amber-700 dark:text-amber-300">
                   {formatPrice(stats.heldBalance)}
                 </p>
-                <p className="text-[8px] text-amber-600 dark:text-amber-400 mt-0.5">
+                <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-0.5">
                   Released 24 h after visit
                 </p>
               </div>
             )}
 
-            <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-xl p-3 border border-emerald-200 dark:border-emerald-800">
-              <div className="flex items-center gap-2 mb-1">
-                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                <p className="text-[8px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-widest">
+            <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-xl p-4 border border-emerald-200 dark:border-emerald-800">
+              <div className="flex items-center gap-2 mb-1.5">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                <p className="text-[10px] sm:text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-widest">
                   Total Paid Out
                 </p>
               </div>
-              <p className="text-sm font-black text-emerald-700 dark:text-emerald-300">
+              <p className="text-lg sm:text-xl font-black text-emerald-700 dark:text-emerald-300">
                 {formatPrice(stats.totalPaidOut)}
               </p>
-              <p className="text-[8px] text-emerald-600 dark:text-emerald-400 mt-0.5">
+              <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-0.5">
                 Completed withdrawals
               </p>
             </div>
           </div>
-        </div>
 
-        {stats.withdrawableBalance > 0 && !canWithdraw && (
-          <p className="text-[9px] text-amber-600 dark:text-amber-400 font-bold text-center mb-4 mt-1">
-            Minimum withdrawal is {formatPrice(MIN_WITHDRAWAL)}. You need{" "}
-            {formatPrice(MIN_WITHDRAWAL - stats.withdrawableBalance)} more.
-          </p>
-        )}
-        {stats.withdrawableBalance <= 0 && stats.heldBalance > 0 && (
-          <p className="text-[9px] text-amber-600 dark:text-amber-400 font-bold text-center mb-4 mt-1">
-            {formatPrice(stats.heldBalance)} is held for 24 h after your guests&apos; visits.
-          </p>
-        )}
-        {stats.withdrawableBalance <= 0 && stats.heldBalance === 0 && (
-          <p className="text-[9px] text-muted-foreground font-bold text-center mb-4 mt-1">
-            No balance available for withdrawal yet (or pending review).
-          </p>
-        )}
-        {canWithdraw && (
-          <p className="text-[9px] text-muted-foreground font-bold text-center mb-4 mt-1">
-            Admin reviews requests manually · Transfers usually arrive within 24 hrs.
-          </p>
-        )}
+          {stats.withdrawableBalance > 0 && !canWithdraw && (
+            <p className="text-[11px] text-amber-600 dark:text-amber-400 font-bold text-center mt-3">
+              Minimum withdrawal is {formatPrice(MIN_WITHDRAWAL)}. You need{" "}
+              {formatPrice(MIN_WITHDRAWAL - stats.withdrawableBalance)} more.
+            </p>
+          )}
+          {stats.withdrawableBalance <= 0 && stats.heldBalance > 0 && (
+            <p className="text-[11px] text-amber-600 dark:text-amber-400 font-bold text-center mt-3">
+              {formatPrice(stats.heldBalance)} is held for 24 h after your guests&apos; visits.
+            </p>
+          )}
+          {stats.withdrawableBalance <= 0 && stats.heldBalance === 0 && (
+            <p className="text-[11px] text-muted-foreground font-bold text-center mt-3">
+              No balance available for withdrawal yet (or pending review).
+            </p>
+          )}
+          {canWithdraw && (
+            <p className="text-[11px] text-muted-foreground font-bold text-center mt-3">
+              Admin reviews requests manually · Transfers usually arrive within 24 hrs.
+            </p>
+          )}
+        </section>
 
-        <WithdrawalDetailsSection userId={user?.id || ""} />
+        <section className="mb-6 lg:mb-10">
+          <WithdrawalDetailsSection userId={user?.id || ""} />
+        </section>
 
-        {withdrawalRequests.length > 0 && (
-          <>
-            <div className="mb-3 mt-2">
-              <h2 className="text-sm font-black uppercase tracking-tight text-foreground">
-                Withdrawal Requests
-              </h2>
-              <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">
-                {pendingRequests.length > 0
-                  ? `${pendingRequests.length} pending · admin will process soon`
-                  : "All requests processed"}
-              </p>
-            </div>
+        {/* ── Withdrawal requests + Recent referral activity side by side on desktop ── */}
+        {(withdrawalRequests.length > 0 || (isVerifiedHost && recentCommissions.length > 0)) && (
+          <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 mb-6 lg:mb-10">
+            {withdrawalRequests.length > 0 && (
+              <div>
+                <div className="mb-3">
+                  <h2 className="text-sm sm:text-base font-black uppercase tracking-tight text-foreground">
+                    Withdrawal Requests
+                  </h2>
+                  <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                    {pendingRequests.length > 0
+                      ? `${pendingRequests.length} pending · admin will process soon`
+                      : "All requests processed"}
+                  </p>
+                </div>
 
-            <div className="bg-card rounded-xl border border-border overflow-hidden mb-4">
-              {withdrawalRequests.map((w, i) => {
-                const cfg = STATUS_CONFIG[w.status] || STATUS_CONFIG.pending;
-                const details = w.withdrawal_details || {};
-                let detailLine = "";
-                if (w.withdrawal_method === "bank_transfer")
-                  detailLine = `${details.bank_name || ""} · ${details.account_number || ""}`;
-                else if (w.withdrawal_method === "mpesa") detailLine = details.phone || "";
-                else if (w.withdrawal_method === "paystack") detailLine = details.email || "";
+                <div className="bg-card rounded-xl border border-border overflow-hidden">
+                  {withdrawalRequests.map((w, i) => {
+                    const cfg = STATUS_CONFIG[w.status] || STATUS_CONFIG.pending;
+                    const details = w.withdrawal_details || {};
+                    let detailLine = "";
+                    if (w.withdrawal_method === "bank_transfer")
+                      detailLine = `${details.bank_name || ""} · ${details.account_number || ""}`;
+                    else if (w.withdrawal_method === "mpesa") detailLine = details.phone || "";
+                    else if (w.withdrawal_method === "paystack") detailLine = details.email || "";
 
-                return (
-                  <div
-                    key={w.id}
-                    className={`flex items-center justify-between p-3 ${
-                      i !== withdrawalRequests.length - 1 ? "border-b border-border" : ""
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
+                    return (
                       <div
-                        className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${
-                          w.status === "completed"
-                            ? "bg-emerald-50 dark:bg-emerald-950/30"
-                            : w.status === "rejected"
-                            ? "bg-red-50 dark:bg-red-950/30"
-                            : "bg-amber-50 dark:bg-amber-950/30"
+                        key={w.id}
+                        className={`flex items-center justify-between gap-3 p-3.5 sm:p-4 ${
+                          i !== withdrawalRequests.length - 1 ? "border-b border-border" : ""
                         }`}
                       >
-                        <Wallet
-                          className={`h-3.5 w-3.5 ${
-                            w.status === "completed"
-                              ? "text-emerald-600"
-                              : w.status === "rejected"
-                              ? "text-destructive"
-                              : "text-amber-600"
-                          }`}
-                        />
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-bold text-foreground">
-                          {methodLabel[w.withdrawal_method] || w.withdrawal_method}
-                        </p>
-                        <p className="text-[9px] text-muted-foreground">{detailLine}</p>
-                        <p className="text-[8px] text-muted-foreground">
-                          {new Date(w.requested_at).toLocaleDateString("en-GB", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                          })}
-                        </p>
-                        {w.admin_note && w.status === "rejected" && (
-                          <p className="text-[8px] text-destructive font-bold mt-0.5">
-                            Note: {w.admin_note}
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div
+                            className={`h-9 w-9 sm:h-10 sm:w-10 rounded-lg flex items-center justify-center shrink-0 ${
+                              w.status === "completed"
+                                ? "bg-emerald-50 dark:bg-emerald-950/30"
+                                : w.status === "rejected"
+                                ? "bg-red-50 dark:bg-red-950/30"
+                                : "bg-amber-50 dark:bg-amber-950/30"
+                            }`}
+                          >
+                            <Wallet
+                              className={`h-4 w-4 ${
+                                w.status === "completed"
+                                  ? "text-emerald-600"
+                                  : w.status === "rejected"
+                                  ? "text-destructive"
+                                  : "text-amber-600"
+                              }`}
+                            />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs sm:text-sm font-bold text-foreground truncate">
+                              {methodLabel[w.withdrawal_method] || w.withdrawal_method}
+                            </p>
+                            <p className="text-[10px] sm:text-xs text-muted-foreground truncate">{detailLine}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {new Date(w.requested_at).toLocaleDateString("en-GB", {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              })}
+                            </p>
+                            {w.admin_note && w.status === "rejected" && (
+                              <p className="text-[10px] text-destructive font-bold mt-0.5">
+                                Note: {w.admin_note}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-black text-foreground">
+                            {formatPrice(Number(w.amount))}
                           </p>
-                        )}
+                          <div
+                            className={`flex items-center justify-end gap-1 text-[10px] font-black uppercase ${cfg.color}`}
+                          >
+                            {cfg.icon}
+                            {cfg.label}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs font-black text-foreground">
-                        {formatPrice(Number(w.amount))}
-                      </p>
-                      <div
-                        className={`flex items-center justify-end gap-1 text-[8px] font-black uppercase ${cfg.color}`}
-                      >
-                        {cfg.icon}
-                        {cfg.label}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </>
-        )}
-
-        {!isVerifiedHost && !verificationLoading && (
-          <div className="bg-amber-50 dark:bg-amber-950/20 rounded-xl p-4 border border-amber-200 dark:border-amber-800 mb-4">
-            <div className="flex items-start gap-3">
-              <Award className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
-              <div>
-                <h3 className="text-xs font-black uppercase tracking-tight text-amber-800 dark:text-amber-300">
-                  Unlock Referral Earnings
-                </h3>
-                <p className="text-[10px] text-amber-700 dark:text-amber-400 mt-1">
-                  {verificationStatus === "pending"
-                    ? "Your host verification is pending. Referral program will be unlocked once approved."
-                    : "Become a verified host to earn commissions by sharing listings with your referral link."}
-                </p>
-                {verificationStatus !== "pending" && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => navigate("/host-verification")}
-                    className="mt-2 rounded-lg text-[9px] font-bold uppercase h-7 border-amber-300"
-                  >
-                    <ArrowUpRight className="h-3 w-3 mr-1" /> Get Verified
-                  </Button>
-                )}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          </div>
-        )}
+            )}
 
-        <div className="mb-3">
-          <h2 className="text-sm font-black uppercase tracking-tight text-foreground">
-            Earnings Breakdown
-          </h2>
-          <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">
-            Host income after deductions
-          </p>
-        </div>
-        <div className="grid grid-cols-2 gap-2 mb-4">
-          <StatCard
-            icon={<DollarSign className="h-4 w-4" />}
-            label="Gross Earnings"
-            value={formatPrice(stats.hostEarnings)}
-          />
-          <StatCard
-            icon={<Percent className="h-4 w-4" />}
-            label="Service Fee"
-            value={`- ${formatPrice(stats.serviceFeeDeducted)}`}
-          />
-          <StatCard
-            icon={<Wallet className="h-4 w-4" />}
-            label="Net Earnings"
-            value={formatPrice(Math.max(0, stats.hostEarnings - stats.serviceFeeDeducted))}
-          />
-          <StatCard
-            icon={<Lock className="h-4 w-4" />}
-            label="On Hold (24 h)"
-            value={formatPrice(stats.heldBalance)}
-          />
-        </div>
-
-        {isVerifiedHost && (
-          <>
-            <div className="mb-3">
-              <h2 className="text-sm font-black uppercase tracking-tight text-foreground">
-                Referral Earnings
-              </h2>
-              <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">
-                Track your performance
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-2 mb-4">
-              <FactorCard
-                icon={<Users className="h-4 w-4" />}
-                label="People Referred"
-                value={stats.totalReferred}
-              />
-              <FactorCard
-                icon={<TrendingUp className="h-4 w-4" />}
-                label="Conversions"
-                value={stats.totalBookings}
-              />
-              <FactorCard
-                icon={<DollarSign className="h-4 w-4" />}
-                label="From Bookings"
-                value={formatPrice(stats.bookingEarnings)}
-              />
-              <FactorCard
-                icon={<Wallet className="h-4 w-4" />}
-                label="Total Earned"
-                value={formatPrice(stats.totalCommission)}
-              />
-            </div>
-
-            {recentCommissions.length > 0 && (
-              <>
+            {isVerifiedHost && recentCommissions.length > 0 && (
+              <div>
                 <div className="mb-3">
-                  <h2 className="text-sm font-black uppercase tracking-tight text-foreground">
+                  <h2 className="text-sm sm:text-base font-black uppercase tracking-tight text-foreground">
                     Recent Activity
                   </h2>
-                  <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">
+                  <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-widest">
                     Latest referral commissions
                   </p>
                 </div>
-                <div className="bg-card rounded-xl border border-border overflow-hidden mb-4">
+                <div className="bg-card rounded-xl border border-border overflow-hidden">
                   {recentCommissions.map((c, i) => (
                     <div
                       key={i}
-                      className={`flex items-center justify-between p-3 ${
+                      className={`flex items-center justify-between gap-3 p-3.5 sm:p-4 ${
                         i !== recentCommissions.length - 1 ? "border-b border-border" : ""
                       }`}
                     >
-                      <div className="flex items-center gap-2.5">
-                        <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center">
-                          <DollarSign className="h-3.5 w-3.5 text-emerald-600" />
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center shrink-0">
+                          <DollarSign className="h-4 w-4 text-emerald-600" />
                         </div>
-                        <div>
-                          <p className="text-[10px] font-bold text-foreground">
+                        <div className="min-w-0">
+                          <p className="text-xs sm:text-sm font-bold text-foreground truncate">
                             Booking Commission
                           </p>
-                          <p className="text-[9px] text-muted-foreground">
+                          <p className="text-[10px] sm:text-xs text-muted-foreground">
                             {c.created_at
                               ? new Date(c.created_at).toLocaleDateString("en-GB", {
                                   day: "2-digit",
@@ -585,11 +503,11 @@ export default function Payment() {
                           </p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-xs font-black text-emerald-600">
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-black text-emerald-600">
                           +{formatPrice(Number(c.commission_amount))}
                         </p>
-                        <p className="text-[8px] font-bold text-muted-foreground uppercase">
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase">
                           {c.withdrawn_at
                             ? "Withdrawn"
                             : c.status === "paid"
@@ -600,18 +518,121 @@ export default function Payment() {
                     </div>
                   ))}
                 </div>
-              </>
+              </div>
             )}
+          </section>
+        )}
 
-            <div className="mb-3">
-              <h2 className="text-sm font-black uppercase tracking-tight text-foreground">
-                Referral Rates by Category
-              </h2>
-              <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">
-                Commission rates per item type
-              </p>
+        {!isVerifiedHost && !verificationLoading && (
+          <section className="mb-6 lg:mb-10">
+            <div className="bg-amber-50 dark:bg-amber-950/20 rounded-xl p-4 sm:p-5 border border-amber-200 dark:border-amber-800">
+              <div className="flex items-start gap-3">
+                <Award className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                <div>
+                  <h3 className="text-xs sm:text-sm font-black uppercase tracking-tight text-amber-800 dark:text-amber-300">
+                    Unlock Referral Earnings
+                  </h3>
+                  <p className="text-[11px] sm:text-xs text-amber-700 dark:text-amber-400 mt-1">
+                    {verificationStatus === "pending"
+                      ? "Your host verification is pending. Referral program will be unlocked once approved."
+                      : "Become a verified host to earn commissions by sharing listings with your referral link."}
+                  </p>
+                  {verificationStatus !== "pending" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => navigate("/host-verification")}
+                      className="mt-3 rounded-lg text-[10px] sm:text-xs font-bold uppercase h-8 border-amber-300"
+                    >
+                      <ArrowUpRight className="h-3.5 w-3.5 mr-1" /> Get Verified
+                    </Button>
+                  )}
+                </div>
+              </div>
             </div>
-            <ReferralRatesSection />
+          </section>
+        )}
+
+        {/* ── Earnings breakdown ───────────────────────────────────────── */}
+        <section className="mb-6 lg:mb-10">
+          <div className="mb-3">
+            <h2 className="text-sm sm:text-base font-black uppercase tracking-tight text-foreground">
+              Earnings Breakdown
+            </h2>
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-widest">
+              Host income after deductions
+            </p>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <StatCard
+              icon={<DollarSign className="h-4 w-4" />}
+              label="Gross Earnings"
+              value={formatPrice(stats.hostEarnings)}
+            />
+            <StatCard
+              icon={<Percent className="h-4 w-4" />}
+              label="Service Fee"
+              value={`- ${formatPrice(stats.serviceFeeDeducted)}`}
+            />
+            <StatCard
+              icon={<Wallet className="h-4 w-4" />}
+              label="Net Earnings"
+              value={formatPrice(Math.max(0, stats.hostEarnings - stats.serviceFeeDeducted))}
+            />
+            <StatCard
+              icon={<Lock className="h-4 w-4" />}
+              label="On Hold (24 h)"
+              value={formatPrice(stats.heldBalance)}
+            />
+          </div>
+        </section>
+
+        {isVerifiedHost && (
+          <>
+            <section className="mb-6 lg:mb-10">
+              <div className="mb-3">
+                <h2 className="text-sm sm:text-base font-black uppercase tracking-tight text-foreground">
+                  Referral Earnings
+                </h2>
+                <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                  Track your performance
+                </p>
+              </div>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <FactorCard
+                  icon={<Users className="h-4 w-4" />}
+                  label="People Referred"
+                  value={stats.totalReferred}
+                />
+                <FactorCard
+                  icon={<TrendingUp className="h-4 w-4" />}
+                  label="Conversions"
+                  value={stats.totalBookings}
+                />
+                <FactorCard
+                  icon={<DollarSign className="h-4 w-4" />}
+                  label="From Bookings"
+                  value={formatPrice(stats.bookingEarnings)}
+                />
+                <FactorCard
+                  icon={<Wallet className="h-4 w-4" />}
+                  label="Total Earned"
+                  value={formatPrice(stats.totalCommission)}
+                />
+              </div>
+            </section>
+
+            <section>
+              <div className="mb-3">
+                <h2 className="text-sm sm:text-base font-black uppercase tracking-tight text-foreground">
+                  Referral Rates by Category
+                </h2>
+                <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                  Commission rates per item type
+                </p>
+              </div>
+              <ReferralRatesSection />
+            </section>
           </>
         )}
       </main>
@@ -644,7 +665,7 @@ const ReferralRatesSection = () => {
     { label: "Adventures", value: `${rates.adventure_place_commission_rate}%` },
   ];
   return (
-    <div className="grid grid-cols-2 gap-2 mb-4">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
       {items.map((item) => (
         <StatCard
           key={item.label}
@@ -666,14 +687,14 @@ const StatCard = ({
   label: string;
   value: string | number;
 }) => (
-  <div className="bg-card rounded-xl p-3 border border-border">
-    <div className="flex items-center gap-2 mb-1">
+  <div className="bg-card rounded-xl p-3.5 sm:p-4 border border-border">
+    <div className="flex items-center gap-2 mb-1.5">
       <div className="text-primary">{icon}</div>
-      <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest">
+      <span className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-widest">
         {label}
       </span>
     </div>
-    <p className="text-sm font-black text-foreground">{value}</p>
+    <p className="text-base sm:text-lg font-black text-foreground">{value}</p>
   </div>
 );
 
@@ -686,13 +707,13 @@ const FactorCard = ({
   label: string;
   value: string | number;
 }) => (
-  <div className="bg-card rounded-xl p-3 border border-border">
-    <div className="flex items-center gap-2 mb-1">
+  <div className="bg-card rounded-xl p-3.5 sm:p-4 border border-border">
+    <div className="flex items-center gap-2 mb-1.5">
       <div className="text-[#008080]">{icon}</div>
-      <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest">
+      <span className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-widest">
         {label}
       </span>
     </div>
-    <p className="text-sm font-black text-foreground">{value}</p>
+    <p className="text-base sm:text-lg font-black text-foreground">{value}</p>
   </div>
 );

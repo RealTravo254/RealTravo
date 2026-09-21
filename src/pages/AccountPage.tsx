@@ -229,35 +229,6 @@ export default function AccountPage() {
           </div>
         )}
 
-        {/* Admin Tools (Visible only to Admins) */}
-        {isAdmin && (
-          <div className="space-y-1">
-            <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground px-1">
-              Admin Tools
-            </p>
-
-            <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border/60">
-              <button
-                onClick={() => navigate("/admin/analytics")}
-                className="w-full p-3.5 flex items-center justify-between hover:bg-muted/40 transition-colors text-left"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-600 dark:text-purple-400 shrink-0">
-                    <BarChart3 className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-foreground">Visitor Analytics</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      Visits, platforms, gender, age and time spent
-                    </p>
-                  </div>
-                </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* Host Actions Banner */}
         {isHost ? (
           <div className="p-3.5 rounded-xl border border-primary/20 bg-primary/5 flex items-center justify-between gap-3">

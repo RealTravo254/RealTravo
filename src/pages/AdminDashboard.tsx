@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Shield, UserCog, CreditCard, Users,
   Settings, CalendarCheck, Wallet, ChevronRight,
-  Clock, CheckCircle2, XCircle, ClipboardList,
+  Clock, CheckCircle2, XCircle, ClipboardList, BarChart3,
 } from "lucide-react";
+import VisitAnalyticsPanel from "@/components/admin/VisitAnalyticsPanel";
 
 /* ══════════════════════════════════════════════════════════════════
    ADMIN DASHBOARD — FULL PAGE, SAFE-AREA AWARE
@@ -62,6 +64,7 @@ const adminSections: AdminSection[] = [
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
+  const [showAnalytics, setShowAnalytics] = useState(false);
 
   return (
     <div
@@ -123,6 +126,41 @@ const AdminDashboard = () => {
             </div>
           </div>
         ))}
+
+        {/* Analytics — tap to open; the numbers only load once it's opened */}
+        <div>
+          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.18em] px-1 mb-1.5">
+            Analytics
+          </p>
+          <button
+            onClick={() => setShowAnalytics((v) => !v)}
+            aria-expanded={showAnalytics}
+            className="w-full flex items-center justify-between gap-3 p-4 rounded-xl border border-border bg-card hover:bg-muted/50 transition-colors"
+          >
+            <div className="flex items-center gap-3 text-left min-w-0">
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <BarChart3 className="h-5 w-5 text-primary" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-foreground truncate">Visitor Analytics</p>
+                <p className="text-xs text-muted-foreground truncate">
+                  Visits, platforms, gender, age and time spent
+                </p>
+              </div>
+            </div>
+            <ChevronRight
+              className={`h-4 w-4 text-muted-foreground flex-shrink-0 transition-transform ${
+                showAnalytics ? "rotate-90" : ""
+              }`}
+            />
+          </button>
+
+          {showAnalytics && (
+            <div className="mt-3">
+              <VisitAnalyticsPanel />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

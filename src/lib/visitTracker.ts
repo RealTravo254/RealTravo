@@ -1,9 +1,17 @@
+// Save as: src/lib/visitTracker.ts
 import { Capacitor } from "@capacitor/core";
 import { App } from "@capacitor/app";
-import { supabase } from "@/integrations/supabase/client"; // adjust if your client lives elsewhere
+// IMPORTANT: use the same import your AuthContext.tsx uses for supabase
+import { supabase } from "@/integrations/supabase/client";
 
-const HEARTBEAT_MS = 30_000;
-const NEW_SESSION_AFTER_MS = 30 * 60 * 1000; // 30 min away = new visit
+// The generated Supabase types don't know about our custom function, so call it
+// through a minimal wrapper to avoid TypeScript errors.
+const db = supabase as unknown as {
+  rpc: (fn: string, args?: Record<string, unknown>) => Promise<unknown>;
+};
+
+const HEARTBEAT_MS = 30_000;                 // send a "still here" ping every 30s
+const NEW_SESSION_AFTER_MS = 30 * 60 * 1000; // away for 30 min = new visit
 
 const uuid = () => crypto.randomUUID();
 
@@ -31,7 +39,7 @@ let getPath: () => string = () => window.location.pathname;
 async function ping() {
   lastActive = Date.now();
   try {
-    await supabase.rpc("track_visit", {
+    await db.rpc("track_visit", {
       p_session_id: sessionId,
       p_visitor_id: visitorId,
       p_platform: platform,
@@ -59,6 +67,7 @@ function onInactive() {
 }
 
 let started = false;
+
 export function startVisitTracking(pathGetter?: () => string) {
   if (started) return;
   started = true;
@@ -71,13 +80,14 @@ export function startVisitTracking(pathGetter?: () => string) {
   );
   window.addEventListener("pagehide", onInactive);
 
+  // Native app: pause/resume when the app goes to background/foreground
   if (Capacitor.isNativePlatform()) {
     App.addListener("appStateChange", ({ isActive }) =>
       isActive ? onActive() : onInactive()
     );
   }
 
-  // attach the session to the account as soon as a guest logs in
+  // Attach the session to the account as soon as a guest logs in
   supabase.auth.onAuthStateChange((event) => {
     if (event === "SIGNED_IN") ping();
   });

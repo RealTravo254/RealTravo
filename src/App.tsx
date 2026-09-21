@@ -77,7 +77,6 @@ const AccountsOverview = lazy(() => import("./pages/admin/AccountsOverview"));
 const Explore = lazy(() => import("./pages/Explore"));
 const CountyDetail = lazy(() => import("./pages/CountyDetail"));
 const AdminWithdrawals = lazy(() => import("./pages/admin/AdminWithdrawals"));
-const VisitAnalytics = lazy(() => import("./pages/admin/VisitAnalytics"));
 
 
 const queryClient = new QueryClient({
@@ -258,7 +257,6 @@ const App = () => {
                       <Route path="/hotel-guide" element={<Suspense fallback={<OfflineFallback text="Hotel Guide" />}><HotelGuide /></Suspense>} />
                       <Route path="/admin/payment-verification" element={<Suspense fallback={<OfflineFallback text="Payment Verification" />}><AdminPaymentVerification /></Suspense>} />
                       <Route path="/admin/accounts" element={<Suspense fallback={<OfflineFallback text="Accounts Overview" />}><AccountsOverview /></Suspense>} />
-                      <Route path="/admin/analytics" element={<Suspense fallback={<OfflineFallback text="Analytics" />}><VisitAnalytics /></Suspense>} />
                       <Route path="*" element={<Suspense fallback={<OfflineFallback text="Loading" />}><NotFound /></Suspense>} />
                     </Routes>
                   </div>

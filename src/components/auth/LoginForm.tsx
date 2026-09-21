@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Eye, EyeOff, Loader2, ShieldCheck } from "lucide-react";
+import { Eye, EyeOff, Loader2, ShieldCheck, AlertCircle } from "lucide-react";
 
 const DEVICE_ID_KEY = "rt_device_id";
 const STALE_LOGIN_DAYS = 7;
@@ -27,6 +27,14 @@ interface LoginFormProps {
   onAuthSuccess?: () => void;
 }
 
+// Small inline error line, meant to sit directly under the field it refers to.
+const FieldError = ({ message }: { message: string }) => (
+  <p className="flex items-center gap-1 text-[10px] text-destructive mt-1">
+    <AlertCircle className="w-3 h-3 shrink-0" />
+    {message}
+  </p>
+);
+
 export const LoginForm = ({ onSwitchToSignup, onAuthSuccess }: LoginFormProps) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -38,6 +46,13 @@ export const LoginForm = ({ onSwitchToSignup, onAuthSuccess }: LoginFormProps) =
   const [googleLoading, setGoogleLoading] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // Inline, field-level errors — these render directly under the input they
+  // belong to instead of firing a toast, since "wrong password" / "wrong code"
+  // are things the person needs to see right next to what they typed.
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [deviceVerifyError, setDeviceVerifyError] = useState<string | null>(null);
 
   // Step-up verification state (new device or stale login)
   const [needsDeviceVerification, setNeedsDeviceVerification] = useState(false);
@@ -106,10 +121,11 @@ export const LoginForm = ({ onSwitchToSignup, onAuthSuccess }: LoginFormProps) =
   const handleDeviceVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!pendingUserId) return;
+    setDeviceVerifyError(null);
     setLoading(true);
     const { error } = await clientAuth.verifyOtp({ email, token: deviceVerifyCode, type: "magiclink" });
     if (error) {
-      toast({ title: "Verification Error", description: error.message, variant: "destructive" });
+      setDeviceVerifyError(error.message || "That code isn't right. Check your email and try again.");
       setLoading(false);
       return;
     }
@@ -120,12 +136,14 @@ export const LoginForm = ({ onSwitchToSignup, onAuthSuccess }: LoginFormProps) =
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setPasswordError(null);
+    setOtpError(null);
     setLoading(true);
 
     if (loginMethod === "password") {
       const { data, error } = await clientAuth.signInWithPassword({ email, password });
       if (error) {
-        toast({ title: "Error", description: error.message, variant: "destructive" });
+        setPasswordError(error.message || "Incorrect email or password.");
         setLoading(false);
         return;
       }
@@ -147,7 +165,7 @@ export const LoginForm = ({ onSwitchToSignup, onAuthSuccess }: LoginFormProps) =
       } else {
         const { data, error } = await clientAuth.verifyOtp({ email, token: otpCode, type: "magiclink" });
         if (error) {
-          toast({ title: "Verification Error", description: error.message, variant: "destructive" });
+          setOtpError(error.message || "That code isn't right. Check your email and try again.");
           setLoading(false);
           return;
         }
@@ -190,12 +208,17 @@ export const LoginForm = ({ onSwitchToSignup, onAuthSuccess }: LoginFormProps) =
           <Input
             type="text"
             value={deviceVerifyCode}
-            onChange={(e) => setDeviceVerifyCode(e.target.value)}
+            onChange={(e) => {
+              setDeviceVerifyCode(e.target.value);
+              if (deviceVerifyError) setDeviceVerifyError(null);
+            }}
             className={inputStyle}
             placeholder="123456"
             maxLength={6}
             required
+            aria-invalid={!!deviceVerifyError}
           />
+          {deviceVerifyError && <FieldError message={deviceVerifyError} />}
         </div>
         <Button type="submit" disabled={loading} className="w-full h-8 bg-[rgb(0,128,128)] text-xs font-bold uppercase mt-1">
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Confirm & Continue"}
@@ -206,6 +229,7 @@ export const LoginForm = ({ onSwitchToSignup, onAuthSuccess }: LoginFormProps) =
             setNeedsDeviceVerification(false);
             setPendingUserId(null);
             setDeviceVerifyCode("");
+            setDeviceVerifyError(null);
           }}
           className="w-full text-center text-[10px] text-slate-500 hover:underline"
         >
@@ -222,7 +246,10 @@ export const LoginForm = ({ onSwitchToSignup, onAuthSuccess }: LoginFormProps) =
         <Input
           type="email"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            if (passwordError) setPasswordError(null);
+          }}
           className={inputStyle}
           disabled={codeSent}
           required
@@ -242,11 +269,22 @@ export const LoginForm = ({ onSwitchToSignup, onAuthSuccess }: LoginFormProps) =
             </button>
           </div>
           <div className="relative">
-            <Input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} className={inputStyle} required />
+            <Input
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (passwordError) setPasswordError(null);
+              }}
+              className={inputStyle}
+              required
+              aria-invalid={!!passwordError}
+            />
             <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500">
               {showPassword ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
             </button>
           </div>
+          {passwordError && <FieldError message={passwordError} />}
         </div>
       ) : (
         codeSent && (
@@ -255,11 +293,16 @@ export const LoginForm = ({ onSwitchToSignup, onAuthSuccess }: LoginFormProps) =
             <Input
               type="text"
               value={otpCode}
-              onChange={(e) => setOtpCode(e.target.value)}
+              onChange={(e) => {
+                setOtpCode(e.target.value);
+                if (otpError) setOtpError(null);
+              }}
               className={inputStyle}
               placeholder="123456"
               required
+              aria-invalid={!!otpError}
             />
+            {otpError && <FieldError message={otpError} />}
           </div>
         )
       )}
@@ -280,6 +323,8 @@ export const LoginForm = ({ onSwitchToSignup, onAuthSuccess }: LoginFormProps) =
           onClick={() => {
             setLoginMethod(loginMethod === "password" ? "code" : "password");
             setCodeSent(false);
+            setPasswordError(null);
+            setOtpError(null);
           }}
           className="text-[10px] text-[rgb(0,128,128)] hover:underline"
         >

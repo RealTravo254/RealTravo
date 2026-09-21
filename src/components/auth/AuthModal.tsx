@@ -98,4 +98,4 @@ export const AuthModal = () => {
       </div>
     </div>
   );
-};
+}; 

@@ -226,5 +226,5 @@ export const SignupForm = ({ onSwitchToLogin, onSignupSuccess }: SignupFormProps
         By joining, you agree to our Terms and Privacy policy.
       </p>
     </form>
-  );
+  ); 
 };

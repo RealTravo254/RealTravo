@@ -19,7 +19,7 @@ interface SecondaryLoginDialogProps {
 export const SecondaryLoginDialog = ({ 
   open, 
   onOpenChange, 
-  onSuccess, 
+  onSuccess,  
   itemId,
   itemType,
   itemName 

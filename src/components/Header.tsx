@@ -6,7 +6,7 @@ import { useAuthModal } from "@/contexts/AuthModalContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { NavigationDrawer } from "./NavigationDrawer";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { NotificationBell } from "./NotificationBell";
 
 // ── Design tokens ─────────────────────────────────────────────────────────
@@ -45,12 +45,16 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
   useInjectFonts();
 
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const { openAuthModal } = useAuthModal();
   const { t } = useTranslation();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [hasScrolled, setHasScrolled] = useState(false);
   const [firstName, setFirstName] = useState<string>("");
+
+  // Only the home page gets the scroll-triggered search icon.
+  const isIndexPage = location.pathname === "/";
 
   useEffect(() => {
     const handleScroll = () => setHasScrolled(window.scrollY > 50);
@@ -157,15 +161,24 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
         {/* Right — actions */}
         <div className="flex items-center gap-2">
 
-          {/* Search — only after scroll */}
-          {showSearchIcon && hasScrolled && (
-            <button
-              onClick={() => navigate("/explore")}
-              className={`${headerIconStyles} animate-in fade-in zoom-in duration-300`}
-              aria-label="Explore"
-            >
-              <Search className="h-5 w-5" />
-            </button>
+          {/* Search — home page only, and appears after scroll. Reserved in
+              a fixed-size slot (rather than mounting/unmounting the button)
+              so the icons after it never shift position when it fades in
+              or out — this matters most on desktop where every icon is
+              visible at once. */}
+          {showSearchIcon && isIndexPage && (
+            <div className="w-9 h-9 shrink-0 flex items-center justify-center overflow-hidden">
+              <button
+                onClick={() => navigate("/explore")}
+                className={`${headerIconStyles} transition-all duration-300 ${
+                  hasScrolled ? "opacity-100 scale-100" : "opacity-0 scale-75 pointer-events-none"
+                }`}
+                aria-label="Explore"
+                tabIndex={hasScrolled ? 0 : -1}
+              >
+                <Search className="h-5 w-5" />
+              </button>
+            </div>
           )}
 
           {/* Become Host — desktop only */}

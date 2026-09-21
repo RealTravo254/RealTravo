@@ -1,5 +1,6 @@
 // Save as: src/lib/visitTracker.ts
 import { Capacitor } from "@capacitor/core";
+import { App } from "@capacitor/app";
 // IMPORTANT: use the same import your AuthContext.tsx uses for supabase
 import { supabase } from "@/integrations/supabase/client";
 
@@ -78,6 +79,15 @@ export function startVisitTracking(pathGetter?: () => string) {
     document.visibilityState === "visible" ? onActive() : onInactive()
   );
   window.addEventListener("pagehide", onInactive);
+
+  // Native app: pause/resume when the app goes to background/foreground
+  if (Capacitor.isNativePlatform()) {
+    App.addListener("appStateChange", ({ isActive }) =>
+      isActive ? onActive() : onInactive()
+    ).catch(() => {
+      // Plugin not built into the native app yet: visibilitychange above still covers it
+    });
+  }
 
   // Attach the session to the account as soon as a guest logs in
   supabase.auth.onAuthStateChange((event) => {

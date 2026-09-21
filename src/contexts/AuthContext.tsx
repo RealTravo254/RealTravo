@@ -75,13 +75,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           if (isOAuth) {
             // Defer to avoid deadlock with the auth state change itself.
             setTimeout(async () => {
-              const { data: profile } = await supabase
-                .from('profiles')
-                .select('profile_completed')
-                .eq('id', session.user.id)
-                .single();
+              // A brand-new signup's `profiles` row may be created by a DB
+              // trigger a moment after SIGNED_IN fires — retry briefly
+              // instead of treating "no row yet" as "already complete".
+              let profile: { profile_completed: boolean } | null = null;
+              for (let attempt = 0; attempt < 4; attempt++) {
+                const { data, error } = await supabase
+                  .from('profiles')
+                  .select('profile_completed')
+                  .eq('id', session.user.id)
+                  .maybeSingle();
 
-              if (profile && !profile.profile_completed) {
+                // TEMP DEBUG — remove once the gate is confirmed working.
+                console.log(`[ProfileGate] attempt ${attempt} — row:`, data, 'error:', error);
+
+                if (data) { profile = data; break; }
+                await new Promise((r) => setTimeout(r, 400));
+              }
+
+              console.log('[ProfileGate] final profile row used:', profile);
+
+              // Treat "no row at all" the same as "not completed" — a
+              // missing profiles row is not evidence that setup is done.
+              if (!profile || !profile.profile_completed) {
                 const googleFullName =
                   session.user.user_metadata?.full_name ||
                   session.user.user_metadata?.name ||
@@ -92,6 +108,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                   session.user.user_metadata?.picture ||
                   null;
 
+                console.log('[ProfileGate] showing completion gate for this user');
                 setPendingGoogleProfile({
                   firstName: nameParts[0] || "",
                   lastName: nameParts.slice(1).join(" ") || "",
@@ -99,6 +116,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 });
                 setNeedsProfileCompletion(true);
               } else {
+                console.log('[ProfileGate] profile already complete, skipping gate');
                 setNeedsProfileCompletion(false);
                 setPendingGoogleProfile(null);
               }

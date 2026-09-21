@@ -122,20 +122,24 @@ export const CompleteGoogleProfileForm = ({
       return;
     }
 
-    // Save the rest of the profile. Adjust column names to match your schema
-    // if `profiles` differs.
+    // Save the rest of the profile. Upsert (not update) so this still works
+    // even if no `profiles` row exists yet for this user. Adjust column
+    // names to match your schema if `profiles` differs.
     const { error: profileError } = await supabase
       .from("profiles")
-      .update({
-        first_name: firstName.trim(),
-        last_name: lastName.trim(),
-        name: `${firstName.trim()} ${lastName.trim()}`,
-        gender,
-        country,
-        date_of_birth: dateOfBirth,
-        profile_completed: true,
-      })
-      .eq("id", userId);
+      .upsert(
+        {
+          id: userId,
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+          name: `${firstName.trim()} ${lastName.trim()}`,
+          gender,
+          country,
+          date_of_birth: dateOfBirth,
+          profile_completed: true,
+        },
+        { onConflict: "id" }
+      );
 
     if (profileError) {
       toast({ title: "Error", description: profileError.message, variant: "destructive" });

@@ -1,3 +1,4 @@
+// src/pages/ProfileEdit.tsx
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
@@ -5,12 +6,19 @@ import { Footer } from "@/components/Footer";
 import { MobileBottomBar } from "@/components/MobileBottomBar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { User, Calendar, Globe, Phone, ArrowLeft, Loader2, ShieldCheck } from "lucide-react";
 import { CountrySelector } from "@/components/creation/CountrySelector";
+import { EditableField } from "@/components/profile/EditableField";
 
 const GENDER_LABELS: Record<string, string> = {
   male: "Male",
@@ -18,6 +26,9 @@ const GENDER_LABELS: Record<string, string> = {
   other: "Other",
   prefer_not_to_say: "Private",
 };
+
+const NAME_LOCK_DAYS = 30;
+const COUNTRY_LOCK_DAYS = 365;
 
 function calculateAge(dob: string) {
   if (!dob) return null;
@@ -29,97 +40,206 @@ function calculateAge(dob: string) {
   return age;
 }
 
+/** Mirrors the DB trigger's rule client-side, purely for a nicer UX. The
+ *  database is still the source of truth and will reject the update if this
+ *  check somehow drifts (e.g. stale client clock). */
+function getLockStatus(changedAt: string | null, lockDays: number) {
+  if (!changedAt) return { locked: false, message: "" };
+  const changed = new Date(changedAt).getTime();
+  const unlocksAt = changed + lockDays * 24 * 60 * 60 * 1000;
+  const now = Date.now();
+  if (now >= unlocksAt) return { locked: false, message: "" };
+  const daysLeft = Math.ceil((unlocksAt - now) / (24 * 60 * 60 * 1000));
+  const unlockDate = new Date(unlocksAt).toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+  return {
+    locked: true,
+    message: `Can be changed again on ${unlockDate} (${daysLeft} day${daysLeft === 1 ? "" : "s"})`,
+  };
+}
+
+type FieldKey = "name" | "dob" | "gender" | "country" | "phone";
+
+interface ProfileRow {
+  first_name: string;
+  last_name: string;
+  gender: string;
+  date_of_birth: string;
+  country_id: string | null;
+  division_id: string | null;
+  phone_number: string;
+  phone_verified: boolean;
+  name_changed_at: string | null;
+  country_changed_at: string | null;
+}
+
 export default function ProfileEdit() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
-  const [loading, setLoading] = useState(false);
+
   const [fetchingProfile, setFetchingProfile] = useState(true);
-  const [profileData, setProfileData] = useState<{
-    first_name: string;
-    last_name: string;
-    gender: string;
-    date_of_birth: string;
-    country: string;
-    phone_number: string;
-  }>({
-    first_name: "",
-    last_name: "",
-    gender: "",
-    date_of_birth: "",
-    country: "",
-    phone_number: "",
-  });
+  const [profile, setProfile] = useState<ProfileRow | null>(null);
+  const [countryName, setCountryName] = useState<string>("");
+  const [divisionName, setDivisionName] = useState<string>("");
+
+  const [editingField, setEditingField] = useState<FieldKey | null>(null);
+  const [savingField, setSavingField] = useState<FieldKey | null>(null);
+
+  // Draft values, only used while a field is being edited.
+  const [draftFirstName, setDraftFirstName] = useState("");
+  const [draftLastName, setDraftLastName] = useState("");
+  const [draftDob, setDraftDob] = useState("");
+  const [draftGender, setDraftGender] = useState("");
+  const [draftCountryId, setDraftCountryId] = useState<string | null>(null);
+  const [draftDivisionId, setDraftDivisionId] = useState<string | null>(null);
+  const [draftPhone, setDraftPhone] = useState("");
 
   const [verificationCode, setVerificationCode] = useState("");
   const [showVerification, setShowVerification] = useState(false);
   const [sendingCode, setSendingCode] = useState(false);
   const [verifyingCode, setVerifyingCode] = useState(false);
-  const [originalPhone, setOriginalPhone] = useState("");
 
   useEffect(() => {
     if (!user) {
       navigate("/auth");
       return;
     }
-
-    const fetchProfile = async () => {
-      setFetchingProfile(true);
-      const { data } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
-
-      if (data) {
-        setProfileData({
-          first_name: data.first_name || "",
-          last_name: data.last_name || "",
-          gender: data.gender || "",
-          date_of_birth: data.date_of_birth || "",
-          country: data.country || "",
-          phone_number: data.phone_number || "",
-        });
-        setOriginalPhone(data.phone_number || "");
-      }
-      setFetchingProfile(false);
-    };
-
-    fetchProfile();
+    loadProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, navigate]);
 
-  const handleSendVerificationCode = async () => {
-    if (!profileData.phone_number || profileData.phone_number === originalPhone) {
-      toast({ title: "Error", description: "Please enter a new phone number.", variant: "destructive" });
+  const loadProfile = async () => {
+    setFetchingProfile(true);
+    const { data } = await supabase
+      .from("profiles")
+      .select(
+        "first_name, last_name, gender, date_of_birth, country_id, division_id, phone_number, phone_verified, name_changed_at, country_changed_at",
+      )
+      .eq("id", user!.id)
+      .single();
+
+    if (data) {
+      setProfile(data as ProfileRow);
+
+      if (data.country_id) {
+        const { data: c } = await supabase
+          .from("countries")
+          .select("name")
+          .eq("id", data.country_id)
+          .single();
+        setCountryName(c?.name ?? "");
+      }
+      if (data.division_id) {
+        const { data: d } = await supabase
+          .from("country_divisions")
+          .select("name")
+          .eq("id", data.division_id)
+          .single();
+        setDivisionName(d?.name ?? "");
+      }
+    }
+    setFetchingProfile(false);
+  };
+
+  if (!profile && !fetchingProfile) return null;
+
+  const nameLock = profile ? getLockStatus(profile.name_changed_at, NAME_LOCK_DAYS) : { locked: false, message: "" };
+  const countryLock = profile
+    ? getLockStatus(profile.country_changed_at, COUNTRY_LOCK_DAYS)
+    : { locked: false, message: "" };
+
+  const startEdit = (field: FieldKey) => {
+    if (!profile) return;
+    setEditingField(field);
+    if (field === "name") {
+      setDraftFirstName(profile.first_name);
+      setDraftLastName(profile.last_name);
+    } else if (field === "dob") {
+      setDraftDob(profile.date_of_birth);
+    } else if (field === "gender") {
+      setDraftGender(profile.gender);
+    } else if (field === "country") {
+      setDraftCountryId(profile.country_id);
+      setDraftDivisionId(profile.division_id);
+    } else if (field === "phone") {
+      setDraftPhone(profile.phone_number);
+      setShowVerification(false);
+      setVerificationCode("");
+    }
+  };
+
+  const cancelEdit = () => {
+    setEditingField(null);
+    setShowVerification(false);
+  };
+
+  const saveField = async (field: FieldKey, updateData: Record<string, unknown>) => {
+    setSavingField(field);
+    try {
+      const { error } = await supabase.from("profiles").update(updateData).eq("id", user!.id);
+      if (error) {
+        const raw = error.message || "";
+        if (raw.includes("name_locked") || raw.includes("country_locked")) {
+          const friendly = raw.split(":").slice(1).join(":").trim() || "This field is locked right now.";
+          toast({ title: "Locked", description: friendly, variant: "destructive" });
+        } else {
+          throw error;
+        }
+        return;
+      }
+      toast({ title: "Saved", description: "Your profile has been updated." });
+      setEditingField(null);
+      await loadProfile();
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setSavingField(null);
+    }
+  };
+
+  const handleSaveName = () => {
+    if (!draftFirstName.trim() || !draftLastName.trim()) {
+      toast({ title: "Error", description: "First name and surname are required.", variant: "destructive" });
+      return;
+    }
+    saveField("name", { first_name: draftFirstName.trim(), last_name: draftLastName.trim() });
+  };
+
+  const handleSaveDob = () => saveField("dob", { date_of_birth: draftDob || null });
+
+  const handleSaveGender = () => saveField("gender", { gender: draftGender || null });
+
+  const handleSaveCountry = () =>
+    saveField("country", { country_id: draftCountryId, division_id: draftDivisionId });
+
+  const handleSendVerificationCode = () => {
+    if (!draftPhone || draftPhone === profile?.phone_number) {
+      toast({ title: "Error", description: "Enter a new phone number first.", variant: "destructive" });
       return;
     }
     setSendingCode(true);
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    toast({ title: "Verification Code Sent", description: `Your code is: ${code}` });
+    toast({ title: "Verification code sent", description: `Your code is: ${code}` });
     sessionStorage.setItem("phone_verification_code", code);
-    sessionStorage.setItem("phone_to_verify", profileData.phone_number);
+    sessionStorage.setItem("phone_to_verify", draftPhone);
     setShowVerification(true);
     setSendingCode(false);
   };
 
-  const handleVerifyCode = async () => {
+  const handleVerifyAndSavePhone = async () => {
     setVerifyingCode(true);
     try {
       const storedCode = sessionStorage.getItem("phone_verification_code");
       const storedPhone = sessionStorage.getItem("phone_to_verify");
-      if (verificationCode !== storedCode || profileData.phone_number !== storedPhone) {
+      if (verificationCode !== storedCode || draftPhone !== storedPhone) {
         throw new Error("Invalid verification code.");
       }
-
-      const { error } = await supabase
-        .from("profiles")
-        .update({ phone_number: profileData.phone_number, phone_verified: true })
-        .eq("id", user!.id);
-
-      if (error) throw error;
-      toast({ title: "Success!", description: "Phone number verified successfully." });
+      await saveField("phone", { phone_number: draftPhone, phone_verified: true });
       setShowVerification(false);
-      setOriginalPhone(profileData.phone_number);
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
@@ -127,39 +247,7 @@ export default function ProfileEdit() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!profileData.first_name.trim() || !profileData.last_name.trim()) {
-      toast({ title: "Error", description: "First name and surname are required.", variant: "destructive" });
-      return;
-    }
-    if (profileData.phone_number !== originalPhone && !showVerification) {
-      toast({ title: "Action Required", description: "Verify your new phone number first.", variant: "destructive" });
-      return;
-    }
-    setLoading(true);
-    try {
-      // Note: gender and date_of_birth are intentionally NOT sent here — they are locked after signup.
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          first_name: profileData.first_name.trim(),
-          last_name: profileData.last_name.trim(),
-          country: profileData.country || null,
-        })
-        .eq("id", user!.id);
-
-      if (error) throw error;
-      toast({ title: "Profile Updated", description: "Your details have been saved." });
-      navigate("/account");
-    } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const age = calculateAge(profileData.date_of_birth);
+  const age = profile ? calculateAge(profile.date_of_birth) : null;
 
   return (
     <div
@@ -171,158 +259,203 @@ export default function ProfileEdit() {
     >
       <Header />
 
-      <main className="flex-1 px-4 pt-3 pb-12 max-w-lg mx-auto w-full space-y-4">
+      <main className="flex-1 px-4 pt-6 pb-12 max-w-lg mx-auto w-full space-y-5">
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate(-1)}
             aria-label="Go back"
-            className="h-8 w-8 rounded-full bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors"
+            className="h-9 w-9 rounded-full bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors shrink-0"
           >
             <ArrowLeft className="h-4 w-4 text-foreground" />
           </button>
           <div>
-            <h1 className="text-lg font-black text-foreground leading-tight">
-              Edit Profile
-            </h1>
-            <p className="text-[11px] font-medium text-muted-foreground">
-              Update your account details and contact preferences
+            <h1 className="text-xl font-bold text-foreground leading-tight">Edit profile</h1>
+            <p className="text-sm text-muted-foreground">
+              Tap "Edit" on any field to update it, then save.
             </p>
           </div>
         </div>
 
         {fetchingProfile ? (
-          <div className="p-8 flex justify-center items-center">
+          <div className="p-12 flex justify-center items-center">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-3">
-            <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border/60 shadow-sm">
-              {/* First Name */}
-              <ProfileField icon={<User className="h-4 w-4" />} label="First Name">
-                <Input
-                  value={profileData.first_name}
-                  onChange={(e) => setProfileData({ ...profileData, first_name: e.target.value })}
-                  placeholder="Enter first name"
-                  className="border-none shadow-none p-0 h-8 font-bold text-xs text-foreground focus-visible:ring-0 placeholder:text-muted-foreground bg-transparent"
-                />
-              </ProfileField>
-
-              {/* Surname */}
-              <ProfileField icon={<User className="h-4 w-4" />} label="Surname">
-                <Input
-                  value={profileData.last_name}
-                  onChange={(e) => setProfileData({ ...profileData, last_name: e.target.value })}
-                  placeholder="Enter surname"
-                  className="border-none shadow-none p-0 h-8 font-bold text-xs text-foreground focus-visible:ring-0 placeholder:text-muted-foreground bg-transparent"
-                />
-              </ProfileField>
-
-              {/* Date of Birth — locked */}
-              <ProfileField icon={<Calendar className="h-4 w-4" />} label="Date of Birth">
-                <span className="font-bold text-xs text-foreground">
-                  {profileData.date_of_birth
-                    ? `${profileData.date_of_birth}${age !== null ? ` (age ${age})` : ""}`
-                    : "Not set"}
-                </span>
-                <span className="block text-[10px] text-muted-foreground font-normal mt-0.5">
-                  Can't be changed after signup
-                </span>
-              </ProfileField>
-
-              {/* Gender — locked */}
-              <ProfileField icon={<User className="h-4 w-4" />} label="Gender Identity">
-                <span className="font-bold text-xs text-foreground">
-                  {profileData.gender ? GENDER_LABELS[profileData.gender] ?? profileData.gender : "Not set"}
-                </span>
-                <span className="block text-[10px] text-muted-foreground font-normal mt-0.5">
-                  Can't be changed after signup
-                </span>
-              </ProfileField>
-
-              {/* Home Country */}
-              <ProfileField icon={<Globe className="h-4 w-4" />} label="Home Country">
-                <div className="pt-0.5">
-                  <CountrySelector
-                    value={profileData.country}
-                    onChange={(v) => setProfileData({ ...profileData, country: v })}
+          profile && (
+            <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm">
+              {/* Name */}
+              <EditableField
+                icon={<User className="h-4 w-4" />}
+                label="Name"
+                display={`${profile.first_name} ${profile.last_name}`.trim() || "Not set"}
+                isEditing={editingField === "name"}
+                isSaving={savingField === "name"}
+                locked={nameLock.locked}
+                lockedMessage={nameLock.locked ? nameLock.message : undefined}
+                onEdit={() => startEdit("name")}
+                onSave={handleSaveName}
+                onCancel={cancelEdit}
+              >
+                <div className="grid grid-cols-2 gap-2">
+                  <Input
+                    value={draftFirstName}
+                    onChange={(e) => setDraftFirstName(e.target.value)}
+                    placeholder="First name"
+                    className="h-9 text-sm"
+                  />
+                  <Input
+                    value={draftLastName}
+                    onChange={(e) => setDraftLastName(e.target.value)}
+                    placeholder="Surname"
+                    className="h-9 text-sm"
                   />
                 </div>
-              </ProfileField>
+              </EditableField>
 
-              {/* Phone Number */}
-              <ProfileField icon={<Phone className="h-4 w-4" />} label="Phone Number" noBorder>
-                <div className="flex flex-col gap-2">
-                  <div className="flex gap-2 items-center">
-                    <Input
-                      type="tel"
-                      value={profileData.phone_number}
-                      onChange={(e) => setProfileData({ ...profileData, phone_number: e.target.value })}
-                      className="border-none shadow-none p-0 h-8 font-bold text-xs text-foreground focus-visible:ring-0 bg-transparent"
-                      placeholder="Enter phone number"
-                    />
-                    {profileData.phone_number !== originalPhone && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={handleSendVerificationCode}
-                        disabled={sendingCode}
-                        className="h-7 px-2.5 rounded-md text-[10px] font-bold text-white bg-primary hover:bg-primary/90 transition-all shrink-0"
-                      >
-                        {sendingCode ? <Loader2 className="h-3 w-3 animate-spin" /> : "Verify"}
-                      </Button>
-                    )}
-                  </div>
+              {/* Date of birth */}
+              <EditableField
+                icon={<Calendar className="h-4 w-4" />}
+                label="Date of birth"
+                display={
+                  profile.date_of_birth
+                    ? `${profile.date_of_birth}${age !== null ? ` · age ${age}` : ""}`
+                    : "Not set"
+                }
+                isEditing={editingField === "dob"}
+                isSaving={savingField === "dob"}
+                onEdit={() => startEdit("dob")}
+                onSave={handleSaveDob}
+                onCancel={cancelEdit}
+              >
+                <Input
+                  type="date"
+                  value={draftDob}
+                  onChange={(e) => setDraftDob(e.target.value)}
+                  className="h-9 text-sm"
+                />
+              </EditableField>
 
-                  {showVerification && (
-                    <div className="mt-2 p-3 bg-muted/40 rounded-lg border border-border space-y-2">
-                      <div className="flex items-center gap-1 text-primary">
+              {/* Gender */}
+              <EditableField
+                icon={<User className="h-4 w-4" />}
+                label="Gender identity"
+                display={profile.gender ? GENDER_LABELS[profile.gender] ?? profile.gender : "Not set"}
+                isEditing={editingField === "gender"}
+                isSaving={savingField === "gender"}
+                onEdit={() => startEdit("gender")}
+                onSave={handleSaveGender}
+                onCancel={cancelEdit}
+              >
+                <Select value={draftGender} onValueChange={setDraftGender}>
+                  <SelectTrigger className="h-9 text-sm">
+                    <SelectValue placeholder="Select gender" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(GENDER_LABELS).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </EditableField>
+
+              {/* Country / division */}
+              <EditableField
+                icon={<Globe className="h-4 w-4" />}
+                label="Home country"
+                display={
+                  countryName
+                    ? `${countryName}${divisionName ? ` · ${divisionName}` : ""}`
+                    : "Not set"
+                }
+                isEditing={editingField === "country"}
+                isSaving={savingField === "country"}
+                locked={countryLock.locked}
+                lockedMessage={countryLock.locked ? countryLock.message : undefined}
+                onEdit={() => startEdit("country")}
+                onSave={handleSaveCountry}
+                onCancel={cancelEdit}
+              >
+                <CountrySelector
+                  countryId={draftCountryId}
+                  divisionId={draftDivisionId}
+                  onChange={({ countryId, divisionId }) => {
+                    setDraftCountryId(countryId);
+                    setDraftDivisionId(divisionId);
+                  }}
+                />
+              </EditableField>
+
+              {/* Phone number */}
+              <EditableField
+                icon={<Phone className="h-4 w-4" />}
+                label="Phone number"
+                display={profile.phone_number || "Not set"}
+                isEditing={editingField === "phone"}
+                isSaving={savingField === "phone"}
+                onEdit={() => startEdit("phone")}
+                onSave={handleSendVerificationCode}
+                onCancel={cancelEdit}
+                noBorder
+              >
+                <div className="space-y-2">
+                  <Input
+                    type="tel"
+                    value={draftPhone}
+                    onChange={(e) => setDraftPhone(e.target.value)}
+                    placeholder="Enter phone number"
+                    className="h-9 text-sm"
+                  />
+                  {!showVerification ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleSendVerificationCode}
+                      disabled={sendingCode}
+                      className="h-8 px-3 text-xs font-semibold"
+                    >
+                      {sendingCode ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Send code"}
+                    </Button>
+                  ) : (
+                    <div className="p-3 bg-muted/40 rounded-lg border border-border space-y-2">
+                      <div className="flex items-center gap-1 text-primary text-[11px] font-semibold uppercase tracking-wide">
                         <ShieldCheck className="h-3.5 w-3.5" />
-                        <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                          Enter Verification Code
-                        </Label>
+                        Enter verification code
                       </div>
                       <div className="flex gap-2">
                         <Input
                           value={verificationCode}
                           onChange={(e) => setVerificationCode(e.target.value)}
                           placeholder="000000"
-                          className="bg-background rounded-md border-border text-center font-bold tracking-widest text-xs h-8"
                           maxLength={6}
+                          className="h-9 text-center font-semibold tracking-widest text-sm"
                         />
                         <Button
                           type="button"
-                          onClick={handleVerifyCode}
+                          onClick={handleVerifyAndSavePhone}
                           disabled={verifyingCode}
-                          className="h-8 px-3 text-[10px] font-bold bg-primary text-primary-foreground hover:bg-primary/90 rounded-md shrink-0"
+                          className="h-9 px-3 text-xs font-semibold shrink-0"
                         >
-                          {verifyingCode ? <Loader2 className="h-3 w-3 animate-spin" /> : "Confirm"}
+                          {verifyingCode ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Confirm"}
                         </Button>
                       </div>
                     </div>
                   )}
                 </div>
-              </ProfileField>
+              </EditableField>
             </div>
-
-            <div className="pt-2 flex gap-2">
-              <Button
-                type="submit"
-                disabled={loading}
-                className="flex-1 h-10 rounded-xl text-xs font-bold text-primary-foreground bg-primary hover:bg-primary/90 shadow-sm transition-all active:scale-95"
-              >
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Changes"}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => navigate("/account")}
-                className="h-10 px-4 rounded-xl text-xs font-bold text-muted-foreground hover:bg-muted border-border"
-              >
-                Cancel
-              </Button>
-            </div>
-          </form>
+          )
         )}
+
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => navigate("/account")}
+          className="w-full h-10 rounded-xl text-sm font-semibold"
+        >
+          Done
+        </Button>
       </main>
 
       <Footer />
@@ -330,26 +463,3 @@ export default function ProfileEdit() {
     </div>
   );
 }
-
-const ProfileField = ({
-  icon,
-  label,
-  children,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  children: React.ReactNode;
-  noBorder?: boolean;
-}) => (
-  <div className="p-3.5 flex items-start gap-3 hover:bg-muted/30 transition-colors">
-    <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0 mt-0.5">
-      {icon}
-    </div>
-    <div className="flex-1 min-w-0">
-      <Label className="text-[10px] font-black text-muted-foreground uppercase tracking-wider mb-0.5 block">
-        {label}
-      </Label>
-      <div className="min-h-[28px] flex items-center flex-col items-start">{children}</div>
-    </div>
-  </div>
-);

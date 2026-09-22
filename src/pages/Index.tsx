@@ -10,10 +10,9 @@ import { SearchBarWithSuggestions } from "@/components/SearchBarWithSuggestions"
 import { useSearchFocus } from "@/components/PageLayout";
 import { ListingCard } from "@/components/ListingCard";
 import {
-  Tent, Map,
+  Tent, Map, BedDouble, CalendarDays,
   Navigation, Heart, Ticket, Star, Search as SearchIcon,
 } from "lucide-react";
-import { FEATURED_COUNTIES, COUNTY_IMAGES } from "@/lib/kenyaCounties";
 import {
   AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -27,6 +26,60 @@ import { useSavedItems } from "@/hooks/useSavedItems";
 import { useRatings, sortByRating } from "@/hooks/useRatings";
 import { useRealtimeBookings } from "@/hooks/useRealtimeBookings";
 import { useResponsiveLimit } from "@/hooks/useResponsiveLimit";
+
+/**
+ * ── DB requirements for the "global regions" section below ──────────────────
+ * This page now reads regions from the database instead of a hardcoded Kenya
+ * list, matching the `countries` / `country_divisions` tables used by your
+ * CountrySelector component. Each row needs an image + name:
+ *
+ *   create table countries (
+ *     id uuid primary key default gen_random_uuid(),
+ *     name text not null,
+ *     iso_code text unique,          -- ISO 3166-1 alpha-2, e.g. 'KE', 'GB'
+ *     image_url text,
+ *     created_at timestamptz default now()
+ *   );
+ *
+ *   create table country_divisions (
+ *     id uuid primary key default gen_random_uuid(),
+ *     country_id uuid references countries(id) on delete cascade,
+ *     name text not null,            -- e.g. 'Nairobi' or 'Greater London'
+ *     image_url text,
+ *     created_at timestamptz default now()
+ *   );
+ *
+ * If `countries` / `country_divisions` already exist in your DB without an
+ * image column (as in your current schema), just add it:
+ *
+ *   alter table public.countries add column if not exists image_url text;
+ *   alter table public.country_divisions add column if not exists image_url text;
+ *
+ * Also: hotels are expected as adventure_places rows with category = 'hotel'
+ * (same table/pattern as the existing 'campsite' category). If hotels live in
+ * a separate table in your schema, swap the query in fetchScrollableRows.
+ *
+ * Navigation: division cards below link to `/explore?division=<id>`. Wire
+ * that query param up in your Explore page's filter, or change the path to
+ * match whatever route you use for browsing by region.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+// Free, keyless reverse-geocoding endpoint used only to turn the visitor's
+// lat/lng into an ISO country code — no API key/config needed.
+const REVERSE_GEOCODE_URL = "https://api.bigdatacloud.net/data/reverse-geocode-client";
+const DEFAULT_COUNTRY_ISO = "KE"; // shown when we can't detect a country (no location, offline, unmatched)
+
+interface CountryLite {
+  id: string;
+  name: string;
+  iso_code: string | null;
+  image_url: string | null;
+}
+interface DivisionLite {
+  id: string;
+  name: string;
+  image_url: string | null;
+}
 
 // ── GridSection ───────────────────────────────────────────────────────────────
 const INITIAL_VISIBLE_COUNT = 10;
@@ -132,22 +185,19 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: G
 GridSection.displayName = "GridSection";
 
 // ── Category cards ────────────────────────────────────────────────────────────
-// Hotels and AirBnbs removed per request — only Campsites and Tours & Trips remain.
-// NOTE: bgImage below points at "/images/category-campsite.jpg" — add that asset
-// (or swap the path to whatever campsite hero image you actually have) since the
-// old hotels image is no longer appropriate here.
+// Hotels restored alongside Campsites and Tours & Trips.
 const CATEGORIES = [
-  { icon: Tent, title: "Outdoor & Campsites",     path: "/category/campsite", bgImage: "/images/category-campsite.jpg" },
-  { icon: Map,  title: "Tours & Trips", path: "/category/guided",   bgImage: "/images/category-trips.jpg" },
+  { icon: Tent,       title: "Outdoor & Campsites", path: "/category/campsite", bgImage: "/images/category-campsite.jpg" },
+  { icon: Map,        title: "Tours & Trips",       path: "/category/guided",   bgImage: "/images/category-trips.jpg" },
+  { icon: BedDouble,  title: "Hotels & Stays",      path: "/category/hotel",    bgImage: "/images/category-hotel.jpg" },
 ];
 
 // ── Quick-nav shortcuts ───────────────────────────────────────────────────────
-// Hotels and AirBnb removed per request.
 const QUICK_NAV = [
-  { icon: Tent,   title: "Outdoors & Campsites",     path: "/category/campsite", color: "hsl(278, 90%, 50%)" },
-  { icon: Map,    title: "Tours & Trips", path: "/category/guided",   color: "hsl(235, 90%, 50%)" },
-  { icon: Ticket, title: "Bookings",      path: "/bookings",          color: "hsl(200, 70%, 45%)" },
-  { icon: Heart,  title: "Saved",         path: "/saved",             color: "hsl(350, 80%, 55%)" },
+  { icon: Tent,   title: "Outdoors & Campsites", path: "/category/campsite", color: "hsl(278, 90%, 50%)" },
+  { icon: Map,    title: "Tours & Trips",        path: "/category/guided",   color: "hsl(235, 90%, 50%)" },
+  { icon: Ticket, title: "Bookings",             path: "/bookings",          color: "hsl(200, 70%, 45%)" },
+  { icon: Heart,  title: "Saved",                path: "/saved",             color: "hsl(350, 80%, 55%)" },
 ];
 
 // ── Main page ─────────────────────────────────────────────────────────────────
@@ -164,8 +214,8 @@ const Index = () => {
   const [showSearchIcon, setShowSearchIcon]       = useState(false);
   const [isIndexDrawerOpen, setIsIndexDrawerOpen] = useState(false);
   const [headerHeight, setHeaderHeight]           = useState(0);
-  const searchRef   = useRef<HTMLDivElement>(null);
-  const countiesRef = useRef<HTMLDivElement>(null);
+  const searchRef    = useRef<HTMLDivElement>(null);
+  const divisionsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const measure = () => {
@@ -181,12 +231,10 @@ const Index = () => {
     return () => window.removeEventListener("resize", measure);
   }, []);
 
-  // "accommodations" key removed — AirBnb is no longer fetched anywhere on this page.
   const [scrollableRows, setScrollableRows] = useState<{
-    trips: any[]; campsites: any[]; events: any[]; guidedTrips: any[];
-  }>({ trips: [], campsites: [], events: [], guidedTrips: [] });
+    campsites: any[]; hotels: any[]; guidedTrips: any[]; fixedTrips: any[]; events: any[];
+  }>({ campsites: [], hotels: [], guidedTrips: [], fixedTrips: [], events: [] });
 
-  // Renamed from nearbyPlacesHotels — this now only ever contains campsites.
   const [nearbyPlaces, setNearbyPlaces]             = useState<any[]>([]);
   const [loadingScrollable, setLoadingScrollable]   = useState(true);
   const [loadingNearby, setLoadingNearby]           = useState(false);
@@ -198,36 +246,131 @@ const Index = () => {
     setSearchFocused(v);
   }, [setSearchFocused]);
 
+  // ── Global regions (country + its divisions), read from the DB ─────────────
+  const [activeCountry, setActiveCountry]     = useState<CountryLite | null>(null);
+  const [divisions, setDivisions]             = useState<DivisionLite[]>([]);
+  const [loadingDivisions, setLoadingDivisions] = useState(true);
+
+  // Turn the visitor's coordinates into an ISO-3166 country code so we know
+  // which country's divisions to show (Kenya → counties, UK → its regions, etc).
+  const resolveCountryIso = useCallback(async (): Promise<string> => {
+    if (!position) return DEFAULT_COUNTRY_ISO;
+    try {
+      const res = await fetch(
+        `${REVERSE_GEOCODE_URL}?latitude=${position.latitude}&longitude=${position.longitude}&localityLanguage=en`
+      );
+      const data = await res.json();
+      return data?.countryCode || DEFAULT_COUNTRY_ISO;
+    } catch (err) {
+      console.error("Reverse geocode failed, defaulting country:", err);
+      return DEFAULT_COUNTRY_ISO;
+    }
+  }, [position]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadCountryAndDivisions = async () => {
+      setLoadingDivisions(true);
+
+      let country: CountryLite | null = null;
+
+      // 1. A signed-in user's profile.country_id is their explicit, 365-day
+      //    locked home country — trust that over wherever their device
+      //    currently reports them as being.
+      if (userId) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("country_id")
+          .eq("id", userId)
+          .maybeSingle();
+        if (profile?.country_id) {
+          const { data: profileCountry } = await supabase
+            .from("countries")
+            .select("id, name, iso_code, image_url")
+            .eq("id", profile.country_id)
+            .maybeSingle();
+          country = profileCountry ?? null;
+        }
+      }
+
+      // 2. No profile country set (or logged out) — detect it from the
+      //    visitor's current coordinates instead.
+      if (!country) {
+        const iso = await resolveCountryIso();
+        const { data: matched } = await supabase
+          .from("countries")
+          .select("id, name, iso_code, image_url")
+          .eq("iso_code", iso)
+          .maybeSingle();
+        country = matched ?? null;
+      }
+
+      // 3. Still nothing (unmatched country, offline, etc.) — fall back to
+      //    Kenya rather than showing an empty section.
+      if (!country) {
+        const { data: fallback } = await supabase
+          .from("countries")
+          .select("id, name, iso_code, image_url")
+          .eq("iso_code", DEFAULT_COUNTRY_ISO)
+          .maybeSingle();
+        country = fallback ?? null;
+      }
+
+      if (cancelled) return;
+      setActiveCountry(country);
+
+      if (country) {
+        const { data: divs } = await supabase
+          .from("country_divisions")
+          .select("id, name, image_url")
+          .eq("country_id", country.id)
+          .order("name", { ascending: true })
+          .limit(16);
+        if (!cancelled) setDivisions(divs || []);
+      } else {
+        if (!cancelled) setDivisions([]);
+      }
+      if (!cancelled) setLoadingDivisions(false);
+    };
+
+    loadCountryAndDivisions();
+    return () => { cancelled = true; };
+  }, [resolveCountryIso, userId]);
+
   const allItemIds = useMemo(() => {
     const ids = new Set<string>();
     nearbyPlaces.forEach(i => ids.add(i.id));
-    // scrollableRows.trips.forEach(i => ids.add(i.id)); // fixed trips disabled
     scrollableRows.campsites.forEach(i => ids.add(i.id));
-    // scrollableRows.events.forEach(i => ids.add(i.id)); // events disabled
+    scrollableRows.hotels.forEach(i => ids.add(i.id));
     scrollableRows.guidedTrips.forEach(i => ids.add(i.id));
+    scrollableRows.fixedTrips.forEach(i => ids.add(i.id));
+    scrollableRows.events.forEach(i => ids.add(i.id));
     return Array.from(ids);
   }, [nearbyPlaces, scrollableRows]);
 
   const tripEventIds = useMemo(() => {
-    // const ids = [...scrollableRows.trips, ...scrollableRows.events].map(i => i.id);
-    // Fixed trips and events remain disabled — only guided trips are tracked for bookings.
-    const ids = [...scrollableRows.guidedTrips].map(i => i.id);
+    const ids = [
+      ...scrollableRows.guidedTrips,
+      ...scrollableRows.fixedTrips,
+      ...scrollableRows.events,
+    ].map(i => i.id);
     return [...new Set(ids)];
-  }, [scrollableRows.guidedTrips]);
+  }, [scrollableRows.guidedTrips, scrollableRows.fixedTrips, scrollableRows.events]);
 
   const { bookingStats } = useRealtimeBookings(tripEventIds);
   const { ratings }      = useRatings(allItemIds);
 
-  // "Nearest to You" — campsites sorted by distance, guided trips by rating appended after
+  // "Nearest to You" — campsites + hotels sorted by distance, trips/events by rating appended after
   const sortedNearbyPlaces = useMemo(() => {
     const places = sortByRating(nearbyPlaces, ratings, position, calculateDistance)
       .map((item: any) => ({ ...item, __cardType: "ADVENTURE PLACE" as const }));
 
     const seen = new Set(places.map((p: any) => p.id));
     const others = [
-      // ...scrollableRows.trips.map(item => ({ ...item, __cardType: "TRIP" as const })),   // fixed trips disabled
       ...scrollableRows.guidedTrips.map(item => ({ ...item, __cardType: "TRIP" as const })),
-      // ...scrollableRows.events.map(item => ({ ...item, __cardType: "EVENT" as const })),  // events disabled
+      ...scrollableRows.fixedTrips.map(item => ({ ...item, __cardType: "TRIP" as const })),
+      ...scrollableRows.events.map(item => ({ ...item, __cardType: "EVENT" as const })),
     ]
       .filter(item => {
         if (seen.has(item.id)) return false;
@@ -243,16 +386,17 @@ const Index = () => {
       });
 
     return [...places, ...others];
-  }, [nearbyPlaces, ratings, position, scrollableRows.guidedTrips]);
+  }, [nearbyPlaces, ratings, position, scrollableRows.guidedTrips, scrollableRows.fixedTrips, scrollableRows.events]);
 
-  // "Browsers guide" — campsites + guided trips, ranked by rating (accommodations removed)
+  // "Browsers guide" — campsites + hotels + trips + events, ranked by rating
   const displayBrowseGuides = useMemo(() => {
     const seen = new Set<string>();
     const combined = [
       ...scrollableRows.campsites.map(item => ({ ...item, __cardType: "ADVENTURE PLACE" as const })),
-      // ...scrollableRows.trips.map(item => ({ ...item, __cardType: "TRIP" as const })),   // fixed trips disabled
+      ...scrollableRows.hotels.map(item => ({ ...item, __cardType: "ADVENTURE PLACE" as const })),
       ...scrollableRows.guidedTrips.map(item => ({ ...item, __cardType: "TRIP" as const })),
-      // ...scrollableRows.events.map(item => ({ ...item, __cardType: "EVENT" as const })), // events disabled
+      ...scrollableRows.fixedTrips.map(item => ({ ...item, __cardType: "TRIP" as const })),
+      ...scrollableRows.events.map(item => ({ ...item, __cardType: "EVENT" as const })),
     ];
     return combined
       .filter(item => {
@@ -267,7 +411,13 @@ const Index = () => {
         const sb = rb ? rb.avgRating * Math.log1p(rb.reviewCount) : 0;
         return sb - sa;
       });
-  }, [scrollableRows.campsites, scrollableRows.guidedTrips, ratings]);
+  }, [scrollableRows, ratings]);
+
+  // Dedicated single-category rows (hotels / events / fixed trips / guided tours)
+  const hotelNodesSrc     = scrollableRows.hotels;
+  const eventNodesSrc     = scrollableRows.events;
+  const fixedTripNodesSrc = scrollableRows.fixedTrips;
+  const guidedTripNodesSrc = scrollableRows.guidedTrips;
 
   // ── Data fetching ──────────────────────────────────────────────────────────
   const fetchScrollableRows = useCallback(async (limit: number, opts: { background?: boolean } = {}) => {
@@ -276,54 +426,64 @@ const Index = () => {
     // is already on screen — only the very first load shows it.
     if (!opts.background) setLoadingScrollable(true);
     const fetchLimit = Math.max(limit * 3, 60);
+    const placeCols = "id,name,location,place,country,image_url,gallery_images,images,entry_fee,activities,latitude,longitude,created_at,description,opening_hours,closing_hours,category,days_opened";
+    const tripCols  = "id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child,description,opening_hours,closing_hours";
+
     try {
       const [
-        // tripsData,   // fixed trips fetch disabled — uncomment to re-enable
         campsitesData,
-        // eventsData,  // events fetch disabled — uncomment to re-enable
+        hotelsData,
         guidedData,
+        fixedTripsData,
+        eventsData,
       ] = await Promise.all([
-        // ── Fixed-date trips (disabled — uncomment to re-enable) ──────────
-        // supabase
-        //   .from("trips")
-        //   .select("id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child,description,opening_hours,closing_hours")
-        //   .eq("approval_status", "approved").eq("is_hidden", false)
-        //   .eq("type", "trip").eq("is_flexible_date", false).eq("is_custom_date", false)
-        //   .order("date", { ascending: true }).limit(fetchLimit),
-
-        // ── Campsites only — hotels excluded via the category filter below ──
-        // category and days_opened kept so ListingCard can render the
-        // category badge and the working-days / Open now-Closed badge.
+        // ── Campsites ──────────────────────────────────────────────────────
         supabase
           .from("adventure_places")
-          .select("id,name,location,place,country,image_url,gallery_images,images,entry_fee,activities,latitude,longitude,created_at,description,opening_hours,closing_hours,category,days_opened")
+          .select(placeCols)
           .eq("approval_status", "approved").eq("is_hidden", false)
           .eq("category", "campsite")
           .limit(fetchLimit),
 
-        // ── Events (disabled — uncomment to re-enable) ────────────────────
-        // supabase
-        //   .from("trips")
-        //   .select("id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child,description,opening_hours,closing_hours")
-        //   .eq("approval_status", "approved").eq("is_hidden", false)
-        //   .eq("type", "event").order("date", { ascending: true }).limit(fetchLimit),
+        // ── Hotels & Stays — same table, category = 'hotel' ─────────────────
+        // If hotels live in a separate table in your schema, swap this query.
+        supabase
+          .from("adventure_places")
+          .select(placeCols)
+          .eq("approval_status", "approved").eq("is_hidden", false)
+          .eq("category", "hotel")
+          .limit(fetchLimit),
 
         // ── Guided tours (flexible / custom-date trips) ───────────────────
         supabase
           .from("trips")
-          .select("id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,is_flexible_date,available_tickets,activities,type,created_at,price,price_child,description,opening_hours,closing_hours")
+          .select(tripCols)
           .eq("approval_status", "approved").eq("is_hidden", false)
           .eq("type", "trip").or("is_flexible_date.eq.true,is_custom_date.eq.true")
           .order("created_at", { ascending: false }).limit(fetchLimit),
 
-        // ── AirBnb-style accommodations — REMOVED, no longer fetched ──────
+        // ── Fixed-date trips ───────────────────────────────────────────────
+        supabase
+          .from("trips")
+          .select(tripCols)
+          .eq("approval_status", "approved").eq("is_hidden", false)
+          .eq("type", "trip").eq("is_flexible_date", false).eq("is_custom_date", false)
+          .order("date", { ascending: true }).limit(fetchLimit),
+
+        // ── Events ──────────────────────────────────────────────────────────
+        supabase
+          .from("trips")
+          .select(tripCols)
+          .eq("approval_status", "approved").eq("is_hidden", false)
+          .eq("type", "event").order("date", { ascending: true }).limit(fetchLimit),
       ]);
 
       setScrollableRows({
-        trips:          [],                          // fixed trips disabled
-        campsites:      campsitesData.data || [],
-        events:         [],                          // events disabled
-        guidedTrips:    guidedData.data || [],
+        campsites:   campsitesData.data || [],
+        hotels:      hotelsData.data || [],
+        guidedTrips: guidedData.data || [],
+        fixedTrips:  fixedTripsData.data || [],
+        events:      eventsData.data || [],
       });
     } catch (err) {
       console.error("Error fetching rows:", err);
@@ -336,16 +496,14 @@ const Index = () => {
     if (!position) return;
     if (!opts.background) setLoadingNearby(true);
     try {
-      // category, days_opened, opening_hours, and closing_hours kept so
-      // ListingCard can render the category badge, working-days line, and
-      // Open now/Closed badge. Filtered to campsite category only — hotels
-      // are excluded entirely.
+      // Campsites + hotels, both from adventure_places — hotels are no
+      // longer excluded from "Nearest to You".
       const { data } = await supabase
         .from("adventure_places")
         .select("id,name,location,place,country,image_url,entry_fee,activities,latitude,longitude,created_at,description,opening_hours,closing_hours,category,days_opened")
         .eq("approval_status", "approved").eq("is_hidden", false)
-        .eq("category", "campsite")
-        .limit(50);
+        .in("category", ["campsite", "hotel"])
+        .limit(80);
       const withDist = (data || [])
         .map(item => ({
           ...item,
@@ -399,7 +557,7 @@ const Index = () => {
     return () => window.removeEventListener("scroll", ctrl);
   }, []);
 
-  // ── Card renderer ──────────────────────────────────────────────────────────
+  // ── Card renderer (used for the single-category rows) ───────────────────────
   const renderCard = useCallback((
     item: any, type: string, index: number,
     opts: { hidePrice?: boolean; isTrip?: boolean; categoryColor?: string } = {},
@@ -451,20 +609,40 @@ const Index = () => {
   // ── Pre-build node arrays ──────────────────────────────────────────────────
   const browseGuideNodes = useMemo(() =>
     displayBrowseGuides.map((item: any, i) => {
-      const isGuided = item.__cardType === "TRIP";
+      const isTripLike = item.__cardType === "TRIP" || item.__cardType === "EVENT";
       return renderCard(item, item.__cardType, i, {
-        hidePrice: !isGuided,
-        isTrip: isGuided,
+        hidePrice: !isTripLike,
+        isTrip: isTripLike,
       });
     }),
     [displayBrowseGuides, renderCard],
+  );
+
+  const hotelNodes = useMemo(() =>
+    hotelNodesSrc.map((item: any, i) => renderCard(item, "ADVENTURE PLACE", i, { hidePrice: false })),
+    [hotelNodesSrc, renderCard],
+  );
+
+  const eventNodes = useMemo(() =>
+    eventNodesSrc.map((item: any, i) => renderCard(item, "EVENT", i, { hidePrice: false, isTrip: true })),
+    [eventNodesSrc, renderCard],
+  );
+
+  const fixedTripNodes = useMemo(() =>
+    fixedTripNodesSrc.map((item: any, i) => renderCard(item, "TRIP", i, { hidePrice: false, isTrip: true })),
+    [fixedTripNodesSrc, renderCard],
+  );
+
+  const guidedTripNodes = useMemo(() =>
+    guidedTripNodesSrc.map((item: any, i) => renderCard(item, "TRIP", i, { hidePrice: false, isTrip: true })),
+    [guidedTripNodesSrc, renderCard],
   );
 
   const nearbyNodes = useMemo(() =>
     sortedNearbyPlaces.map((item: any, i) => {
       const a = item as any;
       const rd = ratings.get(item.id);
-      const isGuided = a.__cardType === "TRIP";
+      const isTripLike = a.__cardType === "TRIP" || a.__cardType === "EVENT";
       const today = new Date().toISOString().split("T")[0];
       return (
         <ListingCard
@@ -476,15 +654,15 @@ const Index = () => {
           imageUrl={a.image_url}
           location={a.location}
           country={a.country}
-          price={isGuided ? (a.price || 0) : (a.entry_fee || 0)}
-          date={isGuided ? (a.date || "") : ""}
+          price={isTripLike ? (a.price || 0) : (a.entry_fee || 0)}
+          date={isTripLike ? (a.date || "") : ""}
           isCustomDate={a.is_custom_date}
           isFlexibleDate={a.is_flexible_date}
-          isOutdated={isGuided && a.date && !a.is_flexible_date && a.date < today}
+          isOutdated={isTripLike && a.date && !a.is_flexible_date && a.date < today}
           isSaved={savedItems.has(item.id)}
           onSave={handleSave}
           hideSave={false}
-          hidePrice={!isGuided}
+          hidePrice={!isTripLike}
           showBadge={true}
           priority={i === 0}
           activities={a.activities}
@@ -492,8 +670,8 @@ const Index = () => {
           avgRating={rd?.avgRating}
           reviewCount={rd?.reviewCount}
           place={a.place}
-          availableTickets={isGuided ? a.available_tickets : undefined}
-          bookedTickets={isGuided ? bookingStats[item.id] || 0 : undefined}
+          availableTickets={isTripLike ? a.available_tickets : undefined}
+          bookedTickets={isTripLike ? bookingStats[item.id] || 0 : undefined}
           description={a.description}
           openingHours={a.opening_hours}
           closingHours={a.closing_hours}
@@ -622,13 +800,13 @@ const Index = () => {
           {/* ── All content constrained to container width (never bleeds to screen edge on desktop) ── */}
           <div className="container mx-auto px-4 md:px-6 py-3 md:py-5 space-y-2 md:space-y-6">
 
-            {/* Categories — now 2 cards (Campsites, Tours & Trips). Cards use an
+            {/* Categories — Campsites, Tours & Trips, Hotels & Stays. Cards use an
                 aspect-ratio on mobile/tablet (so they scale nicely with column
                 width) but switch to a FIXED height at the lg breakpoint and up,
                 so they no longer stretch tall on big screens. */}
             <section className="mb-4 md:mb-8">
               <div className="-mx-4 px-4 md:mx-0 md:px-0">
-                <div className="grid grid-cols-2 gap-2 md:gap-4">
+                <div className="grid grid-cols-3 gap-2 md:gap-4">
                   {CATEGORIES.map(cat => (
                     <Link
                       key={cat.title}
@@ -654,35 +832,58 @@ const Index = () => {
               </div>
             </section>
 
-            {/* Counties — horizontal scroll */}
-            <section className="mb-4 md:mb-6">
-              <div
-                ref={countiesRef}
-                className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide scroll-smooth snap-x snap-mandatory"
-              >
-                {FEATURED_COUNTIES.map((county, idx) => (
-                  <div
-                    key={county}
-                    onClick={() => navigate(`/county/${encodeURIComponent(county)}`)}
-                    className="flex-shrink-0 w-[28vw] sm:w-[120px] md:w-[140px] snap-start cursor-pointer group"
-                  >
-                    <div className="relative overflow-hidden aspect-square bg-muted rounded-none">
-                      <img
-                        src={COUNTY_IMAGES[county] || `/images/counties/${county.toLowerCase().replace(/['\s]/g, "-")}.jpg`}
-                        alt={county}
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                        loading={idx < 4 ? "eager" : "lazy"}
-                        decoding="async"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-                      <div className="absolute bottom-0 left-0 right-0 p-2">
-                        <h3 className="text-white font-extrabold text-[10px] sm:text-xs leading-tight">{county}</h3>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
+            {/* Regions — global, driven by `countries` / `country_divisions`.
+                Shows the visitor's own country's divisions (Kenya → counties,
+                UK → its regions, etc), falling back to Kenya when we can't
+                detect a match. */}
+            {(loadingDivisions || divisions.length > 0) && (
+              <section className="mb-4 md:mb-6">
+                <div className="flex items-center justify-between mb-2 px-1">
+                  <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-widest">
+                    {activeCountry ? `Explore ${activeCountry.name}` : "Explore destinations"}
+                  </h2>
+                </div>
+                <div
+                  ref={divisionsRef}
+                  className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide scroll-smooth snap-x snap-mandatory"
+                >
+                  {loadingDivisions
+                    ? [...Array(8)].map((_, i) => (
+                        <div
+                          key={i}
+                          className="flex-shrink-0 w-[28vw] sm:w-[120px] md:w-[140px] aspect-square rounded-none bg-muted animate-pulse"
+                        />
+                      ))
+                    : divisions.map((division, idx) => (
+                        <div
+                          key={division.id}
+                          onClick={() => navigate(`/explore?division=${division.id}`)}
+                          className="flex-shrink-0 w-[28vw] sm:w-[120px] md:w-[140px] snap-start cursor-pointer group"
+                        >
+                          <div className="relative overflow-hidden aspect-square bg-muted rounded-none">
+                            {division.image_url ? (
+                              <img
+                                src={division.image_url}
+                                alt={division.name}
+                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                loading={idx < 4 ? "eager" : "lazy"}
+                                decoding="async"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center bg-muted-foreground/10">
+                                <Map className="h-6 w-6 text-muted-foreground" />
+                              </div>
+                            )}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                            <div className="absolute bottom-0 left-0 right-0 p-2">
+                              <h3 className="text-white font-extrabold text-[10px] sm:text-xs leading-tight">{division.name}</h3>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                </div>
+              </section>
+            )}
 
             {/* Browsers guide */}
             <GridSection
@@ -703,6 +904,42 @@ const Index = () => {
                 loading={loadingNearby}
               />
             )}
+
+            {/* Hotels & Stays */}
+            <GridSection
+              title="Hotels & Stays"
+              viewAllPath="/category/hotel"
+              accentColor="hsl(160, 70%, 38%)"
+              items={hotelNodes}
+              loading={loadingScrollable}
+            />
+
+            {/* Tours & Trips (guided) */}
+            <GridSection
+              title="Tours & Trips"
+              viewAllPath="/category/guided"
+              accentColor="hsl(235, 90%, 50%)"
+              items={guidedTripNodes}
+              loading={loadingScrollable}
+            />
+
+            {/* Fixed-date Trips */}
+            <GridSection
+              title="Trips"
+              viewAllPath="/explore"
+              accentColor="hsl(280, 80%, 50%)"
+              items={fixedTripNodes}
+              loading={loadingScrollable}
+            />
+
+            {/* Upcoming Events */}
+            <GridSection
+              title="Upcoming Events"
+              viewAllPath="/explore"
+              accentColor="hsl(340, 82%, 52%)"
+              items={eventNodes}
+              loading={loadingScrollable}
+            />
 
             {/* Quick Navigation */}
             <section className="mb-4 md:mb-8">
@@ -799,5 +1036,5 @@ const Index = () => {
     </div>
   );
 };
- 
+
 export default Index;

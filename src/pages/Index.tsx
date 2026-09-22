@@ -10,7 +10,7 @@ import { SearchBarWithSuggestions } from "@/components/SearchBarWithSuggestions"
 import { useSearchFocus } from "@/components/PageLayout";
 import { ListingCard } from "@/components/ListingCard";
 import {
-  Tent, Map, BedDouble, CalendarDays,
+  Tent, Map, BedDouble,
   Navigation, Heart, Ticket, Star, Search as SearchIcon,
 } from "lucide-react";
 import {
@@ -185,11 +185,13 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: G
 GridSection.displayName = "GridSection";
 
 // ── Category cards ────────────────────────────────────────────────────────────
-// Hotels restored alongside Campsites and Tours & Trips.
+// Hotels & Stays shares the same category page as Outdoor & Campsites
+// (both are adventure_places rows, just a different `category` value) —
+// the page itself is responsible for showing both once you land there.
 const CATEGORIES = [
   { icon: Tent,       title: "Outdoor & Campsites", path: "/category/campsite", bgImage: "/images/category-campsite.jpg" },
   { icon: Map,        title: "Tours & Trips",       path: "/category/guided",   bgImage: "/images/category-trips.jpg" },
-  { icon: BedDouble,  title: "Hotels & Stays",      path: "/category/hotel",    bgImage: "/images/category-hotel.jpg" },
+  { icon: BedDouble,  title: "Hotels & Stays",      path: "/category/campsite", bgImage: "/images/category-hotel.jpg" },
 ];
 
 // ── Quick-nav shortcuts ───────────────────────────────────────────────────────
@@ -232,8 +234,8 @@ const Index = () => {
   }, []);
 
   const [scrollableRows, setScrollableRows] = useState<{
-    campsites: any[]; hotels: any[]; guidedTrips: any[]; fixedTrips: any[]; events: any[];
-  }>({ campsites: [], hotels: [], guidedTrips: [], fixedTrips: [], events: [] });
+    campsites: any[]; hotels: any[]; guidedTrips: any[]; fixedTrips: any[];
+  }>({ campsites: [], hotels: [], guidedTrips: [], fixedTrips: [] });
 
   const [nearbyPlaces, setNearbyPlaces]             = useState<any[]>([]);
   const [loadingScrollable, setLoadingScrollable]   = useState(true);
@@ -345,7 +347,6 @@ const Index = () => {
     scrollableRows.hotels.forEach(i => ids.add(i.id));
     scrollableRows.guidedTrips.forEach(i => ids.add(i.id));
     scrollableRows.fixedTrips.forEach(i => ids.add(i.id));
-    scrollableRows.events.forEach(i => ids.add(i.id));
     return Array.from(ids);
   }, [nearbyPlaces, scrollableRows]);
 
@@ -353,15 +354,14 @@ const Index = () => {
     const ids = [
       ...scrollableRows.guidedTrips,
       ...scrollableRows.fixedTrips,
-      ...scrollableRows.events,
     ].map(i => i.id);
     return [...new Set(ids)];
-  }, [scrollableRows.guidedTrips, scrollableRows.fixedTrips, scrollableRows.events]);
+  }, [scrollableRows.guidedTrips, scrollableRows.fixedTrips]);
 
   const { bookingStats } = useRealtimeBookings(tripEventIds);
   const { ratings }      = useRatings(allItemIds);
 
-  // "Nearest to You" — campsites + hotels sorted by distance, trips/events by rating appended after
+  // "Nearest to You" — campsites + hotels sorted by distance, trips by rating appended after
   const sortedNearbyPlaces = useMemo(() => {
     const places = sortByRating(nearbyPlaces, ratings, position, calculateDistance)
       .map((item: any) => ({ ...item, __cardType: "ADVENTURE PLACE" as const }));
@@ -370,7 +370,6 @@ const Index = () => {
     const others = [
       ...scrollableRows.guidedTrips.map(item => ({ ...item, __cardType: "TRIP" as const })),
       ...scrollableRows.fixedTrips.map(item => ({ ...item, __cardType: "TRIP" as const })),
-      ...scrollableRows.events.map(item => ({ ...item, __cardType: "EVENT" as const })),
     ]
       .filter(item => {
         if (seen.has(item.id)) return false;
@@ -386,9 +385,9 @@ const Index = () => {
       });
 
     return [...places, ...others];
-  }, [nearbyPlaces, ratings, position, scrollableRows.guidedTrips, scrollableRows.fixedTrips, scrollableRows.events]);
+  }, [nearbyPlaces, ratings, position, scrollableRows.guidedTrips, scrollableRows.fixedTrips]);
 
-  // "Browsers guide" — campsites + hotels + trips + events, ranked by rating
+  // "Browsers guide" — campsites + hotels + trips, ranked by rating
   const displayBrowseGuides = useMemo(() => {
     const seen = new Set<string>();
     const combined = [
@@ -396,7 +395,6 @@ const Index = () => {
       ...scrollableRows.hotels.map(item => ({ ...item, __cardType: "ADVENTURE PLACE" as const })),
       ...scrollableRows.guidedTrips.map(item => ({ ...item, __cardType: "TRIP" as const })),
       ...scrollableRows.fixedTrips.map(item => ({ ...item, __cardType: "TRIP" as const })),
-      ...scrollableRows.events.map(item => ({ ...item, __cardType: "EVENT" as const })),
     ];
     return combined
       .filter(item => {
@@ -413,9 +411,8 @@ const Index = () => {
       });
   }, [scrollableRows, ratings]);
 
-  // Dedicated single-category rows (hotels / events / fixed trips / guided tours)
+  // Dedicated single-category rows (hotels / fixed trips / guided tours)
   const hotelNodesSrc     = scrollableRows.hotels;
-  const eventNodesSrc     = scrollableRows.events;
   const fixedTripNodesSrc = scrollableRows.fixedTrips;
   const guidedTripNodesSrc = scrollableRows.guidedTrips;
 
@@ -435,7 +432,6 @@ const Index = () => {
         hotelsData,
         guidedData,
         fixedTripsData,
-        eventsData,
       ] = await Promise.all([
         // ── Campsites ──────────────────────────────────────────────────────
         supabase
@@ -469,13 +465,6 @@ const Index = () => {
           .eq("approval_status", "approved").eq("is_hidden", false)
           .eq("type", "trip").eq("is_flexible_date", false).eq("is_custom_date", false)
           .order("date", { ascending: true }).limit(fetchLimit),
-
-        // ── Events ──────────────────────────────────────────────────────────
-        supabase
-          .from("trips")
-          .select(tripCols)
-          .eq("approval_status", "approved").eq("is_hidden", false)
-          .eq("type", "event").order("date", { ascending: true }).limit(fetchLimit),
       ]);
 
       setScrollableRows({
@@ -483,7 +472,6 @@ const Index = () => {
         hotels:      hotelsData.data || [],
         guidedTrips: guidedData.data || [],
         fixedTrips:  fixedTripsData.data || [],
-        events:      eventsData.data || [],
       });
     } catch (err) {
       console.error("Error fetching rows:", err);
@@ -609,10 +597,10 @@ const Index = () => {
   // ── Pre-build node arrays ──────────────────────────────────────────────────
   const browseGuideNodes = useMemo(() =>
     displayBrowseGuides.map((item: any, i) => {
-      const isTripLike = item.__cardType === "TRIP" || item.__cardType === "EVENT";
+      const isTrip = item.__cardType === "TRIP";
       return renderCard(item, item.__cardType, i, {
-        hidePrice: !isTripLike,
-        isTrip: isTripLike,
+        hidePrice: !isTrip,
+        isTrip,
       });
     }),
     [displayBrowseGuides, renderCard],
@@ -621,11 +609,6 @@ const Index = () => {
   const hotelNodes = useMemo(() =>
     hotelNodesSrc.map((item: any, i) => renderCard(item, "ADVENTURE PLACE", i, { hidePrice: false })),
     [hotelNodesSrc, renderCard],
-  );
-
-  const eventNodes = useMemo(() =>
-    eventNodesSrc.map((item: any, i) => renderCard(item, "EVENT", i, { hidePrice: false, isTrip: true })),
-    [eventNodesSrc, renderCard],
   );
 
   const fixedTripNodes = useMemo(() =>
@@ -642,7 +625,7 @@ const Index = () => {
     sortedNearbyPlaces.map((item: any, i) => {
       const a = item as any;
       const rd = ratings.get(item.id);
-      const isTripLike = a.__cardType === "TRIP" || a.__cardType === "EVENT";
+      const isTripLike = a.__cardType === "TRIP";
       const today = new Date().toISOString().split("T")[0];
       return (
         <ListingCard
@@ -905,10 +888,10 @@ const Index = () => {
               />
             )}
 
-            {/* Hotels & Stays */}
+            {/* Hotels & Stays — shares the "campsite" category page with Outdoor & Campsites */}
             <GridSection
               title="Hotels & Stays"
-              viewAllPath="/category/hotel"
+              viewAllPath="/category/campsite"
               accentColor="hsl(160, 70%, 38%)"
               items={hotelNodes}
               loading={loadingScrollable}
@@ -932,14 +915,6 @@ const Index = () => {
               loading={loadingScrollable}
             />
 
-            {/* Upcoming Events */}
-            <GridSection
-              title="Upcoming Events"
-              viewAllPath="/explore"
-              accentColor="hsl(340, 82%, 52%)"
-              items={eventNodes}
-              loading={loadingScrollable}
-            />
 
             {/* Quick Navigation */}
             <section className="mb-4 md:mb-8">

@@ -12,7 +12,6 @@ import {
   Calendar,
   LogOut,
   ChevronRight,
-  Loader2,
   Compass,
   Building2,
   BadgeCheck,
@@ -20,10 +19,8 @@ import {
   HelpCircle,
   Settings,
   CreditCard,
-  History,
   ShieldAlert,
   LayoutDashboard,
-  BarChart3,
 } from "lucide-react";
 
 interface UserProfile {
@@ -53,6 +50,7 @@ export default function AccountPage() {
       return;
     }
     fetchUserData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, navigate]);
 
   const fetchUserData = async () => {
@@ -60,61 +58,61 @@ export default function AccountPage() {
     setLoading(true);
 
     try {
-      // 1. Fetch Profile Info
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("full_name, avatar_url, phone_number")
-        .eq("id", user.id)
-        .maybeSingle();
+      // Run all independent queries in parallel instead of sequentially.
+      // This cuts load time from "sum of all 5 queries" to roughly
+      // "the slowest single query" since none of them depend on each other.
+      const [profileRes, verRes, companyRes, advRes, roleRes] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("full_name, avatar_url, phone_number")
+          .eq("id", user.id)
+          .maybeSingle(),
+        supabase
+          .from("host_verifications")
+          .select("status, hosting_category")
+          .eq("user_id", user.id)
+          .maybeSingle(),
+        supabase
+          .from("companies")
+          .select("verification_status")
+          .eq("user_id", user.id)
+          .maybeSingle(),
+        supabase
+          .from("adventure_places")
+          .select("id")
+          .eq("created_by", user.id)
+          .limit(1),
+        supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", user.id)
+          .eq("role", "admin")
+          .maybeSingle(),
+      ]);
 
-      if (profileData) {
-        setProfile(profileData);
+      if (profileRes.data) {
+        setProfile(profileRes.data);
       }
 
-      // 2. Check Host Verifications
-      const { data: verData } = await supabase
-        .from("host_verifications")
-        .select("status, hosting_category")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (verData) {
-        setHostingCategory(verData.hosting_category);
-        setVerificationStatus(verData.status);
+      if (verRes.data) {
+        setHostingCategory(verRes.data.hosting_category);
+        setVerificationStatus(verRes.data.status);
       }
 
-      // 3. Check Company Verifications
-      const { data: companyData } = await supabase
-        .from("companies")
-        .select("verification_status")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (companyData) {
+      if (companyRes.data) {
         setHasCompany(true);
-        setCompanyStatus(companyData.verification_status);
+        setCompanyStatus(companyRes.data.verification_status);
       }
 
-      // 4. Check Adventure Places Creator Status
-      const { data: advPlaces } = await supabase
-        .from("adventure_places")
-        .select("id")
-        .eq("created_by", user.id)
-        .limit(1);
-
-      if (advPlaces && advPlaces.length > 0) {
+      if (advRes.data && advRes.data.length > 0) {
         setIsAdventureHost(true);
       }
 
-      // 5. Check Admin Role
-      const { data: roleData } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .eq("role", "admin")
-        .maybeSingle();
-
-      if (roleData || user.app_metadata?.role === "admin" || user.user_metadata?.is_admin) {
+      if (
+        roleRes.data ||
+        user.app_metadata?.role === "admin" ||
+        user.user_metadata?.is_admin
+      ) {
         setIsAdmin(true);
       }
     } catch (err) {
@@ -133,13 +131,11 @@ export default function AccountPage() {
   const isCompanyApproved = hasCompany && companyStatus === "approved";
   const isHost = isAdventureHost || isGuideApproved || isCompanyApproved;
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
-      </div>
-    );
-  }
+  // NOTE: no early-return spinner here anymore. The page shell (Header,
+  // profile card, static nav sections, footer, bottom bar) renders
+  // immediately. Only the bits that actually depend on fetched data
+  // (name, badges, admin/host banners, host-only nav item) show a
+  // lightweight skeleton or are simply omitted until `loading` is false.
 
   return (
     <div
@@ -170,45 +166,60 @@ export default function AccountPage() {
             </div>
 
             <div className="flex-1 min-w-0">
-              <h1 className="text-base font-bold text-foreground truncate">
-                {profile?.full_name || user?.email?.split("@")[0] || "User Account"}
-              </h1>
-              <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+              {loading && !profile ? (
+                <>
+                  <div className="h-4 w-32 bg-muted rounded animate-pulse mb-1.5" />
+                  <div className="h-3 w-40 bg-muted rounded animate-pulse" />
+                </>
+              ) : (
+                <>
+                  <h1 className="text-base font-bold text-foreground truncate">
+                    {profile?.full_name || user?.email?.split("@")[0] || "User Account"}
+                  </h1>
+                  <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+                </>
+              )}
 
               {/* Status Badges */}
               <div className="flex flex-wrap gap-1 mt-1.5">
-                {isAdmin && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
-                    <ShieldAlert className="h-2.5 w-2.5" /> Administrator
-                  </span>
-                )}
-                {isGuideApproved && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                    <BadgeCheck className="h-2.5 w-2.5" /> Certified Guide
-                  </span>
-                )}
-                {isCompanyApproved && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
-                    <Building2 className="h-2.5 w-2.5" /> Tour Company
-                  </span>
-                )}
-                {isAdventureHost && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                    <Compass className="h-2.5 w-2.5" /> Adventure Host
-                  </span>
-                )}
-                {!isHost && !isAdmin && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-medium bg-muted text-muted-foreground">
-                    Explorer
-                  </span>
+                {loading ? (
+                  <div className="h-4 w-20 bg-muted rounded animate-pulse" />
+                ) : (
+                  <>
+                    {isAdmin && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                        <ShieldAlert className="h-2.5 w-2.5" /> Administrator
+                      </span>
+                    )}
+                    {isGuideApproved && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                        <BadgeCheck className="h-2.5 w-2.5" /> Certified Guide
+                      </span>
+                    )}
+                    {isCompanyApproved && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                        <Building2 className="h-2.5 w-2.5" /> Tour Company
+                      </span>
+                    )}
+                    {isAdventureHost && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                        <Compass className="h-2.5 w-2.5" /> Adventure Host
+                      </span>
+                    )}
+                    {!isHost && !isAdmin && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-medium bg-muted text-muted-foreground">
+                        Explorer
+                      </span>
+                    )}
+                  </>
                 )}
               </div>
             </div>
           </div>
         </div>
 
-        {/* Admin Access Banner (Visible only to Admins) */}
-        {isAdmin && (
+        {/* Admin Access Banner (Visible only to Admins, once loaded) */}
+        {!loading && isAdmin && (
           <div className="p-3.5 rounded-xl border border-purple-500/30 bg-purple-500/5 flex items-center justify-between gap-3">
             <div className="space-y-0.5">
               <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
@@ -230,7 +241,9 @@ export default function AccountPage() {
         )}
 
         {/* Host Actions Banner */}
-        {isHost ? (
+        {loading ? (
+          <div className="p-3.5 rounded-xl border border-border bg-card h-[60px] animate-pulse" />
+        ) : isHost ? (
           <div className="p-3.5 rounded-xl border border-primary/20 bg-primary/5 flex items-center justify-between gap-3">
             <div className="space-y-0.5">
               <p className="text-xs font-bold text-foreground">Host Dashboard</p>
@@ -282,7 +295,7 @@ export default function AccountPage() {
               <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
             </button>
 
-            {isHost && (
+            {!loading && isHost && (
               <button
                 onClick={() => navigate("/my-listing")}
                 className="w-full p-3.5 flex items-center justify-between hover:bg-muted/40 transition-colors text-left"

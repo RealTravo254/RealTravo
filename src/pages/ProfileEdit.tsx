@@ -28,7 +28,6 @@ import {
   Calendar,
   Globe,
   Phone,
-  ArrowLeft,
   Loader2,
   ShieldCheck,
   KeyRound,
@@ -545,34 +544,7 @@ export default function ProfileEdit() {
     >
       <Header />
 
-      {/* Brand band — gives this page its own identity instead of a plain title row */}
-      <div className="relative bg-[#0d2b4e] px-4 pt-6 pb-10 overflow-hidden shrink-0">
-        <div
-          className="absolute inset-0 opacity-20"
-          style={{
-            backgroundImage:
-              "radial-gradient(circle at 15% 25%, #008080 0%, transparent 45%), radial-gradient(circle at 90% 10%, #008080 0%, transparent 40%)",
-          }}
-        />
-        <div className="relative max-w-lg mx-auto flex items-center gap-3">
-          <button
-            onClick={() => navigate(-1)}
-            aria-label="Go back"
-            className="h-9 w-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors shrink-0"
-          >
-            <ArrowLeft className="h-4 w-4 text-white" />
-          </button>
-          <div className="h-11 w-11 rounded-full bg-primary/20 flex items-center justify-center text-white shrink-0">
-            <User className="h-5 w-5" />
-          </div>
-          <div>
-            <h1 className="text-lg font-black text-white leading-tight">Edit profile</h1>
-            <p className="text-xs text-white/60">Every change needs a quick emailed code.</p>
-          </div>
-        </div>
-      </div>
-
-      <main className="flex-1 px-4 -mt-6 pb-12 max-w-lg mx-auto w-full space-y-5">
+      <main className="flex-1 px-4 pt-24 pb-12 max-w-lg mx-auto w-full space-y-5">
         {fetchingProfile ? (
           <div className="p-12 flex justify-center items-center">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />

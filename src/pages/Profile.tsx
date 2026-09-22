@@ -1,4 +1,3 @@
-// src/pages/ProfileEdit.tsx
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
@@ -13,6 +12,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -28,6 +35,7 @@ import {
   Eye,
   EyeOff,
   Users as UsersIcon,
+  ChevronRight,
 } from "lucide-react";
 import { CountrySelector } from "@/components/creation/CountrySelector";
 import { EditableField } from "@/components/profile/EditableField";
@@ -122,7 +130,7 @@ export default function ProfileEdit() {
   const [countryName, setCountryName] = useState<string>("");
   const [divisionName, setDivisionName] = useState<string>("");
 
-  const [editingField, setEditingField] = useState<FieldKey | null>(null);
+  const [editingField, setEditingField] = useState<Exclude<FieldKey, "password"> | null>(null);
   const [savingField, setSavingField] = useState<FieldKey | null>(null);
 
   // Draft values, only used while a field is being edited.
@@ -148,7 +156,8 @@ export default function ProfileEdit() {
   const [fieldOtpError, setFieldOtpError] = useState<string | null>(null);
   const [sendingFieldCode, setSendingFieldCode] = useState(false);
 
-  // Password change
+  /* ── Password — its own popup, separate from the inline field list ── */
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [passwordStage, setPasswordStage] = useState<PasswordStage>("current");
   const [currentPassword, setCurrentPassword] = useState("");
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
@@ -160,6 +169,7 @@ export default function ProfileEdit() {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordOtp, setPasswordOtp] = useState("");
   const [sendingPasswordCode, setSendingPasswordCode] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -210,7 +220,7 @@ export default function ProfileEdit() {
     ? getLockStatus(profile.country_changed_at, COUNTRY_LOCK_DAYS)
     : { locked: false, message: "" };
 
-  const startEdit = (field: FieldKey) => {
+  const startEdit = (field: Exclude<FieldKey, "password">) => {
     if (!profile) return;
     setEditingField(field);
     if (field === "name") {
@@ -227,13 +237,6 @@ export default function ProfileEdit() {
       setDraftPhone(profile.phone_number);
       setShowVerification(false);
       setVerificationCode("");
-    } else if (field === "password") {
-      setCurrentPassword("");
-      setDraftPassword("");
-      setDraftConfirmPassword("");
-      setPasswordError(null);
-      setPasswordStage("current");
-      setPasswordOtp("");
     }
     setPendingField(null);
     setPendingPayload(null);
@@ -244,8 +247,6 @@ export default function ProfileEdit() {
   const cancelEdit = () => {
     setEditingField(null);
     setShowVerification(false);
-    setPasswordError(null);
-    setPasswordStage("current");
     setPendingField(null);
     setPendingPayload(null);
     setFieldOtpError(null);
@@ -381,7 +382,27 @@ export default function ProfileEdit() {
     }
   };
 
-  /* ── Password: current password → new password (x2) → emailed code ── */
+  /* ── Password popup: current password → new password (x2) → emailed code ── */
+
+  const openPasswordDialog = () => {
+    setCurrentPassword("");
+    setDraftPassword("");
+    setDraftConfirmPassword("");
+    setPasswordOtp("");
+    setPasswordError(null);
+    setPasswordStage("current");
+    setPasswordDialogOpen(true);
+  };
+
+  const closePasswordDialog = () => {
+    setPasswordDialogOpen(false);
+    setCurrentPassword("");
+    setDraftPassword("");
+    setDraftConfirmPassword("");
+    setPasswordOtp("");
+    setPasswordError(null);
+    setPasswordStage("current");
+  };
 
   const handleVerifyCurrentPassword = async () => {
     if (!user?.email) return;
@@ -443,7 +464,7 @@ export default function ProfileEdit() {
       return;
     }
 
-    setSavingField("password");
+    setSavingPassword(true);
     try {
       const { error: verifyError } = await clientAuth.verifyOtp({
         email: user.email,
@@ -459,23 +480,24 @@ export default function ProfileEdit() {
       if (error) throw error;
 
       toast({ title: "Password updated", description: "Use your new password next time you sign in." });
-      setEditingField(null);
-      setCurrentPassword("");
-      setDraftPassword("");
-      setDraftConfirmPassword("");
-      setPasswordStage("current");
+      closePasswordDialog();
     } catch (error: any) {
       setPasswordError(error.message || "Couldn't update your password.");
     } finally {
-      setSavingField(null);
+      setSavingPassword(false);
     }
   };
 
-  const handlePasswordFieldSave = () => {
+  const handlePasswordDialogPrimaryAction = () => {
     if (passwordStage === "current") handleVerifyCurrentPassword();
     else if (passwordStage === "new") handleSendPasswordCode();
     else handleConfirmPasswordCode();
   };
+
+  const passwordDialogBusy = verifyingCurrentPassword || sendingPasswordCode || savingPassword;
+
+  const passwordDialogPrimaryLabel =
+    passwordStage === "current" ? "Continue" : passwordStage === "new" ? "Send code" : "Confirm & save";
 
   const age = profile ? calculateAge(profile.date_of_birth) : null;
 
@@ -683,6 +705,7 @@ export default function ProfileEdit() {
                 onEdit={() => startEdit("phone")}
                 onSave={handleSendVerificationCode}
                 onCancel={cancelEdit}
+                noBorder
               >
                 <div className="space-y-2">
                   <Input
@@ -729,115 +752,32 @@ export default function ProfileEdit() {
                   )}
                 </div>
               </EditableField>
-
-              <SectionLabel>Security</SectionLabel>
-
-              {/* Password — current password → new password (x2) → emailed code */}
-              <EditableField
-                icon={<KeyRound className="h-4 w-4" />}
-                label="Password"
-                display="••••••••"
-                isEditing={editingField === "password"}
-                isSaving={savingField === "password" || sendingPasswordCode || verifyingCurrentPassword}
-                onEdit={() => startEdit("password")}
-                onSave={handlePasswordFieldSave}
-                onCancel={cancelEdit}
-                noBorder
-              >
-                {passwordStage === "current" && (
-                  <div className="space-y-2">
-                    <p className="text-[11px] text-muted-foreground">Enter your current password to continue.</p>
-                    <div className="relative">
-                      <Input
-                        type={showCurrentPassword ? "text" : "password"}
-                        value={currentPassword}
-                        onChange={(e) => setCurrentPassword(e.target.value)}
-                        placeholder="Current password"
-                        className="h-9 text-sm pr-9"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                      >
-                        {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
-                    {passwordError && <p className="text-xs text-destructive font-medium">{passwordError}</p>}
-                  </div>
-                )}
-
-                {passwordStage === "new" && (
-                  <div className="space-y-2">
-                    <div className="relative">
-                      <Input
-                        type={showPassword ? "text" : "password"}
-                        value={draftPassword}
-                        onChange={(e) => setDraftPassword(e.target.value)}
-                        placeholder="New password"
-                        className="h-9 text-sm pr-9"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
-                    {draftPassword && <PasswordStrength password={draftPassword} />}
-                    <div className="relative">
-                      <Input
-                        type={showConfirmPassword ? "text" : "password"}
-                        value={draftConfirmPassword}
-                        onChange={(e) => setDraftConfirmPassword(e.target.value)}
-                        placeholder="Confirm new password"
-                        className="h-9 text-sm pr-9"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                      >
-                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
-                    {passwordError && <p className="text-xs text-destructive font-medium">{passwordError}</p>}
-                    <p className="text-[11px] text-muted-foreground">
-                      We'll email a verification code before this is applied.
-                    </p>
-                  </div>
-                )}
-
-                {passwordStage === "code" && (
-                  <div className="p-3 bg-muted/40 rounded-lg border border-border space-y-2">
-                    <div className="flex items-center gap-1 text-primary text-[11px] font-semibold uppercase tracking-wide">
-                      <ShieldCheck className="h-3.5 w-3.5" />
-                      Enter the code we emailed you
-                    </div>
-                    <Input
-                      value={passwordOtp}
-                      onChange={(e) => setPasswordOtp(e.target.value)}
-                      placeholder="000000"
-                      maxLength={6}
-                      className="h-9 text-center font-semibold tracking-widest text-sm"
-                    />
-                    {passwordError && <p className="text-xs text-destructive font-medium">{passwordError}</p>}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPasswordStage("new");
-                        setPasswordError(null);
-                      }}
-                      className="text-[11px] text-muted-foreground hover:underline"
-                    >
-                      Back
-                    </button>
-                  </div>
-                )}
-              </EditableField>
             </div>
           )
+        )}
+
+        {/* Security — a separate card, password is a popup rather than an inline field */}
+        {profile && (
+          <div>
+            <SectionLabel>Security</SectionLabel>
+            <div className="rounded-3xl border border-border bg-card overflow-hidden shadow-xl">
+              <button
+                type="button"
+                onClick={openPasswordDialog}
+                className="w-full flex items-center gap-3 p-4 hover:bg-muted/40 transition-colors text-left"
+              >
+                <div className="h-9 w-9 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                  <KeyRound className="h-4 w-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-bold text-foreground/80 uppercase tracking-wide">Password</p>
+                  <p className="text-sm text-foreground">••••••••</p>
+                </div>
+                <span className="text-xs font-semibold text-primary shrink-0">Change</span>
+                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+              </button>
+            </div>
+          </div>
         )}
 
         <Button
@@ -852,6 +792,125 @@ export default function ProfileEdit() {
 
       <Footer />
       <MobileBottomBar />
+
+      {/* Password change popup */}
+      <Dialog open={passwordDialogOpen} onOpenChange={(open) => (open ? setPasswordDialogOpen(true) : closePasswordDialog())}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <KeyRound className="h-4 w-4 text-primary" />
+              Change your password
+            </DialogTitle>
+            <DialogDescription>
+              {passwordStage === "current" && "Confirm your current password to continue."}
+              {passwordStage === "new" && "Enter and confirm your new password."}
+              {passwordStage === "code" && `Enter the code we emailed to ${user?.email}.`}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-1">
+            {passwordStage === "current" && (
+              <div className="relative">
+                <Input
+                  type={showCurrentPassword ? "text" : "password"}
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="Current password"
+                  className="h-9 text-sm pr-9"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                >
+                  {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            )}
+
+            {passwordStage === "new" && (
+              <>
+                <div className="relative">
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    value={draftPassword}
+                    onChange={(e) => setDraftPassword(e.target.value)}
+                    placeholder="New password"
+                    className="h-9 text-sm pr-9"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                {draftPassword && <PasswordStrength password={draftPassword} />}
+                <div className="relative">
+                  <Input
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={draftConfirmPassword}
+                    onChange={(e) => setDraftConfirmPassword(e.target.value)}
+                    placeholder="Confirm new password"
+                    className="h-9 text-sm pr-9"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {passwordStage === "code" && (
+              <Input
+                value={passwordOtp}
+                onChange={(e) => setPasswordOtp(e.target.value)}
+                placeholder="000000"
+                maxLength={6}
+                className="h-11 text-center text-lg font-bold tracking-widest"
+                autoFocus
+              />
+            )}
+
+            {passwordError && <p className="text-xs text-destructive font-medium">{passwordError}</p>}
+          </div>
+
+          <DialogFooter className="flex-row gap-2 sm:justify-between">
+            {passwordStage === "current" ? (
+              <Button type="button" variant="outline" onClick={closePasswordDialog} className="flex-1">
+                Cancel
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setPasswordError(null);
+                  setPasswordStage(passwordStage === "code" ? "new" : "current");
+                }}
+                className="flex-1"
+              >
+                Back
+              </Button>
+            )}
+            <Button
+              type="button"
+              onClick={handlePasswordDialogPrimaryAction}
+              disabled={passwordDialogBusy}
+              className="flex-1"
+            >
+              {passwordDialogBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : passwordDialogPrimaryLabel}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

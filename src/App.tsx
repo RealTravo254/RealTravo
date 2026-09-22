@@ -45,7 +45,6 @@ const AdminReferralSettings = lazy(() => import("./pages/AdminReferralSettings")
 const QRScanner = lazy(() => import("./pages/QRScanner"));
 const CreateTripEvent = lazy(() => import("./pages/CreateTripEvent"));
 const CreateAdventure = lazy(() => import("./pages/CreateAdventure"));
-const ProfileEdit = lazy(() => import("./pages/ProfileEdit"));
 const EditListing = lazy(() => import("./pages/EditListing"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const VerifyEmail = lazy(() => import("./pages/VerifyEmail"));
@@ -211,7 +210,6 @@ const App = () => {
                       <Route path="/auth/callback" element={<Suspense fallback={<OfflineFallback text="Signing In" />}><AuthCallback /></Suspense>} />
                       <Route path="/app-auth" element={<Suspense fallback={<OfflineFallback text="Authenticating" />}><AppAuthHandler /></Suspense>} />
                       <Route path="/profile" element={<Suspense fallback={<OfflineFallback text="Profile" />}><Profile /></Suspense>} />
-                      <Route path="/profile/edit" element={<Suspense fallback={<OfflineFallback text="Edit Profile" />}><ProfileEdit /></Suspense>} />
                       <Route path="/admin" element={<Suspense fallback={<OfflineFallback text="Admin Dashboard" />}><AdminDashboard /></Suspense>} />
                       <Route path="/admin/pending" element={<Suspense fallback={<OfflineFallback text="Pending Approvals" />}><PendingApprovalItems /></Suspense>} />
                       <Route path="/admin/approved" element={<Suspense fallback={<OfflineFallback text="Approved Items" />}><ApprovedItems /></Suspense>} />

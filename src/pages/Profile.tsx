@@ -761,7 +761,6 @@ export default function ProfileEdit() {
         </Button>
       </main>
 
-      <Footer />
       <MobileBottomBar />
 
       {/* Password change popup */}

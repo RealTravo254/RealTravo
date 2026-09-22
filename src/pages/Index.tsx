@@ -10,7 +10,7 @@ import { SearchBarWithSuggestions } from "@/components/SearchBarWithSuggestions"
 import { useSearchFocus } from "@/components/PageLayout";
 import { ListingCard } from "@/components/ListingCard";
 import {
-  Tent, Map, BedDouble,
+  Tent, Map as MapIcon, BedDouble,
   Navigation, Heart, Ticket, Star, Search as SearchIcon,
 } from "lucide-react";
 import {
@@ -190,16 +190,16 @@ GridSection.displayName = "GridSection";
 // the page itself is responsible for showing both once you land there.
 const CATEGORIES = [
   { icon: Tent,       title: "Outdoor & Campsites", path: "/category/campsite", bgImage: "/images/category-campsite.jpg" },
-  { icon: Map,        title: "Tours & Trips",       path: "/category/guided",   bgImage: "/images/category-trips.jpg" },
+  { icon: MapIcon,    title: "Tours & Trips",       path: "/category/guided",   bgImage: "/images/category-trips.jpg" },
   { icon: BedDouble,  title: "Hotels & Stays",      path: "/category/campsite", bgImage: "/images/category-hotel.jpg" },
 ];
 
 // ── Quick-nav shortcuts ───────────────────────────────────────────────────────
 const QUICK_NAV = [
-  { icon: Tent,   title: "Outdoors & Campsites", path: "/category/campsite", color: "hsl(278, 90%, 50%)" },
-  { icon: Map,    title: "Tours & Trips",        path: "/category/guided",   color: "hsl(235, 90%, 50%)" },
-  { icon: Ticket, title: "Bookings",             path: "/bookings",          color: "hsl(200, 70%, 45%)" },
-  { icon: Heart,  title: "Saved",                path: "/saved",             color: "hsl(350, 80%, 55%)" },
+  { icon: Tent,    title: "Outdoors & Campsites", path: "/category/campsite", color: "hsl(278, 90%, 50%)" },
+  { icon: MapIcon, title: "Tours & Trips",        path: "/category/guided",   color: "hsl(235, 90%, 50%)" },
+  { icon: Ticket,  title: "Bookings",             path: "/bookings",          color: "hsl(200, 70%, 45%)" },
+  { icon: Heart,   title: "Saved",                path: "/saved",             color: "hsl(350, 80%, 55%)" },
 ];
 
 // ── Main page ─────────────────────────────────────────────────────────────────
@@ -880,7 +880,7 @@ const Index = () => {
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center bg-muted-foreground/10">
-                              <Map className="h-6 w-6 text-muted-foreground" />
+                              <MapIcon className="h-6 w-6 text-muted-foreground" />
                             </div>
                           )}
                           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
@@ -1010,4 +1010,4 @@ const Index = () => {
   );
 };
 
-export default Index;
+export default Index;12

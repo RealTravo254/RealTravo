@@ -2,10 +2,17 @@
 // Drop <VisitAnalyticsPanel /> anywhere inside the /admin page (AdminDashboard).
 // It has no Header/Footer of its own, and it only shows data to admins:
 // the database function refuses everyone else.
+//
+// Requires: npm install jspdf jspdf-autotable
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ElementType } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { BarChart3, Clock, Eye, Loader2, RefreshCw, UserCheck, UserX, Users } from "lucide-react";
+import {
+  BarChart3, ChevronLeft, ChevronRight, Clock, Download, Eye, Loader2,
+  RefreshCw, UserCheck, UserX, Users,
+} from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -70,6 +77,7 @@ const db = supabase as unknown as RpcClient;
 /* ------------------------------------------------------------------ */
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const ROWS_PER_PAGE = 15;
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
 const toISODate = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
@@ -132,6 +140,112 @@ function fillSeries(series: SeriesRow[], from: string, to: string, group: Group)
 }
 
 /* ------------------------------------------------------------------ */
+/* PDF export                                                          */
+/* ------------------------------------------------------------------ */
+
+function exportAnalyticsPdf(view: LoadedView, rows: SeriesRow[]) {
+  const { data, from, to, group } = view;
+  const t = data.totals;
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  let cursorY = 16;
+
+  doc.setFontSize(16);
+  doc.text("Visitor analytics report", 14, cursorY);
+  cursorY += 7;
+  doc.setFontSize(10);
+  doc.setTextColor(110);
+  doc.text(`${fmtPeriod(from, "day")} to ${fmtPeriod(to, "day")} · grouped by ${group}`, 14, cursorY);
+  doc.setTextColor(0);
+  cursorY += 8;
+
+  autoTable(doc, {
+    startY: cursorY,
+    head: [["Visits", "Unique visitors", "Logged in", "Guests", "Unique users", "Avg time"]],
+    body: [[
+      t.visits, t.unique_visitors, t.logged_in, t.guests, t.unique_users, fmtMinutes(t.avg_minutes),
+    ]],
+    theme: "grid",
+    headStyles: { fillColor: [40, 40, 40] },
+    styles: { fontSize: 9 },
+    margin: { left: 14, right: 14 },
+  });
+  // @ts-expect-error jspdf-autotable augments doc with lastAutoTable at runtime
+  cursorY = doc.lastAutoTable.finalY + 10;
+
+  doc.setFontSize(12);
+  doc.text(`Visits by ${group}`, 14, cursorY);
+  cursorY += 4;
+  autoTable(doc, {
+    startY: cursorY,
+    head: [["Period", "Visits", "Unique", "Logged in", "Guests", "Avg time"]],
+    body: rows.map((r) => [
+      fmtPeriod(r.period, group),
+      r.visits,
+      r.unique_visitors,
+      r.logged_in,
+      r.guests,
+      fmtMinutes(r.avg_minutes),
+    ]),
+    theme: "striped",
+    headStyles: { fillColor: [40, 40, 40] },
+    styles: { fontSize: 8 },
+    margin: { left: 14, right: 14 },
+  });
+  // @ts-expect-error jspdf-autotable augments doc with lastAutoTable at runtime
+  cursorY = doc.lastAutoTable.finalY + 10;
+
+  const addBreakdown = (title: string, breakdownRows: BreakdownRow[]) => {
+    if (breakdownRows.length === 0) return;
+    if (cursorY > doc.internal.pageSize.getHeight() - 40) {
+      doc.addPage();
+      cursorY = 16;
+    }
+    doc.setFontSize(12);
+    doc.text(title, 14, cursorY);
+    cursorY += 4;
+    const total = breakdownRows.reduce((s, r) => s + r.visits, 0);
+    autoTable(doc, {
+      startY: cursorY,
+      head: [["Label", "Visits", "Share", "Avg time"]],
+      body: breakdownRows.map((r) => [
+        r.label,
+        r.visits,
+        total ? `${Math.round((r.visits / total) * 100)}%` : "0%",
+        fmtMinutes(r.avg_minutes),
+      ]),
+      theme: "striped",
+      headStyles: { fillColor: [40, 40, 40] },
+      styles: { fontSize: 8 },
+      margin: { left: 14, right: 14 },
+    });
+    // @ts-expect-error jspdf-autotable augments doc with lastAutoTable at runtime
+    cursorY = doc.lastAutoTable.finalY + 10;
+  };
+
+  addBreakdown("Platform", data.platform);
+  addBreakdown("Login method", data.login);
+  addBreakdown("Gender (logged-in visitors)", data.gender);
+  addBreakdown("Age group (logged-in visitors)", data.age);
+  addBreakdown("Top entry pages", data.pages);
+
+  const pageCount = doc.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(150);
+    doc.text(
+      `Generated ${new Date().toLocaleString()} · Page ${i} of ${pageCount}`,
+      14,
+      doc.internal.pageSize.getHeight() - 8
+    );
+  }
+
+  doc.save(`visitor-analytics-${from}-to-${to}.pdf`);
+  void pageWidth; // reserved for future header art / logo alignment
+}
+
+/* ------------------------------------------------------------------ */
 /* Small UI pieces                                                     */
 /* ------------------------------------------------------------------ */
 
@@ -186,6 +300,79 @@ function Breakdown({ title, rows, empty }: { title: string; rows: BreakdownRow[]
   );
 }
 
+function Pagination({
+  page,
+  totalPages,
+  totalRows,
+  pageSize,
+  onChange,
+}: {
+  page: number;
+  totalPages: number;
+  totalRows: number;
+  pageSize: number;
+  onChange: (p: number) => void;
+}) {
+  if (totalPages <= 1) return null;
+  const startRow = (page - 1) * pageSize + 1;
+  const endRow = Math.min(page * pageSize, totalRows);
+
+  // Compact page-number list: first, last, current ±1, with ellipses between gaps.
+  const pageNumbers: (number | "ellipsis")[] = [];
+  for (let p = 1; p <= totalPages; p++) {
+    if (p === 1 || p === totalPages || Math.abs(p - page) <= 1) {
+      pageNumbers.push(p);
+    } else if (pageNumbers[pageNumbers.length - 1] !== "ellipsis") {
+      pageNumbers.push("ellipsis");
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 px-3 py-2.5 border-t border-border/60">
+      <p className="text-[11px] text-muted-foreground">
+        Showing {startRow}–{endRow} of {totalRows}
+      </p>
+      <div className="flex items-center gap-1">
+        <button
+          onClick={() => onChange(page - 1)}
+          disabled={page === 1}
+          aria-label="Previous page"
+          className="h-7 w-7 flex items-center justify-center rounded-lg border border-border bg-background hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          <ChevronLeft className="h-3.5 w-3.5" />
+        </button>
+        {pageNumbers.map((p, i) =>
+          p === "ellipsis" ? (
+            <span key={`e${i}`} className="px-1.5 text-[11px] text-muted-foreground">
+              …
+            </span>
+          ) : (
+            <button
+              key={p}
+              onClick={() => onChange(p)}
+              className={`h-7 min-w-7 px-2 rounded-lg text-[11px] font-bold border transition-colors ${
+                p === page
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-background text-foreground border-border hover:bg-muted"
+              }`}
+            >
+              {p}
+            </button>
+          )
+        )}
+        <button
+          onClick={() => onChange(page + 1)}
+          disabled={page === totalPages}
+          aria-label="Next page"
+          className="h-7 w-7 flex items-center justify-center rounded-lg border border-border bg-background hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          <ChevronRight className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* Panel                                                               */
 /* ------------------------------------------------------------------ */
@@ -199,6 +386,8 @@ export default function VisitAnalyticsPanel() {
   const [view, setView] = useState<LoadedView | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [tablePage, setTablePage] = useState(1);
   const requestId = useRef(0);
 
   const rangeInvalid = !from || !to || from > to;
@@ -218,6 +407,7 @@ export default function VisitAnalyticsPanel() {
       setError(err.message);
     } else {
       setView({ data: data as Analytics, from, to, group });
+      setTablePage(1); // reset to page 1 whenever fresh data loads
     }
     setLoading(false);
   }, [from, to, group, rangeInvalid]);
@@ -253,6 +443,28 @@ export default function VisitAnalyticsPanel() {
     [view]
   );
 
+  // Table is shown newest-first; pagination walks through that reversed order.
+  const reversedRows = useMemo(() => [...rows].reverse(), [rows]);
+  const totalPages = Math.max(1, Math.ceil(reversedRows.length / ROWS_PER_PAGE));
+  const clampedPage = Math.min(tablePage, totalPages);
+  const pagedRows = useMemo(
+    () => reversedRows.slice((clampedPage - 1) * ROWS_PER_PAGE, clampedPage * ROWS_PER_PAGE),
+    [reversedRows, clampedPage]
+  );
+
+  const handleExportPdf = () => {
+    if (!view) return;
+    setExporting(true);
+    // Deferred a tick so the "Exporting…" label paints before the (synchronous) PDF build.
+    window.setTimeout(() => {
+      try {
+        exportAnalyticsPdf(view, rows);
+      } finally {
+        setExporting(false);
+      }
+    }, 0);
+  };
+
   const t = view?.data.totals;
   const maxVisits = Math.max(1, ...rows.map((r) => r.visits));
   const guestPct = t && t.visits ? Math.round((t.guests / t.visits) * 100) : 0;
@@ -285,14 +497,28 @@ export default function VisitAnalyticsPanel() {
             <p className="text-[10px] text-muted-foreground">Web and app visits</p>
           </div>
         </div>
-        <button
-          onClick={load}
-          disabled={loading || rangeInvalid}
-          className="h-8 px-3 rounded-lg text-xs font-bold border border-border bg-card hover:bg-muted flex items-center gap-1.5 disabled:opacity-50 shrink-0"
-        >
-          <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={handleExportPdf}
+            disabled={!view || loading || exporting}
+            className="h-8 px-3 rounded-lg text-xs font-bold border border-border bg-card hover:bg-muted flex items-center gap-1.5 disabled:opacity-50"
+          >
+            {exporting ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Download className="h-3.5 w-3.5" />
+            )}
+            {exporting ? "Exporting…" : "Download PDF"}
+          </button>
+          <button
+            onClick={load}
+            disabled={loading || rangeInvalid}
+            className="h-8 px-3 rounded-lg text-xs font-bold border border-border bg-card hover:bg-muted flex items-center gap-1.5 disabled:opacity-50"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -438,9 +664,9 @@ export default function VisitAnalyticsPanel() {
           </div>
 
           {/* Table */}
-          {rows.length > 0 && (
+          {reversedRows.length > 0 && (
             <div className="rounded-xl border border-border bg-card overflow-hidden">
-              <div className="max-h-80 overflow-auto">
+              <div className="overflow-auto">
                 <table className="w-full text-xs">
                   <thead className="sticky top-0 bg-muted text-muted-foreground">
                     <tr className="text-left">
@@ -455,7 +681,7 @@ export default function VisitAnalyticsPanel() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/60">
-                    {[...rows].reverse().map((r) => (
+                    {pagedRows.map((r) => (
                       <tr key={r.period}>
                         <td className="px-3 py-2 font-medium text-foreground whitespace-nowrap">
                           {fmtPeriod(r.period, view.group)}
@@ -470,6 +696,13 @@ export default function VisitAnalyticsPanel() {
                   </tbody>
                 </table>
               </div>
+              <Pagination
+                page={clampedPage}
+                totalPages={totalPages}
+                totalRows={reversedRows.length}
+                pageSize={ROWS_PER_PAGE}
+                onChange={setTablePage}
+              />
             </div>
           )}
 

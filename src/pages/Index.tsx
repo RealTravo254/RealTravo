@@ -269,6 +269,35 @@ const Index = () => {
     }
   }, [position]);
 
+  // When we have no location to go on (and no profile country either), fall
+  // back to whichever country our own listings are heaviest in, rather than
+  // an arbitrary hardcoded default. Built from the free-text `country` field
+  // already present on the rows we fetch for the homepage feed.
+  const mostListedCountryName = useMemo(() => {
+    const tally = new Map<string, number>();
+    const allListings = [
+      ...scrollableRows.campsites,
+      ...scrollableRows.hotels,
+      ...scrollableRows.guidedTrips,
+      ...scrollableRows.fixedTrips,
+    ];
+    allListings.forEach((item: any) => {
+      const raw = (item.country || "").trim();
+      if (!raw) return;
+      tally.set(raw, (tally.get(raw) || 0) + 1);
+    });
+
+    let topName: string | null = null;
+    let topCount = 0;
+    tally.forEach((count, name) => {
+      if (count > topCount) {
+        topCount = count;
+        topName = name;
+      }
+    });
+    return topName;
+  }, [scrollableRows]);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -296,9 +325,9 @@ const Index = () => {
         }
       }
 
-      // 2. No profile country set (or logged out) — detect it from the
-      //    visitor's current coordinates instead.
-      if (!country) {
+      // 2. No profile country set — if the visitor has granted location,
+      //    detect their country from their coordinates.
+      if (!country && position) {
         const iso = await resolveCountryIso();
         const { data: matched } = await supabase
           .from("countries")
@@ -308,8 +337,24 @@ const Index = () => {
         country = matched ?? null;
       }
 
-      // 3. Still nothing (unmatched country, offline, etc.) — fall back to
-      //    Kenya rather than showing an empty section.
+      // 3. No profile country AND no location — show whichever country has
+      //    the most live listings instead of guessing. Wait for the listing
+      //    fetch to finish first (the regions skeleton just keeps showing in
+      //    the meantime); this effect re-runs once it does.
+      if (!country && !position) {
+        if (loadingScrollable) return;
+        if (mostListedCountryName) {
+          const { data: topCountry } = await supabase
+            .from("countries")
+            .select("id, name, iso_code, image_url")
+            .ilike("name", mostListedCountryName)
+            .maybeSingle();
+          country = topCountry ?? null;
+        }
+      }
+
+      // 4. Still nothing (no listings yet, unmatched country name, etc.) —
+      //    fall back to Kenya rather than showing an empty section.
       if (!country) {
         const { data: fallback } = await supabase
           .from("countries")
@@ -338,7 +383,7 @@ const Index = () => {
 
     loadCountryAndDivisions();
     return () => { cancelled = true; };
-  }, [resolveCountryIso, userId]);
+  }, [resolveCountryIso, userId, position, loadingScrollable, mostListedCountryName]);
 
   const allItemIds = useMemo(() => {
     const ids = new Set<string>();

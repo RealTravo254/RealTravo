@@ -1,3 +1,4 @@
+// src/pages/CompleteProfile.tsx
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -6,10 +7,9 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, User, Phone, Globe, KeyRound } from "lucide-react";
 import { PasswordStrength } from "@/components/ui/password-strength";
-import { PhoneInput } from "@/components/profile/PhoneInput";
+import { CountrySelector } from "@/components/creation/CountrySelector";
 
 export default function CompleteProfile() {
   const { user, loading: authLoading } = useAuth();
@@ -18,6 +18,8 @@ export default function CompleteProfile() {
 
   const [name, setName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [countryId, setCountryId] = useState<string | null>(null);
+  const [divisionId, setDivisionId] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -32,28 +34,30 @@ export default function CompleteProfile() {
         return;
       }
       const { data: profile } = await supabase
-        .from('profiles')
-        .select('profile_completed, name')
-        .eq('id', user.id)
+        .from("profiles")
+        .select("profile_completed, name, phone_number, country_id, division_id")
+        .eq("id", user.id)
         .single();
 
       if (profile?.profile_completed) {
-        navigate('/');
+        navigate("/");
         return;
       }
-      // Pre-fill name from Google profile
       if (user.user_metadata?.full_name || user.user_metadata?.name) {
-        setName(user.user_metadata?.full_name || user.user_metadata?.name || '');
+        setName(user.user_metadata?.full_name || user.user_metadata?.name || "");
       } else if (profile?.name) {
         setName(profile.name);
       }
+      if (profile?.phone_number) setPhoneNumber(profile.phone_number);
+      if (profile?.country_id) setCountryId(profile.country_id);
+      if (profile?.division_id) setDivisionId(profile.division_id);
       setCheckingProfile(false);
     };
     if (!authLoading) checkProfile();
   }, [user, authLoading, navigate]);
 
   useEffect(() => {
-    if (!authLoading && !user) navigate('/auth');
+    if (!authLoading && !user) navigate("/auth");
   }, [user, authLoading, navigate]);
 
   const validatePassword = (pwd: string) => {
@@ -74,7 +78,6 @@ export default function CompleteProfile() {
       return;
     }
 
-    // Validate password only if provided
     if (password) {
       const pv = validatePassword(password);
       if (!pv.valid) {
@@ -89,25 +92,32 @@ export default function CompleteProfile() {
 
     setLoading(true);
     try {
-      // Update password only if provided
       if (password) {
         const { error: pwError } = await supabase.auth.updateUser({ password });
         if (pwError) throw pwError;
       }
 
-      // Update profile
-      const updateData: { name: string; profile_completed: boolean; phone_number?: string } = {
+      const updateData: {
+        name: string;
+        profile_completed: boolean;
+        phone_number?: string;
+        country_id?: string | null;
+        division_id?: string | null;
+      } = {
         name: name.trim(),
         profile_completed: true,
       };
-      if (phoneNumber.trim()) {
-        updateData.phone_number = phoneNumber.trim();
+      if (phoneNumber.trim()) updateData.phone_number = phoneNumber.trim();
+      if (countryId) {
+        updateData.country_id = countryId;
+        updateData.division_id = divisionId;
       }
 
-      await supabase.from('profiles').update(updateData).eq('id', user!.id);
+      const { error } = await supabase.from("profiles").update(updateData).eq("id", user!.id);
+      if (error) throw error;
 
       toast({ title: "Profile completed!", description: "Welcome to Realtravo!" });
-      navigate('/');
+      navigate("/");
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
@@ -116,89 +126,164 @@ export default function CompleteProfile() {
   };
 
   const handleSkip = async () => {
-    // Just mark as complete with whatever name we have
-    const updateName = name.trim() || user?.user_metadata?.full_name || user?.user_metadata?.name || 'User';
-    await supabase.from('profiles').update({ 
-      profile_completed: true,
-      name: updateName 
-    }).eq('id', user!.id);
-    navigate('/');
+    const updateName = name.trim() || user?.user_metadata?.full_name || user?.user_metadata?.name || "User";
+    await supabase
+      .from("profiles")
+      .update({ profile_completed: true, name: updateName })
+      .eq("id", user!.id);
+    navigate("/");
   };
 
   if (authLoading || checkingProfile) {
-    return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
   }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-accent/5 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-6">
           <img src="/fulllogo.png" alt="Realtravo" className="h-12 mx-auto mb-4" />
-          <CardTitle>Complete Your Profile</CardTitle>
-          <CardDescription>Just confirm your name to get started</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleProfileSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label>Full Name <span className="text-destructive">*</span></Label>
-              <Input 
-                value={name} 
-                onChange={(e) => setName(e.target.value)} 
-                className={errors.name ? "border-destructive" : ""} 
-                placeholder="Enter your name"
-              />
-              {errors.name && <p className="text-sm text-destructive">{errors.name}</p>}
-            </div>
+          <h1 className="text-xl font-bold text-foreground">Complete your profile</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            A few details to get you set up. You can update most of these later.
+          </p>
+        </div>
 
-            <PhoneInput 
-              value={phoneNumber} 
-              onChange={setPhoneNumber} 
-              country="Kenya" 
-              label="Phone Number (optional)" 
-            />
-
-            <div className="space-y-2">
-              <Label>Set Password (optional - for email login)</Label>
-              <div className="relative">
-                <Input 
-                  type={showPassword ? "text" : "password"} 
-                  value={password} 
-                  onChange={(e) => setPassword(e.target.value)} 
-                  className={errors.password ? "border-destructive" : ""}
-                  placeholder="Leave empty to use Google only"
-                />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2">
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
+        <form onSubmit={handleProfileSubmit}>
+          <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm mb-4">
+            {/* Name */}
+            <div className="p-4 flex items-start gap-3 border-b border-border/60">
+              <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0 mt-0.5">
+                <User className="h-4 w-4" />
               </div>
-              {password && <PasswordStrength password={password} />}
-              {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
-            </div>
-
-            {password && (
-              <div className="space-y-2">
-                <Label>Confirm Password</Label>
-                <Input 
-                  type="password" 
-                  value={confirmPassword} 
-                  onChange={(e) => setConfirmPassword(e.target.value)} 
-                  className={errors.confirmPassword ? "border-destructive" : ""} 
+              <div className="flex-1 min-w-0 space-y-1.5">
+                <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                  Full name <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Enter your name"
+                  className={`h-9 text-sm ${errors.name ? "border-destructive" : ""}`}
                 />
-                {errors.confirmPassword && <p className="text-sm text-destructive">{errors.confirmPassword}</p>}
+                {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
+                <p className="text-[11px] text-muted-foreground">
+                  Once saved, your name can only be changed again after 30 days.
+                </p>
               </div>
-            )}
-
-            <div className="flex gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={handleSkip} className="flex-1">
-                Skip for now
-              </Button>
-              <Button type="submit" className="flex-1" disabled={loading}>
-                {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : "Complete"}
-              </Button>
             </div>
-          </form>
-        </CardContent>
-      </Card>
+
+            {/* Phone */}
+            <div className="p-4 flex items-start gap-3 border-b border-border/60">
+              <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0 mt-0.5">
+                <Phone className="h-4 w-4" />
+              </div>
+              <div className="flex-1 min-w-0 space-y-1.5">
+                <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                  Phone number (optional)
+                </Label>
+                <Input
+                  type="tel"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  placeholder="Enter phone number"
+                  className="h-9 text-sm"
+                />
+              </div>
+            </div>
+
+            {/* Country / division */}
+            <div className="p-4 flex items-start gap-3 border-b border-border/60">
+              <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0 mt-0.5">
+                <Globe className="h-4 w-4" />
+              </div>
+              <div className="flex-1 min-w-0 space-y-1.5">
+                <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                  Home country (optional)
+                </Label>
+                <CountrySelector
+                  countryId={countryId}
+                  divisionId={divisionId}
+                  onChange={({ countryId, divisionId }) => {
+                    setCountryId(countryId);
+                    setDivisionId(divisionId);
+                  }}
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Once saved, your country can only be changed again after 365 days.
+                </p>
+              </div>
+            </div>
+
+            {/* Password */}
+            <div className="p-4 flex items-start gap-3" >
+              <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0 mt-0.5">
+                <KeyRound className="h-4 w-4" />
+              </div>
+              <div className="flex-1 min-w-0 space-y-1.5">
+                <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                  Password (optional — for email login)
+                </Label>
+                <div className="relative">
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Leave empty to use Google only"
+                    className={`h-9 text-sm pr-9 ${errors.password ? "border-destructive" : ""}`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                {password && <PasswordStrength password={password} />}
+                {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
+
+                {password && (
+                  <div className="pt-1">
+                    <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                      Confirm password
+                    </Label>
+                    <Input
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className={`h-9 text-sm mt-1.5 ${errors.confirmPassword ? "border-destructive" : ""}`}
+                    />
+                    {errors.confirmPassword && (
+                      <p className="text-xs text-destructive mt-1">{errors.confirmPassword}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" onClick={handleSkip} className="flex-1 h-10 rounded-xl text-sm font-semibold">
+              Skip for now
+            </Button>
+            <Button type="submit" className="flex-1 h-10 rounded-xl text-sm font-semibold" disabled={loading}>
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving…
+                </>
+              ) : (
+                "Complete"
+              )}
+            </Button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

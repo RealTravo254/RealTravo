@@ -4,6 +4,14 @@
 // the database function refuses everyone else.
 //
 // Requires: npm install jspdf jspdf-autotable
+//
+// IMPORTANT — database function update needed:
+// This version passes p_group as "day" | "week" | "month" | "quarter" | "year"
+// to the `admin_visit_analytics` RPC. If your SQL function's date_trunc()
+// call only handles 'day' | 'month' | 'year' today, add 'week' and 'quarter'
+// there too — Postgres's date_trunc() supports 'week' and 'quarter' natively.
+// If p_group is validated against an allow-list in the function, extend it
+// to include 'week' and 'quarter' as well.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ElementType } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,11 +26,11 @@ import autoTable from "jspdf-autotable";
 /* Types                                                               */
 /* ------------------------------------------------------------------ */
 
-type Group = "day" | "month" | "year";
+type Group = "day" | "week" | "month" | "quarter" | "year";
 type Preset = "7d" | "30d" | "90d" | "year" | "custom";
 
 interface SeriesRow {
-  period: string; // YYYY-MM-DD (first day of the day/month/year)
+  period: string; // YYYY-MM-DD (first day of the day/week/month/quarter/year)
   visits: number;
   unique_visitors: number;
   guests: number;
@@ -60,6 +68,7 @@ interface LoadedView {
   from: string;
   to: string;
   group: Group;
+  preset: Preset;
 }
 
 // The generated Supabase types don't know about our custom function,
@@ -79,6 +88,22 @@ const db = supabase as unknown as RpcClient;
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const ROWS_PER_PAGE = 15;
 
+const GROUP_LABELS: Record<Group, string> = {
+  day: "Day",
+  week: "Week",
+  month: "Month",
+  quarter: "Quarter",
+  year: "Year",
+};
+
+const PRESET_LABELS: Record<Preset, string> = {
+  "7d": "Last 7 days",
+  "30d": "Last 30 days",
+  "90d": "Last 3 months",
+  year: "This year",
+  custom: "Custom range",
+};
+
 const pad2 = (n: number) => String(n).padStart(2, "0");
 const toISODate = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 const daysAgo = (n: number) => {
@@ -93,31 +118,96 @@ function fmtMinutes(m: number | null | undefined): string {
   return `${m} min`;
 }
 
+// Monday-start ISO week containing `d`.
+function startOfISOWeek(d: Date): Date {
+  const day = d.getDay(); // 0 = Sun ... 6 = Sat
+  const diff = day === 0 ? -6 : 1 - day;
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + diff);
+}
+
+function startOfQuarter(d: Date): Date {
+  const qMonth = Math.floor(d.getMonth() / 3) * 3;
+  return new Date(d.getFullYear(), qMonth, 1);
+}
+
 function fmtPeriod(p: string, g: Group, short = false): string {
   const [y, m, d] = p.split("-").map(Number);
   if (g === "year") return String(y);
+  if (g === "quarter") {
+    const q = Math.floor((m - 1) / 3) + 1;
+    return `Q${q} ${y}`;
+  }
   if (g === "month") return `${MONTHS[m - 1]} ${y}`;
+  if (g === "week") {
+    const start = new Date(y, m - 1, d);
+    const end = new Date(y, m - 1, d + 6);
+    if (short) return `${start.getDate()} ${MONTHS[start.getMonth()]}`;
+    const sameMonth = start.getMonth() === end.getMonth();
+    const endLabel = sameMonth ? `${end.getDate()}` : `${end.getDate()} ${MONTHS[end.getMonth()]}`;
+    return `${start.getDate()} ${MONTHS[start.getMonth()]}–${endLabel} ${end.getFullYear()}`;
+  }
   return short ? `${d} ${MONTHS[m - 1]}` : `${d} ${MONTHS[m - 1]} ${y}`;
 }
 
-// List every period between from and to so days with 0 visits still show up.
-// Returns null if the range would be too large (we then show only the days with data).
+// Human range label used both on screen and in the PDF, e.g.
+// "16 Sep 2026 – 22 Sep 2026".
+function fmtRangeLabel(from: string, to: string): string {
+  return `${fmtPeriod(from, "day")} – ${fmtPeriod(to, "day")}`;
+}
+
+// The single source of truth for "what is filtered" — shown as a strip
+// under the title bar and reused verbatim as the PDF subtitle.
+function filterSummaryLabel(view: LoadedView): string {
+  return `${PRESET_LABELS[view.preset]} · ${fmtRangeLabel(view.from, view.to)} · grouped by ${GROUP_LABELS[view.group].toLowerCase()}`;
+}
+
+// List every period between from and to so periods with 0 visits still show up.
+// Returns null if the range would be too large (we then show only the periods with data).
 function buildPeriods(from: string, to: string, group: Group): string[] | null {
   const [fy, fm, fd] = from.split("-").map(Number);
   const [ty, tm, td] = to.split("-").map(Number);
   const end = new Date(ty, tm - 1, td);
-  let cur =
-    group === "day" ? new Date(fy, fm - 1, fd) : group === "month" ? new Date(fy, fm - 1, 1) : new Date(fy, 0, 1);
+
+  let cur: Date;
+  switch (group) {
+    case "day":
+      cur = new Date(fy, fm - 1, fd);
+      break;
+    case "week":
+      cur = startOfISOWeek(new Date(fy, fm - 1, fd));
+      break;
+    case "month":
+      cur = new Date(fy, fm - 1, 1);
+      break;
+    case "quarter":
+      cur = startOfQuarter(new Date(fy, fm - 1, fd));
+      break;
+    case "year":
+      cur = new Date(fy, 0, 1);
+      break;
+  }
+
   const out: string[] = [];
   while (cur <= end) {
     out.push(toISODate(cur));
     if (out.length > 400) return null;
-    cur =
-      group === "day"
-        ? new Date(cur.getFullYear(), cur.getMonth(), cur.getDate() + 1)
-        : group === "month"
-        ? new Date(cur.getFullYear(), cur.getMonth() + 1, 1)
-        : new Date(cur.getFullYear() + 1, 0, 1);
+    switch (group) {
+      case "day":
+        cur = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate() + 1);
+        break;
+      case "week":
+        cur = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate() + 7);
+        break;
+      case "month":
+        cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+        break;
+      case "quarter":
+        cur = new Date(cur.getFullYear(), cur.getMonth() + 3, 1);
+        break;
+      case "year":
+        cur = new Date(cur.getFullYear() + 1, 0, 1);
+        break;
+    }
   }
   return out;
 }
@@ -144,10 +234,9 @@ function fillSeries(series: SeriesRow[], from: string, to: string, group: Group)
 /* ------------------------------------------------------------------ */
 
 function exportAnalyticsPdf(view: LoadedView, rows: SeriesRow[]) {
-  const { data, from, to, group } = view;
+  const { data, group } = view;
   const t = data.totals;
   const doc = new jsPDF();
-  const pageWidth = doc.internal.pageSize.getWidth();
   let cursorY = 16;
 
   doc.setFontSize(16);
@@ -155,7 +244,7 @@ function exportAnalyticsPdf(view: LoadedView, rows: SeriesRow[]) {
   cursorY += 7;
   doc.setFontSize(10);
   doc.setTextColor(110);
-  doc.text(`${fmtPeriod(from, "day")} to ${fmtPeriod(to, "day")} · grouped by ${group}`, 14, cursorY);
+  doc.text(filterSummaryLabel(view), 14, cursorY);
   doc.setTextColor(0);
   cursorY += 8;
 
@@ -174,11 +263,11 @@ function exportAnalyticsPdf(view: LoadedView, rows: SeriesRow[]) {
   cursorY = doc.lastAutoTable.finalY + 10;
 
   doc.setFontSize(12);
-  doc.text(`Visits by ${group}`, 14, cursorY);
+  doc.text(`Visits by ${GROUP_LABELS[group].toLowerCase()}`, 14, cursorY);
   cursorY += 4;
   autoTable(doc, {
     startY: cursorY,
-    head: [["Period", "Visits", "Unique", "Logged in", "Guests", "Avg time"]],
+    head: [[GROUP_LABELS[group], "Visits", "Unique", "Logged in", "Guests", "Avg time"]],
     body: rows.map((r) => [
       fmtPeriod(r.period, group),
       r.visits,
@@ -241,8 +330,7 @@ function exportAnalyticsPdf(view: LoadedView, rows: SeriesRow[]) {
     );
   }
 
-  doc.save(`visitor-analytics-${from}-to-${to}.pdf`);
-  void pageWidth; // reserved for future header art / logo alignment
+  doc.save(`visitor-analytics-${view.from}-to-${view.to}-${group}.pdf`);
 }
 
 /* ------------------------------------------------------------------ */
@@ -317,7 +405,6 @@ function Pagination({
   const startRow = (page - 1) * pageSize + 1;
   const endRow = Math.min(page * pageSize, totalRows);
 
-  // Compact page-number list: first, last, current ±1, with ellipses between gaps.
   const pageNumbers: (number | "ellipsis")[] = [];
   for (let p = 1; p <= totalPages; p++) {
     if (p === 1 || p === totalPages || Math.abs(p - page) <= 1) {
@@ -406,11 +493,11 @@ export default function VisitAnalyticsPanel() {
     if (err) {
       setError(err.message);
     } else {
-      setView({ data: data as Analytics, from, to, group });
+      setView({ data: data as Analytics, from, to, group, preset });
       setTablePage(1); // reset to page 1 whenever fresh data loads
     }
     setLoading(false);
-  }, [from, to, group, rangeInvalid]);
+  }, [from, to, group, preset, rangeInvalid]);
 
   useEffect(() => {
     load();
@@ -430,12 +517,14 @@ export default function VisitAnalyticsPanel() {
     } else if (p === "90d") {
       setFrom(daysAgo(89));
       setTo(today);
-      setGroup("day");
+      setGroup("week");
     } else if (p === "year") {
       setFrom(`${new Date().getFullYear()}-01-01`);
       setTo(today);
       setGroup("month");
     }
+    // "custom" leaves from/to/group exactly as they are — the person is
+    // about to pick their own dates below.
   };
 
   const rows = useMemo(
@@ -521,13 +610,24 @@ export default function VisitAnalyticsPanel() {
         </div>
       </div>
 
+      {/* What's currently filtered — mirrored verbatim as the PDF subtitle */}
+      {view && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/15">
+          <Eye className="h-3.5 w-3.5 text-primary shrink-0" />
+          <p className="text-xs font-medium text-foreground truncate">
+            Showing: {filterSummaryLabel(view)}
+          </p>
+        </div>
+      )}
+
       {/* Filters */}
       <div className="p-3.5 rounded-xl border border-border bg-card space-y-3">
         <div className="flex flex-wrap gap-1.5">
           {presetBtn("7d", "7 days")}
           {presetBtn("30d", "30 days")}
-          {presetBtn("90d", "90 days")}
+          {presetBtn("90d", "3 months")}
           {presetBtn("year", "This year")}
+          {presetBtn("custom", "Custom")}
         </div>
 
         <div className="flex flex-wrap items-end gap-3">
@@ -566,9 +666,11 @@ export default function VisitAnalyticsPanel() {
               onChange={(e) => setGroup(e.target.value as Group)}
               className="h-8 px-2 rounded-lg border border-border bg-background text-xs text-foreground"
             >
-              <option value="day">Day</option>
-              <option value="month">Month</option>
-              <option value="year">Year</option>
+              <option value="day">Daily</option>
+              <option value="week">Weekly</option>
+              <option value="month">Monthly</option>
+              <option value="quarter">Quarterly (3 months)</option>
+              <option value="year">Yearly</option>
             </select>
           </label>
         </div>
@@ -581,7 +683,13 @@ export default function VisitAnalyticsPanel() {
       {error && (
         <div className="p-3.5 rounded-xl border border-destructive/30 bg-destructive/10 text-xs text-destructive space-y-1">
           <p>Could not load analytics: {error}</p>
-          {functionMissing && <p>Run <code>admin-analytics.sql</code> in the Supabase SQL Editor first.</p>}
+          {functionMissing && (
+            <p>
+              Run <code>admin-analytics.sql</code> in the Supabase SQL Editor first. If you just switched to Week or
+              Quarter grouping, make sure that SQL function's date_trunc/allow-list also covers <code>'week'</code>{" "}
+              and <code>'quarter'</code>.
+            </p>
+          )}
         </div>
       )}
 
@@ -618,7 +726,7 @@ export default function VisitAnalyticsPanel() {
           <div className="p-4 rounded-xl border border-border bg-card space-y-3">
             <div className="flex items-center justify-between gap-2">
               <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
-                Visits by {view.group}
+                Visits by {GROUP_LABELS[view.group].toLowerCase()}
               </p>
               <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
                 <span className="flex items-center gap-1">
@@ -670,9 +778,7 @@ export default function VisitAnalyticsPanel() {
                 <table className="w-full text-xs">
                   <thead className="sticky top-0 bg-muted text-muted-foreground">
                     <tr className="text-left">
-                      <th className="px-3 py-2 font-bold">
-                        {view.group === "day" ? "Date" : view.group === "month" ? "Month" : "Year"}
-                      </th>
+                      <th className="px-3 py-2 font-bold">{GROUP_LABELS[view.group]}</th>
                       <th className="px-3 py-2 font-bold text-right">Visits</th>
                       <th className="px-3 py-2 font-bold text-right">Unique</th>
                       <th className="px-3 py-2 font-bold text-right">Logged in</th>

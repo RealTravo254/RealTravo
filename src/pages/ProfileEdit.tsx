@@ -16,9 +16,22 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { User, Calendar, Globe, Phone, ArrowLeft, Loader2, ShieldCheck } from "lucide-react";
+import {
+  User,
+  Calendar,
+  Globe,
+  Phone,
+  ArrowLeft,
+  Loader2,
+  ShieldCheck,
+  KeyRound,
+  Eye,
+  EyeOff,
+  Users as UsersIcon,
+} from "lucide-react";
 import { CountrySelector } from "@/components/creation/CountrySelector";
 import { EditableField } from "@/components/profile/EditableField";
+import { PasswordStrength } from "@/components/ui/password-strength";
 
 const GENDER_LABELS: Record<string, string> = {
   male: "Male",
@@ -38,6 +51,14 @@ function calculateAge(dob: string) {
   const m = today.getMonth() - birth.getMonth();
   if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
   return age;
+}
+
+function validatePasswordStrength(pwd: string) {
+  if (pwd.length < 8) return "At least 8 characters.";
+  if (!/[A-Z]/.test(pwd)) return "Add an uppercase letter.";
+  if (!/[a-z]/.test(pwd)) return "Add a lowercase letter.";
+  if (!/[0-9]/.test(pwd)) return "Add a number.";
+  return null;
 }
 
 /** Mirrors the DB trigger's rule client-side, purely for a nicer UX. The
@@ -61,7 +82,7 @@ function getLockStatus(changedAt: string | null, lockDays: number) {
   };
 }
 
-type FieldKey = "name" | "dob" | "gender" | "country" | "phone";
+type FieldKey = "name" | "dob" | "gender" | "country" | "phone" | "password";
 
 interface ProfileRow {
   first_name: string;
@@ -74,6 +95,17 @@ interface ProfileRow {
   phone_verified: boolean;
   name_changed_at: string | null;
   country_changed_at: string | null;
+}
+
+// Section header used to group the fields below into "Personal",
+// "Location & contact" and "Security" — this is what gives the page a
+// different shape from the flat single list it used to be.
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="px-4 pt-4 pb-1 text-[10px] font-black uppercase tracking-[0.18em] text-primary">
+      {children}
+    </p>
+  );
 }
 
 export default function ProfileEdit() {
@@ -102,6 +134,13 @@ export default function ProfileEdit() {
   const [showVerification, setShowVerification] = useState(false);
   const [sendingCode, setSendingCode] = useState(false);
   const [verifyingCode, setVerifyingCode] = useState(false);
+
+  // Password change
+  const [draftPassword, setDraftPassword] = useState("");
+  const [draftConfirmPassword, setDraftConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -169,12 +208,17 @@ export default function ProfileEdit() {
       setDraftPhone(profile.phone_number);
       setShowVerification(false);
       setVerificationCode("");
+    } else if (field === "password") {
+      setDraftPassword("");
+      setDraftConfirmPassword("");
+      setPasswordError(null);
     }
   };
 
   const cancelEdit = () => {
     setEditingField(null);
     setShowVerification(false);
+    setPasswordError(null);
   };
 
   const saveField = async (field: FieldKey, updateData: Record<string, unknown>) => {
@@ -206,7 +250,11 @@ export default function ProfileEdit() {
       toast({ title: "Error", description: "First name and surname are required.", variant: "destructive" });
       return;
     }
-    saveField("name", { first_name: draftFirstName.trim(), last_name: draftLastName.trim() });
+    saveField("name", {
+      first_name: draftFirstName.trim(),
+      last_name: draftLastName.trim(),
+      name: `${draftFirstName.trim()} ${draftLastName.trim()}`,
+    });
   };
 
   const handleSaveDob = () => saveField("dob", { date_of_birth: draftDob || null });
@@ -247,6 +295,32 @@ export default function ProfileEdit() {
     }
   };
 
+  const handleSavePassword = async () => {
+    setPasswordError(null);
+    const strengthError = validatePasswordStrength(draftPassword);
+    if (strengthError) {
+      setPasswordError(strengthError);
+      return;
+    }
+    if (draftPassword !== draftConfirmPassword) {
+      setPasswordError("Passwords don't match.");
+      return;
+    }
+    setSavingField("password");
+    try {
+      const { error } = await supabase.auth.updateUser({ password: draftPassword });
+      if (error) throw error;
+      toast({ title: "Password updated", description: "Use your new password next time you sign in." });
+      setEditingField(null);
+      setDraftPassword("");
+      setDraftConfirmPassword("");
+    } catch (error: any) {
+      setPasswordError(error.message || "Couldn't update your password.");
+    } finally {
+      setSavingField(null);
+    }
+  };
+
   const age = profile ? calculateAge(profile.date_of_birth) : null;
 
   return (
@@ -259,30 +333,43 @@ export default function ProfileEdit() {
     >
       <Header />
 
-      <main className="flex-1 px-4 pt-6 pb-12 max-w-lg mx-auto w-full space-y-5">
-        <div className="flex items-center gap-3">
+      {/* Brand band — gives this page its own identity instead of a plain title row */}
+      <div className="relative bg-[#0d2b4e] px-4 pt-6 pb-10 overflow-hidden shrink-0">
+        <div
+          className="absolute inset-0 opacity-20"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle at 15% 25%, #008080 0%, transparent 45%), radial-gradient(circle at 90% 10%, #008080 0%, transparent 40%)",
+          }}
+        />
+        <div className="relative max-w-lg mx-auto flex items-center gap-3">
           <button
             onClick={() => navigate(-1)}
             aria-label="Go back"
-            className="h-9 w-9 rounded-full bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors shrink-0"
+            className="h-9 w-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors shrink-0"
           >
-            <ArrowLeft className="h-4 w-4 text-foreground" />
+            <ArrowLeft className="h-4 w-4 text-white" />
           </button>
+          <div className="h-11 w-11 rounded-full bg-primary/20 flex items-center justify-center text-white shrink-0">
+            <User className="h-5 w-5" />
+          </div>
           <div>
-            <h1 className="text-xl font-bold text-foreground leading-tight">Edit profile</h1>
-            <p className="text-sm text-muted-foreground">
-              Tap "Edit" on any field to update it, then save.
-            </p>
+            <h1 className="text-lg font-black text-white leading-tight">Edit profile</h1>
+            <p className="text-xs text-white/60">Tap a field to update it, then save.</p>
           </div>
         </div>
+      </div>
 
+      <main className="flex-1 px-4 -mt-6 pb-12 max-w-lg mx-auto w-full space-y-5">
         {fetchingProfile ? (
           <div className="p-12 flex justify-center items-center">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
         ) : (
           profile && (
-            <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm">
+            <div className="rounded-3xl border border-border bg-card overflow-hidden shadow-xl divide-y divide-border/60">
+              <SectionLabel>Personal</SectionLabel>
+
               {/* Name */}
               <EditableField
                 icon={<User className="h-4 w-4" />}
@@ -337,7 +424,7 @@ export default function ProfileEdit() {
 
               {/* Gender */}
               <EditableField
-                icon={<User className="h-4 w-4" />}
+                icon={<UsersIcon className="h-4 w-4" />}
                 label="Gender identity"
                 display={profile.gender ? GENDER_LABELS[profile.gender] ?? profile.gender : "Not set"}
                 isEditing={editingField === "gender"}
@@ -360,10 +447,12 @@ export default function ProfileEdit() {
                 </Select>
               </EditableField>
 
-              {/* Country / division */}
+              <SectionLabel>Location &amp; contact</SectionLabel>
+
+              {/* Country / division — optional, not required */}
               <EditableField
                 icon={<Globe className="h-4 w-4" />}
-                label="Home country"
+                label="Home country (optional)"
                 display={
                   countryName
                     ? `${countryName}${divisionName ? ` · ${divisionName}` : ""}`
@@ -390,14 +479,13 @@ export default function ProfileEdit() {
               {/* Phone number */}
               <EditableField
                 icon={<Phone className="h-4 w-4" />}
-                label="Phone number"
+                label="Phone number (optional)"
                 display={profile.phone_number || "Not set"}
                 isEditing={editingField === "phone"}
                 isSaving={savingField === "phone"}
                 onEdit={() => startEdit("phone")}
                 onSave={handleSendVerificationCode}
                 onCancel={cancelEdit}
-                noBorder
               >
                 <div className="space-y-2">
                   <Input
@@ -442,6 +530,58 @@ export default function ProfileEdit() {
                       </div>
                     </div>
                   )}
+                </div>
+              </EditableField>
+
+              <SectionLabel>Security</SectionLabel>
+
+              {/* Password */}
+              <EditableField
+                icon={<KeyRound className="h-4 w-4" />}
+                label="Password"
+                display="••••••••"
+                isEditing={editingField === "password"}
+                isSaving={savingField === "password"}
+                onEdit={() => startEdit("password")}
+                onSave={handleSavePassword}
+                onCancel={cancelEdit}
+                noBorder
+              >
+                <div className="space-y-2">
+                  <div className="relative">
+                    <Input
+                      type={showPassword ? "text" : "password"}
+                      value={draftPassword}
+                      onChange={(e) => setDraftPassword(e.target.value)}
+                      placeholder="New password"
+                      className="h-9 text-sm pr-9"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  {draftPassword && <PasswordStrength password={draftPassword} />}
+                  <div className="relative">
+                    <Input
+                      type={showConfirmPassword ? "text" : "password"}
+                      value={draftConfirmPassword}
+                      onChange={(e) => setDraftConfirmPassword(e.target.value)}
+                      placeholder="Confirm new password"
+                      className="h-9 text-sm pr-9"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                    >
+                      {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  {passwordError && <p className="text-xs text-destructive font-medium">{passwordError}</p>}
                 </div>
               </EditableField>
             </div>

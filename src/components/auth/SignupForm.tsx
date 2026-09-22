@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2 } from "lucide-react";
+import { Loader2, Globe } from "lucide-react";
+import { CountrySelector } from "@/components/creation/CountrySelector";
 
 const MIN_SIGNUP_AGE = 12;
 
@@ -35,6 +36,8 @@ export const SignupForm = ({ onSwitchToLogin, onSignupSuccess }: SignupFormProps
   const [lastName, setLastName] = useState("");
   const [gender, setGender] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
+  const [countryId, setCountryId] = useState<string | null>(null);
+  const [divisionId, setDivisionId] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -92,12 +95,28 @@ export const SignupForm = ({ onSwitchToLogin, onSignupSuccess }: SignupFormProps
         },
       },
     });
+
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Success", description: "Verify your email to continue." });
-      onSignupSuccess?.();
+      setLoading(false);
+      return;
     }
+
+    // Country/division are optional at signup — save them right after the
+    // account is created so we don't add required fields to the form.
+    if (countryId) {
+      const { data: sessionData } = await supabase.auth.getUser();
+      const uid = sessionData?.user?.id;
+      if (uid) {
+        await supabase
+          .from("profiles")
+          .update({ country_id: countryId, division_id: divisionId })
+          .eq("id", uid);
+      }
+    }
+
+    toast({ title: "Success", description: "Verify your email to continue." });
+    onSignupSuccess?.();
     setLoading(false);
   };
 
@@ -118,7 +137,23 @@ export const SignupForm = ({ onSwitchToLogin, onSignupSuccess }: SignupFormProps
   const inputStyle = "h-8 bg-black/20 border-white/10 text-xs rounded-md pr-8";
 
   return (
-    <form onSubmit={handleSignup} className="space-y-1.5">
+    <form onSubmit={handleSignup} className="space-y-1.5 max-h-full overflow-y-auto">
+      {/* Country selector sits above the rest of the form and is optional */}
+      <div className="space-y-0.5">
+        <Label className="text-[9px] uppercase text-slate-500 font-bold ml-0.5 flex items-center gap-1">
+          <Globe className="h-2.5 w-2.5" />
+          Home country <span className="normal-case font-medium text-slate-600">(optional)</span>
+        </Label>
+        <CountrySelector
+          countryId={countryId}
+          divisionId={divisionId}
+          onChange={({ countryId, divisionId }) => {
+            setCountryId(countryId);
+            setDivisionId(divisionId);
+          }}
+        />
+      </div>
+
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-0.5">
           <Label className="text-[9px] uppercase text-slate-500 font-bold ml-0.5">First Name</Label>
@@ -226,5 +261,5 @@ export const SignupForm = ({ onSwitchToLogin, onSignupSuccess }: SignupFormProps
         By joining, you agree to our Terms and Privacy policy.
       </p>
     </form>
-  ); 
+  );
 };

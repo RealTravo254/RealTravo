@@ -17,7 +17,7 @@ function getDeviceId() {
     localStorage.setItem(DEVICE_ID_KEY, id);
   }
   return id;
-}
+} 
 
 interface LoginFormProps {
   onSwitchToSignup: () => void;

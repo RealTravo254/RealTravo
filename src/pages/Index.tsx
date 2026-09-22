@@ -411,11 +411,6 @@ const Index = () => {
       });
   }, [scrollableRows, ratings]);
 
-  // Dedicated single-category rows (hotels / fixed trips / guided tours)
-  const hotelNodesSrc     = scrollableRows.hotels;
-  const fixedTripNodesSrc = scrollableRows.fixedTrips;
-  const guidedTripNodesSrc = scrollableRows.guidedTrips;
-
   // ── Data fetching ──────────────────────────────────────────────────────────
   const fetchScrollableRows = useCallback(async (limit: number, opts: { background?: boolean } = {}) => {
     // `background` refreshes silently update data without flipping the
@@ -604,21 +599,6 @@ const Index = () => {
       });
     }),
     [displayBrowseGuides, renderCard],
-  );
-
-  const hotelNodes = useMemo(() =>
-    hotelNodesSrc.map((item: any, i) => renderCard(item, "ADVENTURE PLACE", i, { hidePrice: false })),
-    [hotelNodesSrc, renderCard],
-  );
-
-  const fixedTripNodes = useMemo(() =>
-    fixedTripNodesSrc.map((item: any, i) => renderCard(item, "TRIP", i, { hidePrice: false, isTrip: true })),
-    [fixedTripNodesSrc, renderCard],
-  );
-
-  const guidedTripNodes = useMemo(() =>
-    guidedTripNodesSrc.map((item: any, i) => renderCard(item, "TRIP", i, { hidePrice: false, isTrip: true })),
-    [guidedTripNodesSrc, renderCard],
   );
 
   const nearbyNodes = useMemo(() =>
@@ -818,57 +798,57 @@ const Index = () => {
             {/* Regions — global, driven by `countries` / `country_divisions`.
                 Shows the visitor's own country's divisions (Kenya → counties,
                 UK → its regions, etc), falling back to Kenya when we can't
-                detect a match. */}
-            {(loadingDivisions || divisions.length > 0) && (
-              <section className="mb-4 md:mb-6">
-                <div className="flex items-center justify-between mb-2 px-1">
-                  <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-widest">
-                    {activeCountry ? `Explore ${activeCountry.name}` : "Explore destinations"}
-                  </h2>
-                </div>
-                <div
-                  ref={divisionsRef}
-                  className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide scroll-smooth snap-x snap-mandatory"
-                >
-                  {loadingDivisions
-                    ? [...Array(8)].map((_, i) => (
-                        <div
-                          key={i}
-                          className="flex-shrink-0 w-[28vw] sm:w-[120px] md:w-[140px] aspect-square rounded-none bg-muted animate-pulse"
-                        />
-                      ))
-                    : divisions.map((division, idx) => (
-                        <div
-                          key={division.id}
-                          onClick={() => navigate(`/explore?division=${division.id}`)}
-                          className="flex-shrink-0 w-[28vw] sm:w-[120px] md:w-[140px] snap-start cursor-pointer group"
-                        >
-                          <div className="relative overflow-hidden aspect-square bg-muted rounded-none">
-                            {division.image_url ? (
-                              <img
-                                src={division.image_url}
-                                alt={division.name}
-                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                                loading={idx < 4 ? "eager" : "lazy"}
-                                decoding="async"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center bg-muted-foreground/10">
-                                <Map className="h-6 w-6 text-muted-foreground" />
-                              </div>
-                            )}
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-                            <div className="absolute bottom-0 left-0 right-0 p-2">
-                              <h3 className="text-white font-extrabold text-[10px] sm:text-xs leading-tight">{division.name}</h3>
+                detect a match. The section itself, and its skeleton, always
+                stay on screen — the skeleton just keeps showing in place of
+                real cards for as long as there's nothing to show yet. */}
+            <section className="mb-4 md:mb-6">
+              <div className="flex items-center justify-between mb-2 px-1">
+                <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-widest">
+                  {activeCountry ? `Explore ${activeCountry.name}` : "Explore destinations"}
+                </h2>
+              </div>
+              <div
+                ref={divisionsRef}
+                className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide scroll-smooth snap-x snap-mandatory"
+              >
+                {divisions.length === 0
+                  ? [...Array(8)].map((_, i) => (
+                      <div
+                        key={i}
+                        className="flex-shrink-0 w-[28vw] sm:w-[120px] md:w-[140px] aspect-square rounded-none bg-muted animate-pulse"
+                      />
+                    ))
+                  : divisions.map((division, idx) => (
+                      <div
+                        key={division.id}
+                        onClick={() => navigate(`/explore?division=${division.id}`)}
+                        className="flex-shrink-0 w-[28vw] sm:w-[120px] md:w-[140px] snap-start cursor-pointer group"
+                      >
+                        <div className="relative overflow-hidden aspect-square bg-muted rounded-none">
+                          {division.image_url ? (
+                            <img
+                              src={division.image_url}
+                              alt={division.name}
+                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                              loading={idx < 4 ? "eager" : "lazy"}
+                              decoding="async"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-muted-foreground/10">
+                              <Map className="h-6 w-6 text-muted-foreground" />
                             </div>
+                          )}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                          <div className="absolute bottom-0 left-0 right-0 p-2">
+                            <h3 className="text-white font-extrabold text-[10px] sm:text-xs leading-tight">{division.name}</h3>
                           </div>
                         </div>
-                      ))}
-                </div>
-              </section>
-            )}
+                      </div>
+                    ))}
+              </div>
+            </section>
 
-            {/* Browsers guide */}
+            {/* Browsers guide — one flat feed of campsites, hotels and trips together, no category split */}
             <GridSection
               title="Browsers guide"
               viewAllPath="/explore"
@@ -887,33 +867,6 @@ const Index = () => {
                 loading={loadingNearby}
               />
             )}
-
-            {/* Hotels & Stays — shares the "campsite" category page with Outdoor & Campsites */}
-            <GridSection
-              title="Hotels & Stays"
-              viewAllPath="/category/campsite"
-              accentColor="hsl(160, 70%, 38%)"
-              items={hotelNodes}
-              loading={loadingScrollable}
-            />
-
-            {/* Tours & Trips (guided) */}
-            <GridSection
-              title="Tours & Trips"
-              viewAllPath="/category/guided"
-              accentColor="hsl(235, 90%, 50%)"
-              items={guidedTripNodes}
-              loading={loadingScrollable}
-            />
-
-            {/* Fixed-date Trips */}
-            <GridSection
-              title="Trips"
-              viewAllPath="/explore"
-              accentColor="hsl(280, 80%, 50%)"
-              items={fixedTripNodes}
-              loading={loadingScrollable}
-            />
 
 
             {/* Quick Navigation */}

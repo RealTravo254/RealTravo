@@ -1,36 +1,33 @@
 // Save as: src/pages/admin/VisitAnalyticsPanel.tsx
-// Drop <VisitAnalyticsPanel /> anywhere inside the /admin page (AdminDashboard).
-// It has no Header/Footer of its own, and it only shows data to admins:
-// the database function refuses everyone else.
-//
-// Requires: npm install jspdf jspdf-autotable
-//
-// IMPORTANT — database function update needed:
-// This version passes p_group as "day" | "week" | "month" | "quarter" | "year"
-// to the `admin_visit_analytics` RPC. If your SQL function's date_trunc()
-// call only handles 'day' | 'month' | 'year' today, add 'week' and 'quarter'
-// there too — Postgres's date_trunc() supports 'week' and 'quarter' natively.
-// If p_group is validated against an allow-list in the function, extend it
-// to include 'week' and 'quarter' as well.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ElementType } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  BarChart3, ChevronLeft, ChevronRight, Clock, Download, Eye, Loader2,
-  RefreshCw, UserCheck, UserX, Users,
+  ArrowLeft,
+  BarChart3,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Download,
+  Eye,
+  Loader2,
+  RefreshCw,
+  UserCheck,
+  UserX,
+  Users,
 } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
 /* ------------------------------------------------------------------ */
-/* Types                                                               */
+/* Types                                                              */
 /* ------------------------------------------------------------------ */
 
 type Group = "day" | "week" | "month" | "quarter" | "year";
 type Preset = "7d" | "30d" | "90d" | "year" | "custom";
 
 interface SeriesRow {
-  period: string; // YYYY-MM-DD (first day of the day/week/month/quarter/year)
+  period: string;
   visits: number;
   unique_visitors: number;
   guests: number;
@@ -71,8 +68,10 @@ interface LoadedView {
   preset: Preset;
 }
 
-// The generated Supabase types don't know about our custom function,
-// so call rpc through a minimal typed wrapper instead of `any`.
+interface VisitAnalyticsPanelProps {
+  onBack?: () => void;
+}
+
 type RpcClient = {
   rpc: (
     fn: string,
@@ -82,7 +81,7 @@ type RpcClient = {
 const db = supabase as unknown as RpcClient;
 
 /* ------------------------------------------------------------------ */
-/* Helpers                                                             */
+/* Helpers                                                            */
 /* ------------------------------------------------------------------ */
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -118,9 +117,8 @@ function fmtMinutes(m: number | null | undefined): string {
   return `${m} min`;
 }
 
-// Monday-start ISO week containing `d`.
 function startOfISOWeek(d: Date): Date {
-  const day = d.getDay(); // 0 = Sun ... 6 = Sat
+  const day = d.getDay();
   const diff = day === 0 ? -6 : 1 - day;
   return new Date(d.getFullYear(), d.getMonth(), d.getDate() + diff);
 }
@@ -149,20 +147,14 @@ function fmtPeriod(p: string, g: Group, short = false): string {
   return short ? `${d} ${MONTHS[m - 1]}` : `${d} ${MONTHS[m - 1]} ${y}`;
 }
 
-// Human range label used both on screen and in the PDF, e.g.
-// "16 Sep 2026 – 22 Sep 2026".
 function fmtRangeLabel(from: string, to: string): string {
   return `${fmtPeriod(from, "day")} – ${fmtPeriod(to, "day")}`;
 }
 
-// The single source of truth for "what is filtered" — shown as a strip
-// under the title bar and reused verbatim as the PDF subtitle.
 function filterSummaryLabel(view: LoadedView): string {
   return `${PRESET_LABELS[view.preset]} · ${fmtRangeLabel(view.from, view.to)} · grouped by ${GROUP_LABELS[view.group].toLowerCase()}`;
 }
 
-// List every period between from and to so periods with 0 visits still show up.
-// Returns null if the range would be too large (we then show only the periods with data).
 function buildPeriods(from: string, to: string, group: Group): string[] | null {
   const [fy, fm, fd] = from.split("-").map(Number);
   const [ty, tm, td] = to.split("-").map(Number);
@@ -230,7 +222,7 @@ function fillSeries(series: SeriesRow[], from: string, to: string, group: Group)
 }
 
 /* ------------------------------------------------------------------ */
-/* PDF export                                                          */
+/* PDF export                                                         */
 /* ------------------------------------------------------------------ */
 
 function exportAnalyticsPdf(view: LoadedView, rows: SeriesRow[]) {
@@ -334,7 +326,7 @@ function exportAnalyticsPdf(view: LoadedView, rows: SeriesRow[]) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Small UI pieces                                                     */
+/* Small UI pieces                                                    */
 /* ------------------------------------------------------------------ */
 
 function StatCard({
@@ -461,10 +453,10 @@ function Pagination({
 }
 
 /* ------------------------------------------------------------------ */
-/* Panel                                                               */
+/* Panel                                                              */
 /* ------------------------------------------------------------------ */
 
-export default function VisitAnalyticsPanel() {
+export default function VisitAnalyticsPanel({ onBack }: VisitAnalyticsPanelProps) {
   const [preset, setPreset] = useState<Preset>("30d");
   const [from, setFrom] = useState(() => daysAgo(29));
   const [to, setTo] = useState(() => toISODate(new Date()));
@@ -489,12 +481,12 @@ export default function VisitAnalyticsPanel() {
       p_to: to,
       p_group: group,
     });
-    if (id !== requestId.current) return; // a newer request replaced this one
+    if (id !== requestId.current) return;
     if (err) {
       setError(err.message);
     } else {
       setView({ data: data as Analytics, from, to, group, preset });
-      setTablePage(1); // reset to page 1 whenever fresh data loads
+      setTablePage(1);
     }
     setLoading(false);
   }, [from, to, group, preset, rangeInvalid]);
@@ -523,8 +515,6 @@ export default function VisitAnalyticsPanel() {
       setTo(today);
       setGroup("month");
     }
-    // "custom" leaves from/to/group exactly as they are — the person is
-    // about to pick their own dates below.
   };
 
   const rows = useMemo(
@@ -532,7 +522,6 @@ export default function VisitAnalyticsPanel() {
     [view]
   );
 
-  // Table is shown newest-first; pagination walks through that reversed order.
   const reversedRows = useMemo(() => [...rows].reverse(), [rows]);
   const totalPages = Math.max(1, Math.ceil(reversedRows.length / ROWS_PER_PAGE));
   const clampedPage = Math.min(tablePage, totalPages);
@@ -544,7 +533,6 @@ export default function VisitAnalyticsPanel() {
   const handleExportPdf = () => {
     if (!view) return;
     setExporting(true);
-    // Deferred a tick so the "Exporting…" label paints before the (synchronous) PDF build.
     window.setTimeout(() => {
       try {
         exportAnalyticsPdf(view, rows);
@@ -552,6 +540,14 @@ export default function VisitAnalyticsPanel() {
         setExporting(false);
       }
     }, 0);
+  };
+
+  const handleBack = () => {
+    if (onBack) {
+      onBack();
+    } else {
+      window.history.back();
+    }
   };
 
   const t = view?.data.totals;
@@ -575,17 +571,16 @@ export default function VisitAnalyticsPanel() {
 
   return (
     <section className="space-y-5">
-      {/* Title bar */}
+      {/* Top action bar with back button */}
       <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
-            <BarChart3 className="h-4 w-4" />
-          </div>
-          <div className="min-w-0">
-            <h2 className="text-base font-bold text-foreground truncate">Visitor Analytics</h2>
-            <p className="text-[10px] text-muted-foreground">Web and app visits</p>
-          </div>
-        </div>
+        <button
+          onClick={handleBack}
+          aria-label="Go back"
+          className="h-9 w-9 rounded-full bg-teal-800 text-white flex items-center justify-center hover:bg-teal-900 transition-colors shrink-0"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={handleExportPdf}

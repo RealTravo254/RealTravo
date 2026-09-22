@@ -1,14 +1,44 @@
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Shield, UserCog, CreditCard, Users,
   Settings, CalendarCheck, Wallet, ChevronRight,
   Clock, CheckCircle2, XCircle, ClipboardList, BarChart3,
 } from "lucide-react";
+import { Header } from "@/components/Header";
 
 /* ══════════════════════════════════════════════════════════════════
    ADMIN DASHBOARD — FULL PAGE, SAFE-AREA AWARE
    Route: /admin
 ══════════════════════════════════════════════════════════════════ */
+
+// ── Design tokens ─────────────────────────────────────────────────────────
+// Same field-guide / park-signage system used across the rest of the app:
+// deep forest for structure and brand marks, a warm clay for the icon tiles.
+const FOREST       = "#1F4D3A";
+const FOREST_SOFT  = "#EAF0EA";
+const CLAY         = "#C1552F";
+const INK          = "#1C2B22";
+const INK_SOFT     = "#5B6B60";
+const HAIRLINE     = "#DCE3DC";
+const CANVAS       = "#F4F6F2";
+
+const FONT_DISPLAY = "'Fraunces', ui-serif, Georgia, serif";
+const FONT_BODY = "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif";
+
+// Injects the two typefaces once, without needing to touch the app's index.html.
+const useInjectFonts = () => {
+  useEffect(() => {
+    const id = "adventure-detail-fonts";
+    if (document.getElementById(id)) return;
+    const link = document.createElement("link");
+    link.id = id;
+    link.rel = "stylesheet";
+    link.href =
+      "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&display=swap";
+    document.head.appendChild(link);
+  }, []);
+};
 
 interface AdminCard {
   icon: any;
@@ -67,36 +97,43 @@ const adminSections: AdminSection[] = [
 ];
 
 const AdminDashboard = () => {
+  useInjectFonts();
+
   const navigate = useNavigate();
 
   return (
     <div
-      className="min-h-screen w-full bg-background flex flex-col"
+      className="min-h-screen w-full flex flex-col"
       style={{
-        paddingTop: "env(safe-area-inset-top, 0px)",
+        background: CANVAS,
+        fontFamily: FONT_BODY,
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
         paddingLeft: "env(safe-area-inset-left, 0px)",
         paddingRight: "env(safe-area-inset-right, 0px)",
       }}
     >
-      {/* Header */}
-      <div className="bg-primary px-4 pt-5 pb-6 relative flex-shrink-0">
+      {/* Shared app header (fixed) */}
+      <Header __fromLayout showSearchIcon={false} />
+      <div style={{ height: "calc(56px + env(safe-area-inset-top, 0px))" }} />
+
+      {/* Page intro: back button + plain title, no colored hero banner */}
+      <div className="max-w-2xl w-full mx-auto px-4 pt-4">
         <button
           onClick={() => navigate("/")}
-          aria-label="Back"
-          className="absolute top-4 left-4 h-8 w-8 rounded-full bg-primary-foreground/10 flex items-center justify-center hover:bg-primary-foreground/20 transition-colors"
+          className="inline-flex items-center gap-1.5 text-[12px] font-semibold mb-4 rounded-full px-3 py-1.5 transition-colors"
+          style={{ background: FOREST_SOFT, color: FOREST }}
         >
-          <ArrowLeft className="h-4 w-4 text-primary-foreground" />
+          <ArrowLeft className="h-3.5 w-3.5" /> Back
         </button>
 
-        <div className="flex flex-col items-center text-center pt-8">
-          <div className="h-12 w-12 rounded-xl bg-primary-foreground/15 flex items-center justify-center mb-2">
-            <Shield className="h-6 w-6 text-primary-foreground" />
+        <div className="flex items-center gap-3 mb-1">
+          <div className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: FOREST_SOFT }}>
+            <Shield className="h-5 w-5" style={{ color: FOREST }} />
           </div>
-          <h1 className="text-lg font-black text-primary-foreground">Admin Dashboard</h1>
-          <p className="text-primary-foreground/60 text-xs font-medium mt-0.5">
-            Manage every part of the platform
-          </p>
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight" style={{ fontFamily: FONT_DISPLAY, color: INK }}>Admin dashboard</h1>
+            <p className="text-[12px] font-medium" style={{ color: INK_SOFT }}>Manage every part of the platform</p>
+          </div>
         </div>
       </div>
 
@@ -104,7 +141,7 @@ const AdminDashboard = () => {
       <div className="flex-1 overflow-y-auto px-4 py-4 max-w-2xl w-full mx-auto space-y-5">
         {adminSections.map((section) => (
           <div key={section.title}>
-            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.18em] px-1 mb-1.5">
+            <p className="text-[10px] font-medium px-1 mb-1.5" style={{ color: INK_SOFT }}>
               {section.title}
             </p>
             <div className="space-y-2">
@@ -112,18 +149,21 @@ const AdminDashboard = () => {
                 <button
                   key={card.path}
                   onClick={() => navigate(card.path)}
-                  className="w-full flex items-center justify-between gap-3 p-4 rounded-xl border border-border bg-card hover:bg-muted/50 transition-colors group"
+                  className="w-full flex items-center justify-between gap-3 p-4 rounded-xl bg-white transition-colors group"
+                  style={{ border: `1px solid ${HAIRLINE}` }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = CANVAS)}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}
                 >
                   <div className="flex items-center gap-3 text-left min-w-0">
-                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <card.icon className="h-5 w-5 text-primary" />
+                    <div className="h-10 w-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: FOREST_SOFT }}>
+                      <card.icon className="h-5 w-5" style={{ color: FOREST }} />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-bold text-foreground truncate">{card.label}</p>
-                      <p className="text-xs text-muted-foreground truncate">{card.description}</p>
+                      <p className="text-[13px] font-semibold truncate" style={{ color: INK }}>{card.label}</p>
+                      <p className="text-[11px] truncate" style={{ color: INK_SOFT }}>{card.description}</p>
                     </div>
                   </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-0.5 transition-transform flex-shrink-0" />
+                  <ChevronRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform flex-shrink-0" style={{ color: INK_SOFT }} />
                 </button>
               ))}
             </div>

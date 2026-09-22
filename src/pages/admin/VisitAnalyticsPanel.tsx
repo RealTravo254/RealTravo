@@ -1,33 +1,36 @@
 // Save as: src/pages/admin/VisitAnalyticsPanel.tsx
+// Drop <VisitAnalyticsPanel /> anywhere inside the /admin page (AdminDashboard).
+// It has no Header/Footer of its own, and it only shows data to admins:
+// the database function refuses everyone else.
+//
+// Requires: npm install jspdf jspdf-autotable
+//
+// IMPORTANT — database function update needed:
+// This version passes p_group as "day" | "week" | "month" | "quarter" | "year"
+// to the `admin_visit_analytics` RPC. If your SQL function's date_trunc()
+// call only handles 'day' | 'month' | 'year' today, add 'week' and 'quarter'
+// there too — Postgres's date_trunc() supports 'week' and 'quarter' natively.
+// If p_group is validated against an allow-list in the function, extend it
+// to include 'week' and 'quarter' as well.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ElementType } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  ArrowLeft,
-  BarChart3,
-  ChevronLeft,
-  ChevronRight,
-  Clock,
-  Download,
-  Eye,
-  Loader2,
-  RefreshCw,
-  UserCheck,
-  UserX,
-  Users,
+  BarChart3, ChevronLeft, ChevronRight, Clock, Download, Eye, Loader2,
+  RefreshCw, UserCheck, UserX, Users,
 } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
 /* ------------------------------------------------------------------ */
-/* Types                                                              */
+/* Types                                                               */
 /* ------------------------------------------------------------------ */
 
 type Group = "day" | "week" | "month" | "quarter" | "year";
 type Preset = "7d" | "30d" | "90d" | "year" | "custom";
 
 interface SeriesRow {
-  period: string;
+  period: string; // YYYY-MM-DD (first day of the day/week/month/quarter/year)
   visits: number;
   unique_visitors: number;
   guests: number;
@@ -68,10 +71,8 @@ interface LoadedView {
   preset: Preset;
 }
 
-interface VisitAnalyticsPanelProps {
-  onBack?: () => void;
-}
-
+// The generated Supabase types don't know about our custom function,
+// so call rpc through a minimal typed wrapper instead of `any`.
 type RpcClient = {
   rpc: (
     fn: string,
@@ -81,7 +82,7 @@ type RpcClient = {
 const db = supabase as unknown as RpcClient;
 
 /* ------------------------------------------------------------------ */
-/* Helpers                                                            */
+/* Helpers                                                             */
 /* ------------------------------------------------------------------ */
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -117,8 +118,9 @@ function fmtMinutes(m: number | null | undefined): string {
   return `${m} min`;
 }
 
+// Monday-start ISO week containing `d`.
 function startOfISOWeek(d: Date): Date {
-  const day = d.getDay();
+  const day = d.getDay(); // 0 = Sun ... 6 = Sat
   const diff = day === 0 ? -6 : 1 - day;
   return new Date(d.getFullYear(), d.getMonth(), d.getDate() + diff);
 }
@@ -147,14 +149,20 @@ function fmtPeriod(p: string, g: Group, short = false): string {
   return short ? `${d} ${MONTHS[m - 1]}` : `${d} ${MONTHS[m - 1]} ${y}`;
 }
 
+// Human range label used both on screen and in the PDF, e.g.
+// "16 Sep 2026 – 22 Sep 2026".
 function fmtRangeLabel(from: string, to: string): string {
   return `${fmtPeriod(from, "day")} – ${fmtPeriod(to, "day")}`;
 }
 
+// The single source of truth for "what is filtered" — shown as a strip
+// under the title bar and reused verbatim as the PDF subtitle.
 function filterSummaryLabel(view: LoadedView): string {
   return `${PRESET_LABELS[view.preset]} · ${fmtRangeLabel(view.from, view.to)} · grouped by ${GROUP_LABELS[view.group].toLowerCase()}`;
 }
 
+// List every period between from and to so periods with 0 visits still show up.
+// Returns null if the range would be too large (we then show only the periods with data).
 function buildPeriods(from: string, to: string, group: Group): string[] | null {
   const [fy, fm, fd] = from.split("-").map(Number);
   const [ty, tm, td] = to.split("-").map(Number);
@@ -222,7 +230,7 @@ function fillSeries(series: SeriesRow[], from: string, to: string, group: Group)
 }
 
 /* ------------------------------------------------------------------ */
-/* PDF export                                                         */
+/* PDF export                                                          */
 /* ------------------------------------------------------------------ */
 
 function exportAnalyticsPdf(view: LoadedView, rows: SeriesRow[]) {
@@ -326,7 +334,7 @@ function exportAnalyticsPdf(view: LoadedView, rows: SeriesRow[]) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Small UI pieces                                                    */
+/* Small UI pieces                                                     */
 /* ------------------------------------------------------------------ */
 
 function StatCard({
@@ -341,17 +349,13 @@ function StatCard({
   sub?: string;
 }) {
   return (
-    <div className="p-4 rounded-xl border border-border bg-card shadow-sm space-y-2">
+    <div className="p-3.5 rounded-xl border border-border bg-card space-y-1.5">
       <div className="flex items-center gap-2 text-muted-foreground">
-        <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
-          <Icon className="h-3.5 w-3.5" />
-        </div>
-        <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">{label}</p>
+        <Icon className="h-3.5 w-3.5 text-primary" />
+        <p className="text-[10px] font-black uppercase tracking-wider">{label}</p>
       </div>
-      <div>
-        <p className="text-xl font-bold text-foreground leading-none">{value}</p>
-        {sub && <p className="text-[10px] text-muted-foreground mt-1">{sub}</p>}
-      </div>
+      <p className="text-xl font-bold text-foreground leading-none">{value}</p>
+      {sub && <p className="text-[10px] text-muted-foreground">{sub}</p>}
     </div>
   );
 }
@@ -361,16 +365,16 @@ function Breakdown({ title, rows, empty }: { title: string; rows: BreakdownRow[]
   const max = Math.max(1, ...rows.map((r) => r.visits));
 
   return (
-    <div className="p-4 rounded-xl border border-border bg-card shadow-sm space-y-3">
+    <div className="p-4 rounded-xl border border-border bg-card space-y-3">
       <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">{title}</p>
       {rows.length === 0 ? (
         <p className="text-xs text-muted-foreground">{empty ?? "No data for this period."}</p>
       ) : (
         rows.map((r) => (
-          <div key={r.label} className="space-y-1.5">
+          <div key={r.label} className="space-y-1">
             <div className="flex items-center justify-between gap-2 text-xs">
               <span className="font-medium text-foreground truncate capitalize">{r.label}</span>
-              <span className="text-[11px] text-muted-foreground shrink-0">
+              <span className="text-muted-foreground shrink-0">
                 {r.visits} visits · {total ? Math.round((r.visits / total) * 100) : 0}% · {fmtMinutes(r.avg_minutes)}
               </span>
             </div>
@@ -411,7 +415,7 @@ function Pagination({
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 px-3.5 py-2.5 border-t border-border/60 bg-muted/20">
+    <div className="flex flex-wrap items-center justify-between gap-3 px-3 py-2.5 border-t border-border/60">
       <p className="text-[11px] text-muted-foreground">
         Showing {startRow}–{endRow} of {totalRows}
       </p>
@@ -420,7 +424,7 @@ function Pagination({
           onClick={() => onChange(page - 1)}
           disabled={page === 1}
           aria-label="Previous page"
-          className="h-7 w-7 flex items-center justify-center rounded-lg border border-border bg-background hover:bg-muted text-foreground transition-all disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
+          className="h-7 w-7 flex items-center justify-center rounded-lg border border-border bg-background hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <ChevronLeft className="h-3.5 w-3.5" />
         </button>
@@ -433,7 +437,7 @@ function Pagination({
             <button
               key={p}
               onClick={() => onChange(p)}
-              className={`h-7 min-w-7 px-2 rounded-lg text-[11px] font-bold border transition-all active:scale-95 ${
+              className={`h-7 min-w-7 px-2 rounded-lg text-[11px] font-bold border transition-colors ${
                 p === page
                   ? "bg-primary text-primary-foreground border-primary"
                   : "bg-background text-foreground border-border hover:bg-muted"
@@ -447,7 +451,7 @@ function Pagination({
           onClick={() => onChange(page + 1)}
           disabled={page === totalPages}
           aria-label="Next page"
-          className="h-7 w-7 flex items-center justify-center rounded-lg border border-border bg-background hover:bg-muted text-foreground transition-all disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
+          className="h-7 w-7 flex items-center justify-center rounded-lg border border-border bg-background hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <ChevronRight className="h-3.5 w-3.5" />
         </button>
@@ -457,10 +461,10 @@ function Pagination({
 }
 
 /* ------------------------------------------------------------------ */
-/* Panel                                                              */
+/* Panel                                                               */
 /* ------------------------------------------------------------------ */
 
-export default function VisitAnalyticsPanel({ onBack }: VisitAnalyticsPanelProps) {
+export default function VisitAnalyticsPanel() {
   const [preset, setPreset] = useState<Preset>("30d");
   const [from, setFrom] = useState(() => daysAgo(29));
   const [to, setTo] = useState(() => toISODate(new Date()));
@@ -485,12 +489,12 @@ export default function VisitAnalyticsPanel({ onBack }: VisitAnalyticsPanelProps
       p_to: to,
       p_group: group,
     });
-    if (id !== requestId.current) return;
+    if (id !== requestId.current) return; // a newer request replaced this one
     if (err) {
       setError(err.message);
     } else {
       setView({ data: data as Analytics, from, to, group, preset });
-      setTablePage(1);
+      setTablePage(1); // reset to page 1 whenever fresh data loads
     }
     setLoading(false);
   }, [from, to, group, preset, rangeInvalid]);
@@ -519,6 +523,8 @@ export default function VisitAnalyticsPanel({ onBack }: VisitAnalyticsPanelProps
       setTo(today);
       setGroup("month");
     }
+    // "custom" leaves from/to/group exactly as they are — the person is
+    // about to pick their own dates below.
   };
 
   const rows = useMemo(
@@ -526,6 +532,7 @@ export default function VisitAnalyticsPanel({ onBack }: VisitAnalyticsPanelProps
     [view]
   );
 
+  // Table is shown newest-first; pagination walks through that reversed order.
   const reversedRows = useMemo(() => [...rows].reverse(), [rows]);
   const totalPages = Math.max(1, Math.ceil(reversedRows.length / ROWS_PER_PAGE));
   const clampedPage = Math.min(tablePage, totalPages);
@@ -537,6 +544,7 @@ export default function VisitAnalyticsPanel({ onBack }: VisitAnalyticsPanelProps
   const handleExportPdf = () => {
     if (!view) return;
     setExporting(true);
+    // Deferred a tick so the "Exporting…" label paints before the (synchronous) PDF build.
     window.setTimeout(() => {
       try {
         exportAnalyticsPdf(view, rows);
@@ -544,14 +552,6 @@ export default function VisitAnalyticsPanel({ onBack }: VisitAnalyticsPanelProps
         setExporting(false);
       }
     }, 0);
-  };
-
-  const handleBack = () => {
-    if (onBack) {
-      onBack();
-    } else {
-      window.history.back();
-    }
   };
 
   const t = view?.data.totals;
@@ -563,7 +563,7 @@ export default function VisitAnalyticsPanel({ onBack }: VisitAnalyticsPanelProps
     <button
       key={p}
       onClick={() => applyPreset(p)}
-      className={`h-8 px-3 rounded-lg text-xs font-bold border transition-all active:scale-95 ${
+      className={`h-8 px-3 rounded-lg text-xs font-bold border transition-colors ${
         preset === p
           ? "bg-primary text-primary-foreground border-primary"
           : "bg-background text-foreground border-border hover:bg-muted"
@@ -575,21 +575,22 @@ export default function VisitAnalyticsPanel({ onBack }: VisitAnalyticsPanelProps
 
   return (
     <section className="space-y-5">
-      {/* Top action bar with back button */}
+      {/* Title bar */}
       <div className="flex items-center justify-between gap-3">
-        <button
-          onClick={handleBack}
-          aria-label="Go back"
-          className="h-9 w-9 rounded-lg border border-border bg-card text-foreground flex items-center justify-center hover:bg-muted transition-all shrink-0 active:scale-95 shadow-sm"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </button>
-
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
+            <BarChart3 className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-base font-bold text-foreground truncate">Visitor Analytics</h2>
+            <p className="text-[10px] text-muted-foreground">Web and app visits</p>
+          </div>
+        </div>
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={handleExportPdf}
             disabled={!view || loading || exporting}
-            className="h-8 px-3 rounded-lg text-xs font-bold border border-border bg-card hover:bg-muted text-foreground transition-all flex items-center gap-1.5 disabled:opacity-50 active:scale-95 shadow-sm"
+            className="h-8 px-3 rounded-lg text-xs font-bold border border-border bg-card hover:bg-muted flex items-center gap-1.5 disabled:opacity-50"
           >
             {exporting ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -601,7 +602,7 @@ export default function VisitAnalyticsPanel({ onBack }: VisitAnalyticsPanelProps
           <button
             onClick={load}
             disabled={loading || rangeInvalid}
-            className="h-8 px-3 rounded-lg text-xs font-bold border border-border bg-card hover:bg-muted text-foreground transition-all flex items-center gap-1.5 disabled:opacity-50 active:scale-95 shadow-sm"
+            className="h-8 px-3 rounded-lg text-xs font-bold border border-border bg-card hover:bg-muted flex items-center gap-1.5 disabled:opacity-50"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
             Refresh
@@ -609,32 +610,29 @@ export default function VisitAnalyticsPanel({ onBack }: VisitAnalyticsPanelProps
         </div>
       </div>
 
-      {/* Filter summary banner */}
+      {/* What's currently filtered — mirrored verbatim as the PDF subtitle */}
       {view && (
-        <div className="p-3.5 rounded-xl border border-primary/20 bg-primary/5 flex items-center gap-2.5">
-          <Eye className="h-4 w-4 text-primary shrink-0" />
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/15">
+          <Eye className="h-3.5 w-3.5 text-primary shrink-0" />
           <p className="text-xs font-medium text-foreground truncate">
-            Showing: <span className="font-bold">{filterSummaryLabel(view)}</span>
+            Showing: {filterSummaryLabel(view)}
           </p>
         </div>
       )}
 
-      {/* Filter Controls Card */}
-      <div className="p-4 rounded-xl border border-border bg-card shadow-sm space-y-3.5">
-        <div className="space-y-1">
-          <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Time Presets</p>
-          <div className="flex flex-wrap gap-1.5 pt-0.5">
-            {presetBtn("7d", "7 days")}
-            {presetBtn("30d", "30 days")}
-            {presetBtn("90d", "3 months")}
-            {presetBtn("year", "This year")}
-            {presetBtn("custom", "Custom")}
-          </div>
+      {/* Filters */}
+      <div className="p-3.5 rounded-xl border border-border bg-card space-y-3">
+        <div className="flex flex-wrap gap-1.5">
+          {presetBtn("7d", "7 days")}
+          {presetBtn("30d", "30 days")}
+          {presetBtn("90d", "3 months")}
+          {presetBtn("year", "This year")}
+          {presetBtn("custom", "Custom")}
         </div>
 
-        <div className="flex flex-wrap items-end gap-3 pt-1 border-t border-border/60">
+        <div className="flex flex-wrap items-end gap-3">
           <label className="space-y-1">
-            <span className="block text-[10px] font-black uppercase tracking-wider text-muted-foreground">From</span>
+            <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">From</span>
             <input
               type="date"
               value={from}
@@ -643,11 +641,11 @@ export default function VisitAnalyticsPanel({ onBack }: VisitAnalyticsPanelProps
                 setFrom(e.target.value);
                 setPreset("custom");
               }}
-              className="h-8 px-2.5 rounded-lg border border-border bg-background text-xs font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              className="h-8 px-2 rounded-lg border border-border bg-background text-xs text-foreground"
             />
           </label>
           <label className="space-y-1">
-            <span className="block text-[10px] font-black uppercase tracking-wider text-muted-foreground">To</span>
+            <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">To</span>
             <input
               type="date"
               value={to}
@@ -656,37 +654,37 @@ export default function VisitAnalyticsPanel({ onBack }: VisitAnalyticsPanelProps
                 setTo(e.target.value);
                 setPreset("custom");
               }}
-              className="h-8 px-2.5 rounded-lg border border-border bg-background text-xs font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              className="h-8 px-2 rounded-lg border border-border bg-background text-xs text-foreground"
             />
           </label>
           <label className="space-y-1">
-            <span className="block text-[10px] font-black uppercase tracking-wider text-muted-foreground">
+            <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
               Group by
             </span>
             <select
               value={group}
               onChange={(e) => setGroup(e.target.value as Group)}
-              className="h-8 px-2.5 rounded-lg border border-border bg-background text-xs font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              className="h-8 px-2 rounded-lg border border-border bg-background text-xs text-foreground"
             >
               <option value="day">Daily</option>
               <option value="week">Weekly</option>
               <option value="month">Monthly</option>
-              <option value="quarter">Quarterly</option>
+              <option value="quarter">Quarterly (3 months)</option>
               <option value="year">Yearly</option>
             </select>
           </label>
         </div>
 
         {rangeInvalid && (
-          <p className="text-xs text-destructive font-medium">The “From” date must be on or before the “To” date.</p>
+          <p className="text-xs text-destructive">The “From” date must be on or before the “To” date.</p>
         )}
       </div>
 
       {error && (
-        <div className="p-3.5 rounded-xl border border-destructive/20 bg-destructive/10 text-xs text-destructive space-y-1">
-          <p className="font-bold">Could not load analytics: {error}</p>
+        <div className="p-3.5 rounded-xl border border-destructive/30 bg-destructive/10 text-xs text-destructive space-y-1">
+          <p>Could not load analytics: {error}</p>
           {functionMissing && (
-            <p className="text-[11px] opacity-90">
+            <p>
               Run <code>admin-analytics.sql</code> in the Supabase SQL Editor first. If you just switched to Week or
               Quarter grouping, make sure that SQL function's date_trunc/allow-list also covers <code>'week'</code>{" "}
               and <code>'quarter'</code>.
@@ -703,53 +701,48 @@ export default function VisitAnalyticsPanel({ onBack }: VisitAnalyticsPanelProps
 
       {view && t && (
         <div className={`space-y-5 transition-opacity ${loading ? "opacity-60" : ""}`}>
-          {/* Summary Cards Section */}
-          <div className="space-y-1">
-            <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground px-1">
-              Overview
-            </p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-              <StatCard icon={Eye} label="Visits" value={t.visits} sub="Total sessions" />
-              <StatCard icon={Users} label="Unique visitors" value={t.unique_visitors} sub="Devices / Browsers" />
-              <StatCard
-                icon={UserCheck}
-                label="Logged in"
-                value={t.logged_in}
-                sub={`${t.unique_users} accounts`}
-              />
-              <StatCard icon={UserX} label="Guests" value={t.guests} sub={`${guestPct}% of total`} />
-              <StatCard icon={Clock} label="Avg time" value={fmtMinutes(t.avg_minutes)} sub="Per session" />
-            </div>
+          {/* Summary cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            <StatCard icon={Eye} label="Visits" value={t.visits} sub="Sessions in this period" />
+            <StatCard icon={Users} label="Unique visitors" value={t.unique_visitors} sub="Different devices / browsers" />
+            <StatCard
+              icon={UserCheck}
+              label="Logged in"
+              value={t.logged_in}
+              sub={`${t.unique_users} different people`}
+            />
+            <StatCard icon={UserX} label="Guests" value={t.guests} sub={`${guestPct}% of visits`} />
+            <StatCard icon={Clock} label="Avg time" value={fmtMinutes(t.avg_minutes)} sub="Per visit" />
           </div>
 
           {t.visits === 0 && (
-            <div className="p-4 rounded-xl border border-border bg-card text-xs text-muted-foreground shadow-sm">
+            <div className="p-4 rounded-xl border border-border bg-card text-xs text-muted-foreground">
               No visits were recorded in this period. If you expected some, check that the visit tracker is deployed
               and that <code>visit-tracking.sql</code> was run in Supabase.
             </div>
           )}
 
-          {/* Chart Section */}
-          <div className="p-4 rounded-xl border border-border bg-card shadow-sm space-y-3">
+          {/* Over time */}
+          <div className="p-4 rounded-xl border border-border bg-card space-y-3">
             <div className="flex items-center justify-between gap-2">
               <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
                 Visits by {GROUP_LABELS[view.group].toLowerCase()}
               </p>
-              <div className="flex items-center gap-3 text-[10px] font-bold text-muted-foreground">
-                <span className="flex items-center gap-1.5">
+              <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                <span className="flex items-center gap-1">
                   <span className="h-2 w-2 rounded-sm bg-primary" /> Logged in
                 </span>
-                <span className="flex items-center gap-1.5">
+                <span className="flex items-center gap-1">
                   <span className="h-2 w-2 rounded-sm bg-primary/30" /> Guests
                 </span>
               </div>
             </div>
 
             {rows.length === 0 ? (
-              <p className="text-xs text-muted-foreground py-4">No data for this period.</p>
+              <p className="text-xs text-muted-foreground">No data for this period.</p>
             ) : (
               <>
-                <div className="flex items-end gap-px h-40 overflow-x-auto pt-2">
+                <div className="flex items-end gap-px h-40 overflow-x-auto">
                   {rows.map((r) => {
                     const h = (r.visits / maxVisits) * 100;
                     const loggedH = r.visits ? (r.logged_in / r.visits) * 100 : 0;
@@ -760,7 +753,7 @@ export default function VisitAnalyticsPanel({ onBack }: VisitAnalyticsPanelProps
                         className="flex-1 min-w-[6px] h-full flex items-end"
                       >
                         <div
-                          className="w-full rounded-t-sm overflow-hidden flex flex-col justify-end transition-all"
+                          className="w-full rounded-t-sm overflow-hidden flex flex-col justify-end"
                           style={{ height: `${h}%`, minHeight: r.visits ? 2 : 0 }}
                         >
                           <div className="bg-primary/30" style={{ height: `${100 - loggedH}%` }} />
@@ -770,7 +763,7 @@ export default function VisitAnalyticsPanel({ onBack }: VisitAnalyticsPanelProps
                     );
                   })}
                 </div>
-                <div className="flex justify-between text-[10px] font-medium text-muted-foreground pt-1 border-t border-border/40">
+                <div className="flex justify-between text-[10px] text-muted-foreground">
                   <span>{fmtPeriod(rows[0].period, view.group, true)}</span>
                   <span>{fmtPeriod(rows[rows.length - 1].period, view.group, true)}</span>
                 </div>
@@ -780,82 +773,72 @@ export default function VisitAnalyticsPanel({ onBack }: VisitAnalyticsPanelProps
 
           {/* Table */}
           {reversedRows.length > 0 && (
-            <div className="space-y-1">
-              <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground px-1">
-                Detailed Log
-              </p>
-              <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
-                <div className="overflow-auto">
-                  <table className="w-full text-xs">
-                    <thead className="bg-muted/50 text-muted-foreground border-b border-border">
-                      <tr className="text-left">
-                        <th className="px-3.5 py-2.5 font-bold">{GROUP_LABELS[view.group]}</th>
-                        <th className="px-3.5 py-2.5 font-bold text-right">Visits</th>
-                        <th className="px-3.5 py-2.5 font-bold text-right">Unique</th>
-                        <th className="px-3.5 py-2.5 font-bold text-right">Logged in</th>
-                        <th className="px-3.5 py-2.5 font-bold text-right">Guests</th>
-                        <th className="px-3.5 py-2.5 font-bold text-right">Avg time</th>
+            <div className="rounded-xl border border-border bg-card overflow-hidden">
+              <div className="overflow-auto">
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 bg-muted text-muted-foreground">
+                    <tr className="text-left">
+                      <th className="px-3 py-2 font-bold">{GROUP_LABELS[view.group]}</th>
+                      <th className="px-3 py-2 font-bold text-right">Visits</th>
+                      <th className="px-3 py-2 font-bold text-right">Unique</th>
+                      <th className="px-3 py-2 font-bold text-right">Logged in</th>
+                      <th className="px-3 py-2 font-bold text-right">Guests</th>
+                      <th className="px-3 py-2 font-bold text-right">Avg time</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/60">
+                    {pagedRows.map((r) => (
+                      <tr key={r.period}>
+                        <td className="px-3 py-2 font-medium text-foreground whitespace-nowrap">
+                          {fmtPeriod(r.period, view.group)}
+                        </td>
+                        <td className="px-3 py-2 text-right">{r.visits}</td>
+                        <td className="px-3 py-2 text-right">{r.unique_visitors}</td>
+                        <td className="px-3 py-2 text-right">{r.logged_in}</td>
+                        <td className="px-3 py-2 text-right">{r.guests}</td>
+                        <td className="px-3 py-2 text-right whitespace-nowrap">{fmtMinutes(r.avg_minutes)}</td>
                       </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border/60">
-                      {pagedRows.map((r) => (
-                        <tr key={r.period} className="hover:bg-muted/30 transition-colors">
-                          <td className="px-3.5 py-2.5 font-bold text-foreground whitespace-nowrap">
-                            {fmtPeriod(r.period, view.group)}
-                          </td>
-                          <td className="px-3.5 py-2.5 text-right font-medium">{r.visits}</td>
-                          <td className="px-3.5 py-2.5 text-right font-medium text-muted-foreground">{r.unique_visitors}</td>
-                          <td className="px-3.5 py-2.5 text-right font-medium">{r.logged_in}</td>
-                          <td className="px-3.5 py-2.5 text-right font-medium text-muted-foreground">{r.guests}</td>
-                          <td className="px-3.5 py-2.5 text-right font-medium whitespace-nowrap">{fmtMinutes(r.avg_minutes)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <Pagination
-                  page={clampedPage}
-                  totalPages={totalPages}
-                  totalRows={reversedRows.length}
-                  pageSize={ROWS_PER_PAGE}
-                  onChange={setTablePage}
-                />
+                    ))}
+                  </tbody>
+                </table>
               </div>
+              <Pagination
+                page={clampedPage}
+                totalPages={totalPages}
+                totalRows={reversedRows.length}
+                pageSize={ROWS_PER_PAGE}
+                onChange={setTablePage}
+              />
             </div>
           )}
 
           {/* Breakdowns */}
-          <div className="space-y-1">
-            <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground px-1">
-              Breakdowns &amp; Demographics
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Breakdown title="Platform" rows={view.data.platform} />
-              <Breakdown title="Login method" rows={view.data.login} />
-              <Breakdown
-                title="Gender (logged-in visitors)"
-                rows={view.data.gender}
-                empty={
-                  view.data.demographics_available
-                    ? "No logged-in visits in this period."
-                    : "Gender isn't available: check the profiles column names in admin-analytics.sql."
-                }
-              />
-              <Breakdown
-                title="Age group (logged-in visitors)"
-                rows={view.data.age}
-                empty={
-                  view.data.demographics_available
-                    ? "No logged-in visits in this period."
-                    : "Age isn't available: check the profiles column names in admin-analytics.sql."
-                }
-              />
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <Breakdown title="Platform" rows={view.data.platform} />
+            <Breakdown title="Login method" rows={view.data.login} />
+            <Breakdown
+              title="Gender (logged-in visitors)"
+              rows={view.data.gender}
+              empty={
+                view.data.demographics_available
+                  ? "No logged-in visits in this period."
+                  : "Gender isn't available: check the profiles column names in admin-analytics.sql."
+              }
+            />
+            <Breakdown
+              title="Age group (logged-in visitors)"
+              rows={view.data.age}
+              empty={
+                view.data.demographics_available
+                  ? "No logged-in visits in this period."
+                  : "Age isn't available: check the profiles column names in admin-analytics.sql."
+              }
+            />
           </div>
 
           <Breakdown title="Top entry pages" rows={view.data.pages} />
 
-          <p className="text-[10px] text-muted-foreground px-1">
+          <p className="text-[10px] text-muted-foreground">
             Times are shown in Nairobi time. Time spent is approximate (counted in 30-second steps). Guests have no
             gender or age because those come from a logged-in profile.
           </p>

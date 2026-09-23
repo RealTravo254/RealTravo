@@ -19,7 +19,6 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { CountrySelector } from "@/components/creation/CountrySelector";
-import { CountySelector } from "@/components/creation/CountySelector";
 import { PhoneInput } from "@/components/creation/PhoneInput";
 import { compressImages } from "@/lib/imageCompression";
 import { OperatingHoursSection } from "@/components/creation/OperatingHoursSection";
@@ -903,6 +902,16 @@ const CreateAdventure = () => {
     return () => { cancelled = true; };
   }, [formData.country]);
 
+  // County has been removed as a manual field — `place` is now kept in sync
+  // with whichever division the host picks above (falling back to empty if
+  // no division is selected / available), since `place` is still the text
+  // column other parts of the app (search, distance sort, display) read.
+  useEffect(() => {
+    if (!selectedDivisionId) return;
+    const division = availableDivisions.find((d) => d.id === selectedDivisionId);
+    if (division) setFormData((p) => ({ ...p, place: division.name }));
+  }, [selectedDivisionId, availableDivisions]);
+
   // ── TRA Licence handlers (now compressed like every other image upload) ───
   const handleTraLicenceAdd = async (file: File) => {
     setIsCompressingTraLicence(true);
@@ -926,7 +935,7 @@ const CreateAdventure = () => {
   };
 
   const isStep1Complete = !!category && !!formData.registrationName.trim() && !!formData.registrationNumber.trim() && !!formData.country && !!traLicenceFile;
-  const isStep2Complete = !!formData.locationName.trim() && !!formData.place.trim() && (!!formData.latitude || !!formData.locationLink.trim());
+  const isStep2Complete = !!formData.locationName.trim() && (!!formData.latitude || !!formData.locationLink.trim());
   const isStep3Complete = !!formData.description.trim();
   const isStep4Complete = true;
   const isStep5Complete = facilities.every((f) => f.saved);
@@ -966,7 +975,7 @@ const CreateAdventure = () => {
         return false;
       }
     } else if (currentStep === 2) {
-      if (!formData.locationName.trim() || !formData.place.trim() || (!formData.latitude && !formData.locationLink.trim())) {
+      if (!formData.locationName.trim() || (!formData.latitude && !formData.locationLink.trim())) {
         setShowErrors(true);
         toast({ title: "Complete this step", description: "Fill location and provide a link or GPS", variant: "destructive" });
         return false;
@@ -1096,7 +1105,7 @@ const CreateAdventure = () => {
     if (
       !category ||
       !formData.registrationName.trim() || !formData.registrationNumber.trim() || !formData.country ||
-      !formData.locationName.trim() || !formData.place.trim() ||
+      !formData.locationName.trim() ||
       !formData.description.trim() || galleryImages.length < 5 || !traLicenceFile
     ) {
       toast({ title: "Action Required", description: "Please select a category and complete all steps including TRA licence upload.", variant: "destructive" });
@@ -1307,20 +1316,9 @@ const CreateAdventure = () => {
             {currentStep === 2 && (
               <SectionCard title="Location Details" subtitle="Where is your listing located?" icon={MapPin}>
                 <div className="grid gap-5">
-                  <div className="grid lg:grid-cols-2 gap-4">
-                    <div>
-                      <FieldLabel required>Location Name</FieldLabel>
-                      <StyledInput value={formData.locationName} onChange={(e) => setFormData({ ...formData, locationName: e.target.value })} placeholder="Area / Estate / Neighbourhood" isInvalid={isMissing(formData.locationName)} />
-                    </div>
-                    <div>
-                      <FieldLabel required>{formData.country === "Other" ? "Region / City" : "County"}</FieldLabel>
-                      <div className={cn("rounded-xl", isMissing(formData.place) && "ring-2 ring-red-300")}>
-                        {formData.country === "Other"
-                          ? <StyledInput value={formData.place} onChange={(e) => setFormData({ ...formData, place: e.target.value })} placeholder="e.g. Dar es Salaam" isInvalid={isMissing(formData.place)} />
-                          : <CountySelector value={formData.place} onChange={(v) => setFormData({ ...formData, place: v })} />
-                        }
-                      </div>
-                    </div>
+                  <div>
+                    <FieldLabel required>Location Name</FieldLabel>
+                    <StyledInput value={formData.locationName} onChange={(e) => setFormData({ ...formData, locationName: e.target.value })} placeholder="Area / Estate / Neighbourhood" isInvalid={isMissing(formData.locationName)} />
                   </div>
                   <div>
                     <FieldLabel required>Map Location</FieldLabel>

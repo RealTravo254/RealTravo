@@ -21,7 +21,6 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { CountrySelector } from "@/components/creation/CountrySelector";
-import { CountySelector } from "@/components/creation/CountySelector";
 import { PhoneInput } from "@/components/creation/PhoneInput";
 import { approvalStatusSchema } from "@/lib/validation";
 import { ReviewStep } from "@/components/creation/ReviewStep";
@@ -323,8 +322,18 @@ const CreateTripEvent = () => {
     return () => { cancelled = true; };
   }, [formData.country]);
 
+  // County has been removed as a manual field — `place` is now kept in sync
+  // with whichever division the host picks above (falling back to empty if
+  // no division is selected / available), since `place` is still the text
+  // column other parts of the app (search, distance sort, display) read.
+  useEffect(() => {
+    if (!selectedDivisionId) return;
+    const division = availableDivisions.find((d) => d.id === selectedDivisionId);
+    if (division) setFormData((p) => ({ ...p, place: division.name }));
+  }, [selectedDivisionId, availableDivisions]);
+
   // Step 1: trip requires pickup_location; event doesn't
-  const isStep1Complete = !!formData.name.trim() && !!formData.country && !!formData.place.trim() && !!formData.location.trim()
+  const isStep1Complete = !!formData.name.trim() && !!formData.country && !!formData.location.trim()
     && (formData.type === "event" || !!formData.pickup_location.trim());
 
   const isStep2Complete = (formData.is_custom_date || !!formData.date) && (useTicketTypes ? ticketTypes.length > 0 : parseFloat(formData.price) >= 0) && parseInt(formData.available_tickets) > 0;
@@ -344,7 +353,6 @@ const CreateTripEvent = () => {
     if (currentStep === 1) {
       if (!formData.name.trim()) errors.push("name");
       if (!formData.country) errors.push("country");
-      if (!formData.place.trim()) errors.push("place");
       if (!formData.location.trim()) errors.push("location");
       // Pickup location required for trips
       if (formData.type === "trip" && !formData.pickup_location.trim()) errors.push("pickup_location");
@@ -459,7 +467,6 @@ const CreateTripEvent = () => {
     const allErrors: string[] = [];
     if (!formData.name.trim()) allErrors.push("name");
     if (!formData.country) allErrors.push("country");
-    if (!formData.place.trim()) allErrors.push("place");
     if (!formData.location.trim()) allErrors.push("location");
     // Pickup location required for trips
     if (formData.type === "trip" && !formData.pickup_location.trim()) allErrors.push("pickup_location");
@@ -640,18 +647,6 @@ const CreateTripEvent = () => {
                         <CountrySelector value={formData.country} onChange={(val) => { setFormData({ ...formData, country: val, place: val === "Other" ? "" : formData.place }); setValidationErrors(prev => prev.filter(err => err !== "country")); }} />
                       </div>
                       {validationErrors.includes("country") && <p className="text-red-500 text-[10px] font-semibold mt-1">⚠ Country is required</p>}
-                    </div>
-
-                    {/* County/Region */}
-                    <div>
-                      <FieldLabel required>{formData.country === "Other" ? "Region / City" : "County"}</FieldLabel>
-                      <div className={validationErrors.includes("place") ? "rounded-xl ring-2 ring-red-300" : ""}>
-                        {formData.country === "Other"
-                          ? <StyledInput value={formData.place} onChange={(e) => { setFormData({ ...formData, place: e.target.value }); setValidationErrors(prev => prev.filter(err => err !== "place")); }} placeholder="e.g. Dar es Salaam" />
-                          : <CountySelector value={formData.place} onChange={(val) => { setFormData({ ...formData, place: val }); setValidationErrors(prev => prev.filter(err => err !== "place")); }} />
-                        }
-                      </div>
-                      {validationErrors.includes("place") && <p className="text-red-500 text-[10px] font-semibold mt-1">⚠ {formData.country === "Other" ? "Region/City" : "County"} is required</p>}
                     </div>
 
                     {/* Division / Region — optional, populated from country_divisions */}

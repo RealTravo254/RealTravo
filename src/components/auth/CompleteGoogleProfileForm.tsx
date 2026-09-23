@@ -5,16 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Eye, EyeOff, Loader2, AlertCircle } from "lucide-react";
+import { Eye, EyeOff, Loader2, AlertCircle, Globe } from "lucide-react";
+import { CountrySelector } from "@/components/creation/CountrySelector";
 
 const MIN_SIGNUP_AGE = 12;
-
-// Kept short and travel-relevant; extend as needed.
-const COUNTRIES = [
-  "Kenya", "Tanzania", "Uganda", "Rwanda", "Ethiopia", "Nigeria", "Ghana",
-  "South Africa", "Egypt", "United States", "United Kingdom", "Canada",
-  "Germany", "France", "India", "China", "Australia", "Other",
-];
 
 function calculateAge(dob: string) {
   const birth = new Date(dob);
@@ -53,7 +47,8 @@ export const CompleteGoogleProfileForm = ({
   const [firstName, setFirstName] = useState(defaultFirstName);
   const [lastName, setLastName] = useState(defaultLastName);
   const [gender, setGender] = useState("");
-  const [country, setCountry] = useState("");
+  const [countryId, setCountryId] = useState<string | null>(null);
+  const [divisionId, setDivisionId] = useState<string | null>(null);
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -86,7 +81,7 @@ export const CompleteGoogleProfileForm = ({
       toast({ title: "Validation Error", description: "Please select your gender.", variant: "destructive" });
       return;
     }
-    if (!country) {
+    if (!countryId) {
       toast({ title: "Validation Error", description: "Please select your country.", variant: "destructive" });
       return;
     }
@@ -137,7 +132,8 @@ export const CompleteGoogleProfileForm = ({
           last_name: lastName.trim(),
           name: `${firstName.trim()} ${lastName.trim()}`,
           gender,
-          country,
+          country_id: countryId,
+          division_id: divisionId,
           date_of_birth: dateOfBirth,
           profile_completed: true,
         },
@@ -191,17 +187,24 @@ export const CompleteGoogleProfileForm = ({
           </Select>
         </div>
         <div className="space-y-0.5">
-          <Label className={labelStyle}>Country</Label>
-          <Select value={country} onValueChange={setCountry}>
-            <SelectTrigger className={inputStyle}>
-              <SelectValue placeholder="-" />
-            </SelectTrigger>
-            <SelectContent className={selectContentStyle}>
-              {COUNTRIES.map((c) => (
-                <SelectItem key={c} value={c}>{c}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Label className={`${labelStyle} flex items-center gap-1`}>
+            <Globe className="h-2.5 w-2.5" />
+            Country
+          </Label>
+          {/*
+            Same CountrySelector + country_id/division_id used by SignupForm
+            and the /complete-profile page, instead of a disconnected
+            free-text list — keeps this write consistent with the rest of
+            the app's schema (and with any country-lock logic in the DB).
+          */}
+          <CountrySelector
+            countryId={countryId}
+            divisionId={divisionId}
+            onChange={({ countryId, divisionId }) => {
+              setCountryId(countryId);
+              setDivisionId(divisionId);
+            }}
+          />
         </div>
       </div>
 

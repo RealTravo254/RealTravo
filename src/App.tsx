@@ -18,6 +18,7 @@ import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import VisitTracker from "@/components/VisitTracker";
 import AccountPage from "@/pages/AccountPage";
 import Index from "./pages/Index";
+import CountryDivisionsManager from "@/pages/admin/CountryDivisionsManager";
  
 const Auth = lazy(() => import("./pages/Auth"));
 const AuthCallback = lazy(() => import("./pages/AuthCallback"));
@@ -65,6 +66,7 @@ const AllBookings = lazy(() => import("./pages/admin/AllBookings"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const PublicManualBooking = lazy(() => import("./pages/PublicManualBooking"));
+
 const CompleteProfile = lazy(() => import("./pages/CompleteProfile"));
 const BookingPage = lazy(() => import("./pages/BookingPage"));
 const PaymentVerify = lazy(() => import("./pages/PaymentVerify"));
@@ -258,6 +260,7 @@ const App = () => {
                       <Route path="/admin/accounts" element={<Suspense fallback={<OfflineFallback text="Accounts Overview" />}><AccountsOverview /></Suspense>} />
                       <Route path="/admin/analytics" element={<Suspense fallback={<OfflineFallback text="Analytics" />}><VisitAnalytics /></Suspense>} />
                       <Route path="*" element={<Suspense fallback={<OfflineFallback text="Loading" />}><NotFound /></Suspense>} />
+                      <Route path="/admin/countries" element={<CountryDivisionsManager />} />
                     </Routes>
                   </div>
                 </PageLayout>

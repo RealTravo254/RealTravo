@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Eye,
-  EyeOff, 
+  EyeOff,
   Loader2,
   User,
   Phone,
@@ -155,6 +155,9 @@ export default function CompleteProfile() {
       if (profile?.phone_number) setPhoneNumber(profile.phone_number);
       if (profile?.country_id) setCountryId(profile.country_id);
       if (profile?.division_id) setDivisionId(profile.division_id);
+      // Password is deliberately left blank here — this page always asks the
+      // person to CREATE a new password, never to review/edit an existing
+      // one, so there is nothing to prefill it with.
       setCheckingProfile(false);
     };
     if (!authLoading) checkProfile();
@@ -341,12 +344,14 @@ export default function CompleteProfile() {
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
                     placeholder="First name"
+                    autoComplete="given-name"
                     className={`h-9 text-sm ${errors.firstName ? "border-destructive" : ""}`}
                   />
                   <Input
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
                     placeholder="Surname"
+                    autoComplete="family-name"
                     className={`h-9 text-sm ${errors.lastName ? "border-destructive" : ""}`}
                   />
                 </div>
@@ -390,6 +395,7 @@ export default function CompleteProfile() {
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value)}
                   placeholder="Enter phone number"
+                  autoComplete="tel"
                   className="h-9 text-sm"
                 />
               </FieldRow>
@@ -412,16 +418,20 @@ export default function CompleteProfile() {
             <div className="space-y-4">
               <p className="text-[10px] font-black uppercase tracking-[0.18em] text-primary">Secure your account</p>
               <p className="text-[11px] text-muted-foreground -mt-2">
-                Set a password so you can also sign in with your email, even though you started with Google.
+                Set a new password so you can also sign in with your email, even though you started with Google.
                 You'll confirm it twice, and we'll email you a code before it's saved.
               </p>
 
-              <FieldRow icon={<KeyRound className="h-4 w-4" />} label="Password" required error={errors.password}>
+              <FieldRow icon={<KeyRound className="h-4 w-4" />} label="Create password" required error={errors.password}>
                 <div className="relative">
                   <Input
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    // "new-password" (not "current-password") tells the
+                    // browser this isn't a login field, so it won't offer to
+                    // fill in a previously saved password here.
+                    autoComplete="new-password"
                     className={`h-9 text-sm pr-9 ${errors.password ? "border-destructive" : ""}`}
                   />
                   <button
@@ -441,6 +451,7 @@ export default function CompleteProfile() {
                     type={showConfirmPassword ? "text" : "password"}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
+                    autoComplete="new-password"
                     className={`h-9 text-sm pr-9 ${errors.confirmPassword ? "border-destructive" : ""}`}
                   />
                   <button
@@ -499,6 +510,7 @@ export default function CompleteProfile() {
                 }}
                 placeholder="123456"
                 maxLength={6}
+                autoComplete="one-time-code"
                 className={`h-11 text-center text-lg font-bold tracking-widest ${otpError ? "border-destructive" : ""}`}
                 autoFocus
               />

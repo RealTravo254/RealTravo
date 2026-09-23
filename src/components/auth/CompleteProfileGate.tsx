@@ -1,7 +1,15 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { CompleteGoogleProfileForm } from "@/components/auth/CompleteGoogleProfileForm";
+
+// The dedicated /complete-profile page (src/pages/CompleteProfile.tsx) has
+// its own full version of this same flow, including the email-code
+// verification step. Showing this overlay on top of that page stacks two
+// "finish your profile" UIs on screen at once — that's the bug in the
+// screenshot. Never render the popup on that route.
+const COMPLETE_PROFILE_ROUTE = "/complete-profile";
 
 /**
  * Mount this once near the app root (alongside <AuthModal />) — e.g. in
@@ -33,13 +41,15 @@ import { CompleteGoogleProfileForm } from "@/components/auth/CompleteGoogleProfi
  */
 export const CompleteProfileGate = () => {
   const { user, needsProfileCompletion, pendingGoogleProfile, markProfileCompleted } = useAuth();
+  const location = useLocation();
+  const isOnCompleteProfilePage = location.pathname === COMPLETE_PROFILE_ROUTE;
 
   // Tri-state: we don't know yet / confirmed still incomplete / confirmed done.
   const [dbChecked, setDbChecked] = useState(false);
   const [stillIncomplete, setStillIncomplete] = useState(false);
 
   useEffect(() => {
-    if (!needsProfileCompletion || !user) {
+    if (!needsProfileCompletion || !user || isOnCompleteProfilePage) {
       setDbChecked(false);
       setStillIncomplete(false);
       return;
@@ -80,9 +90,10 @@ export const CompleteProfileGate = () => {
     return () => {
       cancelled = true;
     };
-  }, [needsProfileCompletion, user, markProfileCompleted]);
+  }, [needsProfileCompletion, user, markProfileCompleted, isOnCompleteProfilePage]);
 
   if (!needsProfileCompletion || !user) return null;
+  if (isOnCompleteProfilePage) return null; // that page already handles this itself
   if (!dbChecked) return null; // brief DB round-trip in flight — don't flash the gate open
   if (!stillIncomplete) return null; // confirmed already complete — never show it
 

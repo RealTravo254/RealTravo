@@ -234,6 +234,7 @@ export const CompleteGoogleProfileForm = ({
                 if (passwordError) setPasswordError(null);
               }}
               className={pwInputStyle}
+              autoComplete="new-password"
               required
               aria-invalid={!!passwordError}
             />
@@ -253,6 +254,7 @@ export const CompleteGoogleProfileForm = ({
                 if (passwordError) setPasswordError(null);
               }}
               className={pwInputStyle}
+              autoComplete="new-password"
               required
               aria-invalid={!!passwordError}
             />

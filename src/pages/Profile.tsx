@@ -868,7 +868,7 @@ export default function ProfileEdit() {
                 className="flex-1"
               >
                 Back
-              </Button>
+              </Button> 
             )}
             <Button
               type="button"
@@ -882,5 +882,5 @@ export default function ProfileEdit() {
         </DialogContent>
       </Dialog>
     </div>
-  );
+  ); 
 }

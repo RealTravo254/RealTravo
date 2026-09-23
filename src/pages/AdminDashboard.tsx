@@ -4,6 +4,7 @@ import {
   ArrowLeft, Shield, UserCog, CreditCard, Users,
   Settings, CalendarCheck, Wallet, ChevronRight,
   Clock, CheckCircle2, XCircle, ClipboardList, BarChart3,
+  Globe,
 } from "lucide-react";
 import { Header } from "@/components/Header";
 
@@ -86,6 +87,12 @@ const adminSections: AdminSection[] = [
     title: "Analytics",
     cards: [
       { icon: BarChart3, label: "Visitor Analytics", description: "Visits, platforms, gender, age and time spent", path: "/admin/analytics" },
+    ],
+  },
+  {
+    title: "Content",
+    cards: [
+      { icon: Globe, label: "Countries & Divisions", description: "Manage regions and their images", path: "/admin/countries" },
     ],
   },
   {

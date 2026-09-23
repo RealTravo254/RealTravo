@@ -9,17 +9,12 @@ import { NavigationDrawer } from "./NavigationDrawer";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { NotificationBell } from "./NotificationBell";
 
-// ── Design tokens ─────────────────────────────────────────────────────────
-// Same field-guide / park-signage system used across the rest of the app:
-// deep forest for structure and brand marks, a warm clay for the primary
-// action.
 const FOREST      = "#1F4D3A";
 const FOREST_DEEP = "#123322";
 
 const FONT_DISPLAY = "'Fraunces', ui-serif, Georgia, serif";
 const FONT_BODY = "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif";
 
-// Injects the two typefaces once, without needing to touch the app's index.html.
 const useInjectFonts = () => {
   useEffect(() => {
     const id = "adventure-detail-fonts";
@@ -53,7 +48,6 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
   const [hasScrolled, setHasScrolled] = useState(false);
   const [firstName, setFirstName] = useState<string>("");
 
-  // Only the home page gets the scroll-triggered search icon.
   const isIndexPage = location.pathname === "/";
 
   useEffect(() => {
@@ -93,14 +87,18 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
   const headerIconStyles =
     "h-9 w-9 rounded-xl flex items-center justify-center transition-all duration-200 active:scale-90 text-white hover:bg-white/20";
 
-  // Logged-in users go to their account page; guests get the auth modal
-  // instead of being navigated away to a full /auth page.
   const handleAccountClick = () => {
     if (user) {
       navigate("/account");
     } else {
       openAuthModal("login");
     }
+  };
+
+  // Sends the flag Explore.tsx watches for, so it opens the search bar and
+  // its suggestions as soon as the page loads.
+  const goToExploreSearch = () => {
+    navigate("/explore", { state: { openSearch: true } });
   };
 
   return (
@@ -114,7 +112,6 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
       />
       <div className="container mx-auto px-4 flex items-center justify-between h-full">
 
-        {/* Left — hamburger + logo */}
         <div className="flex items-center gap-2">
           <Sheet open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
             <SheetTrigger asChild>
@@ -140,7 +137,6 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
           </Link>
         </div>
 
-        {/* Center nav — desktop only */}
         <nav className="hidden lg:flex items-center gap-6">
           {[
             { to: "/",         icon: <Home     className="h-4 w-4" />, label: t("nav.home")     },
@@ -158,18 +154,12 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
           ))}
         </nav>
 
-        {/* Right — actions */}
         <div className="flex items-center gap-2">
 
-          {/* Search — home page only, and appears after scroll. Reserved in
-              a fixed-size slot (rather than mounting/unmounting the button)
-              so the icons after it never shift position when it fades in
-              or out — this matters most on desktop where every icon is
-              visible at once. */}
           {showSearchIcon && isIndexPage && (
             <div className="w-9 h-9 shrink-0 flex items-center justify-center overflow-hidden">
               <button
-                onClick={() => navigate("/explore")}
+                onClick={goToExploreSearch}
                 className={`${headerIconStyles} transition-all duration-300 ${
                   hasScrolled ? "opacity-100 scale-100" : "opacity-0 scale-75 pointer-events-none"
                 }`}
@@ -181,7 +171,6 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
             </div>
           )}
 
-          {/* Become Host — desktop only */}
           <button
             onClick={() => navigate("/become-host")}
             className="hidden md:flex h-9 px-3 rounded-xl items-center gap-2 transition-all font-semibold text-[13px] text-white bg-white/15 hover:bg-white/25 active:scale-95"
@@ -189,12 +178,10 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
             <Briefcase className="h-4 w-4" /><span>Become a host</span>
           </button>
 
-          {/* NotificationBell — desktop only */}
           <div className="hidden md:flex [&_button]:text-white [&_button]:h-9 [&_button]:w-9 [&_[data-radix-popper-content-wrapper]]:!max-w-[320px]">
             <NotificationBell />
           </div>
 
-          {/* Account Link with Icon, Text & Dropdown Arrow */}
           <div
             onClick={handleAccountClick}
             className="hidden md:flex items-center gap-1.5 cursor-pointer text-white/90 hover:text-white transition-colors py-1 px-2"
@@ -207,6 +194,6 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
           </div>
         </div>
       </div>
-    </header>
+    </header> 
   );
 };

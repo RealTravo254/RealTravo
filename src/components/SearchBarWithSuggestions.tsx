@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useImperativeHandle } from "react";
 import { Clock, TrendingUp, Home, Search as SearchIcon, MapPin, Loader2, Sparkles, Map } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getSessionId } from "@/lib/sessionManager";
@@ -69,6 +69,13 @@ interface SearchResult {
   matchedActivity?: string;
 }
 
+// Handle exposed via ref so a parent page (e.g. Explore.tsx) can open this
+// search bar and its suggestions programmatically — for example when the
+// person arrives here via the header search icon or the home-page search bar.
+export interface SearchBarWithSuggestionsHandle {
+  focus: () => void;
+}
+
 const SEARCH_HISTORY_KEY = "search_history";
 const MAX_HISTORY_ITEMS = 10;
 
@@ -107,7 +114,7 @@ const formatTitle = (str?: string | null): string => {
 };
 
 
-export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchBarProps>(({ value, onChange, onSubmit, onSuggestionSearch, onFocus, onBlur, onBack, showBackButton = false }, _ref) => {
+export const SearchBarWithSuggestions = React.forwardRef<SearchBarWithSuggestionsHandle, SearchBarProps>(({ value, onChange, onSubmit, onSuggestionSearch, onFocus, onBlur, onBack, showBackButton = false }, ref) => {
   useInjectFonts();
 
   const { user } = useAuth();
@@ -123,6 +130,15 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
   const [allListingsCache, setAllListingsCache] = useState<SearchResult[]>([]);
   const navigate = useNavigate();
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Lets a parent (Explore.tsx) call searchBarRef.current.focus() to open
+  // this search bar and its suggestions programmatically.
+  useImperativeHandle(ref, () => ({
+    focus: () => {
+      inputRef.current?.focus();
+    },
+  }));
 
   useEffect(() => {
     const history = localStorage.getItem(SEARCH_HISTORY_KEY);
@@ -397,6 +413,7 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
                 style={{ color: INK_SOFT }}
               />
               <Input
+                ref={inputRef}
                 type="text"
                 placeholder="Where to next? Search trips, adventures, campsites..."
                 value={value}
@@ -612,7 +629,7 @@ export const SearchBarWithSuggestions = React.forwardRef<HTMLDivElement, SearchB
                 </div>
               )}
             </div>
-          )}
+          )} 
         </div>
       </div>
     </div>

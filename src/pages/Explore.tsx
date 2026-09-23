@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
-import { SearchBarWithSuggestions } from "@/components/SearchBarWithSuggestions";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { SearchBarWithSuggestions, type SearchBarWithSuggestionsHandle } from "@/components/SearchBarWithSuggestions";
 import { ListingCard } from "@/components/ListingCard";
 import { ListingSkeleton } from "@/components/ui/listing-skeleton";
 import { supabase } from "@/integrations/supabase/client";
@@ -46,6 +46,8 @@ const Explore = () => {
   useInjectFonts();
 
   const navigate = useNavigate();
+  const location = useLocation();
+  const searchBarRef = useRef<SearchBarWithSuggestionsHandle>(null);
   const [searchQuery, setSearchQuery]   = useState("");
   const [activeFilter, setActiveFilter] = useState("all");
   const [listings, setListings]         = useState<any[]>([]);
@@ -56,6 +58,17 @@ const Explore = () => {
 
   const { savedItems, handleSave } = useSavedItems();
   const { position }               = useGeolocation();
+
+  // If we arrived here with { state: { openSearch: true } } (from the header
+  // icon or the home-page search bar), open the search box and its
+  // suggestions right away.
+  useEffect(() => {
+    if ((location.state as { openSearch?: boolean } | null)?.openSearch) {
+      window.history.replaceState({}, ""); // clear the flag so it doesn't refire
+      const id = window.setTimeout(() => searchBarRef.current?.focus(), 50);
+      return () => window.clearTimeout(id);
+    }
+  }, [location.state]);
 
   const allItemIds    = useMemo(() => listings.map(l => l.id), [listings]);
   // Only guided (flexible/custom-date) trips get live booking-stat tracking.
@@ -241,6 +254,7 @@ const Explore = () => {
         <div style={{ background: `linear-gradient(135deg, ${FOREST} 0%, ${FOREST_DEEP} 100%)` }}>
           <div className="container mx-auto px-4 py-3">
             <SearchBarWithSuggestions
+              ref={searchBarRef}
               value={searchQuery}
               onChange={setSearchQuery}
               onSubmit={handleSearch}
@@ -331,7 +345,7 @@ const Explore = () => {
         )}
       </main>
     </div>
-  );
+  ); 
 };
 
 export default Explore;

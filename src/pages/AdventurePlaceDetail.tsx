@@ -22,9 +22,6 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 import { Footer } from "@/components/Footer";
 
 // ── Design tokens ─────────────────────────────────────────────────────────
-// A field-guide / park-signage palette: deep forest for structure and trust,
-// a warm clay for the primary action, and a dry-grass gold reserved for
-// "special" content. Ink is a green-tinted charcoal rather than pure black.
 const FOREST       = "#1F4D3A";
 const FOREST_DEEP  = "#123322";
 const FOREST_SOFT  = "#EAF0EA";
@@ -42,7 +39,6 @@ const CLOSED_COLOR = "#9C3B2B";
 const FONT_DISPLAY = "'Fraunces', ui-serif, Georgia, serif";
 const FONT_BODY = "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif";
 
-// Injects the two typefaces once, without needing to touch the app's index.html.
 const useInjectFonts = () => {
   useEffect(() => {
     const id = "adventure-detail-fonts";
@@ -68,11 +64,6 @@ const FACILITY_LABELS: Record<string, string> = {
 const facilityLabel = (id: string) =>
   FACILITY_LABELS[id] ?? id.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
-// ── Category badge labels + icons ────────────────────────────────────────
-// Mirrors the same mapping used on ListingCard so the "Hotel" / "Campsite" /
-// etc. wording is consistent between the listing grids and this detail page.
-// Each category also gets a small icon so the badge reads at a glance,
-// rather than relying on color alone.
 const CATEGORY_LABELS: Record<string, string> = {
   hotel: "Hotel",
   park: "Park",
@@ -93,13 +84,6 @@ const toTitleCase = (str?: string) => {
   return str.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
 };
 
-// ── Derive a human-readable place name straight from the URL slug ───────────
-// Used ONLY for the initial "Loading <name>…" spinner text, before the actual
-// record has been fetched from Supabase. Most slugs look like
-// "amboseli-national-park-3f9c2b1a" (name + trailing id), so we strip a
-// trailing id-looking segment (a run of 8+ hex/alphanumeric/hyphen chars) and
-// title-case what's left. Falls back gracefully to the raw slug if nothing
-// can be stripped, and to "" if there's no slug at all.
 const slugToDisplayName = (slug?: string | null) => {
   if (!slug) return "";
   const withoutId = slug.replace(/-[0-9a-fA-F]{6,}$/, "");
@@ -112,10 +96,6 @@ const slugToDisplayName = (slug?: string | null) => {
     .join(" ");
 };
 
-// ─── Time / day helpers for the Open now / Closed check ──────────────────────
-// Understands both 24-hour ("08:00", "23:59") and 12-hour ("8:00 AM",
-// "11:59 PM") strings, since opening_hours/closing_hours have been seen
-// stored in both formats. Returns null if the string can't be parsed.
 const parseTimeToMinutes = (t?: string | null): number | null => {
   if (!t) return null;
   const trimmed = t.trim();
@@ -141,17 +121,10 @@ const parseTimeToMinutes = (t?: string | null): number | null => {
   return null;
 };
 
-// Days can be stored as full names ("Monday"), short names ("Mon"), or mixed
-// case. Normalizing to a 3-letter lowercase abbreviation lets the working-day
-// check line up regardless of which format a given record uses.
 const DAY_ABBREV = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
 const normalizeDayAbbrev = (d: string) =>
   String(d ?? "").replace(/[^a-zA-Z]/g, "").slice(0, 3).toLowerCase();
 
-// ─── Screen-size hook ─────────────────────────────────────────────────────────
-// Used so we only ever mount ONE of <MobileCarousel /> / <DesktopGallery />.
-// Previously both were mounted at once (just hidden with CSS), which meant
-// images for the gallery you couldn't even see were still being fetched.
 const useIsMobile = (breakpoint = 768) => {
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth < breakpoint : false
@@ -175,13 +148,8 @@ interface SpecialPriceTier {
 }
 
 const ITEMS_PER_PAGE = 5;
-// Only 5 images are ever fetched for the main gallery up front.
 const GALLERY_IMAGE_LIMIT = 5;
 
-// ─── Small shared bits ────────────────────────────────────────────────────────
-// A section heading with a short colored rule underneath instead of an
-// all-caps tracked-out eyebrow — the rule reads as a deliberate underline,
-// not decoration.
 const SectionHeading = ({ title, color }: { title: string; color: string }) => (
   <div className="mb-3.5">
     <h2
@@ -280,7 +248,6 @@ const ImageGalleryModal = ({
                 key={idx} onClick={() => setCurrent(idx)}
                 style={{ flexShrink: 0, width: 56, height: 42, padding: 0, border: idx === current ? `2px solid ${CLAY_LIGHT}` : "2px solid rgba(255,255,255,0.22)", borderRadius: 8, outline: "none", opacity: idx === current ? 1 : 0.5, cursor: "pointer", overflow: "hidden", boxSizing: "border-box", transition: "opacity 0.15s, border-color 0.15s" }}
               >
-                {/* Thumbnails only load once the modal/"see all" is actually opened */}
                 <img src={img} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", borderRadius: 6 }} />
               </button>
             ))}
@@ -308,7 +275,6 @@ const DesktopGallery = ({ images, name }: { images: string[]; name: string }) =>
           className="rounded-[28px] overflow-hidden"
           style={{ display: "grid", gridTemplateColumns: "1.55fr 1fr", gridTemplateRows: "210px 136px", gap: "4px", border: `1px solid ${HAIRLINE}` }}
         >
-          {/* Only the 3 visible thumbnails are fetched — the rest stay unloaded until "see all" is opened */}
           <div style={{ gridRow: "1 / 3", overflow: "hidden", cursor: "pointer" }} onClick={() => open(0)}>
             <img src={images[0]} alt={name} loading="eager" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
           </div>
@@ -333,8 +299,7 @@ const DesktopGallery = ({ images, name }: { images: string[]; name: string }) =>
 };
 
 // ─── Mobile carousel ──────────────────────────────────────────────────────────
-// Only the currently active slide is ever in the DOM, so only it gets fetched.
-// The full set is only requested once the person taps "see all" (modal above).
+// No border radius here (matches the "no rounding on small screens" request).
 const MobileCarousel = ({ images, name }: { images: string[]; name: string }) => {
   const [active, setActive] = useState(0);
   const [loaded, setLoaded] = useState(false);
@@ -402,7 +367,6 @@ const MobileCarousel = ({ images, name }: { images: string[]; name: string }) =>
   );
 };
 
-// ─── General Amenities ────────────────────────────────────────────────────────
 const AmenitiesScroll = ({ amenities, accentColor }: { amenities: string[]; accentColor: string }) => {
   if (!amenities.length) return null;
   return (
@@ -421,15 +385,8 @@ const AmenitiesScroll = ({ amenities, accentColor }: { amenities: string[]; acce
 };
 
 const CARD_IMG_HEIGHT = 104;
-
-// Facility card image height stays fixed at every breakpoint — the card
-// grows by getting WIDER on large screens (fewer grid columns), not taller.
 const FACILITY_IMG_HEIGHT_CLASS = "h-[104px]";
 
-// ─── FacImage ─────────────────────────────────────────────────────────────────
-// Renders ONLY a single static image (the first one) — no auto-rotating
-// slideshow, so each facility only ever fetches ONE image on initial load.
-// The rest of that facility's photos are only fetched if "see all" is opened.
 const FacImage = ({ images, name, onClick }: { images: string[]; name: string; onClick?: () => void }) => {
   const [loaded, setLoaded] = useState(false);
 
@@ -447,7 +404,6 @@ const FacImage = ({ images, name, onClick }: { images: string[]; name: string; o
   );
 };
 
-// ─── Facilities Grid ──────────────────────────────────────────────────────────
 const InlineFacilitiesGrid = ({ facilities, accentColor }: { facilities: any[]; accentColor: string }) => {
   const [modalImages, setModalImages] = useState<string[] | null>(null);
   const [modalName, setModalName]     = useState("");
@@ -473,13 +429,9 @@ const InlineFacilitiesGrid = ({ facilities, accentColor }: { facilities: any[]; 
       {modalImages && <ImageGalleryModal images={modalImages} name={modalName} startIndex={modalStart} onClose={() => setModalImages(null)} />}
       <section style={{ fontFamily: FONT_BODY }}>
         <SectionHeading title="Facilities" color={accentColor} />
-        {/* Fewer columns on large screens (3 instead of 5) so each card gets
-            noticeably WIDER — image height stays fixed, only the card's
-            width (and the image filling it) grows. */}
         <div className="flex gap-3 overflow-x-auto pb-1 md:grid md:grid-cols-3 lg:grid-cols-3 md:overflow-visible md:pb-0 lg:gap-4">
           {visibleFacilities.map((fac: any, i: number) => {
             const imgs: string[] = Array.isArray(fac.images) ? fac.images.filter(Boolean) : [];
-            // "see all" only shows up when there's actually more than one photo to see
             const hasMultiple = imgs.length > 1;
             return (
               <div key={i} className="bg-white overflow-hidden flex-shrink-0 w-[160px] md:w-auto rounded-2xl" style={{ border: `1px solid ${HAIRLINE}` }}>
@@ -535,8 +487,6 @@ const InlineFacilitiesGrid = ({ facilities, accentColor }: { facilities: any[]; 
   );
 };
 
-// ─── Activity Card ────────────────────────────────────────────────────────────
-// Same single-image treatment as FacImage: only the first photo loads.
 const ActivityCard = ({ act, imgs, formatPrice, onImageClick }: { act: any; imgs: string[]; formatPrice: (n: number) => string; onImageClick?: () => void }) => {
   const [loaded, setLoaded] = useState(false);
   const hasMultiple = imgs.length > 1;
@@ -557,7 +507,6 @@ const ActivityCard = ({ act, imgs, formatPrice, onImageClick }: { act: any; imgs
           <div className="absolute inset-0 flex items-center justify-center" style={{ background: FOREST_SOFT }}><MapPin className="h-5 w-5" style={{ color: `${FOREST}55` }} /></div>
         )}
         <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(to top, rgba(14,23,18,0.45) 0%, transparent 55%)" }} />
-        {/* "see all" only appears when this activity actually has more than one photo */}
         {hasMultiple && (
           <button onClick={(e) => { e.stopPropagation(); onImageClick?.(); }} className="absolute top-1.5 right-1.5 z-20 flex items-center gap-0.5 backdrop-blur-sm text-white text-[9px] font-medium px-1.5 py-0.5 rounded-full transition-all" style={{ background: "rgba(14,23,18,0.55)" }}>
             <Grid2X2 className="h-2 w-2" /> See all
@@ -576,7 +525,6 @@ const ActivityCard = ({ act, imgs, formatPrice, onImageClick }: { act: any; imgs
   );
 };
 
-// ─── Activities Grid ──────────────────────────────────────────────────────────
 const InlineActivitiesGrid = ({ activities, formatPrice }: { activities: any[]; formatPrice: (n: number) => string }) => {
   const [modalImages, setModalImages] = useState<string[] | null>(null);
   const [modalName, setModalName]     = useState("");
@@ -622,7 +570,6 @@ const InlineActivitiesGrid = ({ activities, formatPrice }: { activities: any[]; 
   );
 };
 
-// ─── Special Entry Prices Section ────────────────────────────────────────────
 const SpecialPricesSection = ({ tiers, formatPrice }: { tiers: SpecialPriceTier[]; formatPrice: (n: number) => string }) => {
   if (!tiers?.length) return null;
   return (
@@ -662,8 +609,16 @@ const SpecialPricesSection = ({ tiers, formatPrice }: { tiers: SpecialPriceTier[
   );
 };
 
-// ─── Always-open Map Section ──────────────────────────────────────────────────
-const AlwaysOpenMapSection = ({ name, latitude, longitude, location, country }: { name: string; latitude?: number | null; longitude?: number | null; location?: string; country?: string }) => {
+// ─── Map URL helpers ───────────────────────────────────────────────────────
+// Shared by the always-visible location card and the mobile map popup below,
+// so both build the exact same Google Maps links from the same inputs.
+const buildMapUrls = (
+  name: string,
+  latitude?: number | null,
+  longitude?: number | null,
+  location?: string,
+  country?: string,
+) => {
   const hasCoords = latitude != null && longitude != null;
   const googleMapsUrl = hasCoords
     ? `https://www.google.com/maps?q=${latitude},${longitude}`
@@ -671,6 +626,68 @@ const AlwaysOpenMapSection = ({ name, latitude, longitude, location, country }: 
   const embedUrl = hasCoords
     ? `https://maps.google.com/maps?q=${latitude},${longitude}&z=15&output=embed`
     : `https://maps.google.com/maps?q=${encodeURIComponent(`${name}, ${location || ""}, ${country || ""}`)}&z=13&output=embed`;
+  return { googleMapsUrl, embedUrl };
+};
+
+// ─── Mobile map popup ───────────────────────────────────────────────────────
+// Opens over the whole screen with a large, freely pannable embedded map.
+// There is no forced redirect to the Google Maps app — that's an explicit
+// choice at the bottom of this popup, not something tapping the map triggers.
+const MapModal = ({
+  name, googleMapsUrl, embedUrl, onClose,
+}: { name: string; googleMapsUrl: string; embedUrl: string; onClose: () => void }) => {
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  const modal = (
+    <div
+      style={{
+        position: "fixed", inset: 0, background: "#0E1712",
+        display: "flex", flexDirection: "column",
+        zIndex: 2147483000,
+        paddingTop: "env(safe-area-inset-top, 0px)",
+        paddingBottom: "env(safe-area-inset-bottom, 0px)",
+      }}
+    >
+      <div style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px" }}>
+        <span style={{ fontFamily: FONT_BODY, color: "rgba(255,255,255,0.7)", fontSize: 12, fontWeight: 600 }}>{name}</span>
+        <button
+          onClick={onClose}
+          aria-label="Close map"
+          style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.12)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 16, fontWeight: 700 }}
+        >✕</button>
+      </div>
+      <div style={{ flex: 1, position: "relative" }}>
+        <iframe title={`Map of ${name}`} src={embedUrl} width="100%" height="100%" style={{ border: 0, display: "block" }} allowFullScreen loading="eager" referrerPolicy="no-referrer-when-downgrade" />
+      </div>
+      <div style={{ flexShrink: 0, padding: "12px 16px" }}>
+        <a
+          href={googleMapsUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-white text-sm font-semibold"
+          style={{ background: `linear-gradient(135deg, ${FOREST}, ${FOREST_DEEP})`, fontFamily: FONT_BODY }}
+        >
+          <ExternalLink className="h-4 w-4" /> Open in Google Maps app
+        </a>
+      </div>
+    </div>
+  );
+
+  return createPortal(modal, document.body);
+};
+
+// ─── Always-open Map Section ──────────────────────────────────────────────────
+const AlwaysOpenMapSection = ({
+  name, latitude, longitude, location, country, isMobile, onOpenMap,
+}: {
+  name: string; latitude?: number | null; longitude?: number | null; location?: string; country?: string;
+  isMobile: boolean; onOpenMap: () => void;
+}) => {
+  const { googleMapsUrl, embedUrl } = buildMapUrls(name, latitude, longitude, location, country);
 
   return (
     <section className="bg-white rounded-2xl overflow-hidden" style={{ border: `1px solid ${HAIRLINE}`, fontFamily: FONT_BODY }}>
@@ -682,12 +699,36 @@ const AlwaysOpenMapSection = ({ name, latitude, longitude, location, country }: 
             <p className="text-[11px] mt-0.5" style={{ color: INK_SOFT }}>{[name, location, country].filter(Boolean).join(", ")}</p>
           </div>
         </div>
-        <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-white text-[11px] font-semibold transition-all hover:opacity-90 active:scale-95" style={{ background: `linear-gradient(135deg, ${FOREST}, ${FOREST_DEEP})` }}>
-          <ExternalLink className="h-3 w-3" /> Open in Google Maps
-        </a>
+        {/* Mobile: opens the in-app map popup instead of jumping straight out
+            to Google Maps. Desktop keeps the direct external link. */}
+        {isMobile ? (
+          <button
+            onClick={onOpenMap}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-white text-[11px] font-semibold transition-all hover:opacity-90 active:scale-95"
+            style={{ background: `linear-gradient(135deg, ${FOREST}, ${FOREST_DEEP})` }}
+          >
+            <MapPin className="h-3 w-3" /> View map
+          </button>
+        ) : (
+          <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-white text-[11px] font-semibold transition-all hover:opacity-90 active:scale-95" style={{ background: `linear-gradient(135deg, ${FOREST}, ${FOREST_DEEP})` }}>
+            <ExternalLink className="h-3 w-3" /> Open in Google Maps
+          </a>
+        )}
       </div>
-      <div style={{ height: "300px", position: "relative" }}>
-        <iframe title={`Map of ${name}`} src={embedUrl} width="100%" height="100%" style={{ border: 0, display: "block" }} allowFullScreen loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
+      <div
+        style={{ height: "300px", position: "relative", cursor: isMobile ? "pointer" : "default" }}
+        onClick={isMobile ? onOpenMap : undefined}
+      >
+        <iframe
+          title={`Map of ${name}`}
+          src={embedUrl}
+          width="100%"
+          height="100%"
+          style={{ border: 0, display: "block", pointerEvents: isMobile ? "none" : "auto" }}
+          allowFullScreen
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+        />
         <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 bg-white shadow-md rounded-full px-3 py-1.5 pointer-events-none">
           <MapPin className="h-3 w-3" style={{ color: CLAY }} />
           <span className="text-[11px] font-semibold" style={{ color: INK }}>{name}</span>
@@ -709,7 +750,6 @@ const UtilityButton = ({ icon, label, onClick }: { icon: React.ReactNode; label:
   </Button>
 );
 
-// ─── Booking card ─────────────────────────────────────────────────────────────
 interface BookingCardProps {
   place: any; is24Hours: boolean; daysOpened: string[]; capacityPerDay: number | null;
   formatPrice: (n: number) => string;
@@ -723,13 +763,9 @@ const BookingCard = ({ place, is24Hours, daysOpened, capacityPerDay, formatPrice
 
   return (
     <div style={{ fontFamily: FONT_BODY }} className="space-y-4">
-      {/* ── Pricing: only rendered when entry is actually paid. Free places
-          skip this block entirely — no "Free Entry" label is shown anywhere
-          on the page, per product request. ── */}
       {isPaid && (
         <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${HAIRLINE}` }}>
           <div className="grid grid-cols-2" style={{ background: CANVAS }}>
-            {/* Citizen column */}
             <div className="p-3.5" style={{ borderRight: `1px solid ${HAIRLINE}` }}>
               <p className="text-[10px] font-medium mb-1" style={{ color: INK_SOFT }}>Citizen</p>
               <p className="text-sm font-semibold" style={{ color: INK }}>{formatPrice(Number(place.entry_fee))}</p>
@@ -737,7 +773,6 @@ const BookingCard = ({ place, is24Hours, daysOpened, capacityPerDay, formatPrice
                 <p className="text-[10px] mt-0.5" style={{ color: INK_SOFT }}>Child: {formatPrice(Number(place.child_entry_fee))}</p>
               )}
             </div>
-            {/* Non-citizen column */}
             <div className="p-3.5" style={{ background: hasNonCitizen ? GOLD_SOFT : undefined }}>
               <p className="text-[10px] font-medium mb-1 flex items-center gap-1" style={{ color: GOLD }}>
                 <Globe className="h-2.5 w-2.5" /> Non-citizen
@@ -757,7 +792,6 @@ const BookingCard = ({ place, is24Hours, daysOpened, capacityPerDay, formatPrice
         </div>
       )}
 
-      {/* Hours & days */}
       <div className="p-3.5 rounded-2xl" style={{ background: CANVAS, border: `1px solid ${HAIRLINE}` }}>
         <div className="flex justify-between items-center mb-2">
           <span className="text-[11px] font-medium flex items-center gap-1.5" style={{ color: INK_SOFT }}>
@@ -804,7 +838,6 @@ const BookingCard = ({ place, is24Hours, daysOpened, capacityPerDay, formatPrice
   );
 };
 
-// ─── Main component ───────────────────────────────────────────────────────────
 const AdventurePlaceDetail = () => {
   useInjectFonts();
 
@@ -822,6 +855,7 @@ const AdventurePlaceDetail = () => {
   const [loading, setLoading]     = useState(true);
   const [isOpenNow, setIsOpenNow] = useState(false);
   const [scrolled, setScrolled]   = useState(false);
+  const [mapModalOpen, setMapModalOpen] = useState(false);
 
   const { savedItems, handleSave: handleSaveItem } = useSavedItems();
   const isSaved = savedItems.has(id || "");
@@ -857,12 +891,6 @@ const AdventurePlaceDetail = () => {
       const now = new Date();
       const currentDayAbbrev = DAY_ABBREV[now.getDay()];
 
-      // Normalize whatever format days_opened is stored in ("Mon", "Monday",
-      // "MON", etc.) to a 3-letter lowercase abbreviation so it reliably
-      // lines up with currentDayAbbrev. Empty list = open every day. A list
-      // that already covers all 7 distinct days is also unambiguously "every
-      // day", even if an individual entry's format ever fails to normalize
-      // cleanly against currentDayAbbrev.
       const days = Array.isArray(place.days_opened)
         ? place.days_opened.map((d: string) => normalizeDayAbbrev(d)).filter(Boolean)
         : [];
@@ -871,22 +899,15 @@ const AdventurePlaceDetail = () => {
 
       if (!isWorkingDay) { setIsOpenNow(false); return; }
 
-      // Missing hours default to a normal 08:00–18:00 window (matching what
-      // the "Hours" line itself falls back to), not a silent full-day span —
-      // so a place only reads as "open 24 hours" when its data actually says so.
       const openMinutes  = parseTimeToMinutes(place.opening_hours) ?? parseTimeToMinutes("08:00")!;
       const closeMinutes = parseTimeToMinutes(place.closing_hours) ?? parseTimeToMinutes("18:00")!;
 
-      // Figure out the span between open and close (handling overnight
-      // wraparound, e.g. opens 18:00 closes 02:00) — if it covers ~the whole
-      // day, treat it as open 24 hours on this working day.
       let spanMinutes = closeMinutes - openMinutes;
       if (spanMinutes <= 0) spanMinutes += 24 * 60;
       if (spanMinutes >= 23 * 60 + 59) { setIsOpenNow(true); return; }
 
       const nowMinutes = now.getHours() * 60 + now.getMinutes();
       if (closeMinutes <= openMinutes) {
-        // Overnight span, e.g. 18:00 – 02:00
         setIsOpenNow(nowMinutes >= openMinutes || nowMinutes < closeMinutes);
       } else {
         setIsOpenNow(nowMinutes >= openMinutes && nowMinutes < closeMinutes);
@@ -923,11 +944,6 @@ const AdventurePlaceDetail = () => {
 
   const handleCheckAvailability = () => { navigateToBooking(`/booking/adventure_place/${resolvedId}`); };
 
-  // While the record is still being fetched, show the actual place name if
-  // we already have it (e.g. re-render after a state update), otherwise
-  // derive a readable name straight from the URL slug so the spinner reads
-  // "Loading Amboseli National Park…" instead of a generic
-  // "Loading Adventure…" message.
   if (loading) {
     const loadingName = place?.name ? toTitleCase(place.name) : slugToDisplayName(rawSlug);
     return <TealLoader text={loadingName ? `Loading ${loadingName}…` : "Loading…"} />;
@@ -940,8 +956,6 @@ const AdventurePlaceDetail = () => {
     </div>
   );
 
-  // Gallery is capped at 5 images so page detail (text) renders and is usable
-  // before the browser is asked to fetch a long run of gallery photos.
   const allImages = [place.image_url, ...(place.gallery_images || [])].filter(Boolean).slice(0, GALLERY_IMAGE_LIMIT);
   const is24Hours = (() => {
     const openMinutes  = parseTimeToMinutes(place.opening_hours) ?? parseTimeToMinutes("08:00")!;
@@ -956,27 +970,31 @@ const AdventurePlaceDetail = () => {
   const daysOpened: string[] = Array.isArray(place.days_opened) ? place.days_opened : [];
   const specialPrices: SpecialPriceTier[] = Array.isArray(place.special_entry_prices) ? place.special_entry_prices : [];
 
-  // Category badge label (e.g. "Hotel", "Campsite") — falls back to a
-  // title-cased version of whatever category string is on the record so
-  // unmapped categories still display something sensible.
   const categoryLabel: string | null = place.category
     ? (CATEGORY_LABELS[place.category] ?? toTitleCase(place.category))
     : null;
   const CategoryIcon = (place.category && CATEGORY_ICONS[place.category]) || MapPin;
 
-  // The live Open now / Closed badge is only meaningful for hotels and
-  // campsites, matching the same rule used on the listing cards.
   const isHotelOrCampsite = place.category === "hotel" || place.category === "campsite";
+
+  const { googleMapsUrl: modalMapsUrl, embedUrl: modalEmbedUrl } = buildMapUrls(
+    place.name, place.latitude, place.longitude, place.location, place.country,
+  );
 
   const bookingCardProps = {
     place, is24Hours, daysOpened, capacityPerDay, formatPrice,
     onCheckAvailability: handleCheckAvailability,
-    onMap: () => window.open(
-      place.latitude && place.longitude
-        ? `https://www.google.com/maps?q=${place.latitude},${place.longitude}`
-        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${place.name}, ${place.location}`)}`,
-      "_blank"
-    ),
+    onMap: () => {
+      // Mobile: open the in-app map popup instead of jumping straight to
+      // Google Maps. Desktop keeps the direct new-tab behavior.
+      if (isMobile) { setMapModalOpen(true); return; }
+      window.open(
+        place.latitude && place.longitude
+          ? `https://www.google.com/maps?q=${place.latitude},${place.longitude}`
+          : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${place.name}, ${place.location}`)}`,
+        "_blank"
+      );
+    },
     onCopy: async () => {
       await navigator.clipboard.writeText(getShareLink(resolvedId, "adventure_place", place.name, place.location));
       toast({ title: "Link copied" });
@@ -993,8 +1011,6 @@ const AdventurePlaceDetail = () => {
       <DetailNavBar scrolled={scrolled} itemName={toTitleCase(place.name)} isSaved={isSaved} onSave={() => handleSaveItem(resolvedId, "adventure_place")} onBack={goBack} />
       <div style={{ height: "calc(56px + env(safe-area-inset-top, 0px))" }} />
 
-      {/* Only one gallery layout is ever mounted, based on actual screen size,
-          so we never fetch images for the layout the person can't see. */}
       {isMobile ? (
         <MobileCarousel images={allImages} name={place.name} />
       ) : (
@@ -1002,12 +1018,6 @@ const AdventurePlaceDetail = () => {
       )}
 
       <main className="container px-4 mt-5 relative z-10 max-w-6xl mx-auto" style={{ fontFamily: FONT_BODY }}>
-        {/* Single consistent order on every screen size now:
-            Title/badges -> About -> Amenities -> (mobile booking card) ->
-            Special Prices -> Facilities -> Activities -> Map.
-            About sits directly under the name/location/category block and
-            above Facilities/Activities, so the page's text content is ready
-            before those image-heavy sections come into view. */}
         <div className="grid grid-cols-1 lg:grid-cols-[1.8fr,1fr] gap-6">
           <div className="flex flex-col gap-6">
             <div>
@@ -1017,7 +1027,6 @@ const AdventurePlaceDetail = () => {
                 <span className="text-[13px] font-medium">{[place.place, place.location, place.country].filter(Boolean).join(", ")}</span>
               </div>
 
-              {/* Category + live Open now/Closed badges */}
               {(categoryLabel || isHotelOrCampsite) && (
                 <div className="flex items-center gap-2 mt-3">
                   {categoryLabel && (
@@ -1041,9 +1050,6 @@ const AdventurePlaceDetail = () => {
               )}
             </div>
 
-            {/* About this Place — moved up to sit right under the category
-                badges, above Amenities/Facilities/Activities, on every
-                screen size. */}
             {place.description && (
               <section className="bg-white rounded-2xl px-5 py-4.5" style={{ border: `1px solid ${HAIRLINE}` }}>
                 <SectionHeading title="About this place" color={FOREST} />
@@ -1055,7 +1061,6 @@ const AdventurePlaceDetail = () => {
               <AmenitiesScroll amenities={generalAmenities} accentColor={FOREST} />
             )}
 
-            {/* Booking card — mobile only */}
             <div className="bg-white rounded-2xl p-5 lg:hidden" style={{ border: `1px solid ${HAIRLINE}` }}>
               <BookingCard {...bookingCardProps} />
             </div>
@@ -1065,7 +1070,15 @@ const AdventurePlaceDetail = () => {
             {place.facilities?.length > 0 && <div id="facilities-section"><InlineFacilitiesGrid facilities={place.facilities} accentColor={FOREST} /></div>}
             {place.activities?.length > 0 && <div id="activities-section"><InlineActivitiesGrid activities={place.activities} formatPrice={formatPrice} /></div>}
 
-            <AlwaysOpenMapSection name={place.name} latitude={place.latitude} longitude={place.longitude} location={place.location} country={place.country} />
+            <AlwaysOpenMapSection
+              name={place.name}
+              latitude={place.latitude}
+              longitude={place.longitude}
+              location={place.location}
+              country={place.country}
+              isMobile={isMobile}
+              onOpenMap={() => setMapModalOpen(true)}
+            />
           </div>
 
           <div className="hidden lg:block">
@@ -1078,12 +1091,9 @@ const AdventurePlaceDetail = () => {
 
       <Footer />
 
-      {/* Mobile bottom bar */}
       <div className="fixed bottom-0 left-0 right-0 z-[100] md:hidden bg-white" style={{ borderTop: `1px solid ${HAIRLINE}`, boxShadow: "0 -6px 24px rgba(28,43,34,0.08)", paddingBottom: "env(safe-area-inset-bottom, 0px)", fontFamily: FONT_BODY }}>
         <div className="flex items-center justify-between px-4 py-3">
           <div>
-            {/* Free places show no price / label here at all — the bar just
-                keeps the "Check availability" button, no "Free Entry" text. */}
             {place.entry_fee && place.entry_fee > 0 ? (
               <div className="flex items-baseline gap-1">
                 <span className="text-xs" style={{ color: INK_SOFT }}>From</span>
@@ -1102,6 +1112,15 @@ const AdventurePlaceDetail = () => {
           </Button>
         </div>
       </div>
+
+      {mapModalOpen && (
+        <MapModal
+          name={place.name}
+          googleMapsUrl={modalMapsUrl}
+          embedUrl={modalEmbedUrl}
+          onClose={() => setMapModalOpen(false)}
+        />
+      )}
     </div>
   );
 };

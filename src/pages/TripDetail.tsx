@@ -22,10 +22,6 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 import { Footer } from "@/components/Footer";
 
 // ── Design tokens ─────────────────────────────────────────────────────────
-// Same field-guide / park-signage system used across the detail pages: deep
-// forest for structure and trust, a warm clay for the primary action, and a
-// dry-grass gold reserved for "special" content. Ink is a green-tinted
-// charcoal rather than pure black.
 const FOREST       = "#1F4D3A";
 const FOREST_DEEP  = "#123322";
 const FOREST_SOFT  = "#EAF0EA";
@@ -42,7 +38,6 @@ const SUCCESS      = "#2F6F4E";
 const FONT_DISPLAY = "'Fraunces', ui-serif, Georgia, serif";
 const FONT_BODY = "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif";
 
-// Injects the two typefaces once, without needing to touch the app's index.html.
 const useInjectFonts = () => {
   useEffect(() => {
     const id = "adventure-detail-fonts";
@@ -58,17 +53,11 @@ const useInjectFonts = () => {
 
 const SELECT_FIELDS = "id,name,location,place,country,image_url,gallery_images,images,date,is_custom_date,price,price_child,available_tickets,description,activities,created_by,type,opening_hours,closing_hours,days_opened,map_link,is_flexible_date,inclusions,exclusions,allow_children,ticket_types,slot_limit_type,pickup_location";
 
-// Converts ANY casing ("SAFARI WEEKEND", "safari weekend") into "Safari Weekend" —
-// first letter of each word capitalised, everything else lower case.
 const toTitleCase = (str?: string) => {
   if (!str) return "";
   return str.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
 };
 
-// ─── Screen-size hook ─────────────────────────────────────────────────────────
-// Lets us mount only ONE of <MobileCarousel /> / <DesktopGallery /> at a time,
-// instead of mounting both and just hiding one with CSS (which still fetches
-// every image for the hidden layout).
 const useIsMobile = (breakpoint = 768) => {
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth < breakpoint : false
@@ -83,10 +72,6 @@ const useIsMobile = (breakpoint = 768) => {
   return isMobile;
 };
 
-// ─── Small shared bits ────────────────────────────────────────────────────────
-// A section heading with a short colored rule underneath instead of an
-// all-caps tracked-out eyebrow — the rule reads as a deliberate underline,
-// not decoration.
 const SectionHeading = ({ title, color }: { title: string; color: string }) => (
   <div className="mb-3.5">
     <h2 className="text-lg md:text-xl font-semibold leading-none" style={{ fontFamily: FONT_DISPLAY, color: INK }}>
@@ -154,7 +139,6 @@ const ImageGalleryModal = ({
             {images.map((img, idx) => (
               <button key={idx} onClick={() => setCurrent(idx)} className="flex-shrink-0 transition-all rounded-md overflow-hidden"
                 style={{ width: 56, height: 42, outline: idx === current ? `2px solid ${CLAY_LIGHT}` : "2px solid transparent", outlineOffset: 1, opacity: idx === current ? 1 : 0.5 }}>
-                {/* Thumbnails only load once the gallery/"see all" is actually opened */}
                 <img src={img} alt="" loading="lazy" className="w-full h-full object-cover rounded-md" />
               </button>
             ))}
@@ -176,7 +160,6 @@ const DesktopGallery = ({ images, name }: { images: string[]; name: string }) =>
       {modalOpen && <ImageGalleryModal images={images} name={name} startIndex={modalStart} onClose={() => setModalOpen(false)} />}
       <div className="max-w-6xl mx-auto px-4 pt-5">
         <div className="relative rounded-[28px] overflow-hidden" style={{ display: "grid", gridTemplateColumns: "1.55fr 1fr", gridTemplateRows: "210px 136px", gap: "4px", border: `1px solid ${HAIRLINE}` }}>
-          {/* Only the 3 visible thumbnails are fetched — the rest stay unloaded until "see all" is opened */}
           <div style={{ gridRow: "1 / 3", overflow: "hidden", cursor: "pointer" }} onClick={() => open(0)}>
             {images[0] && <img src={images[0]} alt={name} loading="eager" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />}
           </div>
@@ -201,8 +184,7 @@ const DesktopGallery = ({ images, name }: { images: string[]; name: string }) =>
 };
 
 // ─── Mobile carousel ──────────────────────────────────────────────────────────
-// Only the active slide is ever mounted, so only it gets fetched. The full set
-// of images is only requested once the person taps "see all" (modal above).
+// No border radius on small screens (was rounded-b-[28px] — removed).
 const MobileCarousel = ({ images, name }: { images: string[]; name: string }) => {
   const [active, setActive] = useState(0);
   const [loaded, setLoaded] = useState(false);
@@ -222,7 +204,7 @@ const MobileCarousel = ({ images, name }: { images: string[]; name: string }) =>
   return (
     <>
       {modalOpen && <ImageGalleryModal images={images} name={name} startIndex={modalStart} onClose={() => setModalOpen(false)} />}
-      <div className="relative w-full overflow-hidden rounded-b-[28px]"
+      <div className="relative w-full overflow-hidden"
         style={{ height: "45vh", minHeight: "200px", maxHeight: "360px", background: FOREST_DEEP }}>
         <img
           key={active}
@@ -273,9 +255,6 @@ const MobileCarousel = ({ images, name }: { images: string[]; name: string }) =>
 };
 
 // ─── Highlights ───────────────────────────────────────────────────────────────
-// Palette re-themed around the forest/clay/gold system — each tag still gets
-// its own hue so a long list of activities stays scannable, just tuned to
-// sit alongside the rest of the page instead of a generic rainbow set.
 const HighlightsTags = ({ activities }: { activities: any[] }) => {
   if (!activities?.length) return null;
 
@@ -315,21 +294,71 @@ const HighlightsTags = ({ activities }: { activities: any[] }) => {
   );
 };
 
-// ─── Map Section ──────────────────────────────────────────────────────────────
-const TripMapSection = ({
-  name, location, country, mapLink,
-}: {
-  name: string;
-  location?: string;
-  country?: string;
-  mapLink?: string;
-}) => {
+// ─── Map URL helpers ───────────────────────────────────────────────────────
+// Shared by TripMapSection and the mobile map popup below.
+const buildMapUrls = (name: string, location?: string, country?: string, mapLink?: string) => {
   const searchQuery = encodeURIComponent([name, location, country].filter(Boolean).join(", "));
   const coordMatch = mapLink?.match(/[?&]q=([-\d.]+),([-\d.]+)/);
   const googleMapsUrl = mapLink || `https://www.google.com/maps/search/?api=1&query=${searchQuery}`;
   const embedUrl = coordMatch
     ? `https://maps.google.com/maps?q=${coordMatch[1]},${coordMatch[2]}&z=15&output=embed`
     : `https://maps.google.com/maps?q=${searchQuery}&z=13&output=embed`;
+  return { googleMapsUrl, embedUrl };
+};
+
+// ─── Mobile map popup ───────────────────────────────────────────────────────
+// Opens over the whole screen with a large, freely pannable embedded map.
+// There's no forced redirect to the Google Maps app — that's an explicit
+// choice at the bottom of the popup, not something tapping the map triggers.
+const MapModal = ({
+  name, googleMapsUrl, embedUrl, onClose,
+}: { name: string; googleMapsUrl: string; embedUrl: string; onClose: () => void }) => {
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  return (
+    <div className="fixed inset-0 z-[210] flex flex-col" style={{ background: "rgba(14,23,18,0.97)", paddingTop: "env(safe-area-inset-top, 0px)", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+      <div className="flex items-center justify-between px-4 py-3 flex-shrink-0">
+        <span className="text-[12px] font-semibold" style={{ fontFamily: FONT_BODY, color: "rgba(255,255,255,0.6)" }}>{name}</span>
+        <button onClick={onClose}
+          className="w-8 h-8 rounded-full flex items-center justify-center transition-colors text-white text-lg font-bold"
+          style={{ background: "rgba(255,255,255,0.1)" }}>
+          ✕
+        </button>
+      </div>
+      <div className="flex-1 relative">
+        <iframe title={`Map of ${name}`} src={embedUrl} width="100%" height="100%" style={{ border: 0, display: "block" }} allowFullScreen loading="eager" referrerPolicy="no-referrer-when-downgrade" />
+      </div>
+      <div className="flex-shrink-0 px-4 py-3">
+        <a
+          href={googleMapsUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-white text-sm font-semibold"
+          style={{ background: `linear-gradient(135deg, ${FOREST}, ${FOREST_DEEP})`, fontFamily: FONT_BODY }}
+        >
+          <ExternalLink className="h-4 w-4" /> Open in Google Maps app
+        </a>
+      </div>
+    </div>
+  );
+};
+
+// ─── Map Section ──────────────────────────────────────────────────────────────
+const TripMapSection = ({
+  name, location, country, mapLink, isMobile, onOpenMap,
+}: {
+  name: string;
+  location?: string;
+  country?: string;
+  mapLink?: string;
+  isMobile: boolean;
+  onOpenMap: () => void;
+}) => {
+  const { googleMapsUrl, embedUrl } = buildMapUrls(name, location, country, mapLink);
 
   return (
     <section className="bg-white rounded-2xl overflow-hidden" style={{ border: `1px solid ${HAIRLINE}`, fontFamily: FONT_BODY }}>
@@ -343,24 +372,39 @@ const TripMapSection = ({
             </p>
           </div>
         </div>
-        <a
-          href={googleMapsUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-white text-[11px] font-semibold transition-all hover:opacity-90 active:scale-95"
-          style={{ background: `linear-gradient(135deg, ${FOREST}, ${FOREST_DEEP})` }}
-        >
-          <ExternalLink className="h-3 w-3" />
-          Open in Google Maps
-        </a>
+        {/* Mobile: opens the in-app map popup instead of jumping straight out
+            to Google Maps. Desktop keeps the direct external link. */}
+        {isMobile ? (
+          <button
+            onClick={onOpenMap}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-white text-[11px] font-semibold transition-all hover:opacity-90 active:scale-95"
+            style={{ background: `linear-gradient(135deg, ${FOREST}, ${FOREST_DEEP})` }}
+          >
+            <MapPin className="h-3 w-3" /> View map
+          </button>
+        ) : (
+          <a
+            href={googleMapsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-white text-[11px] font-semibold transition-all hover:opacity-90 active:scale-95"
+            style={{ background: `linear-gradient(135deg, ${FOREST}, ${FOREST_DEEP})` }}
+          >
+            <ExternalLink className="h-3 w-3" />
+            Open in Google Maps
+          </a>
+        )}
       </div>
-      <div style={{ height: "300px", position: "relative" }}>
+      <div
+        style={{ height: "300px", position: "relative", cursor: isMobile ? "pointer" : "default" }}
+        onClick={isMobile ? onOpenMap : undefined}
+      >
         <iframe
           title={`Map of ${name}`}
           src={embedUrl}
           width="100%"
           height="100%"
-          style={{ border: 0, display: "block" }}
+          style={{ border: 0, display: "block", pointerEvents: isMobile ? "none" : "auto" }}
           allowFullScreen
           loading="lazy"
           referrerPolicy="no-referrer-when-downgrade"
@@ -410,7 +454,6 @@ const BookingCard = ({
 }) => (
   <div className="bg-white rounded-[28px] p-5 lg:sticky lg:top-24" style={{ border: `1px solid ${HAIRLINE}`, boxShadow: "0 8px 30px rgba(28,43,34,0.06)", fontFamily: FONT_BODY }}>
 
-    {/* Price + slots */}
     <div className="flex justify-between items-end mb-4">
       <div>
         <p className="text-[10px] font-medium mb-1" style={{ color: INK_SOFT }}>Ticket price</p>
@@ -427,7 +470,6 @@ const BookingCard = ({
       </div>
     </div>
 
-    {/* Hours */}
     {(event.opening_hours || event.closing_hours || (event.is_flexible_date && event.days_opened?.length > 0)) && (
       <div className="mb-4 p-3.5 rounded-2xl" style={{ background: CANVAS, border: `1px solid ${HAIRLINE}` }}>
         {(event.opening_hours || event.closing_hours) && (
@@ -449,7 +491,6 @@ const BookingCard = ({
       </div>
     )}
 
-    {/* Availability bar */}
     <div className="mb-4 p-3.5 rounded-2xl" style={{ background: CANVAS, border: `1px solid ${HAIRLINE}` }}>
       <div className="flex justify-between items-center mb-2">
         <span className="text-[11px] font-medium flex items-center gap-1.5" style={{ color: INK_SOFT }}><Users className="h-3.5 w-3.5" /> Availability</span>
@@ -463,7 +504,6 @@ const BookingCard = ({
       </div>
     </div>
 
-    {/* Trip meta */}
     <div className="space-y-2.5 mb-4">
       <div className="flex justify-between text-[12px] font-medium">
         <span style={{ color: INK_SOFT }}>Date</span>
@@ -515,7 +555,6 @@ const BookingCard = ({
       )}
     </div>
 
-    {/* Reserve */}
     <Button
       onClick={() => navigateToBooking(`/booking/trip/${event.id}`)}
       disabled={!canBook}
@@ -525,7 +564,6 @@ const BookingCard = ({
       {isSoldOut ? "Fully booked" : isExpired ? "Trip expired" : "Reserve spot"}
     </Button>
 
-    {/* Utilities */}
     <div className="grid grid-cols-3 gap-2 mt-4 pt-4" style={{ borderTop: `1px solid ${HAIRLINE}` }}>
       <UtilityButton icon={<MapPin className="h-4 w-4" />} label="Map" onClick={openInMaps} />
       <UtilityButton icon={<Copy className="h-4 w-4" />} label="Copy" onClick={handleCopyLink} />
@@ -551,6 +589,7 @@ const TripDetail = () => {
   const [loading, setLoading] = useState(true);
   const [scrolled, setScrolled] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [mapModalOpen, setMapModalOpen] = useState(false);
 
   const { savedItems, handleSave: handleSaveItem } = useSavedItems();
   const currentItemId = event?.id || "";
@@ -618,6 +657,9 @@ const TripDetail = () => {
   };
 
   const openInMaps = () => {
+    // Mobile: open the in-app map popup instead of jumping straight to
+    // Google Maps. Desktop keeps the direct new-tab behavior.
+    if (isMobile) { setMapModalOpen(true); return; }
     const query = encodeURIComponent(`${event?.name}, ${event?.location}`);
     window.open(event?.map_link || `https://www.google.com/maps/search/?api=1&query=${query}`, "_blank");
   };
@@ -651,7 +693,10 @@ const TripDetail = () => {
   const canBook = !isExpired && !isSoldOut;
   const allImages = [event?.image_url, ...(event?.gallery_images || []), ...(event?.images || [])].filter((v, i, a) => Boolean(v) && a.indexOf(v) === i);
 
-  // Shared booking card props
+  const { googleMapsUrl: modalMapsUrl, embedUrl: modalEmbedUrl } = buildMapUrls(
+    event.name, event.location, event.country, event.map_link,
+  );
+
   const bookingCardProps = {
     event,
     formatPrice,
@@ -671,15 +716,12 @@ const TripDetail = () => {
 
       <div style={{ height: "calc(56px + env(safe-area-inset-top, 0px))" }} />
 
-      {/* Only one gallery layout is ever mounted, based on actual screen size,
-          so we never fetch images for the layout the person can't see. */}
       {isMobile ? (
         <MobileCarousel images={allImages} name={event.name} />
       ) : (
         <DesktopGallery images={allImages} name={event.name} />
       )}
 
-      {/* ── Name / badge / location ── */}
       <div className="max-w-6xl mx-auto px-4 pt-5 pb-1" style={{ fontFamily: FONT_BODY }}>
         <span className="inline-flex items-center gap-1.5 mb-2.5 text-white px-3 py-1 rounded-full text-[11px] font-semibold" style={{ background: `linear-gradient(135deg, ${CLAY_LIGHT}, ${CLAY})` }}>
           <Navigation className="h-3 w-3" /> Trip
@@ -693,25 +735,20 @@ const TripDetail = () => {
         </button>
       </div>
 
-      {/* ══ MAIN CONTENT ══════════════════════════════════════════════════════ */}
       <main className="container px-4 max-w-6xl mx-auto mt-5 relative z-10" style={{ fontFamily: FONT_BODY }}>
 
-        {/* ── Mobile-only: Booking card FIRST, above everything ── */}
         <div className="lg:hidden mb-5">
           <BookingCard {...bookingCardProps} />
         </div>
 
         <div className="grid lg:grid-cols-[1.7fr,1fr] gap-6">
 
-          {/* ── Left column ── */}
           <div className="space-y-5">
 
-            {/* Highlights */}
             {event.activities?.length > 0 && (
               <HighlightsTags activities={event.activities} />
             )}
 
-            {/* Inclusions & Exclusions */}
             {((event.inclusions?.length > 0) || (event.exclusions?.length > 0)) && (
               <div className="bg-white rounded-2xl p-5" style={{ border: `1px solid ${HAIRLINE}` }}>
                 <SectionHeading title="Package details" color={FOREST} />
@@ -748,7 +785,6 @@ const TripDetail = () => {
               </div>
             )}
 
-            {/* About */}
             <div className="bg-white rounded-2xl p-5" style={{ border: `1px solid ${HAIRLINE}` }}>
               <SectionHeading title="About this trip" color={FOREST} />
               {event.description
@@ -757,17 +793,17 @@ const TripDetail = () => {
               }
             </div>
 
-            {/* Map Section */}
             <TripMapSection
               name={event.name}
               location={event.location}
               country={event.country}
               mapLink={event.map_link}
+              isMobile={isMobile}
+              onOpenMap={() => setMapModalOpen(true)}
             />
 
           </div>
 
-          {/* ── Right column / Booking card — desktop only ── */}
           <div className="hidden lg:block space-y-5">
             <BookingCard {...bookingCardProps} />
           </div>
@@ -776,7 +812,6 @@ const TripDetail = () => {
 
       <Footer />
 
-      {/* Mobile bottom bar */}
       <div className="fixed bottom-0 left-0 right-0 z-[100] md:hidden bg-white"
         style={{ borderTop: `1px solid ${HAIRLINE}`, boxShadow: "0 -6px 24px rgba(28,43,34,0.08)", paddingBottom: "env(safe-area-inset-bottom, 0px)", fontFamily: FONT_BODY }}>
         <div className="flex items-center justify-between px-4 py-3">
@@ -799,8 +834,17 @@ const TripDetail = () => {
           </Button>
         </div>
       </div>
+
+      {mapModalOpen && (
+        <MapModal
+          name={event.name}
+          googleMapsUrl={modalMapsUrl}
+          embedUrl={modalEmbedUrl}
+          onClose={() => setMapModalOpen(false)}
+        />
+      )}
     </div>
-  );
+  ); 
 };
 
 export default TripDetail;

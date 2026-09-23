@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff, Loader2, ShieldCheck, AlertCircle } from "lucide-react";
+import { markGoogleAuthIntent } from "@/hooks/useGoogleAuthGuard";
 
 const DEVICE_ID_KEY = "rt_device_id";
 const STALE_LOGIN_DAYS = 7;
@@ -17,7 +18,7 @@ function getDeviceId() {
     localStorage.setItem(DEVICE_ID_KEY, id);
   }
   return id;
-} 
+}
 
 interface LoginFormProps {
   onSwitchToSignup: () => void;
@@ -29,7 +30,7 @@ interface LoginFormProps {
 
 // Small inline error line, meant to sit directly under the field it refers to.
 const FieldError = ({ message }: { message: string }) => (
-  <p className="flex items-center gap-1 text-[10px] text-destructive mt-1">
+  <p className="flex items-center gap-1 text-[10px] text-red-600 mt-1">
     <AlertCircle className="w-3 h-3 shrink-0" />
     {message}
   </p>
@@ -179,11 +180,16 @@ export const LoginForm = ({ onSwitchToSignup, onAuthSuccess }: LoginFormProps) =
 
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
+    // Tag this as a LOGIN attempt so useGoogleAuthGuard (mounted near the app
+    // root) can tell, once Google redirects back, whether Supabase just
+    // auto-created a brand-new account — which means no account existed and
+    // the person should be told to sign up instead.
+    markGoogleAuthIntent("login");
     const { error } = await (supabase as any).auth.signInWithOAuth({
-      provider: 'google',
+      provider: "google",
       options: {
         redirectTo: `${window.location.origin}/`,
-      }
+      },
     });
     if (error) {
       toast({ title: "OAuth Error", description: error.message, variant: "destructive" });
@@ -191,20 +197,20 @@ export const LoginForm = ({ onSwitchToSignup, onAuthSuccess }: LoginFormProps) =
     }
   };
 
-  const inputStyle = "h-8 bg-black/20 border-white/10 text-xs rounded-md";
+  const inputStyle = "h-9 bg-white border border-slate-300 text-black text-xs rounded-md placeholder:text-slate-400 focus-visible:ring-[rgb(0,128,128)]";
 
   if (needsDeviceVerification) {
     return (
       <form onSubmit={handleDeviceVerify} className="space-y-2">
         <div className="flex items-center gap-1.5 text-[rgb(0,128,128)]">
           <ShieldCheck className="w-3.5 h-3.5" />
-          <Label className="text-[10px] uppercase text-slate-400 font-bold">Confirm it's you</Label>
+          <Label className="text-[10px] uppercase text-slate-600 font-bold">Confirm it's you</Label>
         </div>
         <p className="text-[10px] text-slate-500 leading-tight">
           It's been a while, or this looks like a new device. Enter the code we sent to {email}.
         </p>
         <div className="space-y-1">
-          <Label className="text-[10px] uppercase text-slate-500">Verification Code</Label>
+          <Label className="text-[10px] uppercase text-slate-600">Verification Code</Label>
           <Input
             type="text"
             value={deviceVerifyCode}
@@ -220,7 +226,7 @@ export const LoginForm = ({ onSwitchToSignup, onAuthSuccess }: LoginFormProps) =
           />
           {deviceVerifyError && <FieldError message={deviceVerifyError} />}
         </div>
-        <Button type="submit" disabled={loading} className="w-full h-8 bg-[rgb(0,128,128)] text-xs font-bold uppercase mt-1">
+        <Button type="submit" disabled={loading} className="w-full h-9 bg-[rgb(0,128,128)] hover:bg-[rgb(0,110,110)] text-white text-xs font-bold uppercase mt-1">
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Confirm & Continue"}
         </Button>
         <button
@@ -242,7 +248,7 @@ export const LoginForm = ({ onSwitchToSignup, onAuthSuccess }: LoginFormProps) =
   return (
     <form onSubmit={handleLogin} className="space-y-2">
       <div className="space-y-1">
-        <Label className="text-[10px] uppercase text-slate-500">Email</Label>
+        <Label className="text-[10px] uppercase text-slate-600">Email</Label>
         <Input
           type="email"
           value={email}
@@ -259,7 +265,7 @@ export const LoginForm = ({ onSwitchToSignup, onAuthSuccess }: LoginFormProps) =
       {loginMethod === "password" ? (
         <div className="space-y-1">
           <div className="flex items-center justify-between">
-            <Label className="text-[10px] uppercase text-slate-500">Password</Label>
+            <Label className="text-[10px] uppercase text-slate-600">Password</Label>
             <button
               type="button"
               onClick={() => navigate("/forgot-password", { state: { email } })}
@@ -289,7 +295,7 @@ export const LoginForm = ({ onSwitchToSignup, onAuthSuccess }: LoginFormProps) =
       ) : (
         codeSent && (
           <div className="space-y-1">
-            <Label className="text-[10px] uppercase text-slate-500">Verification Code</Label>
+            <Label className="text-[10px] uppercase text-slate-600">Verification Code</Label>
             <Input
               type="text"
               value={otpCode}
@@ -307,7 +313,7 @@ export const LoginForm = ({ onSwitchToSignup, onAuthSuccess }: LoginFormProps) =
         )
       )}
 
-      <Button type="submit" disabled={loading || googleLoading} className="w-full h-8 bg-[rgb(0,128,128)] text-xs font-bold uppercase mt-1">
+      <Button type="submit" disabled={loading || googleLoading} className="w-full h-9 bg-[rgb(0,128,128)] hover:bg-[rgb(0,110,110)] text-white text-xs font-bold uppercase mt-1">
         {loading ? (
           <Loader2 className="w-4 h-4 animate-spin" />
         ) : loginMethod === "code" && !codeSent ? (
@@ -333,21 +339,21 @@ export const LoginForm = ({ onSwitchToSignup, onAuthSuccess }: LoginFormProps) =
       </div>
 
       <div className="relative flex py-1 items-center">
-        <div className="flex-grow border-t border-white/5"></div>
-        <span className="flex-shrink mx-2 text-[8px] text-slate-600 uppercase font-bold tracking-wider">Or</span>
-        <div className="flex-grow border-t border-white/5"></div>
+        <div className="flex-grow border-t border-slate-200"></div>
+        <span className="flex-shrink mx-2 text-[8px] text-slate-400 uppercase font-bold tracking-wider">Or</span>
+        <div className="flex-grow border-t border-slate-200"></div>
       </div>
 
       <Button
         type="button"
         disabled={loading || googleLoading}
         onClick={handleGoogleSignIn}
-        className="w-full h-8 bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-bold uppercase transition-all flex items-center justify-center gap-2"
+        className="w-full h-9 bg-white hover:bg-slate-50 border border-slate-300 text-black text-xs font-bold uppercase transition-all flex items-center justify-center gap-2"
       >
         {googleLoading ? (
           <Loader2 className="w-3.5 h-3.5 animate-spin" />
         ) : (
-          <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
             <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
             <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>

@@ -28,7 +28,7 @@ function calculateAge(dob: string) {
 
 // Small inline error line, meant to sit directly under the field it refers to.
 const FieldError = ({ message }: { message: string }) => (
-  <p className="flex items-center gap-1 text-[10px] text-destructive mt-1">
+  <p className="flex items-center gap-1 text-[10px] text-red-600 mt-1">
     <AlertCircle className="w-3 h-3 shrink-0" />
     {message}
   </p>
@@ -66,9 +66,12 @@ export const CompleteGoogleProfileForm = ({
 
   const { toast } = useToast();
 
-  const inputStyle = "h-8 bg-black/20 border-white/10 text-xs rounded-md";
-  const pwInputStyle = "h-8 bg-black/20 border-white/10 text-xs rounded-md pr-8";
-  const labelStyle = "text-[9px] uppercase text-slate-500 font-bold ml-0.5";
+  const inputStyle = "h-9 bg-white border border-slate-300 text-black text-xs rounded-md placeholder:text-slate-400 focus-visible:ring-[rgb(0,128,128)]";
+  const pwInputStyle = "h-9 bg-white border border-slate-300 text-black text-xs rounded-md pr-8 placeholder:text-slate-400 focus-visible:ring-[rgb(0,128,128)]";
+  const labelStyle = "text-[10px] uppercase text-slate-600 font-bold ml-0.5";
+  // z-[400] beats CompleteProfileGate's z-[300] overlay so the dropdown
+  // panel renders above the popup instead of underneath it.
+  const selectContentStyle = "z-[400] bg-white border border-slate-200 text-black max-h-60";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -155,7 +158,7 @@ export const CompleteGoogleProfileForm = ({
   return (
     <form onSubmit={handleSubmit} className="space-y-1.5">
       <div className="space-y-1 mb-1">
-        <p className="text-xs font-semibold text-white">Finish setting up your account</p>
+        <p className="text-xs font-semibold text-slate-900">Finish setting up your account</p>
         <p className="text-[10px] text-slate-500 leading-tight">
           A few last details, then you're in — no code needed.
         </p>
@@ -179,7 +182,7 @@ export const CompleteGoogleProfileForm = ({
             <SelectTrigger className={inputStyle}>
               <SelectValue placeholder="-" />
             </SelectTrigger>
-            <SelectContent className="bg-slate-900 border-white/10 text-white">
+            <SelectContent className={selectContentStyle}>
               <SelectItem value="male">Male</SelectItem>
               <SelectItem value="female">Female</SelectItem>
               <SelectItem value="other">Other</SelectItem>
@@ -193,7 +196,7 @@ export const CompleteGoogleProfileForm = ({
             <SelectTrigger className={inputStyle}>
               <SelectValue placeholder="-" />
             </SelectTrigger>
-            <SelectContent className="bg-slate-900 border-white/10 text-white max-h-60">
+            <SelectContent className={selectContentStyle}>
               {COUNTRIES.map((c) => (
                 <SelectItem key={c} value={c}>{c}</SelectItem>
               ))}
@@ -261,7 +264,7 @@ export const CompleteGoogleProfileForm = ({
       </div>
       {passwordError && <FieldError message={passwordError} />}
 
-      <Button type="submit" disabled={loading} className="w-full h-8 bg-[rgb(0,128,128)] text-xs font-bold uppercase mt-1">
+      <Button type="submit" disabled={loading} className="w-full h-9 bg-[rgb(0,128,128)] hover:bg-[rgb(0,110,110)] text-white text-xs font-bold uppercase mt-1">
         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Finish Sign Up"}
       </Button>
     </form>

@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Globe } from "lucide-react";
 import { CountrySelector } from "@/components/creation/CountrySelector";
+import { markGoogleAuthIntent } from "@/hooks/useGoogleAuthGuard";
 
 const MIN_SIGNUP_AGE = 12;
 
@@ -122,6 +123,10 @@ export const SignupForm = ({ onSwitchToLogin, onSignupSuccess }: SignupFormProps
 
   const handleGoogleSignUp = async () => {
     setGoogleLoading(true);
+    // Tag this as a SIGNUP attempt — useGoogleAuthGuard (mounted near the app
+    // root) will see this and knows it's fine if Supabase creates a new
+    // account for this Google email.
+    markGoogleAuthIntent("signup");
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -134,16 +139,26 @@ export const SignupForm = ({ onSwitchToLogin, onSignupSuccess }: SignupFormProps
     }
   };
 
-  const inputStyle = "h-8 bg-black/20 border-white/10 text-xs rounded-md pr-8";
+  const inputStyle = "h-9 bg-white border border-slate-300 text-black text-xs rounded-md pr-8 placeholder:text-slate-400 focus-visible:ring-[rgb(0,128,128)]";
+  const plainInputStyle = "h-9 bg-white border border-slate-300 text-black text-xs rounded-md placeholder:text-slate-400 focus-visible:ring-[rgb(0,128,128)]";
+  // z-[300] beats AuthModal's z-[200] backdrop so the dropdown panel renders
+  // above the popup instead of underneath it.
+  const selectContentStyle = "z-[300] bg-white border border-slate-200 text-black";
 
   return (
     <form onSubmit={handleSignup} className="space-y-1.5 max-h-full overflow-y-auto">
       {/* Country selector sits above the rest of the form and is optional */}
       <div className="space-y-0.5">
-        <Label className="text-[9px] uppercase text-slate-500 font-bold ml-0.5 flex items-center gap-1">
+        <Label className="text-[10px] uppercase text-slate-600 font-bold ml-0.5 flex items-center gap-1">
           <Globe className="h-2.5 w-2.5" />
-          Home country <span className="normal-case font-medium text-slate-600">(optional)</span>
+          Home country <span className="normal-case font-medium text-slate-400">(optional)</span>
         </Label>
+        {/*
+          NOTE: CountrySelector is a separate component not shown here. If it
+          renders its own dropdown/popover, give that dropdown's content the
+          same z-[300] (or higher) treatment as selectContentStyle below, or
+          it will still appear underneath the modal.
+        */}
         <CountrySelector
           countryId={countryId}
           divisionId={divisionId}
@@ -156,34 +171,34 @@ export const SignupForm = ({ onSwitchToLogin, onSignupSuccess }: SignupFormProps
 
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-0.5">
-          <Label className="text-[9px] uppercase text-slate-500 font-bold ml-0.5">First Name</Label>
-          <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} className="h-8 bg-black/20 border-white/10 text-xs rounded-md" required />
+          <Label className="text-[10px] uppercase text-slate-600 font-bold ml-0.5">First Name</Label>
+          <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} className={plainInputStyle} required />
         </div>
         <div className="space-y-0.5">
-          <Label className="text-[9px] uppercase text-slate-500 font-bold ml-0.5">Surname</Label>
-          <Input value={lastName} onChange={(e) => setLastName(e.target.value)} className="h-8 bg-black/20 border-white/10 text-xs rounded-md" required />
+          <Label className="text-[10px] uppercase text-slate-600 font-bold ml-0.5">Surname</Label>
+          <Input value={lastName} onChange={(e) => setLastName(e.target.value)} className={plainInputStyle} required />
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-0.5">
-          <Label className="text-[9px] uppercase text-slate-500 font-bold ml-0.5">Date of Birth</Label>
+          <Label className="text-[10px] uppercase text-slate-600 font-bold ml-0.5">Date of Birth</Label>
           <Input
             type="date"
             value={dateOfBirth}
             onChange={(e) => setDateOfBirth(e.target.value)}
             max={new Date().toISOString().split("T")[0]}
-            className="h-8 bg-black/20 border-white/10 text-xs rounded-md"
+            className={plainInputStyle}
             required
           />
         </div>
         <div className="space-y-0.5">
-          <Label className="text-[9px] uppercase text-slate-500 font-bold ml-0.5">Gender</Label>
+          <Label className="text-[10px] uppercase text-slate-600 font-bold ml-0.5">Gender</Label>
           <Select value={gender} onValueChange={setGender}>
-            <SelectTrigger className="h-8 bg-black/20 border-white/10 text-xs rounded-md">
+            <SelectTrigger className={plainInputStyle}>
               <SelectValue placeholder="-" />
             </SelectTrigger>
-            <SelectContent className="bg-slate-900 border-white/10 text-white">
+            <SelectContent className={selectContentStyle}>
               <SelectItem value="male">Male</SelectItem>
               <SelectItem value="female">Female</SelectItem>
               <SelectItem value="other">Other</SelectItem>
@@ -194,13 +209,13 @@ export const SignupForm = ({ onSwitchToLogin, onSignupSuccess }: SignupFormProps
       </div>
 
       <div className="space-y-0.5">
-        <Label className="text-[9px] uppercase text-slate-500 font-bold ml-0.5">Email</Label>
-        <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="h-8 bg-black/20 border-white/10 text-xs rounded-md" required />
+        <Label className="text-[10px] uppercase text-slate-600 font-bold ml-0.5">Email</Label>
+        <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={plainInputStyle} required />
       </div>
 
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-0.5">
-          <Label className="text-[9px] uppercase text-slate-500 font-bold ml-0.5">Password</Label>
+          <Label className="text-[10px] uppercase text-slate-600 font-bold ml-0.5">Password</Label>
           <div className="relative">
             <Input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} className={inputStyle} required />
             <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500">
@@ -214,7 +229,7 @@ export const SignupForm = ({ onSwitchToLogin, onSignupSuccess }: SignupFormProps
         </div>
 
         <div className="space-y-0.5">
-          <Label className="text-[9px] uppercase text-slate-500 font-bold ml-0.5">Confirm</Label>
+          <Label className="text-[10px] uppercase text-slate-600 font-bold ml-0.5">Confirm</Label>
           <div className="relative">
             <Input type={showConfirmPassword ? "text" : "password"} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className={inputStyle} required />
             <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500">
@@ -228,26 +243,26 @@ export const SignupForm = ({ onSwitchToLogin, onSignupSuccess }: SignupFormProps
         </div>
       </div>
 
-      <Button type="submit" disabled={loading || googleLoading} className="w-full h-8 bg-[rgb(0,128,128)] text-xs font-bold uppercase mt-1">
+      <Button type="submit" disabled={loading || googleLoading} className="w-full h-9 bg-[rgb(0,128,128)] hover:bg-[rgb(0,110,110)] text-white text-xs font-bold uppercase mt-1">
         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create Account"}
       </Button>
 
       <div className="relative flex py-0.5 items-center">
-        <div className="flex-grow border-t border-white/5"></div>
-        <span className="flex-shrink mx-2 text-[8px] text-slate-600 uppercase font-bold tracking-wider">Or</span>
-        <div className="flex-grow border-t border-white/5"></div>
+        <div className="flex-grow border-t border-slate-200"></div>
+        <span className="flex-shrink mx-2 text-[8px] text-slate-400 uppercase font-bold tracking-wider">Or</span>
+        <div className="flex-grow border-t border-slate-200"></div>
       </div>
 
       <Button
         type="button"
         disabled={loading || googleLoading}
         onClick={handleGoogleSignUp}
-        className="w-full h-8 bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-bold uppercase transition-all flex items-center justify-center gap-2"
+        className="w-full h-9 bg-white hover:bg-slate-50 border border-slate-300 text-black text-xs font-bold uppercase transition-all flex items-center justify-center gap-2"
       >
         {googleLoading ? (
           <Loader2 className="w-3.5 h-3.5 animate-spin" />
         ) : (
-          <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
             <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
             <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
@@ -257,7 +272,7 @@ export const SignupForm = ({ onSwitchToLogin, onSignupSuccess }: SignupFormProps
         SignUp with Google
       </Button>
 
-      <p className="text-[8px] text-center text-slate-600 px-2 pt-0.5 leading-tight">
+      <p className="text-[8px] text-center text-slate-400 px-2 pt-0.5 leading-tight">
         By joining, you agree to our Terms and Privacy policy.
       </p>
     </form>

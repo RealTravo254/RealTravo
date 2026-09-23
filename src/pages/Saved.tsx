@@ -4,13 +4,14 @@ import { MobileBottomBar } from "@/components/MobileBottomBar";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { getUserId } from "@/lib/sessionManager";
-import { useLocation, useNavigate } from "react-router-dom";
-import { Trash2, MapPin, ChevronRight, Loader2, LogIn, Heart } from "lucide-react";
+import { useLocation } from "react-router-dom";
+import { Trash2, MapPin, ChevronRight, Loader2, LogIn, UserPlus, Heart } from "lucide-react";
 import { createDetailPath } from "@/lib/slugUtils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { useSavedItems } from "@/hooks/useSavedItems";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAuthModal } from "@/contexts/AuthModalContext";
 import { getLocalSavedItems, removeItemLocally } from "@/hooks/useLocalSavedItems";
 
 // ── Design tokens ─────────────────────────────────────────────────────────
@@ -113,7 +114,7 @@ const Saved = () => {
   const [savedListings, setSavedListings] = useState<any[]>([]);
   const { savedItems } = useSavedItems();
   const { user, loading: authLoading } = useAuth();
-  const navigate = useNavigate();
+  const { openAuthModal } = useAuthModal();
   const [userId, setUserId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -175,6 +176,10 @@ const Saved = () => {
       fetchSavedItems(uid, 0);
     };
     initializeData();
+    // Re-runs the moment `user` flips from null -> a real user (i.e. right
+    // after they log in or sign up from this page's modal), which is what
+    // takes them from the "please sign in" view straight into their real
+    // saved items without ever having navigated away from /saved.
   }, [authLoading, user]);
 
   useEffect(() => {
@@ -284,14 +289,29 @@ const Saved = () => {
             </div>
             <h2 className="text-xl font-semibold mb-2" style={{ fontFamily: FONT_DISPLAY, color: INK }}>Sign in to see your saved items</h2>
             <p className="text-sm mb-6 text-center max-w-sm" style={{ color: INK_SOFT }}>Log in or create an account to save your favourite adventures, stays and events.</p>
-            <Button
-              onClick={() => navigate('/auth')}
-              className="rounded-xl text-sm font-semibold gap-2 px-8 py-3 text-white border-none hover:opacity-95"
-              style={{ background: `linear-gradient(135deg, ${CLAY_LIGHT}, ${CLAY})` }}
-            >
-              <LogIn className="h-4 w-4" />
-              Log in / Sign up
-            </Button>
+            {/* Opens the same auth modal used across the app (e.g. the
+                bottom nav bar) instead of navigating to a separate /auth
+                page — the person never leaves Saved, so once they're
+                signed in this view just swaps straight to their real list. */}
+            <div className="flex items-center gap-2.5">
+              <Button
+                onClick={() => openAuthModal("login")}
+                variant="outline"
+                className="rounded-xl text-sm font-semibold gap-2 px-6 py-3"
+                style={{ borderColor: HAIRLINE, color: INK }}
+              >
+                <LogIn className="h-4 w-4" />
+                Log in
+              </Button>
+              <Button
+                onClick={() => openAuthModal("signup")}
+                className="rounded-xl text-sm font-semibold gap-2 px-6 py-3 text-white border-none hover:opacity-95"
+                style={{ background: `linear-gradient(135deg, ${CLAY_LIGHT}, ${CLAY})` }}
+              >
+                <UserPlus className="h-4 w-4" />
+                Sign up
+              </Button>
+            </div>
           </div>
         </div>
         <MobileBottomBar />
@@ -324,15 +344,26 @@ const Saved = () => {
               <p className="text-[13px] font-semibold" style={{ color: INK }}>Sign in to sync your saved items</p>
               <p className="text-[11px] mt-0.5" style={{ color: INK_SOFT }}>Your locally saved items will be synced to your account when you log in.</p>
             </div>
-            <Button
-              onClick={() => navigate('/auth')}
-              size="sm"
-              className="shrink-0 rounded-xl text-xs font-semibold gap-1.5 text-white border-none hover:opacity-95"
-              style={{ background: `linear-gradient(135deg, ${CLAY_LIGHT}, ${CLAY})` }}
-            >
-              <LogIn className="h-3.5 w-3.5" />
-              Log in
-            </Button>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <Button
+                onClick={() => openAuthModal("login")}
+                size="sm"
+                variant="outline"
+                className="rounded-xl text-xs font-semibold"
+                style={{ borderColor: `${FOREST}30`, color: FOREST }}
+              >
+                Log in
+              </Button>
+              <Button
+                onClick={() => openAuthModal("signup")}
+                size="sm"
+                className="rounded-xl text-xs font-semibold gap-1.5 text-white border-none hover:opacity-95"
+                style={{ background: `linear-gradient(135deg, ${CLAY_LIGHT}, ${CLAY})` }}
+              >
+                <LogIn className="h-3.5 w-3.5" />
+                Sign up
+              </Button>
+            </div>
           </div>
         )}
 
@@ -458,7 +489,7 @@ const Saved = () => {
                 ) : (
                   "Load more"
                 )}
-              </Button>
+              </Button> 
             </div>
           )}
         </main>

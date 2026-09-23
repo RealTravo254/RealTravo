@@ -13,7 +13,7 @@ import { useBanCheck } from "@/hooks/useBanCheck";
 import {
   MapPin, Navigation, Clock, X, Plus, Camera, CheckCircle2, Info, ArrowLeft, Loader2,
   DollarSign, ChevronLeft, ChevronRight, Link2, ShieldCheck, FileImage, Upload,
-  Globe, Users, Sparkles, TreePine, Tent, Landmark,
+  Globe, Users, Sparkles, TreePine, Tent, Landmark, BedDouble,
 } from "lucide-react";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -28,6 +28,24 @@ import { GeneralFacilitiesSelector } from "@/components/creation/GeneralFaciliti
 import { CreateFormStepper } from "@/components/creation/CreateFormStepper";
 import { cn } from "@/lib/utils";
 import { useCurrency } from "@/contexts/CurrencyContext";
+
+/**
+ * ── DB requirement for the Division field below ──────────────────────────
+ * This form now lets a host optionally tag their listing with a division /
+ * region, matching the `country_divisions` table already used by the
+ * homepage's "Explore <Country>" rail and by ProfileEdit's home-country
+ * picker. Add the column if it doesn't already exist:
+ *
+ *   alter table public.adventure_places
+ *     add column if not exists division_id uuid references public.country_divisions(id);
+ *
+ * The dropdown is populated by matching the free-text `country` value the
+ * host already picks below against `countries.name`, then loading that
+ * country's rows from `country_divisions`. If no match is found (country is
+ * "Other", or that country isn't seeded in `countries` yet), the dropdown
+ * just stays empty and `division_id` is saved as null — it's optional and
+ * never blocks submission.
+ * ────────────────────────────────────────────────────────────────────────── */
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const COLORS = { TEAL: "#008080", CORAL: "#FF7F50", KHAKI: "#F0E68C", KHAKI_DARK: "#857F3E" };
@@ -47,18 +65,18 @@ const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp
 const isImageFile = (file: File) => ALLOWED_IMAGE_TYPES.includes(file.type) || file.type.startsWith("image/");
 
 // ─── Listing Category ──────────────────────────────────────────────────────────
-// Outdoor Place (campsite) is the ONLY selectable category right now.
-// Accommodation / Airbnb hosting and Hotel hosting have both been removed
-// completely (no commented-out remnants left for either — this was a
-// deliberate, permanent removal, not a temporary disable).
-// Hosting an Outdoor Place listing is the only path that allows a user to
+// Outdoor Place (campsite) and Hotel & Stay are both selectable here — a host
+// picks which kind of place they're listing and it's saved as-is to the
+// `category` column ("campsite" or "hotel") on adventure_places, the same
+// table used by the homepage's Hotels & Stays / Outdoor & Campsites rows.
+// Hosting an Outdoor Place listing is the only category that allows a user to
 // create MULTIPLE approved listings on their account (see database policy +
-// BecomeHost logic). Park / Attraction remain commented out below — uncomment
-// to restore them, but note doing so re-enables the "one listing per account"
-// cap for those categories only; Outdoor Place remains multi-listing
-// regardless.
+// BecomeHost logic) — Hotel & Stay listings stay capped at one per account
+// until that policy is deliberately extended to cover it too. Park /
+// Attraction remain commented out below — uncomment to restore them.
 const CATEGORY_OPTIONS: { value: string; label: string; icon: any }[] = [
   { value: "campsite", label: "Outdoor Place", icon: Tent },
+  { value: "hotel", label: "Hotel & Stay", icon: BedDouble },
   // { value: "park", label: "Park", icon: TreePine }, // uncomment when Park pages are ready
   // { value: "attraction", label: "Attraction", icon: Landmark }, // uncomment when Attraction pages are ready
 ];
@@ -80,6 +98,11 @@ interface SpecialPriceTier {
   nonCitizenPrice: string;
   requirement: string;
   saved: boolean;
+}
+// ── Division / region option, loaded from `country_divisions` ────────────────
+interface DivisionOption {
+  id: string;
+  name: string;
 }
 const emptyFacility = (): FacilityItem => ({ id: makeId(), name: "", amenities: [], amenityInput: "", price: "", capacity: "", images: [], previewUrls: [], saved: false });
 const emptyActivity = (): ActivityItem => ({ id: makeId(), name: "", price: "", images: [], previewUrls: [], saved: false });
@@ -130,7 +153,7 @@ const CompressingBanner = ({ label = "Compressing photos…" }: { label?: string
   </div>
 );
 
-// ─── Category Selector (Outdoor Place only for now) ───────────────────────────
+// ─── Category Selector (Outdoor Place or Hotel & Stay) ────────────────────────
 const CategorySelector = ({
   value, onChange, isInvalid,
 }: { value: string; onChange: (v: string) => void; isInvalid?: boolean }) => (
@@ -164,7 +187,7 @@ const CategorySelector = ({
       })}
     </div>
     {isInvalid && (
-      <p className="text-red-400 text-[10px] font-semibold mt-1.5">Please select Outdoor Place to continue</p>
+      <p className="text-red-400 text-[10px] font-semibold mt-1.5">Please select a category to continue</p>
     )}
   </div>
 );
@@ -715,7 +738,7 @@ const StepSidebar = ({ steps, currentStep, onStepClick }: { steps: any[]; curren
       <img src="/images/category-campsite.webp" className="w-full h-full object-cover" alt="" />
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
       <div className="absolute bottom-4 left-5 right-5">
-        <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: COLORS.KHAKI }}>Outdoor Place</span>
+        <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: COLORS.KHAKI }}>Outdoor Place / Hotel</span>
         <h2 className="text-white text-xl font-black uppercase tracking-tight leading-tight mt-0.5">Create Listing</h2>
       </div>
     </div>
@@ -769,9 +792,8 @@ const CreateAdventure = () => {
   const [showErrors, setShowErrors] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
 
-  // ── Listing Category — defaults to (and, for now, is locked to) Outdoor
-  // Place (campsite) since it's the only option in CATEGORY_OPTIONS. Kept as
-  // free-form state so re-enabling other categories later is a one-line change.
+  // ── Listing Category — Outdoor Place (campsite) or Hotel & Stay. Defaults
+  // to the first entry in CATEGORY_OPTIONS.
   const [category, setCategory] = useState<string>(CATEGORY_OPTIONS[0]?.value ?? "campsite");
 
   const [formData, setFormData] = useState({
@@ -804,6 +826,13 @@ const CreateAdventure = () => {
   const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
   const [isCompressingGallery, setIsCompressingGallery] = useState(false);
 
+  // ── Division / region — optional, resolved from the free-text `country`
+  // value above by matching it against the `countries` table, then loading
+  // that country's rows from `country_divisions`. Saved as `division_id`.
+  const [availableDivisions, setAvailableDivisions] = useState<DivisionOption[]>([]);
+  const [selectedDivisionId, setSelectedDivisionId] = useState<string | null>(null);
+  const [loadingDivisions, setLoadingDivisions] = useState(false);
+
   const onValidationFail = useCallback((msg: string) => toast({ title: "Required", description: msg, variant: "destructive" }), [toast]);
 
   // ── Auth guard + profile pre-fill ────────────────────────────────────────
@@ -831,6 +860,48 @@ const CreateAdventure = () => {
         }
       });
   }, [user, navigate, toast]);
+
+  // ── Load divisions whenever the chosen country changes ──────────────────
+  // Resets the current selection first so a stale division from a different
+  // country is never accidentally submitted.
+  useEffect(() => {
+    let cancelled = false;
+    setSelectedDivisionId(null);
+
+    if (!formData.country || formData.country === "Other") {
+      setAvailableDivisions([]);
+      return;
+    }
+
+    setLoadingDivisions(true);
+    (async () => {
+      const { data: countryRow } = await supabase
+        .from("countries")
+        .select("id")
+        .ilike("name", formData.country)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      if (!countryRow) {
+        setAvailableDivisions([]);
+        setLoadingDivisions(false);
+        return;
+      }
+
+      const { data: divisionRows } = await supabase
+        .from("country_divisions")
+        .select("id, name")
+        .eq("country_id", countryRow.id)
+        .order("name", { ascending: true });
+
+      if (cancelled) return;
+      setAvailableDivisions(divisionRows || []);
+      setLoadingDivisions(false);
+    })();
+
+    return () => { cancelled = true; };
+  }, [formData.country]);
 
   // ── TRA Licence handlers (now compressed like every other image upload) ───
   const handleTraLicenceAdd = async (file: File) => {
@@ -881,7 +952,7 @@ const CreateAdventure = () => {
     if (currentStep === 1) {
       if (!category) {
         setShowErrors(true);
-        toast({ title: "Select a Category", description: "Please choose Outdoor Place to continue.", variant: "destructive" });
+        toast({ title: "Select a Category", description: "Please choose Outdoor Place or Hotel & Stay to continue.", variant: "destructive" });
         return false;
       }
       if (!formData.registrationName.trim() || !formData.registrationNumber.trim() || !formData.country) {
@@ -1080,11 +1151,13 @@ const CreateAdventure = () => {
       // so the try/catch below surfaces that as a normal submission error.
       const { error } = await supabase.from("adventure_places").insert([{
         id: friendlySlug, slug: friendlySlug, name: formData.registrationName,
-        // ── Listing category (Outdoor Place / campsite only, for now) ──
+        // ── Listing category (Outdoor Place / campsite OR Hotel & Stay) ──
         category,
         registration_number: formData.registrationNumber,
         tra_license_url: traLicenceUrl,
         location: formData.locationName, place: formData.place, country: formData.country,
+        // ── Division / region — optional FK into `country_divisions` ──
+        division_id: selectedDivisionId,
         description: formData.description, email: formData.email,
         phone_numbers: formData.phoneNumber ? [formData.phoneNumber] : [],
         map_link: formData.latitude
@@ -1197,6 +1270,29 @@ const CreateAdventure = () => {
                       </div>
                     </div>
                   </div>
+
+                  {/* ── Division / Region — optional, populated from country_divisions ── */}
+                  {(availableDivisions.length > 0 || loadingDivisions) && (
+                    <div>
+                      <FieldLabel>Division / Region (optional)</FieldLabel>
+                      <Select
+                        value={selectedDivisionId ?? undefined}
+                        onValueChange={setSelectedDivisionId}
+                        disabled={loadingDivisions}
+                      >
+                        <SelectTrigger className="h-11 rounded-xl border-slate-200 text-sm font-medium">
+                          <SelectValue placeholder={loadingDivisions ? "Loading divisions…" : "Select a division"} />
+                        </SelectTrigger>
+                        <SelectContent className="bg-white rounded-xl">
+                          {availableDivisions.map((d) => (
+                            <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-[10px] text-slate-400 mt-1">Helps guests find this listing when browsing by region on the home page.</p>
+                    </div>
+                  )}
+
                   <TraLicenceUpload
                     file={traLicenceFile} preview={traLicencePreview}
                     onAdd={handleTraLicenceAdd} onRemove={handleTraLicenceRemove}

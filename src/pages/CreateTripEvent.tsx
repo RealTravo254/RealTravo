@@ -17,6 +17,9 @@ import {
   CheckCircle2, X, Loader2, ChevronLeft, ChevronRight, Plus, Link2, Ticket, FileImage
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { CountrySelector } from "@/components/creation/CountrySelector";
 import { CountySelector } from "@/components/creation/CountySelector";
 import { PhoneInput } from "@/components/creation/PhoneInput";
@@ -26,6 +29,23 @@ import { compressImages } from "@/lib/imageCompression";
 import { OperatingHoursSection } from "@/components/creation/OperatingHoursSection";
 import { CreateFormStepper } from "@/components/creation/CreateFormStepper";
 import { useCurrency } from "@/contexts/CurrencyContext";
+
+/**
+ * ── DB requirement for the Division field below ──────────────────────────
+ * Same pattern as CreateAdventure.tsx: this form now lets a host optionally
+ * tag their trip/event with a division / region from `country_divisions`.
+ * Add the column if it doesn't already exist:
+ *
+ *   alter table public.trips
+ *     add column if not exists division_id uuid references public.country_divisions(id);
+ *
+ * The dropdown is populated by matching the free-text `country` value the
+ * host picks below against `countries.name`, then loading that country's
+ * rows from `country_divisions`. If no match is found (country is "Other",
+ * or that country isn't seeded in `countries` yet), the dropdown just stays
+ * empty and `division_id` is saved as null — it's optional and never blocks
+ * submission.
+ * ────────────────────────────────────────────────────────────────────────── */
 
 const COLORS = { TEAL: "#008080", CORAL: "#FF7F50", CORAL_LIGHT: "#FF9E7A", SOFT_GRAY: "#F8F9FA" };
 
@@ -39,6 +59,8 @@ const generateFriendlySlug = (name: string): string => {
 
 interface WorkingDays { Mon: boolean; Tue: boolean; Wed: boolean; Thu: boolean; Fri: boolean; Sat: boolean; Sun: boolean; }
 interface TicketType { name: string; price: number; }
+// ── Division / region option, loaded from `country_divisions` ────────────────
+interface DivisionOption { id: string; name: string; }
 
 const EVENT_CATEGORIES = [
   "Roadtrips", "Music Events", "Children Events", "Pool Party", "Outdoor",
@@ -241,6 +263,13 @@ const CreateTripEvent = () => {
   const [certificatePreview, setCertificatePreview] = useState<string | null>(null);
   const [isCompressingCertificate, setIsCompressingCertificate] = useState(false);
 
+  // ── Division / region — optional, resolved from the free-text `country`
+  // value above by matching it against the `countries` table, then loading
+  // that country's rows from `country_divisions`. Saved as `division_id`.
+  const [availableDivisions, setAvailableDivisions] = useState<DivisionOption[]>([]);
+  const [selectedDivisionId, setSelectedDivisionId] = useState<string | null>(null);
+  const [loadingDivisions, setLoadingDivisions] = useState(false);
+
   useEffect(() => {
     const fetchUserProfile = async () => {
       if (user) {
@@ -251,6 +280,48 @@ const CreateTripEvent = () => {
     };
     fetchUserProfile();
   }, [user]);
+
+  // ── Load divisions whenever the chosen country changes ──────────────────
+  // Resets the current selection first so a stale division from a different
+  // country is never accidentally submitted.
+  useEffect(() => {
+    let cancelled = false;
+    setSelectedDivisionId(null);
+
+    if (!formData.country || formData.country === "Other") {
+      setAvailableDivisions([]);
+      return;
+    }
+
+    setLoadingDivisions(true);
+    (async () => {
+      const { data: countryRow } = await supabase
+        .from("countries")
+        .select("id")
+        .ilike("name", formData.country)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      if (!countryRow) {
+        setAvailableDivisions([]);
+        setLoadingDivisions(false);
+        return;
+      }
+
+      const { data: divisionRows } = await supabase
+        .from("country_divisions")
+        .select("id, name")
+        .eq("country_id", countryRow.id)
+        .order("name", { ascending: true });
+
+      if (cancelled) return;
+      setAvailableDivisions(divisionRows || []);
+      setLoadingDivisions(false);
+    })();
+
+    return () => { cancelled = true; };
+  }, [formData.country]);
 
   // Step 1: trip requires pickup_location; event doesn't
   const isStep1Complete = !!formData.name.trim() && !!formData.country && !!formData.place.trim() && !!formData.location.trim()
@@ -436,6 +507,8 @@ const CreateTripEvent = () => {
         id: friendlySlug, slug: friendlySlug,
         name: formData.name, description: formData.description, location: formData.location,
         place: formData.place, country: formData.country,
+        // ── Division / region — optional FK into `country_divisions` ──
+        division_id: selectedDivisionId,
         date: formData.is_custom_date ? new Date().toISOString().split('T')[0] : formData.date,
         is_custom_date: formData.is_custom_date, is_flexible_date: formData.is_custom_date,
         type: formData.type, image_url: uploadedUrls[0] || "", gallery_images: uploadedUrls,
@@ -580,6 +653,28 @@ const CreateTripEvent = () => {
                       </div>
                       {validationErrors.includes("place") && <p className="text-red-500 text-[10px] font-semibold mt-1">⚠ {formData.country === "Other" ? "Region/City" : "County"} is required</p>}
                     </div>
+
+                    {/* Division / Region — optional, populated from country_divisions */}
+                    {(availableDivisions.length > 0 || loadingDivisions) && (
+                      <div className="lg:col-span-2">
+                        <FieldLabel>Division / Region (optional)</FieldLabel>
+                        <Select
+                          value={selectedDivisionId ?? undefined}
+                          onValueChange={setSelectedDivisionId}
+                          disabled={loadingDivisions}
+                        >
+                          <SelectTrigger className="h-11 rounded-xl border-slate-200 text-sm font-medium max-w-md">
+                            <SelectValue placeholder={loadingDivisions ? "Loading divisions…" : "Select a division"} />
+                          </SelectTrigger>
+                          <SelectContent className="bg-white rounded-xl">
+                            {availableDivisions.map((d) => (
+                              <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-[10px] text-slate-400 mt-1">Helps guests find this experience when browsing by region on the home page.</p>
+                      </div>
+                    )}
 
                     {/* Specific Location — full width */}
                     <div className="lg:col-span-2">

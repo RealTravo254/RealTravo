@@ -1,5 +1,5 @@
 // src/pages/CompleteProfile.tsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,11 +21,13 @@ import {
   Check,
   ShieldCheck,
   ArrowLeft,
+  RotateCw,
 } from "lucide-react";
 import { PasswordStrength } from "@/components/ui/password-strength";
 import { CountrySelector } from "@/components/creation/CountrySelector";
 
 const MIN_AGE = 12;
+const RESEND_COOLDOWN_SECONDS = 45;
 
 const GENDER_OPTIONS = [
   { value: "male", label: "Male" },
@@ -54,6 +56,16 @@ function validatePassword(pwd: string) {
   if (!/[a-z]/.test(pwd)) return "Add a lowercase letter.";
   if (!/[0-9]/.test(pwd)) return "Add a number.";
   return null;
+}
+
+// Supabase's own wording for a stale/bad OTP varies ("Token has expired or
+// is invalid", "Invalid token", "Email link is invalid or has expired",
+// etc.) — treat anything mentioning either word as the same "get a new one"
+// case rather than trying to match an exact string.
+function isExpiredOrInvalidCodeError(message: string | null | undefined) {
+  if (!message) return false;
+  const m = message.toLowerCase();
+  return m.includes("expired") || m.includes("invalid");
 }
 
 /* ────────────────────────────────────────────────────────────────
@@ -119,8 +131,15 @@ export default function CompleteProfile() {
   const [step, setStep] = useState<Step>("form");
   const [otpCode, setOtpCode] = useState("");
   const [otpError, setOtpError] = useState<string | null>(null);
+  const [otpExpiredOrInvalid, setOtpExpiredOrInvalid] = useState(false);
   const [sendingCode, setSendingCode] = useState(false);
   const [verifying, setVerifying] = useState(false);
+
+  // Resend flow — a short cooldown after each send (initial or resend) so
+  // the person can't hammer the email-sending endpoint.
+  const [resending, setResending] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const cooldownInterval = useRef<number | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [checkingProfile, setCheckingProfile] = useState(true);
@@ -166,6 +185,24 @@ export default function CompleteProfile() {
   useEffect(() => {
     if (!authLoading && !user) navigate("/auth");
   }, [user, authLoading, navigate]);
+
+  // Cooldown ticker — counts resendCooldown down to 0 once a second.
+  useEffect(() => {
+    if (resendCooldown <= 0) {
+      if (cooldownInterval.current) {
+        window.clearInterval(cooldownInterval.current);
+        cooldownInterval.current = null;
+      }
+      return;
+    }
+    cooldownInterval.current = window.setInterval(() => {
+      setResendCooldown((s) => (s <= 1 ? 0 : s - 1));
+    }, 1000);
+    return () => {
+      if (cooldownInterval.current) window.clearInterval(cooldownInterval.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resendCooldown > 0]);
 
   // How many required fields are filled — drives the progress dots.
   const requiredDone = [
@@ -222,8 +259,32 @@ export default function CompleteProfile() {
     }
     toast({ title: "Code sent", description: `We emailed a verification code to ${user.email}.` });
     setOtpError(null);
+    setOtpExpiredOrInvalid(false);
     setOtpCode("");
+    setResendCooldown(RESEND_COOLDOWN_SECONDS);
     setStep("verify");
+  };
+
+  // Resend — same OTP request as above, but callable again from the verify
+  // step itself, without re-validating or leaving the step.
+  const handleResendCode = async () => {
+    if (!user?.email || resending || resendCooldown > 0) return;
+    setResending(true);
+    const { error } = await clientAuth.signInWithOtp({
+      email: user.email,
+      options: { shouldCreateUser: false },
+    });
+    setResending(false);
+
+    if (error) {
+      toast({ title: "Couldn't resend code", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "New code sent", description: `We emailed a fresh code to ${user.email}.` });
+    setOtpCode("");
+    setOtpError(null);
+    setOtpExpiredOrInvalid(false);
+    setResendCooldown(RESEND_COOLDOWN_SECONDS);
   };
 
   // Step 2: confirm the emailed code, then save everything.
@@ -231,6 +292,7 @@ export default function CompleteProfile() {
     e.preventDefault();
     if (!user?.email) return;
     setOtpError(null);
+    setOtpExpiredOrInvalid(false);
     setVerifying(true);
 
     const { error: verifyError } = await clientAuth.verifyOtp({
@@ -239,7 +301,9 @@ export default function CompleteProfile() {
       type: "magiclink",
     });
     if (verifyError) {
-      setOtpError(verifyError.message || "That code isn't right. Check your email and try again.");
+      const message = verifyError.message || "That code isn't right. Check your email and try again.";
+      setOtpExpiredOrInvalid(isExpiredOrInvalidCodeError(verifyError.message));
+      setOtpError(message);
       setVerifying(false);
       return;
     }
@@ -507,6 +571,7 @@ export default function CompleteProfile() {
                 onChange={(e) => {
                   setOtpCode(e.target.value);
                   if (otpError) setOtpError(null);
+                  if (otpExpiredOrInvalid) setOtpExpiredOrInvalid(false);
                 }}
                 placeholder="123456"
                 maxLength={6}
@@ -515,6 +580,48 @@ export default function CompleteProfile() {
                 autoFocus
               />
               {otpError && <p className="text-[11px] text-destructive font-medium">{otpError}</p>}
+
+              {/* Expired/invalid code — surface the resend option front and
+                  center instead of leaving the person stuck. */}
+              {otpExpiredOrInvalid && (
+                <div className="flex items-center justify-between gap-2 p-2.5 rounded-lg bg-destructive/5 border border-destructive/20 mt-1">
+                  <p className="text-[11px] text-muted-foreground">That code no longer works.</p>
+                  <button
+                    type="button"
+                    onClick={handleResendCode}
+                    disabled={resending || resendCooldown > 0}
+                    className="flex items-center gap-1 text-[11px] font-bold text-primary hover:underline disabled:opacity-50 disabled:no-underline shrink-0"
+                  >
+                    {resending ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <RotateCw className="h-3 w-3" />
+                    )}
+                    Send a new code
+                  </button>
+                </div>
+              )}
+
+              {/* Always-available resend, quieter, for the "just never
+                  arrived" case rather than an explicit expired/invalid error. */}
+              {!otpExpiredOrInvalid && (
+                <div className="flex items-center justify-between pt-1">
+                  <p className="text-[11px] text-muted-foreground">Didn't get a code?</p>
+                  <button
+                    type="button"
+                    onClick={handleResendCode}
+                    disabled={resending || resendCooldown > 0}
+                    className="flex items-center gap-1 text-[11px] font-bold text-primary hover:underline disabled:opacity-50 disabled:no-underline disabled:text-muted-foreground"
+                  >
+                    {resending ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <RotateCw className="h-3 w-3" />
+                    )}
+                    {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend code"}
+                  </button>
+                </div>
+              )}
             </div>
 
             <Button type="submit" disabled={verifying || loading || !otpCode} className="w-full h-11 rounded-xl text-sm font-bold">

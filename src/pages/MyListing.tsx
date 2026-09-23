@@ -25,9 +25,6 @@ import {
 } from "lucide-react";
 
 // ── Design tokens ────────────────────────────────────────────────────────
-// A warm, editorial palette suited to an East African trips & adventures
-// marketplace — sand paper, ink text, terracotta + moss accents — rather
-// than a generic SaaS teal/coral card kit.
 const COLORS = {
   INK: "#23201B",
   PAPER: "#F6F1E4",
@@ -44,11 +41,6 @@ const SERIF = "'Fraunces', 'Iowan Old Style', Georgia, serif";
 
 const ITEMS_PER_PAGE = 20;
 
-// A booking only counts as a real, completed sale when BOTH are true:
-//   status === "confirmed"  AND  payment_status === "completed"
-// Everything else (cancelled, expired, failed, pending) is noise from
-// abandoned/declined/timed-out payment attempts and is excluded from
-// the analytics calculations below.
 const getTableForType = (type: string) => {
   if (type === "trip" || type === "event") return "trips";
   if (type === "adventure" || type === "adventure_place") return "adventure_places";
@@ -59,9 +51,9 @@ const getTableForType = (type: string) => {
 type AnalyticsItemType = "trip" | "adventure";
 
 interface DailyStat {
-  date: string; // YYYY-MM-DD, or "unknown"
+  date: string;
   count: number;
-  amount: number; // net (after service fee)
+  amount: number;
 }
 
 interface ItemAnalyticsData {
@@ -73,7 +65,7 @@ interface ItemAnalyticsData {
   grossEarnings: number;
   serviceFee: number;
   netEarnings: number;
-  daily: DailyStat[]; // sorted newest first
+  daily: DailyStat[];
 }
 
 const formatKsh = (n: number) => `KSh ${Math.round(n).toLocaleString()}`;
@@ -97,16 +89,10 @@ const MyListing = () => {
   const [listingsOffset, setListingsOffset] = useState(0);
   const [hasMoreListings, setHasMoreListings] = useState(true);
 
-  // Tracks which item IDs are currently mid-resubmit, so we can disable
-  // the button and show a spinner per-card without blocking the whole page.
   const [resubmittingIds, setResubmittingIds] = useState<Set<string>>(new Set());
-
-  // Tracks which item IDs are currently mid hide/unhide toggle.
   const [hidingIds, setHidingIds] = useState<Set<string>>(new Set());
 
   // ── Delete confirmation flow state ───────────────────────────────────────
-  // Two-step: 1) re-enter account password, 2) enter the one-time code
-  // emailed to the user, THEN the row is actually deleted from the DB.
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [deleteStep, setDeleteStep] = useState<DeleteStep>("password");
   const [passwordInput, setPasswordInput] = useState("");
@@ -118,10 +104,9 @@ const MyListing = () => {
   const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
   const [hasCompany, setHasCompany] = useState(false);
   const [companyStatus, setCompanyStatus] = useState<string | null>(null);
-  // Adventure host — detected via adventure_places table, not hosting_category
   const [isAdventureHost, setIsAdventureHost] = useState(false);
 
-  // ── Per-item analytics state (Earnings & Daily Bookings tab) ─────────────
+  // ── Per-item analytics state ─────────────
   const [analyticsData, setAnalyticsData] = useState<ItemAnalyticsData[]>([]);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [analyticsFetched, setAnalyticsFetched] = useState(false);
@@ -138,7 +123,6 @@ const MyListing = () => {
   const fetchHostStatus = async () => {
     setLoading(true);
     try {
-      // ── Check adventure_places FIRST — hosting_category is NULL for adventure hosts ──
       const { data: advPlaces } = await supabase
         .from("adventure_places")
         .select("id, approval_status")
@@ -163,7 +147,6 @@ const MyListing = () => {
       setCompanyStatus(cStatus);
       setIsAdventureHost(hasAdventurePlace);
 
-      // ── Guard: only redirect to become-host if truly no hosting at all ──
       const isGuideApproved   = vStatus === "approved";
       const isCompanyApproved = cStatus === "approved";
 
@@ -179,9 +162,10 @@ const MyListing = () => {
     }
   };
 
-  // NOTE: this now only paginates the host's listings (trips / adventure
-  // places). Sales Feed / bookings fetching has been removed — the
-  // Analytics tab covers earnings & daily bookings per item instead.
+  // NOTE: only fetches rows that the creator has NOT soft-deleted
+  // (deleted_by_creator = false), so once a host "deletes" a listing it
+  // disappears from this page for good — but the row itself stays in the
+  // database so admins retain a full record of it.
   const fetchData = async (
     listingsFetchOffset: number,
     category?: string | null,
@@ -212,18 +196,32 @@ const MyListing = () => {
 
     const [tripsRes, adventuresRes, adventuresAdminRes] = await Promise.all([
       shouldFetchTrips
-        ? supabase.from("trips").select("id,name,location,country,image_url,price,approval_status,is_hidden,type").eq("created_by", user!.id).range(range[0], range[1])
+        ? supabase
+            .from("trips")
+            .select("id,name,location,country,image_url,price,approval_status,is_hidden,hidden_by,deleted_by_creator,type")
+            .eq("created_by", user!.id)
+            .eq("deleted_by_creator", false)
+            .range(range[0], range[1])
         : Promise.resolve({ data: [] }),
       shouldFetchAdventures
-        ? supabase.from("adventure_places").select("id,name,location,country,image_url,entry_fee,approval_status,is_hidden,created_by").eq("created_by", user!.id).range(range[0], range[1])
+        ? supabase
+            .from("adventure_places")
+            .select("id,name,location,country,image_url,entry_fee,approval_status,is_hidden,hidden_by,deleted_by_creator,created_by")
+            .eq("created_by", user!.id)
+            .eq("deleted_by_creator", false)
+            .range(range[0], range[1])
         : Promise.resolve({ data: [] }),
       shouldFetchAdventures && userEmail
-        ? supabase.from("adventure_places").select("id,name,location,country,image_url,entry_fee,approval_status,is_hidden,created_by").contains("allowed_admin_emails", [userEmail]).range(range[0], range[1])
+        ? supabase
+            .from("adventure_places")
+            .select("id,name,location,country,image_url,entry_fee,approval_status,is_hidden,hidden_by,deleted_by_creator,created_by")
+            .contains("allowed_admin_emails", [userEmail])
+            .eq("deleted_by_creator", false)
+            .range(range[0], range[1])
         : Promise.resolve({ data: [] }),
     ]);
 
     let filteredTrips = tripsRes.data || [];
-    // Only keep actual trips (exclude events)
     filteredTrips = filteredTrips.filter((t: any) => t.type !== "event");
 
     const allContent = [
@@ -276,7 +274,6 @@ const MyListing = () => {
 
       if (error) throw error;
 
-      // Reflect the change locally so the card updates instantly without a refetch.
       setMyContent(prev =>
         prev.map(c => (c.id === item.id ? { ...c, approval_status: "pending" } : c))
       );
@@ -301,10 +298,20 @@ const MyListing = () => {
   };
 
   // ── Hide / unhide a listing from other users (creator only) ─────────────
-  // This just flips is_hidden — no confirmation needed since it's instantly
-  // reversible, unlike deletion.
+  // Blocked entirely if an admin was the one who hid it (hidden_by === "admin") —
+  // only an admin can undo that. When the creator hides it themselves, we
+  // tag hidden_by = "creator" so they retain the ability to unhide it later.
   const handleToggleHide = async (item: any) => {
     if (hidingIds.has(item.id)) return;
+
+    if (item.is_hidden && item.hidden_by === "admin") {
+      toast({
+        title: "Hidden by admin",
+        description: "This listing was hidden by an admin and can only be made visible again by them.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     const tableName = getTableForType(item.type);
     if (!tableName) {
@@ -318,13 +325,17 @@ const MyListing = () => {
     try {
       const { error } = await supabase
         .from(tableName as "trips" | "adventure_places")
-        .update({ is_hidden: nextHidden })
+        .update({ is_hidden: nextHidden, hidden_by: nextHidden ? "creator" : null })
         .eq("id", item.id);
 
       if (error) throw error;
 
       setMyContent(prev =>
-        prev.map(c => (c.id === item.id ? { ...c, is_hidden: nextHidden } : c))
+        prev.map(c =>
+          c.id === item.id
+            ? { ...c, is_hidden: nextHidden, hidden_by: nextHidden ? "creator" : null }
+            : c
+        )
       );
 
       toast({
@@ -375,7 +386,6 @@ const MyListing = () => {
 
     setDeleteSubmitting(true);
     try {
-      // Re-check the account password without disturbing the current session.
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email: user.email,
         password: passwordInput,
@@ -386,8 +396,6 @@ const MyListing = () => {
         return;
       }
 
-      // Password confirmed — now send a one-time code to the account email
-      // as the second confirmation step before we actually delete anything.
       const { error: otpError } = await supabase.auth.signInWithOtp({
         email: user.email,
         options: { shouldCreateUser: false },
@@ -407,7 +415,15 @@ const MyListing = () => {
     }
   };
 
-  // ── Delete flow: step 3 — verify code, then actually delete the row ─────
+  // ── Delete flow: step 3 — verify code, then SOFT-delete the row ─────────
+  // We never hard-delete from the client. Instead the row is marked
+  // is_hidden = true, hidden_by = "creator", deleted_by_creator = true.
+  // This means:
+  //   - it disappears from this host's own listings (fetchData filters it out)
+  //   - it's hidden from the public site (is_hidden = true)
+  //   - admins can still see it in AdminApproved, tagged "Deleted by creator",
+  //     and are blocked from unhiding/showing it — only a real DB delete
+  //     from the admin side removes it for good.
   const handleVerifyAndDelete = async () => {
     if (!user?.email || !deleteTarget) return;
     if (!codeInput) {
@@ -433,7 +449,11 @@ const MyListing = () => {
 
       const { error: deleteError } = await supabase
         .from(tableName as "trips" | "adventure_places")
-        .delete()
+        .update({
+          is_hidden: true,
+          hidden_by: "creator",
+          deleted_by_creator: true,
+        })
         .eq("id", deleteTarget.id);
 
       if (deleteError) throw deleteError;
@@ -441,8 +461,8 @@ const MyListing = () => {
       setMyContent(prev => prev.filter(c => c.id !== deleteTarget.id));
 
       toast({
-        title: "Listing deleted",
-        description: `"${deleteTarget.name}" has been permanently removed.`,
+        title: "Listing removed",
+        description: `"${deleteTarget.name}" has been removed from your listings.`,
       });
       closeDeleteDialog();
     } catch (error: any) {
@@ -457,9 +477,6 @@ const MyListing = () => {
   };
 
   // ── Per-item earnings & daily bookings analytics ──────────────────────────
-  // Fetched lazily the first time the "Analytics" tab is opened, covering ALL
-  // of the host's trips + adventure places (not just the currently paginated
-  // page), so every item gets its own complete breakdown.
   const fetchAnalytics = async () => {
     if (!user) return;
     setAnalyticsLoading(true);
@@ -551,7 +568,7 @@ const MyListing = () => {
 
         const daily: DailyStat[] = [...dailyMap.entries()]
           .map(([date, v]) => ({ date, count: v.count, amount: v.amount }))
-          .sort((a, b) => (a.date < b.date ? 1 : -1)); // newest first
+          .sort((a, b) => (a.date < b.date ? 1 : -1));
 
         result.push({
           id: itemId,
@@ -621,6 +638,7 @@ const MyListing = () => {
           const isResubmitting = resubmittingIds.has(item.id);
           const isHiding = hidingIds.has(item.id);
           const status = STATUS_STYLES[item.approval_status] || STATUS_STYLES.pending;
+          const isAdminHidden = item.is_hidden && item.hidden_by === "admin";
 
           return (
             <Card
@@ -681,6 +699,18 @@ const MyListing = () => {
                     </div>
                   )}
 
+                  {isAdminHidden && (
+                    <div
+                      className="flex items-center gap-2 px-3 py-2 rounded-xl border"
+                      style={{ backgroundColor: `${COLORS.GOLD}0D`, borderColor: `${COLORS.GOLD}33` }}
+                    >
+                      <Lock className="h-3.5 w-3.5 shrink-0" style={{ color: COLORS.GOLD }} />
+                      <p className="text-xs flex-1" style={{ color: COLORS.GOLD }}>
+                        An admin hid this listing. Only an admin can make it visible again.
+                      </p>
+                    </div>
+                  )}
+
                   <div
                     className="flex items-center justify-between pt-3 border-t"
                     style={{ borderColor: COLORS.LINE }}
@@ -699,7 +729,9 @@ const MyListing = () => {
                           style={{ backgroundColor: `${COLORS.GOLD}1F` }}
                         >
                           <EyeOff className="h-3.5 w-3.5" style={{ color: COLORS.GOLD }} />
-                          <span className="text-[11px] font-medium" style={{ color: COLORS.GOLD }}>Hidden</span>
+                          <span className="text-[11px] font-medium" style={{ color: COLORS.GOLD }}>
+                            {item.hidden_by === "admin" ? "Hidden by admin" : "Hidden"}
+                          </span>
                         </div>
                       )}
 
@@ -726,23 +758,34 @@ const MyListing = () => {
                       )}
 
                       {item.isCreator && (
-                        <Button
-                          onClick={() => handleToggleHide(item)}
-                          disabled={isHiding}
-                          size="sm"
-                          variant="outline"
-                          className="h-9 px-4 rounded-lg text-xs font-medium border disabled:opacity-60"
-                          style={{ borderColor: COLORS.GOLD, color: COLORS.GOLD, backgroundColor: "transparent" }}
-                        >
-                          {isHiding ? (
-                            <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
-                          ) : item.is_hidden ? (
-                            <Eye className="h-3.5 w-3.5 mr-2" />
-                          ) : (
-                            <EyeOff className="h-3.5 w-3.5 mr-2" />
-                          )}
-                          {item.is_hidden ? "Unhide" : "Hide"}
-                        </Button>
+                        isAdminHidden ? (
+                          <div
+                            className="h-9 px-4 rounded-lg text-xs font-medium border flex items-center gap-2"
+                            style={{ borderColor: COLORS.LINE, color: COLORS.MUTED, backgroundColor: "transparent" }}
+                            title="Only an admin can make this visible again."
+                          >
+                            <Lock className="h-3.5 w-3.5" />
+                            Hidden by admin
+                          </div>
+                        ) : (
+                          <Button
+                            onClick={() => handleToggleHide(item)}
+                            disabled={isHiding}
+                            size="sm"
+                            variant="outline"
+                            className="h-9 px-4 rounded-lg text-xs font-medium border disabled:opacity-60"
+                            style={{ borderColor: COLORS.GOLD, color: COLORS.GOLD, backgroundColor: "transparent" }}
+                          >
+                            {isHiding ? (
+                              <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                            ) : item.is_hidden ? (
+                              <Eye className="h-3.5 w-3.5 mr-2" />
+                            ) : (
+                              <EyeOff className="h-3.5 w-3.5 mr-2" />
+                            )}
+                            {item.is_hidden ? "Unhide" : "Hide"}
+                          </Button>
+                        )
                       )}
 
                       <Button
@@ -1092,7 +1135,7 @@ const MyListing = () => {
                   Confirm your password
                 </DialogTitle>
                 <DialogDescription className="text-center">
-                  Deleting "{deleteTarget?.name}" is permanent. Enter your account password to continue.
+                  Deleting "{deleteTarget?.name}" will remove it from your listings. Enter your account password to continue.
                 </DialogDescription>
               </DialogHeader>
 
@@ -1143,7 +1186,7 @@ const MyListing = () => {
                   Enter confirmation code
                 </DialogTitle>
                 <DialogDescription className="text-center">
-                  We emailed a code to {user?.email}. Enter it below to permanently delete "{deleteTarget?.name}".
+                  We emailed a code to {user?.email}. Enter it below to remove "{deleteTarget?.name}" from your listings.
                 </DialogDescription>
               </DialogHeader>
 
@@ -1167,7 +1210,7 @@ const MyListing = () => {
                   style={{ backgroundColor: COLORS.RUST }}
                 >
                   {deleteSubmitting ? (
-                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Deleting…</>
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Removing…</>
                   ) : (
                     <><Trash2 className="h-4 w-4 mr-2" />Confirm & Delete</>
                   )}

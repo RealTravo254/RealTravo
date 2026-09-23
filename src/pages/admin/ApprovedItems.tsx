@@ -612,4 +612,4 @@ create policy "Admins can view all adventure places"
   );
 };
 
-export default AdminApproved;
+export default AdminApproved; 

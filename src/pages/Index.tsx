@@ -27,47 +27,8 @@ import { useRatings, sortByRating } from "@/hooks/useRatings";
 import { useRealtimeBookings } from "@/hooks/useRealtimeBookings";
 import { useResponsiveLimit } from "@/hooks/useResponsiveLimit";
 
-/**
- * ── DB requirements for the "global regions" section below ──────────────────
- * This page now reads regions from the database instead of a hardcoded Kenya
- * list, matching the `countries` / `country_divisions` tables used by your
- * CountrySelector component. Each row needs an image + name:
- *
- *   create table countries (
- *     id uuid primary key default gen_random_uuid(),
- *     name text not null,
- *     iso_code text unique,          -- ISO 3166-1 alpha-2, e.g. 'KE', 'GB'
- *     image_url text,
- *     created_at timestamptz default now()
- *   );
- *
- *   create table country_divisions (
- *     id uuid primary key default gen_random_uuid(),
- *     country_id uuid references countries(id) on delete cascade,
- *     name text not null,            -- e.g. 'Nairobi' or 'Greater London'
- *     image_url text,
- *     created_at timestamptz default now()
- *   );
- *
- * If `countries` / `country_divisions` already exist in your DB without an
- * image column (as in your current schema), just add it:
- *
- *   alter table public.countries add column if not exists image_url text;
- *   alter table public.country_divisions add column if not exists image_url text;
- *
- * Also: hotels are expected as adventure_places rows with category = 'hotel'
- * (same table/pattern as the existing 'campsite' category). If hotels live in
- * a separate table in your schema, swap the query in fetchScrollableRows.
- *
- * Navigation: division cards below link to `/explore?division=<id>`. Wire
- * that query param up in your Explore page's filter, or change the path to
- * match whatever route you use for browsing by region.
- * ────────────────────────────────────────────────────────────────────────── */
-
-// Free, keyless reverse-geocoding endpoint used only to turn the visitor's
-// lat/lng into an ISO country code — no API key/config needed.
 const REVERSE_GEOCODE_URL = "https://api.bigdatacloud.net/data/reverse-geocode-client";
-const DEFAULT_COUNTRY_ISO = "KE"; // shown when we can't detect a country (no location, offline, unmatched)
+const DEFAULT_COUNTRY_ISO = "KE";
 
 interface CountryLite {
   id: string;
@@ -81,7 +42,6 @@ interface DivisionLite {
   image_url: string | null;
 }
 
-// ── GridSection ───────────────────────────────────────────────────────────────
 const INITIAL_VISIBLE_COUNT = 10;
 const LOAD_MORE_COUNT = 10;
 
@@ -114,9 +74,6 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: G
     }, 500);
   };
 
-  // Show the skeleton mockup any time there are no items — whether we're
-  // still loading, or loading finished and simply came back empty — so the
-  // section never collapses to a blank gap.
   const showSkeletons = items.length === 0;
   const cardWidthClasses = "w-[75vw] sm:w-[230px] md:w-[240px] lg:w-[260px] shrink-0";
 
@@ -184,17 +141,12 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: G
 });
 GridSection.displayName = "GridSection";
 
-// ── Category cards ────────────────────────────────────────────────────────────
-// Hotels & Stays shares the same category page as Outdoor & Campsites
-// (both are adventure_places rows, just a different `category` value) —
-// the page itself is responsible for showing both once you land there.
 const CATEGORIES = [
   { icon: Tent,       title: "Outdoor & Campsites", path: "/category/campsite", bgImage: "/images/category-campsite.jpg" },
   { icon: MapIcon,    title: "Tours & Trips",       path: "/category/guided",   bgImage: "/images/category-trips.jpg" },
   { icon: BedDouble,  title: "Hotels & Stays",      path: "/category/campsite", bgImage: "/images/category-hotel.jpg" },
 ];
 
-// ── Quick-nav shortcuts ───────────────────────────────────────────────────────
 const QUICK_NAV = [
   { icon: Tent,    title: "Outdoors & Campsites", path: "/category/campsite", color: "hsl(278, 90%, 50%)" },
   { icon: MapIcon, title: "Tours & Trips",        path: "/category/guided",   color: "hsl(235, 90%, 50%)" },
@@ -202,7 +154,6 @@ const QUICK_NAV = [
   { icon: Heart,   title: "Saved",                path: "/saved",             color: "hsl(350, 80%, 55%)" },
 ];
 
-// ── Main page ─────────────────────────────────────────────────────────────────
 const Index = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -248,13 +199,10 @@ const Index = () => {
     setSearchFocused(v);
   }, [setSearchFocused]);
 
-  // ── Global regions (country + its divisions), read from the DB ─────────────
   const [activeCountry, setActiveCountry]     = useState<CountryLite | null>(null);
   const [divisions, setDivisions]             = useState<DivisionLite[]>([]);
   const [loadingDivisions, setLoadingDivisions] = useState(true);
 
-  // Turn the visitor's coordinates into an ISO-3166 country code so we know
-  // which country's divisions to show (Kenya → counties, UK → its regions, etc).
   const resolveCountryIso = useCallback(async (): Promise<string> => {
     if (!position) return DEFAULT_COUNTRY_ISO;
     try {
@@ -269,10 +217,6 @@ const Index = () => {
     }
   }, [position]);
 
-  // When we have no location to go on (and no profile country either), fall
-  // back to whichever country our own listings are heaviest in, rather than
-  // an arbitrary hardcoded default. Built from the free-text `country` field
-  // already present on the rows we fetch for the homepage feed.
   const mostListedCountryName = useMemo(() => {
     const tally = new Map<string, number>();
     const allListings = [
@@ -306,9 +250,6 @@ const Index = () => {
 
       let country: CountryLite | null = null;
 
-      // 1. A signed-in user's profile.country_id is their explicit, 365-day
-      //    locked home country — trust that over wherever their device
-      //    currently reports them as being.
       if (userId) {
         const { data: profile } = await supabase
           .from("profiles")
@@ -325,8 +266,6 @@ const Index = () => {
         }
       }
 
-      // 2. No profile country set — if the visitor has granted location,
-      //    detect their country from their coordinates.
       if (!country && position) {
         const iso = await resolveCountryIso();
         const { data: matched } = await supabase
@@ -337,10 +276,6 @@ const Index = () => {
         country = matched ?? null;
       }
 
-      // 3. No profile country AND no location — show whichever country has
-      //    the most live listings instead of guessing. Wait for the listing
-      //    fetch to finish first (the regions skeleton just keeps showing in
-      //    the meantime); this effect re-runs once it does.
       if (!country && !position) {
         if (loadingScrollable) return;
         if (mostListedCountryName) {
@@ -353,8 +288,6 @@ const Index = () => {
         }
       }
 
-      // 4. Still nothing (no listings yet, unmatched country name, etc.) —
-      //    fall back to Kenya rather than showing an empty section.
       if (!country) {
         const { data: fallback } = await supabase
           .from("countries")
@@ -406,7 +339,6 @@ const Index = () => {
   const { bookingStats } = useRealtimeBookings(tripEventIds);
   const { ratings }      = useRatings(allItemIds);
 
-  // "Nearest to You" — campsites + hotels sorted by distance, trips by rating appended after
   const sortedNearbyPlaces = useMemo(() => {
     const places = sortByRating(nearbyPlaces, ratings, position, calculateDistance)
       .map((item: any) => ({ ...item, __cardType: "ADVENTURE PLACE" as const }));
@@ -432,7 +364,6 @@ const Index = () => {
     return [...places, ...others];
   }, [nearbyPlaces, ratings, position, scrollableRows.guidedTrips, scrollableRows.fixedTrips]);
 
-  // "Browsers guide" — campsites + hotels + trips, ranked by rating
   const displayBrowseGuides = useMemo(() => {
     const seen = new Set<string>();
     const combined = [
@@ -456,11 +387,7 @@ const Index = () => {
       });
   }, [scrollableRows, ratings]);
 
-  // ── Data fetching ──────────────────────────────────────────────────────────
   const fetchScrollableRows = useCallback(async (limit: number, opts: { background?: boolean } = {}) => {
-    // `background` refreshes silently update data without flipping the
-    // loading flag, so the skeleton/spinner never reappears once content
-    // is already on screen — only the very first load shows it.
     if (!opts.background) setLoadingScrollable(true);
     const fetchLimit = Math.max(limit * 3, 60);
     const placeCols = "id,name,location,place,country,image_url,gallery_images,images,entry_fee,activities,latitude,longitude,created_at,description,opening_hours,closing_hours,category,days_opened";
@@ -473,7 +400,6 @@ const Index = () => {
         guidedData,
         fixedTripsData,
       ] = await Promise.all([
-        // ── Campsites ──────────────────────────────────────────────────────
         supabase
           .from("adventure_places")
           .select(placeCols)
@@ -481,8 +407,6 @@ const Index = () => {
           .eq("category", "campsite")
           .limit(fetchLimit),
 
-        // ── Hotels & Stays — same table, category = 'hotel' ─────────────────
-        // If hotels live in a separate table in your schema, swap this query.
         supabase
           .from("adventure_places")
           .select(placeCols)
@@ -490,7 +414,6 @@ const Index = () => {
           .eq("category", "hotel")
           .limit(fetchLimit),
 
-        // ── Guided tours (flexible / custom-date trips) ───────────────────
         supabase
           .from("trips")
           .select(tripCols)
@@ -498,7 +421,6 @@ const Index = () => {
           .eq("type", "trip").or("is_flexible_date.eq.true,is_custom_date.eq.true")
           .order("created_at", { ascending: false }).limit(fetchLimit),
 
-        // ── Fixed-date trips ───────────────────────────────────────────────
         supabase
           .from("trips")
           .select(tripCols)
@@ -524,8 +446,6 @@ const Index = () => {
     if (!position) return;
     if (!opts.background) setLoadingNearby(true);
     try {
-      // Campsites + hotels, both from adventure_places — hotels are no
-      // longer excluded from "Nearest to You".
       const { data } = await supabase
         .from("adventure_places")
         .select("id,name,location,place,country,image_url,entry_fee,activities,latitude,longitude,created_at,description,opening_hours,closing_hours,category,days_opened")
@@ -552,11 +472,8 @@ const Index = () => {
     }
   }, [position]);
 
-  // ── Effects ────────────────────────────────────────────────────────────────
   useEffect(() => { requestLocation(); }, [requestLocation]);
 
-  // Caching removed — the home page now always fetches fresh data on load
-  // instead of reusing a previously stored snapshot.
   useEffect(() => {
     fetchScrollableRows(cardLimit);
     getUserId().then(setUserId);
@@ -566,11 +483,7 @@ const Index = () => {
     if (position) fetchNearbyPlaces();
   }, [position, fetchNearbyPlaces]);
 
-  // Silent background refresh — re-fetches data periodically without
-  // flipping any loading state, so the front end never shows a skeleton
-  // or visibly reloads. Existing content stays on screen and is swapped
-  // in place once the new data arrives.
-  const BACKGROUND_REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+  const BACKGROUND_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
   useEffect(() => {
     const interval = window.setInterval(() => {
       fetchScrollableRows(cardLimit, { background: true });
@@ -585,7 +498,6 @@ const Index = () => {
     return () => window.removeEventListener("scroll", ctrl);
   }, []);
 
-  // ── Card renderer (used for the single-category rows) ───────────────────────
   const renderCard = useCallback((
     item: any, type: string, index: number,
     opts: { hidePrice?: boolean; isTrip?: boolean; categoryColor?: string } = {},
@@ -634,7 +546,6 @@ const Index = () => {
     );
   }, [position, ratings, savedItems, handleSave, bookingStats]);
 
-  // ── Pre-build node arrays ──────────────────────────────────────────────────
   const browseGuideNodes = useMemo(() =>
     displayBrowseGuides.map((item: any, i) => {
       const isTrip = item.__cardType === "TRIP";
@@ -690,7 +601,6 @@ const Index = () => {
     [sortedNearbyPlaces, ratings, savedItems, handleSave, bookingStats],
   );
 
-  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background">
       <SEOHead
@@ -785,13 +695,18 @@ const Index = () => {
                 <h1 className="text-white text-3xl md:text-4xl lg:text-5xl font-extrabold text-center mb-4 leading-tight tracking-tight">
                   {t("hero.title")}
                 </h1>
-                <div onClick={() => navigate("/explore")} className="cursor-pointer w-full">
+                {/* ── FIX: pass openSearch:true so Explore auto-focuses the
+                    search bar and opens its suggestions dropdown ── */}
+                <div
+                  onClick={() => navigate("/explore", { state: { openSearch: true } })}
+                  className="cursor-pointer w-full"
+                >
                   <SearchBarWithSuggestions
                     value=""
                     onChange={() => {}}
-                    onSubmit={() => navigate("/explore")}
-                    onSuggestionSearch={() => navigate("/explore")}
-                    onFocus={() => navigate("/explore")}
+                    onSubmit={() => navigate("/explore", { state: { openSearch: true } })}
+                    onSuggestionSearch={() => navigate("/explore", { state: { openSearch: true } })}
+                    onFocus={() => navigate("/explore", { state: { openSearch: true } })}
                     onBlur={() => {}}
                     onBack={() => {}}
                     showBackButton={false}
@@ -805,13 +720,8 @@ const Index = () => {
 
       <main className="w-full">
         <div className={`w-full ${isSearchFocused ? "hidden" : ""}`}>
-          {/* ── All content constrained to container width (never bleeds to screen edge on desktop) ── */}
           <div className="container mx-auto px-4 md:px-6 py-3 md:py-5 space-y-2 md:space-y-6">
 
-            {/* Categories — Campsites, Tours & Trips, Hotels & Stays. Cards use an
-                aspect-ratio on mobile/tablet (so they scale nicely with column
-                width) but switch to a FIXED height at the lg breakpoint and up,
-                so they no longer stretch tall on big screens. */}
             <section className="mb-4 md:mb-8">
               <div className="-mx-4 px-4 md:mx-0 md:px-0">
                 <div className="grid grid-cols-3 gap-2 md:gap-4">
@@ -840,12 +750,6 @@ const Index = () => {
               </div>
             </section>
 
-            {/* Regions — global, driven by `countries` / `country_divisions`.
-                Shows the visitor's own country's divisions (Kenya → counties,
-                UK → its regions, etc), falling back to Kenya when we can't
-                detect a match. The section itself, and its skeleton, always
-                stay on screen — the skeleton just keeps showing in place of
-                real cards for as long as there's nothing to show yet. */}
             <section className="mb-4 md:mb-6">
               <div className="flex items-center justify-between mb-2 px-1">
                 <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-widest">
@@ -893,7 +797,6 @@ const Index = () => {
               </div>
             </section>
 
-            {/* Browsers guide — one flat feed of campsites, hotels and trips together, no category split */}
             <GridSection
               title="Browsers guide"
               viewAllPath="/explore"
@@ -902,7 +805,6 @@ const Index = () => {
               loading={loadingScrollable}
             />
 
-            {/* Nearest to You */}
             {(position || nearbyPlaces.length > 0) && (
               <GridSection
                 title={t("sections.nearestToYou")}
@@ -913,8 +815,6 @@ const Index = () => {
               />
             )}
 
-
-            {/* Quick Navigation */}
             <section className="mb-4 md:mb-8">
               <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-3">Quick Access</h2>
               <div className="grid grid-cols-4 gap-1.5">
@@ -936,7 +836,6 @@ const Index = () => {
               </div>
             </section>
 
-            {/* Become a Host CTA */}
             <section className="mb-4 md:mb-8">
               <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary to-primary/80 p-3 md:p-4">
                 <div className="absolute -top-8 -right-8 h-40 w-40 rounded-full bg-white/10 pointer-events-none" />
@@ -977,7 +876,6 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Location permission dialog */}
         <AlertDialog open={showLocationDialog} onOpenChange={setShowLocationDialog}>
           <AlertDialogContent className="max-w-sm">
             <AlertDialogHeader>
@@ -1008,6 +906,6 @@ const Index = () => {
       </main>
     </div>
   );
-}; 
+};
 
-export default Index; 
+export default Index;

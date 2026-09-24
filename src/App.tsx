@@ -17,71 +17,90 @@ import { OfflineFullScreen } from "@/components/OfflineIndicator";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import VisitTracker from "@/components/VisitTracker";
 
-const Index = lazy(() => import("./pages/Index"));
-const AccountPage = lazy(() => import("@/pages/AccountPage"));
-const CreateHotel = lazy(() => import("./pages/CreateHotel"));
-const CountryDivisionsManager = lazy(() => import("@/pages/admin/CountryDivisionsManager"));
-const ExploreCountries = lazy(() => import("./pages/ExploreCountries"));
+/**
+ * lazyRetry — same as React.lazy, but if a page chunk fails to download
+ * (flaky network, brief deploy gap) it waits a moment and tries once more
+ * before giving up. If it still fails, the error bubbles up and the
+ * stale-deploy recovery in main.tsx (clear service worker + caches, reload
+ * once) takes over.
+ */
+const lazyRetry = <T extends React.ComponentType<any>>(
+  factory: () => Promise<{ default: T }>,
+) =>
+  lazy(() =>
+    factory().catch(
+      () =>
+        new Promise<{ default: T }>((resolve, reject) => {
+          setTimeout(() => factory().then(resolve, reject), 800);
+        }),
+    ),
+  );
 
-const Auth = lazy(() => import("./pages/Auth"));
-const AuthCallback = lazy(() => import("./pages/AuthCallback"));
-const AppAuthHandler = lazy(() => import("./pages/AppAuthHandler"));
-const NotFound = lazy(() => import("./pages/NotFound"));
-const CategoryDetail = lazy(() => import("./pages/CategoryDetail"));
-const Saved = lazy(() => import("./pages/Saved"));
-const Bookings = lazy(() => import("./pages/Bookings"));
-const Contact = lazy(() => import("./pages/Contact"));
-const About = lazy(() => import("./pages/About"));
-const Profile = lazy(() => import("./pages/Profile"));
-const TripDetail = lazy(() => import("./pages/TripDetail"));
-const EventDetail = lazy(() => import("./pages/EventDetail"));
-const AdventurePlaceDetail = lazy(() => import("./pages/AdventurePlaceDetail"));
-const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
-const BecomeHost = lazy(() => import("./pages/BecomeHost"));
-const HostBookings = lazy(() => import("./pages/HostBookings"));
-const HostBookingDetails = lazy(() => import("./pages/HostBookingDetails"));
-const HostItemDetail = lazy(() => import("./pages/HostItemDetail"));
-const MyListing = lazy(() => import("./pages/MyListing"));
-const AdminReviewDetail = lazy(() => import("./pages/AdminReviewDetail"));
-const AdminBookings = lazy(() => import("./pages/AdminBookings"));
-const AdminVerification = lazy(() => import("./pages/AdminVerification"));
-const AdminReferralSettings = lazy(() => import("./pages/AdminReferralSettings"));
-const QRScanner = lazy(() => import("./pages/QRScanner"));
-const CreateTripEvent = lazy(() => import("./pages/CreateTripEvent"));
-const CreateAdventure = lazy(() => import("./pages/CreateAdventure"));
-const EditListing = lazy(() => import("./pages/EditListing"));
-const ResetPassword = lazy(() => import("./pages/ResetPassword"));
-const VerifyEmail = lazy(() => import("./pages/VerifyEmail"));
-const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
-const HostVerification = lazy(() => import("./pages/HostVerification"));
-const VerificationStatus = lazy(() => import("./pages/VerificationStatus"));
-const Payment = lazy(() => import("./pages/Payment"));
-const PendingApprovalItems = lazy(() => import("./pages/admin/PendingApprovalItems"));
-const ApprovedItems = lazy(() => import("./pages/admin/ApprovedItems"));
-const RejectedItems = lazy(() => import("./pages/admin/RejectedItems"));
-const CategoryTrips = lazy(() => import("./pages/host/CategoryTrips"));
-const CategoryHotels = lazy(() => import("./pages/host/CategoryHotels"));
-const CategoryExperiences = lazy(() => import("./pages/host/CategoryExperiences"));
-const VerificationList = lazy(() => import("./pages/admin/VerificationList"));
-const VerificationDetail = lazy(() => import("./pages/admin/VerificationDetail"));
-const Install = lazy(() => import("./pages/Install"));
-const AllBookings = lazy(() => import("./pages/admin/AllBookings"));
-const TermsOfService = lazy(() => import("./pages/TermsOfService"));
-const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
-const PublicManualBooking = lazy(() => import("./pages/PublicManualBooking"));
+const Index = lazyRetry(() => import("./pages/Index"));
+const AccountPage = lazyRetry(() => import("@/pages/AccountPage"));
+const CreateHotel = lazyRetry(() => import("./pages/CreateHotel"));
+const CountryDivisionsManager = lazyRetry(() => import("@/pages/admin/CountryDivisionsManager"));
+const ExploreCountries = lazyRetry(() => import("./pages/ExploreCountries"));
 
-const CompleteProfile = lazy(() => import("./pages/CompleteProfile"));
-const BookingPage = lazy(() => import("./pages/BookingPage"));
-const PaymentVerify = lazy(() => import("./pages/PaymentVerify"));
-const TripEventGuide = lazy(() => import("./pages/TripEventGuide"));
-const CampsiteGuide = lazy(() => import("./pages/CampsiteGuide"));
-const HotelGuide = lazy(() => import("./pages/HotelGuide"));
-const AdminPaymentVerification = lazy(() => import("./pages/AdminPaymentVerification"));
-const AccountsOverview = lazy(() => import("./pages/admin/AccountsOverview"));
-const Explore = lazy(() => import("./pages/Explore"));
-const CountyDetail = lazy(() => import("./pages/CountyDetail"));
-const AdminWithdrawals = lazy(() => import("./pages/admin/AdminWithdrawals"));
-const VisitAnalytics = lazy(() => import("./pages/admin/VisitAnalytics"));
+const Auth = lazyRetry(() => import("./pages/Auth"));
+const AuthCallback = lazyRetry(() => import("./pages/AuthCallback"));
+const AppAuthHandler = lazyRetry(() => import("./pages/AppAuthHandler"));
+const NotFound = lazyRetry(() => import("./pages/NotFound"));
+const CategoryDetail = lazyRetry(() => import("./pages/CategoryDetail"));
+const Saved = lazyRetry(() => import("./pages/Saved"));
+const Bookings = lazyRetry(() => import("./pages/Bookings"));
+const Contact = lazyRetry(() => import("./pages/Contact"));
+const About = lazyRetry(() => import("./pages/About"));
+const Profile = lazyRetry(() => import("./pages/Profile"));
+const TripDetail = lazyRetry(() => import("./pages/TripDetail"));
+const EventDetail = lazyRetry(() => import("./pages/EventDetail"));
+const AdventurePlaceDetail = lazyRetry(() => import("./pages/AdventurePlaceDetail"));
+const AdminDashboard = lazyRetry(() => import("./pages/AdminDashboard"));
+const BecomeHost = lazyRetry(() => import("./pages/BecomeHost"));
+const HostBookings = lazyRetry(() => import("./pages/HostBookings"));
+const HostBookingDetails = lazyRetry(() => import("./pages/HostBookingDetails"));
+const HostItemDetail = lazyRetry(() => import("./pages/HostItemDetail"));
+const MyListing = lazyRetry(() => import("./pages/MyListing"));
+const AdminReviewDetail = lazyRetry(() => import("./pages/AdminReviewDetail"));
+const AdminBookings = lazyRetry(() => import("./pages/AdminBookings"));
+const AdminVerification = lazyRetry(() => import("./pages/AdminVerification"));
+const AdminReferralSettings = lazyRetry(() => import("./pages/AdminReferralSettings"));
+const QRScanner = lazyRetry(() => import("./pages/QRScanner"));
+const CreateTripEvent = lazyRetry(() => import("./pages/CreateTripEvent"));
+const CreateAdventure = lazyRetry(() => import("./pages/CreateAdventure"));
+const EditListing = lazyRetry(() => import("./pages/EditListing"));
+const ResetPassword = lazyRetry(() => import("./pages/ResetPassword"));
+const VerifyEmail = lazyRetry(() => import("./pages/VerifyEmail"));
+const ForgotPassword = lazyRetry(() => import("./pages/ForgotPassword"));
+const HostVerification = lazyRetry(() => import("./pages/HostVerification"));
+const VerificationStatus = lazyRetry(() => import("./pages/VerificationStatus"));
+const Payment = lazyRetry(() => import("./pages/Payment"));
+const PendingApprovalItems = lazyRetry(() => import("./pages/admin/PendingApprovalItems"));
+const ApprovedItems = lazyRetry(() => import("./pages/admin/ApprovedItems"));
+const RejectedItems = lazyRetry(() => import("./pages/admin/RejectedItems"));
+const CategoryTrips = lazyRetry(() => import("./pages/host/CategoryTrips"));
+const CategoryHotels = lazyRetry(() => import("./pages/host/CategoryHotels"));
+const CategoryExperiences = lazyRetry(() => import("./pages/host/CategoryExperiences"));
+const VerificationList = lazyRetry(() => import("./pages/admin/VerificationList"));
+const VerificationDetail = lazyRetry(() => import("./pages/admin/VerificationDetail"));
+const Install = lazyRetry(() => import("./pages/Install"));
+const AllBookings = lazyRetry(() => import("./pages/admin/AllBookings"));
+const TermsOfService = lazyRetry(() => import("./pages/TermsOfService"));
+const PrivacyPolicy = lazyRetry(() => import("./pages/PrivacyPolicy"));
+const PublicManualBooking = lazyRetry(() => import("./pages/PublicManualBooking"));
+
+const CompleteProfile = lazyRetry(() => import("./pages/CompleteProfile"));
+const BookingPage = lazyRetry(() => import("./pages/BookingPage"));
+const PaymentVerify = lazyRetry(() => import("./pages/PaymentVerify"));
+const TripEventGuide = lazyRetry(() => import("./pages/TripEventGuide"));
+const CampsiteGuide = lazyRetry(() => import("./pages/CampsiteGuide"));
+const HotelGuide = lazyRetry(() => import("./pages/HotelGuide"));
+const AdminPaymentVerification = lazyRetry(() => import("./pages/AdminPaymentVerification"));
+const AccountsOverview = lazyRetry(() => import("./pages/admin/AccountsOverview"));
+const Explore = lazyRetry(() => import("./pages/Explore"));
+const CountyDetail = lazyRetry(() => import("./pages/CountyDetail"));
+const AdminWithdrawals = lazyRetry(() => import("./pages/admin/AdminWithdrawals"));
+const VisitAnalytics = lazyRetry(() => import("./pages/admin/VisitAnalytics"));
 
 
 const queryClient = new QueryClient({
@@ -146,29 +165,13 @@ const App = () => {
       e.preventDefault();
     };
 
-    const handleChunkError = (e: ErrorEvent) => {
-      const errorMsg = e.message || "";
-      if (
-        errorMsg.includes("Failed to fetch dynamically imported module") ||
-        errorMsg.includes("error loading dynamically imported module")
-      ) {
-        const alreadyReloaded = sessionStorage.getItem("chunk_reload");
-        if (!alreadyReloaded) {
-          sessionStorage.setItem("chunk_reload", "1");
-          console.warn("New deployment detected. Refreshing assets...");
-          window.location.reload();
-        } else {
-          console.error("Chunk load failed after reload — not retrying.");
-        }
-      }
-    };
-
+    // NOTE: the old chunk-error reload guard was removed from here. Stale
+    // deploy recovery (clear service worker + caches, reload once) now lives
+    // in main.tsx, so the two don't fight each other.
     window.addEventListener("unhandledrejection", handler);
-    window.addEventListener("error", handleChunkError);
 
     return () => {
       window.removeEventListener("unhandledrejection", handler);
-      window.removeEventListener("error", handleChunkError);
     };
   }, []);
 
@@ -202,7 +205,13 @@ const App = () => {
                       {/* All other routes show page name in loader */}
                       <Route path="/account" element={<Suspense fallback={<OfflineFallback text="Account" />}><AccountPage /></Suspense>} />
                       <Route path="/explore" element={<Suspense fallback={<OfflineFallback text="Explore" />}><Explore /></Suspense>} />
+
+                      {/* Countries explorer: all countries, and one country + its divisions */}
+                      <Route path="/explore-countries" element={<Suspense fallback={<OfflineFallback text="Countries" />}><ExploreCountries /></Suspense>} />
+                      <Route path="/explore-countries/:countrySlug" element={<Suspense fallback={<OfflineFallback text="Countries" />}><ExploreCountries /></Suspense>} />
+                      {/* Short alias for the same page */}
                       <Route path="/countries" element={<Suspense fallback={<OfflineFallback text="Countries" />}><ExploreCountries /></Suspense>} />
+
                       <Route path="/saved" element={<Suspense fallback={<OfflineFallback text="Saved" />}><Saved /></Suspense>} />
                       <Route path="/bookings" element={<Suspense fallback={<OfflineFallback text="Bookings" />}><Bookings /></Suspense>} />
                       <Route path="/contact" element={<Suspense fallback={<OfflineFallback text="Contact" />}><Contact /></Suspense>} />
@@ -265,6 +274,8 @@ const App = () => {
                       <Route path="/admin/accounts" element={<Suspense fallback={<OfflineFallback text="Accounts Overview" />}><AccountsOverview /></Suspense>} />
                       <Route path="/admin/analytics" element={<Suspense fallback={<OfflineFallback text="Analytics" />}><VisitAnalytics /></Suspense>} />
                       <Route path="/admin/countries" element={<Suspense fallback={<OfflineFallback text="Countries" />}><CountryDivisionsManager /></Suspense>} />
+
+                      {/* Catch-all: must stay LAST */}
                       <Route path="*" element={<Suspense fallback={<OfflineFallback text="Loading" />}><NotFound /></Suspense>} />
                     </Routes>
                   </div>

@@ -446,7 +446,7 @@ const BecomeHost = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
           <SelectionCard
             icon={<Home className="h-8 w-8" style={{ color: SUCCESS }} />}
-            title="Outdoor/campsite/adventurepalce"
+            title="Outdoor/campsite"
             desc="List your home, apartment, or private stay. Once approved, you can add unlimited Accommodation listings from your dashboard."
             onClick={() => navigate("/create-adventure")}
             iconBg={SUCCESS_SOFT}

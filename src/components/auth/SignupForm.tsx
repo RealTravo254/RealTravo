@@ -63,6 +63,11 @@ export const SignupForm = ({ onSwitchToLogin, onSignupSuccess }: SignupFormProps
       return;
     }
 
+    if (!countryId) {
+      toast({ title: "Validation Error", description: "Please select your country.", variant: "destructive" });
+      return;
+    }
+
     if (!dateOfBirth) {
       toast({ title: "Validation Error", description: "Please enter your date of birth.", variant: "destructive" });
       return;
@@ -103,17 +108,16 @@ export const SignupForm = ({ onSwitchToLogin, onSignupSuccess }: SignupFormProps
       return;
     }
 
-    // Country/division are optional at signup — save them right after the
-    // account is created so we don't add required fields to the form.
-    if (countryId) {
-      const { data: sessionData } = await supabase.auth.getUser();
-      const uid = sessionData?.user?.id;
-      if (uid) {
-        await supabase
-          .from("profiles")
-          .update({ country_id: countryId, division_id: divisionId })
-          .eq("id", uid);
-      }
+    // Country is required now (validated above), so this always has a value —
+    // saved right after the account is created so we don't need it in the
+    // signUp() payload itself.
+    const { data: sessionData } = await supabase.auth.getUser();
+    const uid = sessionData?.user?.id;
+    if (uid) {
+      await supabase
+        .from("profiles")
+        .update({ country_id: countryId, division_id: divisionId })
+        .eq("id", uid);
     }
 
     toast({ title: "Success", description: "Verify your email to continue." });

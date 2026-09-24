@@ -438,7 +438,7 @@ const BecomeHost = () => {
         <div className="flex items-start gap-2.5 p-3.5 rounded-2xl mb-8" style={{ background: GOLD_SOFT, border: `1px solid ${GOLD}30` }}>
           <Info className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: GOLD }} />
           <p className="text-[11px] font-medium leading-relaxed" style={{ color: GOLD_TEXT }}>
-            <span className="font-semibold">Note:</span> Accommodation / Airbnb and Hotel &amp; Stay are standalone hosting types — they cannot be combined with Tour Guide or Company hosting. Once your first Accommodation listing is approved, you can add more from your dashboard. Hotel &amp; Stay is limited to one listing per account.
+            <span className="font-semibold">Note:</span> Outdoor/campsite/adventurepalce and Hotel/stay &amp; Stay are standalone hosting types — they cannot be combined with Tour Guide or Company hosting. Once your first Accommodation listing is approved, you can add more from your dashboard. Hotel &amp; Stay is limited to one listing per account.
           </p>
         </div>
 
@@ -446,7 +446,7 @@ const BecomeHost = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
           <SelectionCard
             icon={<Home className="h-8 w-8" style={{ color: SUCCESS }} />}
-            title="Accommodation / Airbnb"
+            title="Outdoor/campsite/adventurepalce"
             desc="List your home, apartment, or private stay. Once approved, you can add unlimited Accommodation listings from your dashboard."
             onClick={() => navigate("/create-adventure")}
             iconBg={SUCCESS_SOFT}

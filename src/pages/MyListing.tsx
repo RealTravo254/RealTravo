@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { MobileBottomBar } from "@/components/MobileBottomBar";
@@ -40,6 +40,10 @@ const COLORS = {
 const SERIF = "'Fraunces', 'Iowan Old Style', Georgia, serif";
 
 const ITEMS_PER_PAGE = 20;
+
+// Seconds the person must wait between "Resend code" taps, so a stray
+// double-click (or impatience) can't spam the email-OTP endpoint.
+const RESEND_COOLDOWN_SECONDS = 30;
 
 const getTableForType = (type: string) => {
   if (type === "trip" || type === "event") return "trips";
@@ -99,6 +103,10 @@ const MyListing = () => {
   const [codeInput, setCodeInput] = useState("");
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
 
+  // ── Resend-code state (email OTP step of the delete flow) ────────────────
+  const [resendingCode, setResendingCode] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+
   // Host type state
   const [hostingCategory, setHostingCategory] = useState<string | null>(null);
   const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
@@ -112,13 +120,35 @@ const MyListing = () => {
   const [analyticsFetched, setAnalyticsFetched] = useState(false);
   const [expandedAnalytics, setExpandedAnalytics] = useState<Set<string>>(new Set());
 
+  // ── Fetch-once guard ──────────────────────────────────────────────────────
+  // Supabase's client silently refreshes the auth session whenever the tab
+  // regains focus (switching back from another tab/app, or the OS waking the
+  // browser). That fires onAuthStateChange, which hands AuthContext a *new*
+  // `user` object with the same id — so an effect keyed on `[user, navigate]`
+  // (the object reference) re-runs and re-fetches everything, which reads as
+  // an unwanted "auto refresh" every time the person leaves and comes back.
+  // Keying on `user?.id` instead, plus this ref, means the page loads its
+  // data once per actual login and never refetches just because the tab was
+  // backgrounded and refocused.
+  const fetchedUserIdRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!user) {
       navigate("/auth");
       return;
     }
+    if (fetchedUserIdRef.current === user.id) return;
+    fetchedUserIdRef.current = user.id;
     fetchHostStatus();
-  }, [user, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  // Tick the resend cooldown down once a second while it's active.
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const t = setInterval(() => setResendCooldown((c) => Math.max(0, c - 1)), 1000);
+    return () => clearInterval(t);
+  }, [resendCooldown]);
 
   const fetchHostStatus = async () => {
     setLoading(true);
@@ -366,6 +396,8 @@ const MyListing = () => {
     setPasswordInput("");
     setCodeInput("");
     setDeleteSubmitting(false);
+    setResendingCode(false);
+    setResendCooldown(0);
   };
 
   const closeDeleteDialog = () => {
@@ -374,6 +406,8 @@ const MyListing = () => {
     setPasswordInput("");
     setCodeInput("");
     setDeleteSubmitting(false);
+    setResendingCode(false);
+    setResendCooldown(0);
   };
 
   // ── Delete flow: step 2 — verify password, then email a one-time code ───
@@ -408,10 +442,39 @@ const MyListing = () => {
 
       toast({ title: "Code sent", description: `We emailed a confirmation code to ${user.email}.` });
       setDeleteStep("code");
+      setResendCooldown(RESEND_COOLDOWN_SECONDS);
     } catch (error: any) {
       toast({ title: "Something went wrong", description: error?.message ?? "Please try again.", variant: "destructive" });
     } finally {
       setDeleteSubmitting(false);
+    }
+  };
+
+  // ── Resend the one-time code without re-entering the password ───────────
+  // The password was already verified to get to this step, so resending
+  // just asks Supabase to email a fresh code — gated by a short cooldown so
+  // the button can't be hammered.
+  const handleResendCode = async () => {
+    if (!user?.email || resendingCode || resendCooldown > 0) return;
+
+    setResendingCode(true);
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email: user.email,
+        options: { shouldCreateUser: false },
+      });
+
+      if (error) {
+        toast({ title: "Couldn't resend code", description: error.message, variant: "destructive" });
+        return;
+      }
+
+      toast({ title: "Code resent", description: `We emailed a new code to ${user.email}.` });
+      setResendCooldown(RESEND_COOLDOWN_SECONDS);
+    } catch (error: any) {
+      toast({ title: "Something went wrong", description: error?.message ?? "Please try again.", variant: "destructive" });
+    } finally {
+      setResendingCode(false);
     }
   };
 
@@ -1200,6 +1263,21 @@ const MyListing = () => {
                   onKeyDown={(e) => { if (e.key === "Enter") handleVerifyAndDelete(); }}
                   autoFocus
                 />
+                <div className="flex justify-center pt-1">
+                  <button
+                    type="button"
+                    onClick={handleResendCode}
+                    disabled={resendingCode || resendCooldown > 0}
+                    className="text-xs font-medium underline decoration-dotted underline-offset-2 disabled:no-underline disabled:opacity-50"
+                    style={{ color: COLORS.MUTED }}
+                  >
+                    {resendingCode
+                      ? "Sending…"
+                      : resendCooldown > 0
+                        ? `Resend code (${resendCooldown}s)`
+                        : "Didn't get it? Resend code"}
+                  </button>
+                </div>
               </div>
 
               <DialogFooter className="flex-col gap-2 sm:flex-col mt-4">

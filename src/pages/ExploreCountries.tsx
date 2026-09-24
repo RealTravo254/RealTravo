@@ -23,7 +23,7 @@ import { Header } from "@/components/Header";
 import { MobileBottomBar } from "@/components/MobileBottomBar";
 import { SearchBarWithSuggestions } from "@/components/SearchBarWithSuggestions";
 import { supabase } from "@/integrations/supabase/client";
-import { Globe, MapPin, ArrowLeft, ChevronLeft, Loader2 } from "lucide-react";
+import { Globe, MapPin, ArrowLeft, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 
 // ── Where a tapped division/country goes. Stays on this same cards page
 // (with the country pre-selected via query param) rather than the homepage,
@@ -67,6 +67,42 @@ interface Division { id: string; country_id: string; name: string; image_url: st
 
 const listingsLabel = (n: number) => `${n} listing${n === 1 ? "" : "s"}`;
 
+const COUNTRIES_PAGE_SIZE = 12;
+const DIVISIONS_PAGE_SIZE = 12;
+
+// ── Pagination control (shared by the country grid and each country's
+// division grid) ───────────────────────────────────────────────────────────
+const Pagination = ({
+  page, totalPages, onPageChange,
+}: { page: number; totalPages: number; onPageChange: (p: number) => void }) => {
+  if (totalPages <= 1) return null;
+  return (
+    <div className="flex items-center justify-center gap-3 pt-1">
+      <button
+        onClick={() => onPageChange(Math.max(1, page - 1))}
+        disabled={page === 1}
+        aria-label="Previous page"
+        className="flex h-8 w-8 items-center justify-center rounded-full bg-white transition-opacity disabled:opacity-30"
+        style={{ border: `1px solid ${HAIRLINE}` }}
+      >
+        <ChevronLeft className="h-4 w-4" style={{ color: INK_SOFT }} />
+      </button>
+      <span className="text-xs font-semibold" style={{ color: INK_SOFT }}>
+        Page {page} of {totalPages}
+      </span>
+      <button
+        onClick={() => onPageChange(Math.min(totalPages, page + 1))}
+        disabled={page === totalPages}
+        aria-label="Next page"
+        className="flex h-8 w-8 items-center justify-center rounded-full bg-white transition-opacity disabled:opacity-30"
+        style={{ border: `1px solid ${HAIRLINE}` }}
+      >
+        <ChevronRight className="h-4 w-4" style={{ color: INK_SOFT }} />
+      </button>
+    </div>
+  );
+};
+
 // ── Square tile (used for both countries and divisions) ───────────────────
 const SquareTile = ({
   name, image, count, onClick, icon,
@@ -94,6 +130,55 @@ const SquareTile = ({
   </button>
 );
 
+// ── Country card + its divisions, paginated. A real component (not a plain
+// function) so each group can hold its own division-page state — needed
+// since search can render several groups at once. ──
+const CountryGroup = ({
+  country, divs, countryCount, divisionCounts, onCountryClick, onDivisionClick,
+}: {
+  country: Country;
+  divs: Division[];
+  countryCount: number;
+  divisionCounts: Map<string, number>;
+  onCountryClick: () => void;
+  onDivisionClick: (d: Division) => void;
+}) => {
+  const [page, setPage] = useState(1);
+  useEffect(() => { setPage(1); }, [divs]);
+
+  const totalPages = Math.max(1, Math.ceil(divs.length / DIVISIONS_PAGE_SIZE));
+  const pagedDivs = divs.slice((page - 1) * DIVISIONS_PAGE_SIZE, page * DIVISIONS_PAGE_SIZE);
+
+  return (
+    <section className="space-y-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+        <SquareTile
+          name={country.name}
+          image={country.image_url}
+          count={countryCount}
+          onClick={onCountryClick}
+          icon={<Globe className="h-8 w-8" />}
+        />
+        {pagedDivs.map((d) => (
+          <SquareTile
+            key={d.id}
+            name={d.name}
+            image={d.image_url}
+            count={divisionCounts.get(d.id) || 0}
+            onClick={() => onDivisionClick(d)}
+            icon={<MapPin className="h-8 w-8" />}
+          />
+        ))}
+      </div>
+      {divs.length === 0 ? (
+        <p className="text-xs" style={{ color: INK_SOFT }}>No divisions added for {country.name} yet.</p>
+      ) : (
+        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
+      )}
+    </section>
+  );
+};
+
 // ── Page ──────────────────────────────────────────────────────────────────
 const ExploreCountries = () => {
   useInjectFonts();
@@ -108,6 +193,10 @@ const ExploreCountries = () => {
 
   const [query, setQuery] = useState("");
   const [activeCountryId, setActiveCountryId] = useState<string | null>(null);
+
+  // Pagination for the top-level "all countries" grid (division-level
+  // pagination is handled per-group, inside CountryGroup above).
+  const [countriesPage, setCountriesPage] = useState(1);
 
   useEffect(() => {
     let cancelled = false;
@@ -162,6 +251,16 @@ const ExploreCountries = () => {
     [countries, countryCounts],
   );
 
+  // Reset to page 1 whenever the underlying list changes size (e.g. data
+  // finishes loading, or a country gets added/removed elsewhere).
+  useEffect(() => { setCountriesPage(1); }, [sortedCountries.length]);
+
+  const totalCountriesPages = Math.max(1, Math.ceil(sortedCountries.length / COUNTRIES_PAGE_SIZE));
+  const pagedCountries = sortedCountries.slice(
+    (countriesPage - 1) * COUNTRIES_PAGE_SIZE,
+    countriesPage * COUNTRIES_PAGE_SIZE,
+  );
+
   // ── Search: country matches show all divisions; division matches show
   //    their parent country with just the matching divisions. ──
   const q = query.trim().toLowerCase();
@@ -189,32 +288,19 @@ const ExploreCountries = () => {
     if (match) setActiveCountryId(match.id);
   }, [searchParams, countries]);
 
-  // ── Group block: country tile + its divisions, two per row ──
+  // Renders a country + its divisions via CountryGroup, wiring up the click
+  // handlers this page needs: tapping the country card drills into it,
+  // tapping a division navigates straight to that division's page.
   const renderGroup = (country: Country, divs: Division[]) => (
-    <section key={country.id} className="space-y-3">
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-        <SquareTile
-          name={country.name}
-          image={country.image_url}
-          count={countryCount(country)}
-          onClick={() => navigate(countryPath(country))}
-          icon={<Globe className="h-8 w-8" />}
-        />
-        {divs.map((d) => (
-          <SquareTile
-            key={d.id}
-            name={d.name}
-            image={d.image_url}
-            count={divisionCounts.get(d.id) || 0}
-            onClick={() => navigate(divisionPath(country, d))}
-            icon={<MapPin className="h-8 w-8" />}
-          />
-        ))}
-      </div>
-      {divs.length === 0 && (
-        <p className="text-xs" style={{ color: INK_SOFT }}>No divisions added for {country.name} yet.</p>
-      )}
-    </section>
+    <CountryGroup
+      key={country.id}
+      country={country}
+      divs={divs}
+      countryCount={countryCount(country)}
+      divisionCounts={divisionCounts}
+      onCountryClick={() => setActiveCountryId(country.id)}
+      onDivisionClick={(d) => navigate(divisionPath(country, d))}
+    />
   );
 
   return (
@@ -244,8 +330,16 @@ const ExploreCountries = () => {
         {/* Search — shared bar, regions-only mode: searches countries and
             divisions only (no trip/campsite results), picking a suggestion
             navigates straight to that country/division. Typing without
-            picking one still filters the grid below via `query`. */}
-        <div className="mb-6">
+            picking one still filters the grid below via `query`.
+
+            relative z-30 here (matching the z-30 now set inside
+            SearchBarWithSuggestions itself) keeps the suggestions dropdown
+            reliably above the cards grid rendered below it — without an
+            explicit z-index on this wrapper, `isolation: isolate` inside
+            the search bar only ranks things *within* its own stacking
+            context, so later page content (the grid) could still paint
+            over the whole thing regardless of the dropdown's own z-index. */}
+        <div className="relative z-30 mb-6">
           <SearchBarWithSuggestions
             value={query}
             onChange={setQuery}
@@ -283,17 +377,20 @@ const ExploreCountries = () => {
         ) : sortedCountries.length === 0 ? (
           <p className="py-16 text-center text-sm" style={{ color: INK_SOFT }}>No countries have been added yet.</p>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-            {sortedCountries.map((c) => (
-              <SquareTile
-                key={c.id}
-                name={c.name}
-                image={c.image_url}
-                count={countryCount(c)}
-                onClick={() => setActiveCountryId(c.id)}
-                icon={<Globe className="h-8 w-8" />}
-              />
-            ))}
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+              {pagedCountries.map((c) => (
+                <SquareTile
+                  key={c.id}
+                  name={c.name}
+                  image={c.image_url}
+                  count={countryCount(c)}
+                  onClick={() => setActiveCountryId(c.id)}
+                  icon={<Globe className="h-8 w-8" />}
+                />
+              ))}
+            </div>
+            <Pagination page={countriesPage} totalPages={totalCountriesPages} onPageChange={setCountriesPage} />
           </div>
         )}
       </main>

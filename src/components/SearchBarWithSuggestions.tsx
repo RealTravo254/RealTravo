@@ -466,7 +466,17 @@ export const SearchBarWithSuggestions = React.forwardRef<SearchBarWithSuggestion
       <div className="w-full px-3 md:container md:mx-auto md:px-6 lg:px-8">
         {/* ── Search bar: height reduced ~40% (h-10/h-16 → h-6/h-10) so it takes
             up noticeably less vertical space on both mobile and desktop. ── */}
-        <div ref={wrapperRef} className="relative w-full max-w-4xl mx-auto" style={{ isolation: 'isolate' }}>
+        {/*
+          z-30 here (not just on the dropdown further below) matters:
+          `isolation: isolate` makes this div its own stacking context, but
+          without a z-index of its own that whole context still stacks at
+          the "auto" level relative to ITS siblings — so later DOM content
+          on the page (e.g. a cards grid rendered below this component) can
+          paint over it regardless of how high the dropdown's internal
+          z-index is set. Explicitly ranking this wrapper above normal page
+          content fixes that for every page that uses this component.
+        */}
+        <div ref={wrapperRef} className="relative z-30 w-full max-w-4xl mx-auto" style={{ isolation: 'isolate' }}>
           <div className="flex items-center gap-2">
 
             {/* ── Home button — visible on ALL screen sizes when showBackButton is true ── */}

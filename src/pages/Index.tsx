@@ -137,14 +137,14 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: G
         </>
       )}
     </section>
-  );
+  ); 
 });
 GridSection.displayName = "GridSection";
 
 const CATEGORIES = [
-  { icon: Tent,       title: "Outdoor & Campsites", path: "/category/campsite", bgImage: "/images/category-campsite.jpg" },
+  { icon: Tent,       title: "Outdoor & Campsites", path: "/category/campsite", bgImage: "/images/category-adventures.jpg" },
   { icon: MapIcon,    title: "Tours & Trips",       path: "/category/guided",   bgImage: "/images/category-trips.jpg" },
-  { icon: BedDouble,  title: "Hotels & Stays",      path: "/category/campsite", bgImage: "/images/category-hotel.jpg" },
+  { icon: BedDouble,  title: "Hotels & Stays",      path: "/category/campsite", bgImage: "/images/category-hotels.jpg" },
 ];
 
 const QUICK_NAV = [

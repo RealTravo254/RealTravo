@@ -13,7 +13,7 @@ import { useBanCheck } from "@/hooks/useBanCheck";
 import {
   MapPin, Navigation, Clock, X, Plus, Camera, CheckCircle2, Info, ArrowLeft, Loader2,
   DollarSign, ChevronLeft, ChevronRight, Link2, ShieldCheck, FileImage, Upload,
-  Globe, Users, Sparkles, TreePine, Tent, Landmark, BedDouble,
+  Globe, Users, Sparkles, TreePine, Tent, Landmark, BedDouble, Building2, UserRound,
 } from "lucide-react";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -44,6 +44,19 @@ import { useCurrency } from "@/contexts/CurrencyContext";
  * "Other", or that country isn't seeded in `countries` yet), the dropdown
  * just stays empty and `division_id` is saved as null — it's optional and
  * never blocks submission.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * ── DB requirement for Registration Type (Company / Guide) ───────────────
+ * Add the column if it doesn't already exist (defaults to 'company' so
+ * existing rows keep working with no backfill needed):
+ *
+ *   alter table public.adventure_places
+ *     add column if not exists registration_type text not null default 'company';
+ *
+ * For an Individual/Guide registration, `registration_number` holds their
+ * government ID number instead of a company registration number — no
+ * separate column is needed for that.
  * ────────────────────────────────────────────────────────────────────────── */
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -79,6 +92,33 @@ const CATEGORY_OPTIONS: { value: string; label: string; icon: any }[] = [
   // { value: "park", label: "Park", icon: TreePine }, // uncomment when Park pages are ready
   // { value: "attraction", label: "Attraction", icon: Landmark }, // uncomment when Attraction pages are ready
 ];
+
+// ─── Registration Type: Company or Individual Guide ────────────────────────
+// A host registers either as a Company (company registration number) or as
+// an individual Guide (government ID number instead). Both still require
+// Country; Division/region stays optional either way.
+const REGISTRATION_TYPE_OPTIONS: { value: string; label: string; icon: any }[] = [
+  { value: "company", label: "Company", icon: Building2 },
+  { value: "guide", label: "Individual / Guide", icon: UserRound },
+];
+
+// Per-country ID number format, shown as a label/placeholder hint for guides.
+// Add more countries here as needed — anything not listed falls back to the
+// generic government ID / passport hint below.
+const GUIDE_ID_HINTS: Record<string, { label: string; placeholder: string; pattern?: RegExp; hint: string }> = {
+  Kenya:          { label: "National ID Number",       placeholder: "e.g. 23456789",               pattern: /^\d{7,8}$/,         hint: "7–8 digit Kenyan National ID number" },
+  Uganda:         { label: "National ID Number (NIN)", placeholder: "e.g. CM12345678ABC1",          pattern: /^[A-Za-z0-9]{14}$/, hint: "14-character Ugandan NIN" },
+  Tanzania:       { label: "NIDA Number",               placeholder: "e.g. 19850101-12345-00001-23", pattern: /^\d{8}-\d{5}-\d{5}-\d{2}$/, hint: "Tanzanian NIDA number" },
+  Rwanda:         { label: "National ID Number",        placeholder: "e.g. 1198000000000000",       pattern: /^\d{16}$/,          hint: "16-digit Rwandan National ID" },
+  Nigeria:        { label: "National Identification Number (NIN)", placeholder: "e.g. 12345678901", pattern: /^\d{11}$/,          hint: "11-digit Nigerian NIN" },
+  "South Africa": { label: "National ID Number",        placeholder: "e.g. 8001015009087",          pattern: /^\d{13}$/,          hint: "13-digit South African ID number" },
+};
+const DEFAULT_GUIDE_ID_HINT = { label: "Government ID / Passport Number", placeholder: "e.g. A1234567", hint: "A government-issued ID or passport number" };
+const getGuideIdInfo = (country: string) => GUIDE_ID_HINTS[country] || DEFAULT_GUIDE_ID_HINT;
+
+// A registration number/ID must never be identical to the registration name.
+const namesClash = (name: string, number: string) =>
+  !!name.trim() && !!number.trim() && name.trim().toLowerCase() === number.trim().toLowerCase();
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface FacilityItem {
@@ -187,6 +227,39 @@ const CategorySelector = ({
     </div>
     {isInvalid && (
       <p className="text-red-400 text-[10px] font-semibold mt-1.5">Please select a category to continue</p>
+    )}
+  </div>
+);
+
+// ─── Registration Type Selector (Company or Individual Guide) ─────────────────
+const RegistrationTypeSelector = ({
+  value, onChange, isInvalid,
+}: { value: string; onChange: (v: string) => void; isInvalid?: boolean }) => (
+  <div>
+    <div className={cn("grid grid-cols-2 gap-2.5 p-1 rounded-xl max-w-sm", isInvalid && "ring-2 ring-red-300")}>
+      {REGISTRATION_TYPE_OPTIONS.map((opt) => {
+        const isActive = value === opt.value;
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange(opt.value)}
+            className={cn(
+              "flex flex-col items-center justify-center gap-1.5 h-20 rounded-xl text-[11px] font-bold border transition-all",
+              isActive
+                ? "text-white shadow-md border-transparent scale-[1.02]"
+                : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
+            )}
+            style={isActive ? { background: COLORS.TEAL } : {}}
+          >
+            <opt.icon className={cn("h-5 w-5", isActive ? "text-white" : "text-slate-400")} />
+            {opt.label}
+          </button>
+        );
+      })}
+    </div>
+    {isInvalid && (
+      <p className="text-red-400 text-[10px] font-semibold mt-1.5">Please select how you're registering to continue</p>
     )}
   </div>
 );
@@ -795,6 +868,11 @@ const CreateAdventure = () => {
   // to the first entry in CATEGORY_OPTIONS.
   const [category, setCategory] = useState<string>(CATEGORY_OPTIONS[0]?.value ?? "campsite");
 
+  // Company (business) or individual Guide registration — determines whether
+  // formData.registrationNumber holds a company registration number or a
+  // government ID number, and which validation/hint applies.
+  const [registrationType, setRegistrationType] = useState<string>("company");
+
   const [formData, setFormData] = useState({
     registrationName: "", registrationNumber: "", locationName: "", place: "",
     country: "", description: "", email: "", phoneNumber: "",
@@ -934,7 +1012,29 @@ const CreateAdventure = () => {
     toast({ title: "File type not supported", description: reason, variant: "destructive" });
   };
 
-  const isStep1Complete = !!category && !!formData.registrationName.trim() && !!formData.registrationNumber.trim() && !!formData.country && !!traLicenceFile;
+  // A registration number/ID must never match the registration name, and for
+  // guides it must additionally look like a valid ID for the chosen country.
+  const getRegistrationNumberError = (): string | null => {
+    const name = formData.registrationName;
+    const number = formData.registrationNumber;
+    if (!number.trim()) {
+      return registrationType === "guide" ? "Please enter your ID number." : "Please enter your company registration number.";
+    }
+    if (namesClash(name, number)) {
+      return registrationType === "guide"
+        ? "Your ID number can't be the same as your registration name."
+        : "Your registration number can't be the same as your registration name.";
+    }
+    if (registrationType === "guide") {
+      const info = getGuideIdInfo(formData.country);
+      if (info.pattern && !info.pattern.test(number.trim())) {
+        return `Please enter a valid ${info.label.toLowerCase()} (${info.hint}).`;
+      }
+    }
+    return null;
+  };
+
+  const isStep1Complete = !!category && !!registrationType && !!formData.registrationName.trim() && !getRegistrationNumberError() && !!formData.country && !!traLicenceFile;
   const isStep2Complete = !!formData.locationName.trim() && (!!formData.latitude || !!formData.locationLink.trim());
   const isStep3Complete = !!formData.description.trim();
   const isStep4Complete = true;
@@ -964,9 +1064,20 @@ const CreateAdventure = () => {
         toast({ title: "Select a Category", description: "Please choose Outdoor Place or Hotel & Stay to continue.", variant: "destructive" });
         return false;
       }
-      if (!formData.registrationName.trim() || !formData.registrationNumber.trim() || !formData.country) {
+      if (!registrationType) {
+        setShowErrors(true);
+        toast({ title: "Select Registration Type", description: "Please choose Company or Individual / Guide to continue.", variant: "destructive" });
+        return false;
+      }
+      if (!formData.registrationName.trim() || !formData.country) {
         setShowErrors(true);
         toast({ title: "Complete this step", description: "Fill all required fields", variant: "destructive" });
+        return false;
+      }
+      const regError = getRegistrationNumberError();
+      if (regError) {
+        setShowErrors(true);
+        toast({ title: registrationType === "guide" ? "ID Number Required" : "Registration Number Required", description: regError, variant: "destructive" });
         return false;
       }
       if (!traLicenceFile) {
@@ -1103,8 +1214,8 @@ const CreateAdventure = () => {
     if (!user) { navigate("/login"); return; }
     setShowErrors(true);
     if (
-      !category ||
-      !formData.registrationName.trim() || !formData.registrationNumber.trim() || !formData.country ||
+      !category || !registrationType ||
+      !formData.registrationName.trim() || !!getRegistrationNumberError() || !formData.country ||
       !formData.locationName.trim() ||
       !formData.description.trim() || galleryImages.length < 5 || !traLicenceFile
     ) {
@@ -1163,6 +1274,7 @@ const CreateAdventure = () => {
         // ── Listing category (Outdoor Place / campsite OR Hotel & Stay) ──
         category,
         registration_number: formData.registrationNumber,
+        registration_type: registrationType,
         tra_license_url: traLicenceUrl,
         location: formData.locationName, place: formData.place, country: formData.country,
         // ── Division / region — optional FK into `country_divisions` ──
@@ -1263,14 +1375,43 @@ const CreateAdventure = () => {
                     <FieldLabel required>Listing Category</FieldLabel>
                     <CategorySelector value={category} onChange={setCategory} isInvalid={showErrors && !category} />
                   </div>
+
+                  {/* ── Registering as a Company or an Individual / Guide ── */}
+                  <div>
+                    <FieldLabel required>Registering As</FieldLabel>
+                    <RegistrationTypeSelector
+                      value={registrationType}
+                      onChange={setRegistrationType}
+                      isInvalid={showErrors && !registrationType}
+                    />
+                  </div>
+
                   <div>
                     <FieldLabel required>Registration Name</FieldLabel>
-                    <StyledInput value={formData.registrationName} onChange={(e) => setFormData({ ...formData, registrationName: e.target.value })} placeholder="Official Government Name" isInvalid={isMissing(formData.registrationName)} />
+                    <StyledInput
+                      value={formData.registrationName}
+                      onChange={(e) => setFormData({ ...formData, registrationName: e.target.value })}
+                      placeholder={registrationType === "guide" ? "Your Full Legal Name" : "Official Government Name"}
+                      isInvalid={isMissing(formData.registrationName) || (showErrors && namesClash(formData.registrationName, formData.registrationNumber))}
+                    />
                   </div>
                   <div className="grid lg:grid-cols-2 gap-4">
                     <div>
-                      <FieldLabel required>Registration Number</FieldLabel>
-                      <StyledInput value={formData.registrationNumber} onChange={(e) => setFormData({ ...formData, registrationNumber: e.target.value })} placeholder="e.g. BN-X12345" isInvalid={isMissing(formData.registrationNumber)} />
+                      <FieldLabel required>
+                        {registrationType === "guide" ? getGuideIdInfo(formData.country).label : "Company Registration Number"}
+                      </FieldLabel>
+                      <StyledInput
+                        value={formData.registrationNumber}
+                        onChange={(e) => setFormData({ ...formData, registrationNumber: e.target.value })}
+                        placeholder={registrationType === "guide" ? getGuideIdInfo(formData.country).placeholder : "e.g. BN-X12345"}
+                        isInvalid={showErrors && !!getRegistrationNumberError()}
+                      />
+                      {registrationType === "guide" && (
+                        <p className="text-[10px] text-slate-400 mt-1">{getGuideIdInfo(formData.country).hint}</p>
+                      )}
+                      {showErrors && getRegistrationNumberError() && (
+                        <p className="text-red-400 text-[10px] font-semibold mt-1">{getRegistrationNumberError()}</p>
+                      )}
                     </div>
                     <div>
                       <FieldLabel required>Country</FieldLabel>

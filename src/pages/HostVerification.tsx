@@ -11,10 +11,40 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MultiStepForm } from "@/components/creation/MultiStepForm";
 import { DocumentUploadWithCamera } from "@/components/verification/DocumentUploadWithCamera";
+import { CountrySelector } from "@/components/creation/CountrySelector";
 import { CheckCircle2 } from "lucide-react";
 
 const TEAL_COLOR = "#008080";
 const TEAL_HOVER_COLOR = "#005555";
+
+/**
+ * ── DB requirement for Country on host verification ───────────────────────
+ * This form previously collected street address / city / postal code but
+ * never a Country, even though a guide's ID format and a company's
+ * registration both depend on it. Add the column if it doesn't exist:
+ *
+ *   alter table public.host_verifications
+ *     add column if not exists country text;
+ * ────────────────────────────────────────────────────────────────────────── */
+
+// Per-country ID number format, shown as a label/placeholder hint for guides.
+// Kept identical to the hints used on the adventure/trip creation forms so
+// the same ID is recognized the same way everywhere. Add more countries as
+// needed — anything not listed falls back to the generic hint below.
+const GUIDE_ID_HINTS: Record<string, { label: string; placeholder: string; pattern?: RegExp; hint: string }> = {
+  Kenya:          { label: "National ID Number",       placeholder: "e.g. 23456789",               pattern: /^\d{7,8}$/,         hint: "7–8 digit Kenyan National ID number" },
+  Uganda:         { label: "National ID Number (NIN)", placeholder: "e.g. CM12345678ABC1",          pattern: /^[A-Za-z0-9]{14}$/, hint: "14-character Ugandan NIN" },
+  Tanzania:       { label: "NIDA Number",               placeholder: "e.g. 19850101-12345-00001-23", pattern: /^\d{8}-\d{5}-\d{5}-\d{2}$/, hint: "Tanzanian NIDA number" },
+  Rwanda:         { label: "National ID Number",        placeholder: "e.g. 1198000000000000",       pattern: /^\d{16}$/,          hint: "16-digit Rwandan National ID" },
+  Nigeria:        { label: "National Identification Number (NIN)", placeholder: "e.g. 12345678901", pattern: /^\d{11}$/,          hint: "11-digit Nigerian NIN" },
+  "South Africa": { label: "National ID Number",        placeholder: "e.g. 8001015009087",          pattern: /^\d{13}$/,          hint: "13-digit South African ID number" },
+};
+const DEFAULT_GUIDE_ID_HINT = { label: "Tour Guide License / ID Number", placeholder: "e.g. A1234567", hint: "Your tour guide license or government ID number" };
+const getGuideIdInfo = (country: string) => GUIDE_ID_HINTS[country] || DEFAULT_GUIDE_ID_HINT;
+
+// A registration number/ID must never be identical to the legal name.
+const namesClash = (name: string, number: string) =>
+  !!name.trim() && !!number.trim() && name.trim().toLowerCase() === number.trim().toLowerCase();
 
 const HostVerification = () => {
   const { user } = useAuth();
@@ -29,6 +59,7 @@ const HostVerification = () => {
   const [streetAddress, setStreetAddress] = useState("");
   const [city, setCity] = useState("");
   const [postalCode, setPostalCode] = useState("");
+  const [country, setCountry] = useState("");
   const [registrationNumber, setRegistrationNumber] = useState("");
   const [documentType, setDocumentType] = useState("");
   const [documentFront, setDocumentFront] = useState<File | null>(null);
@@ -36,6 +67,29 @@ const HostVerification = () => {
   const [selfie, setSelfie] = useState<File | null>(null);
   const [traLicense, setTraLicense] = useState<File | null>(null);
   const [traLicensePreview, setTraLicensePreview] = useState<string | null>(null);
+
+  const isGuideOrCompany = hostingCategory === "guide" || hostingCategory === "company";
+
+  // A registration number/ID must never match the legal name, and for guides
+  // it must additionally look like a valid ID for the chosen country.
+  const getRegistrationNumberError = (): string | null => {
+    if (!isGuideOrCompany) return null;
+    if (!registrationNumber.trim()) {
+      return hostingCategory === "guide" ? "Please enter your tour guide license or ID number." : "Please enter your company registration number.";
+    }
+    if (namesClash(legalName, registrationNumber)) {
+      return hostingCategory === "guide"
+        ? "Your ID/license number can't be the same as your legal name."
+        : "Your registration number can't be the same as your legal name.";
+    }
+    if (hostingCategory === "guide") {
+      const info = getGuideIdInfo(country);
+      if (info.pattern && !info.pattern.test(registrationNumber.trim())) {
+        return `Please enter a valid ${info.label.toLowerCase()} (${info.hint}).`;
+      }
+    }
+    return null;
+  };
 
   useEffect(() => {
     if (!user) {
@@ -50,11 +104,12 @@ const HostVerification = () => {
     const fetchData = async () => {
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("name")
+        .select("name, country")
         .eq("id", user.id)
         .single();
 
       if (profileData?.name) setLegalName(profileData.name);
+      if (profileData?.country) setCountry(profileData.country);
 
       const { data, error } = await supabase
         .from("host_verifications")
@@ -64,6 +119,7 @@ const HostVerification = () => {
 
       if (data) {
         setExistingVerification(data);
+        if (data.country) setCountry(data.country);
         if (data.status === "approved") navigate("/become-host");
       }
     };
@@ -91,8 +147,13 @@ const HostVerification = () => {
         toast({ title: "Missing Information", description: "Please fill in all required fields.", variant: "destructive" });
         return;
       }
-      if ((hostingCategory === 'guide' || hostingCategory === 'company') && !registrationNumber.trim()) {
-        toast({ title: "Missing Information", description: "Registration number is required.", variant: "destructive" });
+      if (isGuideOrCompany && !country) {
+        toast({ title: "Missing Information", description: "Country is required.", variant: "destructive" });
+        return;
+      }
+      const regError = getRegistrationNumberError();
+      if (regError) {
+        toast({ title: "Missing Information", description: regError, variant: "destructive" });
         return;
       }
     } else if (currentStep === 2) {
@@ -139,7 +200,7 @@ const HostVerification = () => {
 
       const verificationData: Record<string, any> = {
         user_id: user!.id, legal_name: legalName, street_address: streetAddress,
-        city, postal_code: postalCode || null, document_type: documentType,
+        city, postal_code: postalCode || null, country: country || null, document_type: documentType,
         document_front_url: frontUrl, document_back_url: backUrl, selfie_url: selfieUrl,
         tra_license_url: traUrl, status: "pending", rejection_reason: null,
         submitted_at: new Date().toISOString(), hosting_category: hostingCategory || null,
@@ -312,6 +373,18 @@ const HostVerification = () => {
                   />
                 </div>
 
+                {/* Country — full width, required for guide/company (their
+                    registration is tied to a specific country's rules) */}
+                <div className="col-span-2">
+                  <Label className="text-xs font-black uppercase tracking-widest text-slate-500 mb-1 block">
+                    Country {isGuideOrCompany && <span className="text-red-500">*</span>}
+                  </Label>
+                  <CountrySelector value={country} onChange={setCountry} />
+                  {isGuideOrCompany && (
+                    <p className="text-[10px] text-muted-foreground mt-1">Determines the ID/registration format expected below.</p>
+                  )}
+                </div>
+
                 {/* Document Type — full width */}
                 <div className="col-span-2">
                   <Label htmlFor="documentType" className="text-xs font-black uppercase tracking-widest text-slate-500 mb-1 block">
@@ -330,22 +403,25 @@ const HostVerification = () => {
                 </div>
 
                 {/* Registration Number — full width, conditional */}
-                {(hostingCategory === 'guide' || hostingCategory === 'company') && (
+                {isGuideOrCompany && (
                   <div className="col-span-2">
                     <Label htmlFor="registrationNumber" className="text-xs font-black uppercase tracking-widest text-slate-500 mb-1 block">
-                      Registration Number <span className="text-red-500">*</span>
+                      {hostingCategory === "guide" ? getGuideIdInfo(country).label : "Company Registration Number"} <span className="text-red-500">*</span>
                     </Label>
                     <Input
                       id="registrationNumber"
                       value={registrationNumber}
                       onChange={(e) => setRegistrationNumber(e.target.value)}
-                      placeholder="e.g. BN-X12345 or guide license number"
+                      placeholder={hostingCategory === "guide" ? getGuideIdInfo(country).placeholder : "e.g. BN-X12345"}
                       className="rounded-xl border-slate-200 focus:border-[#008080] focus:ring-[#008080]"
                       required
                     />
                     <p className="text-[10px] text-muted-foreground mt-1">
-                      {hostingCategory === 'guide' ? 'Your tour guide license or registration number' : 'Your company registration number'}
+                      {hostingCategory === "guide" ? getGuideIdInfo(country).hint : "Your company registration number"}
                     </p>
+                    {getRegistrationNumberError() && (registrationNumber.trim() || namesClash(legalName, registrationNumber)) && (
+                      <p className="text-[10px] text-red-500 font-semibold mt-1">{getRegistrationNumberError()}</p>
+                    )}
                   </div>
                 )}
               </div>

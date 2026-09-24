@@ -14,7 +14,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useBanCheck } from "@/hooks/useBanCheck";
 import {
   Calendar, MapPin, DollarSign, Users, Navigation, ArrowLeft, Camera,
-  CheckCircle2, X, Loader2, ChevronLeft, ChevronRight, Plus, Link2, Ticket, FileImage
+  CheckCircle2, X, Loader2, ChevronLeft, ChevronRight, Plus, Link2, Ticket, FileImage,
+  Building2, UserRound, Info,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -28,6 +29,7 @@ import { compressImages } from "@/lib/imageCompression";
 import { OperatingHoursSection } from "@/components/creation/OperatingHoursSection";
 import { CreateFormStepper } from "@/components/creation/CreateFormStepper";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { cn } from "@/lib/utils";
 
 /**
  * ── DB requirement for the Division field below ──────────────────────────
@@ -44,6 +46,19 @@ import { useCurrency } from "@/contexts/CurrencyContext";
  * or that country isn't seeded in `countries` yet), the dropdown just stays
  * empty and `division_id` is saved as null — it's optional and never blocks
  * submission.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * ── DB requirement for Registration details (Company / Guide) ────────────
+ * Same pattern as CreateAdventure.tsx: hosts creating a trip or event now
+ * register either as a Company or an individual Guide, and provide a
+ * registration name plus a registration number (or, for guides, a
+ * government ID number). Add the columns if they don't already exist:
+ *
+ *   alter table public.trips
+ *     add column if not exists registration_name text,
+ *     add column if not exists registration_number text,
+ *     add column if not exists registration_type text not null default 'company';
  * ────────────────────────────────────────────────────────────────────────── */
 
 const COLORS = { TEAL: "#008080", CORAL: "#FF7F50", CORAL_LIGHT: "#FF9E7A", SOFT_GRAY: "#F8F9FA" };
@@ -68,6 +83,33 @@ const EVENT_CATEGORIES = [
 ];
 
 const STEP_NAMES = ["Basic Info", "Date & Pricing", "Contact & Photos", "Schedule", "Review"];
+
+// ─── Registration Type: Company or Individual Guide ────────────────────────
+// A host registers either as a Company (company registration number) or as
+// an individual Guide (government ID number instead). Both still require
+// Country; Division/region stays optional either way.
+const REGISTRATION_TYPE_OPTIONS: { value: string; label: string; icon: any }[] = [
+  { value: "company", label: "Company", icon: Building2 },
+  { value: "guide", label: "Individual / Guide", icon: UserRound },
+];
+
+// Per-country ID number format, shown as a label/placeholder hint for guides.
+// Add more countries here as needed — anything not listed falls back to the
+// generic government ID / passport hint below.
+const GUIDE_ID_HINTS: Record<string, { label: string; placeholder: string; pattern?: RegExp; hint: string }> = {
+  Kenya:          { label: "National ID Number",       placeholder: "e.g. 23456789",               pattern: /^\d{7,8}$/,         hint: "7–8 digit Kenyan National ID number" },
+  Uganda:         { label: "National ID Number (NIN)", placeholder: "e.g. CM12345678ABC1",          pattern: /^[A-Za-z0-9]{14}$/, hint: "14-character Ugandan NIN" },
+  Tanzania:       { label: "NIDA Number",               placeholder: "e.g. 19850101-12345-00001-23", pattern: /^\d{8}-\d{5}-\d{5}-\d{2}$/, hint: "Tanzanian NIDA number" },
+  Rwanda:         { label: "National ID Number",        placeholder: "e.g. 1198000000000000",       pattern: /^\d{16}$/,          hint: "16-digit Rwandan National ID" },
+  Nigeria:        { label: "National Identification Number (NIN)", placeholder: "e.g. 12345678901", pattern: /^\d{11}$/,          hint: "11-digit Nigerian NIN" },
+  "South Africa": { label: "National ID Number",        placeholder: "e.g. 8001015009087",          pattern: /^\d{13}$/,          hint: "13-digit South African ID number" },
+};
+const DEFAULT_GUIDE_ID_HINT = { label: "Government ID / Passport Number", placeholder: "e.g. A1234567", hint: "A government-issued ID or passport number" };
+const getGuideIdInfo = (country: string) => GUIDE_ID_HINTS[country] || DEFAULT_GUIDE_ID_HINT;
+
+// A registration number/ID must never be identical to the registration name.
+const namesClash = (name: string, number: string) =>
+  !!name.trim() && !!number.trim() && name.trim().toLowerCase() === number.trim().toLowerCase();
 
 // ─── Styled Input ─────────────────────────────────────────────────────────────
 const StyledInput = ({ className = "", isInvalid = false, ...props }: React.ComponentProps<typeof Input> & { isInvalid?: boolean }) => (
@@ -109,6 +151,39 @@ const CompressingBanner = ({ label = "Compressing photos…" }: { label?: string
   <div className="mb-3 flex items-center gap-2 px-4 py-2.5 bg-teal-50 border border-teal-200 rounded-xl">
     <Loader2 className="h-4 w-4 animate-spin text-teal-600" />
     <p className="text-teal-700 text-xs font-semibold">{label}</p>
+  </div>
+);
+
+// ─── Registration Type Selector (Company or Individual Guide) ─────────────────
+const RegistrationTypeSelector = ({
+  value, onChange, isInvalid,
+}: { value: string; onChange: (v: string) => void; isInvalid?: boolean }) => (
+  <div>
+    <div className={cn("grid grid-cols-2 gap-2.5 p-1 rounded-xl max-w-sm", isInvalid && "ring-2 ring-red-300")}>
+      {REGISTRATION_TYPE_OPTIONS.map((opt) => {
+        const isActive = value === opt.value;
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange(opt.value)}
+            className={cn(
+              "flex flex-col items-center justify-center gap-1.5 h-20 rounded-xl text-[11px] font-bold border transition-all",
+              isActive
+                ? "text-white shadow-md border-transparent scale-[1.02]"
+                : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
+            )}
+            style={isActive ? { background: COLORS.TEAL } : {}}
+          >
+            <opt.icon className={cn("h-5 w-5", isActive ? "text-white" : "text-slate-400")} />
+            {opt.label}
+          </button>
+        );
+      })}
+    </div>
+    {isInvalid && (
+      <p className="text-red-400 text-[10px] font-semibold mt-1.5">Please select how you're registering to continue</p>
+    )}
   </div>
 );
 
@@ -227,7 +302,13 @@ const CreateTripEvent = () => {
   // longer needed since flexible is the only option for trips.
   // const isFlexibleFromRoute = searchParams.get("flexible") === "true";
 
+  // Company (business) or individual Guide registration — determines whether
+  // registrationNumber holds a company registration number or a government
+  // ID number, and which validation/hint applies.
+  const [registrationType, setRegistrationType] = useState<string>("company");
+
   const [formData, setFormData] = useState({
+    registrationName: "", registrationNumber: "",
     name: "", description: "", location: "", place: "", country: "", date: "",
     price: "0", price_child: "0", available_tickets: "0", email: "", phone_number: "",
     map_link: "",
@@ -332,8 +413,32 @@ const CreateTripEvent = () => {
     if (division) setFormData((p) => ({ ...p, place: division.name }));
   }, [selectedDivisionId, availableDivisions]);
 
-  // Step 1: trip requires pickup_location; event doesn't
-  const isStep1Complete = !!formData.name.trim() && !!formData.country && !!formData.location.trim()
+  // A registration number/ID must never match the registration name, and for
+  // guides it must additionally look like a valid ID for the chosen country.
+  const getRegistrationNumberError = (): string | null => {
+    const name = formData.registrationName;
+    const number = formData.registrationNumber;
+    if (!number.trim()) {
+      return registrationType === "guide" ? "Please enter your ID number." : "Please enter your company registration number.";
+    }
+    if (namesClash(name, number)) {
+      return registrationType === "guide"
+        ? "Your ID number can't be the same as your registration name."
+        : "Your registration number can't be the same as your registration name.";
+    }
+    if (registrationType === "guide") {
+      const info = getGuideIdInfo(formData.country);
+      if (info.pattern && !info.pattern.test(number.trim())) {
+        return `Please enter a valid ${info.label.toLowerCase()} (${info.hint}).`;
+      }
+    }
+    return null;
+  };
+
+  // Step 1: trip requires pickup_location; event doesn't. Registration name/
+  // number/type and country are now also required here.
+  const isStep1Complete = !!registrationType && !!formData.registrationName.trim() && !getRegistrationNumberError()
+    && !!formData.name.trim() && !!formData.country && !!formData.location.trim()
     && (formData.type === "event" || !!formData.pickup_location.trim());
 
   const isStep2Complete = (formData.is_custom_date || !!formData.date) && (useTicketTypes ? ticketTypes.length > 0 : parseFloat(formData.price) >= 0) && parseInt(formData.available_tickets) > 0;
@@ -351,6 +456,10 @@ const CreateTripEvent = () => {
   const validateCurrentStep = (): string[] => {
     const errors: string[] = [];
     if (currentStep === 1) {
+      if (!registrationType) errors.push("registration_type");
+      if (!formData.registrationName.trim()) errors.push("registration_name");
+      if (getRegistrationNumberError()) errors.push("registration_number");
+      if (namesClash(formData.registrationName, formData.registrationNumber)) errors.push("registration_number");
       if (!formData.name.trim()) errors.push("name");
       if (!formData.country) errors.push("country");
       if (!formData.location.trim()) errors.push("location");
@@ -465,6 +574,9 @@ const CreateTripEvent = () => {
   const handleSubmit = async () => {
     if (!user) { navigate("/auth"); return; }
     const allErrors: string[] = [];
+    if (!registrationType) allErrors.push("registration_type");
+    if (!formData.registrationName.trim()) allErrors.push("registration_name");
+    if (getRegistrationNumberError()) allErrors.push("registration_number");
     if (!formData.name.trim()) allErrors.push("name");
     if (!formData.country) allErrors.push("country");
     if (!formData.location.trim()) allErrors.push("location");
@@ -516,6 +628,10 @@ const CreateTripEvent = () => {
         place: formData.place, country: formData.country,
         // ── Division / region — optional FK into `country_divisions` ──
         division_id: selectedDivisionId,
+        // ── Registration details (Company or Individual / Guide) ──
+        registration_name: formData.registrationName,
+        registration_number: formData.registrationNumber,
+        registration_type: registrationType,
         date: formData.is_custom_date ? new Date().toISOString().split('T')[0] : formData.date,
         is_custom_date: formData.is_custom_date, is_flexible_date: formData.is_custom_date,
         type: formData.type, image_url: uploadedUrls[0] || "", gallery_images: uploadedUrls,
@@ -609,6 +725,55 @@ const CreateTripEvent = () => {
                     {formData.type === "event" ? "Creating an Event — Fixed date session" : "Creating a Trip / Tour — Flexible dates, guests book any day"}
                   </span>
                 </div>
+
+                {/* Registration Details */}
+                <SectionCard title="Registration Details" subtitle="Who is registering this experience" icon={Info}>
+                  <div className="grid gap-5">
+                    <div>
+                      <FieldLabel required>Registering As</FieldLabel>
+                      <RegistrationTypeSelector
+                        value={registrationType}
+                        onChange={setRegistrationType}
+                        isInvalid={validationErrors.includes("registration_type")}
+                      />
+                    </div>
+                    <div>
+                      <FieldLabel required>Registration Name</FieldLabel>
+                      <StyledInput
+                        value={formData.registrationName}
+                        onChange={(e) => {
+                          setFormData({ ...formData, registrationName: e.target.value });
+                          if (e.target.value.trim()) setValidationErrors(prev => prev.filter(err => err !== "registration_name"));
+                        }}
+                        placeholder={registrationType === "guide" ? "Your Full Legal Name" : "Official Business / Company Name"}
+                        isInvalid={validationErrors.includes("registration_name") || (validationErrors.includes("registration_number") && namesClash(formData.registrationName, formData.registrationNumber))}
+                      />
+                      {validationErrors.includes("registration_name") && <p className="text-red-500 text-[10px] font-semibold mt-1">⚠ Registration name is required</p>}
+                    </div>
+                    <div>
+                      <FieldLabel required>
+                        {registrationType === "guide" ? getGuideIdInfo(formData.country).label : "Company Registration Number"}
+                      </FieldLabel>
+                      <StyledInput
+                        value={formData.registrationNumber}
+                        onChange={(e) => {
+                          setFormData({ ...formData, registrationNumber: e.target.value });
+                          setValidationErrors(prev => prev.filter(err => err !== "registration_number"));
+                        }}
+                        placeholder={registrationType === "guide" ? getGuideIdInfo(formData.country).placeholder : "e.g. BN-X12345"}
+                        isInvalid={validationErrors.includes("registration_number")}
+                      />
+                      {registrationType === "guide" && (
+                        <p className="text-[10px] text-slate-400 mt-1">{getGuideIdInfo(formData.country).hint}</p>
+                      )}
+                      {validationErrors.includes("registration_number") && (
+                        <p className="text-red-500 text-[10px] font-semibold mt-1">
+                          {getRegistrationNumberError() || "⚠ This field is required"}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </SectionCard>
 
                 {/* Event Category */}
                 {formData.type === "event" && (

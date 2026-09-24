@@ -281,4 +281,4 @@ export const SignupForm = ({ onSwitchToLogin, onSignupSuccess }: SignupFormProps
       </p>
     </form>
   );
-};
+}; 

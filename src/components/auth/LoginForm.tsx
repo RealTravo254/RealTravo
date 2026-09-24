@@ -362,6 +362,6 @@ export const LoginForm = ({ onSwitchToSignup, onAuthSuccess }: LoginFormProps) =
         )}
         Continue with Google
       </Button>
-    </form>
+    </form>  
   );
 };

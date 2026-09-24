@@ -29,6 +29,13 @@ interface CountrySelectorProps {
   disabled?: boolean;
 }
 
+// z-[300] beats the auth modal's backdrop (z-[200], see AuthModal) so both
+// dropdown panels below render above the popup instead of being clipped
+// underneath it. This matches the same treatment SignupForm already uses
+// for its own <SelectContent> (selectContentStyle) — kept as one constant
+// here so both selects in this component stay in sync with it.
+const SELECT_CONTENT_STYLE = "z-[300] bg-white border border-slate-200 text-black";
+
 /**
  * Country + division (state/province/county) picker, both lists loaded from
  * the `countries` and `country_divisions` tables so the options always
@@ -81,7 +88,7 @@ export function CountrySelector({ countryId, divisionId, onChange, disabled }: C
         <SelectTrigger className="h-9 text-sm">
           <SelectValue placeholder={loadingCountries ? "Loading countries…" : "Select country"} />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent className={SELECT_CONTENT_STYLE}>
           {countries.map((c) => (
             <SelectItem key={c.id} value={c.id}>
               {c.name}
@@ -107,7 +114,7 @@ export function CountrySelector({ countryId, divisionId, onChange, disabled }: C
               />
             )}
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className={SELECT_CONTENT_STYLE}>
             {divisions.map((d) => (
               <SelectItem key={d.id} value={d.id}>
                 {d.name}

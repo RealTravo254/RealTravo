@@ -95,6 +95,17 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
     }
   };
 
+  // Logged-in users go straight to the host dashboard; guests get the auth
+  // modal (sign up / log in) right here instead of being sent through the
+  // /become-host route just to get redirected to /auth.
+  const handleBecomeHostClick = () => {
+    if (user) {
+      navigate("/become-host");
+    } else {
+      openAuthModal("signup");
+    }
+  };
+
   // Sends the flag Explore.tsx watches for, so it opens the search bar and
   // its suggestions as soon as the page loads.
   const goToExploreSearch = () => {
@@ -172,7 +183,7 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
           )}
 
           <button
-            onClick={() => navigate("/become-host")}
+            onClick={handleBecomeHostClick}
             className="hidden md:flex h-9 px-3 rounded-xl items-center gap-2 transition-all font-semibold text-[13px] text-white bg-white/15 hover:bg-white/25 active:scale-95"
           >
             <Briefcase className="h-4 w-4" /><span>Become a host</span>

@@ -1,33 +1,54 @@
-import React, { useState, useEffect, useRef, useImperativeHandle } from "react";
-import { Clock, TrendingUp, Home, Search as SearchIcon, MapPin, Loader2, Sparkles, Map } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { getSessionId } from "@/lib/sessionManager";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+// src/pages/ExploreCountries.tsx
+//
+// Public page that lists every country (from the `countries` table managed in
+// CountryDivisionsManager) as a small square card, two per row, each with its
+// image and a live count of approved listings.
+//
+// Search uses the shared SearchBarWithSuggestions component in its
+// `regionsOnly` mode, so typing here searches countries AND divisions (no
+// trip/campsite results, no trending/popular/history — just regions):
+//   - a country match shows that country plus ALL of its divisions
+//   - a division match shows its parent country plus the matching divisions
+// Picking a suggestion straight from the dropdown navigates immediately to
+// that country/division's page; typing without picking a suggestion filters
+// the grid below via the same `query` state.
+//
+// Listing counts come from approved rows in `adventure_places`:
+//   - per country  → matched on the free-text `country` column vs countries.name
+//   - per division → matched on `division_id`
+
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Header } from "@/components/Header";
+import { MobileBottomBar } from "@/components/MobileBottomBar";
+import { SearchBarWithSuggestions } from "@/components/SearchBarWithSuggestions";
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
+import { Globe, MapPin, ArrowLeft, ChevronLeft, Loader2 } from "lucide-react";
 
-// ── Design tokens ─────────────────────────────────────────────────────────
-// Same field-guide / park-signage system used across the rest of the app:
-// deep forest for structure and brand marks/badges, a warm clay for the
-// primary "Search" action, and a dry-grass gold for the trending section.
-const FOREST       = "#1F4D3A";
-const FOREST_DEEP  = "#123322";
-const FOREST_SOFT  = "#EAF0EA";
-const CLAY         = "#C1552F";
-const CLAY_LIGHT   = "#E0824F";
-const CLAY_SOFT    = "#FBEDE6";
-const GOLD         = "#B98A2A";
-const INK          = "#1C2B22";
-const INK_SOFT     = "#5B6B60";
-const HAIRLINE     = "#DCE3DC";
-const CANVAS       = "#F4F6F2";
-const DANGER       = "#9C3B2B";
+// ── Where a tapped division/country goes. Stays on this same cards page
+// (with the country pre-selected via query param) rather than the homepage,
+// so a tap always shows an actual country/division card view.
+//
+// ASSUMPTION — set this to wherever this file is actually mounted in your
+// router if it's not "/explore-countries". SearchBarWithSuggestions.tsx has
+// the same constant (EXPLORE_COUNTRIES_PATH) — keep both in sync. ──
+const EXPLORE_COUNTRIES_PATH = "/explore-countries";
+const divisionPath = (country: Country, division: Division) =>
+  `${EXPLORE_COUNTRIES_PATH}?country=${encodeURIComponent(country.name)}&division=${division.id}`;
+const countryPath = (country: Country) => `${EXPLORE_COUNTRIES_PATH}?country=${encodeURIComponent(country.name)}`;
 
+// ── Design tokens (same field-guide system as the rest of the app) ────────
+const FOREST = "#1F4D3A";
+const FOREST_DEEP = "#123322";
+const FOREST_SOFT = "#EAF0EA";
+const CLAY = "#C1552F";
+const INK = "#1C2B22";
+const INK_SOFT = "#5B6B60";
+const HAIRLINE = "#DCE3DC";
+const CANVAS = "#F4F6F2";
+const FONT_DISPLAY = "'Fraunces', ui-serif, Georgia, serif";
 const FONT_BODY = "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif";
 
-// Injects the shared typefaces once, without needing to touch the app's index.html.
 const useInjectFonts = () => {
   useEffect(() => {
     const id = "adventure-detail-fonts";
@@ -41,670 +62,244 @@ const useInjectFonts = () => {
   }, []);
 };
 
-interface SearchBarProps { 
-  value: string;
-  onChange: (value: string) => void;
-  onSubmit: () => void;
-  onSuggestionSearch?: (query: string) => void;
-  onFocus?: () => void;
-  onBlur?: () => void;
-  onBack?: () => void;
-  showBackButton?: boolean;
-  showEventCategories?: boolean;
-  // When true, this search bar only searches countries/divisions (from the
-  // `countries` / `country_divisions` tables) — no trip/campsite listings,
-  // no trending/popular/history. Used on pages that are purely about
-  // browsing regions, like ExploreCountries.
-  regionsOnly?: boolean;
-}
+interface Country { id: string; name: string; iso_code: string | null; image_url: string | null }
+interface Division { id: string; country_id: string; name: string; image_url: string | null }
 
-interface SearchResult {
-  id: string;
-  name: string;
-  type: "trip" | "adventure";
-  // category distinguishes adventure_places rows (hotel / campsite / accommodation / etc.)
-  // so the badge label and icon can be accurate instead of always saying "Campsite".
-  category?: string;
-  location?: string;
-  place?: string;
-  country?: string;
-  activities?: any;
-  image_url?: string;
-  matchedActivity?: string;
-}
+const listingsLabel = (n: number) => `${n} listing${n === 1 ? "" : "s"}`;
 
-interface RegionCountry { id: string; name: string }
-interface RegionDivision { id: string; name: string; country_id: string }
+// ── Square tile (used for both countries and divisions) ───────────────────
+const SquareTile = ({
+  name, image, count, onClick, icon,
+}: { name: string; image: string | null; count: number; onClick: () => void; icon: React.ReactNode }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className="group relative aspect-square w-full overflow-hidden rounded-2xl text-left transition-all hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2"
+    style={{ border: `1px solid ${HAIRLINE}`, background: FOREST_SOFT, boxShadow: "0 4px 14px rgba(28,43,34,0.06)", ["--tw-ring-color" as any]: FOREST }}
+  >
+    {image ? (
+      <img src={image} alt={name} loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+    ) : (
+      <div className="absolute inset-0 flex items-center justify-center" style={{ color: `${FOREST}55` }}>
+        {icon}
+      </div>
+    )}
+    <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(14,23,18,0.82), rgba(14,23,18,0.15) 55%, transparent)" }} />
+    <div className="absolute inset-x-0 bottom-0 p-3">
+      <h3 className="line-clamp-2 text-base font-semibold leading-tight text-white" style={{ fontFamily: FONT_DISPLAY }}>
+        {name}
+      </h3>
+      <p className="mt-0.5 text-xs font-medium text-white/80">{listingsLabel(count)}</p>
+    </div>
+  </button>
+);
 
-// Handle exposed via ref so a parent page (e.g. Explore.tsx) can open this
-// search bar and its suggestions programmatically — for example when the
-// person arrives here via the header search icon or the home-page search bar.
-export interface SearchBarWithSuggestionsHandle {
-  focus: () => void;
-}
-
-const SEARCH_HISTORY_KEY = "search_history";
-const MAX_HISTORY_ITEMS = 10;
-
-interface TrendingSearch {
-  query: string;
-  search_count: number;
-}
-
-interface LocationSuggestion {
-  location: string;
-  count: number;
-  type: string;
-}
-
-// Small words that should stay lowercase in a title, UNLESS they are the first word.
-const MINOR_WORDS = new Set([
-  "a", "an", "the",
-  "of", "on", "in", "at", "by", "for", "to", "from", "with", "as",
-  "and", "or", "nor", "but"
-]);
-
-// Formats a name/title so only the first letter of each major word is capitalized.
-// Articles/prepositions/conjunctions ("of", "on", "in", "the", "and", etc.) stay
-// lowercase unless they are the very first word of the string.
-const formatTitle = (str?: string | null): string => {
-  if (!str) return "";
-  return str
-    .split(" ")
-    .map((word, index) => {
-      if (!word) return word;
-      const lower = word.toLowerCase();
-      if (index !== 0 && MINOR_WORDS.has(lower)) return lower;
-      return lower.charAt(0).toUpperCase() + lower.slice(1);
-    })
-    .join(" ");
-};
-
-// ── Where a country/division match should navigate. Matches the convention
-// already used by ExploreCountries.tsx's own tile links, so a country or
-// division picked from search lands on the same place a tile tap would. ──
-const regionCountryPath = (countryName: string) => `/?country=${encodeURIComponent(countryName)}`;
-const regionDivisionPath = (countryName: string, divisionId: string) =>
-  `/?country=${encodeURIComponent(countryName)}&division=${divisionId}`;
-
-
-export const SearchBarWithSuggestions = React.forwardRef<SearchBarWithSuggestionsHandle, SearchBarProps>(({ value, onChange, onSubmit, onSuggestionSearch, onFocus, onBlur, onBack, showBackButton = false, regionsOnly = false }, ref) => {
+// ── Page ──────────────────────────────────────────────────────────────────
+const ExploreCountries = () => {
   useInjectFonts();
-
-  const { user } = useAuth();
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [suggestions, setSuggestions] = useState<SearchResult[]>([]);
-  const [mostPopular, setMostPopular] = useState<SearchResult[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
-  const [searchHistory, setSearchHistory] = useState<string[]>([]);
-  const [trendingSearches, setTrendingSearches] = useState<TrendingSearch[]>([]);
-  const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
-  // Cache all listings so we can filter client-side instantly on every keystroke
-  const [allListingsCache, setAllListingsCache] = useState<SearchResult[]>([]);
-  // Countries / divisions, fetched once and filtered client-side just like
-  // the listings cache above.
-  const [regionCountries, setRegionCountries] = useState<RegionCountry[]>([]);
-  const [regionDivisions, setRegionDivisions] = useState<RegionDivision[]>([]);
   const navigate = useNavigate();
-  const wrapperRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [searchParams] = useSearchParams();
 
-  // Lets a parent (Explore.tsx) call searchBarRef.current.focus() to open
-  // this search bar and its suggestions programmatically.
-  useImperativeHandle(ref, () => ({
-    focus: () => {
-      inputRef.current?.focus();
-    },
-  }));
+  const [countries, setCountries] = useState<Country[]>([]);
+  const [divisions, setDivisions] = useState<Division[]>([]);
+  const [places, setPlaces] = useState<{ country: string | null; division_id: string | null }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [query, setQuery] = useState("");
+  const [activeCountryId, setActiveCountryId] = useState<string | null>(null);
 
   useEffect(() => {
-    const history = localStorage.getItem(SEARCH_HISTORY_KEY);
-    if (history) setSearchHistory(JSON.parse(history));
-    // Countries/divisions are cheap and useful everywhere, so always fetch.
-    fetchRegions();
-    // Trip/campsite-related data is skipped entirely in regionsOnly mode —
-    // this bar only ever searches countries and divisions there.
-    if (!regionsOnly) {
-      fetchTrendingSearches();
-      fetchMostPopular();
-      fetchLocationSuggestions();
-      // Pre-fetch and cache all listings for instant partial-match suggestions
-      prefetchAllListings();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    let cancelled = false;
+    (async () => {
+      const [c, d, p] = await Promise.all([
+        supabase.from("countries").select("id, name, iso_code, image_url").order("name", { ascending: true }),
+        supabase.from("country_divisions").select("id, country_id, name, image_url").order("name", { ascending: true }),
+        supabase.from("adventure_places").select("country, division_id").eq("approval_status", "approved"),
+      ]);
+      if (cancelled) return;
+      if (c.error || d.error) {
+        setError((c.error || d.error)!.message);
+      } else {
+        setCountries(c.data || []);
+        setDivisions(d.data || []);
+        setPlaces(p.data || []);
+      }
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
   }, []);
 
-  const fetchRegions = async () => {
-    try {
-      const [c, d] = await Promise.all([
-        supabase.from("countries").select("id, name"),
-        supabase.from("country_divisions").select("id, name, country_id"),
-      ]);
-      setRegionCountries(c.data || []);
-      setRegionDivisions(d.data || []);
-    } catch (error) {
-      console.error("Error fetching countries/divisions:", error);
-    }
-  };
+  // ── Listing counts ──
+  const countryCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    places.forEach((p) => {
+      const key = (p.country || "").trim().toLowerCase();
+      if (key) m.set(key, (m.get(key) || 0) + 1);
+    });
+    return m;
+  }, [places]);
 
-  // Pre-fetch all listings once and cache them for instant client-side filtering
-  const prefetchAllListings = async () => {
-    try {
-      const [tripsData, adventuresData] = await Promise.all([
-        supabase
-          .from("trips")
-          .select("id, name, location, place, country, activities")
-          .eq("approval_status", "approved")
-          .eq("is_hidden", false)
-          .eq("type", "trip")
-          .limit(100),
-        supabase
-          .from("adventure_places")
-          .select("id, name, location, place, country, activities, category")
-          .eq("approval_status", "approved")
-          .eq("is_hidden", false)
-          .limit(100),
-      ]);
+  const divisionCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    places.forEach((p) => {
+      if (p.division_id) m.set(p.division_id, (m.get(p.division_id) || 0) + 1);
+    });
+    return m;
+  }, [places]);
 
-      const combined: SearchResult[] = [
-        ...(tripsData.data || []).map((item) => ({ ...item, type: "trip" as const })),
-        ...(adventuresData.data || []).map((item) => ({ ...item, type: "adventure" as const })),
-      ];
-      setAllListingsCache(combined);
-    } catch (error) {
-      console.error("Error pre-fetching listings:", error);
-    }
-  };
+  const countryCount = (c: Country) => countryCounts.get(c.name.trim().toLowerCase()) || 0;
+  const divisionsByCountry = useMemo(() => {
+    const m = new Map<string, Division[]>();
+    divisions.forEach((d) => m.set(d.country_id, [...(m.get(d.country_id) || []), d]));
+    return m;
+  }, [divisions]);
 
-  const fetchTrendingSearches = async () => {
-    try {
-      const { data, error } = await supabase.rpc('get_trending_searches', { limit_count: 10 });
-      if (!error && data) setTrendingSearches(data);
-    } catch (error) {
-      console.error("Error fetching trending searches:", error);
-    }
-  };
+  // Countries with the most listings first, then alphabetical.
+  const sortedCountries = useMemo(
+    () => [...countries].sort((a, b) => countryCount(b) - countryCount(a) || a.name.localeCompare(b.name)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [countries, countryCounts],
+  );
 
-  const fetchLocationSuggestions = async () => {
-    try {
-      const [tripsLoc, adventureLoc] = await Promise.all([
-        supabase.from("trips").select("location").eq("approval_status", "approved").eq("is_hidden", false).limit(50),
-        supabase.from("adventure_places").select("location").eq("approval_status", "approved").eq("is_hidden", false).limit(50),
-      ]);
-      const locationMap: Record<string, { count: number; type: string }> = {};
-      const addLocations = (data: any[] | null, type: string) => {
-        (data || []).forEach((item: any) => {
-          if (item.location) {
-            const loc = item.location.trim();
-            const existing = locationMap[loc];
-            locationMap[loc] = { count: (existing?.count || 0) + 1, type: existing?.type || type };
-          }
-        });
-      };
-      addLocations(tripsLoc.data, "trip");
-      addLocations(adventureLoc.data, "adventure");
-      const sorted = Object.entries(locationMap)
-        .map(([location, info]) => ({ location, count: info.count, type: info.type }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 12);
-      setLocationSuggestions(sorted);
-    } catch (error) {
-      console.error("Error fetching location suggestions:", error);
-    }
-  };
+  // ── Search: country matches show all divisions; division matches show
+  //    their parent country with just the matching divisions. ──
+  const q = query.trim().toLowerCase();
+  const searchGroups = useMemo(() => {
+    if (!q) return [];
+    return sortedCountries
+      .map((country) => {
+        const countryHit = country.name.toLowerCase().includes(q) || (country.iso_code || "").toLowerCase() === q;
+        const own = divisionsByCountry.get(country.id) || [];
+        const divs = countryHit ? own : own.filter((d) => d.name.toLowerCase().includes(q));
+        return countryHit || divs.length > 0 ? { country, divisions: divs } : null;
+      })
+      .filter(Boolean) as { country: Country; divisions: Division[] }[];
+  }, [q, sortedCountries, divisionsByCountry]);
 
-  const fetchMostPopular = async () => {
-    try {
-      const [tripsData, adventuresData] = await Promise.all([
-        supabase.from("trips").select("id, name, location, place, country, type").eq("approval_status", "approved").eq("is_hidden", false).eq("type", "trip").order("created_at", { ascending: false }).limit(4),
-        supabase.from("adventure_places").select("id, name, location, place, country, category").eq("approval_status", "approved").eq("is_hidden", false).order("created_at", { ascending: false }).limit(4)
-      ]);
+  const activeCountry = activeCountryId ? countries.find((c) => c.id === activeCountryId) || null : null;
 
-      const popular: SearchResult[] = [
-        ...(tripsData.data || []).map((item) => ({ ...item, type: "trip" as const })),
-        ...(adventuresData.data || []).map((item) => ({ ...item, type: "adventure" as const }))
-      ];
-      setMostPopular(popular.slice(0, 8));
-    } catch (error) {
-      console.error("Error fetching most popular:", error);
-    }
-  };
-
+  // If arriving via a link with ?country=<name> (from the search bar, or a
+  // shared link), pre-select that country as soon as it's loaded, so the
+  // page lands straight on its cards instead of the full country list.
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
-        setShowSuggestions(false);
-        onBlur?.();
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [onBlur]);
+    const countryParam = searchParams.get("country");
+    if (!countryParam || countries.length === 0) return;
+    const match = countries.find((c) => c.name.toLowerCase() === countryParam.toLowerCase());
+    if (match) setActiveCountryId(match.id);
+  }, [searchParams, countries]);
 
-  // Instant client-side filter on every keystroke using the cache.
-  // Skipped entirely in regionsOnly mode — there are no listings to filter.
-  useEffect(() => {
-    if (regionsOnly) {
-      setSuggestions([]);
-      setIsSearching(false);
-      setHasSearched(Boolean(value.trim()));
-      return;
-    }
-
-    if (!showSuggestions || !value.trim()) {
-      setSuggestions([]);
-      setHasSearched(false);
-      setIsSearching(false);
-      return;
-    }
-
-    const queryValue = value.trim().toLowerCase();
-
-    // If cache is available, filter instantly (no loading state, no debounce needed)
-    if (allListingsCache.length > 0) {
-      const filtered = allListingsCache
-        .map(item => {
-          const activityMatch = findMatchingActivity(item.activities, queryValue);
-          return { ...item, matchedActivity: activityMatch };
-        })
-        .filter(item =>
-          item.name?.toLowerCase().includes(queryValue) ||
-          item.location?.toLowerCase().includes(queryValue) ||
-          item.place?.toLowerCase().includes(queryValue) ||
-          item.country?.toLowerCase().includes(queryValue) ||
-          item.matchedActivity
-        )
-        .sort((a, b) => {
-          // Prioritise names that START with the query
-          const aStarts = a.name?.toLowerCase().startsWith(queryValue) ? 0 : 1;
-          const bStarts = b.name?.toLowerCase().startsWith(queryValue) ? 0 : 1;
-          return aStarts - bStarts || a.name.localeCompare(b.name);
-        });
-
-      setSuggestions(filtered.slice(0, 10));
-      setHasSearched(true);
-      setIsSearching(false);
-      return;
-    }
-
-    // Fallback: debounced fetch if cache isn't ready yet
-    setIsSearching(true);
-    setHasSearched(false);
-    const debounceTimer = setTimeout(() => {
-      fetchSuggestions();
-    }, 300);
-    return () => clearTimeout(debounceTimer);
-  }, [value, showSuggestions, allListingsCache, regionsOnly]);
-
-  const fetchSuggestions = async () => {
-    const queryValue = value.trim().toLowerCase();
-    try {
-      const [tripsData, adventuresData] = await Promise.all([
-        supabase.from("trips").select("id, name, location, place, country, activities").eq("approval_status", "approved").eq("is_hidden", false).eq("type", "trip").limit(20),
-        supabase.from("adventure_places").select("id, name, location, place, country, activities, category").eq("approval_status", "approved").eq("is_hidden", false).limit(20)
-      ]);
-
-      let combined: SearchResult[] = [
-        ...(tripsData.data || []).map((item) => ({ ...item, type: "trip" as const })),
-        ...(adventuresData.data || []).map((item) => ({ ...item, type: "adventure" as const }))
-      ];
-
-      if (queryValue) {
-        combined = combined
-          .map(item => {
-            const activityMatch = findMatchingActivity(item.activities, queryValue);
-            return { ...item, matchedActivity: activityMatch };
-          })
-          .filter(item => 
-            item.name?.toLowerCase().includes(queryValue) ||
-            item.location?.toLowerCase().includes(queryValue) ||
-            item.place?.toLowerCase().includes(queryValue) ||
-            item.country?.toLowerCase().includes(queryValue) ||
-            item.matchedActivity
-          );
-      }
-      combined.sort((a, b) => a.name.localeCompare(b.name));
-      setSuggestions(combined.slice(0, 10));
-    } catch (error) {
-      console.error("Error fetching suggestions:", error);
-    } finally {
-      setIsSearching(false);
-      setHasSearched(true);
-    }
-  };
-
-  const findMatchingActivity = (activities: any, query: string): string | undefined => {
-    if (!Array.isArray(activities)) return undefined;
-    for (const item of activities) {
-      const name = typeof item === 'object' ? item.name : item;
-      if (name && name.toLowerCase().includes(query)) return name;
-    }
-    return undefined;
-  };
-
-  const getActivitiesText = (activities: any) => {
-    const items: string[] = [];
-    if (Array.isArray(activities)) {
-      activities.forEach(item => {
-        const name = typeof item === 'object' ? item.name : item;
-        if (name && items.length < 2) items.push(name);
-      });
-    }
-    return items.join(" • ");
-  };
-
-  const saveToHistory = async (query: string) => {
-    const trimmedQuery = query.trim();
-    if (!trimmedQuery) return;
-    const updatedHistory = [trimmedQuery, ...searchHistory.filter(item => item !== trimmedQuery)].slice(0, MAX_HISTORY_ITEMS);
-    setSearchHistory(updatedHistory);
-    localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(updatedHistory));
-    try {
-      await supabase.from('search_queries').insert({ query: trimmedQuery, user_id: user?.id || null, session_id: user ? null : getSessionId() });
-      fetchTrendingSearches();
-    } catch (e) {}
-  };
-
-  const clearHistory = () => { setSearchHistory([]); localStorage.removeItem(SEARCH_HISTORY_KEY); };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") { setShowSuggestions(false); saveToHistory(value); onSubmit(); }
-  };
-
-  const handleSuggestionClick = (result: SearchResult) => {
-    setShowSuggestions(false);
-    saveToHistory(result.name);
-    navigate(`/${result.type}/${result.id}`);
-  };
-
-  // Labels now reflect the actual listing category rather than lumping every
-  // adventure_places row under "Campsite" — AirBnb / hotel listings get their
-  // own badge text so search results read correctly.
-  const getTypeLabel = (type: string, category?: string) => {
-    if (type === "trip") return "Trip";
-    if (type === "adventure") {
-      const categoryLabels: Record<string, string> = {
-        campsite: "Campsite",
-        park: "Park",
-        attraction: "Attraction",
-      };
-      return categoryLabels[category ?? ""] || "Campsite";
-    }
-    return type;
-  };
-
-  // ── Country / division matches — replaces the old hardcoded Kenya-county
-  // list with live data from the countries/country_divisions tables, so this
-  // now works for every country that's been added via the admin page,
-  // not just Kenya. ──
-  const qLower = value.trim().toLowerCase();
-  const matchedCountries = qLower ? regionCountries.filter((c) => c.name.toLowerCase().includes(qLower)) : [];
-  const matchedDivisions = qLower ? regionDivisions.filter((d) => d.name.toLowerCase().includes(qLower)) : [];
-
-  const handleRegionCountryClick = (country: RegionCountry) => {
-    setShowSuggestions(false);
-    navigate(regionCountryPath(country.name));
-  };
-  const handleRegionDivisionClick = (division: RegionDivision) => {
-    const countryName = regionCountries.find((c) => c.id === division.country_id)?.name || "";
-    setShowSuggestions(false);
-    navigate(regionDivisionPath(countryName, division.id));
-  };
-
-  const noResults = regionsOnly
-    ? Boolean(qLower) && matchedCountries.length === 0 && matchedDivisions.length === 0
-    : !isSearching && hasSearched && suggestions.length === 0 && matchedCountries.length === 0 && matchedDivisions.length === 0;
+  // ── Group block: country tile + its divisions, two per row ──
+  const renderGroup = (country: Country, divs: Division[]) => (
+    <section key={country.id} className="space-y-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+        <SquareTile
+          name={country.name}
+          image={country.image_url}
+          count={countryCount(country)}
+          onClick={() => navigate(countryPath(country))}
+          icon={<Globe className="h-8 w-8" />}
+        />
+        {divs.map((d) => (
+          <SquareTile
+            key={d.id}
+            name={d.name}
+            image={d.image_url}
+            count={divisionCounts.get(d.id) || 0}
+            onClick={() => navigate(divisionPath(country, d))}
+            icon={<MapPin className="h-8 w-8" />}
+          />
+        ))}
+      </div>
+      {divs.length === 0 && (
+        <p className="text-xs" style={{ color: INK_SOFT }}>No divisions added for {country.name} yet.</p>
+      )}
+    </section>
+  );
 
   return (
-    <div className="w-full" style={{ fontFamily: FONT_BODY }}>
-      <div className="w-full px-3 md:container md:mx-auto md:px-6 lg:px-8">
-        {/* ── Search bar: height reduced ~40% (h-10/h-16 → h-6/h-10) so it takes
-            up noticeably less vertical space on both mobile and desktop. ── */}
-        <div ref={wrapperRef} className="relative w-full max-w-4xl mx-auto" style={{ isolation: 'isolate' }}>
-          <div className="flex items-center gap-2">
-
-            {/* ── Home button — visible on ALL screen sizes when showBackButton is true ── */}
-            {showBackButton && (
-              <button
-                onClick={() => navigate("/")}
-                aria-label="Go to Home"
-                className="shrink-0 h-6 w-6 md:h-8 md:w-8 rounded-full flex items-center justify-center bg-white/20 hover:bg-white/35 text-white transition-all active:scale-95"
-              >
-                <Home className="h-3.5 w-3.5 md:h-4 md:w-4" />
-              </button>
-            )}
-
-            <div className="relative flex-1 group">
-              <SearchIcon
-                className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 md:h-4 md:w-4 z-10 transition-colors"
-                style={{ color: INK_SOFT }}
-              />
-              <Input
-                ref={inputRef}
-                type="text"
-                placeholder={regionsOnly ? "Search a country or division" : "Where to next? Search trips, adventures, campsites..."}
-                value={value}
-                onChange={(e) => { onChange(e.target.value); setShowSuggestions(true); }}
-                onKeyDown={handleKeyPress}
-                onFocus={() => { setShowSuggestions(true); onFocus?.(); }}
-                className="pl-8 pr-20 h-6 md:h-10 text-xs md:text-sm rounded-full shadow-md bg-white placeholder:font-medium transition-all"
-                style={{ border: `2px solid ${HAIRLINE}`, color: INK }}
-              />
-              <Button
-                onClick={() => { saveToHistory(value); onSubmit(); setShowSuggestions(false); }}
-                className="absolute right-1 top-1/2 -translate-y-1/2 rounded-full h-4 md:h-7 px-2.5 md:px-3.5 text-[8px] md:text-[10px] font-semibold text-white shadow-lg transition-transform active:scale-95 border-none hover:opacity-95"
-                style={{ background: `linear-gradient(135deg, ${CLAY_LIGHT}, ${CLAY})` }}
-              >
-                Search
-              </Button>
-            </div>
+    <div className="flex min-h-screen flex-col" style={{ background: CANVAS, fontFamily: FONT_BODY }}>
+      <Header />
+      <main className="container mx-auto mb-24 max-w-6xl flex-1 px-4 py-8">
+        {/* Title */}
+        <div className="mb-5 flex items-center gap-3">
+          <button
+            onClick={() => (activeCountry && !q ? setActiveCountryId(null) : navigate(-1))}
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-white"
+            style={{ border: `1px solid ${HAIRLINE}` }}
+            aria-label="Back"
+          >
+            <ArrowLeft className="h-5 w-5" style={{ color: INK_SOFT }} />
+          </button>
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight md:text-3xl" style={{ fontFamily: FONT_DISPLAY, color: INK }}>
+              Explore <span style={{ color: CLAY }}>countries</span>
+            </h1>
+            <p className="mt-0.5 text-xs font-medium" style={{ color: INK_SOFT }}>
+              Browse places to stay by country and division
+            </p>
           </div>
-
-          {showSuggestions && (
-            <div 
-              // onMouseDown prevents the input's onBlur from firing when clicking
-              // inside the dropdown, so suggestions stay open on click
-              onMouseDown={(e) => e.preventDefault()}
-              className="absolute left-0 right-0 top-full mt-2 bg-white rounded-lg shadow-xl max-h-[70vh] md:max-h-[500px] overflow-y-auto z-[9999] animate-in fade-in slide-in-from-top-2 duration-200"
-              style={{ position: 'absolute', border: `1px solid ${HAIRLINE}` }}
-            >
-              {/* History / Trending / Most Popular (shown when input is empty) — skipped entirely in regionsOnly mode */}
-              {!regionsOnly && !value.trim() && (
-                <div className="p-1.5 min-h-[60px]">
-                  {/* Popular Locations */}
-                  {locationSuggestions.length > 0 && (
-                    <div className="mb-2">
-                      <div className="flex items-center gap-1.5 px-2 py-1.5">
-                        <MapPin className="h-3 w-3" style={{ color: FOREST }} />
-                        <p className="text-[10px] font-medium" style={{ color: INK_SOFT }}>Popular locations</p>
-                      </div>
-                      <div className="flex flex-wrap gap-1 px-2">
-                        {locationSuggestions.map((loc) => (
-                          <Badge
-                            key={loc.location}
-                            onClick={() => { onChange(loc.location); setShowSuggestions(false); onSubmit(); }}
-                            className="cursor-pointer py-0.5 px-2 rounded-md text-[10px] font-semibold transition-colors border"
-                            style={{ background: FOREST_SOFT, color: FOREST, borderColor: `${FOREST}25` }}
-                          >
-                            {formatTitle(loc.location)}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Most Popular */}
-                  {mostPopular.length > 0 && (
-                    <div className="mb-2">
-                      <div className="flex items-center gap-1.5 px-2 py-1.5">
-                        <Sparkles className="h-3 w-3" style={{ color: FOREST }} />
-                        <p className="text-[10px] font-medium" style={{ color: INK_SOFT }}>Most popular</p>
-                      </div>
-                      <div className="space-y-0.5">
-                        {mostPopular.slice(0, 5).map((item) => (
-                          <button
-                            key={item.id}
-                            onClick={() => handleSuggestionClick(item)}
-                            className="w-full p-1.5 flex gap-2 hover:bg-[#F4F6F2] transition-all group text-left rounded-md"
-                          >
-                            <div className="flex-1 flex flex-col justify-center min-w-0">
-                              <h4 className="font-semibold tracking-tight text-xs truncate" style={{ color: INK }}>{formatTitle(item.name)}</h4>
-                              <div className="flex items-center gap-1" style={{ color: INK_SOFT }}>
-                                <MapPin className="h-2.5 w-2.5" />
-                                <span className="text-[10px] font-medium truncate">{formatTitle(item.location || item.country)}</span>
-                              </div>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Recent History */}
-                  {searchHistory.length > 0 && (
-                    <div className="mb-2">
-                      <div className="flex items-center justify-between px-2 py-1.5">
-                        <div className="flex items-center gap-1.5">
-                          <Clock className="h-3 w-3" style={{ color: FOREST }} />
-                          <p className="text-[10px] font-medium" style={{ color: INK_SOFT }}>Recent</p>
-                        </div>
-                        <button onClick={(e) => { e.stopPropagation(); clearHistory(); }} className="text-[10px] font-semibold hover:underline" style={{ color: DANGER }}>Clear</button>
-                      </div>
-                      <div className="flex flex-wrap gap-1 px-2">
-                        {searchHistory.map((item, i) => (
-                          <Badge 
-                            key={i} 
-                            onClick={() => { onChange(item); saveToHistory(item); onSubmit(); setShowSuggestions(false); }} 
-                            className="cursor-pointer py-0.5 px-2 rounded-md text-[10px] font-medium transition-colors border"
-                            style={{ background: CANVAS, color: INK_SOFT, borderColor: HAIRLINE }}
-                          >
-                            {item}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Trending Destinations */}
-                  {trendingSearches.length > 0 && (
-                    <div>
-                      <div className="flex items-center gap-1.5 px-2 py-1.5">
-                        <TrendingUp className="h-3 w-3" style={{ color: GOLD }} />
-                        <p className="text-[10px] font-medium" style={{ color: INK_SOFT }}>Trending destinations</p>
-                      </div>
-                      {trendingSearches.slice(0, 5).map((item, index) => (
-                        <button 
-                          key={index} 
-                          onClick={() => { onChange(item.query); saveToHistory(item.query); onSubmit(); setShowSuggestions(false); }} 
-                          className="w-full px-2 py-2 flex items-center justify-between hover:bg-[#F4F6F2] transition-colors group text-left rounded-md"
-                        >
-                          <span className="text-xs font-semibold tracking-tight transition-colors" style={{ color: INK }}>{formatTitle(item.query)}</span>
-                          <span className="text-[10px] font-medium tracking-tight" style={{ color: "#A7B2AB" }}>{item.search_count} explores</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Result Suggestions (shown when typing) */}
-              {value.trim() && (
-                <div className="p-1.5">
-                  {/* Loading State — only shown during fallback network fetch, never in regionsOnly mode */}
-                  {!regionsOnly && isSearching && (
-                    <div className="p-5 flex flex-col items-center justify-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" style={{ color: FOREST }} />
-                      <span className="text-[11px] font-medium" style={{ color: INK_SOFT }}>Searching…</span>
-                    </div>
-                  )}
-
-                  {/* Country / Division Matches — DB-driven, works for every
-                      country added via the admin page, not just Kenya. */}
-                  {(matchedCountries.length > 0 || matchedDivisions.length > 0) && (
-                    <div className="mb-1.5">
-                      <div className="flex items-center gap-1.5 px-2 py-1.5">
-                        <Map className="h-3 w-3" style={{ color: FOREST }} />
-                        <p className="text-[10px] font-medium" style={{ color: INK_SOFT }}>Countries &amp; divisions</p>
-                      </div>
-                      <div className="flex flex-wrap gap-1 px-2">
-                        {matchedCountries.slice(0, 6).map((c) => (
-                          <Badge
-                            key={c.id}
-                            onClick={() => handleRegionCountryClick(c)}
-                            className="cursor-pointer py-0.5 px-2 rounded-md text-[10px] font-semibold transition-colors border"
-                            style={{ background: FOREST_SOFT, color: FOREST, borderColor: `${FOREST}25` }}
-                          >
-                            {formatTitle(c.name)}
-                          </Badge>
-                        ))}
-                        {matchedDivisions.slice(0, 6).map((d) => (
-                          <Badge
-                            key={d.id}
-                            onClick={() => handleRegionDivisionClick(d)}
-                            className="cursor-pointer py-0.5 px-2 rounded-md text-[10px] font-semibold transition-colors border"
-                            style={{ background: CLAY_SOFT, color: CLAY, borderColor: `${CLAY}30` }}
-                          >
-                            {formatTitle(d.name)}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Results — trip/campsite listings, skipped entirely in regionsOnly mode */}
-                  {!regionsOnly && !isSearching && suggestions.length > 0 && (
-                    <>
-                      <p className="px-2 py-1.5 text-[10px] font-medium" style={{ color: INK_SOFT }}>Top matches</p>
-                      {suggestions.slice(0, 5).map((result) => (
-                        <button
-                          key={result.id}
-                          onClick={() => handleSuggestionClick(result)}
-                          className="w-full p-1.5 flex gap-2 hover:bg-[#F4F6F2] transition-all group text-left rounded-md"
-                        >
-                          <div className="flex-1 flex flex-col justify-center min-w-0">
-                            <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
-                              <span className="text-[9px] font-semibold text-white px-1.5 py-0.5 rounded-sm" style={{ background: FOREST_DEEP }}>
-                                {getTypeLabel(result.type, result.category)}
-                              </span>
-                              {result.matchedActivity && (
-                                <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-sm border" style={{ background: CLAY_SOFT, color: CLAY, borderColor: `${CLAY}30` }}>
-                                  🎯 {formatTitle(result.matchedActivity)}
-                                </span>
-                              )}
-                            </div>
-                            <h4 className="font-semibold tracking-tight text-xs truncate" style={{ color: INK }}>{formatTitle(result.name)}</h4>
-                            <div className="flex items-center gap-1 mt-0.5 transition-colors" style={{ color: INK_SOFT }}>
-                              <MapPin className="h-2.5 w-2.5 shrink-0" />
-                              <span className="text-[10px] font-medium">
-                                {formatTitle([result.location, result.place, result.country].filter(Boolean).join(" · "))}
-                              </span>
-                            </div>
-                            {getActivitiesText(result.activities) && !result.matchedActivity && (
-                              <p className="text-[10px] mt-0.5 truncate" style={{ color: "#A7B2AB" }}>
-                                {formatTitle(getActivitiesText(result.activities))}
-                              </p>
-                            )}
-                          </div>
-                        </button>
-                      ))}
-                    </>
-                  )}
-
-                  {/* Not Available */}
-                  {noResults && (
-                    <div className="p-5 text-center">
-                      <p className="text-[11px] font-medium mb-1.5" style={{ color: INK_SOFT }}>Not available</p>
-                      <p className="text-[10px]" style={{ color: "#A7B2AB" }}>No results found for "{value}"</p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )} 
         </div>
-      </div>
+
+        {/* Search — shared bar, regions-only mode: searches countries and
+            divisions only (no trip/campsite results), picking a suggestion
+            navigates straight to that country/division. Typing without
+            picking one still filters the grid below via `query`. */}
+        <div className="mb-6">
+          <SearchBarWithSuggestions
+            value={query}
+            onChange={setQuery}
+            onSubmit={() => {}}
+            regionsOnly
+          />
+        </div>
+
+        {/* Body */}
+        {loading ? (
+          <div className="flex justify-center py-20">
+            <Loader2 className="h-8 w-8 animate-spin" style={{ color: FOREST }} />
+          </div>
+        ) : error ? (
+          <p className="py-16 text-center text-sm" style={{ color: INK_SOFT }}>Couldn't load countries: {error}</p>
+        ) : q ? (
+          searchGroups.length === 0 ? (
+            <p className="py-16 text-center text-sm" style={{ color: INK_SOFT }}>
+              No country or division matches "{query.trim()}".
+            </p>
+          ) : (
+            <div className="space-y-8">{searchGroups.map((g) => renderGroup(g.country, g.divisions))}</div>
+          )
+        ) : activeCountry ? (
+          <div className="space-y-4">
+            <button
+              onClick={() => setActiveCountryId(null)}
+              className="flex items-center gap-1 text-xs font-semibold"
+              style={{ color: INK_SOFT }}
+            >
+              <ChevronLeft className="h-3.5 w-3.5" /> All countries
+            </button>
+            {renderGroup(activeCountry, divisionsByCountry.get(activeCountry.id) || [])}
+          </div>
+        ) : sortedCountries.length === 0 ? (
+          <p className="py-16 text-center text-sm" style={{ color: INK_SOFT }}>No countries have been added yet.</p>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+            {sortedCountries.map((c) => (
+              <SquareTile
+                key={c.id}
+                name={c.name}
+                image={c.image_url}
+                count={countryCount(c)}
+                onClick={() => setActiveCountryId(c.id)}
+                icon={<Globe className="h-8 w-8" />}
+              />
+            ))}
+          </div>
+        )}
+      </main>
+      <MobileBottomBar />
     </div>
   );
-});
-SearchBarWithSuggestions.displayName = "SearchBarWithSuggestions";
+};
+
+export default ExploreCountries;

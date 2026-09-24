@@ -18,18 +18,24 @@
 //   - per division → matched on `division_id`
 
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { MobileBottomBar } from "@/components/MobileBottomBar";
 import { SearchBarWithSuggestions } from "@/components/SearchBarWithSuggestions";
 import { supabase } from "@/integrations/supabase/client";
 import { Globe, MapPin, ArrowLeft, ChevronLeft, Loader2 } from "lucide-react";
 
-// ── Where a tapped division should go. Change this one function to match the
-// route your home-page "Explore <Country>" rail uses. ──────────────────────
+// ── Where a tapped division/country goes. Stays on this same cards page
+// (with the country pre-selected via query param) rather than the homepage,
+// so a tap always shows an actual country/division card view.
+//
+// ASSUMPTION — set this to wherever this file is actually mounted in your
+// router if it's not "/explore-countries". SearchBarWithSuggestions.tsx has
+// the same constant (EXPLORE_COUNTRIES_PATH) — keep both in sync. ──
+const EXPLORE_COUNTRIES_PATH = "/explore-countries";
 const divisionPath = (country: Country, division: Division) =>
-  `/?country=${encodeURIComponent(country.name)}&division=${division.id}`;
-const countryPath = (country: Country) => `/?country=${encodeURIComponent(country.name)}`;
+  `${EXPLORE_COUNTRIES_PATH}?country=${encodeURIComponent(country.name)}&division=${division.id}`;
+const countryPath = (country: Country) => `${EXPLORE_COUNTRIES_PATH}?country=${encodeURIComponent(country.name)}`;
 
 // ── Design tokens (same field-guide system as the rest of the app) ────────
 const FOREST = "#1F4D3A";
@@ -92,6 +98,7 @@ const SquareTile = ({
 const ExploreCountries = () => {
   useInjectFonts();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [countries, setCountries] = useState<Country[]>([]);
   const [divisions, setDivisions] = useState<Division[]>([]);
@@ -172,10 +179,20 @@ const ExploreCountries = () => {
 
   const activeCountry = activeCountryId ? countries.find((c) => c.id === activeCountryId) || null : null;
 
+  // If arriving via a link with ?country=<name> (from the search bar, or a
+  // shared link), pre-select that country as soon as it's loaded, so the
+  // page lands straight on its cards instead of the full country list.
+  useEffect(() => {
+    const countryParam = searchParams.get("country");
+    if (!countryParam || countries.length === 0) return;
+    const match = countries.find((c) => c.name.toLowerCase() === countryParam.toLowerCase());
+    if (match) setActiveCountryId(match.id);
+  }, [searchParams, countries]);
+
   // ── Group block: country tile + its divisions, two per row ──
   const renderGroup = (country: Country, divs: Division[]) => (
     <section key={country.id} className="space-y-3">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
         <SquareTile
           name={country.name}
           image={country.image_url}
@@ -203,7 +220,7 @@ const ExploreCountries = () => {
   return (
     <div className="flex min-h-screen flex-col" style={{ background: CANVAS, fontFamily: FONT_BODY }}>
       <Header />
-      <main className="container mx-auto mb-24 max-w-3xl flex-1 px-4 py-8">
+      <main className="container mx-auto mb-24 max-w-6xl flex-1 px-4 py-8">
         {/* Title */}
         <div className="mb-5 flex items-center gap-3">
           <button
@@ -266,7 +283,7 @@ const ExploreCountries = () => {
         ) : sortedCountries.length === 0 ? (
           <p className="py-16 text-center text-sm" style={{ color: INK_SOFT }}>No countries have been added yet.</p>
         ) : (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
             {sortedCountries.map((c) => (
               <SquareTile
                 key={c.id}

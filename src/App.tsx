@@ -15,12 +15,14 @@ import { AuthGate } from "@/components/AuthGate";
 import { TealLoader } from "@/components/ui/teal-loader";
 import { OfflineFullScreen } from "@/components/OfflineIndicator";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
-import CreateHotel from "./pages/CreateHotel";
 import VisitTracker from "@/components/VisitTracker";
-import AccountPage from "@/pages/AccountPage";
-import Index from "./pages/Index";
-import CountryDivisionsManager from "@/pages/admin/CountryDivisionsManager";
- 
+
+const Index = lazy(() => import("./pages/Index"));
+const AccountPage = lazy(() => import("@/pages/AccountPage"));
+const CreateHotel = lazy(() => import("./pages/CreateHotel"));
+const CountryDivisionsManager = lazy(() => import("@/pages/admin/CountryDivisionsManager"));
+const ExploreCountries = lazy(() => import("./pages/ExploreCountries"));
+
 const Auth = lazy(() => import("./pages/Auth"));
 const AuthCallback = lazy(() => import("./pages/AuthCallback"));
 const AppAuthHandler = lazy(() => import("./pages/AppAuthHandler"));
@@ -198,8 +200,9 @@ const App = () => {
                       } />
 
                       {/* All other routes show page name in loader */}
-                      <Route path="/account" element={<AccountPage />} />
+                      <Route path="/account" element={<Suspense fallback={<OfflineFallback text="Account" />}><AccountPage /></Suspense>} />
                       <Route path="/explore" element={<Suspense fallback={<OfflineFallback text="Explore" />}><Explore /></Suspense>} />
+                      <Route path="/countries" element={<Suspense fallback={<OfflineFallback text="Countries" />}><ExploreCountries /></Suspense>} />
                       <Route path="/saved" element={<Suspense fallback={<OfflineFallback text="Saved" />}><Saved /></Suspense>} />
                       <Route path="/bookings" element={<Suspense fallback={<OfflineFallback text="Bookings" />}><Bookings /></Suspense>} />
                       <Route path="/contact" element={<Suspense fallback={<OfflineFallback text="Contact" />}><Contact /></Suspense>} />
@@ -230,7 +233,7 @@ const App = () => {
                       <Route path="/create-event" element={<Suspense fallback={<OfflineFallback text="Create Event" />}><CreateTripEvent /></Suspense>} />
                       <Route path="/create-adventure" element={<Suspense fallback={<OfflineFallback text="Create Adventure" />}><CreateAdventure /></Suspense>} />
                       <Route path="/create-attraction" element={<Suspense fallback={<OfflineFallback text="Create Attraction" />}><CreateAdventure /></Suspense>} />
-                      <Route path="/create-hotel" element={<CreateHotel />} />
+                      <Route path="/create-hotel" element={<Suspense fallback={<OfflineFallback text="Create Hotel" />}><CreateHotel /></Suspense>} />
                       <Route path="/host/item/:itemType/:id" element={<Suspense fallback={<OfflineFallback text="Listing Details" />}><HostItemDetail /></Suspense>} />
                       <Route path="/host/bookings/:itemType" element={<Suspense fallback={<OfflineFallback text="Host Bookings" />}><HostBookings /></Suspense>} />
                       <Route path="/host/bookings/:itemType/:id" element={<Suspense fallback={<OfflineFallback text="Booking Details" />}><HostBookingDetails /></Suspense>} />
@@ -261,8 +264,8 @@ const App = () => {
                       <Route path="/admin/payment-verification" element={<Suspense fallback={<OfflineFallback text="Payment Verification" />}><AdminPaymentVerification /></Suspense>} />
                       <Route path="/admin/accounts" element={<Suspense fallback={<OfflineFallback text="Accounts Overview" />}><AccountsOverview /></Suspense>} />
                       <Route path="/admin/analytics" element={<Suspense fallback={<OfflineFallback text="Analytics" />}><VisitAnalytics /></Suspense>} />
+                      <Route path="/admin/countries" element={<Suspense fallback={<OfflineFallback text="Countries" />}><CountryDivisionsManager /></Suspense>} />
                       <Route path="*" element={<Suspense fallback={<OfflineFallback text="Loading" />}><NotFound /></Suspense>} />
-                      <Route path="/admin/countries" element={<CountryDivisionsManager />} />
                     </Routes>
                   </div>
                 </PageLayout>

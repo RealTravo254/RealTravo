@@ -4,9 +4,14 @@
 // CountryDivisionsManager) as a small square card, two per row, each with its
 // image and a live count of approved listings.
 //
-// Search matches country names AND division names:
+// Search uses the shared SearchBarWithSuggestions component in its
+// `regionsOnly` mode, so typing here searches countries AND divisions (no
+// trip/campsite results, no trending/popular/history — just regions):
 //   - a country match shows that country plus ALL of its divisions
 //   - a division match shows its parent country plus the matching divisions
+// Picking a suggestion straight from the dropdown navigates immediately to
+// that country/division's page; typing without picking a suggestion filters
+// the grid below via the same `query` state.
 //
 // Listing counts come from approved rows in `adventure_places`:
 //   - per country  → matched on the free-text `country` column vs countries.name
@@ -16,9 +21,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { MobileBottomBar } from "@/components/MobileBottomBar";
+import { SearchBarWithSuggestions } from "@/components/SearchBarWithSuggestions";
 import { supabase } from "@/integrations/supabase/client";
-import { Input } from "@/components/ui/input";
-import { Loader2, Search, X, Globe, MapPin, ArrowLeft, ChevronLeft } from "lucide-react";
+import { Globe, MapPin, ArrowLeft, ChevronLeft, Loader2 } from "lucide-react";
 
 // ── Where a tapped division should go. Change this one function to match the
 // route your home-page "Explore <Country>" rail uses. ──────────────────────
@@ -219,25 +224,17 @@ const ExploreCountries = () => {
           </div>
         </div>
 
-        {/* Search */}
-        <div className="relative mb-6">
-          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: INK_SOFT }} />
-          <Input
+        {/* Search — shared bar, regions-only mode: searches countries and
+            divisions only (no trip/campsite results), picking a suggestion
+            navigates straight to that country/division. Typing without
+            picking one still filters the grid below via `query`. */}
+        <div className="mb-6">
+          <SearchBarWithSuggestions
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search a country or division"
-            className="h-12 rounded-xl bg-white pl-10 pr-10 text-sm font-medium"
-            style={{ border: `1px solid ${HAIRLINE}` }}
+            onChange={setQuery}
+            onSubmit={() => {}}
+            regionsOnly
           />
-          {query && (
-            <button
-              onClick={() => setQuery("")}
-              aria-label="Clear search"
-              className="absolute right-3 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full hover:bg-black/5"
-            >
-              <X className="h-4 w-4" style={{ color: INK_SOFT }} />
-            </button>
-          )}
         </div>
 
         {/* Body */}

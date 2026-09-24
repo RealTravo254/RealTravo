@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { KENYA_COUNTIES } from "@/lib/kenyaCounties";
 
 // ── Design tokens ─────────────────────────────────────────────────────────
 // Same field-guide / park-signage system used across the rest of the app:
@@ -52,6 +51,11 @@ interface SearchBarProps {
   onBack?: () => void;
   showBackButton?: boolean;
   showEventCategories?: boolean;
+  // When true, this search bar only searches countries/divisions (from the
+  // `countries` / `country_divisions` tables) — no trip/campsite listings,
+  // no trending/popular/history. Used on pages that are purely about
+  // browsing regions, like ExploreCountries.
+  regionsOnly?: boolean;
 }
 
 interface SearchResult {
@@ -68,6 +72,9 @@ interface SearchResult {
   image_url?: string;
   matchedActivity?: string;
 }
+
+interface RegionCountry { id: string; name: string }
+interface RegionDivision { id: string; name: string; country_id: string }
 
 // Handle exposed via ref so a parent page (e.g. Explore.tsx) can open this
 // search bar and its suggestions programmatically — for example when the
@@ -113,8 +120,15 @@ const formatTitle = (str?: string | null): string => {
     .join(" ");
 };
 
+// ── Where a country/division match should navigate. Matches the convention
+// already used by ExploreCountries.tsx's own tile links, so a country or
+// division picked from search lands on the same place a tile tap would. ──
+const regionCountryPath = (countryName: string) => `/?country=${encodeURIComponent(countryName)}`;
+const regionDivisionPath = (countryName: string, divisionId: string) =>
+  `/?country=${encodeURIComponent(countryName)}&division=${divisionId}`;
 
-export const SearchBarWithSuggestions = React.forwardRef<SearchBarWithSuggestionsHandle, SearchBarProps>(({ value, onChange, onSubmit, onSuggestionSearch, onFocus, onBlur, onBack, showBackButton = false }, ref) => {
+
+export const SearchBarWithSuggestions = React.forwardRef<SearchBarWithSuggestionsHandle, SearchBarProps>(({ value, onChange, onSubmit, onSuggestionSearch, onFocus, onBlur, onBack, showBackButton = false, regionsOnly = false }, ref) => {
   useInjectFonts();
 
   const { user } = useAuth();
@@ -128,6 +142,10 @@ export const SearchBarWithSuggestions = React.forwardRef<SearchBarWithSuggestion
   const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
   // Cache all listings so we can filter client-side instantly on every keystroke
   const [allListingsCache, setAllListingsCache] = useState<SearchResult[]>([]);
+  // Countries / divisions, fetched once and filtered client-side just like
+  // the listings cache above.
+  const [regionCountries, setRegionCountries] = useState<RegionCountry[]>([]);
+  const [regionDivisions, setRegionDivisions] = useState<RegionDivision[]>([]);
   const navigate = useNavigate();
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -143,12 +161,32 @@ export const SearchBarWithSuggestions = React.forwardRef<SearchBarWithSuggestion
   useEffect(() => {
     const history = localStorage.getItem(SEARCH_HISTORY_KEY);
     if (history) setSearchHistory(JSON.parse(history));
-    fetchTrendingSearches();
-    fetchMostPopular();
-    fetchLocationSuggestions();
-    // Pre-fetch and cache all listings for instant partial-match suggestions
-    prefetchAllListings();
+    // Countries/divisions are cheap and useful everywhere, so always fetch.
+    fetchRegions();
+    // Trip/campsite-related data is skipped entirely in regionsOnly mode —
+    // this bar only ever searches countries and divisions there.
+    if (!regionsOnly) {
+      fetchTrendingSearches();
+      fetchMostPopular();
+      fetchLocationSuggestions();
+      // Pre-fetch and cache all listings for instant partial-match suggestions
+      prefetchAllListings();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const fetchRegions = async () => {
+    try {
+      const [c, d] = await Promise.all([
+        supabase.from("countries").select("id, name"),
+        supabase.from("country_divisions").select("id, name, country_id"),
+      ]);
+      setRegionCountries(c.data || []);
+      setRegionDivisions(d.data || []);
+    } catch (error) {
+      console.error("Error fetching countries/divisions:", error);
+    }
+  };
 
   // Pre-fetch all listings once and cache them for instant client-side filtering
   const prefetchAllListings = async () => {
@@ -244,8 +282,16 @@ export const SearchBarWithSuggestions = React.forwardRef<SearchBarWithSuggestion
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [onBlur]);
 
-  // Instant client-side filter on every keystroke using the cache
+  // Instant client-side filter on every keystroke using the cache.
+  // Skipped entirely in regionsOnly mode — there are no listings to filter.
   useEffect(() => {
+    if (regionsOnly) {
+      setSuggestions([]);
+      setIsSearching(false);
+      setHasSearched(Boolean(value.trim()));
+      return;
+    }
+
     if (!showSuggestions || !value.trim()) {
       setSuggestions([]);
       setHasSearched(false);
@@ -289,7 +335,7 @@ export const SearchBarWithSuggestions = React.forwardRef<SearchBarWithSuggestion
       fetchSuggestions();
     }, 300);
     return () => clearTimeout(debounceTimer);
-  }, [value, showSuggestions, allListingsCache]);
+  }, [value, showSuggestions, allListingsCache, regionsOnly]);
 
   const fetchSuggestions = async () => {
     const queryValue = value.trim().toLowerCase();
@@ -388,6 +434,28 @@ export const SearchBarWithSuggestions = React.forwardRef<SearchBarWithSuggestion
     return type;
   };
 
+  // ── Country / division matches — replaces the old hardcoded Kenya-county
+  // list with live data from the countries/country_divisions tables, so this
+  // now works for every country that's been added via the admin page,
+  // not just Kenya. ──
+  const qLower = value.trim().toLowerCase();
+  const matchedCountries = qLower ? regionCountries.filter((c) => c.name.toLowerCase().includes(qLower)) : [];
+  const matchedDivisions = qLower ? regionDivisions.filter((d) => d.name.toLowerCase().includes(qLower)) : [];
+
+  const handleRegionCountryClick = (country: RegionCountry) => {
+    setShowSuggestions(false);
+    navigate(regionCountryPath(country.name));
+  };
+  const handleRegionDivisionClick = (division: RegionDivision) => {
+    const countryName = regionCountries.find((c) => c.id === division.country_id)?.name || "";
+    setShowSuggestions(false);
+    navigate(regionDivisionPath(countryName, division.id));
+  };
+
+  const noResults = regionsOnly
+    ? Boolean(qLower) && matchedCountries.length === 0 && matchedDivisions.length === 0
+    : !isSearching && hasSearched && suggestions.length === 0 && matchedCountries.length === 0 && matchedDivisions.length === 0;
+
   return (
     <div className="w-full" style={{ fontFamily: FONT_BODY }}>
       <div className="w-full px-3 md:container md:mx-auto md:px-6 lg:px-8">
@@ -415,7 +483,7 @@ export const SearchBarWithSuggestions = React.forwardRef<SearchBarWithSuggestion
               <Input
                 ref={inputRef}
                 type="text"
-                placeholder="Where to next? Search trips, adventures, campsites..."
+                placeholder={regionsOnly ? "Search a country or division" : "Where to next? Search trips, adventures, campsites..."}
                 value={value}
                 onChange={(e) => { onChange(e.target.value); setShowSuggestions(true); }}
                 onKeyDown={handleKeyPress}
@@ -441,8 +509,8 @@ export const SearchBarWithSuggestions = React.forwardRef<SearchBarWithSuggestion
               className="absolute left-0 right-0 top-full mt-2 bg-white rounded-lg shadow-xl max-h-[70vh] md:max-h-[500px] overflow-y-auto z-[9999] animate-in fade-in slide-in-from-top-2 duration-200"
               style={{ position: 'absolute', border: `1px solid ${HAIRLINE}` }}
             >
-              {/* History / Trending / Most Popular (shown when input is empty) */}
-              {!value.trim() && (
+              {/* History / Trending / Most Popular (shown when input is empty) — skipped entirely in regionsOnly mode */}
+              {!regionsOnly && !value.trim() && (
                 <div className="p-1.5 min-h-[60px]">
                   {/* Popular Locations */}
                   {locationSuggestions.length > 0 && (
@@ -543,45 +611,49 @@ export const SearchBarWithSuggestions = React.forwardRef<SearchBarWithSuggestion
               {/* Result Suggestions (shown when typing) */}
               {value.trim() && (
                 <div className="p-1.5">
-                  {/* Loading State — only shown during fallback network fetch */}
-                  {isSearching && (
+                  {/* Loading State — only shown during fallback network fetch, never in regionsOnly mode */}
+                  {!regionsOnly && isSearching && (
                     <div className="p-5 flex flex-col items-center justify-center gap-2">
                       <Loader2 className="h-4 w-4 animate-spin" style={{ color: FOREST }} />
                       <span className="text-[11px] font-medium" style={{ color: INK_SOFT }}>Searching…</span>
                     </div>
                   )}
 
-                  {/* County Matches */}
-                  {(() => {
-                    const q = value.trim().toLowerCase();
-                    const matchedCounties = q ? KENYA_COUNTIES.filter(c => c.toLowerCase().includes(q)) : [];
-                    if (matchedCounties.length > 0) {
-                      return (
-                        <div className="mb-1.5">
-                          <div className="flex items-center gap-1.5 px-2 py-1.5">
-                            <Map className="h-3 w-3" style={{ color: FOREST }} />
-                            <p className="text-[10px] font-medium" style={{ color: INK_SOFT }}>Counties</p>
-                          </div>
-                          <div className="flex flex-wrap gap-1 px-2">
-                            {matchedCounties.slice(0, 6).map(county => (
-                              <Badge
-                                key={county}
-                                onClick={() => { setShowSuggestions(false); navigate(`/county/${encodeURIComponent(county)}`); }}
-                                className="cursor-pointer py-0.5 px-2 rounded-md text-[10px] font-semibold transition-colors border"
-                                style={{ background: FOREST_SOFT, color: FOREST, borderColor: `${FOREST}25` }}
-                              >
-                                {formatTitle(county)} County
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    }
-                    return null;
-                  })()}
+                  {/* Country / Division Matches — DB-driven, works for every
+                      country added via the admin page, not just Kenya. */}
+                  {(matchedCountries.length > 0 || matchedDivisions.length > 0) && (
+                    <div className="mb-1.5">
+                      <div className="flex items-center gap-1.5 px-2 py-1.5">
+                        <Map className="h-3 w-3" style={{ color: FOREST }} />
+                        <p className="text-[10px] font-medium" style={{ color: INK_SOFT }}>Countries &amp; divisions</p>
+                      </div>
+                      <div className="flex flex-wrap gap-1 px-2">
+                        {matchedCountries.slice(0, 6).map((c) => (
+                          <Badge
+                            key={c.id}
+                            onClick={() => handleRegionCountryClick(c)}
+                            className="cursor-pointer py-0.5 px-2 rounded-md text-[10px] font-semibold transition-colors border"
+                            style={{ background: FOREST_SOFT, color: FOREST, borderColor: `${FOREST}25` }}
+                          >
+                            {formatTitle(c.name)}
+                          </Badge>
+                        ))}
+                        {matchedDivisions.slice(0, 6).map((d) => (
+                          <Badge
+                            key={d.id}
+                            onClick={() => handleRegionDivisionClick(d)}
+                            className="cursor-pointer py-0.5 px-2 rounded-md text-[10px] font-semibold transition-colors border"
+                            style={{ background: CLAY_SOFT, color: CLAY, borderColor: `${CLAY}30` }}
+                          >
+                            {formatTitle(d.name)}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
-                  {/* Results */}
-                  {!isSearching && suggestions.length > 0 && (
+                  {/* Results — trip/campsite listings, skipped entirely in regionsOnly mode */}
+                  {!regionsOnly && !isSearching && suggestions.length > 0 && (
                     <>
                       <p className="px-2 py-1.5 text-[10px] font-medium" style={{ color: INK_SOFT }}>Top matches</p>
                       {suggestions.slice(0, 5).map((result) => (
@@ -620,7 +692,7 @@ export const SearchBarWithSuggestions = React.forwardRef<SearchBarWithSuggestion
                   )}
 
                   {/* Not Available */}
-                  {!isSearching && hasSearched && suggestions.length === 0 && KENYA_COUNTIES.filter(c => c.toLowerCase().includes(value.trim().toLowerCase())).length === 0 && (
+                  {noResults && (
                     <div className="p-5 text-center">
                       <p className="text-[11px] font-medium mb-1.5" style={{ color: INK_SOFT }}>Not available</p>
                       <p className="text-[10px]" style={{ color: "#A7B2AB" }}>No results found for "{value}"</p>

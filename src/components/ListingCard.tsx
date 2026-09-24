@@ -1,5 +1,5 @@
 import React, { useState, memo, useCallback, useMemo, useRef, useEffect } from "react";
-import { MapPin, Star, Calendar, ChevronLeft, ChevronRight, Clock, Heart, Navigation } from "lucide-react";
+import { MapPin, Star, Calendar, ChevronLeft, ChevronRight, Clock, Heart, Navigation, BedDouble } from "lucide-react";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -44,12 +44,24 @@ const useInjectFonts = () => {
   }, []);
 };
 
+// ── Hotel starting price ─────────────────────────────────────────────────────
+// Hotels have no entrance fee — their price lives on each room type inside
+// the `facilities` JSON. Use this anywhere you need a hotel's "From" price
+// (the card also calls it automatically when `facilities` is passed).
+export const getHotelStartingPrice = (facilities?: any[] | null): number => {
+  if (!Array.isArray(facilities)) return 0;
+  const prices = facilities
+    .map((f) => Number(f?.price))
+    .filter((p) => Number.isFinite(p) && p > 0);
+  return prices.length ? Math.min(...prices) : 0;
+};
+
 // ── Price label ─────────────────────────────────────────────────────────────
 // Guided tours (isFlexibleDate && isTrip) show the tour's start time in UTC
 // instead of a "/group" suffix, since group pricing isn't meaningful without
-// knowing when the tour departs. Falls back to a plain "UTC" tag if no date
-// is available yet.
-const getPriceLabel = (isFlexibleDate: boolean, isTrip: boolean, date?: string) => {
+// knowing when the tour departs. Hotels are priced per night.
+const getPriceLabel = (isFlexibleDate: boolean, isTrip: boolean, date?: string, isHotel = false) => {
+  if (isHotel) return "/night";
   if (isFlexibleDate && isTrip) {
     if (date) {
       const utcTime = new Date(date).toLocaleTimeString("en-GB", {
@@ -85,12 +97,14 @@ const PriceText = ({
   isFlexibleDate,
   isTrip,
   date,
+  isHotel = false,
 }: {
   price: number;
   isUnavailable: boolean;
   isFlexibleDate: boolean;
   isTrip: boolean;
   date?: string;
+  isHotel?: boolean;
 }) => {
   const { formatPrice } = useCurrency();
   return (
@@ -100,11 +114,20 @@ const PriceText = ({
         {formatPrice(price)}
       </span>
       <span className="text-[10px] font-medium" style={{ color: INK_SOFT }}>
-        {getPriceLabel(isFlexibleDate, isTrip, date)}
+        {getPriceLabel(isFlexibleDate, isTrip, date, isHotel)}
       </span>
     </div>
   );
 };
+
+// ── Hotel star row ───────────────────────────────────────────────────────────
+const HotelStars = ({ count }: { count: number }) => (
+  <div className="flex items-center gap-0.5" aria-label={`${count}-star hotel`}>
+    {Array.from({ length: count }).map((_, i) => (
+      <Star key={i} className="h-3 w-3" style={{ fill: GOLD, color: GOLD }} />
+    ))}
+  </div>
+);
 
 export interface ListingCardProps {
   id: string;
@@ -141,12 +164,19 @@ export interface ListingCardProps {
   categoryColor?: string;
   galleryImages?: string[];
   images?: string[];
+  // For hotels these are the check-in / check-out times.
   openingHours?: string;
   closingHours?: string;
   // Days of the week the place is open, e.g. ["Mon","Tue","Wed"]. Used to
   // build the working-days pill row and to decide whether today counts as a
-  // working day for the open/closed badge.
+  // working day for the open/closed badge. Not used for hotels.
   workingDays?: string[];
+  // ── Hotel-only ──
+  // Star rating (1–5) from the `star_rating` column.
+  starRating?: number | null;
+  // Room types from the `facilities` column. When `price` is 0/missing, the
+  // card shows the cheapest room's nightly price as the "From" price.
+  facilities?: any[] | null;
 }
 
 // Canonical day order, used both for sorting and for rendering the fixed
@@ -161,6 +191,7 @@ const ListingCardComponent = ({
   priority = false, avgRating, reviewCount, place,
   isFlexibleDate = false, hidePrice = false, categoryColor,
   openingHours, closingHours, distance, workingDays,
+  starRating, facilities,
 }: ListingCardProps) => {
   useInjectFonts();
 
@@ -176,11 +207,24 @@ const ListingCardComponent = ({
   const allSlideImages = useMemo(() => [imageUrl].filter(Boolean), [imageUrl]);
   const isTrip = type === "TRIP";
   const isAdventurePlace = type === "ADVENTURE PLACE";
+  const isHotel = isAdventurePlace && category === "hotel";
   const remainingTickets = availableTickets - bookedTickets;
   const isSoldOut = isTrip && availableTickets > 0 && remainingTickets <= 0;
   const fewSlotsRemaining = isTrip && remainingTickets > 0 && remainingTickets <= 10;
   const isUnavailable = isOutdated || isSoldOut;
   const isGuidedTour = isFlexibleDate && isTrip;
+
+  // Hotels: price comes from the cheapest room type unless a price was passed in.
+  const displayPrice = useMemo(() => {
+    if (price != null && price > 0) return price;
+    if (isHotel) return getHotelStartingPrice(facilities);
+    return price ?? 0;
+  }, [price, isHotel, facilities]);
+
+  const stars = useMemo(() => {
+    const n = Math.round(Number(starRating) || 0);
+    return Math.max(0, Math.min(5, n));
+  }, [starRating]);
 
   const categoryLabel = useMemo(() => {
     if (!isAdventurePlace) return null;
@@ -293,17 +337,17 @@ const ListingCardComponent = ({
     return distance < 1 ? `${Math.round(distance * 1000)} m away` : `${distance.toFixed(1)} km away`;
   }, [distance]);
 
-  // Only hotels and campsites get a live "Open now / Closed" badge — other
-  // categories (park, attraction, accommodation) don't have hours that are
-  // meaningful to gate this way.
-  const isHotelOrCampsite = category === "hotel" || category === "campsite";
+  // Only campsites get a live "Open now / Closed" badge. Hotels are staffed
+  // around the clock from a guest's point of view, and their two times are
+  // check-in / check-out rather than opening hours, so they never show it.
+  const isCampsite = category === "campsite";
 
   // Compares the device's current local day/time against openingHours,
   // closingHours, and workingDays. Handles overnight spans (e.g. opens
   // 18:00, closes 02:00) the same way hoursText does. Returns null when
   // there isn't enough data to decide.
   const isOpenNow = useMemo(() => {
-    if (!isAdventurePlace || !isHotelOrCampsite) return null;
+    if (!isAdventurePlace || !isCampsite) return null;
     if (!openingHours || !closingHours) return null;
 
     const now = new Date();
@@ -322,7 +366,7 @@ const ListingCardComponent = ({
       return nowMinutes >= openMinutes || nowMinutes < closeMinutes;
     }
     return nowMinutes >= openMinutes && nowMinutes < closeMinutes;
-  }, [isAdventurePlace, isHotelOrCampsite, openingHours, closingHours, workingDays]);
+  }, [isAdventurePlace, isCampsite, openingHours, closingHours, workingDays]);
 
   return (
     <Card
@@ -395,9 +439,10 @@ const ListingCardComponent = ({
         {/* Category badge — top-left */}
         <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-1.5">
           <span
-            className="text-[10px] font-semibold px-2 py-1 rounded-md shadow-sm text-white"
+            className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-md shadow-sm text-white"
             style={{ backgroundColor: badgeColor ? `${badgeColor}E6` : `${FOREST_DEEP}E6`, fontFamily: FONT_BODY }}
           >
+            {isHotel && <BedDouble className="h-3 w-3" />}
             {displayType}
           </span>
           {urgencyBadge && (
@@ -472,8 +517,8 @@ const ListingCardComponent = ({
           </div>
         )}
 
-        {/* Open/Closed badge — hotels and campsites only, based on opening
-            hours, closing hours, and working days. Bottom-right of the image. */}
+        {/* Open/Closed badge — campsites only, based on opening hours,
+            closing hours, and working days. Bottom-right of the image. */}
         {isOpenNow !== null && (
           <div className="absolute bottom-2.5 right-2.5 z-20">
             <span
@@ -492,6 +537,9 @@ const ListingCardComponent = ({
         <h3 className="line-clamp-2 text-[15px] font-semibold leading-snug" style={{ fontFamily: FONT_DISPLAY, color: INK }}>
           {formattedName}
         </h3>
+
+        {/* Hotel star classification, directly under the name */}
+        {isHotel && stars > 0 && <HotelStars count={stars} />}
 
         {/* Location + rating, on one row so the card doesn't feel like a stack of separate facts */}
         <div className="flex items-center justify-between gap-2">
@@ -530,10 +578,22 @@ const ListingCardComponent = ({
           </div>
         ) : null}
 
-        {/* Working hours — labeled block, adventure places only. Shows the
-            hours range plus a fixed Mon..Sun pill row: open days highlighted,
-            closed days dimmed with a strikethrough. */}
-        {isAdventurePlace && hoursText && (
+        {/* Hotel stay times — check-in / check-out replace the working-hours block */}
+        {isHotel && (openingHours || closingHours) && (
+          <div className="flex items-center gap-1 text-[10px] font-medium" style={{ color: INK_SOFT }}>
+            <Clock className="h-3 w-3" />
+            <span>
+              {openingHours && <>Check-in {openingHours}</>}
+              {openingHours && closingHours && <span className="mx-1">·</span>}
+              {closingHours && <>Check-out {closingHours}</>}
+            </span>
+          </div>
+        )}
+
+        {/* Working hours — labeled block, non-hotel adventure places only. Shows
+            the hours range plus a fixed Mon..Sun pill row: open days
+            highlighted, closed days dimmed with a strikethrough. */}
+        {isAdventurePlace && !isHotel && hoursText && (
           <div className="flex flex-col gap-1">
             <span className="text-[9px] font-semibold uppercase tracking-wide" style={{ color: "#9CA8A0" }}>
               Working hours
@@ -566,9 +626,9 @@ const ListingCardComponent = ({
         )}
 
         {/* Price, anchored to the bottom of the card */}
-        {!hidePrice && price != null && price > 0 && (
+        {!hidePrice && displayPrice > 0 && (
           <div className="pt-0.5">
-            <PriceText price={price} isUnavailable={isUnavailable} isFlexibleDate={isFlexibleDate} isTrip={isTrip} date={date} />
+            <PriceText price={displayPrice} isUnavailable={isUnavailable} isFlexibleDate={isFlexibleDate} isTrip={isTrip} date={date} isHotel={isHotel} />
           </div>
         )}
       </div>

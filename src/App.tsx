@@ -15,6 +15,7 @@ import { AuthGate } from "@/components/AuthGate";
 import { TealLoader } from "@/components/ui/teal-loader";
 import { OfflineFullScreen } from "@/components/OfflineIndicator";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import CreateHotel from "./pages/CreateHotel";
 import VisitTracker from "@/components/VisitTracker";
 import AccountPage from "@/pages/AccountPage";
 import Index from "./pages/Index";
@@ -229,6 +230,7 @@ const App = () => {
                       <Route path="/create-event" element={<Suspense fallback={<OfflineFallback text="Create Event" />}><CreateTripEvent /></Suspense>} />
                       <Route path="/create-adventure" element={<Suspense fallback={<OfflineFallback text="Create Adventure" />}><CreateAdventure /></Suspense>} />
                       <Route path="/create-attraction" element={<Suspense fallback={<OfflineFallback text="Create Attraction" />}><CreateAdventure /></Suspense>} />
+                      <Route path="/create-hotel" element={<CreateHotel />} />
                       <Route path="/host/item/:itemType/:id" element={<Suspense fallback={<OfflineFallback text="Listing Details" />}><HostItemDetail /></Suspense>} />
                       <Route path="/host/bookings/:itemType" element={<Suspense fallback={<OfflineFallback text="Host Bookings" />}><HostBookings /></Suspense>} />
                       <Route path="/host/bookings/:itemType/:id" element={<Suspense fallback={<OfflineFallback text="Booking Details" />}><HostBookingDetails /></Suspense>} />

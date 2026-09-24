@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import {
-  Plus, ArrowLeft, LayoutDashboard, Map, Building2, Tent, Home,
+  Plus, ArrowLeft, LayoutDashboard, Map, Building2, Tent, Home, BedDouble,
   Clock, CheckCircle2, XCircle, MapPin, RefreshCw, Ban, Info,
 } from "lucide-react";
 
@@ -21,6 +21,7 @@ const FOREST_DEEP  = "#123322";
 const FOREST_SOFT  = "#EAF0EA";
 const CLAY         = "#C1552F";
 const CLAY_LIGHT   = "#E0824F";
+const CLAY_SOFT    = "#FBEDE7";
 const GOLD         = "#B98A2A";
 const GOLD_SOFT    = "#FBF2DD";
 const GOLD_TEXT    = "#8A6716";
@@ -37,6 +38,10 @@ const DANGER_SOFT  = "#F7E9E5";
 
 const FONT_DISPLAY = "'Fraunces', ui-serif, Georgia, serif";
 const FONT_BODY = "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif";
+
+// Categories whose hosts may hold several approved listings. Everything else
+// (e.g. "hotel") stays capped at one listing and goes to /my-listing.
+const MULTI_LISTING_CATEGORIES = ["accommodation", "campsite"];
 
 // Injects the two typefaces once, without needing to touch the app's index.html.
 const useInjectFonts = () => {
@@ -141,6 +146,7 @@ const HostCategoryCard = ({ title, subtitle, image, icon, count, onManage, onAdd
 
 const AdventurePendingCard = ({ place }: { place: any }) => {
   const imageUrl = place.image_url || place.gallery_images?.[0] || place.images?.[0];
+  const isHotel = place.category === "hotel";
   return (
     <div className="bg-white rounded-[28px] overflow-hidden" style={{ border: `1px solid ${HAIRLINE}`, boxShadow: "0 10px 30px rgba(28,43,34,0.07)" }}>
       <div className="relative h-48 overflow-hidden">
@@ -148,7 +154,9 @@ const AdventurePendingCard = ({ place }: { place: any }) => {
           <img src={imageUrl} alt={place.name} className="w-full h-full object-cover brightness-75" />
         ) : (
           <div className="w-full h-full flex items-center justify-center" style={{ background: GOLD_SOFT }}>
-            <Tent className="h-14 w-14" style={{ color: `${GOLD}80` }} />
+            {isHotel
+              ? <BedDouble className="h-14 w-14" style={{ color: `${GOLD}80` }} />
+              : <Tent className="h-14 w-14" style={{ color: `${GOLD}80` }} />}
           </div>
         )}
         <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(14,23,18,0.7), rgba(14,23,18,0.2), transparent)" }} />
@@ -156,7 +164,7 @@ const AdventurePendingCard = ({ place }: { place: any }) => {
           <Clock className="h-3.5 w-3.5" style={{ color: GOLD }} /> Under review
         </div>
         <div className="absolute bottom-4 left-4 right-4">
-          <p className="text-[9px] font-medium text-white/60 mb-0.5">Your listing</p>
+          <p className="text-[9px] font-medium text-white/60 mb-0.5">{isHotel ? "Your hotel" : "Your listing"}</p>
           <h3 className="text-xl font-semibold text-white tracking-tight leading-tight line-clamp-1" style={{ fontFamily: FONT_DISPLAY }}>{place.name}</h3>
           {(place.location || place.place) && (
             <div className="flex items-center gap-1 mt-1">
@@ -304,7 +312,7 @@ const BecomeHost = () => {
 
         // ── 3. Not a guide/company — check adventure place(s) ────────────────
         // NOTE: no .limit(1) here anymore — a user may hold several rows once
-        // Accommodation listings are allowed to multiply after approval.
+        // Outdoor / Accommodation listings are allowed to multiply after approval.
         const { data: advPlaces } = await supabase
           .from("adventure_places")
           .select("id, name, image_url, gallery_images, location, place, approval_status, category")
@@ -326,17 +334,17 @@ const BecomeHost = () => {
         const pending  = places.filter((p) => normStatus(p) !== "approved" && normStatus(p) !== "rejected");
 
         if (approved.length > 0) {
-          const allAccommodation = approved.every((p) => p.category === "accommodation");
+          const allMultiListing = approved.every((p) => MULTI_LISTING_CATEGORIES.includes(p.category));
 
-          if (allAccommodation) {
-            // Accommodation hosts can hold multiple approved listings — show the
-            // dashboard with an active "Add Accommodation" entry point.
+          if (allMultiListing) {
+            // Outdoor / Accommodation hosts can hold multiple approved listings —
+            // show the dashboard with an active "Add" entry point.
             setView({ screen: "adventure-accommodation-dashboard", places: approved });
             return;
           }
 
-          // Legacy single-listing hosting types (hotel/campsite/park/attraction)
-          // remain capped at one listing and keep using /my-listing.
+          // Hotel & Stay (and legacy park/attraction) remain capped at one
+          // listing and keep using /my-listing.
           setView({ screen: "redirect", to: "/my-listing" });
           return;
         }
@@ -430,15 +438,12 @@ const BecomeHost = () => {
         <div className="flex items-start gap-2.5 p-3.5 rounded-2xl mb-8" style={{ background: GOLD_SOFT, border: `1px solid ${GOLD}30` }}>
           <Info className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: GOLD }} />
           <p className="text-[11px] font-medium leading-relaxed" style={{ color: GOLD_TEXT }}>
-            <span className="font-semibold">Note:</span> Accommodation / Airbnb is a standalone hosting type — it cannot be combined with Tour Guide or Company hosting. Once your first listing is approved, you can add more Accommodation properties from your dashboard.
+            <span className="font-semibold">Note:</span> Accommodation / Airbnb and Hotel &amp; Stay are standalone hosting types — they cannot be combined with Tour Guide or Company hosting. Once your first Accommodation listing is approved, you can add more from your dashboard. Hotel &amp; Stay is limited to one listing per account.
           </p>
         </div>
 
-        {/* ── Tour Guide and Register Company hosting types re-enabled ────────
-            All three hosting types are now offered, restoring the path to
-            create trips (via Tour Guide / Company verification → the
-            guide-company dashboard → "Add Trip" → /create-trip). */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* All hosting types are offered. Hotel & Stay has its own form at /create-hotel. */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
           <SelectionCard
             icon={<Home className="h-8 w-8" style={{ color: SUCCESS }} />}
             title="Accommodation / Airbnb"
@@ -446,6 +451,14 @@ const BecomeHost = () => {
             onClick={() => navigate("/create-adventure")}
             iconBg={SUCCESS_SOFT}
             accent={SUCCESS}
+          />
+          <SelectionCard
+            icon={<BedDouble className="h-8 w-8" style={{ color: CLAY }} />}
+            title="Hotel & Stay"
+            desc="Register your hotel, lodge, or guesthouse with room types, nightly rates, and check-in times."
+            onClick={() => navigate("/create-hotel")}
+            iconBg={CLAY_SOFT}
+            accent={CLAY}
           />
           <SelectionCard
             icon={<Map className="h-8 w-8" style={{ color: INFO }} />}
@@ -521,7 +534,7 @@ const BecomeHost = () => {
         <h2 className="text-xl font-semibold tracking-tight mb-4" style={{ fontFamily: FONT_DISPLAY, color: INK }}>
           Or start a <span style={{ color: CLAY }}>new submission</span>
         </h2>
-        <div className="max-w-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           <SelectionCard
             icon={<Home className="h-8 w-8" style={{ color: SUCCESS }} />}
             title="Accommodation / Airbnb"
@@ -529,6 +542,14 @@ const BecomeHost = () => {
             onClick={() => navigate("/create-adventure")}
             iconBg={SUCCESS_SOFT}
             accent={SUCCESS}
+          />
+          <SelectionCard
+            icon={<BedDouble className="h-8 w-8" style={{ color: CLAY }} />}
+            title="Hotel & Stay"
+            desc="Start a fresh hotel, lodge, or guesthouse submission."
+            onClick={() => navigate("/create-hotel")}
+            iconBg={CLAY_SOFT}
+            accent={CLAY}
           />
         </div>
       </main>
@@ -551,13 +572,23 @@ const BecomeHost = () => {
           </div>
           <h3 className="text-xl font-semibold tracking-tight mb-2" style={{ fontFamily: FONT_DISPLAY, color: INK }}>No place submitted yet</h3>
           <p className="text-sm mb-6" style={{ color: INK_SOFT }}>You haven't submitted a listing yet. Create your listing to get started.</p>
-          <Button
-            onClick={() => navigate("/create-adventure")}
-            className="px-6 py-3 rounded-xl text-sm font-semibold text-white border-none hover:opacity-95"
-            style={{ background: `linear-gradient(135deg, ${CLAY_LIGHT} 0%, ${CLAY} 100%)` }}
-          >
-            <Plus className="h-4 w-4 mr-2" /> Submit listing
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Button
+              onClick={() => navigate("/create-adventure")}
+              className="px-6 py-3 rounded-xl text-sm font-semibold text-white border-none hover:opacity-95"
+              style={{ background: `linear-gradient(135deg, ${CLAY_LIGHT} 0%, ${CLAY} 100%)` }}
+            >
+              <Plus className="h-4 w-4 mr-2" /> Submit listing
+            </Button>
+            <Button
+              onClick={() => navigate("/create-hotel")}
+              variant="ghost"
+              className="px-6 py-3 rounded-xl text-sm font-semibold hover:bg-transparent"
+              style={{ border: `1px solid ${HAIRLINE}`, color: INK_SOFT }}
+            >
+              <BedDouble className="h-4 w-4 mr-2" /> Submit hotel
+            </Button>
+          </div>
         </div>
       </main>
       <MobileBottomBar />

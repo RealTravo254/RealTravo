@@ -109,11 +109,11 @@ const PriceText = ({
   const { formatPrice } = useCurrency();
   return (
     <div className={cn("flex items-baseline gap-1", isUnavailable && "opacity-50 line-through")} style={{ fontFamily: FONT_BODY }}>
-      <span className="text-[10px] font-medium" style={{ color: INK_SOFT }}>From</span>
-      <span className="text-sm font-semibold tabular-nums whitespace-nowrap" style={{ color: INK }}>
+      <span className="text-[12px] font-medium" style={{ color: INK_SOFT }}>From</span>
+      <span className="text-base font-bold tabular-nums whitespace-nowrap" style={{ color: INK }}>
         {formatPrice(price)}
       </span>
-      <span className="text-[10px] font-medium" style={{ color: INK_SOFT }}>
+      <span className="text-[12px] font-medium" style={{ color: INK_SOFT }}>
         {getPriceLabel(isFlexibleDate, isTrip, date, isHotel)}
       </span>
     </div>
@@ -124,7 +124,7 @@ const PriceText = ({
 const HotelStars = ({ count }: { count: number }) => (
   <div className="flex items-center gap-0.5" aria-label={`${count}-star hotel`}>
     {Array.from({ length: count }).map((_, i) => (
-      <Star key={i} className="h-3 w-3" style={{ fill: GOLD, color: GOLD }} />
+      <Star key={i} className="h-3.5 w-3.5" style={{ fill: GOLD, color: GOLD }} />
     ))}
   </div>
 );
@@ -158,7 +158,12 @@ export interface ListingCardProps {
   distance?: number;
   avgRating?: number;
   reviewCount?: number;
+  // Legacy free-text area (used to hold the county). Only used as a fallback
+  // when no division is available.
   place?: string;
+  // Division / region name from `country_divisions` (via adventure_places.division_id).
+  // Shown in place of the old county text.
+  division?: string | null;
   showFlexibleDate?: boolean;
   description?: string;
   categoryColor?: string;
@@ -188,7 +193,7 @@ const ListingCardComponent = ({
   id, type, category, name, imageUrl, location, price, date,
   isOutdated = false, onSave, isSaved = false, hideSave = false,
   availableTickets = 0, bookedTickets = 0,
-  priority = false, avgRating, reviewCount, place,
+  priority = false, avgRating, reviewCount, place, division,
   isFlexibleDate = false, hidePrice = false, categoryColor,
   openingHours, closingHours, distance, workingDays,
   starRating, facilities,
@@ -250,10 +255,13 @@ const ListingCardComponent = ({
     () => name.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()),
     [name],
   );
+  // Division replaces the old county text; `place` is only a fallback for
+  // listings that don't have a division yet.
   const locationString = useMemo(() => {
-    const raw = [place, location].filter(Boolean).join(", ");
+    const area = (division && division.trim()) || place;
+    const raw = [area, location].filter(Boolean).join(", ");
     return raw.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
-  }, [place, location]);
+  }, [division, place, location]);
 
   const handleCardClick = useCallback(() => {
     const typeMap: Record<string, string> = {
@@ -439,14 +447,14 @@ const ListingCardComponent = ({
         {/* Category badge — top-left */}
         <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-1.5">
           <span
-            className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-md shadow-sm text-white"
+            className="inline-flex items-center gap-1 text-[12px] font-semibold px-2 py-1 rounded-md shadow-sm text-white"
             style={{ backgroundColor: badgeColor ? `${badgeColor}E6` : `${FOREST_DEEP}E6`, fontFamily: FONT_BODY }}
           >
-            {isHotel && <BedDouble className="h-3 w-3" />}
+            {isHotel && <BedDouble className="h-3.5 w-3.5" />}
             {displayType}
           </span>
           {urgencyBadge && (
-            <span className="text-[9px] font-semibold px-1.5 py-1 rounded-full border backdrop-blur-sm" style={urgencyBadge.style}>
+            <span className="text-[11px] font-semibold px-1.5 py-1 rounded-full border backdrop-blur-sm" style={urgencyBadge.style}>
               {urgencyBadge.text}
             </span>
           )}
@@ -511,7 +519,7 @@ const ListingCardComponent = ({
         {/* Sold-out / unavailable overlay */}
         {isUnavailable && (
           <div className="absolute inset-0 z-10 flex items-center justify-center backdrop-blur-[1px]" style={{ background: "rgba(14,23,18,0.5)" }}>
-            <span className="rounded-md border border-white/60 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-white">
+            <span className="rounded-md border border-white/60 px-3 py-1 text-[13px] font-semibold uppercase tracking-wide text-white">
               {isSoldOut ? "Sold out" : "Unavailable"}
             </span>
           </div>
@@ -522,7 +530,7 @@ const ListingCardComponent = ({
         {isOpenNow !== null && (
           <div className="absolute bottom-2.5 right-2.5 z-20">
             <span
-              className="text-[9px] font-semibold uppercase tracking-wide px-2 py-1 rounded-md shadow-sm text-white"
+              className="text-[11px] font-semibold uppercase tracking-wide px-2 py-1 rounded-md shadow-sm text-white"
               style={{ background: isOpenNow ? SUCCESS : DANGER }}
             >
               {isOpenNow ? "Open now" : "Closed"}
@@ -532,9 +540,9 @@ const ListingCardComponent = ({
       </div>
 
       {/* ── Text content ── */}
-      <div className="flex flex-col gap-1.5 p-3 min-w-0">
+      <div className="flex flex-col gap-2 p-3.5 min-w-0">
         {/* Title */}
-        <h3 className="line-clamp-2 text-[15px] font-semibold leading-snug" style={{ fontFamily: FONT_DISPLAY, color: INK }}>
+        <h3 className="line-clamp-2 text-[18px] font-semibold leading-snug" style={{ fontFamily: FONT_DISPLAY, color: INK }}>
           {formattedName}
         </h3>
 
@@ -544,17 +552,17 @@ const ListingCardComponent = ({
         {/* Location + rating, on one row so the card doesn't feel like a stack of separate facts */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1 min-w-0" style={{ color: INK_SOFT }}>
-            <MapPin className="h-3 w-3 flex-shrink-0" />
-            <span className="text-[11px] font-medium truncate">{locationString}</span>
+            <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
+            <span className="text-[13px] font-medium truncate">{locationString}</span>
           </div>
           {avgRating != null && avgRating > 0 && (
             <div className="flex items-center gap-0.5 flex-shrink-0">
-              <Star className="h-3 w-3" style={{ fill: GOLD, color: GOLD }} />
-              <span className="text-[11px] font-semibold tabular-nums" style={{ color: INK }}>
+              <Star className="h-3.5 w-3.5" style={{ fill: GOLD, color: GOLD }} />
+              <span className="text-[13px] font-semibold tabular-nums" style={{ color: INK }}>
                 {avgRating.toFixed(1)}
               </span>
               {reviewCount != null && reviewCount > 0 && (
-                <span className="text-[10px]" style={{ color: INK_SOFT }}>({reviewCount})</span>
+                <span className="text-[12px]" style={{ color: INK_SOFT }}>({reviewCount})</span>
               )}
             </div>
           )}
@@ -564,14 +572,14 @@ const ListingCardComponent = ({
         {((isTrip && (date || isFlexibleDate)) || distanceText) ? (
           <div className="flex items-center gap-2.5 flex-wrap" style={{ color: INK_SOFT }}>
             {isTrip && (date || isFlexibleDate) && (
-              <span className="flex items-center gap-1 text-[10px] font-medium">
-                <Calendar className="h-3 w-3" />
+              <span className="flex items-center gap-1 text-[12px] font-medium">
+                <Calendar className="h-3.5 w-3.5" />
                 {isFlexibleDate ? "Flexible" : new Date(date!).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
               </span>
             )}
             {distanceText && (
-              <span className="flex items-center gap-1 text-[10px] font-medium">
-                <Navigation className="h-3 w-3" />
+              <span className="flex items-center gap-1 text-[12px] font-medium">
+                <Navigation className="h-3.5 w-3.5" />
                 {distanceText}
               </span>
             )}
@@ -580,8 +588,8 @@ const ListingCardComponent = ({
 
         {/* Hotel stay times — check-in / check-out replace the working-hours block */}
         {isHotel && (openingHours || closingHours) && (
-          <div className="flex items-center gap-1 text-[10px] font-medium" style={{ color: INK_SOFT }}>
-            <Clock className="h-3 w-3" />
+          <div className="flex items-center gap-1 text-[12px] font-medium" style={{ color: INK_SOFT }}>
+            <Clock className="h-3.5 w-3.5" />
             <span>
               {openingHours && <>Check-in {openingHours}</>}
               {openingHours && closingHours && <span className="mx-1">·</span>}
@@ -595,11 +603,11 @@ const ListingCardComponent = ({
             highlighted, closed days dimmed with a strikethrough. */}
         {isAdventurePlace && !isHotel && hoursText && (
           <div className="flex flex-col gap-1">
-            <span className="text-[9px] font-semibold uppercase tracking-wide" style={{ color: "#9CA8A0" }}>
+            <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: "#9CA8A0" }}>
               Working hours
             </span>
-            <span className="flex items-center gap-1 text-[10px] font-medium" style={{ color: INK_SOFT }}>
-              <Clock className="h-3 w-3" />
+            <span className="flex items-center gap-1 text-[12px] font-medium" style={{ color: INK_SOFT }}>
+              <Clock className="h-3.5 w-3.5" />
               {hoursText}
             </span>
             {workingDays && workingDays.length > 0 && (
@@ -609,7 +617,7 @@ const ListingCardComponent = ({
                   return (
                     <span
                       key={day}
-                      className="text-[9px] font-semibold px-1.5 py-0.5 rounded-md"
+                      className="text-[11px] font-semibold px-1.5 py-0.5 rounded-md"
                       style={
                         isOpenDay
                           ? { background: FOREST_SOFT, color: FOREST }

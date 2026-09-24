@@ -648,5 +648,5 @@ export const ListingCard = memo(
   React.forwardRef<HTMLDivElement, ListingCardProps>((props, ref) => (
     <ListingCardComponent {...props} />
   )),
-);
+); 
 ListingCard.displayName = "ListingCard";

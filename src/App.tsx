@@ -41,7 +41,8 @@ const AccountPage = lazyRetry(() => import("@/pages/AccountPage"));
 const CreateHotel = lazyRetry(() => import("./pages/CreateHotel"));
 const CountryDivisionsManager = lazyRetry(() => import("@/pages/admin/CountryDivisionsManager"));
 const ExploreCountries = lazyRetry(() => import("./pages/ExploreCountries"));
-
+const CountryListings = lazy(() => import("./pages/CountryListings"));
+const DivisionListings = lazy(() => import("./pages/DivisionListings"));
 const Auth = lazyRetry(() => import("./pages/Auth"));
 const AuthCallback = lazyRetry(() => import("./pages/AuthCallback"));
 const AppAuthHandler = lazyRetry(() => import("./pages/AppAuthHandler"));
@@ -274,6 +275,9 @@ const App = () => {
                       <Route path="/admin/accounts" element={<Suspense fallback={<OfflineFallback text="Accounts Overview" />}><AccountsOverview /></Suspense>} />
                       <Route path="/admin/analytics" element={<Suspense fallback={<OfflineFallback text="Analytics" />}><VisitAnalytics /></Suspense>} />
                       <Route path="/admin/countries" element={<Suspense fallback={<OfflineFallback text="Countries" />}><CountryDivisionsManager /></Suspense>} />
+                      <Route path="/countries" element={<Suspense fallback={<OfflineFallback text="Countries" />}><ExploreCountries /></Suspense>} />
+                      <Route path="/country/:countryId" element={<Suspense fallback={<OfflineFallback text="Country" />}><CountryListings /></Suspense>} />
+                      <Route path="/division/:divisionId" element={<Suspense fallback={<OfflineFallback text="Division" />}><DivisionListings /></Suspense>} />
 
                       {/* Catch-all: must stay LAST */}
                       <Route path="*" element={<Suspense fallback={<OfflineFallback text="Loading" />}><NotFound /></Suspense>} />

@@ -9,9 +9,13 @@
 // trip/campsite results, no trending/popular/history — just regions):
 //   - a country match shows that country plus ALL of its divisions
 //   - a division match shows its parent country plus the matching divisions
-// Picking a suggestion straight from the dropdown navigates immediately to
-// that country/division's page; typing without picking a suggestion filters
-// the grid below via the same `query` state.
+//
+// Tapping a country tile at the TOP LEVEL drills into that country's
+// divisions (in-page, via activeCountryId — no navigation). Tapping the
+// country tile again once drilled in (or from a search result group) — and
+// tapping ANY division tile at any point — navigates to a real listings page
+// (CountryListings.tsx / DivisionListings.tsx) showing ListingCards for that
+// country/division, with its own pagination and lazy image loading.
 //
 // Listing counts come from approved rows in `adventure_places`:
 //   - per country  → matched on the free-text `country` column vs countries.name
@@ -25,17 +29,10 @@ import { SearchBarWithSuggestions } from "@/components/SearchBarWithSuggestions"
 import { supabase } from "@/integrations/supabase/client";
 import { Globe, MapPin, ArrowLeft, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 
-// ── Where a tapped division/country goes. Stays on this same cards page
-// (with the country pre-selected via query param) rather than the homepage,
-// so a tap always shows an actual country/division card view.
-//
-// ASSUMPTION — set this to wherever this file is actually mounted in your
-// router if it's not "/explore-countries". SearchBarWithSuggestions.tsx has
-// the same constant (EXPLORE_COUNTRIES_PATH) — keep both in sync. ──
-const EXPLORE_COUNTRIES_PATH = "/explore-countries";
-const divisionPath = (country: Country, division: Division) =>
-  `${EXPLORE_COUNTRIES_PATH}?country=${encodeURIComponent(country.name)}&division=${division.id}`;
-const countryPath = (country: Country) => `${EXPLORE_COUNTRIES_PATH}?country=${encodeURIComponent(country.name)}`;
+// ── Where tapping a country/division tile navigates to — the real listings
+// pages, each with their own pagination and ListingCards. ──
+const countryPath = (country: Country) => `/country/${country.id}`;
+const divisionPath = (division: Division) => `/division/${division.id}`;
 
 // ── Design tokens (same field-guide system as the rest of the app) ────────
 const FOREST = "#1F4D3A";
@@ -278,9 +275,8 @@ const ExploreCountries = () => {
 
   const activeCountry = activeCountryId ? countries.find((c) => c.id === activeCountryId) || null : null;
 
-  // If arriving via a link with ?country=<name> (from the search bar, or a
-  // shared link), pre-select that country as soon as it's loaded, so the
-  // page lands straight on its cards instead of the full country list.
+  // Deep-link support: arriving via ?country=<name> pre-selects that
+  // country's division view as soon as the data has loaded.
   useEffect(() => {
     const countryParam = searchParams.get("country");
     if (!countryParam || countries.length === 0) return;
@@ -288,9 +284,10 @@ const ExploreCountries = () => {
     if (match) setActiveCountryId(match.id);
   }, [searchParams, countries]);
 
-  // Renders a country + its divisions via CountryGroup, wiring up the click
-  // handlers this page needs: tapping the country card drills into it,
-  // tapping a division navigates straight to that division's page.
+  // Renders a country + its divisions via CountryGroup. The big country tile
+  // here always navigates straight to that country's listings page (you're
+  // already looking at its divisions, so there's nothing left to "drill
+  // into"); each division tile navigates to that division's listings page.
   const renderGroup = (country: Country, divs: Division[]) => (
     <CountryGroup
       key={country.id}
@@ -298,8 +295,8 @@ const ExploreCountries = () => {
       divs={divs}
       countryCount={countryCount(country)}
       divisionCounts={divisionCounts}
-      onCountryClick={() => setActiveCountryId(country.id)}
-      onDivisionClick={(d) => navigate(divisionPath(country, d))}
+      onCountryClick={() => navigate(countryPath(country))}
+      onDivisionClick={(d) => navigate(divisionPath(d))}
     />
   );
 
@@ -329,8 +326,9 @@ const ExploreCountries = () => {
 
         {/* Search — shared bar, regions-only mode: searches countries and
             divisions only (no trip/campsite results), picking a suggestion
-            navigates straight to that country/division. Typing without
-            picking one still filters the grid below via `query`.
+            navigates straight to that country/division's listings page.
+            Typing without picking one still filters the grid below via
+            `query`.
 
             relative z-30 here (matching the z-30 now set inside
             SearchBarWithSuggestions itself) keeps the suggestions dropdown

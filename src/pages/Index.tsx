@@ -148,10 +148,11 @@ const CATEGORIES = [
 ];
 
 const QUICK_NAV = [
-  { icon: Tent,    title: "Outdoors & Campsites", path: "/category/campsite", color: "hsl(278, 90%, 50%)" },
-  { icon: MapIcon, title: "Tours & Trips",        path: "/category/guided",   color: "hsl(235, 90%, 50%)" },
-  { icon: Ticket,  title: "Bookings",             path: "/bookings",          color: "hsl(200, 70%, 45%)" },
-  { icon: Heart,   title: "Saved",                path: "/saved",             color: "hsl(350, 80%, 55%)" },
+  { icon: Tent,      title: "Outdoors & Campsites", path: "/category/campsite", color: "hsl(278, 90%, 50%)" },
+  { icon: MapIcon,   title: "Tours & Trips",        path: "/category/guided",   color: "hsl(235, 90%, 50%)" },
+  { icon: BedDouble, title: "Hotels",               path: "/category/campsite", color: "hsl(160, 70%, 40%)" },
+  { icon: Ticket,    title: "Bookings",             path: "/bookings",          color: "hsl(200, 70%, 45%)" },
+  { icon: Heart,     title: "Saved",                path: "/saved",             color: "hsl(350, 80%, 55%)" },
 ];
 
 const Index = () => {
@@ -729,7 +730,7 @@ const Index = () => {
                     <Link
                       key={cat.title}
                       to={cat.path}
-                      className="relative flex flex-col items-center justify-center gap-1.5 rounded-xl overflow-hidden cursor-pointer aspect-[8/3] lg:aspect-auto lg:h-24 xl:h-28"
+                      className="relative flex flex-col items-center justify-center gap-2 rounded-xl overflow-hidden cursor-pointer aspect-[8/3] lg:aspect-auto lg:h-28 xl:h-32"
                     >
                       <img
                         src={cat.bgImage}
@@ -740,8 +741,8 @@ const Index = () => {
                         className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none select-none"
                       />
                       <div className="absolute inset-0 bg-black/50 hover:bg-black/60 transition-colors" />
-                      <cat.icon className="relative z-10 h-3.5 w-3.5 md:h-5 md:w-5 text-white shrink-0 drop-shadow" />
-                      <span className="relative z-10 text-white text-[10px] md:text-sm font-extrabold leading-tight text-center drop-shadow px-1">
+                      <cat.icon className="relative z-10 h-5 w-5 md:h-7 md:w-7 text-white shrink-0 drop-shadow" />
+                      <span className="relative z-10 text-white text-xs md:text-base font-extrabold leading-tight text-center drop-shadow px-1">
                         {cat.title}
                       </span>
                     </Link>
@@ -764,14 +765,14 @@ const Index = () => {
                   ? [...Array(8)].map((_, i) => (
                       <div
                         key={i}
-                        className="flex-shrink-0 w-[28vw] sm:w-[120px] md:w-[140px] aspect-square rounded-none bg-muted animate-pulse"
+                        className="flex-shrink-0 w-[32vw] sm:w-[140px] md:w-[160px] aspect-square rounded-none bg-muted animate-pulse"
                       />
                     ))
                   : divisions.map((division, idx) => (
                       <div
                         key={division.id}
                         onClick={() => navigate(`/explore?division=${division.id}`)}
-                        className="flex-shrink-0 w-[28vw] sm:w-[120px] md:w-[140px] snap-start cursor-pointer group"
+                        className="flex-shrink-0 w-[32vw] sm:w-[140px] md:w-[160px] snap-start cursor-pointer group"
                       >
                         <div className="relative overflow-hidden aspect-square bg-muted rounded-none">
                           {division.image_url ? (
@@ -788,8 +789,8 @@ const Index = () => {
                             </div>
                           )}
                           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-                          <div className="absolute bottom-0 left-0 right-0 p-2">
-                            <h3 className="text-white font-extrabold text-[10px] sm:text-xs leading-tight">{division.name}</h3>
+                          <div className="absolute bottom-0 left-0 right-0 p-2.5">
+                            <h3 className="text-white font-extrabold text-sm sm:text-base leading-tight">{division.name}</h3>
                           </div>
                         </div>
                       </div>
@@ -817,7 +818,7 @@ const Index = () => {
 
             <section className="mb-4 md:mb-8">
               <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-3">Quick Access</h2>
-              <div className="grid grid-cols-4 gap-1.5">
+              <div className="grid grid-cols-5 gap-1.5">
                 {QUICK_NAV.map(nav => (
                   <button
                     key={nav.title}

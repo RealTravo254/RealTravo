@@ -1,4 +1,4 @@
-import { Home, Ticket, Heart, User, Compass } from "lucide-react";
+import { Home, Ticket, Heart, User, Compass, BedDouble } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -38,10 +38,11 @@ export const MobileBottomBar = () => {
   const { t } = useTranslation();
 
   const navItems = [
-    { icon: Home,    label: t("nav.home"),     path: "/"          },
-    { icon: Ticket,  label: t("nav.bookings"), path: "/bookings"  },
-    { icon: Compass, label: "Explore",          path: "/explore", isCenter: true },
-    { icon: Heart,   label: t("nav.saved"),    path: "/saved"     },
+    { icon: Home,      label: t("nav.home"),     path: "/"                  },
+    { icon: BedDouble, label: "Hotels",          path: "/category/campsite" },
+    { icon: Compass,   label: "Explore",          path: "/explore", isCenter: true },
+    { icon: Ticket,    label: t("nav.bookings"), path: "/bookings"          },
+    { icon: Heart,     label: t("nav.saved"),    path: "/saved"             },
   ];
 
   return (
@@ -54,7 +55,7 @@ export const MobileBottomBar = () => {
         fontFamily: FONT_BODY,
       }}
     >
-      <nav className="flex items-center justify-around h-14 px-4">
+      <nav className="flex items-center justify-around h-14 px-2">
         {navItems.map((item) => {
           const isActive = location.pathname === item.path;
           return (
@@ -79,7 +80,7 @@ export const MobileBottomBar = () => {
                 />
               </div>
               <span className={cn(
-                "text-[10px] font-medium text-white/75",
+                "text-[9px] font-medium text-white/75",
                 (isActive || item.isCenter) && "text-white font-semibold"
               )}>
                 {item.label}
@@ -105,7 +106,7 @@ export const MobileBottomBar = () => {
               />
             </div>
             <span className={cn(
-              "text-[10px] font-medium text-white/75",
+              "text-[9px] font-medium text-white/75",
               location.pathname === "/account" && "text-white font-semibold"
             )}>
               {t("nav.profile")}
@@ -120,7 +121,7 @@ export const MobileBottomBar = () => {
             <div className="p-1.5 rounded-xl transition-all duration-200 mb-0.5">
               <User className="h-4 w-4 text-white" strokeWidth={2} />
             </div>
-            <span className="text-[10px] font-medium text-white/75">
+            <span className="text-[9px] font-medium text-white/75">
               {t("nav.login")}
             </span>
           </button>

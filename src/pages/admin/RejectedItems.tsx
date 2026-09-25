@@ -2,23 +2,46 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { MobileBottomBar } from "@/components/MobileBottomBar";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { 
-  ChevronRight, Plane, Building, Tent, MapPin, 
-  Search, ArrowLeft, XCircle, AlertCircle, Loader2 
+import {
+  ChevronRight, Plane, Building, Tent, MapPin,
+  Search, ArrowLeft, XCircle, AlertCircle, Loader2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
-const COLORS = {
-  TEAL: "#008080",
-  CORAL: "#FF7F50",
-  KHAKI_DARK: "#857F3E",
-  RED: "#FF0000",
-  SOFT_GRAY: "#F8F9FA"
+// ── Design tokens ─────────────────────────────────────────────────────────
+// Same field-guide / park-signage system used on the adventure detail page:
+// deep forest for structure and trust, a warm clay for the primary action,
+// dusty rust reserved for "needs attention" states. Ink is a green-tinted
+// charcoal rather than pure black.
+const FOREST       = "#1F4D3A";
+const FOREST_SOFT  = "#EAF0EA";
+const CLAY         = "#C1552F";
+const CLAY_LIGHT   = "#E0824F";
+const INK          = "#1C2B22";
+const INK_SOFT     = "#5B6B60";
+const HAIRLINE     = "#DCE3DC";
+const CANVAS       = "#F4F6F2";
+const DANGER       = "#9C3B2B";
+const DANGER_SOFT  = "#F7E9E5";
+
+const FONT_DISPLAY = "'Fraunces', ui-serif, Georgia, serif";
+const FONT_BODY = "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif";
+
+// Injects the two typefaces once, without needing to touch the app's index.html.
+const useInjectFonts = () => {
+  useEffect(() => {
+    const id = "adventure-detail-fonts";
+    if (document.getElementById(id)) return;
+    const link = document.createElement("link");
+    link.id = id;
+    link.rel = "stylesheet";
+    link.href =
+      "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&display=swap";
+    document.head.appendChild(link);
+  }, []);
 };
 
 const ITEMS_PER_PAGE = 20;
@@ -31,7 +54,26 @@ interface ListingItem {
   created_at: string;
 }
 
+// ─── Shared page chrome ─────────────────────────────────────────────────────
+const BackButton = ({ onClick }: { onClick: () => void }) => (
+  <button
+    onClick={onClick}
+    className="flex h-10 w-10 items-center justify-center rounded-full bg-white transition-colors"
+    style={{ border: `1px solid ${HAIRLINE}` }}
+  >
+    <ArrowLeft className="h-4 w-4" style={{ color: INK_SOFT }} />
+  </button>
+);
+
+const TYPE_STYLES: Record<string, { icon: any; label: string }> = {
+  trip: { icon: Plane, label: "Trip" },
+  hotel: { icon: Building, label: "Hotel" },
+  adventure: { icon: Tent, label: "Adventure" },
+};
+const getTypeMeta = (type: string) => TYPE_STYLES[type] ?? { icon: MapPin, label: type };
+
 const RejectedItems = () => {
+  useInjectFonts();
   const navigate = useNavigate();
   const { user } = useAuth();
   const [items, setItems] = useState<ListingItem[]>([]);
@@ -51,12 +93,9 @@ const RejectedItems = () => {
   }, [user, navigate]);
 
   const fetchRejectedItems = async (fetchOffset: number) => {
-    if (fetchOffset === 0) {
-      setLoading(true);
-    } else {
-      setLoadingMore(true);
-    }
-    
+    if (fetchOffset === 0) setLoading(true);
+    else setLoadingMore(true);
+
     try {
       const [tripsRes, hotelsRes, adventuresRes] = await Promise.all([
         supabase.from("trips").select("id, name, location, created_at").eq("approval_status", "rejected").range(fetchOffset, fetchOffset + ITEMS_PER_PAGE - 1),
@@ -71,7 +110,7 @@ const RejectedItems = () => {
       ];
 
       const sortedItems = allItems.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      
+
       if (fetchOffset === 0) {
         setItems(sortedItems);
         setFilteredItems(sortedItems);
@@ -79,7 +118,7 @@ const RejectedItems = () => {
         setItems(prev => [...prev, ...sortedItems]);
         setFilteredItems(prev => [...prev, ...sortedItems]);
       }
-      
+
       setOffset(fetchOffset + ITEMS_PER_PAGE);
       setHasMore(allItems.length >= ITEMS_PER_PAGE);
     } catch (error) {
@@ -91,9 +130,7 @@ const RejectedItems = () => {
   };
 
   const loadMore = () => {
-    if (hasMore && !loadingMore) {
-      fetchRejectedItems(offset);
-    }
+    if (hasMore && !loadingMore) fetchRejectedItems(offset);
   };
 
   useEffect(() => {
@@ -108,135 +145,120 @@ const RejectedItems = () => {
     }
   }, [searchQuery, items]);
 
-  const getIcon = (type: string) => {
-    switch (type) {
-      case "trip": return Plane;
-      case "hotel": return Building;
-      case "adventure": return Tent;
-      default: return MapPin;
-    }
-  };
-
   if (loading) {
-    return <div className="min-h-screen bg-[#F8F9FA] animate-pulse" />;
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: CANVAS }}>
+        <div className="h-10 w-10 rounded-full animate-spin" style={{ border: `2px solid ${FOREST_SOFT}`, borderTopColor: FOREST }} />
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] pb-24">
-      <Header className="hidden md:block" />
+    <div className="min-h-screen pb-24" style={{ background: CANVAS, fontFamily: FONT_BODY }}>
+      <Header />
 
-      <main className="container px-4 py-8 mx-auto relative z-10">
-        {/* Header Section */}
-        <div className="flex flex-col space-y-4 mb-8">
-          <Button
-            variant="ghost"
-            onClick={() => navigate(-1)}
-            className="w-fit rounded-full bg-white shadow-sm border border-slate-100 hover:bg-slate-50 text-slate-600 px-4"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Dashboard</span>
-          </Button>
-          
+      <main className="container max-w-3xl mx-auto px-4 py-6 md:py-10">
+        {/* Title */}
+        <div className="flex items-center gap-3 mb-6">
+          <BackButton onClick={() => navigate(-1)} />
           <div>
-            <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tighter leading-none mb-2" style={{ color: COLORS.TEAL }}>
-              Rejected <span style={{ color: COLORS.RED }}>Listings</span>
+            <h1 className="text-2xl md:text-3xl font-semibold tracking-tight" style={{ fontFamily: FONT_DISPLAY, color: INK }}>
+              Rejected <span style={{ color: DANGER }}>listings</span>
             </h1>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">
+            <p className="text-[11px] font-medium mt-0.5" style={{ color: INK_SOFT }}>
               Review and update items that require changes
             </p>
           </div>
         </div>
 
-        {/* Search Bar */}
-        <div className="relative mb-8 group">
-          <div className="absolute inset-0 bg-[#FF7F50]/5 blur-xl rounded-3xl group-focus-within:bg-[#FF7F50]/10 transition-all" />
-          <div className="relative flex items-center">
-            <Search className="absolute left-4 h-5 w-5 text-slate-400" />
-            <Input
-              type="text"
-              placeholder="SEARCH BY NAME OR LOCATION..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-12 h-16 rounded-[24px] border-none bg-white shadow-xl text-sm font-bold placeholder:text-slate-300 focus-visible:ring-2 focus-visible:ring-[#FF7F50]"
-            />
-          </div>
+        {/* Search */}
+        <div className="relative mb-5">
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: INK_SOFT }} />
+          <Input
+            placeholder="Search by name or location"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-12 rounded-xl bg-white pl-10 text-sm font-medium"
+            style={{ border: `1px solid ${HAIRLINE}` }}
+          />
         </div>
 
         {filteredItems.length === 0 ? (
-          <div className="bg-white rounded-[32px] p-12 text-center shadow-sm border border-slate-100">
-            <XCircle className="h-12 w-12 mx-auto mb-4 text-slate-200" />
-            <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
+          <div className="bg-white rounded-[24px] p-12 text-center" style={{ border: `1px solid ${HAIRLINE}` }}>
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: DANGER_SOFT }}>
+              <XCircle className="h-6 w-6" style={{ color: DANGER }} />
+            </div>
+            <p className="font-semibold text-sm" style={{ color: INK_SOFT }}>
               {searchQuery ? "No matching results found" : "No rejected items at this time"}
             </p>
           </div>
         ) : (
           <>
-            <div className="space-y-4">
+            <div className="space-y-2.5">
               {filteredItems.map((item) => {
-                const Icon = getIcon(item.type);
+                const { icon: Icon, label } = getTypeMeta(item.type);
                 return (
                   <button
                     key={item.id}
                     onClick={() => navigate(`/admin/review/${item.type}/${item.id}`)}
-                    className="w-full text-left bg-white rounded-[28px] p-6 shadow-sm border border-slate-100 hover:shadow-xl hover:scale-[1.01] transition-all duration-300 group relative overflow-hidden"
+                    className="w-full text-left bg-white rounded-2xl p-4 flex items-center gap-3.5 relative overflow-hidden transition-all hover:shadow-md"
+                    style={{ border: `1px solid ${HAIRLINE}` }}
                   >
-                    {/* Accent Border */}
-                    <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-red-500" />
-                    
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-5">
-                        <div className="h-14 w-14 rounded-2xl bg-slate-50 flex items-center justify-center group-hover:bg-red-50 transition-colors">
-                          <Icon className="h-6 w-6 text-slate-400 group-hover:text-red-500" />
-                        </div>
-                        
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-[9px] font-black uppercase tracking-widest text-red-500 bg-red-50 px-2 py-0.5 rounded">
-                              {item.type}
-                            </span>
-                            <span className="text-[9px] font-bold text-slate-300 uppercase">
-                              {new Date(item.created_at).toLocaleDateString()}
-                            </span>
-                          </div>
-                          <h3 className="text-lg font-black uppercase tracking-tight text-slate-800 leading-none mb-1">
-                            {item.name}
-                          </h3>
-                          <div className="flex items-center gap-1 text-slate-400">
-                            <MapPin className="h-3 w-3" />
-                            <span className="text-[10px] font-bold uppercase tracking-tight">{item.location}</span>
-                          </div>
-                        </div>
-                      </div>
+                    {/* Accent edge */}
+                    <div className="absolute left-0 top-0 bottom-0 w-1" style={{ background: DANGER }} />
 
-                      <div className="flex flex-col items-end gap-3">
-                        <Badge className="bg-red-500 hover:bg-red-600 text-white border-none px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest">
-                          Action Required
-                        </Badge>
-                        <div className="bg-slate-50 p-2 rounded-xl group-hover:bg-[#008080] transition-colors">
-                          <ChevronRight className="h-5 w-5 text-slate-300 group-hover:text-white" />
-                        </div>
+                    <div
+                      className="h-12 w-12 rounded-xl flex items-center justify-center flex-shrink-0 ml-1.5"
+                      style={{ background: DANGER_SOFT }}
+                    >
+                      <Icon className="h-5 w-5" style={{ color: DANGER }} />
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                        <span
+                          className="text-[9px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full"
+                          style={{ background: DANGER_SOFT, color: DANGER }}
+                        >
+                          {label}
+                        </span>
+                        <span className="text-[10px] font-medium" style={{ color: INK_SOFT }}>
+                          {new Date(item.created_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
+                        </span>
                       </div>
+                      <h3 className="text-sm font-semibold truncate" style={{ color: INK }}>{item.name}</h3>
+                      <div className="flex items-center gap-1 mt-0.5" style={{ color: INK_SOFT }}>
+                        <MapPin className="h-3 w-3 flex-shrink-0" />
+                        <span className="text-[11px] font-medium truncate">{item.location}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                      <span
+                        className="hidden sm:inline-block text-[9px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full"
+                        style={{ background: DANGER_SOFT, color: DANGER }}
+                      >
+                        Action required
+                      </span>
+                      <ChevronRight className="h-4 w-4" style={{ color: INK_SOFT }} />
                     </div>
                   </button>
                 );
               })}
             </div>
-            
+
             {hasMore && !searchQuery && (
-              <div className="flex justify-center mt-10">
+              <div className="flex justify-center mt-8">
                 <Button
                   onClick={loadMore}
                   disabled={loadingMore}
-                  className="rounded-2xl font-black uppercase text-[10px] tracking-widest h-12 px-8"
-                  style={{ background: COLORS.RED }}
+                  className="rounded-xl text-[12px] font-semibold text-white border-none h-11 px-6 hover:opacity-90"
+                  style={{ background: `linear-gradient(135deg, ${CLAY_LIGHT} 0%, ${CLAY} 100%)` }}
                 >
                   {loadingMore ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Loading...
-                    </>
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Loading…</>
                   ) : (
-                    "Load More"
+                    "Load more"
                   )}
                 </Button>
               </div>
@@ -244,10 +266,9 @@ const RejectedItems = () => {
           </>
         )}
 
-        {/* Footer Info */}
-        <div className="mt-8 flex items-center justify-center gap-2 text-slate-400">
-            <AlertCircle className="h-4 w-4" />
-            <p className="text-[9px] font-bold uppercase tracking-widest">Click an item to see rejection reasons and edit</p>
+        <div className="mt-8 flex items-center justify-center gap-2" style={{ color: INK_SOFT }}>
+          <AlertCircle className="h-3.5 w-3.5" />
+          <p className="text-[11px] font-medium">Tap an item to see rejection reasons and edit</p>
         </div>
       </main>
 

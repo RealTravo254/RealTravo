@@ -2,22 +2,45 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { MobileBottomBar } from "@/components/MobileBottomBar";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ChevronRight, Plane, Building, Tent, MapPin, Search, ArrowLeft, Clock, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
-const COLORS = {
-  TEAL: "#008080",
-  CORAL: "#FF7F50",
-  CORAL_LIGHT: "#FF9E7A",
-  KHAKI: "#F0E68C",
-  KHAKI_DARK: "#857F3E",
-  RED: "#FF0000",
-  SOFT_GRAY: "#F8F9FA"
+// ── Design tokens ─────────────────────────────────────────────────────────
+// Same field-guide / park-signage system used on the adventure detail page:
+// deep forest for structure and trust, a warm clay for the primary action,
+// and a dry-grass gold reserved for "awaiting action" states. Ink is a
+// green-tinted charcoal rather than pure black.
+const FOREST       = "#1F4D3A";
+const FOREST_DEEP  = "#123322";
+const FOREST_SOFT  = "#EAF0EA";
+const CLAY         = "#C1552F";
+const CLAY_LIGHT   = "#E0824F";
+const GOLD         = "#B98A2A";
+const GOLD_SOFT    = "#FBF2DD";
+const GOLD_TEXT    = "#8A6716";
+const INK          = "#1C2B22";
+const INK_SOFT     = "#5B6B60";
+const HAIRLINE     = "#DCE3DC";
+const CANVAS       = "#F4F6F2";
+
+const FONT_DISPLAY = "'Fraunces', ui-serif, Georgia, serif";
+const FONT_BODY = "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif";
+
+// Injects the two typefaces once, without needing to touch the app's index.html.
+const useInjectFonts = () => {
+  useEffect(() => {
+    const id = "adventure-detail-fonts";
+    if (document.getElementById(id)) return;
+    const link = document.createElement("link");
+    link.id = id;
+    link.rel = "stylesheet";
+    link.href =
+      "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&display=swap";
+    document.head.appendChild(link);
+  }, []);
 };
 
 const ITEMS_PER_PAGE = 20;
@@ -30,7 +53,26 @@ interface ListingItem {
   created_at: string;
 }
 
+// ─── Shared page chrome ─────────────────────────────────────────────────────
+const BackButton = ({ onClick }: { onClick: () => void }) => (
+  <button
+    onClick={onClick}
+    className="flex h-10 w-10 items-center justify-center rounded-full bg-white transition-colors"
+    style={{ border: `1px solid ${HAIRLINE}` }}
+  >
+    <ArrowLeft className="h-4 w-4" style={{ color: INK_SOFT }} />
+  </button>
+);
+
+const TYPE_STYLES: Record<string, { icon: any; label: string }> = {
+  trip: { icon: Plane, label: "Trip" },
+  hotel: { icon: Building, label: "Hotel" },
+  adventure: { icon: Tent, label: "Adventure" },
+};
+const getTypeMeta = (type: string) => TYPE_STYLES[type] ?? { icon: MapPin, label: type };
+
 const PendingApprovalItems = () => {
+  useInjectFonts();
   const navigate = useNavigate();
   const { user } = useAuth();
   const [items, setItems] = useState<ListingItem[]>([]);
@@ -50,12 +92,9 @@ const PendingApprovalItems = () => {
   }, [user, navigate]);
 
   const fetchPendingItems = async (fetchOffset: number) => {
-    if (fetchOffset === 0) {
-      setLoading(true);
-    } else {
-      setLoadingMore(true);
-    }
-    
+    if (fetchOffset === 0) setLoading(true);
+    else setLoadingMore(true);
+
     try {
       const [tripsRes, hotelsRes, adventuresRes] = await Promise.all([
         supabase.from("trips").select("id, name, location, created_at").eq("approval_status", "pending").range(fetchOffset, fetchOffset + ITEMS_PER_PAGE - 1),
@@ -70,7 +109,7 @@ const PendingApprovalItems = () => {
       ];
 
       const sortedItems = allItems.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      
+
       if (fetchOffset === 0) {
         setItems(sortedItems);
         setFilteredItems(sortedItems);
@@ -78,7 +117,7 @@ const PendingApprovalItems = () => {
         setItems(prev => [...prev, ...sortedItems]);
         setFilteredItems(prev => [...prev, ...sortedItems]);
       }
-      
+
       setOffset(fetchOffset + ITEMS_PER_PAGE);
       setHasMore(allItems.length >= ITEMS_PER_PAGE);
     } catch (error) {
@@ -90,9 +129,7 @@ const PendingApprovalItems = () => {
   };
 
   const loadMore = () => {
-    if (hasMore && !loadingMore) {
-      fetchPendingItems(offset);
-    }
+    if (hasMore && !loadingMore) fetchPendingItems(offset);
   };
 
   useEffect(() => {
@@ -105,138 +142,109 @@ const PendingApprovalItems = () => {
     setFilteredItems(filtered);
   }, [searchQuery, items]);
 
-  const getIcon = (type: string) => {
-    switch (type) {
-      case "trip": return Plane;
-      case "hotel": return Building;
-      case "adventure": return Tent;
-      default: return MapPin;
-    }
-  };
-
-  if (loading) return <div className="min-h-screen bg-[#F8F9FA] animate-pulse" />;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: CANVAS }}>
+        <div className="h-10 w-10 rounded-full animate-spin" style={{ border: `2px solid ${FOREST_SOFT}`, borderTopColor: FOREST }} />
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] pb-24">
-      <Header className="hidden md:block" />
+    <div className="min-h-screen pb-24" style={{ background: CANVAS, fontFamily: FONT_BODY }}>
+      <Header />
 
-      {/* Hero Header Section */}
-      <div className="bg-white border-b border-slate-100 pt-12 pb-16 px-4">
-        <div className="container mx-auto px-4">
-          <Button
-            onClick={() => navigate(-1)}
-            variant="ghost"
-            className="mb-6 rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Back</span>
-          </Button>
-
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-            <div>
-              <Badge className="bg-[#FF7F50] hover:bg-[#FF7F50] border-none px-3 py-1 mb-4 uppercase font-black tracking-widest text-[9px] rounded-full">
-                Admin Control
-              </Badge>
-              <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tighter leading-none text-slate-900">
-                Pending <span style={{ color: COLORS.TEAL }}>Approvals</span>
-              </h1>
-              <p className="text-slate-400 text-[11px] font-bold uppercase tracking-[0.2em] mt-3">
-                Queue Management & Review
-              </p>
-            </div>
-
-            <div className="relative w-full md:w-72">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <Input
-                placeholder="SEARCH LISTINGS..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-11 py-6 rounded-2xl border-slate-100 bg-slate-50 font-bold text-[11px] tracking-wider focus-visible:ring-[#008080]"
-              />
-            </div>
+      <main className="container max-w-3xl mx-auto px-4 py-6 md:py-10">
+        {/* Title */}
+        <div className="flex items-center gap-3 mb-6">
+          <BackButton onClick={() => navigate(-1)} />
+          <div>
+            <h1 className="text-2xl md:text-3xl font-semibold tracking-tight" style={{ fontFamily: FONT_DISPLAY, color: INK }}>
+              Pending <span style={{ color: CLAY }}>approvals</span>
+            </h1>
+            <p className="text-[11px] font-medium mt-0.5" style={{ color: INK_SOFT }}>
+              {filteredItems.length} listing{filteredItems.length !== 1 ? "s" : ""} awaiting review
+            </p>
           </div>
         </div>
-      </div>
 
-      <main className="container px-4 mx-auto -mt-8 relative z-10">
+        {/* Search */}
+        <div className="relative mb-5">
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: INK_SOFT }} />
+          <Input
+            placeholder="Search by name or location"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-12 rounded-xl bg-white pl-10 text-sm font-medium"
+            style={{ border: `1px solid ${HAIRLINE}` }}
+          />
+        </div>
+
         {filteredItems.length === 0 ? (
-          <div className="bg-white rounded-[28px] p-12 text-center shadow-sm border border-slate-100">
-            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Clock className="h-8 w-8 text-slate-300" />
+          <div className="bg-white rounded-[24px] p-12 text-center" style={{ border: `1px solid ${HAIRLINE}` }}>
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: GOLD_SOFT }}>
+              <Clock className="h-6 w-6" style={{ color: GOLD }} />
             </div>
-            <p className="font-black uppercase tracking-widest text-slate-400 text-sm">
+            <p className="font-semibold text-sm" style={{ color: INK_SOFT }}>
               {searchQuery ? "No matches found" : "Queue is empty"}
             </p>
           </div>
         ) : (
           <>
-            <div className="space-y-4">
+            <div className="space-y-2.5">
               {filteredItems.map((item) => {
-                const Icon = getIcon(item.type);
+                const { icon: Icon, label } = getTypeMeta(item.type);
                 return (
                   <button
                     key={item.id}
                     onClick={() => navigate(`/admin/review/${item.type}/${item.id}`)}
-                    className="w-full bg-white rounded-[24px] p-5 flex items-center justify-between border border-slate-100 shadow-sm hover:shadow-md hover:border-[#008080]/20 transition-all group text-left"
+                    className="w-full bg-white rounded-2xl p-4 flex items-center gap-3.5 text-left transition-all hover:shadow-md"
+                    style={{ border: `1px solid ${HAIRLINE}` }}
                   >
-                    <div className="flex items-center gap-5">
-                      <div 
-                        className="h-14 w-14 rounded-2xl flex items-center justify-center transition-colors"
-                        style={{ backgroundColor: `${COLORS.TEAL}10` }}
-                      >
-                        <Icon className="h-6 w-6" style={{ color: COLORS.TEAL }} />
+                    <div
+                      className="h-12 w-12 rounded-xl flex items-center justify-center flex-shrink-0"
+                      style={{ background: FOREST_SOFT }}
+                    >
+                      <Icon className="h-5 w-5" style={{ color: FOREST }} />
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                        <span
+                          className="text-[9px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full"
+                          style={{ background: GOLD_SOFT, color: GOLD_TEXT }}
+                        >
+                          {label}
+                        </span>
+                        <span className="text-[10px] font-medium" style={{ color: INK_SOFT }}>
+                          {new Date(item.created_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
+                        </span>
                       </div>
-                      
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-[9px] font-black uppercase tracking-[0.15em]" style={{ color: COLORS.CORAL }}>
-                            {item.type}
-                          </span>
-                          <span className="text-slate-300">•</span>
-                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                            {new Date(item.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
-                          </span>
-                        </div>
-                        <h3 className="text-lg font-black uppercase tracking-tight text-slate-800 leading-tight group-hover:text-[#008080] transition-colors">
-                          {item.name}
-                        </h3>
-                        <div className="flex items-center gap-1 mt-1 text-slate-400">
-                          <MapPin className="h-3 w-3" />
-                          <span className="text-[10px] font-bold uppercase tracking-wide">{item.location}</span>
-                        </div>
+                      <h3 className="text-sm font-semibold truncate" style={{ color: INK }}>{item.name}</h3>
+                      <div className="flex items-center gap-1 mt-0.5" style={{ color: INK_SOFT }}>
+                        <MapPin className="h-3 w-3 flex-shrink-0" />
+                        <span className="text-[11px] font-medium truncate">{item.location}</span>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-4">
-                      <div className="hidden md:flex flex-col items-end">
-                         <Badge variant="outline" className="border-khaki-dark text-[#857F3E] bg-[#F0E68C]/10 font-black text-[9px] uppercase tracking-widest rounded-lg px-3 py-1">
-                          Review Required
-                        </Badge>
-                      </div>
-                      <div className="h-10 w-10 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-[#008080] group-hover:text-white transition-all">
-                        <ChevronRight className="h-5 w-5" />
-                      </div>
-                    </div>
+                    <ChevronRight className="h-4 w-4 flex-shrink-0" style={{ color: INK_SOFT }} />
                   </button>
                 );
               })}
             </div>
-            
+
             {hasMore && !searchQuery && (
-              <div className="flex justify-center mt-10">
+              <div className="flex justify-center mt-8">
                 <Button
                   onClick={loadMore}
                   disabled={loadingMore}
-                  className="rounded-2xl font-black uppercase text-[10px] tracking-widest h-12 px-8"
-                  style={{ background: COLORS.TEAL }}
+                  className="rounded-xl text-[12px] font-semibold text-white border-none h-11 px-6 hover:opacity-90"
+                  style={{ background: `linear-gradient(135deg, ${CLAY_LIGHT} 0%, ${CLAY} 100%)` }}
                 >
                   {loadingMore ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Loading...
-                    </>
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Loading…</>
                   ) : (
-                    "Load More"
+                    "Load more"
                   )}
                 </Button>
               </div>

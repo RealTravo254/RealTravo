@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import {
   Ticket, Heart, Phone, LogOut, User,
-  Shield, ChevronRight, Briefcase, Languages, DollarSign,
+  Shield, ChevronRight, Briefcase, Languages, DollarSign, X,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -134,8 +134,20 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
         >
           <div className="pointer-events-none absolute -top-6 -right-6 h-20 w-20 rounded-full border border-white/10" />
 
+          {/* Close button — large tap target, top-right of the banner */}
+          <button
+            onClick={onClose}
+            aria-label="Close menu"
+            className="absolute top-3 right-3 z-10 h-10 w-10 rounded-full flex items-center justify-center transition-colors active:scale-90"
+            style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.2)" }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.25)")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.15)")}
+          >
+            <X className="h-5 w-5 text-white" />
+          </button>
+
           {user ? (
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2.5 pr-12">
               <div className="h-9 w-9 rounded-lg bg-white/15 flex items-center justify-center border border-white/15 flex-shrink-0">
                 <User className="text-white h-5 w-5" />
               </div>
@@ -144,7 +156,7 @@ export const NavigationDrawer = ({ onClose }: NavigationDrawerProps) => {
               </div>
             </div>
           ) : (
-            <div className="pt-0.5">
+            <div className="pt-0.5 pr-12">
               <p className="text-[10px] font-medium text-white/50 mb-0.5">
                 Welcome to
               </p>

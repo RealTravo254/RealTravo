@@ -730,7 +730,7 @@ const Index = () => {
                     <Link
                       key={cat.title}
                       to={cat.path}
-                      className="relative flex flex-col items-center justify-center gap-2 rounded-xl overflow-hidden cursor-pointer aspect-[8/3] lg:aspect-auto lg:h-28 xl:h-32"
+                      className="relative flex flex-col items-center justify-center gap-2 rounded-xl overflow-hidden cursor-pointer aspect-[4/3] sm:aspect-[8/3] lg:aspect-auto lg:h-28 xl:h-32"
                     >
                       <img
                         src={cat.bgImage}

@@ -541,8 +541,8 @@ const ListingCardComponent = ({
 
       {/* ── Text content ── */}
       <div className="flex flex-col gap-2 p-3.5 min-w-0">
-        {/* Title */}
-        <h3 className="line-clamp-2 text-[18px] font-semibold leading-snug" style={{ fontFamily: FONT_DISPLAY, color: INK }}>
+        {/* Title — bolded and set to true black for stronger legibility */}
+        <h3 className="line-clamp-2 text-[18px] font-bold leading-snug" style={{ fontFamily: FONT_DISPLAY, color: "#000000" }}>
           {formattedName}
         </h3>
 

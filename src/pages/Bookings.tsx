@@ -1141,7 +1141,7 @@ const Bookings = () => {
                 <LogIn className="h-3 w-3" /> Log in to keep them safe
               </button>
             </div>
-          </div>
+          </div> 
         )}
 
         {bookings.length > 0 && (

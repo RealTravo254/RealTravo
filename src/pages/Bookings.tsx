@@ -2,16 +2,18 @@ import { useEffect, useState } from "react";
 import { Header } from "@/components/Header";
 import { MobileBottomBar } from "@/components/MobileBottomBar";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAuthModal } from "@/contexts/AuthModalContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { jsPDF } from "jspdf";
 import { getLocalBookings, updateLocalBooking } from "@/lib/localBookings";
+import { Button } from "@/components/ui/button";
 import {
   Calendar, Users, MapPin, CalendarClock,
   X, CheckCircle, Download, ChevronDown, ChevronUp,
   Activity, Building2, Ticket, Phone,
-  Mail, AlertTriangle, LogIn,
+  Mail, AlertTriangle, LogIn, UserPlus, BookOpenCheck,
 } from "lucide-react";
 
 // ── Design tokens ─────────────────────────────────────────────────────────
@@ -22,6 +24,7 @@ import {
 const FOREST       = "#1F4D3A";
 const FOREST_SOFT  = "#EAF0EA";
 const CLAY         = "#C1552F";
+const CLAY_LIGHT   = "#E0824F";
 const CLAY_SOFT    = "#F7E9E5";
 const GOLD         = "#B98A2A";
 const GOLD_SOFT    = "#FBF2DD";
@@ -1032,14 +1035,17 @@ const Bookings = () => {
   useInjectFonts();
 
   const { user, loading: authLoading } = useAuth();
+  const { openAuthModal } = useAuthModal();
   const navigate = useNavigate();
   const [bookings, setBookings]         = useState<Booking[]>([]);
   const [loading, setLoading]           = useState(true);
   const [rescheduling, setRescheduling] = useState<Booking | null>(null);
   const [filter, setFilter]             = useState<"all" | "upcoming" | "past">("all");
 
-  // No more forced redirect to /auth — guests can view bookings stored
-  // locally on this device instead.
+  // No forced redirect to /auth — guests can view bookings stored locally on
+  // this device, and are offered the same in-page auth modal Saved uses
+  // (rather than being sent to a separate /auth page) to sign in and keep
+  // them permanently.
   useEffect(() => {
     if (authLoading) return;
     if (user) {
@@ -1047,6 +1053,10 @@ const Bookings = () => {
     } else {
       loadLocalBookings();
     }
+    // Re-runs the moment `user` flips from null -> a real user (i.e. right
+    // after they log in or sign up from this page's modal), taking them
+    // from local/guest bookings straight into their real account bookings
+    // without ever navigating away from /bookings.
   }, [user, authLoading]);
 
   const fetchBookings = async () => {
@@ -1114,6 +1124,53 @@ const Bookings = () => {
     );
   }
 
+  // ── Not logged in, and nothing saved locally yet: same full-page prompt
+  // pattern as Saved.tsx, using the shared auth modal rather than /auth. ──
+  if (!user && bookings.length === 0) {
+    return (
+      <div className="min-h-screen pb-24" style={{ background: CANVAS, fontFamily: FONT_BODY }}>
+        <Header />
+        <div className="container mx-auto px-4 py-12">
+          <header className="mb-8">
+            <h1 className="text-[28px] font-semibold tracking-tight mb-2" style={{ fontFamily: FONT_DISPLAY, color: INK }}>Bookings</h1>
+            <p className="text-[13px]" style={{ color: INK_SOFT }}>All your trips, stays and events in one place.</p>
+          </header>
+          <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[32px]" style={{ border: `1px solid ${HAIRLINE}` }}>
+            <div className="p-5 rounded-2xl mb-6" style={{ background: FOREST_SOFT }}>
+              <BookOpenCheck className="h-10 w-10" style={{ color: FOREST }} />
+            </div>
+            <h2 className="text-xl font-semibold mb-2" style={{ fontFamily: FONT_DISPLAY, color: INK }}>Sign in to see your bookings</h2>
+            <p className="text-sm mb-6 text-center max-w-sm" style={{ color: INK_SOFT }}>Log in or create an account to keep every trip, stay and event booking safely in one place.</p>
+            {/* Opens the same auth modal used across the app (e.g. Saved,
+                the bottom nav bar) instead of navigating to a separate
+                /auth page — the person never leaves Bookings, so once
+                they're signed in this view just swaps to their real list. */}
+            <div className="flex items-center gap-2.5">
+              <Button
+                onClick={() => openAuthModal("login")}
+                variant="outline"
+                className="rounded-xl text-sm font-semibold gap-2 px-6 py-3"
+                style={{ borderColor: HAIRLINE, color: INK }}
+              >
+                <LogIn className="h-4 w-4" />
+                Log in
+              </Button>
+              <Button
+                onClick={() => openAuthModal("signup")}
+                className="rounded-xl text-sm font-semibold gap-2 px-6 py-3 text-white border-none hover:opacity-95"
+                style={{ background: `linear-gradient(135deg, ${CLAY_LIGHT}, ${CLAY})` }}
+              >
+                <UserPlus className="h-4 w-4" />
+                Sign up
+              </Button>
+            </div>
+          </div>
+        </div>
+        <MobileBottomBar />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen pb-20 md:pb-0" style={{ background: CANVAS }}>
       <Header />
@@ -1124,24 +1181,40 @@ const Bookings = () => {
           <p className="text-[13px] mt-0.5" style={{ color: INK_SOFT }}>{bookings.length} booking{bookings.length !== 1 ? "s" : ""}</p>
         </div>
 
-        {/* Guest notice — bookings only live on this device until they log in */}
+        {/* Guest notice — bookings only live on this device until they log in.
+            Same look and popup behaviour as Saved's embedded banner: the
+            Log in / Sign up buttons open the shared auth modal instead of
+            navigating to a separate page. */}
         {!user && (
-          <div className="mb-5 flex items-start gap-2.5 rounded-xl px-3.5 py-3.5" style={{ background: GOLD_SOFT, border: `1px solid ${GOLD}30` }}>
-            <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: GOLD }} />
-            <div className="flex-1">
-              <p className="text-[13px] font-semibold" style={{ color: GOLD_TEXT }}>Saved on this device only</p>
-              <p className="text-[11px] mt-0.5 leading-relaxed" style={{ color: GOLD_TEXT }}>
-                You're not logged in, so these bookings are stored locally and won't appear on another device or after the app is uninstalled.
-              </p>
-              <button
-                onClick={() => navigate("/auth")}
-                className="mt-2.5 inline-flex items-center gap-1.5 text-[11px] font-semibold text-white rounded-lg px-3 py-1.5 hover:opacity-90 transition-opacity"
-                style={{ background: `linear-gradient(135deg, #E0824F, ${CLAY})` }}
-              >
-                <LogIn className="h-3 w-3" /> Log in to keep them safe
-              </button>
+          <div className="mb-6 rounded-2xl p-4 flex items-center gap-4" style={{ background: FOREST_SOFT, border: `1px solid ${FOREST}25` }}>
+            <div className="p-3 rounded-xl shrink-0" style={{ background: "#ffffffaa" }}>
+              <AlertTriangle className="h-5 w-5" style={{ color: FOREST }} />
             </div>
-          </div> 
+            <div className="flex-1 min-w-0">
+              <p className="text-[13px] font-semibold" style={{ color: INK }}>Saved on this device only</p>
+              <p className="text-[11px] mt-0.5" style={{ color: INK_SOFT }}>You're not logged in, so these bookings won't appear on another device or after the app is uninstalled.</p>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <Button
+                onClick={() => openAuthModal("login")}
+                size="sm"
+                variant="outline"
+                className="rounded-xl text-xs font-semibold"
+                style={{ borderColor: `${FOREST}30`, color: FOREST }}
+              >
+                Log in
+              </Button>
+              <Button
+                onClick={() => openAuthModal("signup")}
+                size="sm"
+                className="rounded-xl text-xs font-semibold gap-1.5 text-white border-none hover:opacity-95"
+                style={{ background: `linear-gradient(135deg, ${CLAY_LIGHT}, ${CLAY})` }}
+              >
+                <LogIn className="h-3.5 w-3.5" />
+                Sign up
+              </Button>
+            </div>
+          </div>
         )}
 
         {bookings.length > 0 && (

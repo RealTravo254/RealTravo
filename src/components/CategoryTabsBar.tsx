@@ -1,13 +1,15 @@
 import { useNavigate } from "react-router-dom";
-import { Compass, Building2, Home, TreePine, Tent, Landmark, Map, Calendar } from "lucide-react";
+import { Compass, Building2, Home, TreePine, Tent, Landmark, Map, Calendar, BedDouble } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ─── Shared category tab list ──────────────────────────────────────────────
 // Mirrors the categories shown on the Index page (CATEGORIES / QUICK_NAV)
 // so every listing page (Explore, CategoryDetail, CountyDetail) offers the
 // exact same set of categories to jump between: Hotels, Campsites, Tours,
-// Trips — plus an "All" entry. (Parks and Attraction are commented out —
-// those pages aren't ready yet. Accommodations/Airbnb is hidden per request.)
+// Trips — plus an "All" entry. Hotels is its own tab (category = "hotel"),
+// separate from Campsites, matching adventure_places.category values.
+// (Parks and Attraction are commented out — those pages aren't ready yet.
+// Accommodations/Airbnb is hidden per request.)
 export interface CategoryTabItem {
   key: string;
   label: string;
@@ -18,10 +20,11 @@ export interface CategoryTabItem {
 export const CATEGORY_TABS: CategoryTabItem[] = [
   { key: "all",            label: "All",            icon: Compass,    path: "/explore" },
   /* { key: "accommodations", label: "Accommodations", icon: Home,       path: "/category/accommodations" }, */
+  { key: "hotel",           label: "Hotels",         icon: BedDouble,  path: "/category/hotel" },
+  { key: "campsite",       label: "Campsites",      icon: Tent,       path: "/category/campsite" },
   /* { key: "parks",          label: "Parks",          icon: TreePine,   path: "/category/parks" },
   { key: "attraction",     label: "Attraction",     icon: Landmark,   path: "/category/attraction" },
   */
-  { key: "campsite",       label: "Campsites",      icon: Tent,       path: "/category/campsite" },
   { key: "guided",         label: "Tours",          icon: Map,        path: "/category/guided" },
   { key: "trips",          label: "Trips",          icon: Calendar,   path: "/category/trips" },
 ];

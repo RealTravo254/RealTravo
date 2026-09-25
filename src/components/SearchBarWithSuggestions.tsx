@@ -464,8 +464,9 @@ export const SearchBarWithSuggestions = React.forwardRef<SearchBarWithSuggestion
   return (
     <div className="w-full" style={{ fontFamily: FONT_BODY }}>
       <div className="w-full px-3 md:container md:mx-auto md:px-6 lg:px-8">
-        {/* ── Search bar: height reduced ~40% (h-10/h-16 → h-6/h-10) so it takes
-            up noticeably less vertical space on both mobile and desktop. ── */}
+        {/* ── Search bar sized up for small-screen legibility: taller field,
+            bigger icon and label text on mobile, unchanged proportions on
+            desktop. ── */}
         {/*
           z-30 here (not just on the dropdown further below) matters:
           `isolation: isolate` makes this div its own stacking context, but
@@ -484,15 +485,15 @@ export const SearchBarWithSuggestions = React.forwardRef<SearchBarWithSuggestion
               <button
                 onClick={() => navigate("/")}
                 aria-label="Go to Home"
-                className="shrink-0 h-6 w-6 md:h-8 md:w-8 rounded-full flex items-center justify-center bg-white/20 hover:bg-white/35 text-white transition-all active:scale-95"
+                className="shrink-0 h-9 w-9 md:h-8 md:w-8 rounded-full flex items-center justify-center bg-white/20 hover:bg-white/35 text-white transition-all active:scale-95"
               >
-                <Home className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                <Home className="h-5 w-5 md:h-4 md:w-4" />
               </button>
             )}
 
             <div className="relative flex-1 group">
               <SearchIcon
-                className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 md:h-4 md:w-4 z-10 transition-colors"
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 md:h-4 md:w-4 z-10 transition-colors"
                 style={{ color: INK_SOFT }}
               />
               <Input
@@ -503,12 +504,12 @@ export const SearchBarWithSuggestions = React.forwardRef<SearchBarWithSuggestion
                 onChange={(e) => { onChange(e.target.value); setShowSuggestions(true); }}
                 onKeyDown={handleKeyPress}
                 onFocus={() => { setShowSuggestions(true); onFocus?.(); }}
-                className="pl-8 pr-20 h-6 md:h-10 text-xs md:text-sm rounded-full shadow-md bg-white placeholder:font-medium transition-all"
+                className="pl-11 pr-24 h-11 md:h-10 text-[16px] md:text-sm rounded-full shadow-md bg-white placeholder:font-medium transition-all"
                 style={{ border: `2px solid ${HAIRLINE}`, color: INK }}
               />
               <Button
                 onClick={() => { saveToHistory(value); onSubmit(); setShowSuggestions(false); }}
-                className="absolute right-1 top-1/2 -translate-y-1/2 rounded-full h-4 md:h-7 px-2.5 md:px-3.5 text-[8px] md:text-[10px] font-semibold text-white shadow-lg transition-transform active:scale-95 border-none hover:opacity-95"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-full h-7 md:h-7 px-3.5 md:px-3.5 text-[13px] md:text-[10px] font-semibold text-white shadow-lg transition-transform active:scale-95 border-none hover:opacity-95"
                 style={{ background: `linear-gradient(135deg, ${CLAY_LIGHT}, ${CLAY})` }}
               >
                 Search
@@ -526,20 +527,20 @@ export const SearchBarWithSuggestions = React.forwardRef<SearchBarWithSuggestion
             >
               {/* History / Trending / Most Popular (shown when input is empty) — skipped entirely in regionsOnly mode */}
               {!regionsOnly && !value.trim() && (
-                <div className="p-1.5 min-h-[60px]">
+                <div className="p-2 min-h-[60px]">
                   {/* Popular Locations */}
                   {locationSuggestions.length > 0 && (
-                    <div className="mb-2">
-                      <div className="flex items-center gap-1.5 px-2 py-1.5">
-                        <MapPin className="h-3 w-3" style={{ color: FOREST }} />
-                        <p className="text-[10px] font-medium" style={{ color: INK_SOFT }}>Popular locations</p>
+                    <div className="mb-3">
+                      <div className="flex items-center gap-2 px-2 py-2">
+                        <MapPin className="h-[18px] w-[18px]" style={{ color: FOREST }} />
+                        <p className="text-[15px] font-medium" style={{ color: INK_SOFT }}>Popular locations</p>
                       </div>
-                      <div className="flex flex-wrap gap-1 px-2">
+                      <div className="flex flex-wrap gap-1.5 px-2">
                         {locationSuggestions.map((loc) => (
                           <Badge
                             key={loc.location}
                             onClick={() => { onChange(loc.location); setShowSuggestions(false); onSubmit(); }}
-                            className="cursor-pointer py-0.5 px-2 rounded-md text-[10px] font-semibold transition-colors border"
+                            className="cursor-pointer py-1 px-3 rounded-md text-[15px] font-semibold transition-colors border"
                             style={{ background: FOREST_SOFT, color: FOREST, borderColor: `${FOREST}25` }}
                           >
                             {formatTitle(loc.location)}
@@ -551,23 +552,23 @@ export const SearchBarWithSuggestions = React.forwardRef<SearchBarWithSuggestion
 
                   {/* Most Popular */}
                   {mostPopular.length > 0 && (
-                    <div className="mb-2">
-                      <div className="flex items-center gap-1.5 px-2 py-1.5">
-                        <Sparkles className="h-3 w-3" style={{ color: FOREST }} />
-                        <p className="text-[10px] font-medium" style={{ color: INK_SOFT }}>Most popular</p>
+                    <div className="mb-3">
+                      <div className="flex items-center gap-2 px-2 py-2">
+                        <Sparkles className="h-[18px] w-[18px]" style={{ color: FOREST }} />
+                        <p className="text-[15px] font-medium" style={{ color: INK_SOFT }}>Most popular</p>
                       </div>
-                      <div className="space-y-0.5">
+                      <div className="space-y-1">
                         {mostPopular.slice(0, 5).map((item) => (
                           <button
                             key={item.id}
                             onClick={() => handleSuggestionClick(item)}
-                            className="w-full p-1.5 flex gap-2 hover:bg-[#F4F6F2] transition-all group text-left rounded-md"
+                            className="w-full p-2 flex gap-2 hover:bg-[#F4F6F2] transition-all group text-left rounded-md"
                           >
                             <div className="flex-1 flex flex-col justify-center min-w-0">
-                              <h4 className="font-semibold tracking-tight text-xs truncate" style={{ color: INK }}>{formatTitle(item.name)}</h4>
+                              <h4 className="font-semibold tracking-tight text-[18px] truncate" style={{ color: INK }}>{formatTitle(item.name)}</h4>
                               <div className="flex items-center gap-1" style={{ color: INK_SOFT }}>
-                                <MapPin className="h-2.5 w-2.5" />
-                                <span className="text-[10px] font-medium truncate">{formatTitle(item.location || item.country)}</span>
+                                <MapPin className="h-[15px] w-[15px]" />
+                                <span className="text-[15px] font-medium truncate">{formatTitle(item.location || item.country)}</span>
                               </div>
                             </div>
                           </button>
@@ -578,20 +579,20 @@ export const SearchBarWithSuggestions = React.forwardRef<SearchBarWithSuggestion
 
                   {/* Recent History */}
                   {searchHistory.length > 0 && (
-                    <div className="mb-2">
-                      <div className="flex items-center justify-between px-2 py-1.5">
-                        <div className="flex items-center gap-1.5">
-                          <Clock className="h-3 w-3" style={{ color: FOREST }} />
-                          <p className="text-[10px] font-medium" style={{ color: INK_SOFT }}>Recent</p>
+                    <div className="mb-3">
+                      <div className="flex items-center justify-between px-2 py-2">
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-[18px] w-[18px]" style={{ color: FOREST }} />
+                          <p className="text-[15px] font-medium" style={{ color: INK_SOFT }}>Recent</p>
                         </div>
-                        <button onClick={(e) => { e.stopPropagation(); clearHistory(); }} className="text-[10px] font-semibold hover:underline" style={{ color: DANGER }}>Clear</button>
+                        <button onClick={(e) => { e.stopPropagation(); clearHistory(); }} className="text-[15px] font-semibold hover:underline" style={{ color: DANGER }}>Clear</button>
                       </div>
-                      <div className="flex flex-wrap gap-1 px-2">
+                      <div className="flex flex-wrap gap-1.5 px-2">
                         {searchHistory.map((item, i) => (
                           <Badge 
                             key={i} 
                             onClick={() => { onChange(item); saveToHistory(item); onSubmit(); setShowSuggestions(false); }} 
-                            className="cursor-pointer py-0.5 px-2 rounded-md text-[10px] font-medium transition-colors border"
+                            className="cursor-pointer py-1 px-3 rounded-md text-[15px] font-medium transition-colors border"
                             style={{ background: CANVAS, color: INK_SOFT, borderColor: HAIRLINE }}
                           >
                             {item}
@@ -604,18 +605,18 @@ export const SearchBarWithSuggestions = React.forwardRef<SearchBarWithSuggestion
                   {/* Trending Destinations */}
                   {trendingSearches.length > 0 && (
                     <div>
-                      <div className="flex items-center gap-1.5 px-2 py-1.5">
-                        <TrendingUp className="h-3 w-3" style={{ color: GOLD }} />
-                        <p className="text-[10px] font-medium" style={{ color: INK_SOFT }}>Trending destinations</p>
+                      <div className="flex items-center gap-2 px-2 py-2">
+                        <TrendingUp className="h-[18px] w-[18px]" style={{ color: GOLD }} />
+                        <p className="text-[15px] font-medium" style={{ color: INK_SOFT }}>Trending destinations</p>
                       </div>
                       {trendingSearches.slice(0, 5).map((item, index) => (
                         <button 
                           key={index} 
                           onClick={() => { onChange(item.query); saveToHistory(item.query); onSubmit(); setShowSuggestions(false); }} 
-                          className="w-full px-2 py-2 flex items-center justify-between hover:bg-[#F4F6F2] transition-colors group text-left rounded-md"
+                          className="w-full px-2 py-2.5 flex items-center justify-between hover:bg-[#F4F6F2] transition-colors group text-left rounded-md"
                         >
-                          <span className="text-xs font-semibold tracking-tight transition-colors" style={{ color: INK }}>{formatTitle(item.query)}</span>
-                          <span className="text-[10px] font-medium tracking-tight" style={{ color: "#A7B2AB" }}>{item.search_count} explores</span>
+                          <span className="text-[17px] font-semibold tracking-tight transition-colors" style={{ color: INK }}>{formatTitle(item.query)}</span>
+                          <span className="text-[15px] font-medium tracking-tight" style={{ color: "#A7B2AB" }}>{item.search_count} explores</span>
                         </button>
                       ))}
                     </div>
@@ -625,29 +626,29 @@ export const SearchBarWithSuggestions = React.forwardRef<SearchBarWithSuggestion
 
               {/* Result Suggestions (shown when typing) */}
               {value.trim() && (
-                <div className="p-1.5">
+                <div className="p-2">
                   {/* Loading State — only shown during fallback network fetch, never in regionsOnly mode */}
                   {!regionsOnly && isSearching && (
-                    <div className="p-5 flex flex-col items-center justify-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" style={{ color: FOREST }} />
-                      <span className="text-[11px] font-medium" style={{ color: INK_SOFT }}>Searching…</span>
+                    <div className="p-6 flex flex-col items-center justify-center gap-2">
+                      <Loader2 className="h-5 w-5 animate-spin" style={{ color: FOREST }} />
+                      <span className="text-[16px] font-medium" style={{ color: INK_SOFT }}>Searching…</span>
                     </div>
                   )}
 
                   {/* Country / Division Matches — DB-driven, works for every
                       country added via the admin page, not just Kenya. */}
                   {(matchedCountries.length > 0 || matchedDivisions.length > 0) && (
-                    <div className="mb-1.5">
-                      <div className="flex items-center gap-1.5 px-2 py-1.5">
-                        <Map className="h-3 w-3" style={{ color: FOREST }} />
-                        <p className="text-[10px] font-medium" style={{ color: INK_SOFT }}>Countries &amp; divisions</p>
+                    <div className="mb-2">
+                      <div className="flex items-center gap-2 px-2 py-2">
+                        <Map className="h-[18px] w-[18px]" style={{ color: FOREST }} />
+                        <p className="text-[15px] font-medium" style={{ color: INK_SOFT }}>Countries &amp; divisions</p>
                       </div>
-                      <div className="flex flex-wrap gap-1 px-2">
+                      <div className="flex flex-wrap gap-1.5 px-2">
                         {matchedCountries.slice(0, 6).map((c) => (
                           <Badge
                             key={c.id}
                             onClick={() => handleRegionCountryClick(c)}
-                            className="cursor-pointer py-0.5 px-2 rounded-md text-[10px] font-semibold transition-colors border"
+                            className="cursor-pointer py-1 px-3 rounded-md text-[15px] font-semibold transition-colors border"
                             style={{ background: FOREST_SOFT, color: FOREST, borderColor: `${FOREST}25` }}
                           >
                             {formatTitle(c.name)}
@@ -657,7 +658,7 @@ export const SearchBarWithSuggestions = React.forwardRef<SearchBarWithSuggestion
                           <Badge
                             key={d.id}
                             onClick={() => handleRegionDivisionClick(d)}
-                            className="cursor-pointer py-0.5 px-2 rounded-md text-[10px] font-semibold transition-colors border"
+                            className="cursor-pointer py-1 px-3 rounded-md text-[15px] font-semibold transition-colors border"
                             style={{ background: CLAY_SOFT, color: CLAY, borderColor: `${CLAY}30` }}
                           >
                             {formatTitle(d.name)}
@@ -670,33 +671,33 @@ export const SearchBarWithSuggestions = React.forwardRef<SearchBarWithSuggestion
                   {/* Results — trip/campsite listings, skipped entirely in regionsOnly mode */}
                   {!regionsOnly && !isSearching && suggestions.length > 0 && (
                     <>
-                      <p className="px-2 py-1.5 text-[10px] font-medium" style={{ color: INK_SOFT }}>Top matches</p>
+                      <p className="px-2 py-2 text-[15px] font-medium" style={{ color: INK_SOFT }}>Top matches</p>
                       {suggestions.slice(0, 5).map((result) => (
                         <button
                           key={result.id}
                           onClick={() => handleSuggestionClick(result)}
-                          className="w-full p-1.5 flex gap-2 hover:bg-[#F4F6F2] transition-all group text-left rounded-md"
+                          className="w-full p-2 flex gap-2 hover:bg-[#F4F6F2] transition-all group text-left rounded-md"
                         >
                           <div className="flex-1 flex flex-col justify-center min-w-0">
-                            <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
-                              <span className="text-[9px] font-semibold text-white px-1.5 py-0.5 rounded-sm" style={{ background: FOREST_DEEP }}>
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              <span className="text-[14px] font-semibold text-white px-2 py-1 rounded-sm" style={{ background: FOREST_DEEP }}>
                                 {getTypeLabel(result.type, result.category)}
                               </span>
                               {result.matchedActivity && (
-                                <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-sm border" style={{ background: CLAY_SOFT, color: CLAY, borderColor: `${CLAY}30` }}>
+                                <span className="text-[14px] font-semibold px-2 py-1 rounded-sm border" style={{ background: CLAY_SOFT, color: CLAY, borderColor: `${CLAY}30` }}>
                                   🎯 {formatTitle(result.matchedActivity)}
                                 </span>
                               )}
                             </div>
-                            <h4 className="font-semibold tracking-tight text-xs truncate" style={{ color: INK }}>{formatTitle(result.name)}</h4>
-                            <div className="flex items-center gap-1 mt-0.5 transition-colors" style={{ color: INK_SOFT }}>
-                              <MapPin className="h-2.5 w-2.5 shrink-0" />
-                              <span className="text-[10px] font-medium">
+                            <h4 className="font-semibold tracking-tight text-[18px] truncate" style={{ color: INK }}>{formatTitle(result.name)}</h4>
+                            <div className="flex items-center gap-1 mt-1 transition-colors" style={{ color: INK_SOFT }}>
+                              <MapPin className="h-[15px] w-[15px] shrink-0" />
+                              <span className="text-[15px] font-medium">
                                 {formatTitle([result.location, result.place, result.country].filter(Boolean).join(" · "))}
                               </span>
                             </div>
                             {getActivitiesText(result.activities) && !result.matchedActivity && (
-                              <p className="text-[10px] mt-0.5 truncate" style={{ color: "#A7B2AB" }}>
+                              <p className="text-[15px] mt-1 truncate" style={{ color: "#A7B2AB" }}>
                                 {formatTitle(getActivitiesText(result.activities))}
                               </p>
                             )}
@@ -708,9 +709,9 @@ export const SearchBarWithSuggestions = React.forwardRef<SearchBarWithSuggestion
 
                   {/* Not Available */}
                   {noResults && (
-                    <div className="p-5 text-center">
-                      <p className="text-[11px] font-medium mb-1.5" style={{ color: INK_SOFT }}>Not available</p>
-                      <p className="text-[10px]" style={{ color: "#A7B2AB" }}>No results found for "{value}"</p>
+                    <div className="p-6 text-center">
+                      <p className="text-[16px] font-medium mb-2" style={{ color: INK_SOFT }}>Not available</p>
+                      <p className="text-[15px]" style={{ color: "#A7B2AB" }}>No results found for "{value}"</p>
                     </div>
                   )}
                 </div>

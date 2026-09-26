@@ -38,12 +38,15 @@ import { useCurrency } from "@/contexts/CurrencyContext";
  *   alter table public.adventure_places
  *     add column if not exists division_id uuid references public.country_divisions(id);
  *
- * The dropdown is populated by matching the free-text `country` value the
- * host already picks below against `countries.name`, then loading that
- * country's rows from `country_divisions`. If no match is found (country is
- * "Other", or that country isn't seeded in `countries` yet), the dropdown
- * just stays empty and `division_id` is saved as null — it's optional and
- * never blocks submission.
+ * `CountrySelector` is a combined, ID-based widget (see LoginForm /
+ * SignupForm's usage elsewhere in the app): it picks a country id and,
+ * within it, an optional division/region id, reporting both together via
+ * onChange({ countryId, divisionId }). We keep those raw ids in state and
+ * resolve them to display names below for everything else in this form
+ * that expects text (`formData.country`, `formData.place`, the
+ * GUIDE_ID_HINTS lookup, PhoneInput, the DB insert, ReviewStep, etc.) —
+ * `division_id` is saved as null when no division is picked; it's optional
+ * and never blocks submission.
  * ────────────────────────────────────────────────────────────────────────── */
 
 /**
@@ -137,11 +140,6 @@ interface SpecialPriceTier {
   nonCitizenPrice: string;
   requirement: string;
   saved: boolean;
-}
-// ── Division / region option, loaded from `country_divisions` ────────────────
-interface DivisionOption {
-  id: string;
-  name: string;
 }
 const emptyFacility = (): FacilityItem => ({ id: makeId(), name: "", amenities: [], amenityInput: "", price: "", capacity: "", images: [], previewUrls: [], saved: false });
 const emptyActivity = (): ActivityItem => ({ id: makeId(), name: "", price: "", images: [], previewUrls: [], saved: false });
@@ -903,12 +901,23 @@ const CreateAdventure = () => {
   const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
   const [isCompressingGallery, setIsCompressingGallery] = useState(false);
 
-  // ── Division / region — optional, resolved from the free-text `country`
-  // value above by matching it against the `countries` table, then loading
-  // that country's rows from `country_divisions`. Saved as `division_id`.
-  const [availableDivisions, setAvailableDivisions] = useState<DivisionOption[]>([]);
+  // ── Country + Division/Region — CountrySelector is a combined, ID-based
+  // widget (see LoginForm/SignupForm's usage elsewhere in the app): it picks
+  // a country id and, within it, an optional division/region id, and reports
+  // both together via onChange({ countryId, divisionId }). We keep the raw
+  // ids here and separately resolve them to display names for everything
+  // else in this form that expects text (`formData.country`, `formData.place`,
+  // the GUIDE_ID_HINTS lookup, PhoneInput, the DB insert, ReviewStep, etc.)
+  //
+  // THIS IS THE FIX for the crash that used to happen on this page: wiring
+  // CountrySelector's onChange straight into formData.country (a string
+  // field) put the raw { countryId, divisionId } object into state, which
+  // eventually got rendered somewhere as text and crashed with
+  // "Uncaught Error: Minified React error #31" (Objects are not valid as a
+  // React child). Keeping ids and display names in separate state avoids
+  // that entirely.
+  const [selectedCountryId, setSelectedCountryId] = useState<string | null>(null);
   const [selectedDivisionId, setSelectedDivisionId] = useState<string | null>(null);
-  const [loadingDivisions, setLoadingDivisions] = useState(false);
 
   const onValidationFail = useCallback((msg: string) => toast({ title: "Required", description: msg, variant: "destructive" }), [toast]);
 
@@ -925,70 +934,74 @@ const CreateAdventure = () => {
       return;
     }
 
-    // Pre-fill country from profile only
+    // Pre-fill country from profile only. Profile stores the country as a
+    // plain name (e.g. "Kenya"), but CountrySelector is ID-based, so we look
+    // up its id here — the name-resolution effect below then fills
+    // formData.country back in from that id, in the exact same shape
+    // CountrySelector itself produces when a host picks a country manually.
     supabase
       .from("profiles")
       .select("country")
       .eq("id", user.id)
       .single()
-      .then(({ data }) => {
-        if (data?.country) {
+      .then(async ({ data }) => {
+        if (!data?.country) return;
+        const { data: countryRow } = await supabase
+          .from("countries")
+          .select("id")
+          .ilike("name", data.country)
+          .maybeSingle();
+        if (countryRow?.id) {
+          setSelectedCountryId(countryRow.id);
+        } else {
+          // Not seeded in `countries` yet — just show the raw name as-is.
           setFormData((p) => ({ ...p, country: data.country }));
         }
       });
   }, [user, navigate, toast]);
 
-  // ── Load divisions whenever the chosen country changes ──────────────────
-  // Resets the current selection first so a stale division from a different
-  // country is never accidentally submitted.
+  // ── Resolve the selected country id into the plain-text country name
+  // every other part of this form (and the final DB insert) expects.
   useEffect(() => {
     let cancelled = false;
-    setSelectedDivisionId(null);
-
-    if (!formData.country || formData.country === "Other") {
-      setAvailableDivisions([]);
+    if (!selectedCountryId) {
+      setFormData((p) => ({ ...p, country: "" }));
       return;
     }
-
-    setLoadingDivisions(true);
     (async () => {
-      const { data: countryRow } = await supabase
+      const { data } = await supabase
         .from("countries")
-        .select("id")
-        .ilike("name", formData.country)
+        .select("name")
+        .eq("id", selectedCountryId)
         .maybeSingle();
-
-      if (cancelled) return;
-
-      if (!countryRow) {
-        setAvailableDivisions([]);
-        setLoadingDivisions(false);
-        return;
+      if (!cancelled && data?.name) {
+        setFormData((p) => ({ ...p, country: data.name }));
       }
-
-      const { data: divisionRows } = await supabase
-        .from("country_divisions")
-        .select("id, name")
-        .eq("country_id", countryRow.id)
-        .order("name", { ascending: true });
-
-      if (cancelled) return;
-      setAvailableDivisions(divisionRows || []);
-      setLoadingDivisions(false);
     })();
-
     return () => { cancelled = true; };
-  }, [formData.country]);
+  }, [selectedCountryId]);
 
-  // County has been removed as a manual field — `place` is now kept in sync
-  // with whichever division the host picks above (falling back to empty if
-  // no division is selected / available), since `place` is still the text
-  // column other parts of the app (search, distance sort, display) read.
+  // Same idea for the division/region: `place` is still the plain-text
+  // column other parts of the app (search, distance sort, display) read, so
+  // resolve the id CountrySelector gives us into that division's name.
   useEffect(() => {
-    if (!selectedDivisionId) return;
-    const division = availableDivisions.find((d) => d.id === selectedDivisionId);
-    if (division) setFormData((p) => ({ ...p, place: division.name }));
-  }, [selectedDivisionId, availableDivisions]);
+    let cancelled = false;
+    if (!selectedDivisionId) {
+      setFormData((p) => ({ ...p, place: "" }));
+      return;
+    }
+    (async () => {
+      const { data } = await supabase
+        .from("country_divisions")
+        .select("name")
+        .eq("id", selectedDivisionId)
+        .maybeSingle();
+      if (!cancelled && data?.name) {
+        setFormData((p) => ({ ...p, place: data.name }));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedDivisionId]);
 
   // ── TRA Licence handlers (now compressed like every other image upload) ───
   const handleTraLicenceAdd = async (file: File) => {
@@ -1416,32 +1429,31 @@ const CreateAdventure = () => {
                     <div>
                       <FieldLabel required>Country</FieldLabel>
                       <div className={cn("rounded-xl", isMissing(formData.country) && "ring-2 ring-red-300")}>
-                        <CountrySelector value={formData.country} onChange={(v) => setFormData({ ...formData, country: v, place: v === "Other" ? "" : formData.place })} />
+                        {/*
+                          CountrySelector is the same ID-based, combined
+                          country + division/region widget used elsewhere in
+                          the app (see SignupForm / CompleteGoogleProfileForm).
+                          Its onChange reports { countryId, divisionId }
+                          together, not a plain string — feeding that object
+                          straight into a string field (formData.country) is
+                          exactly what used to crash this page with "Objects
+                          are not valid as a React child". The raw ids are
+                          kept in their own state and resolved to display
+                          names by the effects above, so this component only
+                          ever needs to hand us ids.
+                        */}
+                        <CountrySelector
+                          countryId={selectedCountryId}
+                          divisionId={selectedDivisionId}
+                          onChange={({ countryId, divisionId }) => {
+                            setSelectedCountryId(countryId);
+                            setSelectedDivisionId(divisionId);
+                          }}
+                        />
                       </div>
+                      <p className="text-[10px] text-slate-400 mt-1">Selecting a division/region helps guests find this listing when browsing by region on the home page.</p>
                     </div>
                   </div>
-
-                  {/* ── Division / Region — optional, populated from country_divisions ── */}
-                  {(availableDivisions.length > 0 || loadingDivisions) && (
-                    <div>
-                      <FieldLabel>Division / Region (optional)</FieldLabel>
-                      <Select
-                        value={selectedDivisionId ?? undefined}
-                        onValueChange={setSelectedDivisionId}
-                        disabled={loadingDivisions}
-                      >
-                        <SelectTrigger className="h-11 rounded-xl border-slate-200 text-sm font-medium">
-                          <SelectValue placeholder={loadingDivisions ? "Loading divisions…" : "Select a division"} />
-                        </SelectTrigger>
-                        <SelectContent className="bg-white rounded-xl">
-                          {availableDivisions.map((d) => (
-                            <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <p className="text-[10px] text-slate-400 mt-1">Helps guests find this listing when browsing by region on the home page.</p>
-                    </div>
-                  )}
 
                   <TraLicenceUpload
                     file={traLicenceFile} preview={traLicencePreview}

@@ -33,19 +33,12 @@ import { cn } from "@/lib/utils";
 
 /**
  * ── DB requirement for the Division field below ──────────────────────────
- * Same pattern as CreateAdventure.tsx: this form now lets a host optionally
- * tag their trip/event with a division / region from `country_divisions`.
+ * Same pattern as CreateAdventure.tsx: this form lets a host optionally tag
+ * their trip/event with a division / region from `country_divisions`.
  * Add the column if it doesn't already exist:
  *
  *   alter table public.trips
  *     add column if not exists division_id uuid references public.country_divisions(id);
- *
- * The dropdown is populated by matching the free-text `country` value the
- * host picks below against `countries.name`, then loading that country's
- * rows from `country_divisions`. If no match is found (country is "Other",
- * or that country isn't seeded in `countries` yet), the dropdown just stays
- * empty and `division_id` is saved as null — it's optional and never blocks
- * submission.
  * ────────────────────────────────────────────────────────────────────────── */
 
 /**
@@ -61,6 +54,31 @@ import { cn } from "@/lib/utils";
  *     add column if not exists registration_type text not null default 'company';
  * ────────────────────────────────────────────────────────────────────────── */
 
+/**
+ * ── CountrySelector usage note (bug fix) ──────────────────────────────────
+ * CountrySelector is a combined, ID-based widget (see LoginForm / SignupForm
+ * / CreateAdventure / CreateHotel elsewhere in the app): it picks a country
+ * id and, within it, an optional division/region id, reporting both
+ * together via onChange({ countryId, divisionId }) — it does NOT report a
+ * plain string.
+ *
+ * This page used to wire that onChange straight into formData.country (a
+ * string field), which put the raw { countryId, divisionId } object into
+ * state. That object eventually got rendered somewhere as text and crashed
+ * with "Uncaught Error: Minified React error #31" (Objects are not valid as
+ * a React child). We keep the raw ids in their own state below and resolve
+ * them to display names for everything else in this form that expects text
+ * (`formData.country`, `formData.place`, the DB insert, ReviewStep, etc.) —
+ * exactly the same fix already applied in CreateAdventure.tsx / CreateHotel.tsx.
+ *
+ * The manual "Division / Region" dropdown this page used to maintain on its
+ * own (availableDivisions / loadingDivisions / DivisionOption, populated by
+ * matching formData.country against `countries.name`) has been removed —
+ * CountrySelector already resolves and offers divisions internally once a
+ * country id is picked, so keeping a second, separate division picker here
+ * was redundant and is what fed the crash in the first place.
+ * ────────────────────────────────────────────────────────────────────────── */
+
 const COLORS = { TEAL: "#008080", CORAL: "#FF7F50", CORAL_LIGHT: "#FF9E7A", SOFT_GRAY: "#F8F9FA" };
 
 const generateFriendlySlug = (name: string): string => {
@@ -73,8 +91,6 @@ const generateFriendlySlug = (name: string): string => {
 
 interface WorkingDays { Mon: boolean; Tue: boolean; Wed: boolean; Thu: boolean; Fri: boolean; Sat: boolean; Sun: boolean; }
 interface TicketType { name: string; price: number; }
-// ── Division / region option, loaded from `country_divisions` ────────────────
-interface DivisionOption { id: string; name: string; }
 
 const EVENT_CATEGORIES = [
   "Roadtrips", "Music Events", "Children Events", "Pool Party", "Outdoor",
@@ -343,75 +359,65 @@ const CreateTripEvent = () => {
   const [certificatePreview, setCertificatePreview] = useState<string | null>(null);
   const [isCompressingCertificate, setIsCompressingCertificate] = useState(false);
 
-  // ── Division / region — optional, resolved from the free-text `country`
-  // value above by matching it against the `countries` table, then loading
-  // that country's rows from `country_divisions`. Saved as `division_id`.
-  const [availableDivisions, setAvailableDivisions] = useState<DivisionOption[]>([]);
+  // ── Country + Division/Region ids ── (see the CountrySelector usage note
+  // at the top of this file for why these are kept separate from formData)
+  const [selectedCountryId, setSelectedCountryId] = useState<string | null>(null);
   const [selectedDivisionId, setSelectedDivisionId] = useState<string | null>(null);
-  const [loadingDivisions, setLoadingDivisions] = useState(false);
 
   useEffect(() => {
     const fetchUserProfile = async () => {
       if (user) {
         const { data: profile } = await supabase.from('profiles').select('country, email, name, phone_number').eq('id', user.id).single();
-        if (profile?.country) setFormData(prev => ({ ...prev, country: profile.country, email: profile.email || user.email || '' }));
-        else if (user.email) setFormData(prev => ({ ...prev, email: user.email || '' }));
+        if (profile?.country) {
+          // Profile stores country as a plain name (e.g. "Kenya"), but
+          // CountrySelector is ID-based, so look up its id here — the
+          // name-resolution effect below fills formData.country back in
+          // from that id, in the exact same shape CountrySelector itself
+          // produces when a host picks a country manually.
+          const { data: countryRow } = await supabase.from("countries").select("id").ilike("name", profile.country).maybeSingle();
+          if (countryRow?.id) {
+            setSelectedCountryId(countryRow.id);
+          } else {
+            // Not seeded in `countries` yet — just show the raw name as-is.
+            setFormData(prev => ({ ...prev, country: profile.country }));
+          }
+        }
+        if (profile?.email || user.email) setFormData(prev => ({ ...prev, email: profile?.email || user.email || '' }));
       }
     };
     fetchUserProfile();
   }, [user]);
 
-  // ── Load divisions whenever the chosen country changes ──────────────────
-  // Resets the current selection first so a stale division from a different
-  // country is never accidentally submitted.
+  // ── Resolve the selected country id into the plain-text country name
+  // every other part of this form (and the final DB insert) expects.
   useEffect(() => {
     let cancelled = false;
-    setSelectedDivisionId(null);
-
-    if (!formData.country || formData.country === "Other") {
-      setAvailableDivisions([]);
+    if (!selectedCountryId) {
+      setFormData((p) => ({ ...p, country: "" }));
       return;
     }
-
-    setLoadingDivisions(true);
     (async () => {
-      const { data: countryRow } = await supabase
-        .from("countries")
-        .select("id")
-        .ilike("name", formData.country)
-        .maybeSingle();
-
-      if (cancelled) return;
-
-      if (!countryRow) {
-        setAvailableDivisions([]);
-        setLoadingDivisions(false);
-        return;
-      }
-
-      const { data: divisionRows } = await supabase
-        .from("country_divisions")
-        .select("id, name")
-        .eq("country_id", countryRow.id)
-        .order("name", { ascending: true });
-
-      if (cancelled) return;
-      setAvailableDivisions(divisionRows || []);
-      setLoadingDivisions(false);
+      const { data } = await supabase.from("countries").select("name").eq("id", selectedCountryId).maybeSingle();
+      if (!cancelled && data?.name) setFormData((p) => ({ ...p, country: data.name }));
     })();
-
     return () => { cancelled = true; };
-  }, [formData.country]);
+  }, [selectedCountryId]);
 
-  // County has been removed as a manual field — `place` is now kept in sync
-  // with whichever division the host picks above (falling back to empty if
-  // no division is selected / available), since `place` is still the text
-  // column other parts of the app (search, distance sort, display) read.
+  // Same idea for the division/region: `place` is still the plain-text
+  // column other parts of the app (search, distance sort, display) read, so
+  // resolve the id CountrySelector gives us into that division's name.
   useEffect(() => {
-    if (!selectedDivisionId) return;
-    const division = availableDivisions.find((d) => d.id === selectedDivisionId);
-    if (division) setFormData((p) => ({ ...p, place: division.name }));
-  }, [selectedDivisionId, availableDivisions]);
+    let cancelled = false;
+    if (!selectedDivisionId) {
+      setFormData((p) => ({ ...p, place: "" }));
+      return;
+    }
+    (async () => {
+      const { data } = await supabase.from("country_divisions").select("name").eq("id", selectedDivisionId).maybeSingle();
+      if (!cancelled && data?.name) setFormData((p) => ({ ...p, place: data.name }));
+    })();
+    return () => { cancelled = true; };
+  }, [selectedDivisionId]);
 
   // A registration number/ID must never match the registration name, and for
   // guides it must additionally look like a valid ID for the chosen country.
@@ -805,36 +811,36 @@ const CreateTripEvent = () => {
                       {validationErrors.includes("name") && <p className="text-red-500 text-[10px] font-semibold mt-1">⚠ Experience name is required</p>}
                     </div>
 
-                    {/* Country */}
-                    <div>
+                    {/* Country + Division/Region (combined, ID-based widget) */}
+                    <div className="lg:col-span-2">
                       <FieldLabel required>Country</FieldLabel>
-                      <div className={validationErrors.includes("country") ? "rounded-xl ring-2 ring-red-300" : ""}>
-                        <CountrySelector value={formData.country} onChange={(val) => { setFormData({ ...formData, country: val, place: val === "Other" ? "" : formData.place }); setValidationErrors(prev => prev.filter(err => err !== "country")); }} />
+                      <div className={cn("rounded-xl", validationErrors.includes("country") && "ring-2 ring-red-300")}>
+                        {/*
+                          CountrySelector is the same ID-based, combined
+                          country + division/region widget used elsewhere in
+                          the app (see SignupForm / CreateAdventure /
+                          CreateHotel). Its onChange reports
+                          { countryId, divisionId } together, not a plain
+                          string — feeding that object straight into a
+                          string field (formData.country) is exactly what
+                          used to crash this page with "Objects are not
+                          valid as a React child" (React error #31). The raw
+                          ids are kept in their own state and resolved to
+                          display names by the effects above, so this
+                          component only ever needs to hand us ids.
+                        */}
+                        <CountrySelector
+                          countryId={selectedCountryId}
+                          divisionId={selectedDivisionId}
+                          onChange={({ countryId, divisionId }) => {
+                            setSelectedCountryId(countryId);
+                            setSelectedDivisionId(divisionId);
+                          }}
+                        />
                       </div>
                       {validationErrors.includes("country") && <p className="text-red-500 text-[10px] font-semibold mt-1">⚠ Country is required</p>}
+                      <p className="text-[10px] text-slate-400 mt-1">Selecting a division/region helps guests find this experience when browsing by region on the home page.</p>
                     </div>
-
-                    {/* Division / Region — optional, populated from country_divisions */}
-                    {(availableDivisions.length > 0 || loadingDivisions) && (
-                      <div className="lg:col-span-2">
-                        <FieldLabel>Division / Region (optional)</FieldLabel>
-                        <Select
-                          value={selectedDivisionId ?? undefined}
-                          onValueChange={setSelectedDivisionId}
-                          disabled={loadingDivisions}
-                        >
-                          <SelectTrigger className="h-11 rounded-xl border-slate-200 text-sm font-medium max-w-md">
-                            <SelectValue placeholder={loadingDivisions ? "Loading divisions…" : "Select a division"} />
-                          </SelectTrigger>
-                          <SelectContent className="bg-white rounded-xl">
-                            {availableDivisions.map((d) => (
-                              <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <p className="text-[10px] text-slate-400 mt-1">Helps guests find this experience when browsing by region on the home page.</p>
-                      </div>
-                    )}
 
                     {/* Specific Location — full width */}
                     <div className="lg:col-span-2">

@@ -1,23 +1,22 @@
 import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { CompleteGoogleProfileForm } from "@/components/auth/CompleteGoogleProfileForm";
 
 // The dedicated /complete-profile page (src/pages/CompleteProfile.tsx) has
 // its own full version of this same flow, including the email-code
-// verification step. Showing this overlay on top of that page stacks two
-// "finish your profile" UIs on screen at once — that's the bug in the
-// screenshot. Never render the popup on that route.
+// verification step. This gate no longer renders its own overlay on top of
+// whatever page the person is on — instead it just sends them to that page,
+// so there is exactly one "finish your profile" UI, never a popup stacked
+// on top of the app.
 const COMPLETE_PROFILE_ROUTE = "/complete-profile";
 
 /**
  * Mount this once near the app root (alongside <AuthModal />) — e.g. in
  * App.tsx, inside <AuthProvider>. It renders nothing until a first-time
- * Google sign-up is detected, at which point it blocks the app behind a
- * full-screen overlay until the person finishes their profile (name,
- * gender, country, date of birth, password) — no close button, since
- * password and confirmed age are required before they can use the app.
+ * Google sign-up is detected, at which point it redirects to the dedicated
+ * /complete-profile page (name, gender, country, date of birth, password
+ * all live there) instead of popping up a modal over the current screen.
  *
  * WHY THE EXTRA DB CHECK BELOW:
  * `needsProfileCompletion` comes from AuthContext, which we don't have
@@ -30,9 +29,9 @@ const COMPLETE_PROFILE_ROUTE = "/complete-profile";
  *
  * To make that impossible regardless of what AuthContext thinks, this
  * component independently checks `profiles.profile_completed` (the exact
- * column CompleteGoogleProfileForm sets to `true` on submit) before
- * rendering anything. If it's already `true`, we sync the context back to
- * "completed" via `markProfileCompleted()` and never show the overlay.
+ * column the /complete-profile page sets to `true` on submit) before
+ * redirecting anywhere. If it's already `true`, we sync the context back to
+ * "completed" via `markProfileCompleted()` and never redirect.
  *
  * The real, permanent fix is still to make AuthContext read
  * `profiles.profile_completed` directly when computing
@@ -40,7 +39,7 @@ const COMPLETE_PROFILE_ROUTE = "/complete-profile";
  * that, not a replacement for it.
  */
 export const CompleteProfileGate = () => {
-  const { user, needsProfileCompletion, pendingGoogleProfile, markProfileCompleted } = useAuth();
+  const { user, needsProfileCompletion, markProfileCompleted } = useAuth();
   const location = useLocation();
   const isOnCompleteProfilePage = location.pathname === COMPLETE_PROFILE_ROUTE;
 
@@ -67,8 +66,8 @@ export const CompleteProfileGate = () => {
       if (cancelled) return;
 
       if (error) {
-        // Couldn't confirm either way — don't silently hide a possibly
-        // genuine "please finish your profile" state.
+        // Couldn't confirm either way — don't silently skip a possibly
+        // genuine "please finish your profile" redirect.
         setStillIncomplete(true);
         setDbChecked(true);
         return;
@@ -94,19 +93,14 @@ export const CompleteProfileGate = () => {
 
   if (!needsProfileCompletion || !user) return null;
   if (isOnCompleteProfilePage) return null; // that page already handles this itself
-  if (!dbChecked) return null; // brief DB round-trip in flight — don't flash the gate open
-  if (!stillIncomplete) return null; // confirmed already complete — never show it
+  if (!dbChecked) return null; // brief DB round-trip in flight — don't redirect prematurely
+  if (!stillIncomplete) return null; // confirmed already complete — never redirect
 
   return (
-    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-      <div className="w-full max-w-[420px] bg-white border border-slate-200 rounded-xl p-6 lg:p-8 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.35)] max-h-[90vh] overflow-y-auto overflow-x-visible">
-        <CompleteGoogleProfileForm
-          userId={user.id}
-          defaultFirstName={pendingGoogleProfile?.firstName}
-          defaultLastName={pendingGoogleProfile?.lastName}
-          onComplete={markProfileCompleted}
-        />
-      </div>
-    </div>
+    <Navigate
+      to={COMPLETE_PROFILE_ROUTE}
+      state={{ returnTo: location.pathname + location.search }}
+      replace
+    />
   );
 };

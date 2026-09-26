@@ -56,8 +56,17 @@ export const CompleteGoogleProfileForm = ({
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // Every "please fill this in" / "these don't match" / "save failed" case
+  // shows immediately under the exact field it belongs to, instead of a
+  // toast — this card is the challenge the person is trying to clear, so
+  // the error needs to live here, not float off elsewhere on the page.
+  const [firstNameError, setFirstNameError] = useState<string | null>(null);
+  const [lastNameError, setLastNameError] = useState<string | null>(null);
+  const [genderError, setGenderError] = useState<string | null>(null);
+  const [countryError, setCountryError] = useState<string | null>(null);
   const [dobError, setDobError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [generalError, setGeneralError] = useState<string | null>(null);
 
   const { toast } = useToast();
 
@@ -68,46 +77,60 @@ export const CompleteGoogleProfileForm = ({
   // panel renders above the popup instead of underneath it.
   const selectContentStyle = "z-[400] bg-white border border-slate-200 text-black max-h-60";
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const clearErrors = () => {
+    setFirstNameError(null);
+    setLastNameError(null);
+    setGenderError(null);
+    setCountryError(null);
     setDobError(null);
     setPasswordError(null);
+    setGeneralError(null);
+  };
 
-    if (!firstName.trim() || !lastName.trim()) {
-      toast({ title: "Validation Error", description: "Please enter your first name and surname.", variant: "destructive" });
-      return;
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    clearErrors();
+
+    let hasError = false;
+
+    if (!firstName.trim()) {
+      setFirstNameError("Please enter your first name.");
+      hasError = true;
+    }
+    if (!lastName.trim()) {
+      setLastNameError("Please enter your surname.");
+      hasError = true;
     }
     if (!gender) {
-      toast({ title: "Validation Error", description: "Please select your gender.", variant: "destructive" });
-      return;
+      setGenderError("Please select your gender.");
+      hasError = true;
     }
     if (!countryId) {
-      toast({ title: "Validation Error", description: "Please select your country.", variant: "destructive" });
-      return;
+      setCountryError("Please select your country.");
+      hasError = true;
     }
     if (!dateOfBirth) {
       setDobError("Please enter your date of birth.");
-      return;
+      hasError = true;
+    } else {
+      const age = calculateAge(dateOfBirth);
+      if (age === null) {
+        setDobError("Please enter a valid date of birth.");
+        hasError = true;
+      } else if (age < MIN_SIGNUP_AGE) {
+        setDobError(`You must be at least ${MIN_SIGNUP_AGE} years old to use this app.`);
+        hasError = true;
+      }
     }
-
-    const age = calculateAge(dateOfBirth);
-    if (age === null) {
-      setDobError("Please enter a valid date of birth.");
-      return;
-    }
-    if (age < MIN_SIGNUP_AGE) {
-      setDobError(`You must be at least ${MIN_SIGNUP_AGE} years old to use this app.`);
-      return;
-    }
-
     if (password.length < 6) {
       setPasswordError("Password must be at least 6 characters.");
-      return;
-    }
-    if (password !== confirmPassword) {
+      hasError = true;
+    } else if (password !== confirmPassword) {
       setPasswordError("Passwords do not match.");
-      return;
+      hasError = true;
     }
+
+    if (hasError) return;
 
     setLoading(true);
 
@@ -141,7 +164,7 @@ export const CompleteGoogleProfileForm = ({
       );
 
     if (profileError) {
-      toast({ title: "Error", description: profileError.message, variant: "destructive" });
+      setGeneralError(profileError.message || "Couldn't save your profile. Please try again.");
       setLoading(false);
       return;
     }
@@ -160,22 +183,54 @@ export const CompleteGoogleProfileForm = ({
         </p>
       </div>
 
+      {generalError && (
+        <div className="rounded-md bg-red-50 border border-red-200 px-2 py-1.5">
+          <FieldError message={generalError} />
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-0.5">
           <Label className={labelStyle}>First Name</Label>
-          <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} className={inputStyle} required />
+          <Input
+            value={firstName}
+            onChange={(e) => {
+              setFirstName(e.target.value);
+              if (firstNameError) setFirstNameError(null);
+            }}
+            className={inputStyle}
+            required
+            aria-invalid={!!firstNameError}
+          />
+          {firstNameError && <FieldError message={firstNameError} />}
         </div>
         <div className="space-y-0.5">
           <Label className={labelStyle}>Surname</Label>
-          <Input value={lastName} onChange={(e) => setLastName(e.target.value)} className={inputStyle} required />
+          <Input
+            value={lastName}
+            onChange={(e) => {
+              setLastName(e.target.value);
+              if (lastNameError) setLastNameError(null);
+            }}
+            className={inputStyle}
+            required
+            aria-invalid={!!lastNameError}
+          />
+          {lastNameError && <FieldError message={lastNameError} />}
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-0.5">
           <Label className={labelStyle}>Gender</Label>
-          <Select value={gender} onValueChange={setGender}>
-            <SelectTrigger className={inputStyle}>
+          <Select
+            value={gender}
+            onValueChange={(v) => {
+              setGender(v);
+              if (genderError) setGenderError(null);
+            }}
+          >
+            <SelectTrigger className={inputStyle} aria-invalid={!!genderError}>
               <SelectValue placeholder="-" />
             </SelectTrigger>
             <SelectContent className={selectContentStyle}>
@@ -185,6 +240,7 @@ export const CompleteGoogleProfileForm = ({
               <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
             </SelectContent>
           </Select>
+          {genderError && <FieldError message={genderError} />}
         </div>
         <div className="space-y-0.5">
           <Label className={`${labelStyle} flex items-center gap-1`}>
@@ -203,8 +259,10 @@ export const CompleteGoogleProfileForm = ({
             onChange={({ countryId, divisionId }) => {
               setCountryId(countryId);
               setDivisionId(divisionId);
+              if (countryError) setCountryError(null);
             }}
           />
+          {countryError && <FieldError message={countryError} />}
         </div>
       </div>
 

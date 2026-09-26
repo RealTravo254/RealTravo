@@ -48,17 +48,19 @@ export const LoginForm = ({ onSwitchToSignup, onAuthSuccess }: LoginFormProps) =
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Inline, field-level errors — these render directly under the input they
-  // belong to instead of firing a toast, since "wrong password" / "wrong code"
-  // are things the person needs to see right next to what they typed.
+  // Inline, field-level errors — these render directly under the input (or,
+  // for OAuth, directly under the Google button) they belong to, instead of
+  // firing a toast, so the person sees the problem right where it happened.
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [otpError, setOtpError] = useState<string | null>(null);
   const [deviceVerifyError, setDeviceVerifyError] = useState<string | null>(null);
+  const [googleError, setGoogleError] = useState<string | null>(null);
 
   // Step-up verification state (new device or stale login)
   const [needsDeviceVerification, setNeedsDeviceVerification] = useState(false);
   const [deviceVerifyCode, setDeviceVerifyCode] = useState("");
   const [pendingUserId, setPendingUserId] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
 
   const clientAuth = (supabase as any).auth;
 
@@ -70,6 +72,21 @@ export const LoginForm = ({ onSwitchToSignup, onAuthSuccess }: LoginFormProps) =
       { onConflict: "user_id,device_id" }
     );
     await supabase.from("profiles").update({ last_login_at: new Date().toISOString() }).eq("id", userId);
+  };
+
+  // Sends (or re-sends) the device-verification email code. Reused by both
+  // the initial send and the "Resend code" action.
+  const sendDeviceCode = async () => {
+    setDeviceVerifyError(null);
+    const { error } = await clientAuth.signInWithOtp({
+      email,
+      options: { shouldCreateUser: false },
+    });
+    if (error) {
+      setDeviceVerifyError(error.message || "Couldn't send a verification code. Try resending.");
+      return false;
+    }
+    return true;
   };
 
   // After password auth succeeds: decide whether this device/timing needs an extra code
@@ -96,27 +113,38 @@ export const LoginForm = ({ onSwitchToSignup, onAuthSuccess }: LoginFormProps) =
     const isStale = daysSinceLogin > STALE_LOGIN_DAYS;
 
     if (isNewDevice || isStale) {
+      // IMPORTANT: signInWithPassword() already created a full Supabase
+      // session for this user before we ever got here. If we left that
+      // session in place, the person would count as "logged in" app-wide
+      // even if they never enter this code (or type it wrong forever) —
+      // the screen below would just be a UI wall with nothing behind it.
+      // So we sign that session back out immediately, and only a
+      // successful verifyOtp (below) re-establishes it.
+      await clientAuth.signOut();
+
       setPendingUserId(userId);
       setNeedsDeviceVerification(true);
-      const { error: otpError } = await clientAuth.signInWithOtp({
-        email,
-        options: { shouldCreateUser: false },
-      });
-      if (otpError) {
-        toast({ title: "Error", description: otpError.message, variant: "destructive" });
-      } else {
+      setLoading(false);
+
+      const sent = await sendDeviceCode();
+      if (sent) {
         toast({
           title: isNewDevice ? "New device detected" : "Welcome back",
           description: "We've emailed you a code — enter it to continue.",
         });
       }
-      setLoading(false);
       return;
     }
 
     await finalizeLogin(userId);
     onAuthSuccess?.();
     navigate("/");
+  };
+
+  const handleResendCode = async () => {
+    setResending(true);
+    await sendDeviceCode();
+    setResending(false);
   };
 
   const handleDeviceVerify = async (e: React.FormEvent) => {
@@ -157,7 +185,7 @@ export const LoginForm = ({ onSwitchToSignup, onAuthSuccess }: LoginFormProps) =
       if (!codeSent) {
         const { error } = await clientAuth.signInWithOtp({ email });
         if (error) {
-          toast({ title: "Error", description: error.message, variant: "destructive" });
+          setOtpError(error.message || "Couldn't send a login code. Please try again.");
         } else {
           setCodeSent(true);
           toast({ title: "Code Sent", description: "Check your email for your verification code." });
@@ -179,6 +207,7 @@ export const LoginForm = ({ onSwitchToSignup, onAuthSuccess }: LoginFormProps) =
   };
 
   const handleGoogleSignIn = async () => {
+    setGoogleError(null);
     setGoogleLoading(true);
     // Tag this as a LOGIN attempt so useGoogleAuthGuard (mounted near the app
     // root) can tell, once Google redirects back, whether Supabase just
@@ -192,7 +221,7 @@ export const LoginForm = ({ onSwitchToSignup, onAuthSuccess }: LoginFormProps) =
       },
     });
     if (error) {
-      toast({ title: "OAuth Error", description: error.message, variant: "destructive" });
+      setGoogleError(error.message || "Couldn't continue with Google. Please try again.");
       setGoogleLoading(false);
     }
   };
@@ -229,18 +258,28 @@ export const LoginForm = ({ onSwitchToSignup, onAuthSuccess }: LoginFormProps) =
         <Button type="submit" disabled={loading} className="w-full h-9 bg-[rgb(0,128,128)] hover:bg-[rgb(0,110,110)] text-white text-xs font-bold uppercase mt-1">
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Confirm & Continue"}
         </Button>
-        <button
-          type="button"
-          onClick={() => {
-            setNeedsDeviceVerification(false);
-            setPendingUserId(null);
-            setDeviceVerifyCode("");
-            setDeviceVerifyError(null);
-          }}
-          className="w-full text-center text-[10px] text-slate-500 hover:underline"
-        >
-          Back to login
-        </button>
+        <div className="flex items-center justify-between">
+          <button
+            type="button"
+            onClick={handleResendCode}
+            disabled={resending}
+            className="text-[10px] text-[rgb(0,128,128)] hover:underline disabled:opacity-50"
+          >
+            {resending ? "Sending..." : "Resend code"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setNeedsDeviceVerification(false);
+              setPendingUserId(null);
+              setDeviceVerifyCode("");
+              setDeviceVerifyError(null);
+            }}
+            className="text-[10px] text-slate-500 hover:underline"
+          >
+            Back to login
+          </button>
+        </div>
       </form>
     );
   }
@@ -312,6 +351,7 @@ export const LoginForm = ({ onSwitchToSignup, onAuthSuccess }: LoginFormProps) =
           </div>
         )
       )}
+      {loginMethod === "code" && !codeSent && otpError && <FieldError message={otpError} />}
 
       <Button type="submit" disabled={loading || googleLoading} className="w-full h-9 bg-[rgb(0,128,128)] hover:bg-[rgb(0,110,110)] text-white text-xs font-bold uppercase mt-1">
         {loading ? (
@@ -362,6 +402,7 @@ export const LoginForm = ({ onSwitchToSignup, onAuthSuccess }: LoginFormProps) =
         )}
         Continue with Google
       </Button>
-    </form>  
+      {googleError && <FieldError message={googleError} />}
+    </form>
   );
 };

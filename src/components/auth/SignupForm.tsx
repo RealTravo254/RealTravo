@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Globe } from "lucide-react";
+import { Loader2, Globe, AlertCircle } from "lucide-react";
 import { CountrySelector } from "@/components/creation/CountrySelector";
 import { markGoogleAuthIntent } from "@/hooks/useGoogleAuthGuard";
 
@@ -20,6 +20,14 @@ function calculateAge(dob: string) {
   if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
   return age;
 }
+
+// Small inline error line, meant to sit directly under the field it refers to.
+const FieldError = ({ message }: { message: string }) => (
+  <p className="flex items-center gap-1 text-[10px] text-red-600 mt-1">
+    <AlertCircle className="w-3 h-3 shrink-0" />
+    {message}
+  </p>
+);
 
 interface SignupFormProps {
   onSwitchToLogin: () => void;
@@ -45,47 +53,79 @@ export const SignupForm = ({ onSwitchToLogin, onSignupSuccess }: SignupFormProps
   const [googleLoading, setGoogleLoading] = useState(false);
   const { toast } = useToast();
 
+  // Every "please fill this in" / "these don't match" / "account creation
+  // failed" case now shows immediately under (or above, for the submit
+  // error) the exact field it belongs to, instead of a toast the person
+  // might not connect back to the form.
+  const [firstNameError, setFirstNameError] = useState<string | null>(null);
+  const [lastNameError, setLastNameError] = useState<string | null>(null);
+  const [genderError, setGenderError] = useState<string | null>(null);
+  const [countryError, setCountryError] = useState<string | null>(null);
+  const [dobError, setDobError] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [generalError, setGeneralError] = useState<string | null>(null);
+  const [googleError, setGoogleError] = useState<string | null>(null);
+
+  const clearErrors = () => {
+    setFirstNameError(null);
+    setLastNameError(null);
+    setGenderError(null);
+    setCountryError(null);
+    setDobError(null);
+    setEmailError(null);
+    setPasswordError(null);
+    setGeneralError(null);
+  };
+
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    clearErrors();
 
-    if (password !== confirmPassword) {
-      toast({ title: "Validation Error", description: "Passwords do not match.", variant: "destructive" });
-      return;
+    let hasError = false;
+
+    if (!firstName.trim()) {
+      setFirstNameError("Please enter your first name.");
+      hasError = true;
     }
-
-    if (!firstName.trim() || !lastName.trim()) {
-      toast({ title: "Validation Error", description: "Please enter your first name and surname.", variant: "destructive" });
-      return;
+    if (!lastName.trim()) {
+      setLastNameError("Please enter your surname.");
+      hasError = true;
     }
-
     if (!gender) {
-      toast({ title: "Validation Error", description: "Please select your gender.", variant: "destructive" });
-      return;
+      setGenderError("Please select your gender.");
+      hasError = true;
     }
-
     if (!countryId) {
-      toast({ title: "Validation Error", description: "Please select your country.", variant: "destructive" });
-      return;
+      setCountryError("Please select your country.");
+      hasError = true;
     }
-
     if (!dateOfBirth) {
-      toast({ title: "Validation Error", description: "Please enter your date of birth.", variant: "destructive" });
-      return;
+      setDobError("Please enter your date of birth.");
+      hasError = true;
+    } else {
+      const age = calculateAge(dateOfBirth);
+      if (age === null) {
+        setDobError("Please enter a valid date of birth.");
+        hasError = true;
+      } else if (age < MIN_SIGNUP_AGE) {
+        setDobError(`You must be at least ${MIN_SIGNUP_AGE} years old to create an account.`);
+        hasError = true;
+      }
+    }
+    if (!email.trim()) {
+      setEmailError("Please enter your email.");
+      hasError = true;
+    }
+    if (password.length < 6) {
+      setPasswordError("Password must be at least 6 characters.");
+      hasError = true;
+    } else if (password !== confirmPassword) {
+      setPasswordError("Passwords do not match.");
+      hasError = true;
     }
 
-    const age = calculateAge(dateOfBirth);
-    if (age === null) {
-      toast({ title: "Validation Error", description: "Please enter a valid date of birth.", variant: "destructive" });
-      return;
-    }
-    if (age < MIN_SIGNUP_AGE) {
-      toast({
-        title: "Age Restriction",
-        description: `You must be at least ${MIN_SIGNUP_AGE} years old to create an account.`,
-        variant: "destructive",
-      });
-      return;
-    }
+    if (hasError) return;
 
     setLoading(true);
     const { error } = await supabase.auth.signUp({
@@ -103,21 +143,23 @@ export const SignupForm = ({ onSwitchToLogin, onSignupSuccess }: SignupFormProps
     });
 
     if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      setGeneralError(error.message || "Couldn't create your account. Please try again.");
       setLoading(false);
       return;
     }
 
-    // Country is required now (validated above), so this always has a value —
-    // saved right after the account is created so we don't need it in the
+    // Country is optional, so this may be null — only write it if present.
+    // Saved right after the account is created so we don't need it in the
     // signUp() payload itself.
-    const { data: sessionData } = await supabase.auth.getUser();
-    const uid = sessionData?.user?.id;
-    if (uid) {
-      await supabase
-        .from("profiles")
-        .update({ country_id: countryId, division_id: divisionId })
-        .eq("id", uid);
+    if (countryId) {
+      const { data: sessionData } = await supabase.auth.getUser();
+      const uid = sessionData?.user?.id;
+      if (uid) {
+        await supabase
+          .from("profiles")
+          .update({ country_id: countryId, division_id: divisionId })
+          .eq("id", uid);
+      }
     }
 
     toast({ title: "Success", description: "Verify your email to continue." });
@@ -126,6 +168,7 @@ export const SignupForm = ({ onSwitchToLogin, onSignupSuccess }: SignupFormProps
   };
 
   const handleGoogleSignUp = async () => {
+    setGoogleError(null);
     setGoogleLoading(true);
     // Tag this as a SIGNUP attempt — useGoogleAuthGuard (mounted near the app
     // root) will see this and knows it's fine if Supabase creates a new
@@ -138,7 +181,7 @@ export const SignupForm = ({ onSwitchToLogin, onSignupSuccess }: SignupFormProps
       }
     });
     if (error) {
-      toast({ title: "OAuth Error", description: error.message, variant: "destructive" });
+      setGoogleError(error.message || "Couldn't continue with Google. Please try again.");
       setGoogleLoading(false);
     }
   };
@@ -151,6 +194,12 @@ export const SignupForm = ({ onSwitchToLogin, onSignupSuccess }: SignupFormProps
 
   return (
     <form onSubmit={handleSignup} className="space-y-1.5 max-h-full overflow-y-auto">
+      {generalError && (
+        <div className="rounded-md bg-red-50 border border-red-200 px-2 py-1.5">
+          <FieldError message={generalError} />
+        </div>
+      )}
+
       {/* Country selector sits above the rest of the form and is optional */}
       <div className="space-y-0.5">
         <Label className="text-[10px] uppercase text-slate-600 font-bold ml-0.5 flex items-center gap-1">
@@ -169,18 +218,40 @@ export const SignupForm = ({ onSwitchToLogin, onSignupSuccess }: SignupFormProps
           onChange={({ countryId, divisionId }) => {
             setCountryId(countryId);
             setDivisionId(divisionId);
+            if (countryError) setCountryError(null);
           }}
         />
+        {countryError && <FieldError message={countryError} />}
       </div>
 
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-0.5">
           <Label className="text-[10px] uppercase text-slate-600 font-bold ml-0.5">First Name</Label>
-          <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} className={plainInputStyle} required />
+          <Input
+            value={firstName}
+            onChange={(e) => {
+              setFirstName(e.target.value);
+              if (firstNameError) setFirstNameError(null);
+            }}
+            className={plainInputStyle}
+            required
+            aria-invalid={!!firstNameError}
+          />
+          {firstNameError && <FieldError message={firstNameError} />}
         </div>
         <div className="space-y-0.5">
           <Label className="text-[10px] uppercase text-slate-600 font-bold ml-0.5">Surname</Label>
-          <Input value={lastName} onChange={(e) => setLastName(e.target.value)} className={plainInputStyle} required />
+          <Input
+            value={lastName}
+            onChange={(e) => {
+              setLastName(e.target.value);
+              if (lastNameError) setLastNameError(null);
+            }}
+            className={plainInputStyle}
+            required
+            aria-invalid={!!lastNameError}
+          />
+          {lastNameError && <FieldError message={lastNameError} />}
         </div>
       </div>
 
@@ -190,16 +261,27 @@ export const SignupForm = ({ onSwitchToLogin, onSignupSuccess }: SignupFormProps
           <Input
             type="date"
             value={dateOfBirth}
-            onChange={(e) => setDateOfBirth(e.target.value)}
+            onChange={(e) => {
+              setDateOfBirth(e.target.value);
+              if (dobError) setDobError(null);
+            }}
             max={new Date().toISOString().split("T")[0]}
             className={plainInputStyle}
             required
+            aria-invalid={!!dobError}
           />
+          {dobError && <FieldError message={dobError} />}
         </div>
         <div className="space-y-0.5">
           <Label className="text-[10px] uppercase text-slate-600 font-bold ml-0.5">Gender</Label>
-          <Select value={gender} onValueChange={setGender}>
-            <SelectTrigger className={plainInputStyle}>
+          <Select
+            value={gender}
+            onValueChange={(v) => {
+              setGender(v);
+              if (genderError) setGenderError(null);
+            }}
+          >
+            <SelectTrigger className={plainInputStyle} aria-invalid={!!genderError}>
               <SelectValue placeholder="-" />
             </SelectTrigger>
             <SelectContent className={selectContentStyle}>
@@ -209,19 +291,41 @@ export const SignupForm = ({ onSwitchToLogin, onSignupSuccess }: SignupFormProps
               <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
             </SelectContent>
           </Select>
+          {genderError && <FieldError message={genderError} />}
         </div>
       </div>
 
       <div className="space-y-0.5">
         <Label className="text-[10px] uppercase text-slate-600 font-bold ml-0.5">Email</Label>
-        <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={plainInputStyle} required />
+        <Input
+          type="email"
+          value={email}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            if (emailError) setEmailError(null);
+          }}
+          className={plainInputStyle}
+          required
+          aria-invalid={!!emailError}
+        />
+        {emailError && <FieldError message={emailError} />}
       </div>
 
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-0.5">
           <Label className="text-[10px] uppercase text-slate-600 font-bold ml-0.5">Password</Label>
           <div className="relative">
-            <Input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} className={inputStyle} required />
+            <Input
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (passwordError) setPasswordError(null);
+              }}
+              className={inputStyle}
+              required
+              aria-invalid={!!passwordError}
+            />
             <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500">
               {showPassword ? (
                 <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
@@ -235,7 +339,17 @@ export const SignupForm = ({ onSwitchToLogin, onSignupSuccess }: SignupFormProps
         <div className="space-y-0.5">
           <Label className="text-[10px] uppercase text-slate-600 font-bold ml-0.5">Confirm</Label>
           <div className="relative">
-            <Input type={showConfirmPassword ? "text" : "password"} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className={inputStyle} required />
+            <Input
+              type={showConfirmPassword ? "text" : "password"}
+              value={confirmPassword}
+              onChange={(e) => {
+                setConfirmPassword(e.target.value);
+                if (passwordError) setPasswordError(null);
+              }}
+              className={inputStyle}
+              required
+              aria-invalid={!!passwordError}
+            />
             <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500">
               {showConfirmPassword ? (
                 <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
@@ -246,6 +360,7 @@ export const SignupForm = ({ onSwitchToLogin, onSignupSuccess }: SignupFormProps
           </div>
         </div>
       </div>
+      {passwordError && <FieldError message={passwordError} />}
 
       <Button type="submit" disabled={loading || googleLoading} className="w-full h-9 bg-[rgb(0,128,128)] hover:bg-[rgb(0,110,110)] text-white text-xs font-bold uppercase mt-1">
         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create Account"}
@@ -275,10 +390,11 @@ export const SignupForm = ({ onSwitchToLogin, onSignupSuccess }: SignupFormProps
         )}
         SignUp with Google
       </Button>
+      {googleError && <FieldError message={googleError} />}
 
       <p className="text-[8px] text-center text-slate-400 px-2 pt-0.5 leading-tight">
         By joining, you agree to our Terms and Privacy policy.
       </p>
     </form>
   );
-}; 
+};

@@ -39,8 +39,13 @@
         }
       }
 
+      /*
+       * The page background now matches the body, so there is no full-screen
+       * teal flash (which looked like a splash screen) before the app renders.
+       * The teal/dark colour is still used for the safe-area bars below.
+       */
       html {
-        background-color: var(--safe-bar-bg);
+        background-color: #f4f7f6;
       }
 
       body {

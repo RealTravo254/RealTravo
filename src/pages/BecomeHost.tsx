@@ -7,15 +7,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import {
-  Plus, ArrowLeft, LayoutDashboard, Map, Building2, Tent, Home, BedDouble,
+  Plus, ArrowLeft, LayoutDashboard, Map, Building2, Tent, BedDouble,
   Clock, CheckCircle2, XCircle, MapPin, RefreshCw, Ban, Info,
 } from "lucide-react";
 
 // ── Design tokens ─────────────────────────────────────────────────────────
-// Same field-guide / park-signage system used across the rest of the app:
-// deep forest for structure and brand marks, a warm clay for the primary
-// action, gold/steel-blue for the secondary hosting-type accents, dusty
-// rust for danger states.
 const FOREST       = "#1F4D3A";
 const FOREST_DEEP  = "#123322";
 const FOREST_SOFT  = "#EAF0EA";
@@ -39,9 +35,10 @@ const DANGER_SOFT  = "#F7E9E5";
 const FONT_DISPLAY = "'Fraunces', ui-serif, Georgia, serif";
 const FONT_BODY = "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif";
 
-// Categories whose hosts may hold several approved listings. Everything else
-// (e.g. "hotel") stays capped at one listing and goes to /my-listing.
-const MULTI_LISTING_CATEGORIES = ["accommodation", "campsite"];
+// Hosting types on this page are only: Outdoor / Campsite, Hotel & Stay,
+// Tour Guide, or Company. Campsite hosts may hold several approved listings.
+// Hotel hosts stay capped at one listing and go to /my-listing.
+const MULTI_LISTING_CATEGORIES = ["campsite"];
 
 // Injects the two typefaces once, without needing to touch the app's index.html.
 const useInjectFonts = () => {
@@ -65,7 +62,7 @@ type ViewState =
   | { screen: "adventure-pending"; place: any }
   | { screen: "adventure-no-place" }
   | { screen: "adventure-rejected"; place: any }
-  | { screen: "adventure-accommodation-dashboard"; places: any[] }
+  | { screen: "campsite-dashboard"; places: any[] }
   | { screen: "guide-company-dashboard"; content: any[] };
 
 // ── Shared page chrome ────────────────────────────────────────────────────
@@ -132,7 +129,6 @@ const HostCategoryCard = ({ title, subtitle, image, icon, count, onManage, onAdd
         </div>
         <Button variant="ghost" onClick={onManage} className="text-[11px] font-semibold px-2 hover:bg-transparent" style={{ color: INK_SOFT }}>All →</Button>
       </div>
-      {/* ── "Add Trip" / create-trip entry point re-enabled ───────────────── */}
       <Button
         onClick={onAdd}
         className="w-full py-3 rounded-xl text-[11px] font-semibold text-white transition-all active:scale-95 border-none hover:opacity-95"
@@ -164,7 +160,7 @@ const AdventurePendingCard = ({ place }: { place: any }) => {
           <Clock className="h-3.5 w-3.5" style={{ color: GOLD }} /> Under review
         </div>
         <div className="absolute bottom-4 left-4 right-4">
-          <p className="text-[9px] font-medium text-white/60 mb-0.5">{isHotel ? "Your hotel" : "Your listing"}</p>
+          <p className="text-[9px] font-medium text-white/60 mb-0.5">{isHotel ? "Your hotel" : "Your campsite"}</p>
           <h3 className="text-xl font-semibold text-white tracking-tight leading-tight line-clamp-1" style={{ fontFamily: FONT_DISPLAY }}>{place.name}</h3>
           {(place.location || place.place) && (
             <div className="flex items-center gap-1 mt-1">
@@ -215,8 +211,8 @@ const AdventurePendingCard = ({ place }: { place: any }) => {
   );
 };
 
-// ── Accommodation card (used once approved — supports multiple listings) ─────
-const AccommodationCard = ({ place, onManage }: { place: any; onManage: () => void }) => {
+// ── Campsite card (used once approved — supports multiple listings) ──────────
+const CampsiteCard = ({ place, onManage }: { place: any; onManage: () => void }) => {
   const imageUrl = place.image_url || place.gallery_images?.[0];
   return (
     <div className="bg-white rounded-[24px] overflow-hidden flex flex-col" style={{ border: `1px solid ${HAIRLINE}`, boxShadow: "0 8px 24px rgba(28,43,34,0.06)" }}>
@@ -225,7 +221,7 @@ const AccommodationCard = ({ place, onManage }: { place: any; onManage: () => vo
           <img src={imageUrl} alt={place.name} className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full flex items-center justify-center" style={{ background: FOREST_SOFT }}>
-            <Home className="h-10 w-10" style={{ color: `${FOREST}55` }} />
+            <Tent className="h-10 w-10" style={{ color: `${FOREST}55` }} />
           </div>
         )}
         <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(14,23,18,0.7), rgba(14,23,18,0.08), transparent)" }} />
@@ -245,7 +241,7 @@ const AccommodationCard = ({ place, onManage }: { place: any; onManage: () => vo
         </div>
       </div>
       <div className="p-4 flex items-center justify-between">
-        <span className="text-[10px] font-medium" style={{ color: INK_SOFT }}>Accommodation</span>
+        <span className="text-[10px] font-medium" style={{ color: INK_SOFT }}>Outdoor / Campsite</span>
         <Button variant="ghost" onClick={onManage} className="text-[11px] font-semibold px-2 hover:bg-transparent" style={{ color: INK_SOFT }}>Manage →</Button>
       </div>
     </div>
@@ -279,8 +275,6 @@ const BecomeHost = () => {
         if (profileData && !profileData.profile_completed) { navigate("/complete-profile"); return; }
 
         // ── 2. Guide/company check FIRST ─────────────────────────────────────
-        // Approved guides and companies always go straight to the trips dashboard.
-        // Adventure place logic is completely separate and does not interfere.
         const [{ data: verification }, { data: company }] = await Promise.all([
           supabase.from("host_verifications").select("status, hosting_category").eq("user_id", user.id).maybeSingle(),
           supabase.from("companies").select("verification_status").eq("user_id", user.id).maybeSingle(),
@@ -310,9 +304,7 @@ const BecomeHost = () => {
           return;
         }
 
-        // ── 3. Not a guide/company — check adventure place(s) ────────────────
-        // NOTE: no .limit(1) here anymore — a user may hold several rows once
-        // Outdoor / Accommodation listings are allowed to multiply after approval.
+        // ── 3. Not a guide/company — check campsite / hotel place(s) ─────────
         const { data: advPlaces } = await supabase
           .from("adventure_places")
           .select("id, name, image_url, gallery_images, location, place, approval_status, category")
@@ -337,9 +329,8 @@ const BecomeHost = () => {
           const allMultiListing = approved.every((p) => MULTI_LISTING_CATEGORIES.includes(p.category));
 
           if (allMultiListing) {
-            // Outdoor / Accommodation hosts can hold multiple approved listings —
-            // show the dashboard with an active "Add" entry point.
-            setView({ screen: "adventure-accommodation-dashboard", places: approved });
+            // Campsite hosts can hold multiple approved listings.
+            setView({ screen: "campsite-dashboard", places: approved });
             return;
           }
 
@@ -438,16 +429,16 @@ const BecomeHost = () => {
         <div className="flex items-start gap-2.5 p-3.5 rounded-2xl mb-8" style={{ background: GOLD_SOFT, border: `1px solid ${GOLD}30` }}>
           <Info className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: GOLD }} />
           <p className="text-[11px] font-medium leading-relaxed" style={{ color: GOLD_TEXT }}>
-            <span className="font-semibold">Note:</span> Outdoor/campsite/adventurepalce and Hotel/stay &amp; Stay are standalone hosting types — they cannot be combined with Tour Guide or Company hosting. Once your first Accommodation listing is approved, you can add more from your dashboard. Hotel &amp; Stay is limited to one listing per account.
+            <span className="font-semibold">Note:</span> Outdoor/Campsite and Hotel &amp; Stay are standalone hosting types — they cannot be combined with Tour Guide or Company hosting. Once your first Campsite listing is approved, you can add more from your dashboard. Hotel &amp; Stay is limited to one listing per account.
           </p>
         </div>
 
-        {/* All hosting types are offered. Hotel & Stay has its own form at /create-hotel. */}
+        {/* Hosting types: Campsite, Hotel, Tour Guide, Company. */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
           <SelectionCard
-            icon={<Home className="h-8 w-8" style={{ color: SUCCESS }} />}
-            title="Outdoor/campsite"
-            desc="List your home, apartment, or private stay. Once approved, you can add unlimited Accommodation listings from your dashboard."
+            icon={<Tent className="h-8 w-8" style={{ color: SUCCESS }} />}
+            title="Outdoor / Campsite"
+            desc="List your campsite or outdoor place. Once approved, you can add more campsite listings from your dashboard."
             onClick={() => navigate("/create-adventure")}
             iconBg={SUCCESS_SOFT}
             accent={SUCCESS}
@@ -536,9 +527,9 @@ const BecomeHost = () => {
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           <SelectionCard
-            icon={<Home className="h-8 w-8" style={{ color: SUCCESS }} />}
-            title="Accommodation / Airbnb"
-            desc="Fix your details and resubmit your home, apartment, or private stay."
+            icon={<Tent className="h-8 w-8" style={{ color: SUCCESS }} />}
+            title="Outdoor / Campsite"
+            desc="Start a fresh campsite or outdoor place submission."
             onClick={() => navigate("/create-adventure")}
             iconBg={SUCCESS_SOFT}
             accent={SUCCESS}
@@ -568,9 +559,9 @@ const BecomeHost = () => {
         </div>
         <div className="bg-white rounded-[28px] p-8 text-center" style={{ border: `1px solid ${HAIRLINE}`, boxShadow: "0 10px 30px rgba(28,43,34,0.06)" }}>
           <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: SUCCESS_SOFT }}>
-            <Home className="h-8 w-8" style={{ color: SUCCESS }} />
+            <Tent className="h-8 w-8" style={{ color: SUCCESS }} />
           </div>
-          <h3 className="text-xl font-semibold tracking-tight mb-2" style={{ fontFamily: FONT_DISPLAY, color: INK }}>No place submitted yet</h3>
+          <h3 className="text-xl font-semibold tracking-tight mb-2" style={{ fontFamily: FONT_DISPLAY, color: INK }}>No listing submitted yet</h3>
           <p className="text-sm mb-6" style={{ color: INK_SOFT }}>You haven't submitted a listing yet. Create your listing to get started.</p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Button
@@ -578,7 +569,7 @@ const BecomeHost = () => {
               className="px-6 py-3 rounded-xl text-sm font-semibold text-white border-none hover:opacity-95"
               style={{ background: `linear-gradient(135deg, ${CLAY_LIGHT} 0%, ${CLAY} 100%)` }}
             >
-              <Plus className="h-4 w-4 mr-2" /> Submit listing
+              <Plus className="h-4 w-4 mr-2" /> Submit campsite
             </Button>
             <Button
               onClick={() => navigate("/create-hotel")}
@@ -595,8 +586,8 @@ const BecomeHost = () => {
     </div>
   );
 
-  // ── Adventure: Accommodation dashboard (multiple approved listings) ───────
-  if (view.screen === "adventure-accommodation-dashboard") {
+  // ── Campsite dashboard (multiple approved listings) ───────────────────────
+  if (view.screen === "campsite-dashboard") {
     const { places } = view;
     return (
       <div className="min-h-screen flex flex-col" style={{ background: CANVAS, fontFamily: FONT_BODY }}>
@@ -607,23 +598,21 @@ const BecomeHost = () => {
               <BackButton onClick={() => navigate("/")} />
               <PageTitle
                 eyebrow={`Host dashboard · ${places.length} listing${places.length !== 1 ? "s" : ""}`}
-                title={<>My <span style={{ color: CLAY }}>accommodations</span></>}
+                title={<>My <span style={{ color: CLAY }}>campsites</span></>}
               />
             </div>
-            {/* Accommodation hosts CAN create additional listings — unlike the
-                disabled "Add" pattern used for guide/company trips above. */}
             <Button
               onClick={() => navigate("/create-adventure")}
               className="rounded-xl text-[12px] font-semibold text-white border-none px-5 py-5 hover:opacity-95"
               style={{ background: `linear-gradient(135deg, ${CLAY_LIGHT} 0%, ${CLAY} 100%)` }}
             >
-              <Plus className="h-4 w-4 mr-2" /> Add accommodation
+              <Plus className="h-4 w-4 mr-2" /> Add campsite
             </Button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {places.map((place) => (
-              <AccommodationCard
+              <CampsiteCard
                 key={place.id}
                 place={place}
                 onManage={() => navigate(`/edit-listing/adventure/${place.id}`)}
@@ -662,7 +651,6 @@ const BecomeHost = () => {
           </div>
 
           <div className="max-w-lg">
-            {/* "Add Trip" entry point is now live, navigating to /create-trip. */}
             <HostCategoryCard
               title="Trips & Tours"
               subtitle="Guided Experiences"

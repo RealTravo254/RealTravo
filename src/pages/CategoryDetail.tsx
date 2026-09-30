@@ -74,8 +74,8 @@ const CategoryDetail = () => {
   const [userId, setUserId]               = useState<string | null>(null);
   const [selectedCounty, setSelectedCounty] = useState<string>(searchParams.get("county") || "All");
 
-  // County filter now applies to campsite and guided-tour category pages.
-  const showCountyTabs = category === "campsite" || category === "guided";
+  // County filter applies to hotel, campsite and guided-tour category pages.
+  const showCountyTabs = category === "hotel" || category === "campsite" || category === "guided";
 
   const { position }  = useGeolocation();
   const [isSearchFocusedLocal, setIsSearchFocusedLocal] = useState(false);
@@ -86,13 +86,16 @@ const CategoryDetail = () => {
   }, [setSearchFocused]);
 
   // ── Category config ─────────────────────────────────────────────────────
-  // Hotels and Accommodations (Airbnb) removed per request — only guided
-  // tours, campsites, and fixed-date trips remain. Park and Attraction stay
-  // commented out until their pages are ready. The old legacy "adventure"
-  // catch-all was also removed since it had no category filter and would
-  // otherwise still be able to surface hotel-category rows.
+  // Hotels are back as their own category page (adventure_places.category =
+  // 'hotel'), reached from the Hotels tab in CategoryTabsBar and the Hotels
+  // shortcuts on the home page. Accommodations (Airbnb) stay removed. Park
+  // and Attraction stay commented out until their pages are ready. The old
+  // legacy "adventure" catch-all was also removed since it had no category
+  // filter.
   const categoryConfig: { [key: string]: any } = {
     guided:   { title: "Guided Tours",          tables: ["trips"],            type: "TRIP",            tripType: "trip", flexibleOnly: true },
+
+    hotel:    { title: "Hotels & Stays",        tables: ["adventure_places"], type: "ADVENTURE PLACE", placeCategory: "hotel"       },
 
     // parks:  { title: "Parks",                 tables: ["adventure_places"], type: "ADVENTURE PLACE", placeCategory: "park"       }, // uncomment when ready
     campsite: { title: "Campsite & Experience", tables: ["adventure_places"], type: "ADVENTURE PLACE", placeCategory: "campsite"    },
@@ -253,7 +256,7 @@ const CategoryDetail = () => {
         {/* Category tabs — navigates to the tapped category page */}
         {!isSearchFocusedLocal && <CategoryTabsBar activeKey={activeTabKey} />}
 
-        {/* County filter — campsite and guided-tour category pages */}
+        {/* County filter — hotel, campsite and guided-tour category pages */}
         {showCountyTabs && !isSearchFocusedLocal && (
           <div className="bg-white" style={{ borderTop: `1px solid ${HAIRLINE}` }}>
             <div className="container mx-auto px-4 py-2">
@@ -361,7 +364,7 @@ const CategoryDetail = () => {
         )}
       </main>
     </div>
-  );
+  ); 
 };
 
 export default CategoryDetail;

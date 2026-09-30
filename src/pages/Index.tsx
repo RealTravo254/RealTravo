@@ -213,16 +213,18 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items }: GridSectio
 });
 GridSection.displayName = "GridSection";
 
+// Hotels now have their own category page (/category/hotel) instead of
+// sharing the campsite page.
 const CATEGORIES = [
   { icon: Tent,       title: "Outdoor & Campsites", path: "/category/campsite", bgImage: "/images/category-campsite.jpg" },
   { icon: MapIcon,    title: "Tours & Trips",       path: "/category/guided",   bgImage: "/images/category-trips.jpg" },
-  { icon: BedDouble,  title: "Hotels & Stays",      path: "/category/campsite", bgImage: "/images/category-hotels.jpg" },
+  { icon: BedDouble,  title: "Hotels & Stays",      path: "/category/hotel",    bgImage: "/images/category-hotels.jpg" },
 ];
 
 const QUICK_NAV = [
   { icon: Tent,      title: "Outdoors & Campsites", path: "/category/campsite", color: "hsl(278, 90%, 50%)" },
   { icon: MapIcon,   title: "Tours & Trips",        path: "/category/guided",   color: "hsl(235, 90%, 50%)" },
-  { icon: BedDouble, title: "Hotels",               path: "/category/campsite", color: "hsl(160, 70%, 40%)" },
+  { icon: BedDouble, title: "Hotels",               path: "/category/hotel",    color: "hsl(160, 70%, 40%)" },
   { icon: Ticket,    title: "Bookings",             path: "/bookings",          color: "hsl(200, 70%, 45%)" },
   { icon: Heart,     title: "Saved",                path: "/saved",             color: "hsl(350, 80%, 55%)" },
 ];

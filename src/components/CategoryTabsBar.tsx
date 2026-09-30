@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 // exact same set of categories to jump between: Hotels, Campsites, Tours,
 // Trips — plus an "All" entry. Hotels is its own tab (category = "hotel"),
 // separate from Campsites, matching adventure_places.category values.
+// Tapping Hotels routes to /category/hotel (handled by CategoryDetail).
 // (Parks and Attraction are commented out — those pages aren't ready yet.
 // Accommodations/Airbnb is hidden per request.)
 export interface CategoryTabItem {
@@ -20,7 +21,7 @@ export interface CategoryTabItem {
 export const CATEGORY_TABS: CategoryTabItem[] = [
   { key: "all",            label: "All",            icon: Compass,    path: "/explore" },
   /* { key: "accommodations", label: "Accommodations", icon: Home,       path: "/category/accommodations" }, */
-  { key: "hotel",           label: "Hotels",         icon: BedDouble,  path: "/category/hotel" },
+  { key: "hotel",          label: "Hotels",         icon: BedDouble,  path: "/category/hotel" },
   { key: "campsite",       label: "Campsites",      icon: Tent,       path: "/category/campsite" },
   /* { key: "parks",          label: "Parks",          icon: TreePine,   path: "/category/parks" },
   { key: "attraction",     label: "Attraction",     icon: Landmark,   path: "/category/attraction" },

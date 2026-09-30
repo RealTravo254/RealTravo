@@ -1,13 +1,26 @@
-import { Button } from "@/components/ui/button";
+import { useEffect } from "react";
 import { ArrowLeft, Home } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useSafeBack } from "@/hooks/useSafeBack";
 
-// Standardizing colors to match your theme
-const COLORS = {
-  TEAL: "#008080",
-  CORAL: "#FF7F50",
-  SOFT_GRAY: "#F8F9FA"
+const FOREST = "#1F4D3A";
+const FOREST_DEEP = "#123322";
+
+const FONT_DISPLAY = "'Fraunces', ui-serif, Georgia, serif";
+const FONT_BODY = "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif";
+
+// Same id as Header.tsx, so the fonts are only injected once
+const useInjectFonts = () => {
+  useEffect(() => {
+    const id = "adventure-detail-fonts";
+    if (document.getElementById(id)) return;
+    const link = document.createElement("link");
+    link.id = id;
+    link.rel = "stylesheet";
+    link.href =
+      "https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,600&family=Inter:wght@400;500;600;700;800&display=swap";
+    document.head.appendChild(link);
+  }, []);
 };
 
 interface PageHeaderProps {
@@ -15,97 +28,108 @@ interface PageHeaderProps {
   showBackButton?: boolean;
   showHomeButton?: boolean;
   backgroundImage?: string;
+  /** Small trail shown above the title in the minimal variant. Pass "" to hide it. */
+  parentLabel?: string;
 }
 
-export const PageHeader = ({ 
-  title, 
-  showBackButton = true, 
+const pill =
+  "h-9 px-3 rounded-xl inline-flex items-center gap-2 text-[13px] font-semibold text-white bg-white/15 hover:bg-white/25 active:scale-95 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60";
+
+export const PageHeader = ({
+  title,
+  showBackButton = true,
   showHomeButton = true,
-  backgroundImage
+  backgroundImage,
+  parentLabel = "Explore",
 }: PageHeaderProps) => {
+  useInjectFonts();
   const navigate = useNavigate();
   const goBack = useSafeBack();
 
-  // STYLED WITH BACKGROUND IMAGE
+  const backButton = showBackButton && (
+    <button onClick={goBack} className={pill} aria-label="Go back">
+      <ArrowLeft className="h-4 w-4 stroke-[2.5]" />
+      <span>Back</span>
+    </button>
+  );
+
+  const homeButton = showHomeButton && (
+    <button onClick={() => navigate("/")} className={pill} aria-label="Go to home">
+      <Home className="h-4 w-4" />
+      <span>Home</span>
+    </button>
+  );
+
+  // WITH BACKGROUND IMAGE
   if (backgroundImage) {
     return (
-      <div 
-        className="relative h-56 md:h-72 rounded-[32px] overflow-hidden mb-8 shadow-xl"
+      <div
+        className="relative h-52 md:h-64 rounded-3xl overflow-hidden mb-8"
         style={{
+          fontFamily: FONT_BODY,
           backgroundImage: `url(${backgroundImage})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center'
+          backgroundSize: "cover",
+          backgroundPosition: "center",
         }}
       >
-        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/20 to-black/60" />
-        
-        <div className="relative h-full flex flex-col items-center justify-center text-white px-6">
-          <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tighter text-center drop-shadow-2xl">
-            {title}
-          </h1>
-          <div className="h-1.5 w-20 bg-[#FF7F50] rounded-full mt-4 shadow-lg" />
+        {/* Forest wash: light in the middle so the photo shows, deep at the edges for legibility */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background: `linear-gradient(to bottom, ${FOREST_DEEP}B3 0%, ${FOREST_DEEP}26 45%, ${FOREST_DEEP}E6 100%)`,
+          }}
+        />
+
+        <div className="absolute top-4 left-4 right-4 flex items-center justify-between">
+          <div>{backButton}</div>
+          <div>{homeButton}</div>
         </div>
 
-        {showBackButton && (
-          <Button
-            onClick={goBack}
-            className="absolute top-6 left-6 rounded-full bg-black/30 backdrop-blur-md text-white border-none hover:bg-black/50 transition-all active:scale-95"
+        <div className="absolute bottom-0 left-0 right-0 px-6 pb-6">
+          <h1
+            className="text-3xl md:text-5xl text-white leading-tight"
+            style={{ fontFamily: FONT_DISPLAY, fontWeight: 600, letterSpacing: "-0.01em" }}
           >
-            <ArrowLeft className="h-5 w-5 mr-2" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Back</span>
-          </Button>
-        )}
-
-        {showHomeButton && (
-          <Button
-            onClick={() => navigate("/")}
-            className="absolute top-6 right-6 rounded-full bg-white/20 backdrop-blur-md text-white border-none hover:bg-white/40 transition-all active:scale-95"
-          >
-            <Home className="h-5 w-5 mr-2" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Home</span>
-          </Button>
-        )}
+            {title}
+          </h1>
+        </div>
       </div>
     );
   }
 
-  // STYLED MINIMAL (DESKTOP/STANDARD)
+  // MINIMAL
   return (
-    <div className="flex items-center justify-between mb-8 pb-6 border-b border-slate-100">
-      <div className="flex items-center gap-6">
+    <div
+      className="relative flex items-center justify-between gap-4 mb-8 rounded-2xl px-4 py-4 md:px-6 md:py-5"
+      style={{
+        fontFamily: FONT_BODY,
+        background: `linear-gradient(135deg, ${FOREST} 0%, ${FOREST_DEEP} 100%)`,
+      }}
+    >
+      <div className="flex items-center gap-3 min-w-0">
         {showBackButton && (
-          <Button
-            variant="ghost"
+          <button
             onClick={goBack}
-            className="group flex flex-col h-auto py-2 px-4 bg-[#008080]/5 text-[#008080] rounded-2xl hover:bg-[#008080]/10 transition-all"
+            aria-label="Go back"
+            className="h-9 w-9 shrink-0 rounded-xl flex items-center justify-center text-white hover:bg-white/20 active:scale-90 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
           >
-            <ArrowLeft className="h-5 w-5 transition-transform group-hover:-translate-x-1" />
-            <span className="text-[9px] font-black uppercase tracking-tighter mt-1">Back</span>
-          </Button>
+            <ArrowLeft className="h-5 w-5 stroke-[2.5]" />
+          </button>
         )}
-        <div>
-          <h1 className="text-3xl md:text-4xl font-black uppercase tracking-tighter text-slate-800">
+        <div className="min-w-0">
+          {parentLabel && (
+            <p className="text-[13px] font-medium text-white/70 leading-none mb-1">{parentLabel}</p>
+          )}
+          <h1
+            className="text-2xl md:text-3xl text-white truncate"
+            style={{ fontFamily: FONT_DISPLAY, fontWeight: 600, letterSpacing: "-0.01em" }}
+          >
             {title}
           </h1>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">
-            Explore / {title}
-          </p>
         </div>
       </div>
 
-      {showHomeButton && (
-        <Button
-          onClick={() => navigate("/")}
-          className="rounded-2xl px-6 py-6 h-auto text-[10px] font-black uppercase tracking-[0.2em] shadow-lg transition-all active:scale-95 border-none"
-          style={{ 
-            background: `linear-gradient(135deg, #008080 0%, #006666 100%)`,
-            color: 'white'
-          }}
-        >
-          <Home className="h-4 w-4 mr-2" />
-          Home Base
-        </Button>
-      )}
+      {homeButton}
     </div>
   );
 };

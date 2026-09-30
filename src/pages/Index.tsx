@@ -45,6 +45,30 @@ interface DivisionLite {
 const INITIAL_VISIBLE_COUNT = 10;
 const LOAD_MORE_COUNT = 10;
 
+// Desktop grid: fixed 4 columns x 5 rows (20 cards), then a "View All"
+// button below instead of loading more cards inline or scrolling sideways.
+const DESKTOP_BREAKPOINT = 1024; // matches Tailwind's `lg`
+const DESKTOP_COLUMNS = 4;
+const DESKTOP_ROWS = 5;
+const DESKTOP_VISIBLE_COUNT = DESKTOP_COLUMNS * DESKTOP_ROWS;
+
+// Tracks whether we're at Tailwind's `lg` breakpoint or above, so GridSection
+// can switch between the mobile horizontal-scroll layout and the desktop
+// fixed-grid layout without mounting both at once.
+const useIsDesktop = () => {
+  const [isDesktop, setIsDesktop] = useState(
+    () => typeof window !== "undefined" && window.innerWidth >= DESKTOP_BREAKPOINT
+  );
+  useEffect(() => {
+    const mq = window.matchMedia(`(min-width: ${DESKTOP_BREAKPOINT}px)`);
+    setIsDesktop(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+  return isDesktop;
+};
+
 interface GridSectionProps {
   title: string;
   viewAllPath: string;
@@ -53,14 +77,101 @@ interface GridSectionProps {
   loading: boolean;
 }
 
-const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: GridSectionProps) => {
+const GridSection = memo(({ title, viewAllPath, accentColor, items }: GridSectionProps) => {
+  const navigate = useNavigate();
+  const isDesktop = useIsDesktop();
+
+  // Mobile keeps the existing horizontal-scroll + incremental "See More"
+  // behavior. Desktop instead shows a fixed 4-column x 5-row grid (no
+  // scrolling) and, if there's more, a single "View All" button below that
+  // takes the person to the full listing page.
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_COUNT);
-  const [loadingMore, setLoadingMore]   = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   useEffect(() => {
     setVisibleCount(prev => Math.min(prev, Math.max(items.length, INITIAL_VISIBLE_COUNT)));
   }, [items.length]);
 
+  const cardWidthClasses = "w-[75vw] sm:w-[230px] md:w-[240px] lg:w-[260px] shrink-0";
+
+  const Skeletons = ({ count }: { count: number }) => (
+    <>
+      {[...Array(count)].map((_, i) => (
+        <div key={i} className={cardWidthClasses}>
+          <ListingSkeleton />
+        </div>
+      ))}
+    </>
+  );
+
+  const header = (
+    <div
+      className="flex items-center justify-between mb-3 md:mb-5 rounded-none md:rounded-xl px-3 py-2.5 -mx-4 md:mx-0"
+      style={{ backgroundColor: `${accentColor}12` }}
+    >
+      <h2
+        className="text-base sm:text-xl md:text-2xl font-extrabold tracking-tight"
+        style={{ color: accentColor }}
+      >
+        {title}
+      </h2>
+      <Link
+        to={viewAllPath}
+        className="text-xs md:text-sm font-semibold hover:opacity-70 transition-opacity shrink-0"
+        style={{ color: accentColor }}
+      >
+        View All →
+      </Link>
+    </div>
+  );
+
+  const showSkeletons = items.length === 0;
+
+  if (showSkeletons) {
+    return (
+      <section className="mb-6 md:mb-10">
+        {header}
+        {isDesktop ? (
+          <div className="grid grid-cols-4 gap-4">
+            <Skeletons count={DESKTOP_VISIBLE_COUNT} />
+          </div>
+        ) : (
+          <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory -mx-4 px-4">
+            <Skeletons count={INITIAL_VISIBLE_COUNT} />
+          </div>
+        )}
+      </section>
+    );
+  }
+
+  // ── Desktop: fixed 4-column grid, 5 rows, then a "View All" button ──────
+  if (isDesktop) {
+    const visibleItems = items.slice(0, DESKTOP_VISIBLE_COUNT);
+    const hasMore = items.length > DESKTOP_VISIBLE_COUNT;
+    return (
+      <section className="mb-10">
+        {header}
+        <div className="grid grid-cols-4 gap-4">
+          {visibleItems.map((item, i) => (
+            <div key={i}>{item}</div>
+          ))}
+        </div>
+        {hasMore && (
+          <div className="flex justify-center mt-4">
+            <button
+              onClick={() => navigate(viewAllPath)}
+              className="px-6 py-2 rounded-full text-xs font-bold border border-border bg-card text-foreground shadow-sm hover:opacity-80 active:scale-95 transition-all"
+              style={{ color: accentColor, borderColor: `${accentColor}40` }}
+            >
+              View All
+            </button>
+          </div>
+        )}
+      </section>
+    );
+  }
+
+  // ── Mobile: horizontal scroll, one row, incremental "See More" ─────────
   const visibleItems = items.slice(0, visibleCount);
   const hasMore = visibleCount < items.length;
   const nextBatchSize = Math.min(LOAD_MORE_COUNT, Math.max(items.length - visibleCount, 0));
@@ -74,70 +185,31 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: G
     }, 500);
   };
 
-  const showSkeletons = items.length === 0;
-  const cardWidthClasses = "w-[75vw] sm:w-[230px] md:w-[240px] lg:w-[260px] shrink-0";
-
-  const Skeletons = ({ count }: { count: number }) => (
-    <>
-      {[...Array(count)].map((_, i) => (
-        <div key={i} className={cardWidthClasses}>
-          <ListingSkeleton />
-        </div>
-      ))}
-    </>
-  );
-
   return (
-    <section className="mb-6 md:mb-10">
-      <div
-        className="flex items-center justify-between mb-3 md:mb-5 rounded-none md:rounded-xl px-3 py-2.5 -mx-4 md:mx-0"
-        style={{ backgroundColor: `${accentColor}12` }}
-      >
-        <h2
-          className="text-base sm:text-xl md:text-2xl font-extrabold tracking-tight"
-          style={{ color: accentColor }}
-        >
-          {title}
-        </h2>
-        <Link
-          to={viewAllPath}
-          className="text-xs md:text-sm font-semibold hover:opacity-70 transition-opacity shrink-0"
-          style={{ color: accentColor }}
-        >
-          View All →
-        </Link>
+    <section className="mb-6">
+      {header}
+      <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory -mx-4 px-4">
+        {visibleItems.map((item, i) => (
+          <div key={i} className={`${cardWidthClasses} snap-start`}>
+            {item}
+          </div>
+        ))}
+        {loadingMore && <Skeletons count={nextBatchSize || LOAD_MORE_COUNT} />}
       </div>
 
-      {showSkeletons ? (
-        <div className="flex gap-2.5 md:gap-4 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory -mx-4 px-4 md:mx-0 md:px-0">
-          <Skeletons count={INITIAL_VISIBLE_COUNT} />
+      {hasMore && !loadingMore && (
+        <div className="flex justify-center mt-4">
+          <button
+            onClick={handleSeeMore}
+            className="px-6 py-2 rounded-full text-xs font-bold border border-border bg-card text-foreground shadow-sm hover:opacity-80 active:scale-95 transition-all"
+            style={{ color: accentColor, borderColor: `${accentColor}40` }}
+          >
+            See More
+          </button>
         </div>
-      ) : (
-        <>
-          <div className="flex gap-2.5 md:gap-4 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory -mx-4 px-4 md:mx-0 md:px-0">
-            {visibleItems.map((item, i) => (
-              <div key={i} className={`${cardWidthClasses} snap-start`}>
-                {item}
-              </div>
-            ))}
-            {loadingMore && <Skeletons count={nextBatchSize || LOAD_MORE_COUNT} />}
-          </div>
-
-          {hasMore && !loadingMore && (
-            <div className="flex justify-center mt-4">
-              <button
-                onClick={handleSeeMore}
-                className="px-6 py-2 rounded-full text-xs font-bold border border-border bg-card text-foreground shadow-sm hover:opacity-80 active:scale-95 transition-all"
-                style={{ color: accentColor, borderColor: `${accentColor}40` }}
-              >
-                See More
-              </button>
-            </div>
-          )}
-        </>
       )}
     </section>
-  ); 
+  );
 });
 GridSection.displayName = "GridSection";
 

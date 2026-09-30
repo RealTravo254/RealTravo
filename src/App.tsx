@@ -21,8 +21,9 @@ import VisitTracker from "@/components/VisitTracker";
  * lazyRetry — same as React.lazy, but if a page chunk fails to download
  * (flaky network, brief deploy gap) it waits a moment and tries once more
  * before giving up. If it still fails, the error bubbles up and the
- * stale-deploy recovery in main.tsx (clear service worker + caches, reload
- * once) takes over.
+ * stale-deploy recovery in main.tsx (clear caches, reload once) takes over.
+ * The service worker itself is owned by vite-plugin-pwa (registerType:
+ * 'autoUpdate' in vite.config.ts), not by anything in this app's own code.
  */
 const lazyRetry = <T extends React.ComponentType<any>>(
   factory: () => Promise<{ default: T }>,
@@ -150,8 +151,8 @@ const App = () => {
     };
 
     // NOTE: the old chunk-error reload guard was removed from here. Stale
-    // deploy recovery (clear service worker + caches, reload once) now lives
-    // in main.tsx, so the two don't fight each other.
+    // deploy recovery (clear caches, reload once) now lives in main.tsx, so
+    // the two don't fight each other.
     window.addEventListener("unhandledrejection", handler);
 
     return () => {

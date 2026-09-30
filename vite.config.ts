@@ -47,7 +47,13 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'prompt',
+      // 'autoUpdate' means: once a new service worker has finished
+      // installing in the background, it activates itself and takes over
+      // immediately (skipWaiting + clientsClaim, both already set below) —
+      // no in-app "update available" prompt required. The person just needs
+      // one normal page refresh after that to see the new version, instead
+      // of the new build sitting installed-but-waiting forever.
+      registerType: 'autoUpdate',
       injectRegister: 'inline',
       includeAssets: ['favicon.ico', 'robots.txt'],
       manifest: {

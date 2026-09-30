@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Menu, Heart, Ticket, Home, User, Search, Compass, Briefcase, ChevronDown } from "lucide-react";
+import { Menu, Heart, Ticket, Home, CircleUserRound, Search, Compass, Briefcase } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -197,11 +197,10 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
             onClick={handleAccountClick}
             className="hidden md:flex items-center gap-1.5 cursor-pointer text-white/90 hover:text-white transition-colors py-1 px-2"
           >
-            <User className="h-4 w-4" />
+            <CircleUserRound className="h-4 w-4" />
             <span className="text-[13px] font-medium max-w-[100px] truncate">
               {user ? (firstName || t("nav.profile")) : "Guest"}
             </span>
-            <ChevronDown className="h-3.5 w-3.5 opacity-80" />
           </div>
         </div>
       </div>

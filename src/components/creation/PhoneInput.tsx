@@ -1,76 +1,99 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { COUNTRY_PHONE_CODES } from "@/lib/countryHelpers";
-import { Phone } from "lucide-react";
-
-const COLORS = {
-  TEAL: "#008080",
-  SOFT_GRAY: "#F8F9FA",
-};
+import { ChevronDown } from "lucide-react";
 
 interface PhoneInputProps {
   value: string;
   onChange: (value: string) => void;
   country?: string;
   placeholder?: string;
+  label?: string;
+  error?: string;
 }
 
-export const PhoneInput = ({ value, onChange, country, placeholder = "712 345 678" }: PhoneInputProps) => {
-  const countryCode = country ? COUNTRY_PHONE_CODES[country] || "+254" : "+254";
-  const [selectedCode, setSelectedCode] = useState(countryCode);
+export const PhoneInput = ({
+  value,
+  onChange,
+  country,
+  placeholder = "712 345 678",
+  label = "Phone number",
+  error,
+}: PhoneInputProps) => {
+  const id = useId();
+  const initialCode = (country && COUNTRY_PHONE_CODES[country]) || "+254";
+  const [selectedCode, setSelectedCode] = useState(initialCode);
 
-  // Extract phone number without code
-  const phoneNumber = value.replace(selectedCode, "").replace(/^0+/, "");
+  // Digits only, code and leading zeros stripped
+  const digits = value.replace(selectedCode, "").replace(/\D/g, "").replace(/^0+/, "");
 
-  const handlePhoneChange = (phoneValue: string) => {
-    const cleanPhone = phoneValue.replace(/^0+/, "").replace(/\D/g, "");
-    onChange(`${selectedCode}${cleanPhone}`);
+  // Display in groups of 3 for readability (712 345 678)
+  const display = digits.replace(/(\d{3})(?=\d)/g, "$1 ");
+
+  const handlePhoneChange = (raw: string) => {
+    const clean = raw.replace(/\D/g, "").replace(/^0+/, "");
+    onChange(`${selectedCode}${clean}`);
   };
 
   const handleCodeChange = (code: string) => {
     setSelectedCode(code);
-    const cleanPhone = phoneNumber.replace(/\D/g, "");
-    onChange(`${code}${cleanPhone}`);
+    onChange(`${code}${digits}`);
   };
 
   return (
-    <div className="space-y-2">
-      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-        Phone Number
+    <div className="space-y-1.5">
+      <label htmlFor={id} className="ml-0.5 text-sm font-medium text-slate-600">
+        {label}
       </label>
 
-      <div className="flex gap-0 rounded-[20px] bg-white border border-slate-100 p-1 shadow-sm hover:border-[#008080]/30 transition-all focus-within:ring-2 focus-within:ring-[#008080]/10">
+      <div
+        className={[
+          "group flex items-stretch overflow-hidden rounded-xl border bg-white transition",
+          "focus-within:border-[#008080] focus-within:ring-4 focus-within:ring-[#008080]/15",
+          error ? "border-rose-400" : "border-slate-200 hover:border-slate-300",
+        ].join(" ")}
+      >
+        {/* Country code */}
         <Select value={selectedCode} onValueChange={handleCodeChange}>
           <SelectTrigger
-            className="w-24 h-12 border-none bg-slate-50 rounded-l-[16px] focus:ring-0 shadow-none"
+            aria-label="Country code"
+            className="h-12 w-[92px] shrink-0 gap-1 rounded-none border-0 border-r border-slate-200 bg-[#F4F8F8] px-3.5 shadow-none transition-colors hover:bg-[#E9F2F2] focus:ring-0 focus:ring-offset-0 [&>svg]:hidden"
           >
-            <div className="flex items-center gap-1">
-              <Phone className="h-3 w-3 text-[#008080]" />
-              <SelectValue className="text-xs font-black" />
-            </div>
+            <SelectValue>
+              <span className="text-sm font-semibold tabular-nums text-[#006666]">{selectedCode}</span>
+            </SelectValue>
+            <ChevronDown className="h-3.5 w-3.5 text-[#008080]/70" aria-hidden />
           </SelectTrigger>
-          <SelectContent className="rounded-2xl border-slate-100 shadow-xl">
+          <SelectContent className="max-h-72 rounded-xl border-slate-200 shadow-lg">
             {Object.entries(COUNTRY_PHONE_CODES).map(([cName, code]) => (
               <SelectItem
                 key={`${cName}-${code}`}
                 value={code}
-                className="text-xs font-bold uppercase tracking-tight focus:bg-[#008080] focus:text-white"
+                className="cursor-pointer rounded-lg text-sm text-slate-700 focus:bg-[#008080]/10 focus:text-[#006666] data-[state=checked]:font-semibold"
               >
-                {cName} ({code})
+                <span>{cName}</span>
+                <span className="ml-2 tabular-nums text-slate-400">{code}</span>
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
 
+        {/* Number */}
         <Input
+          id={id}
           type="tel"
-          value={phoneNumber}
+          inputMode="tel"
+          autoComplete="tel-national"
+          value={display}
           onChange={(e) => handlePhoneChange(e.target.value)}
           placeholder={placeholder}
-          className="flex-1 h-12 border-none focus-visible:ring-0 text-sm font-black text-slate-700 placeholder:text-slate-300 placeholder:font-normal uppercase tracking-wider"
+          aria-invalid={!!error}
+          className="h-12 flex-1 rounded-none border-0 bg-transparent px-4 text-base font-medium tabular-nums tracking-wide text-slate-800 shadow-none placeholder:font-normal placeholder:text-slate-300 focus-visible:ring-0 focus-visible:ring-offset-0"
         />
       </div>
+
+      {error && <p className="ml-0.5 text-xs text-rose-600">{error}</p>}
     </div>
   );
 };

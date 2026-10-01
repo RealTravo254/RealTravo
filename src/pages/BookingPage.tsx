@@ -602,6 +602,10 @@ const BookingPage = () => {
   const { toast }    = useToast();
   const { user }     = useAuth();
 
+  // Hotels are stored in the adventure_places table, so "hotel" is handled
+  // exactly like "adventure_place" everywhere (data, capacity, booking type).
+  const isAdventureType = type === "adventure_place" || type === "adventure" || type === "hotel";
+
   const [item, setItem]                                 = useState<any>(null);
   const [loading, setLoading]                           = useState(true);
   const [isProcessing, setIsProcessing]                 = useState(false);
@@ -666,7 +670,8 @@ const BookingPage = () => {
           "allow_children,event_category,inclusions,exclusions"
         ).eq("id", id).maybeSingle();
         data = r.data; error = r.error;
-      } else if (type === "adventure_place" || type === "adventure") {
+      } else if (isAdventureType) {
+        // adventure places AND hotels (hotels live in adventure_places)
         const r = await supabase.from("adventure_places").select(
           "id,name,location,place,country,image_url,description,amenities," +
           "facilities,activities,phone_numbers,email,opening_hours,closing_hours," +
@@ -675,14 +680,6 @@ const BookingPage = () => {
           "non_citizen_entry_fee,non_citizen_child_entry_fee," +
           "has_non_citizen_pricing,special_entry_prices," +
           "child_entry_fee"
-        ).eq("id", id).maybeSingle();
-        data = r.data; error = r.error;
-      } else if (type === "hotel") {
-        const r = await supabase.from("hotels").select(
-          "id,name,location,place,country,image_url,description,amenities," +
-          "facilities,activities,phone_numbers,email,opening_hours,closing_hours," +
-          "days_opened,approval_status,is_hidden,available_rooms,created_by," +
-          "establishment_type,general_booking_link"
         ).eq("id", id).maybeSingle();
         data = r.data; error = r.error;
       }
@@ -708,11 +705,12 @@ const BookingPage = () => {
     }
   };
 
+  // What gets stored in bookings.booking_type. Hotels are saved as
+  // "adventure_place" so the database capacity trigger reads adventure_places.
   const getBookingType = (): BookingType => {
     if (type === "trip")    return "trip";
     if (type === "event")   return "event";
-    if (type === "adventure_place" || type === "adventure") return "adventure_place";
-    if (type === "hotel")   return "hotel";
+    if (isAdventureType)    return "adventure_place";
     return "attraction";
   };
 
@@ -730,8 +728,8 @@ const BookingPage = () => {
     const isGuided = type === "trip" && (item.type === "guided" || item.is_guided === true);
     if (type === "trip")    return isGuided ? "Tour" : "Trip";
     if (type === "event")   return "Event";
-    if (type === "adventure_place" || type === "adventure") return "Adventure Place";
     if (type === "hotel")   return "Hotel";
+    if (type === "adventure_place" || type === "adventure") return "Adventure Place";
     return "Booking";
   };
 
@@ -750,7 +748,7 @@ const BookingPage = () => {
           totalAmount = formData.num_adults * item.price +
             formData.num_children * (item.price_child || 0);
         }
-      } else if (type === "adventure_place" || type === "adventure") {
+      } else if (isAdventureType) {
         if (!isFacilityOnly) {
           if (formData.entryTicketSelections?.length) {
             formData.entryTicketSelections.forEach(t => (totalAmount += t.price * t.quantity));
@@ -767,16 +765,21 @@ const BookingPage = () => {
             totalAmount += f.price * Math.max(days, 1);
           }
         });
-      } else if (type === "hotel") {
-        formData.selectedActivities?.forEach(a => (totalAmount += a.price * a.numberOfPeople));
-        formData.selectedFacilities?.forEach(f => {
-          if (f.startDate && f.endDate) {
-            const days = Math.ceil(
-              (new Date(f.endDate).getTime() - new Date(f.startDate).getTime()) / 86400000
-            );
-            totalAmount += f.price * Math.max(days, 1);
-          }
+      }
+
+      // A visit with free entry can't be booked on its own — it needs a paid
+      // activity or facility. (The booking form blocks this too; this is the
+      // safety net so nothing reaches payment with a zero amount.)
+      if (totalAmount <= 0) {
+        toast({
+          title: "Nothing to book",
+          description: isAdventureType
+            ? "This visit has free entry, so please add at least one paid activity or facility to book."
+            : "Please select at least one paid item to continue.",
+          variant: "destructive",
         });
+        setIsProcessing(false);
+        return;
       }
 
       const slotsBooked = isFacilityOnly
@@ -791,7 +794,9 @@ const BookingPage = () => {
       }
 
       const hostContact = getHostContact();
-      const { typeLabel, contactLabel } = getBookingMeta(bookingType, formData);
+      // Keep the "Hotel" label on tickets/PDF even though it's stored as adventure_place
+      const metaType = type === "hotel" ? "hotel" : bookingType;
+      const { typeLabel, contactLabel } = getBookingMeta(metaType, formData);
 
       const bookingData = {
         item_id:       item.id,
@@ -911,7 +916,8 @@ const BookingPage = () => {
       };
     }
 
-    if (type === "adventure_place" || type === "adventure") {
+    if (isAdventureType) {
+      // adventure places AND hotels share the same entry-ticket + extras flow
       return {
         ...baseProps,
         bookingType:             "adventure_place",
@@ -930,20 +936,6 @@ const BookingPage = () => {
         workingDays:             item.days_opened    || [],
         skipDateSelection:       false,
         allowChildren:           true,
-      };
-    }
-
-    if (type === "hotel") {
-      return {
-        ...baseProps,
-        bookingType:   "hotel",
-        priceAdult:    0,
-        priceChild:    0,
-        entranceType:  "free",
-        facilities:    item.facilities   || [],
-        activities:    item.activities   || [],
-        totalCapacity: item.available_rooms || 0,
-        workingDays:   item.days_opened  || [],
       };
     }
 

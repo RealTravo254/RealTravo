@@ -5,12 +5,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { format, isBefore, parseISO } from "date-fns";
+import { format, isBefore, parseISO, addDays, startOfDay } from "date-fns";
 import { CalendarIcon, Check, Loader2, Minus, Plus, Ticket, AlertCircle, Globe, MapPin, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import {
+  fetchBookedByDate,
+  fetchFacilityBookedDays,
+  getRangeConflictDays,
+} from "@/lib/availability";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Dark-mode lockout
@@ -157,6 +162,8 @@ const TEAL      = "#008080";
 const TEAL_DARK = "#006666";
 const CORAL     = "#FF7F50";
 
+const BOOKED_STYLE = { backgroundColor: "#fee2e2", color: "#ef4444", textDecoration: "line-through" };
+
 const isValidEmail = (email: string) =>
   /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim());
 
@@ -166,6 +173,8 @@ const isValidPhone = (phone: string) => {
   if (digits.length === 13) return /^\+\d{12}$/.test(digits);
   return false;
 };
+
+const formatDay = (key: string) => format(parseISO(key), "EEE, MMM d");
 
 // ── Working-day helpers ─────────────────────────────────────────────────────
 // workingDays can arrive in mixed formats ("Mon", "Monday", "MON", etc). We
@@ -311,13 +320,16 @@ export const MultiStepBooking = ({
     return base;
   });
 
-  // ── Facility booked ranges ─────────────────────────────────────────────────
-  const [facilityBookedRanges,  setFacilityBookedRanges]  = useState<Record<string, { startDate: string; endDate: string }[]>>({});
-  const [dateConflictWarning,   setDateConflictWarning]   = useState<string | null>(null);
+  // ── Booked days (by OTHER people) ──────────────────────────────────────────
+  // facilityBookedDays: every day a facility is already taken, per facility.
+  // dateBooked: slots already booked per visit date for this item.
+  const [facilityBookedDays, setFacilityBookedDays] = useState<Record<string, Set<string>>>({});
+  const [dateBooked, setDateBooked] = useState<Map<string, number>>(new Map());
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   const [availabilityError,     setAvailabilityError]     = useState<string | null>(null);
 
   const hasTicketTypes = ticketTypes.length > 0;
+  const facilityKey = facilities.map(f => f.name).join("|");
 
   // ── Pre-fill from auth ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -351,54 +363,62 @@ export const MultiStepBooking = ({
     }
   }, [searchParams, facilities]);
 
-  // ── Fetch booked ranges ────────────────────────────────────────────────────
-  const fetchFacilityBookedDates = useCallback(async () => {
-    if (!itemId || facilities.length === 0) return;
+  // ── Load facility booked days (security-definer RPC, sees everyone's bookings) ──
+  const loadFacilityBookedDays = useCallback(async (): Promise<Record<string, Set<string>>> => {
+    if (!itemId || facilities.length === 0) return {};
+    const today = startOfDay(new Date());
+    const days = await fetchFacilityBookedDays(
+      itemId,
+      facilities.map(f => f.name),
+      today,
+      addDays(today, 365)
+    );
+    setFacilityBookedDays(days);
+    return days;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemId, facilityKey]);
+
+  useEffect(() => {
+    loadFacilityBookedDays().catch(err => console.error("Error fetching facility booked dates:", err));
+  }, [loadFacilityBookedDays]);
+
+  // ── Load slots already booked per visit date ──────────────────────────────
+  const refreshDateBooked = useCallback(async () => {
+    if (!itemId || totalCapacity <= 0) return;
     try {
-      const { data } = await supabase
-        .from("bookings")
-        .select("id, booking_details")
-        .eq("item_id", itemId)
-        .eq("status", "confirmed")
-        .eq("payment_status", "completed");
-
-      const rangesMap: Record<string, { startDate: string; endDate: string }[]> = {};
-      data?.forEach((booking: any) => {
-        const details = booking.booking_details;
-        if (!details) return;
-        const all = [
-          ...(Array.isArray(details.selectedFacilities) ? details.selectedFacilities : []),
-          ...(Array.isArray(details.facilities)         ? details.facilities         : []),
-        ];
-        all.forEach((f: any) => {
-          if (f?.name && f?.startDate && f?.endDate) {
-            if (!rangesMap[f.name]) rangesMap[f.name] = [];
-            const dup = rangesMap[f.name].some(r => r.startDate === f.startDate && r.endDate === f.endDate);
-            if (!dup) rangesMap[f.name].push({ startDate: f.startDate, endDate: f.endDate });
-          }
-        });
-      });
-      setFacilityBookedRanges(rangesMap);
+      const today = startOfDay(new Date());
+      setDateBooked(await fetchBookedByDate(itemId, today, addDays(today, 365)));
     } catch (err) {
-      console.error("Error fetching facility booked dates:", err);
+      console.error("Error fetching date availability:", err);
     }
-  }, [itemId, facilities]);
+  }, [itemId, totalCapacity]);
 
-  useEffect(() => { fetchFacilityBookedDates(); }, [fetchFacilityBookedDates]);
+  useEffect(() => { refreshDateBooked(); }, [refreshDateBooked]);
 
-  // ── Date helpers ───────────────────────────────────────────────────────────
-  const isFacilityDateBooked = useCallback((name: string, date: Date): boolean => {
-    const ranges  = facilityBookedRanges[name] || [];
-    const dateStr = format(date, "yyyy-MM-dd");
-    return ranges.some(r => dateStr >= r.startDate && dateStr < r.endDate);
-  }, [facilityBookedRanges]);
+  // ── Visit-date helpers ─────────────────────────────────────────────────────
+  const slotsLeftOn = (date: Date) =>
+    Math.max(0, totalCapacity - (dateBooked.get(format(date, "yyyy-MM-dd")) || 0));
 
-  const isFacilityRangeAvailable = useCallback((name: string, start: string, end: string): boolean => {
-    const ranges = facilityBookedRanges[name] || [];
-    return !ranges.some(r => start < r.endDate && end > r.startDate);
-  }, [facilityBookedRanges]);
+  const isDateFull = (date: Date) => totalCapacity > 0 && slotsLeftOn(date) <= 0;
 
-  // ── Live availability check ────────────────────────────────────────────────
+  // Max people this booking can add on the chosen date (Infinity = unknown/unlimited)
+  const peopleCap = visitDate && totalCapacity > 0 ? slotsLeftOn(visitDate) : Infinity;
+
+  // ── Facility date helpers ──────────────────────────────────────────────────
+  const isFacilityDateBooked = useCallback((name: string, date: Date): boolean =>
+    !!facilityBookedDays[name]?.has(format(date, "yyyy-MM-dd")),
+  [facilityBookedDays]);
+
+  /** Every booked day inside the stay, including days in between. Check-out day stays free. */
+  const getFacilityConflictDays = useCallback((name: string, start?: string, end?: string): string[] =>
+    getRangeConflictDays(facilityBookedDays[name], start, end),
+  [facilityBookedDays]);
+
+  const isFacilityRangeAvailable = useCallback((name: string, start: string, end: string): boolean =>
+    getFacilityConflictDays(name, start, end).length === 0,
+  [getFacilityConflictDays]);
+
+  // ── Live availability check (fresh from the database) ─────────────────────
   const checkFacilityAvailabilityLive = async (): Promise<boolean> => {
     const withDates = selectedFacilities.filter(f => f.startDate && f.endDate);
     if (withDates.length === 0) return true;
@@ -406,43 +426,18 @@ export const MultiStepBooking = ({
     setIsCheckingAvailability(true);
     setAvailabilityError(null);
     try {
-      const { data, error } = await supabase
-        .from("bookings")
-        .select("id, booking_details")
-        .eq("item_id", itemId)
-        .eq("status", "confirmed")
-        .eq("payment_status", "completed");
-
-      if (error) throw error;
-
-      const freshRanges: Record<string, { startDate: string; endDate: string }[]> = {};
-      data?.forEach((booking: any) => {
-        const details = booking.booking_details;
-        if (!details) return;
-        const all = [
-          ...(Array.isArray(details.selectedFacilities) ? details.selectedFacilities : []),
-          ...(Array.isArray(details.facilities)         ? details.facilities         : []),
-        ];
-        all.forEach((f: any) => {
-          if (f?.name && f?.startDate && f?.endDate) {
-            if (!freshRanges[f.name]) freshRanges[f.name] = [];
-            const dup = freshRanges[f.name].some(r => r.startDate === f.startDate && r.endDate === f.endDate);
-            if (!dup) freshRanges[f.name].push({ startDate: f.startDate, endDate: f.endDate });
-          }
-        });
-      });
-      setFacilityBookedRanges(freshRanges);
+      const fresh = await loadFacilityBookedDays();
 
       const conflicts: string[] = [];
       for (const f of withDates) {
-        const ranges = freshRanges[f.name] || [];
-        if (ranges.some(r => f.startDate! < r.endDate && f.endDate! > r.startDate)) {
-          conflicts.push(f.name);
+        const days = getRangeConflictDays(fresh[f.name], f.startDate, f.endDate);
+        if (days.length > 0) {
+          conflicts.push(`${f.name} (${days.map(formatDay).join(", ")})`);
         }
       }
       if (conflicts.length > 0) {
         setAvailabilityError(
-          `Sorry — ${conflicts.join(", ")} ${conflicts.length > 1 ? "are" : "is"} no longer available for your selected dates. Please choose different dates.`
+          `Sorry — already booked by someone else: ${conflicts.join("; ")}. Please choose different dates.`
         );
         return false;
       }
@@ -458,8 +453,9 @@ export const MultiStepBooking = ({
   const getFacilityDateValidationError = (f: { name: string; startDate?: string; endDate?: string }) => {
     if (!f.startDate || !f.endDate) return "Please choose both a start and end date.";
     if (f.endDate <= f.startDate)   return "Check-out must be after check-in.";
-    if (!isFacilityRangeAvailable(f.name, f.startDate, f.endDate))
-      return "The selected dates overlap with an existing booking.";
+    const days = getFacilityConflictDays(f.name, f.startDate, f.endDate);
+    if (days.length > 0)
+      return `Already booked on: ${days.map(formatDay).join(", ")}. Please choose different dates.`;
     return "";
   };
 
@@ -507,6 +503,25 @@ export const MultiStepBooking = ({
     getTotalEntryPeople() > 0 ||
     (!hasTicketTypes && !isAdventurePlace && numAdults + numChildren > 0);
 
+  // ── Free-entry rule ───────────────────────────────────────────────────────
+  // If the visit itself is not paid (free entry), it can't be booked on its own:
+  // the guest must also book a paid activity or a facility (with dates).
+  const entryIsFree =
+    isAdventurePlace && !isFacilityOnlyMode && getTotalEntryPeople() > 0 && calculateEntryTotal() <= 0;
+  const hasPaidExtra =
+    selectedActivities.some(a => a.price * a.numberOfPeople > 0) ||
+    selectedFacilities.some(f => !!f.startDate && !!f.endDate && f.price > 0);
+  const mustAddExtra = entryIsFree && !hasPaidExtra;
+
+  const freeEntryNotice = mustAddExtra ? (
+    <div className="flex items-start gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 p-3 rounded-2xl">
+      <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+      <span>
+        Entry here is free, so a visit can't be booked on its own. Please add at least one activity or facility to continue.
+      </span>
+    </div>
+  ) : null;
+
   // ─────────────────────────────────────────────────────────────────────────
   // Steps
   // ─────────────────────────────────────────────────────────────────────────
@@ -544,6 +559,13 @@ export const MultiStepBooking = ({
 
   const currentStepId = steps[currentStep]?.id;
 
+  // The last of the extras steps (facilities / activities) is where the free-entry rule is enforced
+  const lastExtrasIndex = steps.reduce(
+    (acc, st, i) => (["step_facilities", "step_activities", "extras"].includes(st.id) ? i : acc),
+    -1
+  );
+  const isLastExtrasStep = currentStep === lastExtrasIndex;
+
   // ─────────────────────────────────────────────────────────────────────────
   // Navigation
   // ─────────────────────────────────────────────────────────────────────────
@@ -568,7 +590,45 @@ export const MultiStepBooking = ({
   };
 
   const handleSubmit = async () => {
+    if (mustAddExtra || calculateTotal() <= 0) return;
     const totalTickets = hasTicketTypes ? getTotalTickets() : numAdults + numChildren;
+
+    // ── Final live checks BEFORE payment ──────────────────────────────────
+    setAvailabilityError(null);
+    setIsCheckingAvailability(true);
+    let allClear = true;
+    try {
+      // 1) The visit date must still have enough free slots (other people may have booked)
+      if (!isFacilityOnlyMode && visitDate && totalCapacity > 0) {
+        const key    = format(visitDate, "yyyy-MM-dd");
+        const booked = await fetchBookedByDate(itemId, visitDate, visitDate);
+        const left   = Math.max(0, totalCapacity - (booked.get(key) || 0));
+        const people = isAdventurePlace
+          ? getTotalEntryPeople()
+          : (hasTicketTypes ? getTotalTickets() : numAdults + numChildren);
+
+        if (left < Math.max(1, people)) {
+          setAvailabilityError(
+            left === 0
+              ? `${format(visitDate, "PPP")} is fully booked by other guests. Please go back and choose another date.`
+              : `Only ${left} slot${left > 1 ? "s" : ""} left on ${format(visitDate, "PPP")} (you selected ${people}). Please reduce your tickets or choose another date.`
+          );
+          refreshDateBooked();
+          allClear = false;
+        }
+      }
+    } catch {
+      setAvailabilityError("Could not verify availability. Please check your connection and try again.");
+      allClear = false;
+    } finally {
+      setIsCheckingAvailability(false);
+    }
+    if (!allClear) return;
+
+    // 2) Every facility day (including days in between) must still be free
+    const facilitiesOk = await checkFacilityAvailabilityLive();
+    if (!facilitiesOk) return;
+
     const formData: BookingFormData = {
       visit_date:   visitDate ? format(visitDate, "yyyy-MM-dd") : fixedDate,
       num_adults:   isAdventurePlace
@@ -594,24 +654,29 @@ export const MultiStepBooking = ({
 
   const isStepValid = (): boolean => {
     switch (currentStepId) {
-      case "date":          return !!visitDate;
+      case "date":          return !!visitDate && !isDateFull(visitDate);
       case "travelers":     return numAdults > 0 && (numAdults + numChildren) <= 20;
-      case "entry_tickets": return getTotalEntryPeople() > 0;
+      case "entry_tickets":
+        // free entry + nothing to add on later steps = nothing bookable
+        return getTotalEntryPeople() > 0 && !(mustAddExtra && lastExtrasIndex === -1);
       case "tickets": {
         const total = getTotalTickets();
         return total > 0 && total <= 20;
       }
       case "facilities":
       case "step_facilities": {
+        if (mustAddExtra && isLastExtrasStep) return false;
         if (selectedFacilities.length === 0) return true;
-        return selectedFacilities.every(f => !getFacilityDateValidationError(f)) && !dateConflictWarning;
+        return selectedFacilities.every(f => !getFacilityDateValidationError(f));
       }
       case "activities":
       case "step_activities":
+        if (mustAddExtra && isLastExtrasStep) return false;
         return canSkipExtras;
       case "extras": {
+        if (mustAddExtra) return false;
         if (selectedFacilities.length === 0 && selectedActivities.length === 0) return canSkipExtras;
-        return selectedFacilities.every(f => !getFacilityDateValidationError(f)) && !dateConflictWarning;
+        return selectedFacilities.every(f => !getFacilityDateValidationError(f));
       }
       case "details":
         return guestName.trim() !== "" && isValidEmail(guestEmail) && isValidPhone(guestPhone);
@@ -625,6 +690,8 @@ export const MultiStepBooking = ({
   // ─────────────────────────────────────────────────────────────────────────
 
   const updateEntryTicket = (type: string, delta: number) => {
+    // Never let the booking exceed the slots still free on the chosen date
+    if (delta > 0 && getTotalEntryPeople() >= peopleCap) return;
     setEntryTickets(prev =>
       prev.map(t =>
         t.type === type
@@ -663,26 +730,17 @@ export const MultiStepBooking = ({
     else        setSelectedFacilities(prev => [...prev, { name: facility.name, price: facility.price }]);
   };
 
+  // The chosen dates are always kept so the guest can SEE the problem; invalid or
+  // booked ranges are flagged on screen and block "Continue" (see isStepValid).
   const updateFacilityDates = (name: string, startDate?: string, endDate?: string) => {
     setAvailabilityError(null);
-    if (startDate && endDate && endDate <= startDate) {
-      setDateConflictWarning(`Check-out date must be after check-in date for ${name}.`);
-      return;
-    }
-    if (startDate && endDate) {
-      if (!isFacilityRangeAvailable(name, startDate, endDate)) {
-        setDateConflictWarning(`Selected dates for ${name} overlap with an existing booking.`);
-        return;
-      }
-      setDateConflictWarning(null);
-    }
     setSelectedFacilities(prev => prev.map(f => f.name === name ? { ...f, startDate, endDate } : f));
   };
 
   const updateTicketQuantity = (name: string, quantity: number) => {
     const maxPerBooking  = 20;
     const currentTotal   = ticketSelections.reduce((s, t) => s + (t.name === name ? 0 : t.quantity), 0);
-    const maxForThis     = Math.min(totalCapacity, maxPerBooking) - currentTotal;
+    const maxForThis     = Math.min(totalCapacity, maxPerBooking, peopleCap) - currentTotal;
     setTicketSelections(prev =>
       prev.map(t => t.name === name ? { ...t, quantity: Math.max(0, Math.min(quantity, maxForThis)) } : t)
     );
@@ -743,8 +801,12 @@ export const MultiStepBooking = ({
       {facilities.map(facility => {
         const isSelected    = selectedFacilities.some(f => f.name === facility.name);
         const selected      = selectedFacilities.find(f => f.name === facility.name);
-        const bookedRanges  = facilityBookedRanges[facility.name] || [];
+        const upcomingBooked = Array.from(facilityBookedDays[facility.name] || []).sort();
+        const conflictDays  = selected ? getFacilityConflictDays(facility.name, selected.startDate, selected.endDate) : [];
         const facilityError = selected ? getFacilityDateValidationError(selected) : "";
+        const nights = selected?.startDate && selected?.endDate
+          ? Math.max(1, Math.ceil((new Date(selected.endDate).getTime() - new Date(selected.startDate).getTime()) / 86400000))
+          : 0;
         return (
           <div key={facility.name}
             className={cn("p-4 border rounded-2xl transition-all",
@@ -790,7 +852,7 @@ export const MultiStepBooking = ({
                             closed: date => !isWorkingDayDate(date, workingDays),
                           }}
                           modifiersStyles={{
-                            booked: { backgroundColor: "#fee2e2", color: "#ef4444", textDecoration: "line-through" },
+                            booked: BOOKED_STYLE,
                             closed: { opacity: 0.35, textDecoration: "line-through" },
                           }}
                           initialFocus />
@@ -801,7 +863,7 @@ export const MultiStepBooking = ({
                     </Popover>
                   </div>
                   <div>
-                    <Label className="text-[10px] font-black uppercase text-slate-400">End Date</Label>
+                    <Label className="text-[10px] font-black uppercase text-slate-400">End Date (check-out)</Label>
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button variant="outline"
@@ -812,12 +874,13 @@ export const MultiStepBooking = ({
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
+                        {/* Booked days stay selectable here as check-out, but any booked
+                            day INSIDE the stay is flagged and blocks the booking. */}
                         <Calendar mode="single"
                           selected={selected?.endDate ? parseISO(selected.endDate) : undefined}
                           onSelect={date => { if (date) updateFacilityDates(facility.name, selected?.startDate, format(date, "yyyy-MM-dd")); }}
                           disabled={date =>
                             isBefore(date, selected?.startDate ? parseISO(selected.startDate) : new Date()) ||
-                            isFacilityDateBooked(facility.name, date) ||
                             !isWorkingDayDate(date, workingDays)
                           }
                           modifiers={{
@@ -825,7 +888,7 @@ export const MultiStepBooking = ({
                             closed: date => !isWorkingDayDate(date, workingDays),
                           }}
                           modifiersStyles={{
-                            booked: { backgroundColor: "#fee2e2", color: "#ef4444", textDecoration: "line-through" },
+                            booked: BOOKED_STYLE,
                             closed: { opacity: 0.35, textDecoration: "line-through" },
                           }}
                           initialFocus />
@@ -841,46 +904,60 @@ export const MultiStepBooking = ({
                     understand the color coding used inside it. */}
                 <CalendarLegend showBooked />
 
-                {facilityError && (
+                {/* Booked day(s) inside the chosen stay — blocks the booking */}
+                {conflictDays.length > 0 && (
+                  <div className="rounded-2xl bg-red-50 border border-red-200 p-3">
+                    <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-red-600">
+                      <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                      {conflictDays.length === 1 ? "Day already booked" : "Days already booked"}
+                    </div>
+                    <p className="text-xs text-red-500 mt-1">
+                      Someone else has already booked {facility.name} on these days, so it can't be booked for your dates. Please choose different dates.
+                    </p>
+                    <ul className="mt-2 space-y-0.5">
+                      {conflictDays.map(d => (
+                        <li key={d} className="text-[11px] font-bold text-red-600">• {formatDay(d)}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {facilityError && conflictDays.length === 0 && (
                   <div className="flex items-center gap-2 text-xs text-red-500 bg-red-50 p-2 rounded-xl">
                     <AlertCircle className="h-3 w-3 flex-shrink-0" /><span>{facilityError}</span>
                   </div>
                 )}
-                {dateConflictWarning && !facilityError && (
-                  <div className="flex items-center gap-2 text-xs text-red-500 bg-red-50 p-2 rounded-xl">
-                    <AlertCircle className="h-3 w-3 flex-shrink-0" /><span>{dateConflictWarning}</span>
-                  </div>
-                )}
-                {bookedRanges.length > 0 && (
+
+                {upcomingBooked.length > 0 && (
                   <div className="rounded-2xl bg-slate-50 border border-slate-200 p-3 text-xs text-slate-600">
-                    <p className="font-bold uppercase tracking-[0.2em] mb-2">Booked dates</p>
-                    <div className="space-y-1">
-                      {bookedRanges.map((range, idx) => (
-                        <div key={idx} className="text-[11px]">
-                          {format(parseISO(range.startDate), "MMM d, yyyy")} — {format(parseISO(range.endDate), "MMM d, yyyy")}
-                        </div>
+                    <p className="font-bold uppercase tracking-[0.2em] mb-2">Already booked days</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {upcomingBooked.slice(0, 12).map(d => (
+                        <span key={d} className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-red-50 text-red-500 border border-red-100">
+                          {format(parseISO(d), "MMM d")}
+                        </span>
                       ))}
+                      {upcomingBooked.length > 12 && (
+                        <span className="text-[10px] font-bold text-slate-400 self-center">
+                          +{upcomingBooked.length - 12} more
+                        </span>
+                      )}
                     </div>
                   </div>
                 )}
+
                 {selected?.startDate && selected?.endDate && selected.endDate > selected.startDate &&
-                  isFacilityRangeAvailable(facility.name, selected.startDate, selected.endDate) && (
+                  conflictDays.length === 0 && (
                   <>
                     <div className="flex items-center gap-2 text-xs text-green-600 bg-green-50 p-2 rounded-xl">
-                      <Check className="h-3 w-3 flex-shrink-0" /><span>Available for selected dates</span>
+                      <Check className="h-3 w-3 flex-shrink-0" /><span>Available for all selected days</span>
                     </div>
                     <div className="text-sm font-bold" style={{ color: TEAL }}>
-                      {Math.max(1, Math.ceil((new Date(selected.endDate).getTime() - new Date(selected.startDate).getTime()) / 86400000))} nights
+                      {nights} nights
                       {" — "}
-                      {formatPrice(facility.price * Math.max(1, Math.ceil((new Date(selected.endDate).getTime() - new Date(selected.startDate).getTime()) / 86400000)))}
+                      {formatPrice(facility.price * nights)}
                     </div>
                   </>
-                )}
-                {selected?.startDate && selected?.endDate && selected.endDate > selected.startDate &&
-                  !isFacilityRangeAvailable(facility.name, selected.startDate, selected.endDate) && (
-                  <div className="flex items-center gap-2 text-xs text-red-500 bg-red-50 p-2 rounded-xl">
-                    <AlertCircle className="h-3 w-3 flex-shrink-0" /><span>Not available. Please choose different dates.</span>
-                  </div>
                 )}
               </div>
             )}
@@ -991,7 +1068,29 @@ export const MultiStepBooking = ({
         {/* Tip */}
         <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-500">
           Select the number of tickets per category. You need at least 1 ticket to continue.
+          {Number.isFinite(peopleCap) && (
+            <span className="block mt-1 font-bold text-slate-600">
+              {peopleCap} slot{peopleCap === 1 ? "" : "s"} left on {visitDate ? format(visitDate, "PPP") : "this date"}.
+            </span>
+          )}
         </div>
+
+        {entryIsFree && (
+          <div className="flex items-start gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 p-3 rounded-2xl">
+            <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+            <span>
+              Entry is free here. To complete a booking you'll also need to add an activity or a facility on the next steps.
+              {lastExtrasIndex === -1 && " This place has none available to add, so it can't be booked online."}
+            </span>
+          </div>
+        )}
+
+        {Number.isFinite(peopleCap) && getTotalEntryPeople() >= peopleCap && (
+          <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 p-3 rounded-xl">
+            <AlertCircle className="h-4 w-4 flex-shrink-0" />
+            <span>That's all the slots left on this date. Go back to pick another date for more people.</span>
+          </div>
+        )}
 
         {/* Citizen tickets */}
         <div>
@@ -1148,29 +1247,46 @@ export const MultiStepBooking = ({
           </div>
 
           {/* Inline calendar — no button/popover, the calendar itself is the
-              date picker. Past dates and days outside the working days above
-              are disabled and shown faded/struck-through. */}
+              date picker. Past dates, closed days and days that are already
+              fully booked by other guests are disabled and shown struck-through. */}
           <div className="rounded-2xl border border-slate-200 bg-white p-2">
             <Calendar
               mode="single"
               selected={visitDate}
               onSelect={setVisitDate}
-              disabled={date => isBefore(date, new Date()) || !isWorkingDayDate(date, workingDays)}
-              modifiers={{ closed: date => !isWorkingDayDate(date, workingDays) }}
-              modifiersStyles={{ closed: { opacity: 0.35, textDecoration: "line-through" } }}
+              disabled={date =>
+                isBefore(date, new Date()) ||
+                !isWorkingDayDate(date, workingDays) ||
+                isDateFull(date)
+              }
+              modifiers={{
+                closed: date => !isWorkingDayDate(date, workingDays),
+                full:   date => isDateFull(date),
+              }}
+              modifiersStyles={{
+                closed: { opacity: 0.35, textDecoration: "line-through" },
+                full:   BOOKED_STYLE,
+              }}
               className="mx-auto"
               initialFocus
             />
           </div>
 
-          <CalendarLegend />
+          <CalendarLegend showBooked={totalCapacity > 0} />
 
           {visitDate && (
-            <div className="p-3 rounded-xl flex items-center gap-2" style={{ backgroundColor: `${TEAL}10` }}>
-              <CalendarIcon className="h-4 w-4 flex-shrink-0" style={{ color: TEAL }} />
-              <span className="text-sm font-bold" style={{ color: TEAL }}>
-                {format(visitDate, "PPP")}
-              </span>
+            <div className="p-3 rounded-xl flex items-center justify-between gap-2" style={{ backgroundColor: `${TEAL}10` }}>
+              <div className="flex items-center gap-2">
+                <CalendarIcon className="h-4 w-4 flex-shrink-0" style={{ color: TEAL }} />
+                <span className="text-sm font-bold" style={{ color: TEAL }}>
+                  {format(visitDate, "PPP")}
+                </span>
+              </div>
+              {totalCapacity > 0 && (
+                <span className="text-[11px] font-black uppercase tracking-wide" style={{ color: TEAL }}>
+                  {slotsLeftOn(visitDate)} slots left
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -1187,6 +1303,12 @@ export const MultiStepBooking = ({
             <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 p-3 rounded-xl">
               <AlertCircle className="h-4 w-4 flex-shrink-0" />
               <span>Maximum limit of 20 tickets per booking reached.</span>
+            </div>
+          )}
+          {Number.isFinite(peopleCap) && getTotalTickets() >= peopleCap && getTotalTickets() < 20 && (
+            <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 p-3 rounded-xl">
+              <AlertCircle className="h-4 w-4 flex-shrink-0" />
+              <span>Only {peopleCap} slot{peopleCap === 1 ? "" : "s"} left for this date.</span>
             </div>
           )}
           {ticketSelections.map(ticket => (
@@ -1212,7 +1334,7 @@ export const MultiStepBooking = ({
                   <span className="w-8 text-center font-black text-lg">{ticket.quantity}</span>
                   <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl"
                     onClick={() => updateTicketQuantity(ticket.name, ticket.quantity + 1)}
-                    disabled={getTotalTickets() >= 20}>
+                    disabled={getTotalTickets() >= Math.min(20, peopleCap)}>
                     <Plus className="h-3 w-3" />
                   </Button>
                 </div>
@@ -1239,6 +1361,11 @@ export const MultiStepBooking = ({
       {currentStepId === "travelers" && (
         <div className="space-y-4">
           <p className="text-xs text-muted-foreground">Maximum 20 people per booking.</p>
+          {Number.isFinite(peopleCap) && (
+            <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-600">
+              {peopleCap} slot{peopleCap === 1 ? "" : "s"} left on {visitDate ? format(visitDate, "PPP") : "this date"}.
+            </div>
+          )}
           {(numAdults + numChildren) >= 20 && (
             <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 p-3 rounded-xl">
               <AlertCircle className="h-4 w-4 flex-shrink-0" />
@@ -1257,8 +1384,8 @@ export const MultiStepBooking = ({
               </Button>
               <span className="w-8 text-center font-black">{numAdults}</span>
               <Button variant="outline" size="icon" className="rounded-xl"
-                onClick={() => setNumAdults(Math.min(Math.min(20, totalCapacity) - numChildren, numAdults + 1))}
-                disabled={(numAdults + numChildren) >= 20}>
+                onClick={() => setNumAdults(Math.max(1, Math.min(Math.min(20, totalCapacity, peopleCap) - numChildren, numAdults + 1)))}
+                disabled={(numAdults + numChildren) >= Math.min(20, peopleCap)}>
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
@@ -1276,8 +1403,8 @@ export const MultiStepBooking = ({
                 </Button>
                 <span className="w-8 text-center font-black">{numChildren}</span>
                 <Button variant="outline" size="icon" className="rounded-xl"
-                  onClick={() => setNumChildren(Math.min(Math.min(20, totalCapacity) - numAdults, numChildren + 1))}
-                  disabled={(numAdults + numChildren) >= 20}>
+                  onClick={() => setNumChildren(Math.max(0, Math.min(Math.min(20, totalCapacity, peopleCap) - numAdults, numChildren + 1)))}
+                  disabled={(numAdults + numChildren) >= Math.min(20, peopleCap)}>
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
@@ -1317,9 +1444,11 @@ export const MultiStepBooking = ({
       {/* ── SEPARATE ACTIVITIES STEP ── */}
       {currentStepId === "step_activities" && (
         <div className="space-y-4">
-          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-sm text-slate-600">
-            No activities? You can skip this step.
-          </div>
+          {mustAddExtra ? freeEntryNotice : (
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-sm text-slate-600">
+              No activities? You can skip this step.
+            </div>
+          )}
           {currentTotalAmount <= 0 && selectedActivities.length === 0 && selectedFacilities.length === 0 && (
             <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-sm text-amber-700">
               Your booking has no payable items yet. Add an activity or facility.
@@ -1340,9 +1469,11 @@ export const MultiStepBooking = ({
       {/* ── SEPARATE FACILITIES STEP ── */}
       {currentStepId === "step_facilities" && (
         <div className="space-y-4">
-          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-sm text-slate-600">
-            No facilities? You can skip this step. Start and end dates are required per facility.
-          </div>
+          {mustAddExtra ? freeEntryNotice : (
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-sm text-slate-600">
+              No facilities? You can skip this step. Start and end dates are required per facility.
+            </div>
+          )}
           {currentTotalAmount <= 0 && selectedFacilities.length === 0 && (
             <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-sm text-amber-700">
               Your booking has no payable items yet.
@@ -1372,9 +1503,11 @@ export const MultiStepBooking = ({
       {/* ── COMBINED EXTRAS STEP ── */}
       {currentStepId === "extras" && (
         <div className="space-y-6">
-          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-sm text-slate-600">
-            No extras? You can skip this step.
-          </div>
+          {mustAddExtra ? freeEntryNotice : (
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-sm text-slate-600">
+              No extras? You can skip this step.
+            </div>
+          )}
           {currentTotalAmount <= 0 && selectedActivities.length === 0 && selectedFacilities.length === 0 && (
             <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-sm text-amber-700">
               Please choose at least one item before continuing.
@@ -1442,6 +1575,13 @@ export const MultiStepBooking = ({
       {/* ── REVIEW ── */}
       {currentStepId === "review" && (
         <div className="space-y-4">
+          {freeEntryNotice}
+          {availabilityError && (
+            <div className="flex items-start gap-2 text-sm text-red-600 bg-red-50 border border-red-200 p-3 rounded-2xl">
+              <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" /><span>{availabilityError}</span>
+            </div>
+          )}
+
           <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
 
             {/* Date */}
@@ -1569,7 +1709,7 @@ export const MultiStepBooking = ({
         ) : (
           <Button
             onClick={handleSubmit}
-            disabled={isProcessing || calculateTotal() <= 0}
+            disabled={isProcessing || isCheckingAvailability || mustAddExtra || calculateTotal() <= 0}
             className="flex-[2] py-6 rounded-2xl text-[11px] font-black uppercase tracking-[0.15em] text-white shadow-xl transition-all active:scale-95 border-none"
             style={{
               background: `linear-gradient(135deg, #FF9E7A 0%, ${CORAL} 100%)`,
@@ -1578,7 +1718,9 @@ export const MultiStepBooking = ({
           >
             {isProcessing
               ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing...</>
-              : "Confirm Booking"}
+              : isCheckingAvailability
+                ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Checking availability...</>
+                : "Confirm Booking"}
           </Button>
         )}
       </div>

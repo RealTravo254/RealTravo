@@ -123,7 +123,8 @@ export async function checkFacilityRanges(
         p_item_id: itemId,
         p_facility_name: f.name,
         p_start: f.startDate,
-        p_end: f.endDate || f.startDate,
+        // check-out day stays free, so the last occupied day is end - 1
+        p_end: lastOccupiedDay(f.startDate, f.endDate),
         p_exclude_booking_id: excludeBookingId ?? null,
       });
       if (error) throw error;
@@ -144,4 +145,50 @@ export function shiftFacilityRanges(facilities: FacilityRange[], deltaDays: numb
     startDate: f.startDate ? dateKey(addDays(parseISO(f.startDate), deltaDays)) : f.startDate,
     endDate: f.endDate ? dateKey(addDays(parseISO(f.endDate), deltaDays)) : f.endDate,
   }));
+}
+
+/** Last day actually occupied by a [start, end) stay (the check-out day stays free). */
+export function lastOccupiedDay(start: string, end?: string): string {
+  if (!end || end <= start) return start;
+  return dateKey(addDays(parseISO(end), -1));
+}
+
+/**
+ * Days already taken (by other bookings) for each facility, between start and end.
+ * Used to paint booked days on the facility calendars.
+ */
+export async function fetchFacilityBookedDays(
+  itemId: string,
+  facilityNames: string[],
+  start: Date,
+  end: Date,
+  excludeBookingId?: string
+): Promise<Record<string, Set<string>>> {
+  const out: Record<string, Set<string>> = {};
+  await Promise.all(
+    facilityNames.map(async (name) => {
+      const { data, error } = await (supabase as any).rpc("get_facility_booked_dates", {
+        p_item_id: itemId,
+        p_facility_name: name,
+        p_start: dateKey(start),
+        p_end: dateKey(end),
+        p_exclude_booking_id: excludeBookingId ?? null,
+      });
+      if (error) throw error;
+      out[name] = new Set<string>((data || []).map((r: any) => r.booked_date));
+    })
+  );
+  return out;
+}
+
+/** Booked days inside a [start, end) stay, including every day in between. */
+export function getRangeConflictDays(
+  booked: Set<string> | undefined,
+  start?: string,
+  end?: string
+): string[] {
+  if (!booked || !start || !end || end <= start) return [];
+  return eachDayOfInterval({ start: parseISO(start), end: addDays(parseISO(end), -1) })
+    .map(dateKey)
+    .filter((k) => booked.has(k));
 }

@@ -214,9 +214,10 @@ const ListingCardComponent = ({
   const isAdventurePlace = type === "ADVENTURE PLACE";
   const isHotel = isAdventurePlace && category === "hotel";
   const remainingTickets = availableTickets - bookedTickets;
-  const isSoldOut = isTrip && availableTickets > 0 && remainingTickets <= 0;
-  const isUnavailable = isOutdated || isSoldOut;
   const isGuidedTour = isFlexibleDate && isTrip;
+  // Guided tours never show a sold-out state (no badge, overlay, or dimming).
+  const isSoldOut = isTrip && !isGuidedTour && availableTickets > 0 && remainingTickets <= 0;
+  const isUnavailable = isOutdated || isSoldOut;
 
   // Hotels: price comes from the cheapest room type unless a price was passed in.
   const displayPrice = useMemo(() => {

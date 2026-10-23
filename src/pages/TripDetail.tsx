@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import {
   MapPin, Share2, Copy, Clock, Users,
   ChevronLeft, ChevronRight, Grid2X2, Zap, Navigation, ExternalLink, Check, X,
+  MessageCircleQuestion,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -20,6 +21,7 @@ import { DetailNavBar } from "@/components/detail/DetailNavBar";
 import { TealLoader } from "@/components/ui/teal-loader";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { Footer } from "@/components/Footer";
+import { InquiryDialog } from "@/components/InquiryDialog";
 
 // ── Design tokens ─────────────────────────────────────────────────────────
 const FOREST       = "#1F4D3A";
@@ -440,6 +442,7 @@ const BookingCard = ({
   openInMaps,
   handleCopyLink,
   handleShare,
+  onInquire,
 }: {
   event: any;
   formatPrice: (v: number) => string;
@@ -451,6 +454,7 @@ const BookingCard = ({
   openInMaps: () => void;
   handleCopyLink: () => void;
   handleShare: () => void;
+  onInquire: () => void;
 }) => (
   <div className="bg-white rounded-[28px] p-5 lg:sticky lg:top-24" style={{ border: `1px solid ${HAIRLINE}`, boxShadow: "0 8px 30px rgba(28,43,34,0.06)", fontFamily: FONT_BODY }}>
 
@@ -564,6 +568,14 @@ const BookingCard = ({
       {isSoldOut ? "Fully booked" : isExpired ? "Trip expired" : "Reserve spot"}
     </Button>
 
+    <Button
+      type="button" variant="ghost" onClick={onInquire}
+      className="w-full mt-2.5 py-5 rounded-2xl text-sm font-semibold border"
+      style={{ borderColor: FOREST, color: FOREST, background: "transparent", fontFamily: FONT_BODY }}
+    >
+      <MessageCircleQuestion className="h-4 w-4 mr-2" /> Ask the host
+    </Button>
+
     <div className="grid grid-cols-3 gap-2 mt-4 pt-4" style={{ borderTop: `1px solid ${HAIRLINE}` }}>
       <UtilityButton icon={<MapPin className="h-4 w-4" />} label="Map" onClick={openInMaps} />
       <UtilityButton icon={<Copy className="h-4 w-4" />} label="Copy" onClick={handleCopyLink} />
@@ -590,6 +602,8 @@ const TripDetail = () => {
   const [scrolled, setScrolled] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [mapModalOpen, setMapModalOpen] = useState(false);
+  // Must stay above the `if (loading) return` early return below (rules of hooks)
+  const [inquiryOpen, setInquiryOpen] = useState(false);
 
   const { savedItems, handleSave: handleSaveItem } = useSavedItems();
   const currentItemId = event?.id || "";
@@ -708,6 +722,7 @@ const TripDetail = () => {
     openInMaps,
     handleCopyLink,
     handleShare,
+    onInquire: () => setInquiryOpen(true),
   };
 
   return (
@@ -824,14 +839,24 @@ const TripDetail = () => {
               <div className="text-[11px] font-medium" style={{ color: INK_SOFT }}>Child: {formatPrice(event.price_child || 0)}</div>
             )}
           </div>
-          <Button
-            onClick={() => navigateToBooking(`/booking/trip/${event.id}`)}
-            disabled={!canBook}
-            className="px-6 py-5 rounded-xl text-sm font-semibold text-white border-none"
-            style={{ background: !canBook ? "#B9C2BC" : `linear-gradient(135deg, ${CLAY_LIGHT} 0%, ${CLAY} 100%)` }}
-          >
-            {isSoldOut ? "Fully booked" : isExpired ? "Expired" : "Reserve"}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={() => setInquiryOpen(true)}
+              variant="ghost"
+              className="px-3 py-5 rounded-xl text-sm font-semibold border"
+              style={{ borderColor: FOREST, color: FOREST }}
+            >
+              Ask
+            </Button>
+            <Button
+              onClick={() => navigateToBooking(`/booking/trip/${event.id}`)}
+              disabled={!canBook}
+              className="px-6 py-5 rounded-xl text-sm font-semibold text-white border-none"
+              style={{ background: !canBook ? "#B9C2BC" : `linear-gradient(135deg, ${CLAY_LIGHT} 0%, ${CLAY} 100%)` }}
+            >
+              {isSoldOut ? "Fully booked" : isExpired ? "Expired" : "Reserve"}
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -843,6 +868,8 @@ const TripDetail = () => {
           onClose={() => setMapModalOpen(false)}
         />
       )}
+
+      <InquiryDialog item={event} itemType="trip" open={inquiryOpen} onClose={() => setInquiryOpen(false)} />
     </div>
   ); 
 };

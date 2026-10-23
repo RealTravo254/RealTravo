@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { format, isToday, isYesterday } from "date-fns";
 import { useNavigate } from "react-router-dom";
+import { InquiryNotificationActions } from "@/components/InquiryNotificationActions";
 
 // ── Design tokens ─────────────────────────────────────────────────────────
 // Same field-guide / park-signage system used across the rest of the app.
@@ -78,6 +79,10 @@ const TYPE_META: Record<
   item_submitted:        { icon: Clock,         bg: GOLD_SOFT,    iconColor: GOLD,    accent: GOLD    },
   account_banned:        { icon: Ban,           bg: DANGER_SOFT,  iconColor: DANGER,  accent: DANGER  },
   account_unbanned:      { icon: ShieldCheck,   bg: SUCCESS_SOFT, iconColor: SUCCESS, accent: SUCCESS },
+  inquiry_request:       { icon: CalendarCheck, bg: CLAY_SOFT,    iconColor: CLAY,     accent: CLAY },
+  inquiry_accepted:      { icon: CheckCircle2,  bg: SUCCESS_SOFT, iconColor: SUCCESS,  accent: SUCCESS },
+  inquiry_declined:      { icon: X,             bg: DANGER_SOFT,  iconColor: DANGER,   accent: DANGER },
+  inquiry_expired:       { icon: Clock,         bg: CANVAS,       iconColor: INK_SOFT, accent: INK_SOFT },
 };
 
 const DEFAULT_META = {
@@ -141,6 +146,10 @@ export const NotificationBell = () => {
         return data?.item_id && data?.item_type
           ? `/host-bookings/${data.item_type}/${data.item_id}`
           : "/my-listing";
+      case "inquiry_request":
+      case "inquiry_accepted":
+      case "inquiry_declined":
+      case "inquiry_expired":      return null;
       default: return null;
     }
   }, []);
@@ -225,6 +234,11 @@ export const NotificationBell = () => {
     const link = getDeepLink(n);
     if (link) { setIsOpen(false); navigate(link); }
   }, [markAsRead, getDeepLink, navigate]);
+
+  // Expire stale inquiry requests whenever the drawer opens
+  useEffect(() => {
+    if (isOpen) (supabase as any).rpc("expire_stale_inquiries").then(() => fetchNotifications());
+  }, [isOpen]);
 
   const grouped = useMemo(() => categorize(notifications), [notifications]);
 
@@ -354,10 +368,14 @@ export const NotificationBell = () => {
                         const hasLink = !!getDeepLink(n);
 
                         return (
-                          <button
+                          // A <button> can't contain links/buttons, so the card is a div with role="button"
+                          <div
                             key={n.id}
+                            role="button"
+                            tabIndex={0}
                             onClick={() => handleClick(n)}
-                            className="w-full text-left rounded-2xl transition-all duration-150 group bg-white"
+                            onKeyDown={(e) => { if (e.key === "Enter" && e.target === e.currentTarget) handleClick(n); }}
+                            className="w-full text-left rounded-2xl transition-all duration-150 group bg-white cursor-pointer"
                             style={{
                               border: `1px solid ${isUnread ? `${FOREST}25` : HAIRLINE}`,
                               boxShadow: isUnread ? "0 2px 8px rgba(28,43,34,0.06)" : "none",
@@ -404,13 +422,17 @@ export const NotificationBell = () => {
                               </div>
                             </div>
 
+                            {n.type.startsWith("inquiry_") && n.data?.inquiry_id && user && (
+                              <InquiryNotificationActions notification={n} userId={user.id} />
+                            )}
+
                             {isUnread && (
                               <div
                                 className="h-0.5 rounded-b-2xl"
                                 style={{ background: `linear-gradient(90deg, ${meta.accent}, transparent)` }}
                               />
                             )}
-                          </button>
+                          </div>
                         );
                       })}
                     </div>

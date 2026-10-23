@@ -9,7 +9,6 @@ import {
   MapPin, Clock, Share2, Copy, Navigation, AlertCircle,
   Users, CheckCircle2, ChevronLeft, ChevronRight, Grid2X2, ExternalLink,
   Globe, Sparkles, Info, TreePine, Tent, Compass, Building2, Home as HomeIcon,
-  MessageCircleQuestion,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSavedItems } from "@/hooks/useSavedItems";
@@ -22,6 +21,7 @@ import { TealLoader } from "@/components/ui/teal-loader";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { Footer } from "@/components/Footer";
 import { InquiryDialog } from "@/components/InquiryDialog";
+import { FloatingInquiryButton } from "@/components/FloatingInquiryButton";
 
 // ── Design tokens ─────────────────────────────────────────────────────────
 const FOREST       = "#1F4D3A"; 
@@ -756,10 +756,9 @@ interface BookingCardProps {
   place: any; is24Hours: boolean; daysOpened: string[]; capacityPerDay: number | null;
   formatPrice: (n: number) => string;
   onCheckAvailability: () => void; onMap: () => void; onCopy: () => void; onShare: () => void;
-  onInquire: () => void;
 }
 
-const BookingCard = ({ place, is24Hours, daysOpened, capacityPerDay, formatPrice, onCheckAvailability, onMap, onCopy, onShare, onInquire }: BookingCardProps) => {
+const BookingCard = ({ place, is24Hours, daysOpened, capacityPerDay, formatPrice, onCheckAvailability, onMap, onCopy, onShare }: BookingCardProps) => {
   const isPaid = !!(place.entry_fee && Number(place.entry_fee) > 0);
   const hasNonCitizen = !!place.has_non_citizen_pricing &&
     (Number(place.non_citizen_entry_fee) > 0 || Number(place.non_citizen_child_entry_fee) > 0);
@@ -830,14 +829,6 @@ const BookingCard = ({ place, is24Hours, daysOpened, capacityPerDay, formatPrice
         style={{ background: `linear-gradient(135deg, ${CLAY_LIGHT} 0%, ${CLAY} 100%)`, fontFamily: FONT_BODY }}
       >
         Check availability
-      </Button>
-
-      <Button
-        type="button" variant="ghost" onClick={onInquire}
-        className="w-full py-5 rounded-2xl text-sm font-semibold border"
-        style={{ borderColor: FOREST, color: FOREST, background: "transparent", fontFamily: FONT_BODY }}
-      >
-        <MessageCircleQuestion className="h-4 w-4 mr-2" /> Ask the host
       </Button>
 
       <div className="grid grid-cols-3 gap-2 pt-3" style={{ borderTop: `1px solid ${HAIRLINE}` }}>
@@ -997,7 +988,6 @@ const AdventurePlaceDetail = () => {
   const bookingCardProps = {
     place, is24Hours, daysOpened, capacityPerDay, formatPrice,
     onCheckAvailability: handleCheckAvailability,
-    onInquire: () => setInquiryOpen(true),
     onMap: () => {
       // Mobile: open the in-app map popup instead of jumping straight to
       // Google Maps. Desktop keeps the direct new-tab behavior.
@@ -1121,19 +1111,9 @@ const AdventurePlaceDetail = () => {
               </div>
             ) : null}
           </div>
-          <div className="flex gap-2">
-            <Button
-              onClick={() => setInquiryOpen(true)}
-              variant="ghost"
-              className="px-3 py-5 rounded-xl text-sm font-semibold border"
-              style={{ borderColor: FOREST, color: FOREST }}
-            >
-              Ask
-            </Button>
-            <Button onClick={handleCheckAvailability} className="px-6 py-5 rounded-xl text-sm font-semibold text-white border-none" style={{ background: `linear-gradient(135deg, ${CLAY_LIGHT} 0%, ${CLAY} 100%)` }}>
-              Check availability
-            </Button>
-          </div>
+          <Button onClick={handleCheckAvailability} className="px-6 py-5 rounded-xl text-sm font-semibold text-white border-none" style={{ background: `linear-gradient(135deg, ${CLAY_LIGHT} 0%, ${CLAY} 100%)` }}>
+            Check availability
+          </Button>
         </div>
       </div>
 
@@ -1145,6 +1125,8 @@ const AdventurePlaceDetail = () => {
           onClose={() => setMapModalOpen(false)}
         />
       )}
+
+      <FloatingInquiryButton onClick={() => setInquiryOpen(true)} />
 
       <InquiryDialog item={place} itemType="adventure_place" open={inquiryOpen} onClose={() => setInquiryOpen(false)} />
     </div>

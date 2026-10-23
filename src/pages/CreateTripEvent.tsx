@@ -33,21 +33,12 @@ import { cn } from "@/lib/utils";
 
 /**
  * ── DB requirement for the Division field below ──────────────────────────
- * Same pattern as CreateAdventure.tsx: this form lets a host optionally tag
- * their trip/event with a division / region from `country_divisions`.
- * Add the column if it doesn't already exist:
- *
  *   alter table public.trips
  *     add column if not exists division_id uuid references public.country_divisions(id);
  * ────────────────────────────────────────────────────────────────────────── */
 
 /**
  * ── DB requirement for Registration details (Company / Guide) ────────────
- * Same pattern as CreateAdventure.tsx: hosts creating a trip or event now
- * register either as a Company or an individual Guide, and provide a
- * registration name plus a registration number (or, for guides, a
- * government ID number). Add the columns if they don't already exist:
- *
  *   alter table public.trips
  *     add column if not exists registration_name text,
  *     add column if not exists registration_number text,
@@ -55,28 +46,23 @@ import { cn } from "@/lib/utils";
  * ────────────────────────────────────────────────────────────────────────── */
 
 /**
- * ── CountrySelector usage note (bug fix) ──────────────────────────────────
- * CountrySelector is a combined, ID-based widget (see LoginForm / SignupForm
- * / CreateAdventure / CreateHotel elsewhere in the app): it picks a country
- * id and, within it, an optional division/region id, reporting both
- * together via onChange({ countryId, divisionId }) — it does NOT report a
- * plain string.
+ * ── Verified host note ────────────────────────────────────────────────────
+ * Once a host has been APPROVED in `host_verifications`, their host type
+ * (Company or Individual / Guide) is already known. On this form we read it
+ * from that record, hide the type selector, show a read-only "Verified host"
+ * badge, and prefill registration name / number.
  *
- * This page used to wire that onChange straight into formData.country (a
- * string field), which put the raw { countryId, divisionId } object into
- * state. That object eventually got rendered somewhere as text and crashed
- * with "Uncaught Error: Minified React error #31" (Objects are not valid as
- * a React child). We keep the raw ids in their own state below and resolve
- * them to display names for everything else in this form that expects text
- * (`formData.country`, `formData.place`, the DB insert, ReviewStep, etc.) —
- * exactly the same fix already applied in CreateAdventure.tsx / CreateHotel.tsx.
- *
- * The manual "Division / Region" dropdown this page used to maintain on its
- * own (availableDivisions / loadingDivisions / DivisionOption, populated by
- * matching formData.country against `countries.name`) has been removed —
- * CountrySelector already resolves and offers divisions internally once a
- * country id is picked, so keeping a second, separate division picker here
- * was redundant and is what fed the crash in the first place.
+ * Assumed columns on public.host_verifications (rename to match your schema):
+ *   host_type            text  ('company' | 'individual' | 'guide')
+ *   registration_name    text  (optional)
+ *   registration_number  text  (optional)
+ * ────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * ── CountrySelector usage note ────────────────────────────────────────────
+ * CountrySelector is an ID-based widget reporting { countryId, divisionId }.
+ * Raw ids are kept in their own state and resolved to display names for
+ * formData.country / formData.place.
  * ────────────────────────────────────────────────────────────────────────── */
 
 const COLORS = { TEAL: "#008080", CORAL: "#FF7F50", CORAL_LIGHT: "#FF9E7A", SOFT_GRAY: "#F8F9FA" };
@@ -91,6 +77,7 @@ const generateFriendlySlug = (name: string): string => {
 
 interface WorkingDays { Mon: boolean; Tue: boolean; Wed: boolean; Thu: boolean; Fri: boolean; Sat: boolean; Sun: boolean; }
 interface TicketType { name: string; price: number; }
+interface VerifiedHost { type: "company" | "guide"; name: string; number: string; }
 
 const EVENT_CATEGORIES = [
   "Roadtrips", "Music Events", "Children Events", "Pool Party", "Outdoor",
@@ -101,17 +88,12 @@ const EVENT_CATEGORIES = [
 const STEP_NAMES = ["Basic Info", "Date & Pricing", "Contact & Photos", "Schedule", "Review"];
 
 // ─── Registration Type: Company or Individual Guide ────────────────────────
-// A host registers either as a Company (company registration number) or as
-// an individual Guide (government ID number instead). Both still require
-// Country; Division/region stays optional either way.
 const REGISTRATION_TYPE_OPTIONS: { value: string; label: string; icon: any }[] = [
   { value: "company", label: "Company", icon: Building2 },
   { value: "guide", label: "Individual / Guide", icon: UserRound },
 ];
 
 // Per-country ID number format, shown as a label/placeholder hint for guides.
-// Add more countries here as needed — anything not listed falls back to the
-// generic government ID / passport hint below.
 const GUIDE_ID_HINTS: Record<string, { label: string; placeholder: string; pattern?: RegExp; hint: string }> = {
   Kenya:          { label: "National ID Number",       placeholder: "e.g. 23456789",               pattern: /^\d{7,8}$/,         hint: "7–8 digit Kenyan National ID number" },
   Uganda:         { label: "National ID Number (NIN)", placeholder: "e.g. CM12345678ABC1",          pattern: /^[A-Za-z0-9]{14}$/, hint: "14-character Ugandan NIN" },
@@ -130,7 +112,7 @@ const namesClash = (name: string, number: string) =>
 // ─── Styled Input ─────────────────────────────────────────────────────────────
 const StyledInput = ({ className = "", isInvalid = false, ...props }: React.ComponentProps<typeof Input> & { isInvalid?: boolean }) => (
   <Input
-    className={`h-11 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-800 placeholder:text-slate-400 placeholder:font-normal focus:ring-2 focus:ring-[#008080]/20 focus:border-[#008080] transition-all ${isInvalid ? "border-red-400 ring-2 ring-red-100 bg-red-50" : ""} ${className}`}
+    className={`h-11 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-800 placeholder:text-slate-400 placeholder:font-normal focus:ring-2 focus:ring-[#008080]/20 focus:border-[#008080] transition-all disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed ${isInvalid ? "border-red-400 ring-2 ring-red-100 bg-red-50" : ""} ${className}`}
     {...props}
   />
 );
@@ -200,6 +182,23 @@ const RegistrationTypeSelector = ({
     {isInvalid && (
       <p className="text-red-400 text-[10px] font-semibold mt-1.5">Please select how you're registering to continue</p>
     )}
+  </div>
+);
+
+// ─── Verified Host Badge (read-only, replaces the selector) ───────────────────
+const VerifiedHostBadge = ({ type }: { type: "company" | "guide" }) => (
+  <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-emerald-200 bg-emerald-50 max-w-sm">
+    {type === "company"
+      ? <Building2 className="h-5 w-5 text-emerald-600" />
+      : <UserRound className="h-5 w-5 text-emerald-600" />}
+    <div>
+      <p className="text-sm font-bold text-emerald-700">
+        {type === "company" ? "Company" : "Individual / Guide"}
+      </p>
+      <p className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
+        <CheckCircle2 className="h-3 w-3" /> Verified host
+      </p>
+    </div>
   </div>
 );
 
@@ -312,16 +311,18 @@ const CreateTripEvent = () => {
   const isEventRoute = location.pathname === "/create-event";
   const searchParams = new URLSearchParams(location.search);
 
-  // ── Fixed-date trips disabled ──────────────────────────────────────────────
-  // Trips are now always flexible-date (guests pick their own date, capacity is
-  // tracked per day). The old "?flexible=true" query param / toggle is no
-  // longer needed since flexible is the only option for trips.
-  // const isFlexibleFromRoute = searchParams.get("flexible") === "true";
-
   // Company (business) or individual Guide registration — determines whether
   // registrationNumber holds a company registration number or a government
   // ID number, and which validation/hint applies.
   const [registrationType, setRegistrationType] = useState<string>("company");
+
+  // ── Verified host ──────────────────────────────────────────────────────────
+  // Populated from an APPROVED `host_verifications` row. When set, the type
+  // selector is hidden and the host's type is locked to what they were
+  // verified as. `verifiedLoaded` avoids flashing the selector before the
+  // lookup finishes.
+  const [verifiedHost, setVerifiedHost] = useState<VerifiedHost | null>(null);
+  const [verifiedLoaded, setVerifiedLoaded] = useState(false);
 
   const [formData, setFormData] = useState({
     registrationName: "", registrationNumber: "",
@@ -348,9 +349,6 @@ const CreateTripEvent = () => {
   const [activityNames, setActivityNames] = useState<string[]>([]);
   const [newActivityName, setNewActivityName] = useState("");
   const [locationMode, setLocationMode] = useState<'link' | 'gps' | null>(null);
-  // Tracks whether a GPS lookup is currently in flight, so the "Use My GPS"
-  // button can show a spinner and stop spinning once location is accessed
-  // (either captured successfully or the browser reports an error).
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [workingDays, setWorkingDays] = useState<WorkingDays>({ Mon: true, Tue: true, Wed: true, Thu: true, Fri: true, Sat: true, Sun: true });
   const [galleryImages, setGalleryImages] = useState<File[]>([]);
@@ -359,26 +357,54 @@ const CreateTripEvent = () => {
   const [certificatePreview, setCertificatePreview] = useState<string | null>(null);
   const [isCompressingCertificate, setIsCompressingCertificate] = useState(false);
 
-  // ── Country + Division/Region ids ── (see the CountrySelector usage note
-  // at the top of this file for why these are kept separate from formData)
+  // ── Country + Division/Region ids
   const [selectedCountryId, setSelectedCountryId] = useState<string | null>(null);
   const [selectedDivisionId, setSelectedDivisionId] = useState<string | null>(null);
+
+  // ── Look up the host's approved verification, if any ───────────────────────
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("host_verifications")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("status", "approved")
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      if (data) {
+        // Map whatever your column stores onto this form's two values.
+        // 'company' → company; anything else ('individual', 'guide', …) → guide.
+        const raw = String((data as any).host_type ?? (data as any).registration_type ?? "").toLowerCase();
+        const type: "company" | "guide" = raw === "company" ? "company" : "guide";
+        const name: string = (data as any).registration_name ?? "";
+        const number: string = (data as any).registration_number ?? "";
+
+        setVerifiedHost({ type, name, number });
+        setRegistrationType(type);
+        setFormData(prev => ({
+          ...prev,
+          registrationName: name || prev.registrationName,
+          registrationNumber: number || prev.registrationNumber,
+        }));
+      }
+      setVerifiedLoaded(true);
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
 
   useEffect(() => {
     const fetchUserProfile = async () => {
       if (user) {
         const { data: profile } = await supabase.from('profiles').select('country, email, name, phone_number').eq('id', user.id).single();
         if (profile?.country) {
-          // Profile stores country as a plain name (e.g. "Kenya"), but
-          // CountrySelector is ID-based, so look up its id here — the
-          // name-resolution effect below fills formData.country back in
-          // from that id, in the exact same shape CountrySelector itself
-          // produces when a host picks a country manually.
           const { data: countryRow } = await supabase.from("countries").select("id").ilike("name", profile.country).maybeSingle();
           if (countryRow?.id) {
             setSelectedCountryId(countryRow.id);
           } else {
-            // Not seeded in `countries` yet — just show the raw name as-is.
             setFormData(prev => ({ ...prev, country: profile.country }));
           }
         }
@@ -389,7 +415,6 @@ const CreateTripEvent = () => {
   }, [user]);
 
   // ── Resolve the selected country id into the plain-text country name
-  // every other part of this form (and the final DB insert) expects.
   useEffect(() => {
     let cancelled = false;
     if (!selectedCountryId) {
@@ -403,9 +428,7 @@ const CreateTripEvent = () => {
     return () => { cancelled = true; };
   }, [selectedCountryId]);
 
-  // Same idea for the division/region: `place` is still the plain-text
-  // column other parts of the app (search, distance sort, display) read, so
-  // resolve the id CountrySelector gives us into that division's name.
+  // Same idea for the division/region
   useEffect(() => {
     let cancelled = false;
     if (!selectedDivisionId) {
@@ -420,7 +443,9 @@ const CreateTripEvent = () => {
   }, [selectedDivisionId]);
 
   // A registration number/ID must never match the registration name, and for
-  // guides it must additionally look like a valid ID for the chosen country.
+  // (unverified) guides it must additionally look like a valid ID for the
+  // chosen country. Verified hosts already passed ID checks, so the
+  // country-specific pattern is skipped for them.
   const getRegistrationNumberError = (): string | null => {
     const name = formData.registrationName;
     const number = formData.registrationNumber;
@@ -432,7 +457,7 @@ const CreateTripEvent = () => {
         ? "Your ID number can't be the same as your registration name."
         : "Your registration number can't be the same as your registration name.";
     }
-    if (registrationType === "guide") {
+    if (registrationType === "guide" && !verifiedHost) {
       const info = getGuideIdInfo(formData.country);
       if (info.pattern && !info.pattern.test(number.trim())) {
         return `Please enter a valid ${info.label.toLowerCase()} (${info.hint}).`;
@@ -441,8 +466,6 @@ const CreateTripEvent = () => {
     return null;
   };
 
-  // Step 1: trip requires pickup_location; event doesn't. Registration name/
-  // number/type and country are now also required here.
   const isStep1Complete = !!registrationType && !!formData.registrationName.trim() && !getRegistrationNumberError()
     && !!formData.name.trim() && !!formData.country && !!formData.location.trim()
     && (formData.type === "event" || !!formData.pickup_location.trim());
@@ -469,7 +492,6 @@ const CreateTripEvent = () => {
       if (!formData.name.trim()) errors.push("name");
       if (!formData.country) errors.push("country");
       if (!formData.location.trim()) errors.push("location");
-      // Pickup location required for trips
       if (formData.type === "trip" && !formData.pickup_location.trim()) errors.push("pickup_location");
       if (formData.location_link && !formData.location_link.startsWith("https://")) errors.push("location_link");
     } else if (currentStep === 2) {
@@ -507,10 +529,6 @@ const CreateTripEvent = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Captures the device's GPS location. isGettingLocation flips on right
-  // before the browser prompt/lookup starts and flips back off in both the
-  // success and error callbacks, so the button's spinner always stops once
-  // location has been accessed (or the attempt has failed).
   const getCurrentLocation = () => {
     if ("geolocation" in navigator) {
       setIsGettingLocation(true);
@@ -586,7 +604,6 @@ const CreateTripEvent = () => {
     if (!formData.name.trim()) allErrors.push("name");
     if (!formData.country) allErrors.push("country");
     if (!formData.location.trim()) allErrors.push("location");
-    // Pickup location required for trips
     if (formData.type === "trip" && !formData.pickup_location.trim()) allErrors.push("pickup_location");
     if (!formData.is_custom_date && !formData.date) allErrors.push("date");
     if (useTicketTypes) { if (ticketTypes.length === 0) allErrors.push("ticket_types"); }
@@ -632,7 +649,6 @@ const CreateTripEvent = () => {
         id: friendlySlug, slug: friendlySlug,
         name: formData.name, description: formData.description, location: formData.location,
         place: formData.place, country: formData.country,
-        // ── Division / region — optional FK into `country_divisions` ──
         division_id: selectedDivisionId,
         // ── Registration details (Company or Individual / Guide) ──
         registration_name: formData.registrationName,
@@ -657,7 +673,6 @@ const CreateTripEvent = () => {
         location_link: formData.location_link || null,
         activities: activityNames.length > 0 ? activityNames.map(name => ({ name, price: 0 })) : [],
         event_certificate_url: eventCertificateUrl,
-        // Save pickup_location to database
         pickup_location: formData.type === "trip" ? (formData.pickup_location || null) : null,
       } as any]);
       if (error) throw error;
@@ -733,20 +748,33 @@ const CreateTripEvent = () => {
                 </div>
 
                 {/* Registration Details */}
-                <SectionCard title="Registration Details" subtitle="Who is registering this experience" icon={Info}>
+                <SectionCard
+                  title="Registration Details"
+                  subtitle={verifiedHost ? "Pulled from your verified host profile" : "Who is registering this experience"}
+                  icon={Info}
+                >
                   <div className="grid gap-5">
                     <div>
                       <FieldLabel required>Registering As</FieldLabel>
-                      <RegistrationTypeSelector
-                        value={registrationType}
-                        onChange={setRegistrationType}
-                        isInvalid={validationErrors.includes("registration_type")}
-                      />
+                      {!verifiedLoaded ? (
+                        <div className="h-20 max-w-sm rounded-xl bg-slate-100 animate-pulse" />
+                      ) : verifiedHost ? (
+                        // Already verified as a Company or Individual — type is
+                        // locked, no selection needed.
+                        <VerifiedHostBadge type={verifiedHost.type} />
+                      ) : (
+                        <RegistrationTypeSelector
+                          value={registrationType}
+                          onChange={setRegistrationType}
+                          isInvalid={validationErrors.includes("registration_type")}
+                        />
+                      )}
                     </div>
                     <div>
                       <FieldLabel required>Registration Name</FieldLabel>
                       <StyledInput
                         value={formData.registrationName}
+                        disabled={!!verifiedHost?.name}
                         onChange={(e) => {
                           setFormData({ ...formData, registrationName: e.target.value });
                           if (e.target.value.trim()) setValidationErrors(prev => prev.filter(err => err !== "registration_name"));
@@ -762,6 +790,7 @@ const CreateTripEvent = () => {
                       </FieldLabel>
                       <StyledInput
                         value={formData.registrationNumber}
+                        disabled={!!verifiedHost?.number}
                         onChange={(e) => {
                           setFormData({ ...formData, registrationNumber: e.target.value });
                           setValidationErrors(prev => prev.filter(err => err !== "registration_number"));
@@ -769,7 +798,7 @@ const CreateTripEvent = () => {
                         placeholder={registrationType === "guide" ? getGuideIdInfo(formData.country).placeholder : "e.g. BN-X12345"}
                         isInvalid={validationErrors.includes("registration_number")}
                       />
-                      {registrationType === "guide" && (
+                      {registrationType === "guide" && !verifiedHost && (
                         <p className="text-[10px] text-slate-400 mt-1">{getGuideIdInfo(formData.country).hint}</p>
                       )}
                       {validationErrors.includes("registration_number") && (
@@ -815,20 +844,6 @@ const CreateTripEvent = () => {
                     <div className="lg:col-span-2">
                       <FieldLabel required>Country</FieldLabel>
                       <div className={cn("rounded-xl", validationErrors.includes("country") && "ring-2 ring-red-300")}>
-                        {/*
-                          CountrySelector is the same ID-based, combined
-                          country + division/region widget used elsewhere in
-                          the app (see SignupForm / CreateAdventure /
-                          CreateHotel). Its onChange reports
-                          { countryId, divisionId } together, not a plain
-                          string — feeding that object straight into a
-                          string field (formData.country) is exactly what
-                          used to crash this page with "Objects are not
-                          valid as a React child" (React error #31). The raw
-                          ids are kept in their own state and resolved to
-                          display names by the effects above, so this
-                          component only ever needs to hand us ids.
-                        */}
                         <CountrySelector
                           countryId={selectedCountryId}
                           divisionId={selectedDivisionId}
@@ -929,10 +944,6 @@ const CreateTripEvent = () => {
               <div className="space-y-5">
                 {/* Date */}
                 <SectionCard title="Date Settings" icon={Calendar}>
-                  {/* ── Fixed-date trips re-enabled ──────────────────────────
-                      Trips can now be either flexible-date (guests pick their
-                      own day) or fixed-date (a single specific date), chosen
-                      via this toggle. Events remain fixed-date only. */}
                   {formData.type === "trip" && (
                     <label className="flex items-center gap-3 cursor-pointer mb-5 p-4 bg-slate-50 rounded-xl border border-slate-100 hover:bg-slate-100 transition-all">
                       <Checkbox id="custom_date" checked={formData.is_custom_date} onCheckedChange={(checked) => setFormData({ ...formData, is_custom_date: checked as boolean })} />
@@ -1041,11 +1052,9 @@ const CreateTripEvent = () => {
                           </div>
                         )}
                         <div>
-                          {/* For flexible-date trips, available_tickets now means the
-                              maximum a single booking can reserve for a given day —
-                              not the total capacity for that day. Multiple separate
-                              bookings can still be made for the same day, each up to
-                              this limit. Column name in the DB is unchanged. */}
+                          {/* For flexible-date trips, available_tickets means the maximum a
+                              single booking can reserve for a given day — not the total
+                              capacity for that day. */}
                           <FieldLabel required>{formData.type === "trip" && formData.is_custom_date ? "Max Booking Limit Per Day" : "Max Slots"}</FieldLabel>
                           <StyledInput isInvalid={validationErrors.includes("available_tickets")} type="number" value={formData.available_tickets} onChange={(e) => { setFormData({ ...formData, available_tickets: e.target.value }); if (e.target.value && parseInt(e.target.value) > 0) setValidationErrors(prev => prev.filter(err => err !== "available_tickets")); }} />
                           {formData.type === "trip" && formData.is_custom_date && <p className="text-[10px] text-slate-400 mt-1 font-medium">Since this trip is flexible-date, this is the maximum number of slots a single booking can reserve for any given day — not the day's total capacity.</p>}

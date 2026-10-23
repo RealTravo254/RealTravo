@@ -405,4 +405,4 @@ export const LoginForm = ({ onSwitchToSignup, onAuthSuccess }: LoginFormProps) =
       {googleError && <FieldError message={googleError} />}
     </form>
   );
-};
+}; 

@@ -215,7 +215,6 @@ const ListingCardComponent = ({
   const isHotel = isAdventurePlace && category === "hotel";
   const remainingTickets = availableTickets - bookedTickets;
   const isSoldOut = isTrip && availableTickets > 0 && remainingTickets <= 0;
-  const fewSlotsRemaining = isTrip && remainingTickets > 0 && remainingTickets <= 10;
   const isUnavailable = isOutdated || isSoldOut;
   const isGuidedTour = isFlexibleDate && isTrip;
 
@@ -271,16 +270,6 @@ const ListingCardComponent = ({
     };
     navigate(createDetailPath(typeMap[type], id, name, location));
   }, [navigate, type, id, name, location]);
-
-  const urgencyBadge = useMemo(() => {
-    if (isSoldOut)
-      return { text: "Sold out", style: { background: DANGER_SOFT, color: DANGER, borderColor: `${DANGER}40` } };
-    if (isOutdated)
-      return { text: "Passed", style: { background: "#F1F3EF", color: INK_SOFT, borderColor: HAIRLINE } };
-    if (fewSlotsRemaining)
-      return { text: `${remainingTickets} left`, style: { background: "#FBF2DD", color: "#8A6716", borderColor: `${GOLD}50` } };
-    return null;
-  }, [isSoldOut, isOutdated, fewSlotsRemaining, remainingTickets]);
 
   const goToSlide = useCallback(
     (index: number, e?: React.MouseEvent) => {
@@ -385,7 +374,8 @@ const ListingCardComponent = ({
       onKeyDown={(e) => { if (e.key === "Enter") handleCardClick(); }}
       className={cn(
         "group relative flex flex-col overflow-hidden cursor-pointer bg-card transition-all duration-300",
-        "rounded-xl shadow-sm",
+        // Reduced radius: was rounded-xl (12px), now 8px.
+        "rounded-lg shadow-sm",
         "hover:shadow-lg hover:-translate-y-0.5",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
         "w-full",
@@ -447,15 +437,19 @@ const ListingCardComponent = ({
         {/* Category badge — top-left */}
         <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-1.5">
           <span
-            className="inline-flex items-center gap-1 text-[12px] font-semibold px-2 py-1 rounded-md shadow-sm text-white"
+            className="inline-flex items-center gap-1 text-[12px] font-semibold px-2 py-1 rounded shadow-sm text-white"
             style={{ backgroundColor: badgeColor ? `${badgeColor}E6` : `${FOREST_DEEP}E6`, fontFamily: FONT_BODY }}
           >
             {isHotel && <BedDouble className="h-3.5 w-3.5" />}
             {displayType}
           </span>
-          {urgencyBadge && (
-            <span className="text-[11px] font-semibold px-1.5 py-1 rounded-full border backdrop-blur-sm" style={urgencyBadge.style}>
-              {urgencyBadge.text}
+          {/* Only "Sold out" is shown — no "N left" or "Passed" badges. */}
+          {isSoldOut && (
+            <span
+              className="text-[11px] font-semibold px-2 py-1 rounded border backdrop-blur-sm"
+              style={{ background: DANGER_SOFT, color: DANGER, borderColor: `${DANGER}40` }}
+            >
+              Sold out
             </span>
           )}
         </div>
@@ -519,7 +513,7 @@ const ListingCardComponent = ({
         {/* Sold-out / unavailable overlay */}
         {isUnavailable && (
           <div className="absolute inset-0 z-10 flex items-center justify-center backdrop-blur-[1px]" style={{ background: "rgba(14,23,18,0.5)" }}>
-            <span className="rounded-md border border-white/60 px-3 py-1 text-[13px] font-semibold uppercase tracking-wide text-white">
+            <span className="rounded border border-white/60 px-3 py-1 text-[13px] font-semibold uppercase tracking-wide text-white">
               {isSoldOut ? "Sold out" : "Unavailable"}
             </span>
           </div>
@@ -530,7 +524,7 @@ const ListingCardComponent = ({
         {isOpenNow !== null && (
           <div className="absolute bottom-2.5 right-2.5 z-20">
             <span
-              className="text-[11px] font-semibold uppercase tracking-wide px-2 py-1 rounded-md shadow-sm text-white"
+              className="text-[11px] font-semibold uppercase tracking-wide px-2 py-1 rounded shadow-sm text-white"
               style={{ background: isOpenNow ? SUCCESS : DANGER }}
             >
               {isOpenNow ? "Open now" : "Closed"}
@@ -617,7 +611,7 @@ const ListingCardComponent = ({
                   return (
                     <span
                       key={day}
-                      className="text-[11px] font-semibold px-1.5 py-0.5 rounded-md"
+                      className="text-[11px] font-semibold px-1.5 py-0.5 rounded"
                       style={
                         isOpenDay
                           ? { background: FOREST_SOFT, color: FOREST }
@@ -648,5 +642,5 @@ export const ListingCard = memo(
   React.forwardRef<HTMLDivElement, ListingCardProps>((props, ref) => (
     <ListingCardComponent {...props} />
   )),
-); 
+);
 ListingCard.displayName = "ListingCard";

@@ -22,7 +22,7 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 import { Footer } from "@/components/Footer";
 
 // ── Design tokens ─────────────────────────────────────────────────────────
-const FOREST       = "#1F4D3A";
+const FOREST       = "#1F4D3A"; 
 const FOREST_DEEP  = "#123322";
 const FOREST_SOFT  = "#EAF0EA";
 const CLAY         = "#C1552F";

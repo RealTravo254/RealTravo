@@ -429,7 +429,7 @@ export const NotificationBell = () => {
             )}
           </div>
         </SheetContent>
-      </Sheet>
+      </Sheet> 
 
       <style>{`
         @keyframes wiggle {

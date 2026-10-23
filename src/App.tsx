@@ -90,7 +90,8 @@ const AllBookings = lazyRetry(() => import("./pages/admin/AllBookings"));
 const TermsOfService = lazyRetry(() => import("./pages/TermsOfService"));
 const PrivacyPolicy = lazyRetry(() => import("./pages/PrivacyPolicy"));
 const PublicManualBooking = lazyRetry(() => import("./pages/PublicManualBooking"));
-
+const CreateAirbnb = lazyRetry(() => import("./pages/CreateAirbnb"));
+const ChooseAccommodationType = lazyRetry(() => import("./pages/ChooseAccommodationType"));
 const CompleteProfile = lazyRetry(() => import("./pages/CompleteProfile"));
 const BookingPage = lazyRetry(() => import("./pages/BookingPage"));
 const PaymentVerify = lazyRetry(() => import("./pages/PaymentVerify"));
@@ -262,7 +263,8 @@ const App = () => {
                       <Route path="/countries" element={<Suspense fallback={<OfflineFallback text="Countries" />}><ExploreCountries /></Suspense>} />
                       <Route path="/country/:countryId" element={<Suspense fallback={<OfflineFallback text="Country" />}><CountryListings /></Suspense>} />
                       <Route path="/division/:divisionId" element={<Suspense fallback={<OfflineFallback text="Division" />}><DivisionListings /></Suspense>} />
-
+                      <Route path="/create-airbnb" element={<Suspense fallback={<OfflineFallback text="Create Airbnb" />}><CreateAirbnb /></Suspense>} />
+                      <Route path="/choose-accommodation" element={<Suspense fallback={<OfflineFallback text="Choose Stay Type" />}><ChooseAccommodationType /></Suspense>} />
                       {/* Catch-all: must stay LAST */}
                       <Route path="*" element={<Suspense fallback={<OfflineFallback text="Loading" />}><NotFound /></Suspense>} />
                     </Routes>

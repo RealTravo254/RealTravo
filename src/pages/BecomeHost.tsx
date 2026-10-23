@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import {
-  Plus, ArrowLeft, LayoutDashboard, Map, Building2, Tent, BedDouble,
+  Plus, ArrowLeft, LayoutDashboard, Map, Building2, Tent, BedDouble, Home,
   Clock, CheckCircle2, XCircle, MapPin, RefreshCw, Ban, Info,
 } from "lucide-react";
 
@@ -35,10 +35,18 @@ const DANGER_SOFT  = "#F7E9E5";
 const FONT_DISPLAY = "'Fraunces', ui-serif, Georgia, serif";
 const FONT_BODY = "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif";
 
-// Hosting types on this page are only: Outdoor / Campsite, Hotel & Stay,
-// Tour Guide, or Company. Campsite hosts may hold several approved listings.
-// Hotel hosts stay capped at one listing and go to /my-listing.
-const MULTI_LISTING_CATEGORIES = ["campsite"];
+// Hosting types on this page: Outdoor / Campsite, Hotel & Stay (Hotel OR
+// Airbnb), Tour Guide, or Company.
+//  • Campsite hosts may hold several listings.
+//  • Airbnb hosts may hold several listings.
+//  • Hotel hosts stay capped at one listing and go to /my-listing.
+const MULTI_LISTING_CATEGORIES = ["campsite", "airbnb"];
+
+const CATEGORY_META: Record<string, { label: string; short: string }> = {
+  campsite: { label: "Outdoor / Campsite", short: "campsite" },
+  airbnb:   { label: "Airbnb / BnB",       short: "Airbnb" },
+  hotel:    { label: "Hotel",              short: "hotel" },
+};
 
 // Injects the two typefaces once, without needing to touch the app's index.html.
 const useInjectFonts = () => {
@@ -62,7 +70,7 @@ type ViewState =
   | { screen: "adventure-pending"; place: any }
   | { screen: "adventure-no-place" }
   | { screen: "adventure-rejected"; place: any }
-  | { screen: "campsite-dashboard"; places: any[] }
+  | { screen: "multi-dashboard"; places: any[] }
   | { screen: "guide-company-dashboard"; content: any[] };
 
 // ── Shared page chrome ────────────────────────────────────────────────────
@@ -143,6 +151,9 @@ const HostCategoryCard = ({ title, subtitle, image, icon, count, onManage, onAdd
 const AdventurePendingCard = ({ place }: { place: any }) => {
   const imageUrl = place.image_url || place.gallery_images?.[0] || place.images?.[0];
   const isHotel = place.category === "hotel";
+  const isAirbnb = place.category === "airbnb";
+  const PlaceIcon = isHotel ? BedDouble : isAirbnb ? Home : Tent;
+  const kindLabel = isHotel ? "Your hotel" : isAirbnb ? "Your Airbnb" : "Your campsite";
   return (
     <div className="bg-white rounded-[28px] overflow-hidden" style={{ border: `1px solid ${HAIRLINE}`, boxShadow: "0 10px 30px rgba(28,43,34,0.07)" }}>
       <div className="relative h-48 overflow-hidden">
@@ -150,9 +161,7 @@ const AdventurePendingCard = ({ place }: { place: any }) => {
           <img src={imageUrl} alt={place.name} className="w-full h-full object-cover brightness-75" />
         ) : (
           <div className="w-full h-full flex items-center justify-center" style={{ background: GOLD_SOFT }}>
-            {isHotel
-              ? <BedDouble className="h-14 w-14" style={{ color: `${GOLD}80` }} />
-              : <Tent className="h-14 w-14" style={{ color: `${GOLD}80` }} />}
+            <PlaceIcon className="h-14 w-14" style={{ color: `${GOLD}80` }} />
           </div>
         )}
         <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(14,23,18,0.7), rgba(14,23,18,0.2), transparent)" }} />
@@ -160,7 +169,7 @@ const AdventurePendingCard = ({ place }: { place: any }) => {
           <Clock className="h-3.5 w-3.5" style={{ color: GOLD }} /> Under review
         </div>
         <div className="absolute bottom-4 left-4 right-4">
-          <p className="text-[9px] font-medium text-white/60 mb-0.5">{isHotel ? "Your hotel" : "Your campsite"}</p>
+          <p className="text-[9px] font-medium text-white/60 mb-0.5">{kindLabel}</p>
           <h3 className="text-xl font-semibold text-white tracking-tight leading-tight line-clamp-1" style={{ fontFamily: FONT_DISPLAY }}>{place.name}</h3>
           {(place.location || place.place) && (
             <div className="flex items-center gap-1 mt-1">
@@ -211,9 +220,16 @@ const AdventurePendingCard = ({ place }: { place: any }) => {
   );
 };
 
-// ── Campsite card (used once approved — supports multiple listings) ──────────
-const CampsiteCard = ({ place, onManage }: { place: any; onManage: () => void }) => {
+// ── Listing card (campsite or Airbnb) — shown on the multi-listing dashboard ─
+const ListingCard = ({ place, onManage }: { place: any; onManage: () => void }) => {
   const imageUrl = place.image_url || place.gallery_images?.[0];
+  const isAirbnb = place.category === "airbnb";
+  const FallbackIcon = isAirbnb ? Home : Tent;
+  const status = (place.approval_status ?? "").toLowerCase().trim();
+  const badge =
+    status === "approved" ? { text: "Live", bg: SUCCESS }
+    : status === "rejected" ? { text: "Rejected", bg: DANGER }
+    : { text: "Under review", bg: GOLD };
   return (
     <div className="bg-white rounded-[24px] overflow-hidden flex flex-col" style={{ border: `1px solid ${HAIRLINE}`, boxShadow: "0 8px 24px rgba(28,43,34,0.06)" }}>
       <div className="relative h-40 overflow-hidden">
@@ -221,12 +237,12 @@ const CampsiteCard = ({ place, onManage }: { place: any; onManage: () => void })
           <img src={imageUrl} alt={place.name} className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full flex items-center justify-center" style={{ background: FOREST_SOFT }}>
-            <Tent className="h-10 w-10" style={{ color: `${FOREST}55` }} />
+            <FallbackIcon className="h-10 w-10" style={{ color: `${FOREST}55` }} />
           </div>
         )}
         <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(14,23,18,0.7), rgba(14,23,18,0.08), transparent)" }} />
         <div className="absolute top-3 left-3">
-          <Badge className="text-white border-none text-[9px] font-semibold" style={{ background: SUCCESS }}>Live</Badge>
+          <Badge className="text-white border-none text-[9px] font-semibold" style={{ background: badge.bg }}>{badge.text}</Badge>
         </div>
         <div className="absolute bottom-3 left-4 right-4">
           <h3 className="text-base font-semibold text-white tracking-tight line-clamp-1" style={{ fontFamily: FONT_DISPLAY }}>{place.name}</h3>
@@ -241,7 +257,7 @@ const CampsiteCard = ({ place, onManage }: { place: any; onManage: () => void })
         </div>
       </div>
       <div className="p-4 flex items-center justify-between">
-        <span className="text-[10px] font-medium" style={{ color: INK_SOFT }}>Outdoor / Campsite</span>
+        <span className="text-[10px] font-medium" style={{ color: INK_SOFT }}>{CATEGORY_META[place.category]?.label ?? "Listing"}</span>
         <Button variant="ghost" onClick={onManage} className="text-[11px] font-semibold px-2 hover:bg-transparent" style={{ color: INK_SOFT }}>Manage →</Button>
       </div>
     </div>
@@ -304,7 +320,7 @@ const BecomeHost = () => {
           return;
         }
 
-        // ── 3. Not a guide/company — check campsite / hotel place(s) ─────────
+        // ── 3. Not a guide/company — check campsite / hotel / Airbnb place(s) ─
         const { data: advPlaces } = await supabase
           .from("adventure_places")
           .select("id, name, image_url, gallery_images, location, place, approval_status, category")
@@ -329,13 +345,17 @@ const BecomeHost = () => {
           const allMultiListing = approved.every((p) => MULTI_LISTING_CATEGORIES.includes(p.category));
 
           if (allMultiListing) {
-            // Campsite hosts can hold multiple approved listings.
-            setView({ screen: "campsite-dashboard", places: approved });
+            // Campsite and Airbnb hosts can hold multiple listings. Show all of
+            // them (live, under review, rejected) so new submissions stay visible.
+            setView({
+              screen: "multi-dashboard",
+              places: places.filter((p) => MULTI_LISTING_CATEGORIES.includes(p.category)),
+            });
             return;
           }
 
-          // Hotel & Stay (and legacy park/attraction) remain capped at one
-          // listing and keep using /my-listing.
+          // Hotel (and legacy park/attraction) remain capped at one listing and
+          // keep using /my-listing.
           setView({ screen: "redirect", to: "/my-listing" });
           return;
         }
@@ -429,11 +449,11 @@ const BecomeHost = () => {
         <div className="flex items-start gap-2.5 p-3.5 rounded-2xl mb-8" style={{ background: GOLD_SOFT, border: `1px solid ${GOLD}30` }}>
           <Info className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: GOLD }} />
           <p className="text-[11px] font-medium leading-relaxed" style={{ color: GOLD_TEXT }}>
-            <span className="font-semibold">Note:</span> Outdoor/Campsite and Hotel &amp; Stay are standalone hosting types — they cannot be combined with Tour Guide or Company hosting. Once your first Campsite listing is approved, you can add more from your dashboard. Hotel &amp; Stay is limited to one listing per account.
+            <span className="font-semibold">Note:</span> Outdoor/Campsite and Hotel &amp; Stay are standalone hosting types — they cannot be combined with Tour Guide or Company hosting. Campsite and Airbnb hosts can add more listings from their dashboard once the first one is approved. A Hotel is limited to one listing per account.
           </p>
         </div>
 
-        {/* Hosting types: Campsite, Hotel, Tour Guide, Company. */}
+        {/* Hosting types: Campsite, Hotel & Stay (Hotel or Airbnb), Tour Guide, Company. */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
           <SelectionCard
             icon={<Tent className="h-8 w-8" style={{ color: SUCCESS }} />}
@@ -446,8 +466,8 @@ const BecomeHost = () => {
           <SelectionCard
             icon={<BedDouble className="h-8 w-8" style={{ color: CLAY }} />}
             title="Hotel & Stay"
-            desc="Register your hotel, lodge, or guesthouse with room types, nightly rates, and check-in times."
-            onClick={() => navigate("/create-hotel")}
+            desc="Register a hotel with room types, or list an Airbnb / BnB. You'll choose which on the next screen — Airbnb hosts can list more than one."
+            onClick={() => navigate("/choose-accommodation")}
             iconBg={CLAY_SOFT}
             accent={CLAY}
           />
@@ -537,8 +557,8 @@ const BecomeHost = () => {
           <SelectionCard
             icon={<BedDouble className="h-8 w-8" style={{ color: CLAY }} />}
             title="Hotel & Stay"
-            desc="Start a fresh hotel, lodge, or guesthouse submission."
-            onClick={() => navigate("/create-hotel")}
+            desc="Start a fresh hotel or Airbnb / BnB submission."
+            onClick={() => navigate("/choose-accommodation")}
             iconBg={CLAY_SOFT}
             accent={CLAY}
           />
@@ -572,12 +592,12 @@ const BecomeHost = () => {
               <Plus className="h-4 w-4 mr-2" /> Submit campsite
             </Button>
             <Button
-              onClick={() => navigate("/create-hotel")}
+              onClick={() => navigate("/choose-accommodation")}
               variant="ghost"
               className="px-6 py-3 rounded-xl text-sm font-semibold hover:bg-transparent"
               style={{ border: `1px solid ${HAIRLINE}`, color: INK_SOFT }}
             >
-              <BedDouble className="h-4 w-4 mr-2" /> Submit hotel
+              <BedDouble className="h-4 w-4 mr-2" /> Submit hotel / Airbnb
             </Button>
           </div>
         </div>
@@ -586,9 +606,13 @@ const BecomeHost = () => {
     </div>
   );
 
-  // ── Campsite dashboard (multiple approved listings) ───────────────────────
-  if (view.screen === "campsite-dashboard") {
+  // ── Multi-listing dashboard (campsites and Airbnbs) ───────────────────────
+  if (view.screen === "multi-dashboard") {
     const { places } = view;
+    const hasCampsite = places.some((p) => p.category === "campsite");
+    const hasAirbnb = places.some((p) => p.category === "airbnb");
+    const titleWord = hasAirbnb && !hasCampsite ? "Airbnbs" : hasCampsite && !hasAirbnb ? "campsites" : "listings";
+
     return (
       <div className="min-h-screen flex flex-col" style={{ background: CANVAS, fontFamily: FONT_BODY }}>
         <Header />
@@ -598,21 +622,34 @@ const BecomeHost = () => {
               <BackButton onClick={() => navigate("/")} />
               <PageTitle
                 eyebrow={`Host dashboard · ${places.length} listing${places.length !== 1 ? "s" : ""}`}
-                title={<>My <span style={{ color: CLAY }}>campsites</span></>}
+                title={<>My <span style={{ color: CLAY }}>{titleWord}</span></>}
               />
             </div>
-            <Button
-              onClick={() => navigate("/create-adventure")}
-              className="rounded-xl text-[12px] font-semibold text-white border-none px-5 py-5 hover:opacity-95"
-              style={{ background: `linear-gradient(135deg, ${CLAY_LIGHT} 0%, ${CLAY} 100%)` }}
-            >
-              <Plus className="h-4 w-4 mr-2" /> Add campsite
-            </Button>
+            <div className="flex gap-2 flex-wrap">
+              {hasCampsite && (
+                <Button
+                  onClick={() => navigate("/create-adventure")}
+                  className="rounded-xl text-[12px] font-semibold text-white border-none px-5 py-5 hover:opacity-95"
+                  style={{ background: `linear-gradient(135deg, ${CLAY_LIGHT} 0%, ${CLAY} 100%)` }}
+                >
+                  <Plus className="h-4 w-4 mr-2" /> Add campsite
+                </Button>
+              )}
+              {hasAirbnb && (
+                <Button
+                  onClick={() => navigate("/create-airbnb")}
+                  className="rounded-xl text-[12px] font-semibold text-white border-none px-5 py-5 hover:opacity-95"
+                  style={{ background: `linear-gradient(135deg, ${CLAY_LIGHT} 0%, ${CLAY} 100%)` }}
+                >
+                  <Plus className="h-4 w-4 mr-2" /> Add Airbnb
+                </Button>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {places.map((place) => (
-              <CampsiteCard
+              <ListingCard
                 key={place.id}
                 place={place}
                 onManage={() => navigate(`/edit-listing/adventure/${place.id}`)}

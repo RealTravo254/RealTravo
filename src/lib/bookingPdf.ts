@@ -21,6 +21,19 @@ export const fmtDate = (d?: string | null): string => {
   return date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 };
 
+// Strips any time part and returns "YYYY-MM-DD" (used by QRScanner.tsx to
+// compare a booking's date with today). Returns "" when there's no valid date.
+export const dateOnly = (v?: string | Date | null): string => {
+  if (!v) return "";
+  if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}/.test(v)) return v.slice(0, 10);
+  const date = v instanceof Date ? v : new Date(v);
+  if (isNaN(date.getTime())) return "";
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+};
+
 // Short formatter used by bookingEmail.ts.
 // Numbers -> "1,200" (no currency prefix); date strings -> "5 Nov".
 export const fmtShort = (v: number | string | null | undefined): string => {

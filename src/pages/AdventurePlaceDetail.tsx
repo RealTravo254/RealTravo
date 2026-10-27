@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useParams, useNavigate } from "react-router-dom";
 import { useSafeBack } from "@/hooks/useSafeBack";
@@ -151,7 +151,6 @@ interface SpecialPriceTier {
   requirement?: string;
 }
 
-const ITEMS_PER_PAGE = 5;
 const GALLERY_IMAGE_LIMIT = 5;
 
 const SectionHeading = ({ title, color }: { title: string; color: string }) => (
@@ -264,7 +263,7 @@ const ImageGalleryModal = ({
   return createPortal(modal, document.body);
 };
 
-// ─── Desktop gallery (fills its column: 50% of the page on large screens) ─────
+// ─── Desktop gallery (fills the left column) ──────────────────────────────────
 const DesktopGallery = ({ images, name }: { images: string[]; name: string }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalStart, setModalStart] = useState(0);
@@ -278,7 +277,7 @@ const DesktopGallery = ({ images, name }: { images: string[]; name: string }) =>
       {modalOpen && <ImageGalleryModal images={images} name={name} startIndex={modalStart} onClose={() => setModalOpen(false)} />}
       <div
         className="rounded-[28px] overflow-hidden w-full"
-        style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "320px 170px", gap: "4px", border: `1px solid ${HAIRLINE}` }}
+        style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "360px 190px", gap: "4px", border: `1px solid ${HAIRLINE}` }}
       >
         <div style={{ gridColumn: "1 / 3", overflow: "hidden", cursor: "pointer" }} onClick={() => open(0)}>
           <img src={images[0]} alt={name} loading="eager" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
@@ -370,6 +369,73 @@ const MobileCarousel = ({ images, name }: { images: string[]; name: string }) =>
   );
 };
 
+// ─── About section (restyled) ─────────────────────────────────────────────────
+const ABOUT_CLAMP_CHARS = 320;
+
+const AboutSection = ({ description }: { description: string }) => {
+  const [expanded, setExpanded] = useState(false);
+  const isLong = description.length > ABOUT_CLAMP_CHARS;
+
+  return (
+    <section
+      className="bg-white rounded-3xl overflow-hidden"
+      style={{ border: `1px solid ${HAIRLINE}`, fontFamily: FONT_BODY }}
+    >
+      <div
+        className="flex items-center gap-3 px-5 py-3.5"
+        style={{ background: `linear-gradient(135deg, ${FOREST_SOFT} 0%, #F6F8F4 100%)`, borderBottom: `1px solid ${HAIRLINE}` }}
+      >
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: FOREST }}>
+          <Info className="h-4 w-4 text-white" />
+        </div>
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em]" style={{ color: CLAY }}>Overview</p>
+          <h2 className="text-lg font-semibold leading-tight" style={{ fontFamily: FONT_DISPLAY, color: INK }}>
+            About this place
+          </h2>
+        </div>
+      </div>
+
+      <div className="px-5 py-4 md:px-6 md:py-5">
+        <div className="relative">
+          <p
+            className="text-[14px] md:text-[15px] leading-[1.75] whitespace-pre-line"
+            style={{
+              color: INK,
+              ...(isLong && !expanded
+                ? {
+                    display: "-webkit-box",
+                    WebkitLineClamp: 6,
+                    WebkitBoxOrient: "vertical" as const,
+                    overflow: "hidden",
+                  }
+                : {}),
+            }}
+          >
+            {description}
+          </p>
+          {isLong && !expanded && (
+            <div
+              className="absolute bottom-0 left-0 right-0 h-10 pointer-events-none"
+              style={{ background: "linear-gradient(to top, rgba(255,255,255,1), rgba(255,255,255,0))" }}
+            />
+          )}
+        </div>
+        {isLong && (
+          <button
+            onClick={() => setExpanded((v) => !v)}
+            className="mt-3 inline-flex items-center gap-1 text-[12px] font-semibold transition-opacity hover:opacity-80"
+            style={{ color: CLAY }}
+          >
+            {expanded ? "Show less" : "Read more"}
+            <ChevronRight className="h-3.5 w-3.5 transition-transform" style={{ transform: expanded ? "rotate(-90deg)" : "rotate(90deg)" }} />
+          </button>
+        )}
+      </div>
+    </section>
+  );
+};
+
 const AmenitiesScroll = ({ amenities, accentColor }: { amenities: string[]; accentColor: string }) => {
   if (!amenities.length) return null;
   return (
@@ -387,8 +453,58 @@ const AmenitiesScroll = ({ amenities, accentColor }: { amenities: string[]; acce
   );
 };
 
-const CARD_IMG_HEIGHT = 104;
-const FACILITY_IMG_HEIGHT_CLASS = "h-[104px]";
+// ─── Sideways-scrolling row section (used by Facilities + Activities) ─────────
+const ScrollRowSection = ({
+  title, color, count, children,
+}: { title: string; color: string; count: number; children: React.ReactNode }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const scrollByDir = (dir: 1 | -1) => {
+    const el = ref.current;
+    if (!el) return;
+    el.scrollBy({ left: dir * Math.max(el.clientWidth * 0.8, 200), behavior: "smooth" });
+  };
+
+  return (
+    <section style={{ fontFamily: FONT_BODY }}>
+      <div className="flex items-end justify-between mb-3">
+        <div>
+          <h2 className="text-lg md:text-xl font-semibold leading-none flex items-center gap-2" style={{ fontFamily: FONT_DISPLAY, color: INK }}>
+            {title}
+            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full" style={{ background: `${color}14`, color }}>{count}</span>
+          </h2>
+          <span className="block w-9 h-[3px] rounded-full mt-2" style={{ background: color }} />
+        </div>
+        {count > 2 && (
+          <div className="hidden md:flex items-center gap-2">
+            <button
+              onClick={() => scrollByDir(-1)}
+              aria-label={`Scroll ${title} left`}
+              className="w-7 h-7 rounded-full flex items-center justify-center bg-white transition-all hover:opacity-80 active:scale-95"
+              style={{ border: `1px solid ${color}40`, color }}
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => scrollByDir(1)}
+              aria-label={`Scroll ${title} right`}
+              className="w-7 h-7 rounded-full flex items-center justify-center bg-white transition-all hover:opacity-80 active:scale-95"
+              style={{ border: `1px solid ${color}40`, color }}
+            >
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+      </div>
+      <div
+        ref={ref}
+        className="flex gap-2.5 overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 [&::-webkit-scrollbar]:hidden"
+        style={{ scrollSnapType: "x proximity", scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}
+      >
+        {children}
+      </div>
+    </section>
+  );
+};
 
 const FacImage = ({ images, name, onClick }: { images: string[]; name: string; onClick?: () => void }) => {
   const [loaded, setLoaded] = useState(false);
@@ -407,18 +523,14 @@ const FacImage = ({ images, name, onClick }: { images: string[]; name: string; o
   );
 };
 
-const InlineFacilitiesGrid = ({ facilities, accentColor }: { facilities: any[]; accentColor: string }) => {
+const CARD_IMG_HEIGHT = 76;
+
+const InlineFacilitiesGrid = ({ facilities, accentColor, formatPrice }: { facilities: any[]; accentColor: string; formatPrice: (n: number) => string }) => {
   const [modalImages, setModalImages] = useState<string[] | null>(null);
   const [modalName, setModalName]     = useState("");
   const [modalStart, setModalStart]   = useState(0);
-  const [page, setPage]               = useState(0);
-
-  useEffect(() => { setPage(0); }, [facilities]);
 
   if (!facilities?.length) return null;
-
-  const totalPages = Math.ceil(facilities.length / ITEMS_PER_PAGE);
-  const visibleFacilities = facilities.slice(page * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE + ITEMS_PER_PAGE);
 
   const openCardGallery = (imgs: string[], name: string, startIdx = 0) => { setModalImages(imgs); setModalName(name); setModalStart(startIdx); };
   const facilityAmenityLabel = (amenity: any) => {
@@ -430,62 +542,65 @@ const InlineFacilitiesGrid = ({ facilities, accentColor }: { facilities: any[]; 
   return (
     <>
       {modalImages && <ImageGalleryModal images={modalImages} name={modalName} startIndex={modalStart} onClose={() => setModalImages(null)} />}
-      <section style={{ fontFamily: FONT_BODY }}>
-        <SectionHeading title="Facilities" color={accentColor} />
-        <div className="flex gap-3 overflow-x-auto pb-1 md:grid md:grid-cols-3 lg:grid-cols-5 md:overflow-visible md:pb-0 lg:gap-4">
-          {visibleFacilities.map((fac: any, i: number) => {
-            const imgs: string[] = Array.isArray(fac.images) ? fac.images.filter(Boolean) : [];
-            const hasMultiple = imgs.length > 1;
-            return (
-              <div key={i} className="bg-white overflow-hidden flex-shrink-0 w-[160px] md:w-auto rounded-2xl" style={{ border: `1px solid ${HAIRLINE}` }}>
-                {imgs.length > 0 ? (
-                  <div className={`relative overflow-hidden ${FACILITY_IMG_HEIGHT_CLASS}`}>
-                    <FacImage images={imgs} name={fac.name} onClick={() => openCardGallery(imgs, fac.name, 0)} />
-                    {hasMultiple && (
-                      <button onClick={(e) => { e.stopPropagation(); openCardGallery(imgs, fac.name, 0); }} className="absolute top-1.5 right-1.5 z-20 flex items-center gap-0.5 backdrop-blur-sm text-white text-[9px] lg:text-[10px] font-medium px-1.5 py-0.5 rounded-full transition-all" style={{ background: "rgba(14,23,18,0.55)" }}>
-                        <Grid2X2 className="h-2 w-2 lg:h-2.5 lg:w-2.5" /> See all
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  <div className={`flex items-center justify-center ${FACILITY_IMG_HEIGHT_CLASS}`} style={{ background: FOREST_SOFT }}>
-                    <MapPin className="h-5 w-5 lg:h-7 lg:w-7" style={{ color: `${FOREST}55` }} />
-                  </div>
-                )}
-                <div className="p-2.5 lg:p-3">
-                  <p className="font-semibold text-[12px] lg:text-[13px] leading-tight" style={{ color: INK }}>{fac.name}</p>
-                  {fac.capacity && <p className="text-[10px] lg:text-xs mt-0.5 flex items-center gap-1" style={{ color: INK_SOFT }}><Users className="h-2.5 w-2.5 lg:h-3.5 lg:w-3.5" /> {fac.capacity}</p>}
-                  {fac.price > 0 && <p className="text-[11px] lg:text-sm font-semibold mt-1" style={{ color: accentColor }}>KSh {fac.price?.toLocaleString()}</p>}
-                  {Array.isArray(fac.amenities) && fac.amenities.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-1.5 lg:mt-2">
-                      {fac.amenities.slice(0, 5).map((a: any, ai: number) => (
-                        <span
-                          key={ai}
-                          className="text-[9px] lg:text-[10px] font-medium px-1.5 lg:px-2 py-0.5 rounded-full"
-                          style={{ background: FOREST_SOFT, color: INK_SOFT }}
-                        >
-                          {facilityAmenityLabel(a)}
-                        </span>
-                      ))}
-                    </div>
+      <ScrollRowSection title="Facilities" color={accentColor} count={facilities.length}>
+        {facilities.map((fac: any, i: number) => {
+          const imgs: string[] = Array.isArray(fac.images) ? fac.images.filter(Boolean) : [];
+          const hasMultiple = imgs.length > 1;
+          return (
+            <div
+              key={i}
+              className="bg-white overflow-hidden flex-shrink-0 w-[132px] rounded-xl"
+              style={{ border: `1px solid ${HAIRLINE}`, scrollSnapAlign: "start" }}
+            >
+              {imgs.length > 0 ? (
+                <div className="relative overflow-hidden" style={{ height: CARD_IMG_HEIGHT }}>
+                  <FacImage images={imgs} name={fac.name} onClick={() => openCardGallery(imgs, fac.name, 0)} />
+                  {hasMultiple && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); openCardGallery(imgs, fac.name, 0); }}
+                      className="absolute top-1 right-1 z-20 flex items-center gap-0.5 backdrop-blur-sm text-white text-[8px] font-medium px-1.5 py-0.5 rounded-full"
+                      style={{ background: "rgba(14,23,18,0.55)" }}
+                    >
+                      <Grid2X2 className="h-2 w-2" /> {imgs.length}
+                    </button>
                   )}
                 </div>
+              ) : (
+                <div className="flex items-center justify-center" style={{ height: CARD_IMG_HEIGHT, background: FOREST_SOFT }}>
+                  <MapPin className="h-4 w-4" style={{ color: `${FOREST}55` }} />
+                </div>
+              )}
+              <div className="p-2">
+                <p className="font-semibold text-[11px] leading-tight line-clamp-2" style={{ color: INK }}>{fac.name}</p>
+                {fac.capacity && (
+                  <p className="text-[10px] mt-0.5 flex items-center gap-1" style={{ color: INK_SOFT }}>
+                    <Users className="h-2.5 w-2.5" /> {fac.capacity}
+                  </p>
+                )}
+                {fac.price > 0 && (
+                  <p className="text-[11px] font-semibold mt-0.5" style={{ color: accentColor }}>{formatPrice(Number(fac.price))}</p>
+                )}
+                {Array.isArray(fac.amenities) && fac.amenities.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {fac.amenities.slice(0, 2).map((a: any, ai: number) => (
+                      <span
+                        key={ai}
+                        className="text-[8.5px] font-medium px-1.5 py-0.5 rounded-full"
+                        style={{ background: FOREST_SOFT, color: INK_SOFT }}
+                      >
+                        {facilityAmenityLabel(a)}
+                      </span>
+                    ))}
+                    {fac.amenities.length > 2 && (
+                      <span className="text-[8.5px] font-medium px-1 py-0.5" style={{ color: INK_SOFT }}>+{fac.amenities.length - 2}</span>
+                    )}
+                  </div>
+                )}
               </div>
-            );
-          })}
-        </div>
-        {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-3 mt-4">
-            <button onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0} aria-label="Previous facilities" className="w-7 h-7 rounded-full flex items-center justify-center transition-all disabled:opacity-30" style={{ border: `1px solid ${accentColor}40`, color: accentColor }}>
-              <ChevronLeft className="h-3.5 w-3.5" />
-            </button>
-            <span className="text-[11px] font-medium" style={{ color: INK_SOFT }}>Page {page + 1} of {totalPages}</span>
-            <button onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={page === totalPages - 1} aria-label="Next facilities" className="w-7 h-7 rounded-full flex items-center justify-center transition-all disabled:opacity-30" style={{ border: `1px solid ${accentColor}40`, color: accentColor }}>
-              <ChevronRight className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        )}
-      </section>
+            </div>
+          );
+        })}
+      </ScrollRowSection>
     </>
   );
 };
@@ -495,7 +610,7 @@ const ActivityCard = ({ act, imgs, formatPrice, onImageClick }: { act: any; imgs
   const hasMultiple = imgs.length > 1;
 
   return (
-    <div className="bg-white overflow-hidden rounded-2xl" style={{ border: `1px solid ${HAIRLINE}` }}>
+    <div className="bg-white overflow-hidden rounded-xl" style={{ border: `1px solid ${HAIRLINE}` }}>
       <div className="relative overflow-hidden" style={{ height: CARD_IMG_HEIGHT, cursor: imgs.length > 0 ? "pointer" : "default" }} onClick={imgs.length > 0 ? onImageClick : undefined}>
         {imgs.length > 0 ? (
           <img
@@ -507,21 +622,21 @@ const ActivityCard = ({ act, imgs, formatPrice, onImageClick }: { act: any; imgs
             style={{ opacity: loaded ? 1 : 0 }}
           />
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center" style={{ background: FOREST_SOFT }}><MapPin className="h-5 w-5" style={{ color: `${FOREST}55` }} /></div>
+          <div className="absolute inset-0 flex items-center justify-center" style={{ background: FOREST_SOFT }}><MapPin className="h-4 w-4" style={{ color: `${FOREST}55` }} /></div>
         )}
         <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(to top, rgba(14,23,18,0.45) 0%, transparent 55%)" }} />
         {hasMultiple && (
-          <button onClick={(e) => { e.stopPropagation(); onImageClick?.(); }} className="absolute top-1.5 right-1.5 z-20 flex items-center gap-0.5 backdrop-blur-sm text-white text-[9px] font-medium px-1.5 py-0.5 rounded-full transition-all" style={{ background: "rgba(14,23,18,0.55)" }}>
-            <Grid2X2 className="h-2 w-2" /> See all
+          <button onClick={(e) => { e.stopPropagation(); onImageClick?.(); }} className="absolute top-1 right-1 z-20 flex items-center gap-0.5 backdrop-blur-sm text-white text-[8px] font-medium px-1.5 py-0.5 rounded-full" style={{ background: "rgba(14,23,18,0.55)" }}>
+            <Grid2X2 className="h-2 w-2" /> {imgs.length}
           </button>
         )}
       </div>
-      <div className="p-2.5">
-        <p className="font-semibold text-[12px] leading-tight" style={{ color: INK }}>{act.name}</p>
+      <div className="p-2">
+        <p className="font-semibold text-[11px] leading-tight line-clamp-2" style={{ color: INK }}>{act.name}</p>
         {act.price > 0 ? (
-          <p className="text-[11px] font-semibold mt-1" style={{ color: CLAY }}>{formatPrice(Number(act.price))}</p>
+          <p className="text-[11px] font-semibold mt-0.5" style={{ color: CLAY }}>{formatPrice(Number(act.price))}</p>
         ) : (
-          <p className="text-[11px] font-semibold mt-1" style={{ color: OPEN_COLOR }}>Free</p>
+          <p className="text-[11px] font-semibold mt-0.5" style={{ color: OPEN_COLOR }}>Free</p>
         )}
       </div>
     </div>
@@ -532,43 +647,24 @@ const InlineActivitiesGrid = ({ activities, formatPrice }: { activities: any[]; 
   const [modalImages, setModalImages] = useState<string[] | null>(null);
   const [modalName, setModalName]     = useState("");
   const [modalStart, setModalStart]   = useState(0);
-  const [page, setPage]               = useState(0);
-
-  useEffect(() => { setPage(0); }, [activities]);
 
   if (!activities?.length) return null;
 
-  const totalPages = Math.ceil(activities.length / ITEMS_PER_PAGE);
-  const visibleActivities = activities.slice(page * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE + ITEMS_PER_PAGE);
   const openCardGallery = (imgs: string[], name: string, startIdx = 0) => { setModalImages(imgs); setModalName(name); setModalStart(startIdx); };
 
   return (
     <>
       {modalImages && <ImageGalleryModal images={modalImages} name={modalName} startIndex={modalStart} onClose={() => setModalImages(null)} />}
-      <section style={{ fontFamily: FONT_BODY }}>
-        <SectionHeading title="Activities" color={CLAY} />
-        <div className="flex gap-3 overflow-x-auto pb-1 md:grid md:grid-cols-3 lg:grid-cols-5 md:overflow-visible md:pb-0">
-          {visibleActivities.map((act: any, i: number) => {
-            const imgs: string[] = Array.isArray(act.images) ? act.images.filter(Boolean) : [];
-            return (
-              <div key={i} className="flex-shrink-0 w-[150px] md:w-auto">
-                <ActivityCard act={act} imgs={imgs} formatPrice={formatPrice} onImageClick={imgs.length > 0 ? () => openCardGallery(imgs, act.name, 0) : undefined} />
-              </div>
-            );
-          })}
-        </div>
-        {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-3 mt-4">
-            <button onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0} aria-label="Previous activities" className="w-7 h-7 rounded-full flex items-center justify-center transition-all disabled:opacity-30" style={{ border: `1px solid ${CLAY}40`, color: CLAY }}>
-              <ChevronLeft className="h-3.5 w-3.5" />
-            </button>
-            <span className="text-[11px] font-medium" style={{ color: INK_SOFT }}>Page {page + 1} of {totalPages}</span>
-            <button onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={page === totalPages - 1} aria-label="Next activities" className="w-7 h-7 rounded-full flex items-center justify-center transition-all disabled:opacity-30" style={{ border: `1px solid ${CLAY}40`, color: CLAY }}>
-              <ChevronRight className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        )}
-      </section>
+      <ScrollRowSection title="Activities" color={CLAY} count={activities.length}>
+        {activities.map((act: any, i: number) => {
+          const imgs: string[] = Array.isArray(act.images) ? act.images.filter(Boolean) : [];
+          return (
+            <div key={i} className="flex-shrink-0 w-[120px]" style={{ scrollSnapAlign: "start" }}>
+              <ActivityCard act={act} imgs={imgs} formatPrice={formatPrice} onImageClick={imgs.length > 0 ? () => openCardGallery(imgs, act.name, 0) : undefined} />
+            </div>
+          );
+        })}
+      </ScrollRowSection>
     </>
   );
 };
@@ -1010,11 +1106,16 @@ const AdventurePlaceDetail = () => {
       {/* Phones: full-bleed carousel */}
       {isMobile && <MobileCarousel images={allImages} name={place.name} />}
 
-      {/* HERO — on large screens: gallery = 50% width, right half = title, rating, price card */}
-      <div className="max-w-6xl mx-auto px-4 pt-5 grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-start" style={{ fontFamily: FONT_BODY }}>
-        {!isMobile && <DesktopGallery images={allImages} name={place.name} />}
+      {/* PAGE BODY — left: gallery, title, sections · right: sticky booking card (large screens) */}
+      <div
+        className="max-w-6xl mx-auto px-4 pt-5 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_380px] gap-6 lg:gap-8 items-start"
+        style={{ fontFamily: FONT_BODY }}
+      >
+        <div className="min-w-0 space-y-6">
+          {/* Gallery (large screens) */}
+          {!isMobile && <DesktopGallery images={allImages} name={place.name} />}
 
-        <div className="flex flex-col gap-5 min-w-0">
+          {/* Title block — sits directly below the image on big screens */}
           <div>
             <h1 className="text-[28px] md:text-[34px] font-semibold leading-tight tracking-tight" style={{ fontFamily: FONT_DISPLAY, color: INK }}>{toTitleCase(place.name)}</h1>
             <div className="flex items-center gap-1.5 mt-1.5" style={{ color: INK_SOFT }}>
@@ -1047,59 +1148,54 @@ const AdventurePlaceDetail = () => {
             )}
           </div>
 
-          {/* Price card — large screens only (phones get it further down + bottom bar) */}
-          <div className="hidden lg:block bg-white rounded-2xl p-6" style={{ border: `1px solid ${HAIRLINE}`, boxShadow: "0 8px 30px rgba(28,43,34,0.06)" }}>
-            <BookingCard {...bookingCardProps} />
-          </div>
-        </div>
-      </div>
-
-      {/* DETAILS — two columns on large screens */}
-      <main className="container px-4 mt-6 relative z-10 max-w-6xl mx-auto" style={{ fontFamily: FONT_BODY }}>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-          {place.description && (
-            <section className="bg-white rounded-2xl px-5 py-4" style={{ border: `1px solid ${HAIRLINE}` }}>
-              <SectionHeading title="About this place" color={FOREST} />
-              <p className="text-[14px] leading-relaxed whitespace-pre-line" style={{ color: INK }}>{place.description}</p>
-            </section>
-          )}
-
-          {generalAmenities.length > 0 && (
-            <AmenitiesScroll amenities={generalAmenities} accentColor={FOREST} />
-          )}
-
+          {/* Booking card — phones/tablets (large screens get it in the right column) */}
           <div className="bg-white rounded-2xl p-5 lg:hidden" style={{ border: `1px solid ${HAIRLINE}` }}>
             <BookingCard {...bookingCardProps} />
           </div>
 
           {specialPrices.length > 0 && (
-            <div className="lg:col-span-2"><SpecialPricesSection tiers={specialPrices} formatPrice={formatPrice} /></div>
+            <SpecialPricesSection tiers={specialPrices} formatPrice={formatPrice} />
           )}
 
+          {/* Facilities → Activities → About */}
           {place.facilities?.length > 0 && (
-            <div id="facilities-section" className="lg:col-span-2"><InlineFacilitiesGrid facilities={place.facilities} accentColor={FOREST} /></div>
+            <div id="facilities-section">
+              <InlineFacilitiesGrid facilities={place.facilities} accentColor={FOREST} formatPrice={formatPrice} />
+            </div>
           )}
+
           {place.activities?.length > 0 && (
-            <div id="activities-section" className="lg:col-span-2"><InlineActivitiesGrid activities={place.activities} formatPrice={formatPrice} /></div>
+            <div id="activities-section">
+              <InlineActivitiesGrid activities={place.activities} formatPrice={formatPrice} />
+            </div>
           )}
 
-          <div className="lg:col-span-2">
-            <AlwaysOpenMapSection
-              name={place.name}
-              latitude={place.latitude}
-              longitude={place.longitude}
-              location={place.location}
-              country={place.country}
-              isMobile={isMobile}
-              onOpenMap={() => setMapModalOpen(true)}
-            />
-          </div>
+          {place.description && <AboutSection description={place.description} />}
 
-          <div className="lg:col-span-2">
-            <ReviewsSection itemId={resolvedId} itemType="adventure_place" itemName={toTitleCase(place.name)} />
-          </div>
+          {generalAmenities.length > 0 && (
+            <AmenitiesScroll amenities={generalAmenities} accentColor={FOREST} />
+          )}
+
+          <AlwaysOpenMapSection
+            name={place.name}
+            latitude={place.latitude}
+            longitude={place.longitude}
+            location={place.location}
+            country={place.country}
+            isMobile={isMobile}
+            onOpenMap={() => setMapModalOpen(true)}
+          />
+
+          <ReviewsSection itemId={resolvedId} itemType="adventure_place" itemName={toTitleCase(place.name)} />
         </div>
-      </main>
+
+        {/* Booking card — large screens only, sticky */}
+        <aside className="hidden lg:block sticky self-start" style={{ top: "calc(72px + env(safe-area-inset-top, 0px))" }}>
+          <div className="bg-white rounded-2xl p-6" style={{ border: `1px solid ${HAIRLINE}`, boxShadow: "0 8px 30px rgba(28,43,34,0.06)" }}>
+            <BookingCard {...bookingCardProps} />
+          </div>
+        </aside>
+      </div>
 
       <Footer />
 

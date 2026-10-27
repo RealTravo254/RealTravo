@@ -21,6 +21,18 @@ export const fmtDate = (d?: string | null): string => {
   return date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 };
 
+// Short formatter used by bookingEmail.ts.
+// Numbers -> "1,200" (no currency prefix); date strings -> "5 Nov".
+export const fmtShort = (v: number | string | null | undefined): string => {
+  if (typeof v === "number") {
+    return v.toLocaleString("en-KE", { maximumFractionDigits: 0 });
+  }
+  if (!v) return "—";
+  const date = new Date(v);
+  if (isNaN(date.getTime())) return String(v);
+  return date.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+};
+
 // ── Item name ───────────────────────────────────────────────────────────────
 export const getItemName = (d: any): string =>
   d?.trip_name || d?.event_name || d?.item_name || d?.place_name ||

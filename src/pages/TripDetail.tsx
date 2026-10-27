@@ -22,6 +22,8 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 import { Footer } from "@/components/Footer";
 import { InquiryDialog } from "@/components/InquiryDialog";
 import { FloatingInquiryButton } from "@/components/FloatingInquiryButton";
+import { ReviewsSection } from "@/components/reviews/ReviewsSection";
+import { RatingBadge } from "@/components/reviews/StarRating";
 
 // ── Design tokens ─────────────────────────────────────────────────────────
 const FOREST       = "#1F4D3A";
@@ -151,34 +153,35 @@ const ImageGalleryModal = ({
   );
 };
 
-// ─── Desktop gallery grid ─────────────────────────────────────────────────────
+// ─── Desktop gallery (fills its column: 50% of the page on large screens) ─────
 const DesktopGallery = ({ images, name }: { images: string[]; name: string }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalStart, setModalStart] = useState(0);
   const open = (idx: number) => { setModalStart(idx); setModalOpen(true); };
 
+  if (!images.length) return null;
+  const placeholder = <div className="w-full h-full" style={{ background: FOREST_SOFT }} />;
+
   return (
     <>
       {modalOpen && <ImageGalleryModal images={images} name={name} startIndex={modalStart} onClose={() => setModalOpen(false)} />}
-      <div className="max-w-6xl mx-auto px-4 pt-5">
-        <div className="relative rounded-[28px] overflow-hidden" style={{ display: "grid", gridTemplateColumns: "1.55fr 1fr", gridTemplateRows: "210px 136px", gap: "4px", border: `1px solid ${HAIRLINE}` }}>
-          <div style={{ gridRow: "1 / 3", overflow: "hidden", cursor: "pointer" }} onClick={() => open(0)}>
-            {images[0] && <img src={images[0]} alt={name} loading="eager" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />}
-          </div>
-          <div style={{ overflow: "hidden", cursor: "pointer" }} onClick={() => open(1)}>
-            {images[1] && <img src={images[1]} alt={`${name} 2`} loading="eager" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />}
-          </div>
-          <div style={{ overflow: "hidden", position: "relative", cursor: "pointer" }} onClick={() => open(2)}>
-            {images[2] && <img src={images[2]} alt={`${name} 3`} loading="eager" className="w-full h-full object-cover" />}
-            {images.length > 3 && (
-              <div className="absolute inset-0 flex items-center justify-center backdrop-blur-[1px] cursor-pointer" style={{ background: "rgba(18,51,34,0.58)" }}>
-                <div className="text-center">
-                  <span className="text-white text-2xl font-semibold" style={{ fontFamily: FONT_DISPLAY }}>+{images.length - 3}</span>
-                  <p className="text-white/85 text-[11px] font-medium mt-0.5" style={{ fontFamily: FONT_BODY }}>See all photos</p>
-                </div>
+      <div className="relative rounded-[28px] overflow-hidden w-full" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "320px 170px", gap: "4px", border: `1px solid ${HAIRLINE}` }}>
+        <div style={{ gridColumn: "1 / 3", overflow: "hidden", cursor: "pointer" }} onClick={() => open(0)}>
+          <img src={images[0]} alt={name} loading="eager" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
+        </div>
+        <div style={{ overflow: "hidden", cursor: "pointer" }} onClick={() => open(1)}>
+          {images[1] ? <img src={images[1]} alt={`${name} 2`} loading="eager" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" /> : placeholder}
+        </div>
+        <div style={{ overflow: "hidden", position: "relative", cursor: "pointer" }} onClick={() => open(2)}>
+          {images[2] ? <img src={images[2]} alt={`${name} 3`} loading="eager" className="w-full h-full object-cover" /> : placeholder}
+          {images.length > 3 && (
+            <div className="absolute inset-0 flex items-center justify-center backdrop-blur-[1px] cursor-pointer" style={{ background: "rgba(18,51,34,0.58)" }}>
+              <div className="text-center">
+                <span className="text-white text-2xl font-semibold" style={{ fontFamily: FONT_DISPLAY }}>+{images.length - 3}</span>
+                <p className="text-white/85 text-[11px] font-medium mt-0.5" style={{ fontFamily: FONT_BODY }}>See all photos</p>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
     </>
@@ -186,7 +189,6 @@ const DesktopGallery = ({ images, name }: { images: string[]; name: string }) =>
 };
 
 // ─── Mobile carousel ──────────────────────────────────────────────────────────
-// No border radius on small screens (was rounded-b-[28px] — removed).
 const MobileCarousel = ({ images, name }: { images: string[]; name: string }) => {
   const [active, setActive] = useState(0);
   const [loaded, setLoaded] = useState(false);
@@ -202,6 +204,12 @@ const MobileCarousel = ({ images, name }: { images: string[]; name: string }) =>
   useEffect(() => { setLoaded(false); }, [active]);
 
   const go = (idx: number) => setActive((idx + images.length) % images.length);
+
+  if (!images.length) return (
+    <div className="w-full flex items-center justify-center font-semibold text-sm" style={{ height: "45vh", minHeight: "200px", maxHeight: "360px", background: FOREST_SOFT, color: INK_SOFT, fontFamily: FONT_BODY }}>
+      No photo yet
+    </div>
+  );
 
   return (
     <>
@@ -297,7 +305,6 @@ const HighlightsTags = ({ activities }: { activities: any[] }) => {
 };
 
 // ─── Map URL helpers ───────────────────────────────────────────────────────
-// Shared by TripMapSection and the mobile map popup below.
 const buildMapUrls = (name: string, location?: string, country?: string, mapLink?: string) => {
   const searchQuery = encodeURIComponent([name, location, country].filter(Boolean).join(", "));
   const coordMatch = mapLink?.match(/[?&]q=([-\d.]+),([-\d.]+)/);
@@ -309,9 +316,6 @@ const buildMapUrls = (name: string, location?: string, country?: string, mapLink
 };
 
 // ─── Mobile map popup ───────────────────────────────────────────────────────
-// Opens over the whole screen with a large, freely pannable embedded map.
-// There's no forced redirect to the Google Maps app — that's an explicit
-// choice at the bottom of the popup, not something tapping the map triggers.
 const MapModal = ({
   name, googleMapsUrl, embedUrl, onClose,
 }: { name: string; googleMapsUrl: string; embedUrl: string; onClose: () => void }) => {
@@ -374,8 +378,6 @@ const TripMapSection = ({
             </p>
           </div>
         </div>
-        {/* Mobile: opens the in-app map popup instead of jumping straight out
-            to Google Maps. Desktop keeps the direct external link. */}
         {isMobile ? (
           <button
             onClick={onOpenMap}
@@ -430,7 +432,7 @@ const UtilityButton = ({ icon, label, onClick }: { icon: React.ReactNode; label:
   </Button>
 );
 
-// ─── Booking Card (extracted so it can be rendered in two places) ─────────────
+// ─── Booking Card (rendered in the hero on large screens, in the content on phones) ──
 const BookingCard = ({
   event,
   formatPrice,
@@ -454,7 +456,7 @@ const BookingCard = ({
   handleCopyLink: () => void;
   handleShare: () => void;
 }) => (
-  <div className="bg-white rounded-[28px] p-5 lg:sticky lg:top-24" style={{ border: `1px solid ${HAIRLINE}`, boxShadow: "0 8px 30px rgba(28,43,34,0.06)", fontFamily: FONT_BODY }}>
+  <div className="bg-white rounded-[28px] p-5" style={{ border: `1px solid ${HAIRLINE}`, boxShadow: "0 8px 30px rgba(28,43,34,0.06)", fontFamily: FONT_BODY }}>
 
     <div className="flex justify-between items-end mb-4">
       <div>
@@ -661,8 +663,6 @@ const TripDetail = () => {
   };
 
   const openInMaps = () => {
-    // Mobile: open the in-app map popup instead of jumping straight to
-    // Google Maps. Desktop keeps the direct new-tab behavior.
     if (isMobile) { setMapModalOpen(true); return; }
     const query = encodeURIComponent(`${event?.name}, ${event?.location}`);
     window.open(event?.map_link || `https://www.google.com/maps/search/?api=1&query=${query}`, "_blank");
@@ -706,7 +706,7 @@ const TripDetail = () => {
     formatPrice,
     remainingSlots,
     isSoldOut,
-    isExpired,
+    isExpired: !!isExpired,
     canBook,
     navigateToBooking,
     openInMaps,
@@ -720,83 +720,92 @@ const TripDetail = () => {
 
       <div style={{ height: "calc(56px + env(safe-area-inset-top, 0px))" }} />
 
-      {isMobile ? (
-        <MobileCarousel images={allImages} name={event.name} />
-      ) : (
-        <DesktopGallery images={allImages} name={event.name} />
-      )}
+      {/* Phones: full-bleed carousel */}
+      {isMobile && <MobileCarousel images={allImages} name={event.name} />}
 
-      <div className="max-w-6xl mx-auto px-4 pt-5 pb-1" style={{ fontFamily: FONT_BODY }}>
-        <span className="inline-flex items-center gap-1.5 mb-2.5 text-white px-3 py-1 rounded-full text-[11px] font-semibold" style={{ background: `linear-gradient(135deg, ${CLAY_LIGHT}, ${CLAY})` }}>
-          <Navigation className="h-3 w-3" /> Trip
-        </span>
-        <h1 className="text-[28px] md:text-[34px] font-semibold leading-tight tracking-tight" style={{ fontFamily: FONT_DISPLAY, color: INK }}>{toTitleCase(event.name)}</h1>
-        <button onClick={openInMaps} className="flex items-center gap-1.5 mt-1.5 transition-colors" style={{ color: INK_SOFT }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = FOREST)}
-          onMouseLeave={(e) => (e.currentTarget.style.color = INK_SOFT)}>
-          <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
-          <span className="text-[13px] font-medium">{[event.place, event.location, event.country].filter(Boolean).join(", ")}</span>
-        </button>
+      {/* HERO — on large screens: gallery = 50% width, right half = title, rating, price card */}
+      <div className="max-w-6xl mx-auto px-4 pt-5 grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-start" style={{ fontFamily: FONT_BODY }}>
+        {!isMobile && <DesktopGallery images={allImages} name={event.name} />}
+
+        <div className="flex flex-col gap-5 min-w-0">
+          <div>
+            <span className="inline-flex items-center gap-1.5 mb-2.5 text-white px-3 py-1 rounded-full text-[11px] font-semibold" style={{ background: `linear-gradient(135deg, ${CLAY_LIGHT}, ${CLAY})` }}>
+              <Navigation className="h-3 w-3" /> Trip
+            </span>
+            <h1 className="text-[28px] md:text-[34px] font-semibold leading-tight tracking-tight" style={{ fontFamily: FONT_DISPLAY, color: INK }}>{toTitleCase(event.name)}</h1>
+            <button onClick={openInMaps} className="flex items-center gap-1.5 mt-1.5 transition-colors" style={{ color: INK_SOFT }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = FOREST)}
+              onMouseLeave={(e) => (e.currentTarget.style.color = INK_SOFT)}>
+              <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
+              <span className="text-[13px] font-medium">{[event.place, event.location, event.country].filter(Boolean).join(", ")}</span>
+            </button>
+            <RatingBadge itemId={event.id} />
+          </div>
+
+          {/* Price card — large screens only */}
+          <div className="hidden lg:block">
+            <BookingCard {...bookingCardProps} />
+          </div>
+        </div>
       </div>
 
-      <main className="container px-4 max-w-6xl mx-auto mt-5 relative z-10" style={{ fontFamily: FONT_BODY }}>
+      {/* DETAILS — two columns on large screens */}
+      <main className="container px-4 max-w-6xl mx-auto mt-6 relative z-10" style={{ fontFamily: FONT_BODY }}>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
 
-        <div className="lg:hidden mb-5">
-          <BookingCard {...bookingCardProps} />
-        </div>
+          <div className="lg:hidden">
+            <BookingCard {...bookingCardProps} />
+          </div>
 
-        <div className="grid lg:grid-cols-[1.7fr,1fr] gap-6">
+          {event.activities?.length > 0 && (
+            <div className="lg:col-span-2"><HighlightsTags activities={event.activities} /></div>
+          )}
 
-          <div className="space-y-5">
+          <div className="bg-white rounded-2xl p-5" style={{ border: `1px solid ${HAIRLINE}` }}>
+            <SectionHeading title="About this trip" color={FOREST} />
+            {event.description
+              ? <p className="text-[14px] leading-relaxed whitespace-pre-line" style={{ color: INK }}>{event.description}</p>
+              : <p className="text-[14px] italic" style={{ color: INK_SOFT }}>No description provided.</p>
+            }
+          </div>
 
-            {event.activities?.length > 0 && (
-              <HighlightsTags activities={event.activities} />
-            )}
-
-            {((event.inclusions?.length > 0) || (event.exclusions?.length > 0)) && (
-              <div className="bg-white rounded-2xl p-5" style={{ border: `1px solid ${HAIRLINE}` }}>
-                <SectionHeading title="Package details" color={FOREST} />
-                <div className="grid grid-cols-2 gap-6">
-                  {event.inclusions?.length > 0 && (
-                    <div>
-                      <p className="text-[10px] font-semibold mb-2 flex items-center gap-1" style={{ color: SUCCESS }}>
-                        <Check className="h-3 w-3" /> Included
-                      </p>
-                      <ul className="space-y-1.5">
-                        {event.inclusions.map((item: string, i: number) => (
-                          <li key={i} className="flex items-start gap-2 text-[13px]" style={{ color: INK }}>
-                            <Check className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" style={{ color: SUCCESS }} /><span>{item}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  {event.exclusions?.length > 0 && (
-                    <div>
-                      <p className="text-[10px] font-semibold mb-2 flex items-center gap-1" style={{ color: DANGER }}>
-                        <X className="h-3 w-3" /> Not included
-                      </p>
-                      <ul className="space-y-1.5">
-                        {event.exclusions.map((item: string, i: number) => (
-                          <li key={i} className="flex items-start gap-2 text-[13px]" style={{ color: INK }}>
-                            <X className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" style={{ color: DANGER }} /><span>{item}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
+          {((event.inclusions?.length > 0) || (event.exclusions?.length > 0)) && (
             <div className="bg-white rounded-2xl p-5" style={{ border: `1px solid ${HAIRLINE}` }}>
-              <SectionHeading title="About this trip" color={FOREST} />
-              {event.description
-                ? <p className="text-[14px] leading-relaxed whitespace-pre-line" style={{ color: INK }}>{event.description}</p>
-                : <p className="text-[14px] italic" style={{ color: INK_SOFT }}>No description provided.</p>
-              }
+              <SectionHeading title="Package details" color={FOREST} />
+              <div className="grid grid-cols-2 gap-6">
+                {event.inclusions?.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-semibold mb-2 flex items-center gap-1" style={{ color: SUCCESS }}>
+                      <Check className="h-3 w-3" /> Included
+                    </p>
+                    <ul className="space-y-1.5">
+                      {event.inclusions.map((item: string, i: number) => (
+                        <li key={i} className="flex items-start gap-2 text-[13px]" style={{ color: INK }}>
+                          <Check className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" style={{ color: SUCCESS }} /><span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {event.exclusions?.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-semibold mb-2 flex items-center gap-1" style={{ color: DANGER }}>
+                      <X className="h-3 w-3" /> Not included
+                    </p>
+                    <ul className="space-y-1.5">
+                      {event.exclusions.map((item: string, i: number) => (
+                        <li key={i} className="flex items-start gap-2 text-[13px]" style={{ color: INK }}>
+                          <X className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" style={{ color: DANGER }} /><span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
             </div>
+          )}
 
+          <div className="lg:col-span-2">
             <TripMapSection
               name={event.name}
               location={event.location}
@@ -805,11 +814,10 @@ const TripDetail = () => {
               isMobile={isMobile}
               onOpenMap={() => setMapModalOpen(true)}
             />
-
           </div>
 
-          <div className="hidden lg:block space-y-5">
-            <BookingCard {...bookingCardProps} />
+          <div className="lg:col-span-2">
+            <ReviewsSection itemId={event.id} itemType="trip" itemName={toTitleCase(event.name)} />
           </div>
         </div>
       </main>

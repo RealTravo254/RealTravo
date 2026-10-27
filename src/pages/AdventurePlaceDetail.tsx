@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useParams, useNavigate } from "react-router-dom";
 import { useSafeBack } from "@/hooks/useSafeBack";
@@ -22,9 +22,11 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 import { Footer } from "@/components/Footer";
 import { InquiryDialog } from "@/components/InquiryDialog";
 import { FloatingInquiryButton } from "@/components/FloatingInquiryButton";
+import { ReviewsSection } from "@/components/reviews/ReviewsSection";
+import { RatingBadge } from "@/components/reviews/StarRating";
 
 // ── Design tokens ─────────────────────────────────────────────────────────
-const FOREST       = "#1F4D3A"; 
+const FOREST       = "#1F4D3A";
 const FOREST_DEEP  = "#123322";
 const FOREST_SOFT  = "#EAF0EA";
 const CLAY         = "#C1552F";
@@ -262,38 +264,38 @@ const ImageGalleryModal = ({
   return createPortal(modal, document.body);
 };
 
-// ─── Desktop gallery grid ─────────────────────────────────────────────────────
+// ─── Desktop gallery (fills its column: 50% of the page on large screens) ─────
 const DesktopGallery = ({ images, name }: { images: string[]; name: string }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalStart, setModalStart] = useState(0);
   const open = (idx: number) => { setModalStart(idx); setModalOpen(true); };
 
   if (!images.length) return null;
+  const placeholder = <div className="w-full h-full" style={{ background: FOREST_SOFT }} />;
+
   return (
     <>
       {modalOpen && <ImageGalleryModal images={images} name={name} startIndex={modalStart} onClose={() => setModalOpen(false)} />}
-      <div className="max-w-6xl mx-auto px-4 pt-5">
-        <div
-          className="rounded-[28px] overflow-hidden"
-          style={{ display: "grid", gridTemplateColumns: "1.55fr 1fr", gridTemplateRows: "210px 136px", gap: "4px", border: `1px solid ${HAIRLINE}` }}
-        >
-          <div style={{ gridRow: "1 / 3", overflow: "hidden", cursor: "pointer" }} onClick={() => open(0)}>
-            <img src={images[0]} alt={name} loading="eager" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
-          </div>
-          <div style={{ overflow: "hidden", cursor: "pointer" }} onClick={() => open(1)}>
-            {images[1] ? <img src={images[1]} alt={`${name} 2`} loading="eager" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" /> : <div className="w-full h-full" style={{ background: FOREST_SOFT }} />}
-          </div>
-          <div style={{ overflow: "hidden", position: "relative", cursor: "pointer" }} onClick={() => open(2)}>
-            {images[2] ? <img src={images[2]} alt={`${name} 3`} loading="eager" className="w-full h-full object-cover" /> : <div className="w-full h-full" style={{ background: FOREST_SOFT }} />}
-            {images.length > 3 && (
-              <div className="absolute inset-0 flex items-center justify-center backdrop-blur-[1px]" style={{ background: "rgba(18,51,34,0.58)" }}>
-                <div className="text-center">
-                  <span className="text-white text-2xl font-semibold" style={{ fontFamily: FONT_DISPLAY }}>+{images.length - 3}</span>
-                  <p className="text-white/85 text-[11px] font-medium mt-0.5" style={{ fontFamily: FONT_BODY }}>See all photos</p>
-                </div>
+      <div
+        className="rounded-[28px] overflow-hidden w-full"
+        style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "320px 170px", gap: "4px", border: `1px solid ${HAIRLINE}` }}
+      >
+        <div style={{ gridColumn: "1 / 3", overflow: "hidden", cursor: "pointer" }} onClick={() => open(0)}>
+          <img src={images[0]} alt={name} loading="eager" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
+        </div>
+        <div style={{ overflow: "hidden", cursor: "pointer" }} onClick={() => open(1)}>
+          {images[1] ? <img src={images[1]} alt={`${name} 2`} loading="eager" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" /> : placeholder}
+        </div>
+        <div style={{ overflow: "hidden", position: "relative", cursor: "pointer" }} onClick={() => open(2)}>
+          {images[2] ? <img src={images[2]} alt={`${name} 3`} loading="eager" className="w-full h-full object-cover" /> : placeholder}
+          {images.length > 3 && (
+            <div className="absolute inset-0 flex items-center justify-center backdrop-blur-[1px]" style={{ background: "rgba(18,51,34,0.58)" }}>
+              <div className="text-center">
+                <span className="text-white text-2xl font-semibold" style={{ fontFamily: FONT_DISPLAY }}>+{images.length - 3}</span>
+                <p className="text-white/85 text-[11px] font-medium mt-0.5" style={{ fontFamily: FONT_BODY }}>See all photos</p>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
     </>
@@ -301,7 +303,6 @@ const DesktopGallery = ({ images, name }: { images: string[]; name: string }) =>
 };
 
 // ─── Mobile carousel ──────────────────────────────────────────────────────────
-// No border radius here (matches the "no rounding on small screens" request).
 const MobileCarousel = ({ images, name }: { images: string[]; name: string }) => {
   const [active, setActive] = useState(0);
   const [loaded, setLoaded] = useState(false);
@@ -431,7 +432,7 @@ const InlineFacilitiesGrid = ({ facilities, accentColor }: { facilities: any[]; 
       {modalImages && <ImageGalleryModal images={modalImages} name={modalName} startIndex={modalStart} onClose={() => setModalImages(null)} />}
       <section style={{ fontFamily: FONT_BODY }}>
         <SectionHeading title="Facilities" color={accentColor} />
-        <div className="flex gap-3 overflow-x-auto pb-1 md:grid md:grid-cols-3 lg:grid-cols-3 md:overflow-visible md:pb-0 lg:gap-4">
+        <div className="flex gap-3 overflow-x-auto pb-1 md:grid md:grid-cols-3 lg:grid-cols-5 md:overflow-visible md:pb-0 lg:gap-4">
           {visibleFacilities.map((fac: any, i: number) => {
             const imgs: string[] = Array.isArray(fac.images) ? fac.images.filter(Boolean) : [];
             const hasMultiple = imgs.length > 1;
@@ -451,8 +452,8 @@ const InlineFacilitiesGrid = ({ facilities, accentColor }: { facilities: any[]; 
                     <MapPin className="h-5 w-5 lg:h-7 lg:w-7" style={{ color: `${FOREST}55` }} />
                   </div>
                 )}
-                <div className="p-2.5 lg:p-3.5">
-                  <p className="font-semibold text-[12px] lg:text-sm leading-tight" style={{ color: INK }}>{fac.name}</p>
+                <div className="p-2.5 lg:p-3">
+                  <p className="font-semibold text-[12px] lg:text-[13px] leading-tight" style={{ color: INK }}>{fac.name}</p>
                   {fac.capacity && <p className="text-[10px] lg:text-xs mt-0.5 flex items-center gap-1" style={{ color: INK_SOFT }}><Users className="h-2.5 w-2.5 lg:h-3.5 lg:w-3.5" /> {fac.capacity}</p>}
                   {fac.price > 0 && <p className="text-[11px] lg:text-sm font-semibold mt-1" style={{ color: accentColor }}>KSh {fac.price?.toLocaleString()}</p>}
                   {Array.isArray(fac.amenities) && fac.amenities.length > 0 && (
@@ -612,8 +613,6 @@ const SpecialPricesSection = ({ tiers, formatPrice }: { tiers: SpecialPriceTier[
 };
 
 // ─── Map URL helpers ───────────────────────────────────────────────────────
-// Shared by the always-visible location card and the mobile map popup below,
-// so both build the exact same Google Maps links from the same inputs.
 const buildMapUrls = (
   name: string,
   latitude?: number | null,
@@ -632,9 +631,6 @@ const buildMapUrls = (
 };
 
 // ─── Mobile map popup ───────────────────────────────────────────────────────
-// Opens over the whole screen with a large, freely pannable embedded map.
-// There is no forced redirect to the Google Maps app — that's an explicit
-// choice at the bottom of this popup, not something tapping the map triggers.
 const MapModal = ({
   name, googleMapsUrl, embedUrl, onClose,
 }: { name: string; googleMapsUrl: string; embedUrl: string; onClose: () => void }) => {
@@ -701,8 +697,6 @@ const AlwaysOpenMapSection = ({
             <p className="text-[11px] mt-0.5" style={{ color: INK_SOFT }}>{[name, location, country].filter(Boolean).join(", ")}</p>
           </div>
         </div>
-        {/* Mobile: opens the in-app map popup instead of jumping straight out
-            to Google Maps. Desktop keeps the direct external link. */}
         {isMobile ? (
           <button
             onClick={onOpenMap}
@@ -989,8 +983,6 @@ const AdventurePlaceDetail = () => {
     place, is24Hours, daysOpened, capacityPerDay, formatPrice,
     onCheckAvailability: handleCheckAvailability,
     onMap: () => {
-      // Mobile: open the in-app map popup instead of jumping straight to
-      // Google Maps. Desktop keeps the direct new-tab behavior.
       if (isMobile) { setMapModalOpen(true); return; }
       window.open(
         place.latitude && place.longitude
@@ -1015,65 +1007,83 @@ const AdventurePlaceDetail = () => {
       <DetailNavBar scrolled={scrolled} itemName={toTitleCase(place.name)} isSaved={isSaved} onSave={() => handleSaveItem(resolvedId, "adventure_place")} onBack={goBack} />
       <div style={{ height: "calc(56px + env(safe-area-inset-top, 0px))" }} />
 
-      {isMobile ? (
-        <MobileCarousel images={allImages} name={place.name} />
-      ) : (
-        <DesktopGallery images={allImages} name={place.name} />
-      )}
+      {/* Phones: full-bleed carousel */}
+      {isMobile && <MobileCarousel images={allImages} name={place.name} />}
 
-      <main className="container px-4 mt-5 relative z-10 max-w-6xl mx-auto" style={{ fontFamily: FONT_BODY }}>
-        <div className="grid grid-cols-1 lg:grid-cols-[1.8fr,1fr] gap-6">
-          <div className="flex flex-col gap-6">
-            <div>
-              <h1 className="text-[28px] md:text-[34px] font-semibold leading-tight tracking-tight" style={{ fontFamily: FONT_DISPLAY, color: INK }}>{toTitleCase(place.name)}</h1>
-              <div className="flex items-center gap-1.5 mt-1.5" style={{ color: INK_SOFT }}>
-                <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
-                <span className="text-[13px] font-medium">{[place.place, place.location, place.country].filter(Boolean).join(", ")}</span>
+      {/* HERO — on large screens: gallery = 50% width, right half = title, rating, price card */}
+      <div className="max-w-6xl mx-auto px-4 pt-5 grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-start" style={{ fontFamily: FONT_BODY }}>
+        {!isMobile && <DesktopGallery images={allImages} name={place.name} />}
+
+        <div className="flex flex-col gap-5 min-w-0">
+          <div>
+            <h1 className="text-[28px] md:text-[34px] font-semibold leading-tight tracking-tight" style={{ fontFamily: FONT_DISPLAY, color: INK }}>{toTitleCase(place.name)}</h1>
+            <div className="flex items-center gap-1.5 mt-1.5" style={{ color: INK_SOFT }}>
+              <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
+              <span className="text-[13px] font-medium">{[place.place, place.location, place.country].filter(Boolean).join(", ")}</span>
+            </div>
+
+            <RatingBadge itemId={resolvedId} />
+
+            {(categoryLabel || isHotelOrCampsite) && (
+              <div className="flex items-center gap-2 mt-3">
+                {categoryLabel && (
+                  <span
+                    className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1 rounded-full"
+                    style={{ background: FOREST_SOFT, color: FOREST, border: `1px solid ${FOREST}25` }}
+                  >
+                    <CategoryIcon className="h-3 w-3" /> {categoryLabel}
+                  </span>
+                )}
+                {isHotelOrCampsite && (
+                  <span
+                    className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1 rounded-full text-white"
+                    style={{ background: isOpenNow ? OPEN_COLOR : CLOSED_COLOR }}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-white/90" />
+                    {isOpenNow ? "Open now" : "Closed"}
+                  </span>
+                )}
               </div>
-
-              {(categoryLabel || isHotelOrCampsite) && (
-                <div className="flex items-center gap-2 mt-3">
-                  {categoryLabel && (
-                    <span
-                      className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1 rounded-full"
-                      style={{ background: FOREST_SOFT, color: FOREST, border: `1px solid ${FOREST}25` }}
-                    >
-                      <CategoryIcon className="h-3 w-3" /> {categoryLabel}
-                    </span>
-                  )}
-                  {isHotelOrCampsite && (
-                    <span
-                      className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1 rounded-full text-white"
-                      style={{ background: isOpenNow ? OPEN_COLOR : CLOSED_COLOR }}
-                    >
-                      <span className="w-1.5 h-1.5 rounded-full bg-white/90" />
-                      {isOpenNow ? "Open now" : "Closed"}
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {place.description && (
-              <section className="bg-white rounded-2xl px-5 py-4.5" style={{ border: `1px solid ${HAIRLINE}` }}>
-                <SectionHeading title="About this place" color={FOREST} />
-                <p className="text-[14px] leading-relaxed whitespace-pre-line" style={{ color: INK }}>{place.description}</p>
-              </section>
             )}
+          </div>
 
-            {generalAmenities.length > 0 && (
-              <AmenitiesScroll amenities={generalAmenities} accentColor={FOREST} />
-            )}
+          {/* Price card — large screens only (phones get it further down + bottom bar) */}
+          <div className="hidden lg:block bg-white rounded-2xl p-6" style={{ border: `1px solid ${HAIRLINE}`, boxShadow: "0 8px 30px rgba(28,43,34,0.06)" }}>
+            <BookingCard {...bookingCardProps} />
+          </div>
+        </div>
+      </div>
 
-            <div className="bg-white rounded-2xl p-5 lg:hidden" style={{ border: `1px solid ${HAIRLINE}` }}>
-              <BookingCard {...bookingCardProps} />
-            </div>
+      {/* DETAILS — two columns on large screens */}
+      <main className="container px-4 mt-6 relative z-10 max-w-6xl mx-auto" style={{ fontFamily: FONT_BODY }}>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+          {place.description && (
+            <section className="bg-white rounded-2xl px-5 py-4" style={{ border: `1px solid ${HAIRLINE}` }}>
+              <SectionHeading title="About this place" color={FOREST} />
+              <p className="text-[14px] leading-relaxed whitespace-pre-line" style={{ color: INK }}>{place.description}</p>
+            </section>
+          )}
 
-            {specialPrices.length > 0 && <SpecialPricesSection tiers={specialPrices} formatPrice={formatPrice} />}
+          {generalAmenities.length > 0 && (
+            <AmenitiesScroll amenities={generalAmenities} accentColor={FOREST} />
+          )}
 
-            {place.facilities?.length > 0 && <div id="facilities-section"><InlineFacilitiesGrid facilities={place.facilities} accentColor={FOREST} /></div>}
-            {place.activities?.length > 0 && <div id="activities-section"><InlineActivitiesGrid activities={place.activities} formatPrice={formatPrice} /></div>}
+          <div className="bg-white rounded-2xl p-5 lg:hidden" style={{ border: `1px solid ${HAIRLINE}` }}>
+            <BookingCard {...bookingCardProps} />
+          </div>
 
+          {specialPrices.length > 0 && (
+            <div className="lg:col-span-2"><SpecialPricesSection tiers={specialPrices} formatPrice={formatPrice} /></div>
+          )}
+
+          {place.facilities?.length > 0 && (
+            <div id="facilities-section" className="lg:col-span-2"><InlineFacilitiesGrid facilities={place.facilities} accentColor={FOREST} /></div>
+          )}
+          {place.activities?.length > 0 && (
+            <div id="activities-section" className="lg:col-span-2"><InlineActivitiesGrid activities={place.activities} formatPrice={formatPrice} /></div>
+          )}
+
+          <div className="lg:col-span-2">
             <AlwaysOpenMapSection
               name={place.name}
               latitude={place.latitude}
@@ -1085,10 +1095,8 @@ const AdventurePlaceDetail = () => {
             />
           </div>
 
-          <div className="hidden lg:block">
-            <div className="sticky top-24 bg-white rounded-2xl p-6" style={{ border: `1px solid ${HAIRLINE}`, boxShadow: "0 8px 30px rgba(28,43,34,0.06)" }}>
-              <BookingCard {...bookingCardProps} />
-            </div>
+          <div className="lg:col-span-2">
+            <ReviewsSection itemId={resolvedId} itemType="adventure_place" itemName={toTitleCase(place.name)} />
           </div>
         </div>
       </main>

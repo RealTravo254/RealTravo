@@ -12,13 +12,17 @@ import {
   Calendar, Users, MapPin, CalendarClock,
   X, CheckCircle, Download, ChevronDown, ChevronUp,
   Activity, Building2, Ticket, Phone,
-  Mail, AlertTriangle, LogIn, UserPlus, BookOpenCheck, CreditCard, Clock, QrCode,
+  Mail, AlertTriangle, LogIn, UserPlus, BookOpenCheck, CreditCard, Clock, QrCode, Star,
 } from "lucide-react";
 import {
   generateBookingPDF, getBookingMeta as getMeta, getBookingLines, getHostContact, getItemName,
   fmtMoney, fmtDate as fmt, qrPayload, qrImageUrl,
 } from "@/lib/bookingPdf";
 import { inquiryPayPath, inquiryAmount, inquiryLines } from "@/lib/bookingEmail";
+import { ReviewFormModal } from "@/components/reviews/ReviewFormModal";
+import {
+  getBookingItemId, isBookingReviewable, itemTypeFromBookingType,
+} from "@/lib/reviews";
 
 // ── Design tokens ─────────────────────────────────────────────────────────
 const FOREST       = "#1F4D3A";
@@ -58,6 +62,7 @@ const useInjectFonts = () => {
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Booking {
   id: string;
+  item_id?: string;
   booking_type: string;
   total_amount: number;
   booking_details: any;
@@ -224,7 +229,9 @@ const QrPanel = ({ booking }: { booking: Booking }) => {
 };
 
 // ─── Expanded detail panel ────────────────────────────────────────────────────
-const BookingDetail = ({ booking, onReschedule }: { booking: Booking; onReschedule: () => void }) => {
+const BookingDetail = ({
+  booking, onReschedule, onReview, canReview,
+}: { booking: Booking; onReschedule: () => void; onReview: () => void; canReview: boolean }) => {
   const [downloading, setDownloading] = useState(false);
   const d = booking.booking_details || {};
   const { contactLabel } = getMeta(booking.booking_type, d);
@@ -317,7 +324,16 @@ const BookingDetail = ({ booking, onReschedule }: { booking: Booking; onReschedu
         </div>
       )}
 
-      <div className="flex gap-2 pt-4">
+      {/* Review CTA — only after the visit date has passed and the booking isn't cancelled */}
+      {canReview && (
+        <button onClick={onReview}
+          className="w-full mt-4 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold transition-all hover:opacity-90"
+          style={{ background: GOLD_SOFT, border: `1px solid ${GOLD}40`, color: GOLD_TEXT }}>
+          <Star className="h-3.5 w-3.5" style={{ fill: GOLD, color: GOLD }} /> Rate &amp; review your visit
+        </button>
+      )}
+
+      <div className="flex gap-2 pt-3">
         <button onClick={handleDownload} disabled={downloading}
           className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-semibold transition-all disabled:opacity-50"
           style={{ border: `1px solid ${HAIRLINE}`, color: INK_SOFT }}>
@@ -343,7 +359,9 @@ const BookingDetail = ({ booking, onReschedule }: { booking: Booking; onReschedu
 };
 
 // ─── Booking Card ─────────────────────────────────────────────────────────────
-const BookingCard = ({ booking, onReschedule }: { booking: Booking; onReschedule: (b: Booking) => void }) => {
+const BookingCard = ({
+  booking, onReschedule, onReview, canReview,
+}: { booking: Booking; onReschedule: (b: Booking) => void; onReview: (b: Booking) => void; canReview: boolean }) => {
   const [open, setOpen] = useState(false);
   const d = booking.booking_details || {};
   const { typeLabel } = getMeta(booking.booking_type, d);
@@ -387,7 +405,24 @@ const BookingCard = ({ booking, onReschedule }: { booking: Booking; onReschedule
           </span>
         </div>
       </button>
-      {open && <BookingDetail booking={booking} onReschedule={() => onReschedule(booking)} />}
+
+      {/* Quick review shortcut on the card itself, without needing to expand it */}
+      {canReview && !open && (
+        <button onClick={() => onReview(booking)}
+          className="w-full flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold transition-colors"
+          style={{ borderTop: `1px solid ${HAIRLINE}`, background: GOLD_SOFT, color: GOLD_TEXT }}>
+          <Star className="h-3 w-3" style={{ fill: GOLD, color: GOLD }} /> Rate &amp; review your visit
+        </button>
+      )}
+
+      {open && (
+        <BookingDetail
+          booking={booking}
+          canReview={canReview}
+          onReview={() => onReview(booking)}
+          onReschedule={() => onReschedule(booking)}
+        />
+      )}
     </div>
   );
 };
@@ -437,6 +472,7 @@ const Bookings = () => {
   const [pending, setPending]           = useState<any[]>([]);
   const [loading, setLoading]           = useState(true);
   const [rescheduling, setRescheduling] = useState<Booking | null>(null);
+  const [reviewing, setReviewing]       = useState<Booking | null>(null);
   const [filter, setFilter]             = useState<"all" | "upcoming" | "past">("all");
 
   useEffect(() => {
@@ -503,6 +539,10 @@ const Bookings = () => {
     past:     bookings.filter((b) => { const d = dateOf(b); return !d || new Date(d) < now; }).length,
   };
 
+  // Reviews need a logged-in user; guests with local-only bookings can't review.
+  const canReviewBooking = (b: Booking) =>
+    !!user && !!itemTypeFromBookingType(b.booking_type) && isBookingReviewable(b);
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen pb-20 md:pb-0" style={{ background: CANVAS }}>
@@ -564,7 +604,7 @@ const Bookings = () => {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[13px] font-semibold" style={{ color: INK }}>Saved on this device only</p>
-              <p className="text-[11px] mt-0.5" style={{ color: INK_SOFT }}>You're not logged in, so these bookings won't appear on another device or after the app is uninstalled.</p>
+              <p className="text-[11px] mt-0.5" style={{ color: INK_SOFT }}>You're not logged in, so these bookings won't appear on another device or after the app is uninstalled. Log in to leave reviews.</p>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
               <Button onClick={() => openAuthModal("login")} size="sm" variant="outline" className="rounded-xl text-xs font-semibold" style={{ borderColor: `${FOREST}30`, color: FOREST }}>Log in</Button>
@@ -619,7 +659,13 @@ const Bookings = () => {
         ) : (
           <div className="space-y-2.5">
             {filtered.map((booking) => (
-              <BookingCard key={booking.id} booking={booking} onReschedule={setRescheduling} />
+              <BookingCard
+                key={booking.id}
+                booking={booking}
+                onReschedule={setRescheduling}
+                onReview={setReviewing}
+                canReview={canReviewBooking(booking)}
+              />
             ))}
           </div>
         )}
@@ -628,6 +674,15 @@ const Bookings = () => {
 
       {rescheduling && (
         <RescheduleModal booking={rescheduling} onClose={() => setRescheduling(null)} onConfirm={handleReschedule} />
+      )}
+
+      {reviewing && (
+        <ReviewFormModal
+          itemId={getBookingItemId(reviewing)!}
+          itemType={itemTypeFromBookingType(reviewing.booking_type)!}
+          itemName={getItemName(reviewing.booking_details)}
+          onClose={() => setReviewing(null)}
+        />
       )}
     </div>
   );

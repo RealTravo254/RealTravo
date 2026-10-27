@@ -7,12 +7,9 @@ import { cn, optimizeSupabaseImage } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { createDetailPath } from "@/lib/slugUtils";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
+import { useItemRating } from "@/hooks/useItemRating";
 
 // ── Design tokens ─────────────────────────────────────────────────────────
-// Same field-guide / park-signage system used across the detail, booking,
-// and checkout pages: deep forest for structure and brand marks, a warm
-// clay for the primary/favorited action, and a dry-grass gold reserved for
-// caution states. Ink is a green-tinted charcoal rather than pure black.
 const FOREST       = "#1F4D3A";
 const FOREST_DEEP  = "#123322";
 const FOREST_SOFT  = "#EAF0EA";
@@ -28,9 +25,6 @@ const SUCCESS      = "#2F6F4E";
 const FONT_DISPLAY = "'Fraunces', ui-serif, Georgia, serif";
 const FONT_BODY = "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif";
 
-// Injects the two typefaces once per page, without needing to touch the
-// app's index.html. Guarded by element id, so it's cheap even though this
-// hook runs in every card instance in a grid.
 const useInjectFonts = () => {
   useEffect(() => {
     const id = "adventure-detail-fonts";
@@ -45,9 +39,6 @@ const useInjectFonts = () => {
 };
 
 // ── Hotel starting price ─────────────────────────────────────────────────────
-// Hotels have no entrance fee — their price lives on each room type inside
-// the `facilities` JSON. Use this anywhere you need a hotel's "From" price
-// (the card also calls it automatically when `facilities` is passed).
 export const getHotelStartingPrice = (facilities?: any[] | null): number => {
   if (!Array.isArray(facilities)) return 0;
   const prices = facilities
@@ -57,9 +48,6 @@ export const getHotelStartingPrice = (facilities?: any[] | null): number => {
 };
 
 // ── Price label ─────────────────────────────────────────────────────────────
-// Guided tours (isFlexibleDate && isTrip) show the tour's start time in UTC
-// instead of a "/group" suffix, since group pricing isn't meaningful without
-// knowing when the tour departs. Hotels are priced per night.
 const getPriceLabel = (isFlexibleDate: boolean, isTrip: boolean, date?: string, isHotel = false) => {
   if (isHotel) return "/night";
   if (isFlexibleDate && isTrip) {
@@ -76,13 +64,7 @@ const getPriceLabel = (isFlexibleDate: boolean, isTrip: boolean, date?: string, 
   return "/person";
 };
 
-// ── Category badge labels ────────────────────────────────────────────────────
-// Color is intentionally not set per-category here — the badge always falls
-// back to the same deep forest tint used by the "Guided tour" badge, so
-// adventure place and guided tour badges read as one consistent visual
-// language.
-// NOTE: "accommodation" (Airbnb) intentionally has no label here — Airbnb
-// listings are not surfaced in this card right now.
+// NOTE: "accommodation" (Airbnb) intentionally has no label here.
 const CATEGORY_LABELS: Record<string, string> = {
   hotel: "Hotel",
   park: "Park",
@@ -156,37 +138,24 @@ export interface ListingCardProps {
   hideEmptySpace?: boolean;
   compact?: boolean;
   distance?: number;
+  // Optional: if the parent doesn't pass these, the card loads them itself
+  // (batched into one query per page of cards).
   avgRating?: number;
   reviewCount?: number;
-  // Legacy free-text area (used to hold the county). Only used as a fallback
-  // when no division is available.
   place?: string;
-  // Division / region name from `country_divisions` (via adventure_places.division_id).
-  // Shown in place of the old county text.
   division?: string | null;
   showFlexibleDate?: boolean;
   description?: string;
   categoryColor?: string;
   galleryImages?: string[];
   images?: string[];
-  // For hotels these are the check-in / check-out times.
   openingHours?: string;
   closingHours?: string;
-  // Days of the week the place is open, e.g. ["Mon","Tue","Wed"]. Used to
-  // build the working-days pill row and to decide whether today counts as a
-  // working day for the open/closed badge. Not used for hotels.
   workingDays?: string[];
-  // ── Hotel-only ──
-  // Star rating (1–5) from the `star_rating` column.
   starRating?: number | null;
-  // Room types from the `facilities` column. When `price` is 0/missing, the
-  // card shows the cheapest room's nightly price as the "From" price.
   facilities?: any[] | null;
 }
 
-// Canonical day order, used both for sorting and for rendering the fixed
-// Mon..Sun pill row (each day always renders — highlighted if open, dimmed
-// with a strikethrough if closed).
 const DAY_ORDER = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const ListingCardComponent = ({
@@ -209,17 +178,21 @@ const ListingCardComponent = ({
   const { ref: cardRef, isIntersecting } = useIntersectionObserver({ rootMargin: "300px", triggerOnce: true });
   const shouldLoad = priority || isIntersecting;
 
+  // ── Rating: prefer props, otherwise fetch (batched) once the card is near the viewport
+  const hasPropRating = avgRating != null && avgRating > 0;
+  const fetched = useItemRating(id, shouldLoad && !hasPropRating);
+  const ratingValue = hasPropRating ? (avgRating as number) : fetched.avg;
+  const ratingCount = hasPropRating ? (reviewCount ?? 0) : fetched.count;
+
   const allSlideImages = useMemo(() => [imageUrl].filter(Boolean), [imageUrl]);
   const isTrip = type === "TRIP";
   const isAdventurePlace = type === "ADVENTURE PLACE";
   const isHotel = isAdventurePlace && category === "hotel";
   const remainingTickets = availableTickets - bookedTickets;
   const isGuidedTour = isFlexibleDate && isTrip;
-  // Guided tours never show a sold-out state (no badge, overlay, or dimming).
   const isSoldOut = isTrip && !isGuidedTour && availableTickets > 0 && remainingTickets <= 0;
   const isUnavailable = isOutdated || isSoldOut;
 
-  // Hotels: price comes from the cheapest room type unless a price was passed in.
   const displayPrice = useMemo(() => {
     if (price != null && price > 0) return price;
     if (isHotel) return getHotelStartingPrice(facilities);
@@ -243,20 +216,12 @@ const ListingCardComponent = ({
     return "Attraction";
   }, [isAdventurePlace, isGuidedTour, isTrip, categoryLabel]);
 
-  // Same fallback color as the "Guided tour" badge (no categoryMeta color
-  // lookup here anymore) so every badge type shares one visual language
-  // unless the caller explicitly passes categoryColor.
   const badgeColor = categoryColor;
 
-  // Proper title case once, rather than lowercase-then-CSS-capitalize fighting
-  // each other (the original ran .toLowerCase() in JS then `capitalize` in
-  // Tailwind, which only capitalizes the first letter of the whole string).
   const formattedName = useMemo(
     () => name.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()),
     [name],
   );
-  // Division replaces the old county text; `place` is only a fallback for
-  // listings that don't have a division yet.
   const locationString = useMemo(() => {
     const area = (division && division.trim()) || place;
     const raw = [area, location].filter(Boolean).join(", ");
@@ -302,9 +267,6 @@ const ListingCardComponent = ({
 
   const visibleDots = Math.min(loadedSlides, allSlideImages.length);
 
-  // Parses "HH:MM" into minutes since midnight so we can measure the span
-  // between opening and closing time, including overnight wraparound
-  // (e.g. opens 06:00, closes 05:00 the next day).
   const parseTimeToMinutes = (t: string): number | null => {
     const match = t.match(/^(\d{1,2}):(\d{2})/);
     if (!match) return null;
@@ -335,15 +297,8 @@ const ListingCardComponent = ({
     return distance < 1 ? `${Math.round(distance * 1000)} m away` : `${distance.toFixed(1)} km away`;
   }, [distance]);
 
-  // Only campsites get a live "Open now / Closed" badge. Hotels are staffed
-  // around the clock from a guest's point of view, and their two times are
-  // check-in / check-out rather than opening hours, so they never show it.
   const isCampsite = category === "campsite";
 
-  // Compares the device's current local day/time against openingHours,
-  // closingHours, and workingDays. Handles overnight spans (e.g. opens
-  // 18:00, closes 02:00) the same way hoursText does. Returns null when
-  // there isn't enough data to decide.
   const isOpenNow = useMemo(() => {
     if (!isAdventurePlace || !isCampsite) return null;
     if (!openingHours || !closingHours) return null;
@@ -360,7 +315,6 @@ const ListingCardComponent = ({
 
     const nowMinutes = now.getHours() * 60 + now.getMinutes();
     if (closeMinutes <= openMinutes) {
-      // Overnight span, e.g. 18:00 – 02:00
       return nowMinutes >= openMinutes || nowMinutes < closeMinutes;
     }
     return nowMinutes >= openMinutes && nowMinutes < closeMinutes;
@@ -375,7 +329,6 @@ const ListingCardComponent = ({
       onKeyDown={(e) => { if (e.key === "Enter") handleCardClick(); }}
       className={cn(
         "group relative flex flex-col overflow-hidden cursor-pointer bg-card transition-all duration-300",
-        // Reduced radius: was rounded-xl (12px), now 8px.
         "rounded-lg shadow-sm",
         "hover:shadow-lg hover:-translate-y-0.5",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
@@ -432,7 +385,6 @@ const ListingCardComponent = ({
           ))}
         </div>
 
-        {/* Scrim so top badges stay legible on bright photos */}
         <div className="pointer-events-none absolute inset-x-0 top-0 h-16" style={{ background: "linear-gradient(to bottom, rgba(14,23,18,0.4), transparent)" }} />
 
         {/* Category badge — top-left */}
@@ -444,7 +396,6 @@ const ListingCardComponent = ({
             {isHotel && <BedDouble className="h-3.5 w-3.5" />}
             {displayType}
           </span>
-          {/* Only "Sold out" is shown — no "N left" or "Passed" badges. */}
           {isSoldOut && (
             <span
               className="text-[11px] font-semibold px-2 py-1 rounded border backdrop-blur-sm"
@@ -467,7 +418,6 @@ const ListingCardComponent = ({
           </button>
         )}
 
-        {/* Desktop nav arrows */}
         {allSlideImages.length > 1 && (
           <>
             {currentSlide > 0 && (
@@ -491,7 +441,6 @@ const ListingCardComponent = ({
           </>
         )}
 
-        {/* Dot indicators */}
         {allSlideImages.length > 1 && (
           <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1">
             {Array.from({ length: visibleDots }).map((_, idx) => (
@@ -511,7 +460,6 @@ const ListingCardComponent = ({
           </div>
         )}
 
-        {/* Sold-out / unavailable overlay */}
         {isUnavailable && (
           <div className="absolute inset-0 z-10 flex items-center justify-center backdrop-blur-[1px]" style={{ background: "rgba(14,23,18,0.5)" }}>
             <span className="rounded border border-white/60 px-3 py-1 text-[13px] font-semibold uppercase tracking-wide text-white">
@@ -520,8 +468,6 @@ const ListingCardComponent = ({
           </div>
         )}
 
-        {/* Open/Closed badge — campsites only, based on opening hours,
-            closing hours, and working days. Bottom-right of the image. */}
         {isOpenNow !== null && (
           <div className="absolute bottom-2.5 right-2.5 z-20">
             <span
@@ -536,34 +482,31 @@ const ListingCardComponent = ({
 
       {/* ── Text content ── */}
       <div className="flex flex-col gap-2 p-3.5 min-w-0">
-        {/* Title — bolded and set to true black for stronger legibility */}
         <h3 className="line-clamp-2 text-[18px] font-bold leading-snug" style={{ fontFamily: FONT_DISPLAY, color: "#000000" }}>
           {formattedName}
         </h3>
 
-        {/* Hotel star classification, directly under the name */}
         {isHotel && stars > 0 && <HotelStars count={stars} />}
 
-        {/* Location + rating, on one row so the card doesn't feel like a stack of separate facts */}
+        {/* Location + rating */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1 min-w-0" style={{ color: INK_SOFT }}>
             <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
             <span className="text-[13px] font-medium truncate">{locationString}</span>
           </div>
-          {avgRating != null && avgRating > 0 && (
-            <div className="flex items-center gap-0.5 flex-shrink-0">
+          {ratingValue > 0 && (
+            <div className="flex items-center gap-0.5 flex-shrink-0" aria-label={`Rated ${ratingValue.toFixed(1)} out of 5`}>
               <Star className="h-3.5 w-3.5" style={{ fill: GOLD, color: GOLD }} />
               <span className="text-[13px] font-semibold tabular-nums" style={{ color: INK }}>
-                {avgRating.toFixed(1)}
+                {ratingValue.toFixed(1)}
               </span>
-              {reviewCount != null && reviewCount > 0 && (
-                <span className="text-[12px]" style={{ color: INK_SOFT }}>({reviewCount})</span>
+              {ratingCount > 0 && (
+                <span className="text-[12px]" style={{ color: INK_SOFT }}>({ratingCount})</span>
               )}
             </div>
           )}
         </div>
 
-        {/* Secondary meta row: date / distance — only render what applies */}
         {((isTrip && (date || isFlexibleDate)) || distanceText) ? (
           <div className="flex items-center gap-2.5 flex-wrap" style={{ color: INK_SOFT }}>
             {isTrip && (date || isFlexibleDate) && (
@@ -581,7 +524,6 @@ const ListingCardComponent = ({
           </div>
         ) : null}
 
-        {/* Hotel stay times — check-in / check-out replace the working-hours block */}
         {isHotel && (openingHours || closingHours) && (
           <div className="flex items-center gap-1 text-[12px] font-medium" style={{ color: INK_SOFT }}>
             <Clock className="h-3.5 w-3.5" />
@@ -593,9 +535,6 @@ const ListingCardComponent = ({
           </div>
         )}
 
-        {/* Working hours — labeled block, non-hotel adventure places only. Shows
-            the hours range plus a fixed Mon..Sun pill row: open days
-            highlighted, closed days dimmed with a strikethrough. */}
         {isAdventurePlace && !isHotel && hoursText && (
           <div className="flex flex-col gap-1">
             <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: "#9CA8A0" }}>
@@ -628,7 +567,6 @@ const ListingCardComponent = ({
           </div>
         )}
 
-        {/* Price, anchored to the bottom of the card */}
         {!hidePrice && displayPrice > 0 && (
           <div className="pt-0.5">
             <PriceText price={displayPrice} isUnavailable={isUnavailable} isFlexibleDate={isFlexibleDate} isTrip={isTrip} date={date} isHotel={isHotel} />

@@ -52,7 +52,8 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
 
   useEffect(() => {
     const handleScroll = () => setHasScrolled(window.scrollY > 50);
-    window.addEventListener("scroll", handleScroll);
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
@@ -84,8 +85,11 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
 
   if (!__fromLayout) return null;
 
-  const headerIconStyles =
-    "h-9 w-9 rounded-xl flex items-center justify-center transition-all duration-200 active:scale-90 text-white hover:bg-white/20";
+  // On big screens (md+), once the page is scrolled the header turns into a
+  // compact white bar with dark icons. Below md nothing changes.
+  const headerIconStyles = `h-9 w-9 rounded-xl flex items-center justify-center transition-all duration-200 active:scale-90 text-white hover:bg-white/20 ${
+    hasScrolled ? "md:text-[#123322] md:hover:bg-black/5" : ""
+  }`;
 
   const handleAccountClick = () => {
     if (user) {
@@ -117,10 +121,20 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
       className={`z-[100] items-center fixed top-0 left-0 right-0 flex py-3 pt-[max(0.75rem,env(safe-area-inset-top))] transition-colors duration-300 ${className || ""}`}
       style={{ fontFamily: FONT_BODY }}
     >
+      {/* Green gradient (top of page, desktop only) */}
       <div
-        className="absolute inset-0 -z-10 hidden md:block"
+        className={`absolute inset-0 -z-10 hidden md:block transition-opacity duration-300 ${
+          hasScrolled ? "opacity-0" : "opacity-100"
+        }`}
         style={{ background: `linear-gradient(135deg, ${FOREST} 0%, ${FOREST_DEEP} 100%)` }}
       />
+      {/* White bar (after scrolling, desktop only) */}
+      <div
+        className={`absolute inset-0 -z-10 hidden md:block bg-white border-b border-black/5 shadow-sm transition-opacity duration-300 ${
+          hasScrolled ? "opacity-100" : "opacity-0"
+        }`}
+      />
+
       <div className="container mx-auto px-4 flex items-center justify-between h-full">
 
         <div className="flex items-center gap-2">
@@ -138,9 +152,10 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
             </SheetContent>
           </Sheet>
 
+          {/* Logo: hidden on desktop once scrolled */}
           <Link to="/" className="flex items-center gap-2 group ml-1">
             <span
-              className="text-lg text-white hidden md:inline"
+              className={`text-lg text-white hidden ${hasScrolled ? "" : "md:inline"}`}
               style={{ fontFamily: FONT_DISPLAY, fontStyle: "italic", fontWeight: 600, letterSpacing: "-0.01em" }}
             >
               Real Travo
@@ -148,7 +163,8 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
           </Link>
         </div>
 
-        <nav className="hidden lg:flex items-center gap-6">
+        {/* Nav links: hidden on desktop once scrolled */}
+        <nav className={`hidden ${hasScrolled ? "" : "lg:flex"} items-center gap-6`}>
           {[
             { to: "/",         icon: <Home     className="h-4 w-4" />, label: t("nav.home")     },
             { to: "/explore",  icon: <Compass className="h-4 w-4" />, label: "Explore"          },
@@ -184,26 +200,41 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
 
           <button
             onClick={handleBecomeHostClick}
-            className="hidden md:flex h-9 px-3 rounded-xl items-center gap-2 transition-all font-semibold text-[13px] text-white bg-white/15 hover:bg-white/25 active:scale-95"
+            className={`hidden md:flex h-9 px-3 rounded-xl items-center gap-2 transition-all font-semibold text-[13px] text-white active:scale-95 ${
+              hasScrolled
+                ? "bg-[#1F4D3A] hover:bg-[#123322]"
+                : "bg-white/15 hover:bg-white/25"
+            }`}
           >
             <Briefcase className="h-4 w-4" /><span>Become a host</span>
           </button>
 
-          <div className="hidden md:flex [&_button]:text-white [&_button]:h-9 [&_button]:w-9 [&_[data-radix-popper-content-wrapper]]:!max-w-[320px]">
+          <div
+            className={`hidden md:flex [&_button]:h-9 [&_button]:w-9 [&_[data-radix-popper-content-wrapper]]:!max-w-[320px] ${
+              hasScrolled ? "[&_button]:text-[#123322]" : "[&_button]:text-white"
+            }`}
+          >
             <NotificationBell />
           </div>
 
           <div
             onClick={handleAccountClick}
-            className="hidden md:flex items-center gap-1.5 cursor-pointer text-white/90 hover:text-white transition-colors py-1 px-2"
+            className={`hidden md:flex items-center gap-1.5 cursor-pointer transition-colors py-1 px-2 ${
+              hasScrolled
+                ? "text-[#123322] hover:text-[#1F4D3A]"
+                : "text-white/90 hover:text-white"
+            }`}
           >
-            <CircleUserRound className="h-4 w-4" />
-            <span className="text-[13px] font-medium max-w-[100px] truncate">
+            <CircleUserRound className={hasScrolled ? "h-6 w-6" : "h-4 w-4"} />
+            {/* Name hidden once scrolled: only the account icon remains */}
+            <span
+              className={`text-[13px] font-medium max-w-[100px] truncate ${hasScrolled ? "hidden" : ""}`}
+            >
               {user ? (firstName || t("nav.profile")) : "Guest"}
             </span>
           </div>
         </div>
       </div>
-    </header> 
+    </header>
   );
 };

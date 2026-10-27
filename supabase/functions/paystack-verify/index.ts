@@ -152,6 +152,61 @@ serve(async (req) => {
           console.log("Booking confirmed successfully:", booking?.id);
           console.log("Payment distribution:", { totalAmount, serviceFeeAmount, hostPayoutAmount, serviceFeeRate });
 
+          // ── NEW: custom booking (host accepted a request, guest paid) ──────────────
+          // Marks the inquiry as paid/completed, links the real booking, and drops a
+          // "Booking completed" notification in the guest's and host's bell.
+          // The confirmation emails (with QR) are sent by the existing blocks below.
+          const inquiryId = bookingData?.inquiry_id || bookingData?.booking_details?.inquiry_id;
+          if (inquiryId) {
+            try {
+              const { data: inq } = await supabase
+                .from("availability_inquiries")
+                .select("*")
+                .eq("id", inquiryId)
+                .maybeSingle();
+
+              if (inq && inq.status === "accepted" && inq.payment_status !== "paid" &&
+                  String(inq.item_id ?? inq.place_id) === String(bookingData.item_id)) {
+                const expected = Number(inq.agreed_amount ?? inq.offered_price ?? inq.total_amount ?? inq.current_price ?? 0);
+                const paidKes = Number(transaction.amount) / 100;
+                if (expected > 0 && Math.abs(expected - paidKes) > 1) {
+                  console.error("Inquiry amount mismatch", { inquiryId, expected, paidKes });
+                }
+
+                await supabase
+                  .from("availability_inquiries")
+                  .update({
+                    payment_status: "paid",
+                    paid_at: new Date().toISOString(),
+                    payment_reference: reference,
+                    booking_id: booking?.id,
+                  })
+                  .eq("id", inq.id);
+
+                const nm = inq.item_name || bookingData.emailData?.itemName || "your booking";
+                await supabase.from("notifications").insert([
+                  {
+                    user_id: inq.guest_id,
+                    type: "booking_completed",
+                    title: "Booking completed",
+                    message: `Payment received for ${nm}. Your QR code is in Bookings.`,
+                    data: { inquiry_id: inq.id, booking_id: booking?.id },
+                  },
+                  {
+                    user_id: inq.host_id,
+                    type: "booking_completed",
+                    title: "Booking completed",
+                    message: `The guest paid for ${nm}. The booking is now confirmed.`,
+                    data: { inquiry_id: inq.id, booking_id: booking?.id },
+                  },
+                ]);
+                console.log("Inquiry marked paid:", inq.id);
+              }
+            } catch (inqError) {
+              console.error("Error finalizing inquiry:", inqError);
+            }
+          }
+
           // Create payout record for host
           if (hostId && hostPayoutAmount > 0) {
             const { data: bankDetails } = await supabase

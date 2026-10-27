@@ -104,10 +104,17 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items }: GridSectio
     </>
   );
 
+  // On big screens the section bar sticks right under the compact white
+  // header (60px tall: py-3 + h-9) while its section is in view. It needs a
+  // solid white background so cards don't show through when it sticks.
+  // Mobile is unchanged.
   const header = (
     <div
-      className="flex items-center justify-between mb-3 md:mb-5 rounded-none md:rounded-xl px-3 py-2.5 -mx-4 md:mx-0"
-      style={{ backgroundColor: `${accentColor}12` }}
+      className="flex items-center justify-between mb-3 md:mb-5 rounded-none md:rounded-xl px-3 py-2.5 -mx-4 md:mx-0 md:sticky md:top-[60px] md:z-40 md:shadow-sm"
+      style={{
+        backgroundColor: "#ffffff",
+        backgroundImage: `linear-gradient(${accentColor}12, ${accentColor}12)`,
+      }}
     >
       <h2
         className="text-base sm:text-xl md:text-2xl font-extrabold tracking-tight"

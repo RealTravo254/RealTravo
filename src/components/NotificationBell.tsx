@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Bell, CheckCircle2, Clock, ChevronRight, X, Inbox,
   ShieldCheck, CreditCard, Wallet, CalendarCheck, Star,
-  EyeOff, Eye, AlertCircle, Gift, Ban,
+  EyeOff, Eye, Gift, Ban, BadgeCheck,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,12 +13,8 @@ import { useNavigate } from "react-router-dom";
 import { InquiryNotificationActions } from "@/components/InquiryNotificationActions";
 
 // ── Design tokens ─────────────────────────────────────────────────────────
-// Same field-guide / park-signage system used across the rest of the app.
-// Notification types still get their own hue for scannability, but drawn
-// from this earthier palette instead of a generic Tailwind rainbow.
 const FOREST       = "#1F4D3A";
 const FOREST_DEEP  = "#123322";
-const FOREST_SOFT  = "#EAF0EA";
 const CLAY         = "#C1552F";
 const CLAY_SOFT    = "#FBEDE6";
 const GOLD         = "#B98A2A";
@@ -37,7 +33,6 @@ const INFO_SOFT    = "#EEF1F8";
 const FONT_DISPLAY = "'Fraunces', ui-serif, Georgia, serif";
 const FONT_BODY = "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif";
 
-// Injects the two typefaces once, without needing to touch the app's index.html.
 const useInjectFonts = () => {
   useEffect(() => {
     const id = "adventure-detail-fonts";
@@ -83,18 +78,17 @@ const TYPE_META: Record<
   inquiry_accepted:      { icon: CheckCircle2,  bg: SUCCESS_SOFT, iconColor: SUCCESS,  accent: SUCCESS },
   inquiry_declined:      { icon: X,             bg: DANGER_SOFT,  iconColor: DANGER,   accent: DANGER },
   inquiry_expired:       { icon: Clock,         bg: CANVAS,       iconColor: INK_SOFT, accent: INK_SOFT },
+  // NEW: sent to guest + host once a custom booking is paid
+  booking_completed:     { icon: BadgeCheck,    bg: SUCCESS_SOFT, iconColor: SUCCESS,  accent: SUCCESS },
 };
 
-const DEFAULT_META = {
-  icon: Bell,
-  bg: CANVAS,
-  iconColor: INK_SOFT,
-  accent: FOREST,
-};
-
+const DEFAULT_META = { icon: Bell, bg: CANVAS, iconColor: INK_SOFT, accent: FOREST };
 const getMeta = (type: string) => TYPE_META[type] ?? DEFAULT_META;
 
-// ── Group by date ─────────────────────────────────────────────────────────────
+// Notifications that carry the live Accept / Pay now / Completed card
+const hasInquiryCard = (n: Notification) =>
+  (n.type.startsWith("inquiry_") || n.type === "booking_completed") && !!n.data?.inquiry_id;
+
 const categorize = (notifications: Notification[]) => {
   const groups: Record<string, Notification[]> = {};
   notifications.forEach((n) => {
@@ -105,7 +99,6 @@ const categorize = (notifications: Notification[]) => {
   return Object.entries(groups).map(([title, items]) => ({ title, items }));
 };
 
-// ── Relative time ─────────────────────────────────────────────────────────────
 const relativeTime = (iso: string) => {
   const diff = Date.now() - new Date(iso).getTime();
   const m = Math.floor(diff / 60000);
@@ -115,6 +108,8 @@ const relativeTime = (iso: string) => {
   if (h < 24) return `${h}h ago`;
   return format(new Date(iso), "MMM d");
 };
+
+const typeLabel = (type: string) => (type === "booking_completed" ? "completed" : type.replace(/_/g, " "));
 
 export const NotificationBell = () => {
   useInjectFonts();
@@ -126,7 +121,6 @@ export const NotificationBell = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [animateBell, setAnimateBell] = useState(false);
 
-  // ── Deep-link map ────────────────────────────────────────────────────────
   const getDeepLink = useCallback((n: Notification): string | null => {
     const { type, data } = n;
     switch (type) {
@@ -138,7 +132,8 @@ export const NotificationBell = () => {
         return data?.item_id && data?.booking_type
           ? `/host-bookings/${data.booking_type}/${data.item_id}`
           : "/host-bookings";
-      case "payment_confirmed":    return "/bookings";
+      case "payment_confirmed":
+      case "booking_completed":    return "/bookings";
       case "new_referral":         return "/payment";
       case "item_status":
       case "item_hidden":
@@ -146,15 +141,11 @@ export const NotificationBell = () => {
         return data?.item_id && data?.item_type
           ? `/host-bookings/${data.item_type}/${data.item_id}`
           : "/my-listing";
-      case "inquiry_request":
-      case "inquiry_accepted":
-      case "inquiry_declined":
-      case "inquiry_expired":      return null;
+      // inquiry_* notifications act through their own buttons (Accept / Pay now), not a deep link
       default: return null;
     }
   }, []);
 
-  // ── Fetch ────────────────────────────────────────────────────────────────
   const fetchNotifications = useCallback(async () => {
     if (!user) return;
     const { data } = await supabase
@@ -167,54 +158,37 @@ export const NotificationBell = () => {
     setUnreadCount(data?.filter((n) => !n.is_read).length ?? 0);
   }, [user]);
 
-  // ── Realtime ─────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!user) return;
-
     fetchNotifications();
 
     const channelId = `bell-notif-${user.id}`;
-
     try {
       const existing = supabase.channel(channelId);
       supabase.removeChannel(existing);
-    } catch (e) {
-      // ignore
-    }
+    } catch (e) { /* ignore */ }
 
     const channel = supabase.channel(channelId);
-
     channel
       .on("postgres_changes", {
-        event: "INSERT",
-        schema: "public",
-        table: "notifications",
-        filter: `user_id=eq.${user.id}`,
+        event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}`,
       }, (payload) => {
-        // Bell wiggle animation only — no sound, no permission request
         setAnimateBell(true);
         setTimeout(() => setAnimateBell(false), 1000);
-
         if (payload.new) {
           const n = payload.new as Notification;
-          // In-app toast only — no browser notification API called
           toast({ title: n.title, description: n.message });
         }
         fetchNotifications();
       })
       .on("postgres_changes", {
-        event: "UPDATE",
-        schema: "public",
-        table: "notifications",
-        filter: `user_id=eq.${user.id}`,
+        event: "UPDATE", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}`,
       }, fetchNotifications);
-
     channel.subscribe();
 
     return () => { supabase.removeChannel(channel); };
   }, [user?.id, fetchNotifications]);
 
-  // ── Actions ──────────────────────────────────────────────────────────────
   const markAsRead = useCallback(async (id: string) => {
     await supabase.from("notifications").update({ is_read: true }).eq("id", id);
     fetchNotifications();
@@ -222,10 +196,7 @@ export const NotificationBell = () => {
 
   const markAllAsRead = useCallback(async () => {
     if (!user) return;
-    await supabase.from("notifications")
-      .update({ is_read: true })
-      .eq("user_id", user.id)
-      .eq("is_read", false);
+    await supabase.from("notifications").update({ is_read: true }).eq("user_id", user.id).eq("is_read", false);
     fetchNotifications();
   }, [user, fetchNotifications]);
 
@@ -235,29 +206,21 @@ export const NotificationBell = () => {
     if (link) { setIsOpen(false); navigate(link); }
   }, [markAsRead, getDeepLink, navigate]);
 
-  // Expire stale inquiry requests whenever the drawer opens
   useEffect(() => {
     if (isOpen) (supabase as any).rpc("expire_stale_inquiries").then(() => fetchNotifications());
   }, [isOpen]);
 
   const grouped = useMemo(() => categorize(notifications), [notifications]);
 
-  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="relative z-20">
       <Sheet open={isOpen} onOpenChange={setIsOpen}>
-
-        {/* ── Bell trigger ── */}
         <SheetTrigger asChild>
           <button
             aria-label="Notifications"
             className="relative h-9 w-9 flex items-center justify-center rounded-xl transition-all duration-150 hover:bg-slate-100 active:scale-90"
           >
-            <Bell
-              className={`h-5 w-5 stroke-[2px] transition-transform duration-200 ${
-                animateBell ? "animate-[wiggle_0.4s_ease-in-out]" : ""
-              }`}
-            />
+            <Bell className={`h-5 w-5 stroke-[2px] transition-transform duration-200 ${animateBell ? "animate-[wiggle_0.4s_ease-in-out]" : ""}`} />
             {unreadCount > 0 && (
               <span
                 className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-white text-[10px] font-semibold flex items-center justify-center border-2 border-white leading-none z-10"
@@ -269,11 +232,7 @@ export const NotificationBell = () => {
           </button>
         </SheetTrigger>
 
-        {/* ── Drawer ── */}
-        <SheetContent
-          side="right"
-          className="w-[88vw] max-w-[360px] p-0 border-none shadow-2xl [&>button]:hidden"
-        >
+        <SheetContent side="right" className="w-[88vw] max-w-[360px] p-0 border-none shadow-2xl [&>button]:hidden">
           <div
             className="flex flex-col h-full"
             style={{
@@ -283,46 +242,27 @@ export const NotificationBell = () => {
               fontFamily: FONT_BODY,
             }}
           >
-
-            {/* ── Header ── */}
-            <div
-              className="relative flex-shrink-0 px-5 pt-5 pb-4"
-              style={{ background: `linear-gradient(135deg, ${FOREST} 0%, ${FOREST_DEEP} 100%)` }}
-            >
-              <button
-                onClick={() => setIsOpen(false)}
-                className="absolute top-4 right-4 h-7 w-7 rounded-full bg-white/15 flex items-center justify-center hover:bg-white/25 transition-colors"
-              >
+            {/* Header */}
+            <div className="relative flex-shrink-0 px-5 pt-5 pb-4" style={{ background: `linear-gradient(135deg, ${FOREST} 0%, ${FOREST_DEEP} 100%)` }}>
+              <button onClick={() => setIsOpen(false)} className="absolute top-4 right-4 h-7 w-7 rounded-full bg-white/15 flex items-center justify-center hover:bg-white/25 transition-colors">
                 <X className="h-3.5 w-3.5 text-white" />
               </button>
 
               <div className="flex items-end justify-between pr-8">
                 <div>
-                  <p className="text-[10px] font-medium text-white/55 mb-0.5">
-                    Notifications
-                  </p>
-                  <h2 className="text-2xl font-semibold text-white tracking-tight leading-none" style={{ fontFamily: FONT_DISPLAY }}>
-                    Inbox
-                  </h2>
+                  <p className="text-[10px] font-medium text-white/55 mb-0.5">Notifications</p>
+                  <h2 className="text-2xl font-semibold text-white tracking-tight leading-none" style={{ fontFamily: FONT_DISPLAY }}>Inbox</h2>
                 </div>
-
                 {unreadCount > 0 && (
                   <div className="flex flex-col items-end gap-1">
-                    <span className="text-[22px] font-semibold text-white leading-none" style={{ fontFamily: FONT_DISPLAY }}>
-                      {unreadCount}
-                    </span>
-                    <span className="text-[10px] font-medium text-white/55">
-                      unread
-                    </span>
+                    <span className="text-[22px] font-semibold text-white leading-none" style={{ fontFamily: FONT_DISPLAY }}>{unreadCount}</span>
+                    <span className="text-[10px] font-medium text-white/55">unread</span>
                   </div>
                 )}
               </div>
 
               {unreadCount > 0 && (
-                <button
-                  onClick={markAllAsRead}
-                  className="mt-3 flex items-center gap-1.5 text-[11px] font-medium text-white/65 hover:text-white transition-colors"
-                >
+                <button onClick={markAllAsRead} className="mt-3 flex items-center gap-1.5 text-[11px] font-medium text-white/65 hover:text-white transition-colors">
                   <CheckCircle2 className="h-3 w-3" />
                   Mark all as read
                 </button>
@@ -335,7 +275,7 @@ export const NotificationBell = () => {
               </div>
             </div>
 
-            {/* ── Body ── */}
+            {/* Body */}
             <div className="flex-1 overflow-y-auto px-3 pt-3 pb-4 space-y-4">
               {notifications.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 text-center px-6">
@@ -346,17 +286,13 @@ export const NotificationBell = () => {
                     <span className="absolute -bottom-1 -right-1 text-lg">✨</span>
                   </div>
                   <p className="text-sm font-semibold mb-1" style={{ color: INK }}>All caught up</p>
-                  <p className="text-xs leading-relaxed" style={{ color: INK_SOFT }}>
-                    No notifications yet. We'll let you know when something happens.
-                  </p>
+                  <p className="text-xs leading-relaxed" style={{ color: INK_SOFT }}>No notifications yet. We'll let you know when something happens.</p>
                 </div>
               ) : (
                 grouped.map((group) => (
                   <div key={group.title}>
                     <div className="flex items-center gap-2 mb-2 px-1">
-                      <span className="text-[10px] font-medium" style={{ color: INK_SOFT }}>
-                        {group.title}
-                      </span>
+                      <span className="text-[10px] font-medium" style={{ color: INK_SOFT }}>{group.title}</span>
                       <div className="flex-1 h-px" style={{ background: HAIRLINE }} />
                     </div>
 
@@ -368,7 +304,6 @@ export const NotificationBell = () => {
                         const hasLink = !!getDeepLink(n);
 
                         return (
-                          // A <button> can't contain links/buttons, so the card is a div with role="button"
                           <div
                             key={n.id}
                             role="button"
@@ -388,49 +323,29 @@ export const NotificationBell = () => {
 
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-start justify-between gap-2">
-                                  <p className="text-[12px] font-semibold leading-tight truncate" style={{ color: isUnread ? INK : INK_SOFT }}>
-                                    {n.title}
-                                  </p>
-                                  <span className="text-[10px] font-medium whitespace-nowrap flex-shrink-0 mt-0.5" style={{ color: INK_SOFT }}>
-                                    {relativeTime(n.created_at)}
-                                  </span>
+                                  <p className="text-[12px] font-semibold leading-tight truncate" style={{ color: isUnread ? INK : INK_SOFT }}>{n.title}</p>
+                                  <span className="text-[10px] font-medium whitespace-nowrap flex-shrink-0 mt-0.5" style={{ color: INK_SOFT }}>{relativeTime(n.created_at)}</span>
                                 </div>
-                                <p className="text-[11px] mt-0.5 line-clamp-2 leading-snug" style={{ color: INK_SOFT }}>
-                                  {n.message}
-                                </p>
+                                <p className="text-[11px] mt-0.5 line-clamp-2 leading-snug" style={{ color: INK_SOFT }}>{n.message}</p>
 
                                 <div className="flex items-center justify-between mt-2">
-                                  <span
-                                    className="text-[9px] font-semibold px-2 py-0.5 rounded-full capitalize"
-                                    style={{ background: `${meta.accent}15`, color: meta.accent }}
-                                  >
-                                    {n.type.replace(/_/g, " ")}
+                                  <span className="text-[9px] font-semibold px-2 py-0.5 rounded-full capitalize" style={{ background: `${meta.accent}15`, color: meta.accent }}>
+                                    {typeLabel(n.type)}
                                   </span>
-
                                   <div className="flex items-center gap-1.5">
-                                    {isUnread && (
-                                      <span
-                                        className="h-1.5 w-1.5 rounded-full flex-shrink-0"
-                                        style={{ background: meta.accent }}
-                                      />
-                                    )}
-                                    {hasLink && (
-                                      <ChevronRight className="h-3 w-3 group-hover:translate-x-0.5 transition-all" style={{ color: HAIRLINE }} />
-                                    )}
+                                    {isUnread && <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: meta.accent }} />}
+                                    {hasLink && <ChevronRight className="h-3 w-3 group-hover:translate-x-0.5 transition-all" style={{ color: HAIRLINE }} />}
                                   </div>
                                 </div>
                               </div>
                             </div>
 
-                            {n.type.startsWith("inquiry_") && n.data?.inquiry_id && user && (
+                            {hasInquiryCard(n) && user && (
                               <InquiryNotificationActions notification={n} userId={user.id} />
                             )}
 
                             {isUnread && (
-                              <div
-                                className="h-0.5 rounded-b-2xl"
-                                style={{ background: `linear-gradient(90deg, ${meta.accent}, transparent)` }}
-                              />
+                              <div className="h-0.5 rounded-b-2xl" style={{ background: `linear-gradient(90deg, ${meta.accent}, transparent)` }} />
                             )}
                           </div>
                         );
@@ -441,7 +356,6 @@ export const NotificationBell = () => {
               )}
             </div>
 
-            {/* ── Footer ── */}
             {notifications.length > 0 && (
               <div className="flex-shrink-0 px-4 py-3 bg-white" style={{ borderTop: `1px solid ${HAIRLINE}` }}>
                 <p className="text-[10px] text-center font-medium" style={{ color: "#A7B2AB" }}>
@@ -451,7 +365,7 @@ export const NotificationBell = () => {
             )}
           </div>
         </SheetContent>
-      </Sheet> 
+      </Sheet>
 
       <style>{`
         @keyframes wiggle {

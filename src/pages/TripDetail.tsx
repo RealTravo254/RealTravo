@@ -42,6 +42,9 @@ const SUCCESS      = "#2F6F4E";
 const FONT_DISPLAY = "'Fraunces', ui-serif, Georgia, serif";
 const FONT_BODY = "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif";
 
+// Change this if your login route is different (e.g. "/login")
+const LOGIN_PATH = "/auth";
+
 const useInjectFonts = () => {
   useEffect(() => {
     const id = "adventure-detail-fonts";
@@ -601,6 +604,20 @@ const TripDetail = () => {
   const currentItemId = event?.id || "";
   const isSaved = savedItems.has(currentItemId);
 
+  // Messaging the host requires a logged-in user
+  const handleMessageHostClick = () => {
+    if (!user) {
+      toast({
+        title: "Please log in",
+        description: "You need to be logged in to message the host.",
+      });
+      const redirect = encodeURIComponent(window.location.pathname + window.location.search);
+      navigate(`${LOGIN_PATH}?redirect=${redirect}`);
+      return;
+    }
+    setInquiryOpen(true);
+  };
+
   useEffect(() => { window.scrollTo(0, 0); if (rawSlug) fetchTrip(); }, [rawSlug]);
 
   useEffect(() => {
@@ -856,9 +873,9 @@ const TripDetail = () => {
         />
       )}
 
-      <FloatingInquiryButton onClick={() => setInquiryOpen(true)} />
+      <FloatingInquiryButton onClick={handleMessageHostClick} />
 
-      <InquiryDialog item={event} itemType="trip" open={inquiryOpen} onClose={() => setInquiryOpen(false)} />
+      <InquiryDialog item={event} itemType="trip" open={inquiryOpen && !!user} onClose={() => setInquiryOpen(false)} />
     </div>
   );
 };

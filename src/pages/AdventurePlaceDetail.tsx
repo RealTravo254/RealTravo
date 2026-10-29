@@ -11,6 +11,7 @@ import {
   Globe, Sparkles, Info, TreePine, Tent, Compass, Building2, Home as HomeIcon,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import { useSavedItems } from "@/hooks/useSavedItems";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { trackReferralClick } from "@/lib/referralUtils";
@@ -42,6 +43,9 @@ const CLOSED_COLOR = "#9C3B2B";
 
 const FONT_DISPLAY = "'Fraunces', ui-serif, Georgia, serif";
 const FONT_BODY = "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif";
+
+// Change this if your login route is different (e.g. "/login")
+const LOGIN_PATH = "/auth";
 
 const useInjectFonts = () => {
   useEffect(() => {
@@ -939,6 +943,7 @@ const AdventurePlaceDetail = () => {
   const goBack = useSafeBack();
   const navigateToBooking = useBookingNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   const { requestLocation } = useGeolocation();
   const { formatPrice } = useCurrency();
   const isMobile = useIsMobile();
@@ -953,6 +958,20 @@ const AdventurePlaceDetail = () => {
 
   const { savedItems, handleSave: handleSaveItem } = useSavedItems();
   const isSaved = savedItems.has(id || "");
+
+  // Messaging the host requires a logged-in user
+  const handleMessageHostClick = () => {
+    if (!user) {
+      toast({
+        title: "Please log in",
+        description: "You need to be logged in to message the host.",
+      });
+      const redirect = encodeURIComponent(window.location.pathname + window.location.search);
+      navigate(`${LOGIN_PATH}?redirect=${redirect}`);
+      return;
+    }
+    setInquiryOpen(true);
+  };
 
   const getStartingPrice = () => {
     if (!place) return 0;
@@ -1230,9 +1249,9 @@ const AdventurePlaceDetail = () => {
         />
       )}
 
-      <FloatingInquiryButton onClick={() => setInquiryOpen(true)} />
+      <FloatingInquiryButton onClick={handleMessageHostClick} />
 
-      <InquiryDialog item={place} itemType="adventure_place" open={inquiryOpen} onClose={() => setInquiryOpen(false)} />
+      <InquiryDialog item={place} itemType="adventure_place" open={inquiryOpen && !!user} onClose={() => setInquiryOpen(false)} />
     </div>
   );
 };

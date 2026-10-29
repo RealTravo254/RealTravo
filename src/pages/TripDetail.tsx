@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { useSafeBack } from "@/hooks/useSafeBack";
 import { useBookingNavigate } from "@/hooks/useBookingNavigate";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAuthModal } from "@/contexts/AuthModalContext";
 import { useSavedItems } from "@/hooks/useSavedItems";
 import { trackReferralClick } from "@/lib/referralUtils";
 import { getShareLink } from "@/lib/shareUtils";
@@ -41,9 +42,6 @@ const SUCCESS      = "#2F6F4E";
 
 const FONT_DISPLAY = "'Fraunces', ui-serif, Georgia, serif";
 const FONT_BODY = "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif";
-
-// Change this if your login route is different (e.g. "/login")
-const LOGIN_PATH = "/auth";
 
 const useInjectFonts = () => {
   useEffect(() => {
@@ -584,10 +582,10 @@ const TripDetail = () => {
   useInjectFonts();
 
   const { slug: rawSlug } = useParams();
-  const navigate = useNavigate();
   const goBack = useSafeBack();
   const navigateToBooking = useBookingNavigate();
   const { user } = useAuth();
+  const { openAuthModal } = useAuthModal();
   const { toast } = useToast();
   const { formatPrice } = useCurrency();
   const isMobile = useIsMobile();
@@ -599,24 +597,31 @@ const TripDetail = () => {
   const [mapModalOpen, setMapModalOpen] = useState(false);
   // Must stay above the `if (loading) return` early return below (rules of hooks)
   const [inquiryOpen, setInquiryOpen] = useState(false);
+  // True when a guest tapped "message host" and we're waiting for them to log in
+  const [pendingInquiry, setPendingInquiry] = useState(false);
 
   const { savedItems, handleSave: handleSaveItem } = useSavedItems();
   const currentItemId = event?.id || "";
   const isSaved = savedItems.has(currentItemId);
 
-  // Messaging the host requires a logged-in user
+  // Messaging the host requires a logged-in user.
+  // Guests get the login popup (same as the header) instead of the auth page.
   const handleMessageHostClick = () => {
     if (!user) {
-      toast({
-        title: "Please log in",
-        description: "You need to be logged in to message the host.",
-      });
-      const redirect = encodeURIComponent(window.location.pathname + window.location.search);
-      navigate(`${LOGIN_PATH}?redirect=${redirect}`);
+      setPendingInquiry(true);
+      openAuthModal("login");
       return;
     }
     setInquiryOpen(true);
   };
+
+  // Once the guest finishes logging in, open the message dialog automatically.
+  useEffect(() => {
+    if (user && pendingInquiry) {
+      setPendingInquiry(false);
+      setInquiryOpen(true);
+    }
+  }, [user, pendingInquiry]);
 
   useEffect(() => { window.scrollTo(0, 0); if (rawSlug) fetchTrip(); }, [rawSlug]);
 

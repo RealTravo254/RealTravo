@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Menu, X, Ticket, Home, UserRound, Search, MessageCircle } from "lucide-react";
+import { Menu, X, Home, UserRound, Search, MessageCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -102,7 +102,7 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
   if (!__fromLayout) return null;
 
   const headerIconStyles =
-    "h-9 w-9 rounded-xl flex items-center justify-center transition-all duration-200 active:scale-90 text-white hover:bg-white/20";
+    "h-8 w-8 rounded-lg flex items-center justify-center transition-all duration-200 active:scale-90 text-white hover:bg-white/20";
 
   // Profile icon → profile page (guests get the login modal).
   const handleAccountClick = () => {
@@ -120,13 +120,12 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
 
   const NAV_ITEMS = [
     { to: "/", icon: <Home className="h-4 w-4" />, label: t("nav.home") },
-    { to: "/bookings", icon: <Ticket className="h-4 w-4" />, label: t("nav.bookings") },
     { to: "/messages", icon: <MessageCircle className="h-4 w-4" />, label: t("nav.messages", "Messages") },
   ];
 
   return (
     <header
-      className={`z-[100] items-center fixed top-0 left-0 right-0 flex py-3 pt-[max(0.75rem,env(safe-area-inset-top))] transition-colors duration-300 ${className || ""}`}
+      className={`z-[100] items-center fixed top-0 left-0 right-0 flex py-1.5 pt-[max(0.375rem,env(safe-area-inset-top))] transition-colors duration-300 ${className || ""}`}
       style={{ fontFamily: FONT_BODY }}
     >
       {/* Dim backdrop while the menu is open — tap to close */}
@@ -145,8 +144,8 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
         style={{ background: `linear-gradient(135deg, ${FOREST} 0%, ${FOREST_DEEP} 100%)` }}
       />
 
-      <div className="container mx-auto px-4 flex items-center justify-between h-full">
-        <div className="flex items-center gap-2">
+      <div className="container mx-auto px-3 flex items-center justify-between h-full">
+        <div className="flex items-center gap-1.5">
           <button
             type="button"
             className={headerIconStyles}
@@ -154,12 +153,12 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen((o) => !o)}
           >
-            {menuOpen ? <X className="h-6 w-6 stroke-[2.5]" /> : <Menu className="h-6 w-6 stroke-[2.5]" />}
+            {menuOpen ? <X className="h-5 w-5 stroke-[2.5]" /> : <Menu className="h-5 w-5 stroke-[2.5]" />}
           </button>
 
           <Link to="/" className="flex items-center gap-2 group ml-1">
             <span
-              className="text-lg text-white hidden md:inline"
+              className="text-base text-white hidden md:inline"
               style={{ fontFamily: FONT_DISPLAY, fontStyle: "italic", fontWeight: 600, letterSpacing: "-0.01em" }}
             >
               Real Travo
@@ -180,9 +179,9 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
           ))}
         </nav>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           {showSearchIcon && isIndexPage && (
-            <div className="w-9 h-9 shrink-0 flex items-center justify-center overflow-hidden">
+            <div className="w-8 h-8 shrink-0 flex items-center justify-center overflow-hidden">
               <button
                 onClick={goToExploreSearch}
                 className={`${headerIconStyles} transition-all duration-300 ${
@@ -191,12 +190,12 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
                 aria-label="Search"
                 tabIndex={hasScrolled ? 0 : -1}
               >
-                <Search className="h-5 w-5" />
+                <Search className="h-4 w-4" />
               </button>
             </div>
           )}
 
-          <div className="hidden md:flex [&_button]:text-white [&_button]:h-9 [&_button]:w-9 [&_[data-radix-popper-content-wrapper]]:!max-w-[320px]">
+          <div className="hidden md:flex [&_button]:text-white [&_button]:h-8 [&_button]:w-8 [&_[data-radix-popper-content-wrapper]]:!max-w-[320px]">
             <NotificationBell />
           </div>
 
@@ -205,12 +204,12 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
             type="button"
             onClick={handleAccountClick}
             aria-label="Profile"
-            className="flex flex-col items-center gap-0.5 px-1 py-0.5 text-white transition-transform active:scale-95"
+            className="flex flex-col items-center gap-px px-1 text-white transition-transform active:scale-95"
           >
-            <span className="h-8 w-8 rounded-full bg-white/15 border border-white/25 flex items-center justify-center hover:bg-white/25 transition-colors">
-              <UserRound className="h-[18px] w-[18px]" />
+            <span className="h-6 w-6 rounded-full bg-white/15 border border-white/25 flex items-center justify-center hover:bg-white/25 transition-colors">
+              <UserRound className="h-3.5 w-3.5" />
             </span>
-            <span className="text-[10px] font-medium leading-none max-w-[64px] truncate text-white/90">
+            <span className="text-[9px] font-medium leading-none max-w-[56px] truncate text-white/90">
               {user ? firstName || t("nav.profile") : "Guest"}
             </span>
           </button>
@@ -219,9 +218,9 @@ export const Header = ({ onSearchClick, showSearchIcon = true, className, __from
 
       {/* Dropdown menu — opens downwards, right below the header */}
       <div className="absolute top-full left-0 right-0 z-10 pointer-events-none" aria-hidden={!menuOpen}>
-        <div className="container mx-auto px-3 md:px-4">
+        <div className="container mx-auto px-3">
           <div
-            className="pointer-events-auto w-full md:max-w-[360px] mt-2 rounded-3xl overflow-hidden shadow-2xl bg-white origin-top"
+            className="pointer-events-auto w-full md:max-w-[360px] mt-1.5 rounded-3xl overflow-hidden shadow-2xl bg-white origin-top"
             style={{
               opacity: menuOpen ? 1 : 0,
               transform: menuOpen ? "translateY(0) scale(1)" : "translateY(-10px) scale(0.98)",

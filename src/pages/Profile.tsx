@@ -114,6 +114,19 @@ interface ProfileRow {
   country_changed_at: string | null;
 }
 
+const EMPTY_PROFILE: ProfileRow = {
+  first_name: "",
+  last_name: "",
+  gender: "",
+  date_of_birth: "",
+  country_id: null,
+  division_id: null,
+  phone_number: "",
+  phone_verified: false,
+  name_changed_at: null,
+  country_changed_at: null,
+};
+
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <p className="px-4 pt-4 pb-1 text-[10px] font-black uppercase tracking-[0.18em] text-primary">
@@ -190,39 +203,65 @@ export default function ProfileEdit() {
     if (!user) return;
     if (showSpinner) setFetchingProfile(true);
 
-    const { data, error } = await db
-      .from("profiles")
-      .select(
-        "first_name, last_name, gender, date_of_birth, country_id, division_id, phone_number, phone_verified, name_changed_at, country_changed_at",
-      )
-      .eq("id", user.id)
-      .maybeSingle();
+    try {
+      // select("*") so a missing column can never cause a 400 error
+      const { data, error } = await db.from("profiles").select("*").eq("id", user.id).maybeSingle();
 
-    if (error) {
-      toast({ title: "Couldn't load profile", description: error.message, variant: "destructive" });
-    }
-
-    if (data) {
-      setProfile(data as ProfileRow);
-
-      if (data.country_id) {
-        const { data: c } = await db.from("countries").select("name").eq("id", data.country_id).maybeSingle();
-        setCountryName(c?.name ?? "");
-      } else {
-        setCountryName("");
+      if (error) {
+        console.error("Profile load error:", error);
+        toast({ title: "Couldn't load profile", description: error.message, variant: "destructive" });
       }
-      if (data.division_id) {
-        const { data: d } = await db
-          .from("country_divisions")
-          .select("name")
-          .eq("id", data.division_id)
-          .maybeSingle();
-        setDivisionName(d?.name ?? "");
-      } else {
-        setDivisionName("");
+
+      if (data) {
+        // Fall back to splitting the legacy `name` column if first/last
+        // name columns are missing or empty.
+        const nameParts = String(data.name ?? "").trim().split(" ");
+        const row: ProfileRow = {
+          first_name: data.first_name ?? nameParts[0] ?? "",
+          last_name: data.last_name ?? nameParts.slice(1).join(" ") ?? "",
+          gender: data.gender ?? "",
+          date_of_birth: data.date_of_birth ?? "",
+          country_id: data.country_id ?? null,
+          division_id: data.division_id ?? null,
+          phone_number: data.phone_number ?? "",
+          phone_verified: !!data.phone_verified,
+          name_changed_at: data.name_changed_at ?? null,
+          country_changed_at: data.country_changed_at ?? null,
+        };
+        setProfile(row);
+
+        if (row.country_id) {
+          const { data: c } = await db.from("countries").select("name").eq("id", row.country_id).maybeSingle();
+          setCountryName(c?.name ?? "");
+        } else {
+          setCountryName("");
+        }
+        if (row.division_id) {
+          const { data: d } = await db
+            .from("country_divisions")
+            .select("name")
+            .eq("id", row.division_id)
+            .maybeSingle();
+          setDivisionName(d?.name ?? "");
+        } else {
+          setDivisionName("");
+        }
+      } else if (!error) {
+        // Query succeeded but no profile row exists yet — show an empty
+        // form instead of a blank/error page so the user can fill it in.
+        setProfile((prev) => prev ?? EMPTY_PROFILE);
       }
+    } catch (err: any) {
+      console.error("Profile load crashed:", err);
+      toast({
+        title: "Couldn't load profile",
+        description: err?.message ?? "Something went wrong.",
+        variant: "destructive",
+      });
+    } finally {
+      // Always stop the spinner, even if something above threw.
+      setFetchingProfile(false);
     }
-    setFetchingProfile(false);
   };
 
   const nameLock = profile ? getLockStatus(profile.name_changed_at, NAME_LOCK_DAYS) : { locked: false, message: "" };

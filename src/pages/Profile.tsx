@@ -34,6 +34,7 @@ import {
   EyeOff,
   Users as UsersIcon,
   ChevronRight,
+  Mail,
 } from "lucide-react";
 import { CountrySelector } from "@/components/creation/CountrySelector";
 import { EditableField } from "@/components/profile/EditableField";
@@ -49,9 +50,11 @@ const GENDER_LABELS: Record<string, string> = {
 const NAME_LOCK_DAYS = 30;
 const COUNTRY_LOCK_DAYS = 365;
 
-// Cast, same as LoginForm.tsx does — the generated Supabase types on this
-// project don't expose signInWithOtp/verifyOtp cleanly.
+// Casts: the generated Supabase types on this project don't expose
+// signInWithOtp/verifyOtp cleanly, and don't include some of the newer
+// profile columns (name_changed_at, country_changed_at) or tables.
 const clientAuth = (supabase as any).auth;
+const db = supabase as any;
 
 function calculateAge(dob: string) {
   if (!dob) return null;
@@ -93,6 +96,7 @@ function getLockStatus(changedAt: string | null, lockDays: number) {
 }
 
 type FieldKey = "name" | "dob" | "gender" | "country" | "phone" | "password";
+type CodeField = Exclude<FieldKey, "phone" | "password">;
 // Password has its own three-stage flow: confirm the current password first,
 // then enter+confirm a new one, then confirm the emailed code.
 type PasswordStage = "current" | "new" | "code";
@@ -148,7 +152,7 @@ export default function ProfileEdit() {
   // Generic "confirm with an emailed code" step, shared by name / dob /
   // gender / country. `pendingPayload` is what gets written once the code
   // is confirmed; `pendingField` says which field is currently in this step.
-  const [pendingField, setPendingField] = useState<Exclude<FieldKey, "phone" | "password"> | null>(null);
+  const [pendingField, setPendingField] = useState<CodeField | null>(null);
   const [pendingPayload, setPendingPayload] = useState<Record<string, unknown> | null>(null);
   const [fieldOtp, setFieldOtp] = useState("");
   const [fieldOtpError, setFieldOtpError] = useState<string | null>(null);
@@ -169,49 +173,57 @@ export default function ProfileEdit() {
   const [sendingPasswordCode, setSendingPasswordCode] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
 
+  // Depend on the user's id, not the whole object — the object changes
+  // identity on token refresh / OTP sign-in and would reload the page.
   useEffect(() => {
     if (!user) {
       navigate("/auth");
       return;
     }
-    loadProfile();
+    loadProfile(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, navigate]);
+  }, [user?.id, navigate]);
 
-  const loadProfile = async () => {
-    setFetchingProfile(true);
-    const { data } = await supabase
+  // showSpinner is only true for the very first load, so saving a field
+  // doesn't blank the form and remount every input.
+  const loadProfile = async (showSpinner = false) => {
+    if (!user) return;
+    if (showSpinner) setFetchingProfile(true);
+
+    const { data, error } = await db
       .from("profiles")
       .select(
         "first_name, last_name, gender, date_of_birth, country_id, division_id, phone_number, phone_verified, name_changed_at, country_changed_at",
       )
-      .eq("id", user!.id)
-      .single();
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (error) {
+      toast({ title: "Couldn't load profile", description: error.message, variant: "destructive" });
+    }
 
     if (data) {
       setProfile(data as ProfileRow);
 
       if (data.country_id) {
-        const { data: c } = await supabase
-          .from("countries")
-          .select("name")
-          .eq("id", data.country_id)
-          .single();
+        const { data: c } = await db.from("countries").select("name").eq("id", data.country_id).maybeSingle();
         setCountryName(c?.name ?? "");
+      } else {
+        setCountryName("");
       }
       if (data.division_id) {
-        const { data: d } = await supabase
+        const { data: d } = await db
           .from("country_divisions")
           .select("name")
           .eq("id", data.division_id)
-          .single();
+          .maybeSingle();
         setDivisionName(d?.name ?? "");
+      } else {
+        setDivisionName("");
       }
     }
     setFetchingProfile(false);
   };
-
-  if (!profile && !fetchingProfile) return null;
 
   const nameLock = profile ? getLockStatus(profile.name_changed_at, NAME_LOCK_DAYS) : { locked: false, message: "" };
   const countryLock = profile
@@ -253,7 +265,7 @@ export default function ProfileEdit() {
   const saveField = async (field: FieldKey, updateData: Record<string, unknown>) => {
     setSavingField(field);
     try {
-      const { error } = await supabase.from("profiles").update(updateData).eq("id", user!.id);
+      const { error } = await db.from("profiles").update(updateData).eq("id", user!.id);
       if (error) {
         const raw = error.message || "";
         if (raw.includes("name_locked") || raw.includes("country_locked")) {
@@ -268,7 +280,7 @@ export default function ProfileEdit() {
       setEditingField(null);
       setPendingField(null);
       setPendingPayload(null);
-      await loadProfile();
+      await loadProfile(false);
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
@@ -278,10 +290,7 @@ export default function ProfileEdit() {
 
   /* ── Generic emailed-code confirmation, used by name / dob / gender / country ── */
 
-  const requestFieldCode = async (
-    field: Exclude<FieldKey, "phone" | "password">,
-    payload: Record<string, unknown>,
-  ) => {
+  const requestFieldCode = async (field: CodeField, payload: Record<string, unknown>) => {
     if (!user?.email) {
       toast({ title: "Error", description: "No email on file — we can't send a code.", variant: "destructive" });
       return;
@@ -313,7 +322,7 @@ export default function ProfileEdit() {
     const { error } = await clientAuth.verifyOtp({
       email: user.email,
       token: fieldOtp,
-      type: "magiclink",
+      type: "email",
     });
     if (error) {
       setFieldOtpError(error.message || "That code isn't right. Check your email and try again.");
@@ -344,10 +353,12 @@ export default function ProfileEdit() {
 
   // Each EditableField only exposes one onSave — this decides whether that
   // tap should send the code, or (once we're waiting on one) confirm it.
-  const makeOnSave = (field: Exclude<FieldKey, "phone" | "password">, send: () => void) => () => {
+  const makeOnSave = (field: CodeField, send: () => void) => () => {
     if (pendingField === field) return confirmFieldCode();
     send();
   };
+
+  /* ── Phone ── */
 
   const handleSendVerificationCode = () => {
     if (!draftPhone || draftPhone === profile?.phone_number) {
@@ -355,6 +366,8 @@ export default function ProfileEdit() {
       return;
     }
     setSendingCode(true);
+    // NOTE: this is a placeholder. A real SMS provider should send the code
+    // from the server — never generate or reveal it in the browser.
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     toast({ title: "Verification code sent", description: `Your code is: ${code}` });
     sessionStorage.setItem("phone_verification_code", code);
@@ -368,10 +381,12 @@ export default function ProfileEdit() {
     try {
       const storedCode = sessionStorage.getItem("phone_verification_code");
       const storedPhone = sessionStorage.getItem("phone_to_verify");
-      if (verificationCode !== storedCode || draftPhone !== storedPhone) {
+      if (!storedCode || verificationCode !== storedCode || draftPhone !== storedPhone) {
         throw new Error("Invalid verification code.");
       }
       await saveField("phone", { phone_number: draftPhone, phone_verified: true });
+      sessionStorage.removeItem("phone_verification_code");
+      sessionStorage.removeItem("phone_to_verify");
       setShowVerification(false);
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -467,7 +482,7 @@ export default function ProfileEdit() {
       const { error: verifyError } = await clientAuth.verifyOtp({
         email: user.email,
         token: passwordOtp,
-        type: "magiclink",
+        type: "email",
       });
       if (verifyError) {
         setPasswordError(verifyError.message || "That code isn't right. Check your email and try again.");
@@ -499,9 +514,17 @@ export default function ProfileEdit() {
 
   const age = profile ? calculateAge(profile.date_of_birth) : null;
 
-  // Small reusable block for the "enter the emailed code" step, used by
-  // name / dob / gender / country.
-  const FieldCodeStep = ({ field }: { field: Exclude<FieldKey, "phone" | "password"> }) =>
+  const fullName = profile ? `${profile.first_name} ${profile.last_name}`.trim() : "";
+  const initials =
+    profile
+      ? `${profile.first_name?.[0] ?? ""}${profile.last_name?.[0] ?? ""}`.toUpperCase() || "U"
+      : "U";
+
+  // The "enter the emailed code" step, used by name / dob / gender / country.
+  // IMPORTANT: this is a plain render function, NOT a component. Defining it
+  // as a component inside render made React remount the input on every
+  // keystroke, which dropped focus after each character typed.
+  const renderFieldCodeStep = (field: CodeField) =>
     pendingField === field ? (
       <div className="p-3 bg-muted/40 rounded-lg border border-border space-y-2 mt-2">
         <div className="flex items-center gap-1 text-primary text-[11px] font-semibold uppercase tracking-wide">
@@ -516,6 +539,7 @@ export default function ProfileEdit() {
           }}
           placeholder="000000"
           maxLength={6}
+          inputMode="numeric"
           className="h-9 text-center font-semibold tracking-widest text-sm"
         />
         {fieldOtpError && <p className="text-xs text-destructive font-medium">{fieldOtpError}</p>}
@@ -548,8 +572,34 @@ export default function ProfileEdit() {
           <div className="p-12 flex justify-center items-center">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
+        ) : !profile ? (
+          <div className="rounded-3xl border border-border bg-card p-8 text-center space-y-3 shadow-xl">
+            <p className="text-sm font-semibold text-foreground">We couldn't load your profile.</p>
+            <p className="text-xs text-muted-foreground">Check your connection and try again.</p>
+            <Button type="button" size="sm" onClick={() => loadProfile(true)}>
+              Retry
+            </Button>
+          </div>
         ) : (
-          profile && (
+          <>
+            {/* Profile summary */}
+            <div className="rounded-3xl bg-primary text-primary-foreground p-5 flex items-center gap-4 shadow-xl">
+              <div className="h-16 w-16 rounded-full bg-white/20 border border-white/30 flex items-center justify-center text-xl font-bold shrink-0">
+                {initials}
+              </div>
+              <div className="min-w-0 space-y-0.5">
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] opacity-70">Profile</p>
+                <p className="text-lg font-bold leading-tight truncate">{fullName || "Your name"}</p>
+                {user?.email && (
+                  <p className="flex items-center gap-1.5 text-xs opacity-80 truncate">
+                    <Mail className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">{user.email}</span>
+                  </p>
+                )}
+                {age !== null && <p className="text-xs opacity-80">Age {age}</p>}
+              </div>
+            </div>
+
             <div className="rounded-3xl border border-border bg-card overflow-hidden shadow-xl divide-y divide-border/60">
               <SectionLabel>Personal</SectionLabel>
 
@@ -557,7 +607,7 @@ export default function ProfileEdit() {
               <EditableField
                 icon={<User className="h-4 w-4" />}
                 label="Name"
-                display={`${profile.first_name} ${profile.last_name}`.trim() || "Not set"}
+                display={fullName || "Not set"}
                 isEditing={editingField === "name"}
                 isSaving={savingField === "name" || sendingFieldCode}
                 locked={nameLock.locked}
@@ -582,7 +632,7 @@ export default function ProfileEdit() {
                     disabled={pendingField === "name"}
                   />
                 </div>
-                <FieldCodeStep field="name" />
+                {renderFieldCodeStep("name")}
               </EditableField>
 
               {/* Date of birth */}
@@ -607,7 +657,7 @@ export default function ProfileEdit() {
                   className="h-9 text-sm"
                   disabled={pendingField === "dob"}
                 />
-                <FieldCodeStep field="dob" />
+                {renderFieldCodeStep("dob")}
               </EditableField>
 
               {/* Gender */}
@@ -633,19 +683,17 @@ export default function ProfileEdit() {
                     ))}
                   </SelectContent>
                 </Select>
-                <FieldCodeStep field="gender" />
+                {renderFieldCodeStep("gender")}
               </EditableField>
 
               <SectionLabel>Location &amp; contact</SectionLabel>
 
-              {/* Country / division — optional, not required */}
+              {/* Country / division — optional */}
               <EditableField
                 icon={<Globe className="h-4 w-4" />}
                 label="Home country (optional)"
                 display={
-                  countryName
-                    ? `${countryName}${divisionName ? ` · ${divisionName}` : ""}`
-                    : "Not set"
+                  countryName ? `${countryName}${divisionName ? ` · ${divisionName}` : ""}` : "Not set"
                 }
                 isEditing={editingField === "country"}
                 isSaving={savingField === "country" || sendingFieldCode}
@@ -655,26 +703,28 @@ export default function ProfileEdit() {
                 onSave={makeOnSave("country", handleSaveCountry)}
                 onCancel={cancelEdit}
               >
-                <CountrySelector
-                  countryId={draftCountryId}
-                  divisionId={draftDivisionId}
-                  onChange={({ countryId, divisionId }) => {
-                    setDraftCountryId(countryId);
-                    setDraftDivisionId(divisionId);
-                  }}
-                />
-                <FieldCodeStep field="country" />
+                <div className={pendingField === "country" ? "pointer-events-none opacity-60" : ""}>
+                  <CountrySelector
+                    countryId={draftCountryId}
+                    divisionId={draftDivisionId}
+                    onChange={({ countryId, divisionId }) => {
+                      setDraftCountryId(countryId);
+                      setDraftDivisionId(divisionId);
+                    }}
+                  />
+                </div>
+                {renderFieldCodeStep("country")}
               </EditableField>
 
-              {/* Phone number — kept its own (SMS-style) code, already required */}
+              {/* Phone number — its own (SMS-style) code */}
               <EditableField
                 icon={<Phone className="h-4 w-4" />}
                 label="Phone number (optional)"
                 display={profile.phone_number || "Not set"}
                 isEditing={editingField === "phone"}
-                isSaving={savingField === "phone"}
+                isSaving={savingField === "phone" || verifyingCode}
                 onEdit={() => startEdit("phone")}
-                onSave={handleSendVerificationCode}
+                onSave={showVerification ? handleVerifyAndSavePhone : handleSendVerificationCode}
                 onCancel={cancelEdit}
                 noBorder
               >
@@ -685,6 +735,7 @@ export default function ProfileEdit() {
                     onChange={(e) => setDraftPhone(e.target.value)}
                     placeholder="Enter phone number"
                     className="h-9 text-sm"
+                    disabled={showVerification}
                   />
                   {!showVerification ? (
                     <Button
@@ -708,6 +759,7 @@ export default function ProfileEdit() {
                           onChange={(e) => setVerificationCode(e.target.value)}
                           placeholder="000000"
                           maxLength={6}
+                          inputMode="numeric"
                           className="h-9 text-center font-semibold tracking-widest text-sm"
                         />
                         <Button
@@ -719,36 +771,44 @@ export default function ProfileEdit() {
                           {verifyingCode ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Confirm"}
                         </Button>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowVerification(false);
+                          setVerificationCode("");
+                        }}
+                        className="text-[11px] text-muted-foreground hover:underline"
+                      >
+                        Change number
+                      </button>
                     </div>
                   )}
                 </div>
               </EditableField>
             </div>
-          )
-        )}
 
-        {/* Security — a separate card, password is a popup rather than an inline field */}
-        {profile && (
-          <div>
-            <SectionLabel>Security</SectionLabel>
-            <div className="rounded-3xl border border-border bg-card overflow-hidden shadow-xl">
-              <button
-                type="button"
-                onClick={openPasswordDialog}
-                className="w-full flex items-center gap-3 p-4 hover:bg-muted/40 transition-colors text-left"
-              >
-                <div className="h-9 w-9 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                  <KeyRound className="h-4 w-4" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[11px] font-bold text-foreground/80 uppercase tracking-wide">Password</p>
-                  <p className="text-sm text-foreground">••••••••</p>
-                </div>
-                <span className="text-xs font-semibold text-primary shrink-0">Change</span>
-                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-              </button>
+            {/* Security — separate card, password is a popup rather than an inline field */}
+            <div>
+              <SectionLabel>Security</SectionLabel>
+              <div className="rounded-3xl border border-border bg-card overflow-hidden shadow-xl">
+                <button
+                  type="button"
+                  onClick={openPasswordDialog}
+                  className="w-full flex items-center gap-3 p-4 hover:bg-muted/40 transition-colors text-left"
+                >
+                  <div className="h-9 w-9 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                    <KeyRound className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] font-bold text-foreground/80 uppercase tracking-wide">Password</p>
+                    <p className="text-sm text-foreground">••••••••</p>
+                  </div>
+                  <span className="text-xs font-semibold text-primary shrink-0">Change</span>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                </button>
+              </div>
             </div>
-          </div>
+          </>
         )}
 
         <Button
@@ -764,7 +824,10 @@ export default function ProfileEdit() {
       <MobileBottomBar />
 
       {/* Password change popup */}
-      <Dialog open={passwordDialogOpen} onOpenChange={(open) => (open ? setPasswordDialogOpen(true) : closePasswordDialog())}>
+      <Dialog
+        open={passwordDialogOpen}
+        onOpenChange={(open) => (open ? setPasswordDialogOpen(true) : closePasswordDialog())}
+      >
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -844,6 +907,7 @@ export default function ProfileEdit() {
                 onChange={(e) => setPasswordOtp(e.target.value)}
                 placeholder="000000"
                 maxLength={6}
+                inputMode="numeric"
                 className="h-11 text-center text-lg font-bold tracking-widest"
                 autoFocus
               />
@@ -868,7 +932,7 @@ export default function ProfileEdit() {
                 className="flex-1"
               >
                 Back
-              </Button> 
+              </Button>
             )}
             <Button
               type="button"
@@ -882,5 +946,5 @@ export default function ProfileEdit() {
         </DialogContent>
       </Dialog>
     </div>
-  ); 
+  );
 }

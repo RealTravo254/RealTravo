@@ -127,11 +127,25 @@ const EMPTY_PROFILE: ProfileRow = {
   country_changed_at: null,
 };
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
+function SectionHeader({
+  icon,
+  title,
+  subtitle,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  subtitle?: string;
+}) {
   return (
-    <p className="px-4 pt-4 pb-1 text-[10px] font-black uppercase tracking-[0.18em] text-primary">
-      {children}
-    </p>
+    <div className="flex items-center gap-3 px-1">
+      <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <h2 className="text-base font-bold text-foreground leading-tight">{title}</h2>
+        {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
+      </div>
+    </div>
   );
 }
 
@@ -596,9 +610,38 @@ export default function ProfileEdit() {
       </div>
     ) : null;
 
+  // How much of the profile is filled in — shown in the summary panel.
+  const completeness = profile
+    ? Math.round(
+        ([
+          profile.first_name && profile.last_name,
+          profile.date_of_birth,
+          profile.gender,
+          profile.country_id,
+          profile.phone_number,
+        ].filter(Boolean).length /
+          5) *
+          100,
+      )
+    : 0;
+
+  const cardCls =
+    "rounded-2xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md overflow-hidden";
+
+  const doneButton = (
+    <Button
+      type="button"
+      variant="outline"
+      onClick={() => navigate("/account")}
+      className="w-full h-11 rounded-2xl text-sm font-semibold"
+    >
+      Done
+    </Button>
+  );
+
   return (
     <div
-      className="flex flex-col min-h-screen bg-background"
+      className="flex flex-col min-h-screen w-full bg-gradient-to-b from-primary/5 via-background to-background"
       style={{
         paddingTop: "env(safe-area-inset-top, 0px)",
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
@@ -606,13 +649,13 @@ export default function ProfileEdit() {
     >
       <Header />
 
-      <main className="flex-1 px-4 pt-24 pb-12 max-w-lg mx-auto w-full space-y-5">
+      <main className="flex-1 w-full px-4 sm:px-6 lg:px-10 2xl:px-16 pt-24 md:pt-28 pb-28 lg:pb-12">
         {fetchingProfile ? (
-          <div className="p-12 flex justify-center items-center">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          <div className="min-h-[50vh] flex justify-center items-center">
+            <Loader2 className="h-7 w-7 animate-spin text-primary" />
           </div>
         ) : !profile ? (
-          <div className="rounded-3xl border border-border bg-card p-8 text-center space-y-3 shadow-xl">
+          <div className="mx-auto max-w-md rounded-3xl border border-border bg-card p-8 text-center space-y-3 shadow-xl">
             <p className="text-sm font-semibold text-foreground">We couldn't load your profile.</p>
             <p className="text-xs text-muted-foreground">Check your connection and try again.</p>
             <Button type="button" size="sm" onClick={() => loadProfile(true)}>
@@ -620,244 +663,314 @@ export default function ProfileEdit() {
             </Button>
           </div>
         ) : (
-          <>
-            {/* Profile summary */}
-            <div className="rounded-3xl bg-primary text-primary-foreground p-5 flex items-center gap-4 shadow-xl">
-              <div className="h-16 w-16 rounded-full bg-white/20 border border-white/30 flex items-center justify-center text-xl font-bold shrink-0">
-                {initials}
-              </div>
-              <div className="min-w-0 space-y-0.5">
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] opacity-70">Profile</p>
-                <p className="text-lg font-bold leading-tight truncate">{fullName || "Your name"}</p>
-                {user?.email && (
-                  <p className="flex items-center gap-1.5 text-xs opacity-80 truncate">
-                    <Mail className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">{user.email}</span>
-                  </p>
-                )}
-                {age !== null && <p className="text-xs opacity-80">Age {age}</p>}
-              </div>
-            </div>
+          <div className="grid w-full gap-6 lg:gap-8 lg:grid-cols-[340px_minmax(0,1fr)] xl:grid-cols-[400px_minmax(0,1fr)] lg:items-start">
+            {/* ── Left: summary panel (sticks while the fields scroll on desktop) ── */}
+            <aside className="space-y-4 lg:sticky lg:top-28">
+              <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-primary to-primary/70 text-primary-foreground p-6 sm:p-8 shadow-xl">
+                <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/10" />
+                <div className="pointer-events-none absolute -bottom-24 -left-12 h-52 w-52 rounded-full bg-black/10" />
 
-            <div className="rounded-3xl border border-border bg-card overflow-hidden shadow-xl divide-y divide-border/60">
-              <SectionLabel>Personal</SectionLabel>
-
-              {/* Name */}
-              <EditableField
-                icon={<User className="h-4 w-4" />}
-                label="Name"
-                display={fullName || "Not set"}
-                isEditing={editingField === "name"}
-                isSaving={savingField === "name" || sendingFieldCode}
-                locked={nameLock.locked}
-                lockedMessage={nameLock.locked ? nameLock.message : undefined}
-                onEdit={() => startEdit("name")}
-                onSave={makeOnSave("name", handleSaveName)}
-                onCancel={cancelEdit}
-              >
-                <div className="grid grid-cols-2 gap-2">
-                  <Input
-                    value={draftFirstName}
-                    onChange={(e) => setDraftFirstName(e.target.value)}
-                    placeholder="First name"
-                    className="h-9 text-sm"
-                    disabled={pendingField === "name"}
-                  />
-                  <Input
-                    value={draftLastName}
-                    onChange={(e) => setDraftLastName(e.target.value)}
-                    placeholder="Surname"
-                    className="h-9 text-sm"
-                    disabled={pendingField === "name"}
-                  />
-                </div>
-                {renderFieldCodeStep("name")}
-              </EditableField>
-
-              {/* Date of birth */}
-              <EditableField
-                icon={<Calendar className="h-4 w-4" />}
-                label="Date of birth"
-                display={
-                  profile.date_of_birth
-                    ? `${profile.date_of_birth}${age !== null ? ` · age ${age}` : ""}`
-                    : "Not set"
-                }
-                isEditing={editingField === "dob"}
-                isSaving={savingField === "dob" || sendingFieldCode}
-                onEdit={() => startEdit("dob")}
-                onSave={makeOnSave("dob", handleSaveDob)}
-                onCancel={cancelEdit}
-              >
-                <Input
-                  type="date"
-                  value={draftDob}
-                  onChange={(e) => setDraftDob(e.target.value)}
-                  className="h-9 text-sm"
-                  disabled={pendingField === "dob"}
-                />
-                {renderFieldCodeStep("dob")}
-              </EditableField>
-
-              {/* Gender */}
-              <EditableField
-                icon={<UsersIcon className="h-4 w-4" />}
-                label="Gender identity"
-                display={profile.gender ? GENDER_LABELS[profile.gender] ?? profile.gender : "Not set"}
-                isEditing={editingField === "gender"}
-                isSaving={savingField === "gender" || sendingFieldCode}
-                onEdit={() => startEdit("gender")}
-                onSave={makeOnSave("gender", handleSaveGender)}
-                onCancel={cancelEdit}
-              >
-                <Select value={draftGender} onValueChange={setDraftGender} disabled={pendingField === "gender"}>
-                  <SelectTrigger className="h-9 text-sm">
-                    <SelectValue placeholder="Select gender" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(GENDER_LABELS).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {renderFieldCodeStep("gender")}
-              </EditableField>
-
-              <SectionLabel>Location &amp; contact</SectionLabel>
-
-              {/* Country / division — optional */}
-              <EditableField
-                icon={<Globe className="h-4 w-4" />}
-                label="Home country (optional)"
-                display={
-                  countryName ? `${countryName}${divisionName ? ` · ${divisionName}` : ""}` : "Not set"
-                }
-                isEditing={editingField === "country"}
-                isSaving={savingField === "country" || sendingFieldCode}
-                locked={countryLock.locked}
-                lockedMessage={countryLock.locked ? countryLock.message : undefined}
-                onEdit={() => startEdit("country")}
-                onSave={makeOnSave("country", handleSaveCountry)}
-                onCancel={cancelEdit}
-              >
-                <div className={pendingField === "country" ? "pointer-events-none opacity-60" : ""}>
-                  <CountrySelector
-                    countryId={draftCountryId}
-                    divisionId={draftDivisionId}
-                    onChange={({ countryId, divisionId }) => {
-                      setDraftCountryId(countryId);
-                      setDraftDivisionId(divisionId);
-                    }}
-                  />
-                </div>
-                {renderFieldCodeStep("country")}
-              </EditableField>
-
-              {/* Phone number — its own (SMS-style) code */}
-              <EditableField
-                icon={<Phone className="h-4 w-4" />}
-                label="Phone number (optional)"
-                display={profile.phone_number || "Not set"}
-                isEditing={editingField === "phone"}
-                isSaving={savingField === "phone" || verifyingCode}
-                onEdit={() => startEdit("phone")}
-                onSave={showVerification ? handleVerifyAndSavePhone : handleSendVerificationCode}
-                onCancel={cancelEdit}
-                noBorder
-              >
-                <div className="space-y-2">
-                  <Input
-                    type="tel"
-                    value={draftPhone}
-                    onChange={(e) => setDraftPhone(e.target.value)}
-                    placeholder="Enter phone number"
-                    className="h-9 text-sm"
-                    disabled={showVerification}
-                  />
-                  {!showVerification ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={handleSendVerificationCode}
-                      disabled={sendingCode}
-                      className="h-8 px-3 text-xs font-semibold"
-                    >
-                      {sendingCode ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Send code"}
-                    </Button>
-                  ) : (
-                    <div className="p-3 bg-muted/40 rounded-lg border border-border space-y-2">
-                      <div className="flex items-center gap-1 text-primary text-[11px] font-semibold uppercase tracking-wide">
-                        <ShieldCheck className="h-3.5 w-3.5" />
-                        Enter verification code
-                      </div>
-                      <div className="flex gap-2">
-                        <Input
-                          value={verificationCode}
-                          onChange={(e) => setVerificationCode(e.target.value)}
-                          placeholder="000000"
-                          maxLength={6}
-                          inputMode="numeric"
-                          className="h-9 text-center font-semibold tracking-widest text-sm"
-                        />
-                        <Button
-                          type="button"
-                          onClick={handleVerifyAndSavePhone}
-                          disabled={verifyingCode}
-                          className="h-9 px-3 text-xs font-semibold shrink-0"
-                        >
-                          {verifyingCode ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Confirm"}
-                        </Button>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowVerification(false);
-                          setVerificationCode("");
-                        }}
-                        className="text-[11px] text-muted-foreground hover:underline"
-                      >
-                        Change number
-                      </button>
+                <div className="relative flex flex-row lg:flex-col items-center lg:items-start gap-5">
+                  <div className="h-20 w-20 lg:h-28 lg:w-28 rounded-3xl bg-white/20 ring-4 ring-white/25 flex items-center justify-center text-3xl lg:text-5xl font-extrabold shrink-0">
+                    {initials}
+                  </div>
+                  <div className="min-w-0 w-full space-y-2">
+                    <p className="text-2xl lg:text-3xl font-extrabold leading-tight break-words">
+                      {fullName || "Your name"}
+                    </p>
+                    {user?.email && (
+                      <p className="flex items-center gap-1.5 text-sm opacity-85 min-w-0">
+                        <Mail className="h-4 w-4 shrink-0" />
+                        <span className="truncate">{user.email}</span>
+                      </p>
+                    )}
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {age !== null && (
+                        <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold">Age {age}</span>
+                      )}
+                      {countryName && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold">
+                          <Globe className="h-3 w-3" />
+                          {countryName}
+                        </span>
+                      )}
+                      {profile.phone_verified && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold">
+                          <ShieldCheck className="h-3 w-3" />
+                          Phone verified
+                        </span>
+                      )}
                     </div>
-                  )}
+                  </div>
                 </div>
-              </EditableField>
-            </div>
 
-            {/* Security — separate card, password is a popup rather than an inline field */}
-            <div>
-              <SectionLabel>Security</SectionLabel>
-              <div className="rounded-3xl border border-border bg-card overflow-hidden shadow-xl">
-                <button
-                  type="button"
-                  onClick={openPasswordDialog}
-                  className="w-full flex items-center gap-3 p-4 hover:bg-muted/40 transition-colors text-left"
-                >
-                  <div className="h-9 w-9 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                    <KeyRound className="h-4 w-4" />
+                <div className="relative mt-6 space-y-2">
+                  <div className="flex items-center justify-between text-xs font-semibold">
+                    <span>Profile completeness</span>
+                    <span>{completeness}%</span>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[11px] font-bold text-foreground/80 uppercase tracking-wide">Password</p>
-                    <p className="text-sm text-foreground">••••••••</p>
+                  <div className="h-2 w-full rounded-full bg-white/20 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-white transition-all duration-500"
+                      style={{ width: `${completeness}%` }}
+                    />
                   </div>
-                  <span className="text-xs font-semibold text-primary shrink-0">Change</span>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                </button>
+                </div>
               </div>
-            </div>
-          </>
-        )}
 
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => navigate("/account")}
-          className="w-full h-10 rounded-xl text-sm font-semibold"
-        >
-          Done
-        </Button>
+              <div className="hidden lg:block rounded-2xl border border-border bg-card/70 p-4 text-xs text-muted-foreground leading-relaxed">
+                Name, date of birth, gender and home country are confirmed with a code sent to your email. Your name
+                can be changed once every {NAME_LOCK_DAYS} days and your home country once a year.
+              </div>
+
+              <div className="hidden lg:block">{doneButton}</div>
+            </aside>
+
+            {/* ── Right: editable fields, filling the remaining width ── */}
+            <div className="min-w-0 space-y-8">
+              <section className="space-y-3">
+                <SectionHeader icon={<User className="h-4 w-4" />} title="Personal" subtitle="Who you are" />
+                <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3 items-start">
+                  {/* Name */}
+                  <div className={cardCls}>
+                    <EditableField
+                      icon={<User className="h-4 w-4" />}
+                      label="Name"
+                      display={fullName || "Not set"}
+                      isEditing={editingField === "name"}
+                      isSaving={savingField === "name" || sendingFieldCode}
+                      locked={nameLock.locked}
+                      lockedMessage={nameLock.locked ? nameLock.message : undefined}
+                      onEdit={() => startEdit("name")}
+                      onSave={makeOnSave("name", handleSaveName)}
+                      onCancel={cancelEdit}
+                      noBorder
+                    >
+                      <div className="grid grid-cols-2 gap-2">
+                        <Input
+                          value={draftFirstName}
+                          onChange={(e) => setDraftFirstName(e.target.value)}
+                          placeholder="First name"
+                          className="h-9 text-sm"
+                          disabled={pendingField === "name"}
+                        />
+                        <Input
+                          value={draftLastName}
+                          onChange={(e) => setDraftLastName(e.target.value)}
+                          placeholder="Surname"
+                          className="h-9 text-sm"
+                          disabled={pendingField === "name"}
+                        />
+                      </div>
+                      {renderFieldCodeStep("name")}
+                    </EditableField>
+                  </div>
+
+                  {/* Date of birth */}
+                  <div className={cardCls}>
+                    <EditableField
+                      icon={<Calendar className="h-4 w-4" />}
+                      label="Date of birth"
+                      display={
+                        profile.date_of_birth
+                          ? `${profile.date_of_birth}${age !== null ? ` · age ${age}` : ""}`
+                          : "Not set"
+                      }
+                      isEditing={editingField === "dob"}
+                      isSaving={savingField === "dob" || sendingFieldCode}
+                      onEdit={() => startEdit("dob")}
+                      onSave={makeOnSave("dob", handleSaveDob)}
+                      onCancel={cancelEdit}
+                      noBorder
+                    >
+                      <Input
+                        type="date"
+                        value={draftDob}
+                        onChange={(e) => setDraftDob(e.target.value)}
+                        className="h-9 text-sm"
+                        disabled={pendingField === "dob"}
+                      />
+                      {renderFieldCodeStep("dob")}
+                    </EditableField>
+                  </div>
+
+                  {/* Gender */}
+                  <div className={cardCls}>
+                    <EditableField
+                      icon={<UsersIcon className="h-4 w-4" />}
+                      label="Gender identity"
+                      display={profile.gender ? GENDER_LABELS[profile.gender] ?? profile.gender : "Not set"}
+                      isEditing={editingField === "gender"}
+                      isSaving={savingField === "gender" || sendingFieldCode}
+                      onEdit={() => startEdit("gender")}
+                      onSave={makeOnSave("gender", handleSaveGender)}
+                      onCancel={cancelEdit}
+                      noBorder
+                    >
+                      <Select
+                        value={draftGender}
+                        onValueChange={setDraftGender}
+                        disabled={pendingField === "gender"}
+                      >
+                        <SelectTrigger className="h-9 text-sm">
+                          <SelectValue placeholder="Select gender" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(GENDER_LABELS).map(([value, label]) => (
+                            <SelectItem key={value} value={value}>
+                              {label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {renderFieldCodeStep("gender")}
+                    </EditableField>
+                  </div>
+                </div>
+              </section>
+
+              <section className="space-y-3">
+                <SectionHeader
+                  icon={<Globe className="h-4 w-4" />}
+                  title="Location & contact"
+                  subtitle="Where you are and how to reach you"
+                />
+                <div className="grid gap-4 md:grid-cols-2 items-start">
+                  {/* Country / division — optional */}
+                  <div className={`${cardCls} ${editingField === "country" ? "md:col-span-2" : ""}`}>
+                    <EditableField
+                      icon={<Globe className="h-4 w-4" />}
+                      label="Home country (optional)"
+                      display={
+                        countryName ? `${countryName}${divisionName ? ` · ${divisionName}` : ""}` : "Not set"
+                      }
+                      isEditing={editingField === "country"}
+                      isSaving={savingField === "country" || sendingFieldCode}
+                      locked={countryLock.locked}
+                      lockedMessage={countryLock.locked ? countryLock.message : undefined}
+                      onEdit={() => startEdit("country")}
+                      onSave={makeOnSave("country", handleSaveCountry)}
+                      onCancel={cancelEdit}
+                      noBorder
+                    >
+                      <div className={pendingField === "country" ? "pointer-events-none opacity-60" : ""}>
+                        <CountrySelector
+                          countryId={draftCountryId}
+                          divisionId={draftDivisionId}
+                          onChange={({ countryId, divisionId }) => {
+                            setDraftCountryId(countryId);
+                            setDraftDivisionId(divisionId);
+                          }}
+                        />
+                      </div>
+                      {renderFieldCodeStep("country")}
+                    </EditableField>
+                  </div>
+
+                  {/* Phone number — its own (SMS-style) code */}
+                  <div className={`${cardCls} ${editingField === "phone" ? "md:col-span-2" : ""}`}>
+                    <EditableField
+                      icon={<Phone className="h-4 w-4" />}
+                      label="Phone number (optional)"
+                      display={profile.phone_number || "Not set"}
+                      isEditing={editingField === "phone"}
+                      isSaving={savingField === "phone" || verifyingCode}
+                      onEdit={() => startEdit("phone")}
+                      onSave={showVerification ? handleVerifyAndSavePhone : handleSendVerificationCode}
+                      onCancel={cancelEdit}
+                      noBorder
+                    >
+                      <div className="space-y-2">
+                        <Input
+                          type="tel"
+                          value={draftPhone}
+                          onChange={(e) => setDraftPhone(e.target.value)}
+                          placeholder="Enter phone number"
+                          className="h-9 text-sm"
+                          disabled={showVerification}
+                        />
+                        {!showVerification ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={handleSendVerificationCode}
+                            disabled={sendingCode}
+                            className="h-8 px-3 text-xs font-semibold"
+                          >
+                            {sendingCode ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Send code"}
+                          </Button>
+                        ) : (
+                          <div className="p-3 bg-muted/40 rounded-lg border border-border space-y-2">
+                            <div className="flex items-center gap-1 text-primary text-[11px] font-semibold uppercase tracking-wide">
+                              <ShieldCheck className="h-3.5 w-3.5" />
+                              Enter verification code
+                            </div>
+                            <div className="flex gap-2">
+                              <Input
+                                value={verificationCode}
+                                onChange={(e) => setVerificationCode(e.target.value)}
+                                placeholder="000000"
+                                maxLength={6}
+                                inputMode="numeric"
+                                className="h-9 text-center font-semibold tracking-widest text-sm"
+                              />
+                              <Button
+                                type="button"
+                                onClick={handleVerifyAndSavePhone}
+                                disabled={verifyingCode}
+                                className="h-9 px-3 text-xs font-semibold shrink-0"
+                              >
+                                {verifyingCode ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Confirm"}
+                              </Button>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowVerification(false);
+                                setVerificationCode("");
+                              }}
+                              className="text-[11px] text-muted-foreground hover:underline"
+                            >
+                              Change number
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </EditableField>
+                  </div>
+                </div>
+              </section>
+
+              {/* Security — password is a popup rather than an inline field */}
+              <section className="space-y-3">
+                <SectionHeader
+                  icon={<KeyRound className="h-4 w-4" />}
+                  title="Security"
+                  subtitle="Keep your account protected"
+                />
+                <div className={cardCls}>
+                  <button
+                    type="button"
+                    onClick={openPasswordDialog}
+                    className="w-full flex items-center gap-4 p-4 sm:p-5 hover:bg-muted/40 transition-colors text-left"
+                  >
+                    <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                      <KeyRound className="h-5 w-5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-foreground">Password</p>
+                      <p className="text-xs text-muted-foreground">••••••••  ·  Confirmed with an emailed code</p>
+                    </div>
+                    <span className="text-xs font-semibold text-primary shrink-0">Change</span>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                  </button>
+                </div>
+              </section>
+
+              <div className="lg:hidden">{doneButton}</div>
+            </div>
+          </div>
+        )}
       </main>
 
       <MobileBottomBar />

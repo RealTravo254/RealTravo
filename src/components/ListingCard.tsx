@@ -17,13 +17,10 @@ const FOREST_DEEP  = "#123322";
 const FOREST_SOFT  = "#EAF0EA";
 const CLAY         = "#C1552F";
 const GOLD         = "#B98A2A";
-const GOLD_SOFT    = "#FBF2DD";
-const GOLD_TEXT    = "#8A6716";
 const INK          = "#1C2B22";
 const INK_SOFT     = "#5B6B60";
 const HAIRLINE     = "#DCE3DC";
 const DANGER       = "#9C3B2B";
-const DANGER_SOFT  = "#F7E9E5";
 const SUCCESS      = "#2F6F4E";
 
 const FONT_DISPLAY = "'Fraunces', ui-serif, Georgia, serif";
@@ -88,7 +85,7 @@ const PriceText = ({
   return (
     <div className={cn("flex items-baseline gap-1", isUnavailable && "opacity-50 line-through")} style={{ fontFamily: FONT_BODY }}>
       <span className="text-[11px] font-medium" style={{ color: INK_SOFT }}>From</span>
-      <span className="text-[17px] font-bold tabular-nums whitespace-nowrap" style={{ color: CLAY }}>
+      <span className="text-[16px] font-bold tabular-nums whitespace-nowrap" style={{ color: CLAY }}>
         {formatPrice(price)}
       </span>
       <span className="text-[11px] font-medium" style={{ color: INK_SOFT }}>
@@ -107,17 +104,17 @@ const HotelStars = ({ count }: { count: number }) => (
   </div>
 );
 
-// ── Guest rating row (5 stars + average + count) ─────────────────────────────
+// ── Guest rating row ─────────────────────────────────────────────────────────
 const RatingRow = ({ value, count }: { value: number; count: number }) => {
   if (!(value > 0)) {
     return (
       <div className="flex items-center gap-1.5" style={{ color: INK_SOFT }}>
         <div className="flex items-center gap-0.5">
           {[1, 2, 3, 4, 5].map((i) => (
-            <Star key={i} className="h-3.5 w-3.5" style={{ color: HAIRLINE }} />
+            <Star key={i} className="h-3 w-3" style={{ color: HAIRLINE }} />
           ))}
         </div>
-        <span className="text-[12px] font-medium">No reviews yet</span>
+        <span className="text-[11px] font-medium">No reviews yet</span>
       </div>
     );
   }
@@ -127,7 +124,7 @@ const RatingRow = ({ value, count }: { value: number; count: number }) => {
         {[1, 2, 3, 4, 5].map((i) => (
           <Star
             key={i}
-            className="h-3.5 w-3.5"
+            className="h-3 w-3"
             style={{
               color: value >= i - 0.5 ? GOLD : HAIRLINE,
               fill: value >= i - 0.5 ? GOLD : "transparent",
@@ -135,10 +132,10 @@ const RatingRow = ({ value, count }: { value: number; count: number }) => {
           />
         ))}
       </div>
-      <span className="text-[13px] font-bold tabular-nums" style={{ color: INK }}>{value.toFixed(1)}</span>
+      <span className="text-[12px] font-bold tabular-nums" style={{ color: INK }}>{value.toFixed(1)}</span>
       {count > 0 && (
-        <span className="text-[12px]" style={{ color: INK_SOFT }}>
-          ({count} review{count !== 1 ? "s" : ""})
+        <span className="text-[11px]" style={{ color: INK_SOFT }}>
+          ({count})
         </span>
       )}
     </div>
@@ -172,14 +169,11 @@ export interface ListingCardProps {
   hideEmptySpace?: boolean;
   compact?: boolean;
   distance?: number;
-  // Optional: if the parent doesn't pass these, the card loads them itself
-  // (batched into one query per page of cards).
   avgRating?: number;
   reviewCount?: number;
   place?: string;
   division?: string | null;
   showFlexibleDate?: boolean;
-  // The "About" text of the place / trip. Shown trimmed to 100 words.
   description?: string;
   categoryColor?: string;
   galleryImages?: string[];
@@ -208,12 +202,10 @@ const ListingCardComponent = ({
   const [currentSlide, setCurrentSlide] = useState(0);
   const [loadedSlides, setLoadedSlides] = useState(2);
   const [imageLoadStates, setImageLoadStates] = useState<Record<number, boolean>>({});
-  const slideContainerRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef(0);
   const { ref: cardRef, isIntersecting } = useIntersectionObserver({ rootMargin: "300px", triggerOnce: true });
   const shouldLoad = priority || isIntersecting;
 
-  // Rating: prefer props, otherwise fetch (batched) once the card is near the viewport
   const hasPropRating = avgRating != null && avgRating > 0;
   const fetched = useItemRating(id, shouldLoad && !hasPropRating);
   const ratingValue = hasPropRating ? (avgRating as number) : fetched.avg;
@@ -263,7 +255,6 @@ const ListingCardComponent = ({
     return raw.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
   }, [division, place, location]);
 
-  // "About" snippet: collapse whitespace, cap at 100 words (adds "…" if cut)
   const aboutText = useMemo(() => {
     const clean = (description || "").replace(/\s+/g, " ").trim();
     return clean ? truncateWords(clean, DESCRIPTION_WORD_LIMIT) : "";
@@ -371,11 +362,12 @@ const ListingCardComponent = ({
       tabIndex={0}
       onKeyDown={(e) => { if (e.key === "Enter") handleCardClick(); }}
       className={cn(
-        "group relative flex flex-col overflow-hidden cursor-pointer bg-white transition-all duration-300",
+        // Rectangular (landscape) card: image on the left, details on the right
+        "group relative flex flex-row overflow-hidden cursor-pointer bg-white transition-all duration-300",
         "rounded-2xl shadow-sm",
         "hover:shadow-xl hover:-translate-y-1",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-        "w-full h-full",
+        "w-full h-full min-h-[200px]",
         isUnavailable && "opacity-80",
       )}
       style={{
@@ -387,15 +379,14 @@ const ListingCardComponent = ({
       onMouseEnter={(e) => (e.currentTarget.style.borderColor = `${CLAY}60`)}
       onMouseLeave={(e) => (e.currentTarget.style.borderColor = HAIRLINE)}
     >
-      {/* ── Image area ── */}
+      {/* ── Image (left) ── */}
       <div
-        className="relative w-full overflow-hidden aspect-[4/3]"
+        className="relative w-[40%] sm:w-[38%] shrink-0 self-stretch overflow-hidden"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
         <div
-          ref={slideContainerRef}
-          className="flex h-full transition-transform duration-300 ease-out"
+          className="absolute inset-0 flex transition-transform duration-300 ease-out"
           style={{ transform: `translateX(-${currentSlide * 100}%)` }}
         >
           {allSlideImages.slice(0, loadedSlides).map((img, idx) => (
@@ -407,7 +398,7 @@ const ListingCardComponent = ({
                 <img
                   src={
                     img.includes("supabase.co/storage")
-                      ? optimizeSupabaseImage(img, { width: 500, height: 375, quality: 80 })
+                      ? optimizeSupabaseImage(img, { width: 500, height: 500, quality: 80 })
                       : img
                   }
                   alt={`${formattedName}${idx > 0 ? ` – photo ${idx + 1}` : ""}`}
@@ -428,27 +419,19 @@ const ListingCardComponent = ({
           ))}
         </div>
 
-        {/* Top + bottom scrims keep badges legible on bright photos */}
+        {/* Scrims keep badges legible on bright photos */}
         <div className="pointer-events-none absolute inset-x-0 top-0 h-16" style={{ background: "linear-gradient(to bottom, rgba(14,23,18,0.45), transparent)" }} />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20" style={{ background: "linear-gradient(to top, rgba(14,23,18,0.55), transparent)" }} />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14" style={{ background: "linear-gradient(to top, rgba(14,23,18,0.45), transparent)" }} />
 
         {/* Category badge — top-left */}
-        <div className="absolute top-3 left-3 z-20 flex items-center gap-1.5">
+        <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-1.5">
           <span
-            className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full shadow-sm text-white backdrop-blur-sm"
+            className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full shadow-sm text-white backdrop-blur-sm"
             style={{ backgroundColor: badgeColor ? `${badgeColor}E6` : `${FOREST_DEEP}E6`, fontFamily: FONT_BODY }}
           >
             {isHotel && <BedDouble className="h-3 w-3" />}
             {displayType}
           </span>
-          {isSoldOut && (
-            <span
-              className="text-[11px] font-semibold px-2.5 py-1 rounded-full border backdrop-blur-sm"
-              style={{ background: DANGER_SOFT, color: DANGER, borderColor: `${DANGER}40` }}
-            >
-              Sold out
-            </span>
-          )}
         </div>
 
         {/* Save / heart — top-right */}
@@ -457,7 +440,7 @@ const ListingCardComponent = ({
             onClick={(e) => { e.stopPropagation(); onSave(id, type); }}
             aria-label={isSaved ? "Remove from saved" : "Save"}
             aria-pressed={isSaved}
-            className="absolute top-3 right-3 z-20 h-8 w-8 rounded-full bg-white/95 shadow flex items-center justify-center hover:bg-white active:scale-90 transition-all"
+            className="absolute top-2.5 right-2.5 z-20 h-8 w-8 rounded-full bg-white/95 shadow flex items-center justify-center hover:bg-white active:scale-90 transition-all"
           >
             <Heart className="h-4 w-4 transition-colors" style={isSaved ? { fill: CLAY, color: CLAY } : { color: INK_SOFT }} />
           </button>
@@ -469,7 +452,7 @@ const ListingCardComponent = ({
               <button
                 onClick={(e) => goToSlide(currentSlide - 1, e)}
                 aria-label="Previous photo"
-                className="absolute left-2 top-1/2 -translate-y-1/2 z-20 h-7 w-7 rounded-full bg-white/90 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                className="absolute left-1.5 top-1/2 -translate-y-1/2 z-20 h-7 w-7 rounded-full bg-white/90 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
               >
                 <ChevronLeft className="h-4 w-4" style={{ color: INK }} />
               </button>
@@ -478,7 +461,7 @@ const ListingCardComponent = ({
               <button
                 onClick={(e) => goToSlide(currentSlide + 1, e)}
                 aria-label="Next photo"
-                className="absolute right-2 top-1/2 -translate-y-1/2 z-20 h-7 w-7 rounded-full bg-white/90 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 z-20 h-7 w-7 rounded-full bg-white/90 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
               >
                 <ChevronRight className="h-4 w-4" style={{ color: INK }} />
               </button>
@@ -487,7 +470,7 @@ const ListingCardComponent = ({
         )}
 
         {allSlideImages.length > 1 && (
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1">
+          <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1">
             {Array.from({ length: visibleDots }).map((_, idx) => (
               <button
                 key={idx}
@@ -505,86 +488,57 @@ const ListingCardComponent = ({
           </div>
         )}
 
-        {/* Rating pill on the photo — bottom-left (only when there are reviews) */}
-        {ratingValue > 0 && (
-          <div className="absolute bottom-3 left-3 z-20">
-            <span
-              className="inline-flex items-center gap-1 text-[12px] font-bold px-2.5 py-1 rounded-full shadow-md"
-              style={{ background: "#FFFFFF", color: INK }}
-            >
-              <Star className="h-3.5 w-3.5" style={{ fill: GOLD, color: GOLD }} />
-              <span className="tabular-nums">{ratingValue.toFixed(1)}</span>
-              {ratingCount > 0 && (
-                <span className="font-medium" style={{ color: INK_SOFT }}>({ratingCount})</span>
-              )}
-            </span>
-          </div>
-        )}
-
         {isUnavailable && (
           <div className="absolute inset-0 z-10 flex items-center justify-center backdrop-blur-[1px]" style={{ background: "rgba(14,23,18,0.5)" }}>
-            <span className="rounded-full border border-white/60 px-4 py-1 text-[13px] font-semibold uppercase tracking-wide text-white">
+            <span className="rounded-full border border-white/60 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-white">
               {isSoldOut ? "Sold out" : "Unavailable"}
-            </span>
-          </div>
-        )}
-
-        {isOpenNow !== null && (
-          <div className="absolute bottom-3 right-3 z-20">
-            <span
-              className="text-[10px] font-semibold uppercase tracking-wide px-2.5 py-1 rounded-full shadow-sm text-white"
-              style={{ background: isOpenNow ? SUCCESS : DANGER }}
-            >
-              {isOpenNow ? "Open now" : "Closed"}
             </span>
           </div>
         )}
       </div>
 
-      {/* ── Text content ── */}
-      <div className="flex flex-col gap-2.5 p-4 min-w-0 flex-1">
-        {/* Title */}
-        <h3 className="line-clamp-2 text-[19px] font-bold leading-snug" style={{ fontFamily: FONT_DISPLAY, color: INK }}>
+      {/* ── Details (right) ── */}
+      <div className="flex flex-col gap-1.5 p-3 sm:p-4 min-w-0 flex-1">
+        <h3 className="line-clamp-2 text-[16px] sm:text-[18px] font-bold leading-snug" style={{ fontFamily: FONT_DISPLAY, color: INK }}>
           {formattedName}
         </h3>
 
-        {/* Location */}
         <div className="flex items-center gap-1 min-w-0" style={{ color: INK_SOFT }}>
           <MapPin className="h-3.5 w-3.5 flex-shrink-0" style={{ color: CLAY }} />
-          <span className="text-[13px] font-medium truncate">{locationString}</span>
+          <span className="text-[12px] sm:text-[13px] font-medium truncate">{locationString}</span>
         </div>
 
-        {/* Hotel classification */}
         {isHotel && stars > 0 && <HotelStars count={stars} />}
 
-        {/* Guest rating — always visible */}
         <RatingRow value={ratingValue} count={ratingCount} />
 
-        {/* About (max 100 words, shown as 3 lines) */}
         {aboutText && (
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wide mb-1" style={{ color: "#9CA8A0" }}>
-              About
-            </p>
-            <p className="text-[13px] leading-relaxed line-clamp-3" style={{ color: INK_SOFT }}>
-              {aboutText}
-            </p>
-          </div>
+          <p className="text-[12px] leading-relaxed line-clamp-2" style={{ color: INK_SOFT }}>
+            {aboutText}
+          </p>
         )}
 
-        {/* Date / distance */}
-        {((isTrip && (date || isFlexibleDate)) || distanceText) && (
-          <div className="flex items-center gap-2 flex-wrap">
+        {/* Date / distance / open-now chips */}
+        {((isTrip && (date || isFlexibleDate)) || distanceText || isOpenNow !== null) && (
+          <div className="flex items-center gap-1.5 flex-wrap">
             {isTrip && (date || isFlexibleDate) && (
-              <span className="inline-flex items-center gap-1 text-[12px] font-medium px-2 py-1 rounded-lg" style={{ background: FOREST_SOFT, color: FOREST }}>
-                <Calendar className="h-3.5 w-3.5" />
+              <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-lg" style={{ background: FOREST_SOFT, color: FOREST }}>
+                <Calendar className="h-3 w-3" />
                 {isFlexibleDate ? "Flexible" : new Date(date!).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
               </span>
             )}
             {distanceText && (
-              <span className="inline-flex items-center gap-1 text-[12px] font-medium px-2 py-1 rounded-lg" style={{ background: FOREST_SOFT, color: FOREST }}>
-                <Navigation className="h-3.5 w-3.5" />
+              <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-lg" style={{ background: FOREST_SOFT, color: FOREST }}>
+                <Navigation className="h-3 w-3" />
                 {distanceText}
+              </span>
+            )}
+            {isOpenNow !== null && (
+              <span
+                className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-lg text-white"
+                style={{ background: isOpenNow ? SUCCESS : DANGER }}
+              >
+                {isOpenNow ? "Open now" : "Closed"}
               </span>
             )}
           </div>
@@ -592,25 +546,25 @@ const ListingCardComponent = ({
 
         {/* Hotel check-in / check-out */}
         {isHotel && (openingHours || closingHours) && (
-          <div className="flex items-center gap-1.5 text-[12px] font-medium" style={{ color: INK_SOFT }}>
-            <Clock className="h-3.5 w-3.5" />
-            <span>
-              {openingHours && <>Check-in {openingHours}</>}
+          <div className="flex items-center gap-1.5 text-[11px] font-medium" style={{ color: INK_SOFT }}>
+            <Clock className="h-3 w-3 shrink-0" />
+            <span className="truncate">
+              {openingHours && <>In {openingHours}</>}
               {openingHours && closingHours && <span className="mx-1">·</span>}
-              {closingHours && <>Check-out {closingHours}</>}
+              {closingHours && <>Out {closingHours}</>}
             </span>
           </div>
         )}
 
-        {/* Working hours + Mon..Sun pills */}
+        {/* Working hours + day pills (pills hidden on very small screens) */}
         {isAdventurePlace && !isHotel && hoursText && (
-          <div className="flex flex-col gap-1.5">
-            <span className="flex items-center gap-1.5 text-[12px] font-medium" style={{ color: INK_SOFT }}>
-              <Clock className="h-3.5 w-3.5" />
+          <div className="flex flex-col gap-1">
+            <span className="flex items-center gap-1.5 text-[11px] font-medium" style={{ color: INK_SOFT }}>
+              <Clock className="h-3 w-3" />
               {hoursText}
             </span>
             {workingDays && workingDays.length > 0 && (
-              <div className="flex items-center gap-1 flex-wrap">
+              <div className="hidden sm:flex items-center gap-1 flex-wrap">
                 {DAY_ORDER.map((day) => {
                   const isOpenDay = workingDays.includes(day);
                   return (
@@ -633,21 +587,19 @@ const ListingCardComponent = ({
         )}
 
         {/* Footer: price + view link, pinned to the bottom */}
-        {(showPrice || true) && (
-          <div className="mt-auto pt-3 flex items-center justify-between gap-2" style={{ borderTop: `1px solid ${HAIRLINE}` }}>
-            {showPrice ? (
-              <PriceText price={displayPrice} isUnavailable={isUnavailable} isFlexibleDate={isFlexibleDate} isTrip={isTrip} date={date} isHotel={isHotel} />
-            ) : (
-              <span />
-            )}
-            <span
-              className="inline-flex items-center gap-1 text-[12px] font-semibold transition-all group-hover:gap-1.5"
-              style={{ color: FOREST }}
-            >
-              View details <ArrowRight className="h-3.5 w-3.5" />
-            </span>
-          </div>
-        )}
+        <div className="mt-auto pt-2.5 flex items-center justify-between gap-2" style={{ borderTop: `1px solid ${HAIRLINE}` }}>
+          {showPrice ? (
+            <PriceText price={displayPrice} isUnavailable={isUnavailable} isFlexibleDate={isFlexibleDate} isTrip={isTrip} date={date} isHotel={isHotel} />
+          ) : (
+            <span />
+          )}
+          <span
+            className="inline-flex items-center gap-1 text-[12px] font-semibold transition-all group-hover:gap-1.5 whitespace-nowrap"
+            style={{ color: FOREST }}
+          >
+            View details <ArrowRight className="h-3.5 w-3.5" />
+          </span>
+        </div>
       </div>
     </Card>
   );

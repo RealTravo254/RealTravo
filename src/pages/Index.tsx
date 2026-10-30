@@ -9,7 +9,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { SearchBarWithSuggestions } from "@/components/SearchBarWithSuggestions";
 import { useSearchFocus } from "@/components/PageLayout";
 import { ListingCard } from "@/components/ListingCard";
-import { 
+import {
   Tent, Map as MapIcon, BedDouble,
   Navigation, Heart, Ticket, Star, Search as SearchIcon,
 } from "lucide-react";
@@ -21,7 +21,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { getUserId } from "@/lib/sessionManager";
 import { useGeolocation, calculateDistance } from "@/hooks/useGeolocation";
-import { ListingSkeleton } from "@/components/ui/listing-skeleton";
 import { useSavedItems } from "@/hooks/useSavedItems";
 import { useRatings, sortByRating } from "@/hooks/useRatings";
 import { useRealtimeBookings } from "@/hooks/useRealtimeBookings";
@@ -41,20 +40,26 @@ interface DivisionLite {
   name: string;
   image_url: string | null;
 }
+interface ExploreTile {
+  id: string;
+  name: string;
+  image_url: string | null;
+  path: string;
+}
+
+const COUNTRY_COLS = "id, name, iso_code, image_url";
+const norm = (s: any) => (typeof s === "string" ? s.trim().toLowerCase() : "");
 
 const INITIAL_VISIBLE_COUNT = 10;
 const LOAD_MORE_COUNT = 10;
 
-// Desktop grid: fixed 4 columns x 5 rows (20 cards), then a "View All"
-// button below instead of loading more cards inline or scrolling sideways.
+// Desktop grid: rectangular (landscape) cards -> 2 columns x 5 rows,
+// then a "View All" button below.
 const DESKTOP_BREAKPOINT = 1024; // matches Tailwind's `lg`
-const DESKTOP_COLUMNS = 4;
+const DESKTOP_COLUMNS = 2;
 const DESKTOP_ROWS = 5;
 const DESKTOP_VISIBLE_COUNT = DESKTOP_COLUMNS * DESKTOP_ROWS;
 
-// Tracks whether we're at Tailwind's `lg` breakpoint or above, so GridSection
-// can switch between the mobile horizontal-scroll layout and the desktop
-// fixed-grid layout without mounting both at once.
 const useIsDesktop = () => {
   const [isDesktop, setIsDesktop] = useState(
     () => typeof window !== "undefined" && window.innerWidth >= DESKTOP_BREAKPOINT
@@ -69,6 +74,19 @@ const useIsDesktop = () => {
   return isDesktop;
 };
 
+// Rectangular skeleton that matches the landscape ListingCard
+const RectSkeleton = () => (
+  <div className="flex w-full h-[200px] rounded-2xl overflow-hidden border border-border bg-card animate-pulse">
+    <div className="w-[40%] sm:w-[38%] bg-muted" />
+    <div className="flex-1 p-4 space-y-3">
+      <div className="h-5 w-3/4 rounded bg-muted" />
+      <div className="h-3 w-1/2 rounded bg-muted" />
+      <div className="h-3 w-2/3 rounded bg-muted" />
+      <div className="h-3 w-full rounded bg-muted" />
+    </div>
+  </div>
+);
+
 interface GridSectionProps {
   title: string;
   viewAllPath: string;
@@ -77,14 +95,10 @@ interface GridSectionProps {
   loading: boolean;
 }
 
-const GridSection = memo(({ title, viewAllPath, accentColor, items }: GridSectionProps) => {
+const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: GridSectionProps) => {
   const navigate = useNavigate();
   const isDesktop = useIsDesktop();
 
-  // Mobile keeps the existing horizontal-scroll + incremental "See More"
-  // behavior. Desktop instead shows a fixed 4-column x 5-row grid (no
-  // scrolling) and, if there's more, a single "View All" button below that
-  // takes the person to the full listing page.
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_COUNT);
   const [loadingMore, setLoadingMore] = useState(false);
 
@@ -92,13 +106,14 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items }: GridSectio
     setVisibleCount(prev => Math.min(prev, Math.max(items.length, INITIAL_VISIBLE_COUNT)));
   }, [items.length]);
 
-  const cardWidthClasses = "w-[75vw] sm:w-[230px] md:w-[240px] lg:w-[260px] shrink-0";
+  // Wide enough for a landscape card on mobile
+  const cardWidthClasses = "w-[88vw] sm:w-[440px] shrink-0";
 
   const Skeletons = ({ count }: { count: number }) => (
     <>
       {[...Array(count)].map((_, i) => (
         <div key={i} className={cardWidthClasses}>
-          <ListingSkeleton />
+          <RectSkeleton />
         </div>
       ))}
     </>
@@ -125,35 +140,36 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items }: GridSectio
     </div>
   );
 
-  const showSkeletons = items.length === 0;
+  // Nothing to show and nothing loading -> hide the whole row
+  if (items.length === 0 && !loading) return null;
 
-  if (showSkeletons) {
+  if (items.length === 0) {
     return (
       <section className="mb-6 md:mb-10">
         {header}
         {isDesktop ? (
-          <div className="grid grid-cols-4 gap-4">
-            <Skeletons count={DESKTOP_VISIBLE_COUNT} />
+          <div className="grid grid-cols-2 gap-4">
+            {[...Array(4)].map((_, i) => <RectSkeleton key={i} />)}
           </div>
         ) : (
           <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory -mx-4 px-4">
-            <Skeletons count={INITIAL_VISIBLE_COUNT} />
+            <Skeletons count={3} />
           </div>
         )}
       </section>
     );
   }
 
-  // ── Desktop: fixed 4-column grid, 5 rows, then a "View All" button ──────
+  // ── Desktop: fixed grid, then "View All" ──────
   if (isDesktop) {
     const visibleItems = items.slice(0, DESKTOP_VISIBLE_COUNT);
     const hasMore = items.length > DESKTOP_VISIBLE_COUNT;
     return (
       <section className="mb-10">
         {header}
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 gap-4 items-stretch">
           {visibleItems.map((item, i) => (
-            <div key={i}>{item}</div>
+            <div key={i} className="h-full">{item}</div>
           ))}
         </div>
         {hasMore && (
@@ -171,7 +187,7 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items }: GridSectio
     );
   }
 
-  // ── Mobile: horizontal scroll, one row, incremental "See More" ─────────
+  // ── Mobile: one horizontal row per category, incremental "See More" ─────
   const visibleItems = items.slice(0, visibleCount);
   const hasMore = visibleCount < items.length;
   const nextBatchSize = Math.min(LOAD_MORE_COUNT, Math.max(items.length - visibleCount, 0));
@@ -188,7 +204,7 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items }: GridSectio
   return (
     <section className="mb-6">
       {header}
-      <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory -mx-4 px-4">
+      <div className="flex items-stretch gap-2.5 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory -mx-4 px-4">
         {visibleItems.map((item, i) => (
           <div key={i} className={`${cardWidthClasses} snap-start`}>
             {item}
@@ -213,18 +229,20 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items }: GridSectio
 });
 GridSection.displayName = "GridSection";
 
-// Hotels now have their own category page (/category/hotel) instead of
-// sharing the campsite page.
 const CATEGORIES = [
-  { icon: Tent,       title: "Outdoor & Campsites", path: "/category/campsite", bgImage: "/images/category-campsite.jpg" },
-  { icon: MapIcon,    title: "Tours & Trips",       path: "/category/guided",   bgImage: "/images/category-trips.jpg" },
-  { icon: BedDouble,  title: "Hotels & Stays",      path: "/category/hotel",    bgImage: "/images/category-hotels.jpg" },
+  { icon: Tent,      title: "Outdoor & Campsites",  path: "/category/campsite", bgImage: "/images/category-campsite.jpg" },
+  { icon: MapIcon,   title: "Experiences & Tours",  path: "/category/guided",   bgImage: "/images/category-trips.jpg" },
+  { icon: BedDouble, title: "Hotels & Stays",       path: "/category/hotel",    bgImage: "/images/category-hotels.jpg" },
 ];
 
+const CAMPSITE_COLOR = "hsl(278, 90%, 50%)";
+const TRIPS_COLOR    = "hsl(235, 90%, 50%)";
+const HOTEL_COLOR    = "hsl(160, 70%, 40%)";
+
 const QUICK_NAV = [
-  { icon: Tent,      title: "Outdoors & Campsites", path: "/category/campsite", color: "hsl(278, 90%, 50%)" },
-  { icon: MapIcon,   title: "Tours & Trips",        path: "/category/guided",   color: "hsl(235, 90%, 50%)" },
-  { icon: BedDouble, title: "Hotels",               path: "/category/hotel",    color: "hsl(160, 70%, 40%)" },
+  { icon: Tent,      title: "Outdoors & Campsites", path: "/category/campsite", color: CAMPSITE_COLOR },
+  { icon: MapIcon,   title: "Experiences & Tours",  path: "/category/guided",   color: TRIPS_COLOR },
+  { icon: BedDouble, title: "Hotels",               path: "/category/hotel",    color: HOTEL_COLOR },
   { icon: Ticket,    title: "Bookings",             path: "/bookings",          color: "hsl(200, 70%, 45%)" },
   { icon: Heart,     title: "Saved",                path: "/saved",             color: "hsl(350, 80%, 55%)" },
 ];
@@ -274,8 +292,11 @@ const Index = () => {
     setSearchFocused(v);
   }, [setSearchFocused]);
 
-  const [activeCountry, setActiveCountry]     = useState<CountryLite | null>(null);
-  const [divisions, setDivisions]             = useState<DivisionLite[]>([]);
+  // "Explore" section state: divisions of a country (only those with listings),
+  // or — if no division has listings — countries that have listings.
+  const [activeCountry, setActiveCountry]       = useState<CountryLite | null>(null);
+  const [exploreTiles, setExploreTiles]         = useState<ExploreTile[]>([]);
+  const [exploreMode, setExploreMode]           = useState<"divisions" | "countries">("divisions");
   const [loadingDivisions, setLoadingDivisions] = useState(true);
 
   const resolveCountryIso = useCallback(async (): Promise<string> => {
@@ -292,106 +313,128 @@ const Index = () => {
     }
   }, [position]);
 
-  const mostListedCountryName = useMemo(() => {
+  // All listings we have loaded (used to know which countries/divisions have listings)
+  const allListings = useMemo(() => [
+    ...scrollableRows.campsites,
+    ...scrollableRows.hotels,
+    ...scrollableRows.guidedTrips,
+    ...scrollableRows.fixedTrips,
+  ], [scrollableRows]);
+
+  // Countries that have listings, most listed first
+  const listedCountryNames = useMemo(() => {
     const tally = new Map<string, number>();
-    const allListings = [
-      ...scrollableRows.campsites,
-      ...scrollableRows.hotels,
-      ...scrollableRows.guidedTrips,
-      ...scrollableRows.fixedTrips,
-    ];
     allListings.forEach((item: any) => {
       const raw = (item.country || "").trim();
       if (!raw) return;
       tally.set(raw, (tally.get(raw) || 0) + 1);
     });
-
-    let topName: string | null = null;
-    let topCount = 0;
-    tally.forEach((count, name) => {
-      if (count > topCount) {
-        topCount = count;
-        topName = name;
-      }
-    });
-    return topName;
-  }, [scrollableRows]);
+    return Array.from(tally.entries()).sort((a, b) => b[1] - a[1]).map(([name]) => name);
+  }, [allListings]);
 
   useEffect(() => {
     let cancelled = false;
 
-    const loadCountryAndDivisions = async () => {
-      setLoadingDivisions(true);
+    const loadExplore = async () => {
+      // Wait until listings are loaded so we can tell what has listings
+      if (loadingScrollable) return;
+      if (exploreTiles.length === 0) setLoadingDivisions(true);
 
-      let country: CountryLite | null = null;
+      // A division "has listings" when a listing in that country mentions it
+      // in its place/location. (Swap for a division_id match if you have one.)
+      const divisionHasListing = (div: DivisionLite, country: CountryLite) => {
+        const dn = norm(div.name);
+        if (!dn) return false;
+        const cn = norm(country.name);
+        return allListings.some((l: any) => {
+          if (norm(l.country) !== cn) return false;
+          return norm(l.place).includes(dn) || norm(l.location).includes(dn);
+        });
+      };
+
+      // ---- Build ordered list of candidate countries ----
+      const candidates: CountryLite[] = [];
+      const pushCandidate = (c: CountryLite | null | undefined) => {
+        if (c && !candidates.some(x => x.id === c.id)) candidates.push(c);
+      };
 
       if (userId) {
         const { data: profile } = await supabase
-          .from("profiles")
-          .select("country_id")
-          .eq("id", userId)
-          .maybeSingle();
+          .from("profiles").select("country_id").eq("id", userId).maybeSingle();
         if (profile?.country_id) {
-          const { data: profileCountry } = await supabase
-            .from("countries")
-            .select("id, name, iso_code, image_url")
-            .eq("id", profile.country_id)
-            .maybeSingle();
-          country = profileCountry ?? null;
+          const { data: pc } = await supabase
+            .from("countries").select(COUNTRY_COLS).eq("id", profile.country_id).maybeSingle();
+          pushCandidate(pc as CountryLite | null);
         }
       }
 
-      if (!country && position) {
+      if (position) {
         const iso = await resolveCountryIso();
         const { data: matched } = await supabase
-          .from("countries")
-          .select("id, name, iso_code, image_url")
-          .eq("iso_code", iso)
-          .maybeSingle();
-        country = matched ?? null;
+          .from("countries").select(COUNTRY_COLS).eq("iso_code", iso).maybeSingle();
+        pushCandidate(matched as CountryLite | null);
       }
 
-      if (!country && !position) {
-        if (loadingScrollable) return;
-        if (mostListedCountryName) {
-          const { data: topCountry } = await supabase
-            .from("countries")
-            .select("id, name, iso_code, image_url")
-            .ilike("name", mostListedCountryName)
-            .maybeSingle();
-          country = topCountry ?? null;
-        }
-      }
+      // Every country that has listings (most listed first)
+      const { data: allCountries } = await supabase
+        .from("countries").select(COUNTRY_COLS).limit(300);
+      const countryList = (allCountries || []) as CountryLite[];
+      const listedCountries = listedCountryNames
+        .map(n => countryList.find(c => norm(c.name) === norm(n)))
+        .filter(Boolean) as CountryLite[];
 
-      if (!country) {
-        const { data: fallback } = await supabase
-          .from("countries")
-          .select("id, name, iso_code, image_url")
-          .eq("iso_code", DEFAULT_COUNTRY_ISO)
-          .maybeSingle();
-        country = fallback ?? null;
-      }
+      listedCountries.forEach(pushCandidate);
+      pushCandidate(countryList.find(c => c.iso_code === DEFAULT_COUNTRY_ISO));
 
-      if (cancelled) return;
-      setActiveCountry(country);
+      // ---- Pick the first country that has divisions WITH listings ----
+      let chosenCountry: CountryLite | null = null;
+      let chosenDivisions: DivisionLite[] = [];
 
-      if (country) {
+      for (const candidate of candidates) {
         const { data: divs } = await supabase
           .from("country_divisions")
           .select("id, name, image_url")
-          .eq("country_id", country.id)
-          .order("name", { ascending: true })
-          .limit(16);
-        if (!cancelled) setDivisions(divs || []);
-      } else {
-        if (!cancelled) setDivisions([]);
+          .eq("country_id", candidate.id)
+          .order("name", { ascending: true });
+        const withListings = ((divs || []) as DivisionLite[])
+          .filter(d => divisionHasListing(d, candidate));
+        if (withListings.length > 0) {
+          chosenCountry = candidate;
+          chosenDivisions = withListings.slice(0, 16);
+          break;
+        }
+        if (cancelled) return;
       }
-      if (!cancelled) setLoadingDivisions(false);
+
+      if (cancelled) return;
+
+      if (chosenCountry) {
+        setActiveCountry(chosenCountry);
+        setExploreMode("divisions");
+        setExploreTiles(chosenDivisions.map(d => ({
+          id: d.id,
+          name: d.name,
+          image_url: d.image_url,
+          path: `/explore?division=${d.id}`,
+        })));
+      } else {
+        // No country has divisions with listings -> show countries that have listings
+        setActiveCountry(null);
+        setExploreMode("countries");
+        setExploreTiles(listedCountries.slice(0, 16).map(c => ({
+          id: c.id,
+          name: c.name,
+          image_url: c.image_url,
+          path: `/explore?country=${c.id}`,
+        })));
+      }
+      setLoadingDivisions(false);
     };
 
-    loadCountryAndDivisions();
+    loadExplore();
     return () => { cancelled = true; };
-  }, [resolveCountryIso, userId, position, loadingScrollable, mostListedCountryName]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resolveCountryIso, userId, position, loadingScrollable, allListings, listedCountryNames]);
 
   const allItemIds = useMemo(() => {
     const ids = new Set<string>();
@@ -414,6 +457,11 @@ const Index = () => {
   const { bookingStats } = useRealtimeBookings(tripEventIds);
   const { ratings }      = useRatings(allItemIds);
 
+  const ratingScore = useCallback((id: string) => {
+    const r = ratings.get(id);
+    return r ? r.avgRating * Math.log1p(r.reviewCount) : 0;
+  }, [ratings]);
+
   const sortedNearbyPlaces = useMemo(() => {
     const places = sortByRating(nearbyPlaces, ratings, position, calculateDistance)
       .map((item: any) => ({ ...item, __cardType: "ADVENTURE PLACE" as const }));
@@ -428,39 +476,35 @@ const Index = () => {
         seen.add(item.id);
         return true;
       })
-      .sort((a, b) => {
-        const ra = ratings.get(a.id);
-        const rb = ratings.get(b.id);
-        const sa = ra ? ra.avgRating * Math.log1p(ra.reviewCount) : 0;
-        const sb = rb ? rb.avgRating * Math.log1p(rb.reviewCount) : 0;
-        return sb - sa;
-      });
+      .sort((a, b) => ratingScore(b.id) - ratingScore(a.id));
 
     return [...places, ...others];
-  }, [nearbyPlaces, ratings, position, scrollableRows.guidedTrips, scrollableRows.fixedTrips]);
+  }, [nearbyPlaces, ratings, position, scrollableRows.guidedTrips, scrollableRows.fixedTrips, ratingScore]);
 
-  const displayBrowseGuides = useMemo(() => {
+  // One list per category (each gets its own row on every screen size)
+  const campsiteItems = useMemo(() =>
+    [...scrollableRows.campsites]
+      .sort((a, b) => ratingScore(b.id) - ratingScore(a.id))
+      .map(item => ({ ...item, __cardType: "ADVENTURE PLACE" as const })),
+    [scrollableRows.campsites, ratingScore]);
+
+  const hotelItems = useMemo(() =>
+    [...scrollableRows.hotels]
+      .sort((a, b) => ratingScore(b.id) - ratingScore(a.id))
+      .map(item => ({ ...item, __cardType: "ADVENTURE PLACE" as const })),
+    [scrollableRows.hotels, ratingScore]);
+
+  const tripItems = useMemo(() => {
     const seen = new Set<string>();
-    const combined = [
-      ...scrollableRows.campsites.map(item => ({ ...item, __cardType: "ADVENTURE PLACE" as const })),
-      ...scrollableRows.hotels.map(item => ({ ...item, __cardType: "ADVENTURE PLACE" as const })),
-      ...scrollableRows.guidedTrips.map(item => ({ ...item, __cardType: "TRIP" as const })),
-      ...scrollableRows.fixedTrips.map(item => ({ ...item, __cardType: "TRIP" as const })),
-    ];
-    return combined
+    return [...scrollableRows.guidedTrips, ...scrollableRows.fixedTrips]
       .filter(item => {
         if (seen.has(item.id)) return false;
         seen.add(item.id);
         return true;
       })
-      .sort((a, b) => {
-        const ra = ratings.get(a.id);
-        const rb = ratings.get(b.id);
-        const sa = ra ? ra.avgRating * Math.log1p(ra.reviewCount) : 0;
-        const sb = rb ? rb.avgRating * Math.log1p(rb.reviewCount) : 0;
-        return sb - sa;
-      });
-  }, [scrollableRows, ratings]);
+      .sort((a, b) => ratingScore(b.id) - ratingScore(a.id))
+      .map(item => ({ ...item, __cardType: "TRIP" as const }));
+  }, [scrollableRows.guidedTrips, scrollableRows.fixedTrips, ratingScore]);
 
   const fetchScrollableRows = useCallback(async (limit: number, opts: { background?: boolean } = {}) => {
     if (!opts.background) setLoadingScrollable(true);
@@ -621,60 +665,38 @@ const Index = () => {
     );
   }, [position, ratings, savedItems, handleSave, bookingStats]);
 
-  const browseGuideNodes = useMemo(() =>
-    displayBrowseGuides.map((item: any, i) => {
+  const campsiteNodes = useMemo(() =>
+    campsiteItems.map((item: any, i) =>
+      renderCard(item, "ADVENTURE PLACE", i, { hidePrice: true, categoryColor: CAMPSITE_COLOR })),
+    [campsiteItems, renderCard]);
+
+  const hotelNodes = useMemo(() =>
+    hotelItems.map((item: any, i) =>
+      renderCard(item, "ADVENTURE PLACE", i, { hidePrice: true, categoryColor: HOTEL_COLOR })),
+    [hotelItems, renderCard]);
+
+  const tripNodes = useMemo(() =>
+    tripItems.map((item: any, i) =>
+      renderCard(item, "TRIP", i, { isTrip: true, categoryColor: TRIPS_COLOR })),
+    [tripItems, renderCard]);
+
+  const nearbyNodes = useMemo(() =>
+    sortedNearbyPlaces.map((item: any, i) => {
       const isTrip = item.__cardType === "TRIP";
-      return renderCard(item, item.__cardType, i, {
+      return renderCard(item, item.__cardType || "ADVENTURE PLACE", i, {
         hidePrice: !isTrip,
         isTrip,
       });
     }),
-    [displayBrowseGuides, renderCard],
+    [sortedNearbyPlaces, renderCard],
   );
 
-  const nearbyNodes = useMemo(() =>
-    sortedNearbyPlaces.map((item: any, i) => {
-      const a = item as any;
-      const rd = ratings.get(item.id);
-      const isTripLike = a.__cardType === "TRIP";
-      const today = new Date().toISOString().split("T")[0];
-      return (
-        <ListingCard
-          key={item.id}
-          id={item.id}
-          type={a.__cardType || "ADVENTURE PLACE"}
-          category={a.category}
-          name={item.name}
-          imageUrl={a.image_url}
-          location={a.location}
-          country={a.country}
-          price={isTripLike ? (a.price || 0) : (a.entry_fee || 0)}
-          date={isTripLike ? (a.date || "") : ""}
-          isCustomDate={a.is_custom_date}
-          isFlexibleDate={a.is_flexible_date}
-          isOutdated={isTripLike && a.date && !a.is_flexible_date && a.date < today}
-          isSaved={savedItems.has(item.id)}
-          onSave={handleSave}
-          hideSave={false}
-          hidePrice={!isTripLike}
-          showBadge={true}
-          priority={i === 0}
-          activities={a.activities}
-          distance={a.distance}
-          avgRating={rd?.avgRating}
-          reviewCount={rd?.reviewCount}
-          place={a.place}
-          availableTickets={isTripLike ? a.available_tickets : undefined}
-          bookedTickets={isTripLike ? bookingStats[item.id] || 0 : undefined}
-          description={a.description}
-          openingHours={a.opening_hours}
-          closingHours={a.closing_hours}
-          workingDays={a.days_opened}
-        />
-      );
-    }),
-    [sortedNearbyPlaces, ratings, savedItems, handleSave, bookingStats],
-  );
+  const exploreTitle =
+    exploreMode === "divisions" && activeCountry
+      ? `Explore ${activeCountry.name}`
+      : "Explore destinations";
+
+  const showExploreSection = loadingDivisions || exploreTiles.length > 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -770,8 +792,6 @@ const Index = () => {
                 <h1 className="text-white text-3xl md:text-4xl lg:text-5xl font-extrabold text-center mb-4 leading-tight tracking-tight">
                   {t("hero.title")}
                 </h1>
-                {/* ── FIX: pass openSearch:true so Explore auto-focuses the
-                    search bar and opens its suggestions dropdown ── */}
                 <div
                   onClick={() => navigate("/explore", { state: { openSearch: true } })}
                   className="cursor-pointer w-full"
@@ -797,6 +817,7 @@ const Index = () => {
         <div className={`w-full ${isSearchFocused ? "hidden" : ""}`}>
           <div className="container mx-auto px-4 md:px-6 py-3 md:py-5 space-y-2 md:space-y-6">
 
+            {/* Category cards */}
             <section className="mb-4 md:mb-8">
               <div className="-mx-4 px-4 md:mx-0 md:px-0">
                 <div className="grid grid-cols-3 gap-2 md:gap-4">
@@ -825,58 +846,78 @@ const Index = () => {
               </div>
             </section>
 
-            <section className="mb-4 md:mb-6">
-              <div className="flex items-center justify-between mb-2 px-1">
-                <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-widest">
-                  {activeCountry ? `Explore ${activeCountry.name}` : "Explore destinations"}
-                </h2>
-              </div>
-              <div
-                ref={divisionsRef}
-                className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide scroll-smooth snap-x snap-mandatory"
-              >
-                {divisions.length === 0
-                  ? [...Array(8)].map((_, i) => (
-                      <div
-                        key={i}
-                        className="flex-shrink-0 w-[32vw] sm:w-[140px] md:w-[160px] aspect-square rounded-none bg-muted animate-pulse"
-                      />
-                    ))
-                  : divisions.map((division, idx) => (
-                      <div
-                        key={division.id}
-                        onClick={() => navigate(`/explore?division=${division.id}`)}
-                        className="flex-shrink-0 w-[32vw] sm:w-[140px] md:w-[160px] snap-start cursor-pointer group"
-                      >
-                        <div className="relative overflow-hidden aspect-square bg-muted rounded-none">
-                          {division.image_url ? (
-                            <img
-                              src={division.image_url}
-                              alt={division.name}
-                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                              loading={idx < 4 ? "eager" : "lazy"}
-                              decoding="async"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-muted-foreground/10">
-                              <MapIcon className="h-6 w-6 text-muted-foreground" />
+            {/* Explore: divisions with listings, or countries with listings */}
+            {showExploreSection && (
+              <section className="mb-4 md:mb-6">
+                <div className="flex items-center justify-between mb-2 px-1">
+                  <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-widest">
+                    {exploreTitle}
+                  </h2>
+                </div>
+                <div
+                  ref={divisionsRef}
+                  className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide scroll-smooth snap-x snap-mandatory"
+                >
+                  {exploreTiles.length === 0
+                    ? [...Array(8)].map((_, i) => (
+                        <div
+                          key={i}
+                          className="flex-shrink-0 w-[32vw] sm:w-[140px] md:w-[160px] aspect-square rounded-none bg-muted animate-pulse"
+                        />
+                      ))
+                    : exploreTiles.map((tile, idx) => (
+                        <div
+                          key={tile.id}
+                          onClick={() => navigate(tile.path)}
+                          className="flex-shrink-0 w-[32vw] sm:w-[140px] md:w-[160px] snap-start cursor-pointer group"
+                        >
+                          <div className="relative overflow-hidden aspect-square bg-muted rounded-none">
+                            {tile.image_url ? (
+                              <img
+                                src={tile.image_url}
+                                alt={tile.name}
+                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                loading={idx < 4 ? "eager" : "lazy"}
+                                decoding="async"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center bg-muted-foreground/10">
+                                <MapIcon className="h-6 w-6 text-muted-foreground" />
+                              </div>
+                            )}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                            <div className="absolute bottom-0 left-0 right-0 p-2.5">
+                              <h3 className="text-white font-extrabold text-sm sm:text-base leading-tight">{tile.name}</h3>
                             </div>
-                          )}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-                          <div className="absolute bottom-0 left-0 right-0 p-2.5">
-                            <h3 className="text-white font-extrabold text-sm sm:text-base leading-tight">{division.name}</h3>
                           </div>
                         </div>
-                      </div>
-                    ))}
-              </div>
-            </section>
+                      ))}
+                </div>
+              </section>
+            )}
+
+            {/* One row per category — same on small and big screens */}
+            <GridSection
+              title="Outdoor & Campsites"
+              viewAllPath="/category/campsite"
+              accentColor={CAMPSITE_COLOR}
+              items={campsiteNodes}
+              loading={loadingScrollable}
+            />
 
             <GridSection
-              title="Browsers guide"
-              viewAllPath="/explore"
-              accentColor="hsl(25, 90%, 50%)"
-              items={browseGuideNodes}
+              title="Hotels & Stays"
+              viewAllPath="/category/hotel"
+              accentColor={HOTEL_COLOR}
+              items={hotelNodes}
+              loading={loadingScrollable}
+            />
+
+            <GridSection
+              title="Experiences & Tours"
+              viewAllPath="/category/guided"
+              accentColor={TRIPS_COLOR}
+              items={tripNodes}
               loading={loadingScrollable}
             />
 

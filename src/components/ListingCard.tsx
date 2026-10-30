@@ -187,8 +187,6 @@ export interface ListingCardProps {
   facilities?: any[] | null;
 }
 
-const DAY_ORDER = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
 const ListingCardComponent = ({
   id, type, category, name, imageUrl, location, price, date,
   isOutdated = false, onSave, isSaved = false, hideSave = false,
@@ -365,13 +363,13 @@ const ListingCardComponent = ({
       tabIndex={0}
       onKeyDown={(e) => { if (e.key === "Enter") handleCardClick(); }}
       className={cn(
-        // Small screens: image on top, details below.
-        // sm and up: image on the left, details on the right.
-        "group relative flex flex-col sm:flex-row overflow-hidden cursor-pointer bg-white transition-all duration-300",
+        // Same stacked layout on every screen size:
+        // image on top, details below.
+        "group relative flex flex-col overflow-hidden cursor-pointer bg-white transition-all duration-300",
         "rounded-2xl shadow-sm",
         "hover:shadow-xl hover:-translate-y-1",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-        "w-full h-full sm:min-h-[200px]",
+        "w-full h-full",
         isUnavailable && "opacity-80",
       )}
       style={{
@@ -383,9 +381,9 @@ const ListingCardComponent = ({
       onMouseEnter={(e) => (e.currentTarget.style.borderColor = `${CLAY}60`)}
       onMouseLeave={(e) => (e.currentTarget.style.borderColor = HAIRLINE)}
     >
-      {/* ── Image (top on small screens, left on sm+) ── */}
+      {/* ── Image (top) ── */}
       <div
-        className="relative w-full aspect-[2/1] sm:aspect-auto sm:w-[38%] shrink-0 sm:self-stretch overflow-hidden"
+        className="relative w-full aspect-[2/1] shrink-0 overflow-hidden"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
@@ -402,7 +400,7 @@ const ListingCardComponent = ({
                 <img
                   src={
                     img.includes("supabase.co/storage")
-                      ? optimizeSupabaseImage(img, { width: 600, height: 400, quality: 80 })
+                      ? optimizeSupabaseImage(img, { width: 600, height: 300, quality: 80 })
                       : img
                   }
                   alt={`${formattedName}${idx > 0 ? ` – photo ${idx + 1}` : ""}`}
@@ -431,7 +429,7 @@ const ListingCardComponent = ({
         {showBadge && (
           <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-1.5">
             <span
-              className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full shadow-sm text-white backdrop-blur-sm"
+              className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full shadow-sm text-white backdrop-blur-sm"
               style={{ backgroundColor: badgeColor ? `${badgeColor}E6` : `${FOREST_DEEP}E6`, fontFamily: FONT_BODY }}
             >
               {isHotel && <BedDouble className="h-3 w-3" />}
@@ -503,15 +501,15 @@ const ListingCardComponent = ({
         )}
       </div>
 
-      {/* ── Details (below image on small screens, right on sm+) ── */}
-      <div className="flex flex-col gap-1.5 p-3 sm:p-4 min-w-0 flex-1">
-        <h3 className="line-clamp-1 sm:line-clamp-2 text-[16px] sm:text-[18px] font-bold leading-snug" style={{ fontFamily: FONT_DISPLAY, color: INK }}>
+      {/* ── Details (below the image) ── */}
+      <div className="flex flex-col gap-1.5 p-3 min-w-0 flex-1">
+        <h3 className="line-clamp-1 text-[16px] font-bold leading-snug" style={{ fontFamily: FONT_DISPLAY, color: INK }}>
           {formattedName}
         </h3>
 
         <div className="flex items-center gap-1 min-w-0" style={{ color: INK_SOFT }}>
           <MapPin className="h-3.5 w-3.5 flex-shrink-0" style={{ color: CLAY }} />
-          <span className="text-[12px] sm:text-[13px] font-medium truncate">{locationString}</span>
+          <span className="text-[12px] font-medium truncate">{locationString}</span>
         </div>
 
         {isHotel && stars > 0 && <HotelStars count={stars} />}
@@ -519,7 +517,7 @@ const ListingCardComponent = ({
         <RatingRow value={ratingValue} count={ratingCount} />
 
         {aboutText && (
-          <p className="text-[12px] leading-relaxed line-clamp-1 sm:line-clamp-2" style={{ color: INK_SOFT }}>
+          <p className="text-[12px] leading-relaxed line-clamp-1" style={{ color: INK_SOFT }}>
             {aboutText}
           </p>
         )}
@@ -562,34 +560,12 @@ const ListingCardComponent = ({
           </div>
         )}
 
-        {/* Working hours + day pills (pills hidden on very small screens) */}
+        {/* Working hours */}
         {isAdventurePlace && !isHotel && hoursText && (
-          <div className="flex flex-col gap-1">
-            <span className="flex items-center gap-1.5 text-[11px] font-medium" style={{ color: INK_SOFT }}>
-              <Clock className="h-3 w-3" />
-              {hoursText}
-            </span>
-            {workingDays && workingDays.length > 0 && (
-              <div className="hidden sm:flex items-center gap-1 flex-wrap">
-                {DAY_ORDER.map((day) => {
-                  const isOpenDay = workingDays.includes(day);
-                  return (
-                    <span
-                      key={day}
-                      className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
-                      style={
-                        isOpenDay
-                          ? { background: FOREST_SOFT, color: FOREST }
-                          : { background: "#F1F3EF", color: "#A7B2AB", textDecoration: "line-through", textDecorationColor: "#C7D0CB" }
-                      }
-                    >
-                      {day}
-                    </span>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          <span className="flex items-center gap-1.5 text-[11px] font-medium" style={{ color: INK_SOFT }}>
+            <Clock className="h-3 w-3" />
+            {hoursText}
+          </span>
         )}
 
         {/* Footer: price + view link, pinned to the bottom */}

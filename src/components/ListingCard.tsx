@@ -41,27 +41,6 @@ const useInjectFonts = () => {
   }, []);
 };
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-// Capitalises each word but leaves apostrophes alone ("mama's" -> "Mama's").
-const toTitleCase = (s: string) =>
-  s.toLowerCase().replace(/(^|[\s\-/(])(\p{L})/gu, (_, sep: string, ch: string) => sep + ch.toUpperCase());
-
-const parseTimeToMinutes = (t: string): number | null => {
-  const match = t.match(/^(\d{1,2}):(\d{2})/);
-  if (!match) return null;
-  const hours = Number(match[1]);
-  const minutes = Number(match[2]);
-  if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
-  return hours * 60 + minutes;
-};
-
-const parseValidDate = (value?: string): Date | null => {
-  if (!value) return null;
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? null : d;
-};
-
 // ── Hotel starting price ─────────────────────────────────────────────────────
 export const getHotelStartingPrice = (facilities?: any[] | null): number => {
   if (!Array.isArray(facilities)) return 0;
@@ -75,9 +54,8 @@ export const getHotelStartingPrice = (facilities?: any[] | null): number => {
 const getPriceLabel = (isFlexibleDate: boolean, isTrip: boolean, date?: string, isHotel = false) => {
   if (isHotel) return "/night";
   if (isFlexibleDate && isTrip) {
-    const parsed = parseValidDate(date);
-    if (parsed) {
-      const utcTime = parsed.toLocaleTimeString("en-GB", {
+    if (date) {
+      const utcTime = new Date(date).toLocaleTimeString("en-GB", {
         hour: "2-digit",
         minute: "2-digit",
         timeZone: "UTC",
@@ -209,6 +187,8 @@ export interface ListingCardProps {
   facilities?: any[] | null;
 }
 
+const DAY_ORDER = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
 const ListingCardComponent = ({
   id, type, category, name, imageUrl, location, price, date,
   isOutdated = false, onSave, isSaved = false, hideSave = false,
@@ -268,27 +248,20 @@ const ListingCardComponent = ({
 
   const badgeColor = categoryColor;
 
-  const formattedName = useMemo(() => toTitleCase(name), [name]);
-
+  const formattedName = useMemo(
+    () => name.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()),
+    [name],
+  );
   const locationString = useMemo(() => {
     const area = (division && division.trim()) || place;
     const raw = [area, location].filter(Boolean).join(", ");
-    return toTitleCase(raw);
+    return raw.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
   }, [division, place, location]);
 
   const aboutText = useMemo(() => {
     const clean = (description || "").replace(/\s+/g, " ").trim();
     return clean ? truncateWords(clean, DESCRIPTION_WORD_LIMIT) : "";
   }, [description]);
-
-  const tripDateText = useMemo(() => {
-    if (!isTrip) return null;
-    if (isFlexibleDate) return "Flexible";
-    const parsed = parseValidDate(date);
-    return parsed
-      ? parsed.toLocaleDateString("en-GB", { day: "2-digit", month: "short" })
-      : null;
-  }, [isTrip, isFlexibleDate, date]);
 
   const handleCardClick = useCallback(() => {
     const typeMap: Record<string, string> = {
@@ -298,18 +271,6 @@ const ListingCardComponent = ({
     };
     navigate(createDetailPath(typeMap[type], id, name, location));
   }, [navigate, type, id, name, location]);
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLDivElement>) => {
-      // Ignore key presses coming from inner buttons (heart, arrows, dots)
-      if (e.target !== e.currentTarget) return;
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        handleCardClick();
-      }
-    },
-    [handleCardClick],
-  );
 
   const goToSlide = useCallback(
     (index: number, e?: React.MouseEvent) => {
@@ -340,6 +301,15 @@ const ListingCardComponent = ({
   );
 
   const visibleDots = Math.min(loadedSlides, allSlideImages.length);
+
+  const parseTimeToMinutes = (t: string): number | null => {
+    const match = t.match(/^(\d{1,2}):(\d{2})/);
+    if (!match) return null;
+    const hours = Number(match[1]);
+    const minutes = Number(match[2]);
+    if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
+    return hours * 60 + minutes;
+  };
 
   const hoursText = useMemo(() => {
     if (!openingHours && !closingHours) return null;
@@ -386,7 +356,6 @@ const ListingCardComponent = ({
   }, [isAdventurePlace, isCampsite, openingHours, closingHours, workingDays]);
 
   const showPrice = !hidePrice && displayPrice > 0;
-  const showChips = Boolean(tripDateText) || Boolean(distanceText) || isOpenNow !== null;
 
   return (
     <Card
@@ -394,15 +363,15 @@ const ListingCardComponent = ({
       onClick={handleCardClick}
       role="link"
       tabIndex={0}
-      onKeyDown={handleKeyDown}
+      onKeyDown={(e) => { if (e.key === "Enter") handleCardClick(); }}
       className={cn(
-        // Same stacked layout on every screen size:
-        // image on top, details below.
-        "group relative flex flex-col overflow-hidden cursor-pointer bg-white transition-all duration-300",
+        // Small screens: image on top, details below.
+        // sm and up: image on the left, details on the right.
+        "group relative flex flex-col sm:flex-row overflow-hidden cursor-pointer bg-white transition-all duration-300",
         "rounded-2xl shadow-sm",
         "hover:shadow-xl hover:-translate-y-1",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-        "w-full h-full",
+        "w-full h-full sm:min-h-[200px]",
         isUnavailable && "opacity-80",
       )}
       style={{
@@ -414,9 +383,9 @@ const ListingCardComponent = ({
       onMouseEnter={(e) => (e.currentTarget.style.borderColor = `${CLAY}60`)}
       onMouseLeave={(e) => (e.currentTarget.style.borderColor = HAIRLINE)}
     >
-      {/* ── Image (top) ── */}
+      {/* ── Image (top on small screens, left on sm+) ── */}
       <div
-        className="relative w-full aspect-[2/1] shrink-0 overflow-hidden"
+        className="relative w-full aspect-[2/1] sm:aspect-auto sm:w-[38%] shrink-0 sm:self-stretch overflow-hidden"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
@@ -433,24 +402,18 @@ const ListingCardComponent = ({
                 <img
                   src={
                     img.includes("supabase.co/storage")
-                      ? optimizeSupabaseImage(img, { width: 600, height: 300, quality: 80 })
+                      ? optimizeSupabaseImage(img, { width: 600, height: 400, quality: 80 })
                       : img
                   }
                   alt={`${formattedName}${idx > 0 ? ` – photo ${idx + 1}` : ""}`}
                   onLoad={() => setImageLoadStates((prev) => ({ ...prev, [idx]: true }))}
                   onError={(e) => {
                     const t = e.target as HTMLImageElement;
-                    if (t.src !== img) {
-                      // Optimised URL failed: retry once with the original
-                      t.src = img;
-                    } else {
-                      // Original failed too: stop the skeleton from pulsing forever
-                      setImageLoadStates((prev) => ({ ...prev, [idx]: true }));
-                    }
+                    if (t.src !== img) t.src = img;
                   }}
                   className={cn(
                     "w-full h-full object-cover transition-transform duration-500 ease-out",
-                    !isUnavailable && "group-hover:scale-[1.05]",
+                    "group-hover:scale-[1.05]",
                     imageLoadStates[idx] ? "opacity-100" : "opacity-0",
                     isUnavailable && "grayscale-[0.5]",
                   )}
@@ -468,7 +431,7 @@ const ListingCardComponent = ({
         {showBadge && (
           <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-1.5">
             <span
-              className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full shadow-sm text-white backdrop-blur-sm"
+              className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full shadow-sm text-white backdrop-blur-sm"
               style={{ backgroundColor: badgeColor ? `${badgeColor}E6` : `${FOREST_DEEP}E6`, fontFamily: FONT_BODY }}
             >
               {isHotel && <BedDouble className="h-3 w-3" />}
@@ -495,7 +458,7 @@ const ListingCardComponent = ({
               <button
                 onClick={(e) => goToSlide(currentSlide - 1, e)}
                 aria-label="Previous photo"
-                className="absolute left-1.5 top-1/2 -translate-y-1/2 z-20 h-7 w-7 rounded-full bg-white/90 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+                className="absolute left-1.5 top-1/2 -translate-y-1/2 z-20 h-7 w-7 rounded-full bg-white/90 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
               >
                 <ChevronLeft className="h-4 w-4" style={{ color: INK }} />
               </button>
@@ -504,7 +467,7 @@ const ListingCardComponent = ({
               <button
                 onClick={(e) => goToSlide(currentSlide + 1, e)}
                 aria-label="Next photo"
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 z-20 h-7 w-7 rounded-full bg-white/90 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 z-20 h-7 w-7 rounded-full bg-white/90 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
               >
                 <ChevronRight className="h-4 w-4" style={{ color: INK }} />
               </button>
@@ -540,15 +503,15 @@ const ListingCardComponent = ({
         )}
       </div>
 
-      {/* ── Details (below the image) ── */}
-      <div className="flex flex-col gap-1.5 p-3 min-w-0 flex-1">
-        <h3 className="line-clamp-1 text-[16px] font-bold leading-snug" style={{ fontFamily: FONT_DISPLAY, color: INK }}>
+      {/* ── Details (below image on small screens, right on sm+) ── */}
+      <div className="flex flex-col gap-1.5 p-3 sm:p-4 min-w-0 flex-1">
+        <h3 className="line-clamp-1 sm:line-clamp-2 text-[16px] sm:text-[18px] font-bold leading-snug" style={{ fontFamily: FONT_DISPLAY, color: INK }}>
           {formattedName}
         </h3>
 
         <div className="flex items-center gap-1 min-w-0" style={{ color: INK_SOFT }}>
           <MapPin className="h-3.5 w-3.5 flex-shrink-0" style={{ color: CLAY }} />
-          <span className="text-[12px] font-medium truncate">{locationString}</span>
+          <span className="text-[12px] sm:text-[13px] font-medium truncate">{locationString}</span>
         </div>
 
         {isHotel && stars > 0 && <HotelStars count={stars} />}
@@ -556,18 +519,18 @@ const ListingCardComponent = ({
         <RatingRow value={ratingValue} count={ratingCount} />
 
         {aboutText && (
-          <p className="text-[12px] leading-relaxed line-clamp-1" style={{ color: INK_SOFT }}>
+          <p className="text-[12px] leading-relaxed line-clamp-1 sm:line-clamp-2" style={{ color: INK_SOFT }}>
             {aboutText}
           </p>
         )}
 
         {/* Date / distance / open-now chips */}
-        {showChips && (
+        {((isTrip && (date || isFlexibleDate)) || distanceText || isOpenNow !== null) && (
           <div className="flex items-center gap-1.5 flex-wrap">
-            {tripDateText && (
+            {isTrip && (date || isFlexibleDate) && (
               <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-lg" style={{ background: FOREST_SOFT, color: FOREST }}>
                 <Calendar className="h-3 w-3" />
-                {tripDateText}
+                {isFlexibleDate ? "Flexible" : new Date(date!).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
               </span>
             )}
             {distanceText && (
@@ -599,12 +562,34 @@ const ListingCardComponent = ({
           </div>
         )}
 
-        {/* Working hours */}
+        {/* Working hours + day pills (pills hidden on very small screens) */}
         {isAdventurePlace && !isHotel && hoursText && (
-          <span className="flex items-center gap-1.5 text-[11px] font-medium" style={{ color: INK_SOFT }}>
-            <Clock className="h-3 w-3" />
-            {hoursText}
-          </span>
+          <div className="flex flex-col gap-1">
+            <span className="flex items-center gap-1.5 text-[11px] font-medium" style={{ color: INK_SOFT }}>
+              <Clock className="h-3 w-3" />
+              {hoursText}
+            </span>
+            {workingDays && workingDays.length > 0 && (
+              <div className="hidden sm:flex items-center gap-1 flex-wrap">
+                {DAY_ORDER.map((day) => {
+                  const isOpenDay = workingDays.includes(day);
+                  return (
+                    <span
+                      key={day}
+                      className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
+                      style={
+                        isOpenDay
+                          ? { background: FOREST_SOFT, color: FOREST }
+                          : { background: "#F1F3EF", color: "#A7B2AB", textDecoration: "line-through", textDecorationColor: "#C7D0CB" }
+                      }
+                    >
+                      {day}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         )}
 
         {/* Footer: price + view link, pinned to the bottom */}
@@ -627,7 +612,7 @@ const ListingCardComponent = ({
 };
 
 export const ListingCard = memo(
-  React.forwardRef<HTMLDivElement, ListingCardProps>((props, _ref) => (
+  React.forwardRef<HTMLDivElement, ListingCardProps>((props, ref) => (
     <ListingCardComponent {...props} />
   )),
 );

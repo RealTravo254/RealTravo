@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { Header } from "@/components/Header";
 import { MobileBottomBar } from "@/components/MobileBottomBar";
+import { HostLayout } from "@/components/host/HostLayout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import {
-  Plus, ArrowLeft, LayoutDashboard, Map, Building2, Tent, BedDouble, Home,
+  Plus, ArrowLeft, LayoutDashboard, Map, Tent, BedDouble, Home, PlusCircle, ShieldCheck,
   Clock, CheckCircle2, XCircle, MapPin, RefreshCw, Ban, Info,
 } from "lucide-react";
 
@@ -21,8 +22,6 @@ const CLAY_SOFT    = "#FBEDE7";
 const GOLD         = "#B98A2A";
 const GOLD_SOFT    = "#FBF2DD";
 const GOLD_TEXT    = "#8A6716";
-const INFO         = "#3E5590";
-const INFO_SOFT    = "#EEF1F8";
 const INK          = "#1C2B22";
 const INK_SOFT     = "#5B6B60";
 const HAIRLINE     = "#DCE3DC";
@@ -35,8 +34,10 @@ const DANGER_SOFT  = "#F7E9E5";
 const FONT_DISPLAY = "'Fraunces', ui-serif, Georgia, serif";
 const FONT_BODY = "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif";
 
-// Hosting types on this page: Outdoor / Campsite, Hotel & Stay (Hotel OR
-// Airbnb), Tour Guide, or Company.
+// The ONE place every "create" button points to. The create page itself decides
+// what the host is allowed to create (trip, event, campsite, hotel, Airbnb).
+const CREATE_LISTING_PATH = "/host/create";
+
 //  • Campsite hosts may hold several listings.
 //  • Airbnb hosts may hold several listings.
 //  • Hotel hosts stay capped at one listing and go to /my-listing.
@@ -68,7 +69,6 @@ type ViewState =
   | { screen: "redirect"; to: string }
   | { screen: "type-selection" }
   | { screen: "adventure-pending"; place: any }
-  | { screen: "adventure-no-place" }
   | { screen: "adventure-rejected"; place: any }
   | { screen: "multi-dashboard"; places: any[] }
   | { screen: "guide-company-dashboard"; content: any[] };
@@ -93,9 +93,20 @@ const PageTitle = ({ eyebrow, title }: { eyebrow: string; title: React.ReactNode
   </div>
 );
 
+// The general "Create listing" button used on every dashboard screen.
+const CreateListingButton = ({ onClick, label = "Create listing", className = "" }: { onClick: () => void; label?: string; className?: string }) => (
+  <Button
+    onClick={onClick}
+    className={`rounded-xl text-[12px] font-semibold text-white border-none px-5 py-5 hover:opacity-95 ${className}`}
+    style={{ background: `linear-gradient(135deg, ${CLAY_LIGHT} 0%, ${CLAY} 100%)` }}
+  >
+    <Plus className="h-4 w-4 mr-2" /> {label}
+  </Button>
+);
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-const SelectionCard = ({ icon, title, desc, onClick, iconBg, accent }: any) => (
+const SelectionCard = ({ icon, title, desc, onClick, iconBg, accent, cta = "Start →" }: any) => (
   <button
     onClick={onClick}
     className="group bg-white rounded-[24px] p-6 text-left transition-all hover:-translate-y-1"
@@ -112,7 +123,7 @@ const SelectionCard = ({ icon, title, desc, onClick, iconBg, accent }: any) => (
       onMouseEnter={(e) => { e.currentTarget.style.borderColor = accent; e.currentTarget.style.color = accent; }}
       onMouseLeave={(e) => { e.currentTarget.style.borderColor = HAIRLINE; e.currentTarget.style.color = INK_SOFT; }}
     >
-      Start →
+      {cta}
     </div>
   </button>
 );
@@ -142,7 +153,7 @@ const HostCategoryCard = ({ title, subtitle, image, icon, count, onManage, onAdd
         className="w-full py-3 rounded-xl text-[11px] font-semibold text-white transition-all active:scale-95 border-none hover:opacity-95"
         style={{ background: `linear-gradient(135deg, ${CLAY_LIGHT} 0%, ${CLAY} 100%)` }}
       >
-        <Plus className="h-3 w-3 mr-1 stroke-[3px]" /> Add {title.split(" ")[0]}
+        <Plus className="h-3 w-3 mr-1 stroke-[3px]" /> Create listing
       </Button>
     </div>
   </div>
@@ -273,6 +284,8 @@ const BecomeHost = () => {
   const navigate = useNavigate();
   const [view, setView] = useState<ViewState>({ screen: "loading" });
 
+  const goCreate = () => navigate(CREATE_LISTING_PATH);
+
   useEffect(() => {
     if (!user) { navigate("/auth"); return; }
     let cancelled = false;
@@ -345,8 +358,6 @@ const BecomeHost = () => {
           const allMultiListing = approved.every((p) => MULTI_LISTING_CATEGORIES.includes(p.category));
 
           if (allMultiListing) {
-            // Campsite and Airbnb hosts can hold multiple listings. Show all of
-            // them (live, under review, rejected) so new submissions stay visible.
             setView({
               screen: "multi-dashboard",
               places: places.filter((p) => MULTI_LISTING_CATEGORIES.includes(p.category)),
@@ -354,8 +365,7 @@ const BecomeHost = () => {
             return;
           }
 
-          // Hotel (and legacy park/attraction) remain capped at one listing and
-          // keep using /my-listing.
+          // Hotel (and legacy park/attraction) remain capped at one listing.
           setView({ screen: "redirect", to: "/my-listing" });
           return;
         }
@@ -370,7 +380,7 @@ const BecomeHost = () => {
           return;
         }
 
-        // ── 4. Nothing matched — show type selection ──────────────────────────
+        // ── 4. Nothing matched — show the general start screen ────────────────
         setView({ screen: "type-selection" });
       } catch (err) {
         console.error(err);
@@ -430,11 +440,10 @@ const BecomeHost = () => {
     </div>
   );
 
-  // ── Type Selection ────────────────────────────────────────────────────────
+  // ── Start screen: ONE general "Create listing" ────────────────────────────
   if (view.screen === "type-selection") return (
-    <div className="min-h-screen flex flex-col" style={{ background: CANVAS, fontFamily: FONT_BODY }}>
-      <Header />
-      <main className="flex-1 container px-4 py-8 mx-auto mb-24">
+    <HostLayout>
+      <div style={{ fontFamily: FONT_BODY }}>
         <div className="flex items-center gap-3 mb-6">
           <BackButton onClick={() => navigate("/")} />
           <span className="text-white px-3 py-1 rounded-full text-[11px] font-semibold" style={{ background: `linear-gradient(135deg, ${FOREST}, ${FOREST_DEEP})` }}>
@@ -443,76 +452,57 @@ const BecomeHost = () => {
         </div>
 
         <h1 className="text-3xl md:text-4xl font-semibold tracking-tight mb-4" style={{ fontFamily: FONT_DISPLAY, color: INK }}>
-          Choose your <span style={{ color: CLAY }}>hosting type</span>
+          Start <span style={{ color: CLAY }}>hosting</span>
         </h1>
 
         <div className="flex items-start gap-2.5 p-3.5 rounded-2xl mb-8" style={{ background: GOLD_SOFT, border: `1px solid ${GOLD}30` }}>
           <Info className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: GOLD }} />
           <p className="text-[11px] font-medium leading-relaxed" style={{ color: GOLD_TEXT }}>
-            <span className="font-semibold">Note:</span> Outdoor/Campsite and Hotel &amp; Stay are standalone hosting types — they cannot be combined with Tour Guide or Company hosting. Campsite and Airbnb hosts can add more listings from their dashboard once the first one is approved. A Hotel is limited to one listing per account.
+            <span className="font-semibold">Note:</span> You can only host what you're verified for. Campsite and Airbnb hosts can add more listings once the first one is approved. A hotel is limited to one listing per account.
           </p>
         </div>
 
-        {/* Hosting types: Campsite, Hotel & Stay (Hotel or Airbnb), Tour Guide, Company. */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl">
           <SelectionCard
-            icon={<Tent className="h-8 w-8" style={{ color: SUCCESS }} />}
-            title="Outdoor / Campsite"
-            desc="List your campsite or outdoor place. Once approved, you can add more campsite listings from your dashboard."
-            onClick={() => navigate("/create-adventure")}
-            iconBg={SUCCESS_SOFT}
-            accent={SUCCESS}
-          />
-          <SelectionCard
-            icon={<BedDouble className="h-8 w-8" style={{ color: CLAY }} />}
-            title="Hotel & Stay"
-            desc="Register a hotel with room types, or list an Airbnb / BnB. You'll choose which on the next screen — Airbnb hosts can list more than one."
-            onClick={() => navigate("/choose-accommodation")}
+            icon={<PlusCircle className="h-8 w-8" style={{ color: CLAY }} />}
+            title="Create listing"
+            desc="Start a listing. We'll show only the types you can host — campsite, hotel, Airbnb, or trips and events once verified."
+            onClick={goCreate}
             iconBg={CLAY_SOFT}
             accent={CLAY}
+            cta="Create listing"
           />
           <SelectionCard
-            icon={<Map className="h-8 w-8" style={{ color: INFO }} />}
-            title="Tour Guide"
-            desc="Host flexible trips and guided tours."
-            onClick={() => navigate("/host-verification?category=guide")}
-            iconBg={INFO_SOFT}
-            accent={INFO}
-          />
-          <SelectionCard
-            icon={<Building2 className="h-8 w-8" style={{ color: GOLD }} />}
-            title="Register Company"
-            desc="Host fixed-date trips and hotels via your business."
-            onClick={() => navigate("/host-verification?category=company")}
-            iconBg={GOLD_SOFT}
-            accent={GOLD}
+            icon={<ShieldCheck className="h-8 w-8" style={{ color: FOREST }} />}
+            title="Host verification"
+            desc="Want to host trips or events? Verify as a tour guide or a company first."
+            onClick={() => navigate("/host-verification")}
+            iconBg={FOREST_SOFT}
+            accent={FOREST}
+            cta="Get verified"
           />
         </div>
-      </main>
-      <MobileBottomBar />
-    </div>
+      </div>
+    </HostLayout>
   );
 
   // ── Adventure: Pending ────────────────────────────────────────────────────
   if (view.screen === "adventure-pending") return (
-    <div className="min-h-screen flex flex-col" style={{ background: CANVAS, fontFamily: FONT_BODY }}>
-      <Header />
-      <main className="flex-1 container px-4 py-12 mx-auto mb-24 max-w-2xl">
+    <HostLayout>
+      <div className="max-w-2xl" style={{ fontFamily: FONT_BODY }}>
         <div className="flex items-center gap-3 mb-8">
           <BackButton onClick={() => navigate("/")} />
           <PageTitle eyebrow="Host dashboard" title={<>My <span style={{ color: CLAY }}>listing</span></>} />
         </div>
         <AdventurePendingCard place={view.place} />
-      </main>
-      <MobileBottomBar />
-    </div>
+      </div>
+    </HostLayout>
   );
 
   // ── Adventure: Rejected ───────────────────────────────────────────────────
   if (view.screen === "adventure-rejected") return (
-    <div className="min-h-screen flex flex-col" style={{ background: CANVAS, fontFamily: FONT_BODY }}>
-      <Header />
-      <main className="flex-1 container px-4 py-8 mx-auto mb-24 max-w-3xl">
+    <HostLayout>
+      <div className="max-w-3xl" style={{ fontFamily: FONT_BODY }}>
         <div className="flex items-center gap-3 mb-6">
           <BackButton onClick={() => navigate("/")} />
           <PageTitle eyebrow="Host dashboard" title={<>My <span style={{ color: CLAY }}>listing</span></>} />
@@ -545,65 +535,19 @@ const BecomeHost = () => {
         <h2 className="text-xl font-semibold tracking-tight mb-4" style={{ fontFamily: FONT_DISPLAY, color: INK }}>
           Or start a <span style={{ color: CLAY }}>new submission</span>
         </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <div className="max-w-sm">
           <SelectionCard
-            icon={<Tent className="h-8 w-8" style={{ color: SUCCESS }} />}
-            title="Outdoor / Campsite"
-            desc="Start a fresh campsite or outdoor place submission."
-            onClick={() => navigate("/create-adventure")}
-            iconBg={SUCCESS_SOFT}
-            accent={SUCCESS}
-          />
-          <SelectionCard
-            icon={<BedDouble className="h-8 w-8" style={{ color: CLAY }} />}
-            title="Hotel & Stay"
-            desc="Start a fresh hotel or Airbnb / BnB submission."
-            onClick={() => navigate("/choose-accommodation")}
+            icon={<PlusCircle className="h-8 w-8" style={{ color: CLAY }} />}
+            title="Create listing"
+            desc="Start a fresh submission. You'll choose the type on the next screen."
+            onClick={goCreate}
             iconBg={CLAY_SOFT}
             accent={CLAY}
+            cta="Create listing"
           />
         </div>
-      </main>
-      <MobileBottomBar />
-    </div>
-  );
-
-  // ── Adventure: No place submitted yet ─────────────────────────────────────
-  if (view.screen === "adventure-no-place") return (
-    <div className="min-h-screen flex flex-col" style={{ background: CANVAS, fontFamily: FONT_BODY }}>
-      <Header />
-      <main className="flex-1 container px-4 py-12 mx-auto mb-24 max-w-2xl">
-        <div className="flex items-center gap-3 mb-8">
-          <BackButton onClick={() => navigate("/")} />
-          <PageTitle eyebrow="Host dashboard" title={<>My <span style={{ color: CLAY }}>listing</span></>} />
-        </div>
-        <div className="bg-white rounded-[28px] p-8 text-center" style={{ border: `1px solid ${HAIRLINE}`, boxShadow: "0 10px 30px rgba(28,43,34,0.06)" }}>
-          <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: SUCCESS_SOFT }}>
-            <Tent className="h-8 w-8" style={{ color: SUCCESS }} />
-          </div>
-          <h3 className="text-xl font-semibold tracking-tight mb-2" style={{ fontFamily: FONT_DISPLAY, color: INK }}>No listing submitted yet</h3>
-          <p className="text-sm mb-6" style={{ color: INK_SOFT }}>You haven't submitted a listing yet. Create your listing to get started.</p>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Button
-              onClick={() => navigate("/create-adventure")}
-              className="px-6 py-3 rounded-xl text-sm font-semibold text-white border-none hover:opacity-95"
-              style={{ background: `linear-gradient(135deg, ${CLAY_LIGHT} 0%, ${CLAY} 100%)` }}
-            >
-              <Plus className="h-4 w-4 mr-2" /> Submit campsite
-            </Button>
-            <Button
-              onClick={() => navigate("/choose-accommodation")}
-              variant="ghost"
-              className="px-6 py-3 rounded-xl text-sm font-semibold hover:bg-transparent"
-              style={{ border: `1px solid ${HAIRLINE}`, color: INK_SOFT }}
-            >
-              <BedDouble className="h-4 w-4 mr-2" /> Submit hotel / Airbnb
-            </Button>
-          </div>
-        </div>
-      </main>
-      <MobileBottomBar />
-    </div>
+      </div>
+    </HostLayout>
   );
 
   // ── Multi-listing dashboard (campsites and Airbnbs) ───────────────────────
@@ -614,9 +558,8 @@ const BecomeHost = () => {
     const titleWord = hasAirbnb && !hasCampsite ? "Airbnbs" : hasCampsite && !hasAirbnb ? "campsites" : "listings";
 
     return (
-      <div className="min-h-screen flex flex-col" style={{ background: CANVAS, fontFamily: FONT_BODY }}>
-        <Header />
-        <main className="flex-1 container px-4 py-12 mx-auto mb-24 max-w-4xl">
+      <HostLayout>
+        <div style={{ fontFamily: FONT_BODY }}>
           <div className="flex items-center justify-between gap-3 mb-8 flex-wrap">
             <div className="flex items-center gap-3">
               <BackButton onClick={() => navigate("/")} />
@@ -625,26 +568,7 @@ const BecomeHost = () => {
                 title={<>My <span style={{ color: CLAY }}>{titleWord}</span></>}
               />
             </div>
-            <div className="flex gap-2 flex-wrap">
-              {hasCampsite && (
-                <Button
-                  onClick={() => navigate("/create-adventure")}
-                  className="rounded-xl text-[12px] font-semibold text-white border-none px-5 py-5 hover:opacity-95"
-                  style={{ background: `linear-gradient(135deg, ${CLAY_LIGHT} 0%, ${CLAY} 100%)` }}
-                >
-                  <Plus className="h-4 w-4 mr-2" /> Add campsite
-                </Button>
-              )}
-              {hasAirbnb && (
-                <Button
-                  onClick={() => navigate("/create-airbnb")}
-                  className="rounded-xl text-[12px] font-semibold text-white border-none px-5 py-5 hover:opacity-95"
-                  style={{ background: `linear-gradient(135deg, ${CLAY_LIGHT} 0%, ${CLAY} 100%)` }}
-                >
-                  <Plus className="h-4 w-4 mr-2" /> Add Airbnb
-                </Button>
-              )}
-            </div>
+            <CreateListingButton onClick={goCreate} />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -656,9 +580,8 @@ const BecomeHost = () => {
               />
             ))}
           </div>
-        </main>
-        <MobileBottomBar />
-      </div>
+        </div>
+      </HostLayout>
     );
   }
 
@@ -668,21 +591,23 @@ const BecomeHost = () => {
     const tripCount = content.filter((i) => i.contentType === "trip").length;
 
     return (
-      <div className="min-h-screen flex flex-col" style={{ background: CANVAS, fontFamily: FONT_BODY }}>
-        <Header />
-        <main className="flex-1 container px-4 py-12 mx-auto mb-24">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
+      <HostLayout>
+        <div style={{ fontFamily: FONT_BODY }}>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
             <div>
               <h1 className="text-3xl md:text-4xl font-semibold tracking-tight" style={{ fontFamily: FONT_DISPLAY, color: INK }}>
                 Host <span style={{ color: CLAY }}>dashboard</span>
               </h1>
               <p className="text-[11px] font-medium mt-1" style={{ color: INK_SOFT }}>Manage your trips & tours</p>
             </div>
-            <div className="bg-white p-4 rounded-[24px] flex items-center gap-3" style={{ border: `1px solid ${HAIRLINE}`, boxShadow: "0 4px 16px rgba(28,43,34,0.05)" }}>
-              <LayoutDashboard className="h-5 w-5" style={{ color: FOREST }} />
-              <div>
-                <p className="text-[10px] font-medium" style={{ color: INK_SOFT }}>Active trips</p>
-                <p className="text-xl font-semibold" style={{ color: INK }}>{tripCount}</p>
+            <div className="flex items-center gap-3 flex-wrap">
+              <CreateListingButton onClick={goCreate} />
+              <div className="bg-white p-4 rounded-[24px] flex items-center gap-3" style={{ border: `1px solid ${HAIRLINE}`, boxShadow: "0 4px 16px rgba(28,43,34,0.05)" }}>
+                <LayoutDashboard className="h-5 w-5" style={{ color: FOREST }} />
+                <div>
+                  <p className="text-[10px] font-medium" style={{ color: INK_SOFT }}>Active trips</p>
+                  <p className="text-xl font-semibold" style={{ color: INK }}>{tripCount}</p>
+                </div>
               </div>
             </div>
           </div>
@@ -695,13 +620,12 @@ const BecomeHost = () => {
               icon={<Map className="h-8 w-8" />}
               count={tripCount}
               onManage={() => navigate("/host/trips")}
-              onAdd={() => navigate("/create-trip")}
+              onAdd={goCreate}
               accentColor={FOREST}
             />
           </div>
-        </main>
-        <MobileBottomBar />
-      </div>
+        </div>
+      </HostLayout>
     );
   }
 

@@ -11,28 +11,28 @@
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Globe, Loader2 } from "lucide-react";
+import { ArrowLeft, Globe } from "lucide-react";
 import { Header } from "@/components/Header";
 import { MobileBottomBar } from "@/components/MobileBottomBar";
 import { Button } from "@/components/ui/button";
 import { ListingCard } from "@/components/ListingCard";
-import { ListingSkeleton } from "@/components/ui/listing-skeleton";
 import { SEOHead } from "@/components/SEOHead";
 import { supabase } from "@/integrations/supabase/client";
 import { useSavedItems } from "@/hooks/useSavedItems";
 import { useRatings } from "@/hooks/useRatings";
 import { useRealtimeBookings } from "@/hooks/useRealtimeBookings";
+import { cn } from "@/lib/utils";
 
 // ── Design tokens (same field-guide system as the rest of the app) ────────
-const FOREST       = "#1F4D3A";
-const FOREST_DEEP  = "#123322";
-const CLAY         = "#C1552F";
-const INK          = "#1C2B22";
-const INK_SOFT     = "#5B6B60";
-const HAIRLINE     = "#DCE3DC";
-const CANVAS       = "#F4F6F2";
-const FONT_DISPLAY = "'Fraunces', ui-serif, Georgia, serif";
-const FONT_BODY    = "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif";
+const FOREST        = "#1F4D3A";
+const FOREST_SOFT_BG = "#EAF0EA"; // fallback tint when a country has no image
+const CLAY          = "#C1552F";
+const INK           = "#1C2B22";
+const INK_SOFT      = "#5B6B60";
+const HAIRLINE      = "#DCE3DC";
+const CANVAS        = "#F4F6F2";
+const FONT_DISPLAY  = "'Fraunces', ui-serif, Georgia, serif";
+const FONT_BODY     = "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif";
 
 const useInjectFonts = () => {
   useEffect(() => {
@@ -50,6 +50,29 @@ const useInjectFonts = () => {
 const FETCH_LIMIT_PER_TABLE = 100; // generous batch fetched once, per table
 const INITIAL_VISIBLE_COUNT = 10;
 const LOAD_MORE_COUNT = 10;
+
+// Grid for the rectangular ListingCard. Cards are wide, so we never use more
+// than 2 columns until very large screens (3 columns at 2xl) — otherwise
+// they get squeezed.
+//   < lg   : 1 column  (stacked card on phones, side-by-side card on sm+)
+//   lg     : 2 columns
+//   2xl    : 3 columns
+const LISTING_GRID_CLASSES =
+  "grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-3 md:gap-4 items-stretch";
+
+// Rectangular skeleton that matches the ListingCard
+// (stacked on small screens, side-by-side on sm+)
+const RectSkeleton = () => (
+  <div className="flex flex-col sm:flex-row w-full sm:h-[200px] rounded-2xl overflow-hidden border border-border bg-card animate-pulse">
+    <div className="w-full aspect-[2/1] sm:aspect-auto sm:w-[38%] bg-muted" />
+    <div className="flex-1 p-3 sm:p-4 space-y-3">
+      <div className="h-5 w-3/4 rounded bg-muted" />
+      <div className="h-3 w-1/2 rounded bg-muted" />
+      <div className="h-3 w-2/3 rounded bg-muted" />
+      <div className="h-3 w-full rounded bg-muted" />
+    </div>
+  </div>
+);
 
 interface CountryRow { id: string; name: string; image_url: string | null }
 
@@ -135,8 +158,8 @@ const CountryListings = () => {
   const { bookingStats } = useRealtimeBookings(guidedTripIds);
   const { ratings }      = useRatings(allItemIds);
 
-  // Rating-weighted ordering (same scoring used for "Browsers guide" on the
-  // home page), so the strongest listings surface first within the country.
+  // Rating-weighted ordering (same scoring used on the home page), so the
+  // strongest listings surface first within the country.
   const sortedListings = useMemo(() => {
     return [...listings].sort((a, b) => {
       const ra = ratings.get(a.id);
@@ -161,14 +184,14 @@ const CountryListings = () => {
   }, [loadingMore, sortedListings.length]);
 
   const skeletonGrid = (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-      {[...Array(8)].map((_, i) => <ListingSkeleton key={i} />)}
+    <div className={LISTING_GRID_CLASSES}>
+      {[...Array(6)].map((_, i) => <RectSkeleton key={i} />)}
     </div>
   );
 
   const renderLoadMoreSkeletons = (count: number) => (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 mt-3">
-      {[...Array(count)].map((_, i) => <ListingSkeleton key={`more-skel-${i}`} />)}
+    <div className={cn(LISTING_GRID_CLASSES, "mt-3 md:mt-4")}>
+      {[...Array(count)].map((_, i) => <RectSkeleton key={`more-skel-${i}`} />)}
     </div>
   );
 
@@ -235,44 +258,46 @@ const CountryListings = () => {
           </p>
         ) : (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+            <div className={LISTING_GRID_CLASSES}>
               {visibleListings.map((listing, index) => {
                 const ratingData = ratings.get(listing.id);
                 const isGuided   = listing.type === "TRIP" && (listing.is_flexible_date || listing.is_custom_date);
                 const today      = new Date().toISOString().split("T")[0];
                 const isOutdated = listing.date && !listing.is_flexible_date && listing.date < today;
                 return (
-                  <ListingCard
-                    key={listing.id}
-                    id={listing.id}
-                    type={listing.type}
-                    category={listing.category}
-                    name={listing.name}
-                    location={listing.location}
-                    country={listing.country}
-                    imageUrl={listing.image_url}
-                    price={listing.price || listing.entry_fee || 0}
-                    date={listing.date}
-                    isCustomDate={listing.is_custom_date}
-                    isFlexibleDate={Boolean(listing.is_flexible_date || listing.is_custom_date)}
-                    isOutdated={isOutdated}
-                    isSaved={savedItems.has(listing.id)}
-                    onSave={handleSave}
-                    availableTickets={listing.type === "TRIP" ? listing.available_tickets : undefined}
-                    bookedTickets={isGuided ? bookingStats[listing.id] || 0 : undefined}
-                    showBadge={true}
-                    priority={index < 4}
-                    hidePrice={listing.type === "ADVENTURE PLACE"}
-                    activities={listing.activities}
-                    avgRating={ratingData?.avgRating}
-                    reviewCount={ratingData?.reviewCount}
-                    description={listing.description}
-                    galleryImages={listing.gallery_images}
-                    images={listing.images}
-                    openingHours={listing.opening_hours}
-                    closingHours={listing.closing_hours}
-                    workingDays={listing.days_opened}
-                  />
+                  <div key={listing.id} className="h-full">
+                    <ListingCard
+                      id={listing.id}
+                      type={listing.type}
+                      category={listing.category}
+                      name={listing.name}
+                      location={listing.location}
+                      country={listing.country}
+                      imageUrl={listing.image_url}
+                      price={listing.price || listing.entry_fee || 0}
+                      date={listing.date}
+                      isCustomDate={listing.is_custom_date}
+                      isFlexibleDate={Boolean(listing.is_flexible_date || listing.is_custom_date)}
+                      isOutdated={isOutdated}
+                      isSaved={savedItems.has(listing.id)}
+                      onSave={handleSave}
+                      availableTickets={listing.type === "TRIP" ? listing.available_tickets : undefined}
+                      bookedTickets={isGuided ? bookingStats[listing.id] || 0 : undefined}
+                      showBadge={true}
+                      priority={index < 4}
+                      hidePrice={listing.type === "ADVENTURE PLACE"}
+                      activities={listing.activities}
+                      avgRating={ratingData?.avgRating}
+                      reviewCount={ratingData?.reviewCount}
+                      place={listing.place}
+                      description={listing.description}
+                      galleryImages={listing.gallery_images}
+                      images={listing.images}
+                      openingHours={listing.opening_hours}
+                      closingHours={listing.closing_hours}
+                      workingDays={listing.days_opened}
+                    />
+                  </div>
                 );
               })}
             </div>
@@ -298,9 +323,5 @@ const CountryListings = () => {
     </div>
   );
 };
-
-// Fallback tint used only when a country has no image — kept as a plain
-// string constant so it isn't recomputed on every render.
-const FOREST_SOFT_BG = "#EAF0EA";
 
 export default CountryListings;

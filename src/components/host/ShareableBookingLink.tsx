@@ -29,7 +29,11 @@ interface ShareableItem {
 
 interface ShareableBookingLinkProps {
   /** Pick-from list. The dropdown lets the user choose which booking form to share. */
-  items: ShareableItem[];
+  items?: ShareableItem[];
+  /** Legacy single-item props (old host pages) – still supported */
+  itemId?: string;
+  itemType?: string;
+  itemName?: string;
   /** Pre-selected item (e.g. the card the button was clicked on) */
   defaultItemId?: string;
   triggerClassName?: string;
@@ -46,11 +50,22 @@ const typeLabel: Record<string, string> = {
 };
 
 export const ShareableBookingLink = ({
-  items,
-  defaultItemId,
+  items: itemsProp,
+  itemId,
+  itemType,
+  itemName,
+  defaultItemId: defaultItemIdProp,
   triggerClassName,
   onShared,
 }: ShareableBookingLinkProps) => {
+  // Support both the new `items` array and the old single-item props
+  const items: ShareableItem[] = useMemo(() => {
+    if (itemsProp && itemsProp.length > 0) return itemsProp;
+    if (itemId) return [{ id: itemId, type: itemType || "trip", name: itemName || "this listing" }];
+    return [];
+  }, [itemsProp, itemId, itemType, itemName]);
+  const defaultItemId = defaultItemIdProp || itemId;
+
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);

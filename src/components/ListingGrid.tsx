@@ -6,8 +6,8 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { User, MessageSquare, BarChart3 } from "lucide-react";
-import { ShareableBookingLink } from "@/components/ShareableBookingLink";
-import { ManualBookingDialog } from "@/components/ManualBookingDialog";
+import { ShareableBookingLink } from "@/components/host/ShareableBookingLink";
+import { ManualBookingDialog } from "@/components/host/ManualBookingDialog";
 
 // The card is always stacked (image on top, details below).
 //   < sm : 1 column

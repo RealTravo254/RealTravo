@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ClipboardPlus } from "lucide-react";
-import { ManualBookingForm } from "@/components/ManualBookingForm";
+import { ManualBookingForm } from "@/components/host/ManualBookingForm";
 import type { ListingItem } from "@/components/ListingGrid";
 
 interface ManualBookingDialogProps {

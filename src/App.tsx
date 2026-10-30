@@ -64,8 +64,6 @@ const HostBookingDetails = lazyRetry(() => import("./pages/HostBookingDetails"))
 const HostItemDetail = lazyRetry(() => import("./pages/HostItemDetail"));
 const MyListing = lazyRetry(() => import("./pages/MyListing"));
 const AdminReviewDetail = lazyRetry(() => import("./pages/AdminReviewDetail"));
-const Bookings = lazyRetry(() => import("./pages/Bookings"));
-const Messages = lazyRetry(() => import("./pages/Messages"));
 const AdminBookings = lazyRetry(() => import("./pages/AdminBookings"));
 const AdminVerification = lazyRetry(() => import("./pages/AdminVerification"));
 const AdminReferralSettings = lazyRetry(() => import("./pages/AdminReferralSettings"));
@@ -212,8 +210,6 @@ const App = () => {
                       <Route path="/auth/callback" element={<Suspense fallback={<OfflineFallback text="Signing In" />}><AuthCallback /></Suspense>} />
                       <Route path="/app-auth" element={<Suspense fallback={<OfflineFallback text="Authenticating" />}><AppAuthHandler /></Suspense>} />
                       <Route path="/profile" element={<Suspense fallback={<OfflineFallback text="Profile" />}><Profile /></Suspense>} />
-                      <Route path="/bookings" element={<Suspense fallback={<OfflineFallback text="Bookings" />}><Bookings /></Suspense>} />
-                      <Route path="/messages" element={<Suspense fallback={<OfflineFallback text="Messages" />}><Messages /></Suspense>} />
                       <Route path="/admin" element={<Suspense fallback={<OfflineFallback text="Admin Dashboard" />}><AdminDashboard /></Suspense>} />
                       <Route path="/admin/pending" element={<Suspense fallback={<OfflineFallback text="Pending Approvals" />}><PendingApprovalItems /></Suspense>} />
                       <Route path="/admin/approved" element={<Suspense fallback={<OfflineFallback text="Approved Items" />}><ApprovedItems /></Suspense>} />

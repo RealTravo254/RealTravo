@@ -9,7 +9,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { SearchBarWithSuggestions } from "@/components/SearchBarWithSuggestions";
 import { useSearchFocus } from "@/components/PageLayout";
 import { ListingCard } from "@/components/ListingCard";
-import { RectSkeleton } from "@/components/ListingGrid";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Tent, Map as MapIcon, BedDouble,
   Navigation, Heart, Ticket, Star, Search as SearchIcon,
@@ -74,6 +74,46 @@ const useIsDesktop = () => {
   return isDesktop;
 };
 
+// Skeleton that mirrors ListingCard: image on top (2:1), details below.
+const ListingCardSkeleton = () => (
+  <div
+    className="flex flex-col overflow-hidden bg-white rounded-2xl shadow-sm w-full h-full"
+    style={{ border: "1px solid #DCE3DC" }}
+  >
+    {/* Image — same ratio as ListingCard */}
+    <Skeleton className="w-full aspect-[2/1] rounded-none shrink-0" />
+
+    {/* Details — same padding/gap as ListingCard */}
+    <div className="flex flex-col gap-1.5 p-3 min-w-0 flex-1">
+      {/* Title */}
+      <Skeleton className="h-[18px] w-3/4 rounded-md" />
+      {/* Location */}
+      <div className="flex items-center gap-1">
+        <Skeleton className="h-3.5 w-3.5 rounded-full shrink-0" />
+        <Skeleton className="h-3 w-1/2 rounded-md" />
+      </div>
+      {/* Rating row */}
+      <div className="flex items-center gap-1.5">
+        <Skeleton className="h-3 w-20 rounded-md" />
+        <Skeleton className="h-3 w-10 rounded-md" />
+      </div>
+      {/* Description line */}
+      <Skeleton className="h-3 w-full rounded-md" />
+      {/* Hours / chip */}
+      <Skeleton className="h-3 w-28 rounded-md" />
+
+      {/* Footer: price + "View details" */}
+      <div
+        className="mt-auto pt-2.5 flex items-center justify-between gap-2"
+        style={{ borderTop: "1px solid #DCE3DC" }}
+      >
+        <Skeleton className="h-4 w-24 rounded-md" />
+        <Skeleton className="h-3.5 w-20 rounded-md" />
+      </div>
+    </div>
+  </div>
+);
+
 interface GridSectionProps {
   title: string;
   viewAllPath: string;
@@ -99,8 +139,8 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: G
   const Skeletons = ({ count }: { count: number }) => (
     <>
       {[...Array(count)].map((_, i) => (
-        <div key={i} className={cardWidthClasses}>
-          <RectSkeleton />
+        <div key={i} className={`${cardWidthClasses} snap-start`}>
+          <ListingCardSkeleton />
         </div>
       ))}
     </>
@@ -130,16 +170,21 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: G
   // Nothing to show and nothing loading -> hide the whole row
   if (items.length === 0 && !loading) return null;
 
+  // ── Loading state: skeletons that match the real cards ──
   if (items.length === 0) {
     return (
       <section className="mb-6 md:mb-10">
         {header}
         {isDesktop ? (
-          <div className="grid grid-cols-4 gap-4">
-            {[...Array(4)].map((_, i) => <RectSkeleton key={i} />)}
+          <div className="grid grid-cols-4 gap-4 items-stretch">
+            {[...Array(DESKTOP_COLUMNS)].map((_, i) => (
+              <div key={i} className="h-full">
+                <ListingCardSkeleton />
+              </div>
+            ))}
           </div>
         ) : (
-          <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory -mx-4 px-4">
+          <div className="flex items-stretch gap-2.5 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory -mx-4 px-4">
             <Skeletons count={3} />
           </div>
         )}

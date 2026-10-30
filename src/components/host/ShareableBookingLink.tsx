@@ -37,6 +37,8 @@ interface ShareableBookingLinkProps {
   /** Pre-selected item (e.g. the card the button was clicked on) */
   defaultItemId?: string;
   triggerClassName?: string;
+  /** Trigger button text */
+  label?: string;
   /** Optional hook – log/share analytics, e.g. insert into a shares table */
   onShared?: (item: ShareableItem, method: "copy" | "share") => void;
 }
@@ -56,6 +58,7 @@ export const ShareableBookingLink = ({
   itemName,
   defaultItemId: defaultItemIdProp,
   triggerClassName,
+  label = "Share Form",
   onShared,
 }: ShareableBookingLinkProps) => {
   // Support both the new `items` array and the old single-item props
@@ -143,7 +146,7 @@ export const ShareableBookingLink = ({
           )}
         >
           <Link className="h-4 w-4" />
-          Share Form
+          {label}
         </Button>
       </DialogTrigger>
 

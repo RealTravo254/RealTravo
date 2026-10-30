@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ClipboardPlus } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { ManualBookingForm } from "@/components/host/ManualBookingForm";
 import type { ListingItem } from "@/components/ListingGrid";
 
@@ -24,6 +25,7 @@ interface ManualBookingDialogProps {
   items: ListingItem[];
   defaultItemId?: string;
   triggerClassName?: string;
+  label?: string;
   onBookingCreated?: () => void;
 }
 
@@ -39,6 +41,7 @@ export const ManualBookingDialog = ({
   items,
   defaultItemId,
   triggerClassName,
+  label = "Manual Booking",
   onBookingCreated,
 }: ManualBookingDialogProps) => {
   const [open, setOpen] = useState(false);
@@ -58,10 +61,10 @@ export const ManualBookingDialog = ({
         <Button
           type="button"
           size="sm"
-          className={`gap-2 rounded-xl text-xs bg-[#008080] hover:bg-[#006666] ${triggerClassName ?? ""}`}
+          className={cn("gap-2 rounded-xl text-xs bg-[#008080] hover:bg-[#006666]", triggerClassName)}
         >
           <ClipboardPlus className="h-4 w-4" />
-          Manual Booking
+          {label}
         </Button>
       </DialogTrigger>
 

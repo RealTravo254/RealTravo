@@ -163,6 +163,8 @@ export interface ListingCardProps {
   hidePrice?: boolean;
   availableTickets?: number;
   bookedTickets?: number;
+  // When false, the category badge at the top-left of the image is hidden
+  // (the Index page passes false). Defaults to true everywhere else.
   showBadge?: boolean;
   priority?: boolean;
   minimalDisplay?: boolean;
@@ -191,6 +193,7 @@ const ListingCardComponent = ({
   id, type, category, name, imageUrl, location, price, date,
   isOutdated = false, onSave, isSaved = false, hideSave = false,
   availableTickets = 0, bookedTickets = 0,
+  showBadge = true,
   priority = false, avgRating, reviewCount, place, division,
   isFlexibleDate = false, hidePrice = false, categoryColor,
   openingHours, closingHours, distance, workingDays,
@@ -362,12 +365,13 @@ const ListingCardComponent = ({
       tabIndex={0}
       onKeyDown={(e) => { if (e.key === "Enter") handleCardClick(); }}
       className={cn(
-        // Rectangular (landscape) card: image on the left, details on the right
-        "group relative flex flex-row overflow-hidden cursor-pointer bg-white transition-all duration-300",
+        // Small screens: image on top, details below.
+        // sm and up: image on the left, details on the right.
+        "group relative flex flex-col sm:flex-row overflow-hidden cursor-pointer bg-white transition-all duration-300",
         "rounded-2xl shadow-sm",
         "hover:shadow-xl hover:-translate-y-1",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-        "w-full h-full min-h-[200px]",
+        "w-full h-full sm:min-h-[200px]",
         isUnavailable && "opacity-80",
       )}
       style={{
@@ -379,9 +383,9 @@ const ListingCardComponent = ({
       onMouseEnter={(e) => (e.currentTarget.style.borderColor = `${CLAY}60`)}
       onMouseLeave={(e) => (e.currentTarget.style.borderColor = HAIRLINE)}
     >
-      {/* ── Image (left) ── */}
+      {/* ── Image (top on small screens, left on sm+) ── */}
       <div
-        className="relative w-[40%] sm:w-[38%] shrink-0 self-stretch overflow-hidden"
+        className="relative w-full aspect-[2/1] sm:aspect-auto sm:w-[38%] shrink-0 sm:self-stretch overflow-hidden"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
@@ -398,7 +402,7 @@ const ListingCardComponent = ({
                 <img
                   src={
                     img.includes("supabase.co/storage")
-                      ? optimizeSupabaseImage(img, { width: 500, height: 500, quality: 80 })
+                      ? optimizeSupabaseImage(img, { width: 600, height: 400, quality: 80 })
                       : img
                   }
                   alt={`${formattedName}${idx > 0 ? ` – photo ${idx + 1}` : ""}`}
@@ -423,16 +427,18 @@ const ListingCardComponent = ({
         <div className="pointer-events-none absolute inset-x-0 top-0 h-16" style={{ background: "linear-gradient(to bottom, rgba(14,23,18,0.45), transparent)" }} />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14" style={{ background: "linear-gradient(to top, rgba(14,23,18,0.45), transparent)" }} />
 
-        {/* Category badge — top-left */}
-        <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-1.5">
-          <span
-            className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full shadow-sm text-white backdrop-blur-sm"
-            style={{ backgroundColor: badgeColor ? `${badgeColor}E6` : `${FOREST_DEEP}E6`, fontFamily: FONT_BODY }}
-          >
-            {isHotel && <BedDouble className="h-3 w-3" />}
-            {displayType}
-          </span>
-        </div>
+        {/* Category badge — top-left (hidden when showBadge is false, e.g. on the Index page) */}
+        {showBadge && (
+          <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-1.5">
+            <span
+              className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full shadow-sm text-white backdrop-blur-sm"
+              style={{ backgroundColor: badgeColor ? `${badgeColor}E6` : `${FOREST_DEEP}E6`, fontFamily: FONT_BODY }}
+            >
+              {isHotel && <BedDouble className="h-3 w-3" />}
+              {displayType}
+            </span>
+          </div>
+        )}
 
         {/* Save / heart — top-right */}
         {!hideSave && onSave && (
@@ -497,9 +503,9 @@ const ListingCardComponent = ({
         )}
       </div>
 
-      {/* ── Details (right) ── */}
+      {/* ── Details (below image on small screens, right on sm+) ── */}
       <div className="flex flex-col gap-1.5 p-3 sm:p-4 min-w-0 flex-1">
-        <h3 className="line-clamp-2 text-[16px] sm:text-[18px] font-bold leading-snug" style={{ fontFamily: FONT_DISPLAY, color: INK }}>
+        <h3 className="line-clamp-1 sm:line-clamp-2 text-[16px] sm:text-[18px] font-bold leading-snug" style={{ fontFamily: FONT_DISPLAY, color: INK }}>
           {formattedName}
         </h3>
 
@@ -513,7 +519,7 @@ const ListingCardComponent = ({
         <RatingRow value={ratingValue} count={ratingCount} />
 
         {aboutText && (
-          <p className="text-[12px] leading-relaxed line-clamp-2" style={{ color: INK_SOFT }}>
+          <p className="text-[12px] leading-relaxed line-clamp-1 sm:line-clamp-2" style={{ color: INK_SOFT }}>
             {aboutText}
           </p>
         )}

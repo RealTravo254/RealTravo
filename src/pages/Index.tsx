@@ -645,7 +645,8 @@ const Index = () => {
         onSave={handleSave}
         hideSave={false}
         hidePrice={opts.hidePrice ?? false}
-        showBadge={true}
+        // Index page: hide the category badge at the top-left of the card
+        showBadge={false}
         priority={index === 0}
         activities={item.activities}
         distance={dist}

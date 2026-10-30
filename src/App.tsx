@@ -50,6 +50,7 @@ const NotFound = lazyRetry(() => import("./pages/NotFound"));
 const CategoryDetail = lazyRetry(() => import("./pages/CategoryDetail"));
 const Saved = lazyRetry(() => import("./pages/Saved"));
 const Bookings = lazyRetry(() => import("./pages/Bookings"));
+const Messages = lazyRetry(() => import("./pages/Messages"));
 const Contact = lazyRetry(() => import("./pages/Contact"));
 const About = lazyRetry(() => import("./pages/About"));
 const Profile = lazyRetry(() => import("./pages/Profile"));
@@ -199,6 +200,7 @@ const App = () => {
 
                       <Route path="/saved" element={<Suspense fallback={<OfflineFallback text="Saved" />}><Saved /></Suspense>} />
                       <Route path="/bookings" element={<Suspense fallback={<OfflineFallback text="Bookings" />}><Bookings /></Suspense>} />
+                      <Route path="/messages" element={<Suspense fallback={<OfflineFallback text="Messages" />}><Messages /></Suspense>} />
                       <Route path="/contact" element={<Suspense fallback={<OfflineFallback text="Contact" />}><Contact /></Suspense>} />
                       <Route path="/about" element={<Suspense fallback={<OfflineFallback text="About" />}><About /></Suspense>} />
                       <Route path="/category/:category" element={<Suspense fallback={<OfflineFallback text="Category" />}><CategoryDetail /></Suspense>} />

@@ -9,6 +9,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { SearchBarWithSuggestions } from "@/components/SearchBarWithSuggestions";
 import { useSearchFocus } from "@/components/PageLayout";
 import { ListingCard } from "@/components/ListingCard";
+import { RectSkeleton } from "@/components/ListingGrid";
 import {
   Tent, Map as MapIcon, BedDouble,
   Navigation, Heart, Ticket, Star, Search as SearchIcon,
@@ -53,11 +54,10 @@ const norm = (s: any) => (typeof s === "string" ? s.trim().toLowerCase() : "");
 const INITIAL_VISIBLE_COUNT = 10;
 const LOAD_MORE_COUNT = 10;
 
-// Desktop grid: rectangular (landscape) cards -> 2 columns x 5 rows,
-// then a "View All" button below.
+// Desktop grid: 4 columns x 3 rows (12 cards), then a "View All" button.
 const DESKTOP_BREAKPOINT = 1024; // matches Tailwind's `lg`
-const DESKTOP_COLUMNS = 2;
-const DESKTOP_ROWS = 5;
+const DESKTOP_COLUMNS = 4;
+const DESKTOP_ROWS = 3;
 const DESKTOP_VISIBLE_COUNT = DESKTOP_COLUMNS * DESKTOP_ROWS;
 
 const useIsDesktop = () => {
@@ -73,19 +73,6 @@ const useIsDesktop = () => {
   }, []);
   return isDesktop;
 };
-
-// Rectangular skeleton that matches the landscape ListingCard
-const RectSkeleton = () => (
-  <div className="flex w-full h-[200px] rounded-2xl overflow-hidden border border-border bg-card animate-pulse">
-    <div className="w-[40%] sm:w-[38%] bg-muted" />
-    <div className="flex-1 p-4 space-y-3">
-      <div className="h-5 w-3/4 rounded bg-muted" />
-      <div className="h-3 w-1/2 rounded bg-muted" />
-      <div className="h-3 w-2/3 rounded bg-muted" />
-      <div className="h-3 w-full rounded bg-muted" />
-    </div>
-  </div>
-);
 
 interface GridSectionProps {
   title: string;
@@ -106,8 +93,8 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: G
     setVisibleCount(prev => Math.min(prev, Math.max(items.length, INITIAL_VISIBLE_COUNT)));
   }, [items.length]);
 
-  // Wide enough for a landscape card on mobile
-  const cardWidthClasses = "w-[88vw] sm:w-[440px] shrink-0";
+  // Card width in the mobile / tablet horizontal row
+  const cardWidthClasses = "w-[80vw] sm:w-[300px] shrink-0";
 
   const Skeletons = ({ count }: { count: number }) => (
     <>
@@ -148,7 +135,7 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: G
       <section className="mb-6 md:mb-10">
         {header}
         {isDesktop ? (
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-4 gap-4">
             {[...Array(4)].map((_, i) => <RectSkeleton key={i} />)}
           </div>
         ) : (
@@ -160,14 +147,14 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: G
     );
   }
 
-  // ── Desktop: fixed grid, then "View All" ──────
+  // ── Desktop: 4 per row, fixed grid, then "View All" ──────
   if (isDesktop) {
     const visibleItems = items.slice(0, DESKTOP_VISIBLE_COUNT);
     const hasMore = items.length > DESKTOP_VISIBLE_COUNT;
     return (
       <section className="mb-10">
         {header}
-        <div className="grid grid-cols-2 gap-4 items-stretch">
+        <div className="grid grid-cols-4 gap-4 items-stretch">
           {visibleItems.map((item, i) => (
             <div key={i} className="h-full">{item}</div>
           ))}
@@ -187,7 +174,7 @@ const GridSection = memo(({ title, viewAllPath, accentColor, items, loading }: G
     );
   }
 
-  // ── Mobile: one horizontal row per category, incremental "See More" ─────
+  // ── Mobile / tablet: one horizontal row per category, incremental "See More" ─────
   const visibleItems = items.slice(0, visibleCount);
   const hasMore = visibleCount < items.length;
   const nextBatchSize = Math.min(LOAD_MORE_COUNT, Math.max(items.length - visibleCount, 0));

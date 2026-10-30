@@ -3,10 +3,7 @@
 // Shows every approved adventure place inside a single division (county /
 // region), matched via adventure_places.division_id. Divisions only apply to
 // adventure_places — trips are free-text location only and have no
-// division_id column — so this page (unlike CountryListings) never queries
-// `trips`.
-//
-// Same lazy-reveal "Load more" pagination pattern as CountryListings.tsx.
+// division_id column — so this page never queries `trips`.
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -15,6 +12,7 @@ import { Header } from "@/components/Header";
 import { MobileBottomBar } from "@/components/MobileBottomBar";
 import { Button } from "@/components/ui/button";
 import { ListingCard } from "@/components/ListingCard";
+import { LISTING_GRID_CLASSES, RectSkeleton } from "@/components/ListingGrid";
 import { SEOHead } from "@/components/SEOHead";
 import { supabase } from "@/integrations/supabase/client";
 import { useSavedItems } from "@/hooks/useSavedItems";
@@ -48,29 +46,6 @@ const useInjectFonts = () => {
 const FETCH_LIMIT = 100;
 const INITIAL_VISIBLE_COUNT = 10;
 const LOAD_MORE_COUNT = 10;
-
-// Grid for the rectangular ListingCard. Cards are wide, so we never use more
-// than 2 columns until very large screens (3 columns at 2xl) — otherwise
-// they get squeezed.
-//   < lg   : 1 column  (stacked card on phones, side-by-side card on sm+)
-//   lg     : 2 columns
-//   2xl    : 3 columns
-const LISTING_GRID_CLASSES =
-  "grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-3 md:gap-4 items-stretch";
-
-// Rectangular skeleton that matches the ListingCard
-// (stacked on small screens, side-by-side on sm+)
-const RectSkeleton = () => (
-  <div className="flex flex-col sm:flex-row w-full sm:h-[200px] rounded-2xl overflow-hidden border border-border bg-card animate-pulse">
-    <div className="w-full aspect-[2/1] sm:aspect-auto sm:w-[38%] bg-muted" />
-    <div className="flex-1 p-3 sm:p-4 space-y-3">
-      <div className="h-5 w-3/4 rounded bg-muted" />
-      <div className="h-3 w-1/2 rounded bg-muted" />
-      <div className="h-3 w-2/3 rounded bg-muted" />
-      <div className="h-3 w-full rounded bg-muted" />
-    </div>
-  </div>
-);
 
 interface DivisionRow { id: string; name: string; image_url: string | null; country_id: string }
 interface CountryRow { id: string; name: string }
@@ -165,7 +140,7 @@ const DivisionListings = () => {
 
   const skeletonGrid = (
     <div className={LISTING_GRID_CLASSES}>
-      {[...Array(6)].map((_, i) => <RectSkeleton key={i} />)}
+      {[...Array(8)].map((_, i) => <RectSkeleton key={i} />)}
     </div>
   );
 

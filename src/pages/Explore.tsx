@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { SearchBarWithSuggestions, type SearchBarWithSuggestionsHandle } from "@/components/SearchBarWithSuggestions";
 import { ListingCard } from "@/components/ListingCard";
+import { LISTING_GRID_CLASSES, RectSkeleton } from "@/components/ListingGrid";
 import { supabase } from "@/integrations/supabase/client";
 import { useSavedItems } from "@/hooks/useSavedItems";
 import { cn } from "@/lib/utils";
@@ -13,8 +14,6 @@ import { Button } from "@/components/ui/button";
 import { CategoryTabsBar, CATEGORY_TABS } from "@/components/CategoryTabsBar";
 
 // ── Design tokens ─────────────────────────────────────────────────────────
-// Same field-guide / park-signage system used across the rest of the app:
-// deep forest for the search header, a warm clay for the "See all" action.
 const FOREST      = "#1F4D3A";
 const FOREST_DEEP = "#123322";
 const CLAY        = "#C1552F";
@@ -39,29 +38,6 @@ const useInjectFonts = () => {
 
 const INITIAL_VISIBLE_COUNT = 10;
 const LOAD_MORE_COUNT = 10;
-
-// Grid for the rectangular ListingCard. Cards are wide, so we never use more
-// than 2 columns until very large screens (3 columns at 2xl) — otherwise
-// they get squeezed.
-//   < lg   : 1 column  (stacked card on phones, side-by-side card on sm+)
-//   lg     : 2 columns
-//   2xl    : 3 columns
-const LISTING_GRID_CLASSES =
-  "grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-3 md:gap-4 items-stretch";
-
-// Rectangular skeleton that matches the ListingCard
-// (stacked on small screens, side-by-side on sm+)
-const RectSkeleton = () => (
-  <div className="flex flex-col sm:flex-row w-full sm:h-[200px] rounded-2xl overflow-hidden border border-border bg-card animate-pulse">
-    <div className="w-full aspect-[2/1] sm:aspect-auto sm:w-[38%] bg-muted" />
-    <div className="flex-1 p-3 sm:p-4 space-y-3">
-      <div className="h-5 w-3/4 rounded bg-muted" />
-      <div className="h-3 w-1/2 rounded bg-muted" />
-      <div className="h-3 w-2/3 rounded bg-muted" />
-      <div className="h-3 w-full rounded bg-muted" />
-    </div>
-  </div>
-);
 
 const Explore = () => {
   useInjectFonts();
@@ -115,11 +91,6 @@ const Explore = () => {
       } else if (activeFilter === "trips") {
         result = result.filter(l => l.type === "TRIP" && !l.is_flexible_date && !l.is_custom_date);
       } else {
-        // hotels / campsite — filter adventure_places by category
-        // Parks and Attraction keys are commented out in CategoryTabsBar but
-        // this filter still handles them correctly if they're re-added.
-        // Accommodation (Airbnb) is excluded from the fetch below, so this
-        // branch will never match it even if the key is hit directly.
         result = result.filter(l => l.type === "ADVENTURE PLACE" && l.category === activeFilter);
       }
     }
@@ -161,9 +132,6 @@ const Explore = () => {
   }, [loadingMore, filteredListings.length]);
 
   // ── Data fetch ──────────────────────────────────────────────────────────
-  // Guided tours and fixed-date trips are fetched alongside adventure places.
-  // Accommodation (Airbnb) listings are excluded from the adventure_places
-  // fetch below. Events remain disabled.
   const fetchAllData = useCallback(async (query?: string) => {
     setLoading(true);
 
@@ -192,9 +160,6 @@ const Explore = () => {
         }),
 
       // ── Adventure places (hotels, campsites, etc.) ───────────────────────
-      // days_opened added so ListingCard can render the working-days line
-      // and the Open now/Closed badge for hotel/campsite categories.
-      // Accommodation (Airbnb) excluded here per request.
       supabase.from("adventure_places")
         .select("id,name,location,place,country,image_url,gallery_images,images,entry_fee,activities,latitude,longitude,created_at,description,opening_hours,closing_hours,category,days_opened")
         .eq("approval_status", "approved").eq("is_hidden", false)
@@ -256,7 +221,7 @@ const Explore = () => {
 
   const skeletonGrid = (
     <div className={LISTING_GRID_CLASSES}>
-      {[...Array(6)].map((_, i) => <RectSkeleton key={i} />)}
+      {[...Array(8)].map((_, i) => <RectSkeleton key={i} />)}
     </div>
   );
 

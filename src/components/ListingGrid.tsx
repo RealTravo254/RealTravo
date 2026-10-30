@@ -5,7 +5,7 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { User, MessageSquare, BarChart3 } from "lucide-react";
+import { User, MessageSquare, BarChart3, Wallet } from "lucide-react";
 import { ShareableBookingLink } from "@/components/host/ShareableBookingLink";
 import { ManualBookingDialog } from "@/components/host/ManualBookingDialog";
 
@@ -15,6 +15,9 @@ import { ManualBookingDialog } from "@/components/host/ManualBookingDialog";
 //   lg   : 4 columns (big screens)
 export const LISTING_GRID_CLASSES =
   "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 items-stretch";
+
+// Payment & Earnings page
+export const PAYMENT_URL = "https://www.realtravo.com/payment";
 
 // Loading skeleton that matches the stacked ListingCard
 export const RectSkeleton = () => (
@@ -27,10 +30,17 @@ export const RectSkeleton = () => (
       <div className="h-3 w-full rounded bg-muted" />
     </div>
     {/* action bar skeleton */}
-    <div className="px-3 pb-3 flex gap-2">
-      <div className="h-8 flex-1 rounded-xl bg-muted" />
-      <div className="h-8 flex-1 rounded-xl bg-muted" />
-      <div className="h-8 flex-1 rounded-xl bg-muted" />
+    <div className="px-3 pb-3 space-y-2">
+      <div className="grid grid-cols-2 gap-2">
+        <div className="h-8 rounded-xl bg-muted" />
+        <div className="h-8 rounded-xl bg-muted" />
+        <div className="h-8 rounded-xl bg-muted" />
+        <div className="h-8 rounded-xl bg-muted" />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div className="h-8 rounded-xl bg-muted" />
+        <div className="h-8 rounded-xl bg-muted" />
+      </div>
     </div>
   </div>
 );
@@ -62,18 +72,22 @@ interface ListingCardActionsProps {
   item: ListingItem;
   /** All listings the user can pick from in the share / manual dialogs */
   allItems: ListingItem[];
-  /** Host profile route/id. Defaults to /profile */
+  /** Profile route. Defaults to /profile */
   profilePath?: string;
-  /** Unread message count – shows a badge on the Messages icon */
+  /** Unread message count – shows a badge on the Messages button */
   unreadMessages?: number;
   /** Called after a manual entry is saved so the page can refresh */
   onBookingCreated?: () => void;
 }
 
 /**
- * Action bar to render directly under (or inside the bottom of) a ListingCard.
+ * Action bar to render directly under a ListingCard.
  *
  *   <ListingCardActions item={item} allItems={items} />
+ *
+ * Row 1: Profile | Messages
+ * Row 2: Payment & Earnings | Analytics
+ * Row 3: Share Form (dropdown) | Manual Booking (dropdown)
  */
 export const ListingCardActions = ({
   item,
@@ -86,7 +100,7 @@ export const ListingCardActions = ({
 
   return (
     <div className="px-3 pb-3 pt-1 space-y-2">
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         <Button
           type="button"
           variant="outline"
@@ -119,6 +133,17 @@ export const ListingCardActions = ({
           variant="outline"
           size="sm"
           className="rounded-xl gap-1.5 text-xs"
+          onClick={() => window.location.assign(PAYMENT_URL)}
+        >
+          <Wallet className="h-4 w-4" />
+          Payment
+        </Button>
+
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="rounded-xl gap-1.5 text-xs"
           onClick={() => navigate(`/analytics/${item.type}/${item.id}`)}
         >
           <BarChart3 className="h-4 w-4" />
@@ -135,6 +160,7 @@ export const ListingCardActions = ({
         <ManualBookingDialog
           items={allItems}
           defaultItemId={item.id}
+          triggerClassName="w-full"
           onBookingCreated={onBookingCreated}
         />
       </div>
@@ -173,6 +199,9 @@ export const ListingGridToolbar = ({
             {unreadMessages}
           </Badge>
         )}
+      </Button>
+      <Button variant="outline" size="sm" className="rounded-xl gap-2" onClick={() => window.location.assign(PAYMENT_URL)}>
+        <Wallet className="h-4 w-4" /> Payment & Earnings
       </Button>
       <Button variant="outline" size="sm" className="rounded-xl gap-2" onClick={() => navigate("/analytics")}>
         <BarChart3 className="h-4 w-4" /> Analytics

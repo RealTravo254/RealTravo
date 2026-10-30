@@ -540,3 +540,4 @@ const InfoRow = ({ icon, label, value }: { icon: React.ReactNode; label: string;
 );
 
 export default QRScanner;
+ 

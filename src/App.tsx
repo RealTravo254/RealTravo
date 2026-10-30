@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AuthModalProvider } from "@/contexts/AuthModalContext";
 import { AuthModal } from "@/components/auth/AuthModal";
@@ -39,7 +39,6 @@ const lazyRetry = <T extends React.ComponentType<any>>(
 
 const Index = lazyRetry(() => import("./pages/Index"));
 const AccountPage = lazyRetry(() => import("@/pages/AccountPage"));
-const CreateHotel = lazyRetry(() => import("./pages/CreateHotel"));
 const CountryDivisionsManager = lazyRetry(() => import("@/pages/admin/CountryDivisionsManager"));
 const ExploreCountries = lazyRetry(() => import("./pages/ExploreCountries"));
 const CountryListings = lazy(() => import("./pages/CountryListings"));
@@ -59,6 +58,7 @@ const EventDetail = lazyRetry(() => import("./pages/EventDetail"));
 const AdventurePlaceDetail = lazyRetry(() => import("./pages/AdventurePlaceDetail"));
 const AdminDashboard = lazyRetry(() => import("./pages/AdminDashboard"));
 const BecomeHost = lazyRetry(() => import("./pages/BecomeHost"));
+const CreateListing = lazyRetry(() => import("./pages/CreateListing"));
 const HostBookings = lazyRetry(() => import("./pages/HostBookings"));
 const HostBookingDetails = lazyRetry(() => import("./pages/HostBookingDetails"));
 const HostItemDetail = lazyRetry(() => import("./pages/HostItemDetail"));
@@ -68,8 +68,6 @@ const AdminBookings = lazyRetry(() => import("./pages/AdminBookings"));
 const AdminVerification = lazyRetry(() => import("./pages/AdminVerification"));
 const AdminReferralSettings = lazyRetry(() => import("./pages/AdminReferralSettings"));
 const QRScanner = lazyRetry(() => import("./pages/QRScanner"));
-const CreateTripEvent = lazyRetry(() => import("./pages/CreateTripEvent"));
-const CreateAdventure = lazyRetry(() => import("./pages/CreateAdventure"));
 const EditListing = lazyRetry(() => import("./pages/EditListing"));
 const ResetPassword = lazyRetry(() => import("./pages/ResetPassword"));
 const VerifyEmail = lazyRetry(() => import("./pages/VerifyEmail"));
@@ -90,8 +88,6 @@ const AllBookings = lazyRetry(() => import("./pages/admin/AllBookings"));
 const TermsOfService = lazyRetry(() => import("./pages/TermsOfService"));
 const PrivacyPolicy = lazyRetry(() => import("./pages/PrivacyPolicy"));
 const PublicManualBooking = lazyRetry(() => import("./pages/PublicManualBooking"));
-const CreateAirbnb = lazyRetry(() => import("./pages/CreateAirbnb"));
-const ChooseAccommodationType = lazyRetry(() => import("./pages/ChooseAccommodationType"));
 const CompleteProfile = lazyRetry(() => import("./pages/CompleteProfile"));
 const BookingPage = lazyRetry(() => import("./pages/BookingPage"));
 const PaymentVerify = lazyRetry(() => import("./pages/PaymentVerify"));
@@ -105,6 +101,9 @@ const CountyDetail = lazyRetry(() => import("./pages/CountyDetail"));
 const AdminWithdrawals = lazyRetry(() => import("./pages/admin/AdminWithdrawals"));
 const VisitAnalytics = lazyRetry(() => import("./pages/admin/VisitAnalytics"));
 
+// NOTE: CreateTripEvent, CreateAdventure, CreateHotel, CreateAirbnb and
+// ChooseAccommodationType are no longer imported — /host/create replaces them.
+// You can delete those five page files once you're happy with the new page.
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -223,12 +222,21 @@ const App = () => {
                       <Route path="/admin/verification-detail/:id" element={<Suspense fallback={<OfflineFallback text="Verification Detail" />}><VerificationDetail /></Suspense>} />
                       <Route path="/admin/referral-settings" element={<Suspense fallback={<OfflineFallback text="Referral Settings" />}><AdminReferralSettings /></Suspense>} />
                       <Route path="/admin/withdrawals" element={<Suspense fallback={<OfflineFallback text="Withdrawals" />}><AdminWithdrawals /></Suspense>} />
+
+                      {/* ── Hosting ─────────────────────────────────────── */}
                       <Route path="/become-host" element={<Suspense fallback={<OfflineFallback text="Become a Host" />}><BecomeHost /></Suspense>} />
-                      <Route path="/create-trip" element={<Suspense fallback={<OfflineFallback text="Create Trip" />}><CreateTripEvent /></Suspense>} />
-                      <Route path="/create-event" element={<Suspense fallback={<OfflineFallback text="Create Event" />}><CreateTripEvent /></Suspense>} />
-                      <Route path="/create-adventure" element={<Suspense fallback={<OfflineFallback text="Create Adventure" />}><CreateAdventure /></Suspense>} />
-                      <Route path="/create-attraction" element={<Suspense fallback={<OfflineFallback text="Create Attraction" />}><CreateAdventure /></Suspense>} />
-                      <Route path="/create-hotel" element={<Suspense fallback={<OfflineFallback text="Create Hotel" />}><CreateHotel /></Suspense>} />
+                      {/* ONE create page for trips, events, campsites, hotels and Airbnbs */}
+                      <Route path="/host/create" element={<Suspense fallback={<OfflineFallback text="Create Listing" />}><CreateListing /></Suspense>} />
+
+                      {/* Old create URLs keep working — they land on the new page with the type preselected */}
+                      <Route path="/create-trip" element={<Navigate to="/host/create?type=trip" replace />} />
+                      <Route path="/create-event" element={<Navigate to="/host/create?type=event" replace />} />
+                      <Route path="/create-adventure" element={<Navigate to="/host/create?type=campsite" replace />} />
+                      <Route path="/create-attraction" element={<Navigate to="/host/create?type=campsite" replace />} />
+                      <Route path="/create-hotel" element={<Navigate to="/host/create?type=hotel" replace />} />
+                      <Route path="/create-airbnb" element={<Navigate to="/host/create?type=airbnb" replace />} />
+                      <Route path="/choose-accommodation" element={<Navigate to="/host/create" replace />} />
+
                       <Route path="/host/item/:itemType/:id" element={<Suspense fallback={<OfflineFallback text="Listing Details" />}><HostItemDetail /></Suspense>} />
                       <Route path="/host/bookings/:itemType" element={<Suspense fallback={<OfflineFallback text="Host Bookings" />}><HostBookings /></Suspense>} />
                       <Route path="/host/bookings/:itemType/:id" element={<Suspense fallback={<OfflineFallback text="Booking Details" />}><HostBookingDetails /></Suspense>} />
@@ -260,11 +268,8 @@ const App = () => {
                       <Route path="/admin/accounts" element={<Suspense fallback={<OfflineFallback text="Accounts Overview" />}><AccountsOverview /></Suspense>} />
                       <Route path="/admin/analytics" element={<Suspense fallback={<OfflineFallback text="Analytics" />}><VisitAnalytics /></Suspense>} />
                       <Route path="/admin/countries" element={<Suspense fallback={<OfflineFallback text="Countries" />}><CountryDivisionsManager /></Suspense>} />
-                      <Route path="/countries" element={<Suspense fallback={<OfflineFallback text="Countries" />}><ExploreCountries /></Suspense>} />
                       <Route path="/country/:countryId" element={<Suspense fallback={<OfflineFallback text="Country" />}><CountryListings /></Suspense>} />
                       <Route path="/division/:divisionId" element={<Suspense fallback={<OfflineFallback text="Division" />}><DivisionListings /></Suspense>} />
-                      <Route path="/create-airbnb" element={<Suspense fallback={<OfflineFallback text="Create Airbnb" />}><CreateAirbnb /></Suspense>} />
-                      <Route path="/choose-accommodation" element={<Suspense fallback={<OfflineFallback text="Choose Stay Type" />}><ChooseAccommodationType /></Suspense>} />
                       {/* Catch-all: must stay LAST */}
                       <Route path="*" element={<Suspense fallback={<OfflineFallback text="Loading" />}><NotFound /></Suspense>} />
                     </Routes>

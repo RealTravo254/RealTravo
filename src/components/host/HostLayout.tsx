@@ -21,7 +21,7 @@ export const HOST_NAV = [
   { label: "Create listing", to: "/host/create", icon: PlusCircle, match: ["/host/create", "/create-"] },
   { label: "My listing", to: "/become-host", icon: LayoutList, match: ["/become-host", "/my-listing", "/host/trips", "/edit-listing"] },
   { label: "Payment & earnings", to: "/host/earnings", icon: Wallet, match: ["/host/earnings"] },
-  { label: "Host bookings", to: "/host/bookings", icon: CalendarCheck, match: ["/host/bookings", "/host/scan"] },
+  { label: "Host bookings", to: "/host-bookings", icon: CalendarCheck, match: ["/host-bookings", "/host/bookings", "/qr-scanner"] },
   { label: "Host verification", to: "/host-verification", icon: ShieldCheck, match: ["/host-verification"] },
 ];
 
